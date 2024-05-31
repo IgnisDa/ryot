@@ -63,10 +63,10 @@ use crate::{
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Metadata,
             MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-            MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToCollection,
-            UserToEntity, Workout,
+            MetadataToPerson, Person, QueuedNotification, Review, Seen, User, UserMeasurement,
+            UserToCollection, UserToEntity, Workout,
         },
-        review, seen,
+        queued_notification, review, seen,
         user::{
             self, UserWithOnlyIntegrationsAndNotifications, UserWithOnlyPreferences,
             UserWithOnlySummary,
@@ -1315,7 +1315,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .send_notifications_to_user_platforms(user_id, "Test notification message triggered.")
+            .queue_notifications_to_user_platforms(user_id, "Test notification message triggered.")
             .await
     }
 
@@ -4368,7 +4368,7 @@ impl MiscellaneousService {
             let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
-                    self.send_media_state_changed_notification_for_user(
+                    self.queue_media_state_changed_notification_for_user(
                         user_id.to_owned(),
                         &notification,
                     )
@@ -5883,29 +5883,22 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, msg))]
-    async fn send_notifications_to_user_platforms(&self, user_id: i32, msg: &str) -> Result<bool> {
+    async fn queue_notifications_to_user_platforms(&self, user_id: i32, msg: &str) -> Result<bool> {
         let user_details = user_by_id(&self.db, user_id).await?;
-        let mut success = true;
         if user_details.preferences.notifications.enabled {
-            tracing::debug!("Sending notification to user: {:?}", msg);
-            for notification in user_details.notifications {
-                if notification
-                    .settings
-                    .send_message(&self.config, msg)
-                    .await
-                    .is_err()
-                {
-                    success = false;
-                }
-            }
+            let insert_data = queued_notification::ActiveModel {
+                user_id: ActiveValue::Set(user_id),
+                message: ActiveValue::Set(msg.to_owned()),
+                ..Default::default()
+            };
+            insert_data.insert(&self.db).await?;
         } else {
             tracing::debug!("User has disabled notifications");
         }
-        Ok(success)
+        Ok(true)
     }
 
-    async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
+    async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
         let (meta_map, _, _) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for metadata state changes: {:?}",
@@ -5915,7 +5908,7 @@ impl MiscellaneousService {
             let notifications = self.update_metadata(metadata_id).await?;
             for user in to_notify {
                 for notification in notifications.iter() {
-                    self.send_media_state_changed_notification_for_user(user, notification)
+                    self.queue_media_state_changed_notification_for_user(user, notification)
                         .await?;
                 }
             }
@@ -5923,7 +5916,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
+    async fn update_monitored_people_and_queue_notifications(&self) -> Result<()> {
         let (_, _, person_map) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for people state changes: {:?}",
@@ -5933,7 +5926,7 @@ impl MiscellaneousService {
             let notifications = self.update_person(person_id).await.unwrap_or_default();
             for user in to_notify {
                 for notification in notifications.iter() {
-                    self.send_media_state_changed_notification_for_user(user, notification)
+                    self.queue_media_state_changed_notification_for_user(user, notification)
                         .await?;
                 }
             }
@@ -5941,15 +5934,15 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn send_media_state_changed_notification_for_user(
+    async fn queue_media_state_changed_notification_for_user(
         &self,
         user_id: i32,
         notification: &(String, MediaStateChanged),
     ) -> Result<()> {
         let (msg, change) = notification;
-        let notif_prefs = self.user_preferences(user_id).await?.notifications;
-        if notif_prefs.enabled && notif_prefs.to_send.contains(change) {
-            self.send_notifications_to_user_platforms(user_id, msg)
+        let notification_preferences = self.user_preferences(user_id).await?.notifications;
+        if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
+            self.queue_notifications_to_user_platforms(user_id, msg)
                 .await
                 .ok();
         } else {
@@ -6313,7 +6306,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn send_pending_reminders(&self) -> Result<()> {
+    async fn queue_pending_reminders(&self) -> Result<()> {
         #[derive(Debug, Serialize, Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct UserMediaReminder {
@@ -6333,7 +6326,7 @@ impl MiscellaneousService {
                 let related_users = col.find_related(UserToCollection).all(&self.db).await?;
                 if get_current_date(self.timezone.as_ref()) == reminder.reminder {
                     for user in related_users {
-                        self.send_notifications_to_user_platforms(user.user_id, &reminder.text)
+                        self.queue_notifications_to_user_platforms(user.user_id, &reminder.text)
                             .await?;
                         self.remove_entity_from_collection(
                             user.user_id,
@@ -6717,7 +6710,7 @@ impl MiscellaneousService {
     }
 
     #[tracing::instrument(skip(self))]
-    async fn send_notifications_for_released_media(&self) -> Result<()> {
+    async fn queue_notifications_for_released_media(&self) -> Result<()> {
         let today = get_current_date(self.timezone.as_ref());
         let calendar_events = CalendarEvent::find()
             .filter(calendar_event::Column::Date.eq(today))
@@ -6752,7 +6745,7 @@ impl MiscellaneousService {
         for (metadata_id, notification) in notifications.into_iter() {
             let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
             for user in users_to_notify {
-                self.send_media_state_changed_notification_for_user(user, &notification)
+                self.queue_media_state_changed_notification_for_user(user, &notification)
                     .await?;
             }
         }
@@ -6837,7 +6830,7 @@ impl MiscellaneousService {
             let users_to_notify = person_map.get(&person_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
-                    self.send_media_state_changed_notification_for_user(
+                    self.queue_media_state_changed_notification_for_user(
                         user_id.to_owned(),
                         &notification,
                     )
@@ -6934,7 +6927,7 @@ GROUP BY m.id;
                 event.entity_lot,
                 Some("reviews"),
             );
-            self.send_notifications_to_user_platforms(
+            self.queue_notifications_to_user_platforms(
                 user_id,
                 &format!(
                     "New review posted for {} ({}, {}) by {}.",
@@ -7095,6 +7088,37 @@ WHERE id IN (
             tracing::debug!("Removing genre id = {:#?}", genre);
             Genre::delete_by_id(genre).exec(&self.db).await?;
         }
+        tracing::debug!("Deleting all queued notifications");
+        QueuedNotification::delete_many().exec(&self.db).await?;
+        Ok(())
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn send_pending_notifications(&self) -> Result<()> {
+        let users = User::find()
+            .into_partial_model::<UserWithOnlyIntegrationsAndNotifications>()
+            .all(&self.db)
+            .await?;
+        for user_details in users {
+            tracing::debug!("Sending notification to user: {:?}", user_details.id);
+            let notifications = QueuedNotification::find()
+                .filter(queued_notification::Column::UserId.eq(user_details.id))
+                .all(&self.db)
+                .await?;
+            if notifications.is_empty() {
+                continue;
+            }
+            let msg = notifications
+                .into_iter()
+                .map(|n| n.message)
+                .collect::<Vec<String>>()
+                .join("\n");
+            for notification in user_details.notifications {
+                if let Err(err) = notification.settings.send_message(&self.config, &msg).await {
+                    tracing::trace!("Error sending notification: {:?}", err);
+                }
+            }
+        }
         Ok(())
     }
 
@@ -7120,19 +7144,21 @@ WHERE id IN (
             .await
             .unwrap();
         tracing::trace!("Checking for updates for media in Watchlist");
-        self.update_watchlist_metadata_and_send_notifications()
+        self.update_watchlist_metadata_and_queue_notifications()
             .await
             .unwrap();
         tracing::trace!("Checking for updates for monitored people");
-        self.update_monitored_people_and_send_notifications()
+        self.update_monitored_people_and_queue_notifications()
             .await
             .unwrap();
-        tracing::trace!("Checking and sending any pending reminders");
-        self.send_pending_reminders().await.unwrap();
+        tracing::trace!("Checking and queuing any pending reminders");
+        self.queue_pending_reminders().await.unwrap();
         tracing::trace!("Recalculating calendar events");
         self.recalculate_calendar_events().await.unwrap();
-        tracing::trace!("Sending notifications for released media");
-        self.send_notifications_for_released_media().await.unwrap();
+        tracing::trace!("Queuing notifications for released media");
+        self.queue_notifications_for_released_media().await.unwrap();
+        tracing::trace!("Sending all pending notifications");
+        self.send_pending_notifications().await.unwrap();
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
 
