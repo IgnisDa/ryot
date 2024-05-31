@@ -86,11 +86,12 @@ jobs:
         with:
           script: |
             function generateVersionArray(version) {
-            	const parts = version.split(".");
-            	let versionArray = [];
-            	for (let i = 0; i < parts.length; i++)
-            		versionArray.push(parts.slice(0, i + 1).join("."));
-            	return versionArray;
+              const parts = version.split(".");
+              let versionArray = [];
+              for (let i = 0; i < parts.length; i++)
+                versionArray.push(parts.slice(0, i + 1).join("."));
+              versionArray.push("latest");
+              return versionArray;
             }
 
             const registry = process.env.REGISTRY;
