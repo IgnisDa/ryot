@@ -5886,23 +5886,12 @@ impl MiscellaneousService {
     async fn queue_notifications_to_user_platforms(&self, user_id: i32, msg: &str) -> Result<bool> {
         let user_details = user_by_id(&self.db, user_id).await?;
         if user_details.preferences.notifications.enabled {
-            // tracing::debug!("Sending notification to user: {:?}", msg);
-            // for notification in user_details.notifications {
             let insert_data = queued_notification::ActiveModel {
                 user_id: ActiveValue::Set(user_id),
                 message: ActiveValue::Set(msg.to_owned()),
                 ..Default::default()
             };
             insert_data.insert(&self.db).await?;
-            // if notification
-            //     .settings
-            //     .send_message(&self.config, msg)
-            //     .await
-            //     .is_err()
-            // {
-            //     success = false;
-            // }
-            // }
         } else {
             tracing::debug!("User has disabled notifications");
         }
@@ -7106,6 +7095,32 @@ WHERE id IN (
 
     #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
+        let users = User::find()
+            .into_partial_model::<UserWithOnlyIntegrationsAndNotifications>()
+            .all(&self.db)
+            .await?;
+        for user_details in users {
+            tracing::debug!("Sending notification to user: {:?}", user_details.id);
+            let notifications = QueuedNotification::find()
+                .filter(queued_notification::Column::UserId.eq(user_details.id))
+                .all(&self.db)
+                .await?;
+            if notifications.is_empty() {
+                continue;
+            }
+            let msg = notifications
+                .into_iter()
+                .map(|n| n.message)
+                .collect::<Vec<String>>()
+                .join("\n");
+            for notification in user_details.notifications {
+                notification
+                    .settings
+                    .send_message(&self.config, &msg)
+                    .await
+                    .ok();
+            }
+        }
         Ok(())
     }
 
@@ -7155,6 +7170,7 @@ WHERE id IN (
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.send_pending_notifications().await.unwrap();
         Ok(true)
     }
 }

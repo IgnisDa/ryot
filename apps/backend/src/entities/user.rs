@@ -32,6 +32,7 @@ pub struct UserWithOnlyPreferences {
 )]
 #[sea_orm(entity = "Entity")]
 pub struct UserWithOnlyIntegrationsAndNotifications {
+    pub id: i32,
     pub yank_integrations: Option<Vec<UserYankIntegration>>,
     pub sink_integrations: Vec<UserSinkIntegration>,
     pub notifications: Vec<UserNotification>,
