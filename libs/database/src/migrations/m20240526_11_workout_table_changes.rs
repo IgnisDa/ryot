@@ -43,42 +43,13 @@ WHERE "exercise_extra_information" IS NOT NULL;
 DO $$
 DECLARE
     rec RECORD;
-    new_summary_exercises jsonb;
     new_information_exercises jsonb;
     exercise jsonb;
 BEGIN
     FOR rec IN
-        SELECT id, summary, information
+        SELECT id, information
         FROM workout
     LOOP
-        -- Update exercises in summary
-        new_summary_exercises := '[]'::jsonb;
-        FOR exercise IN SELECT * FROM jsonb_array_elements(rec.summary->'exercises')
-        LOOP
-            new_summary_exercises := new_summary_exercises || jsonb_set(
-                exercise,
-                '{lot}',
-                to_jsonb(CASE
-                    WHEN exercise->>'lot' = 'Duration' THEN 'duration'
-                    WHEN exercise->>'lot' = 'DistanceAndDuration' THEN 'distance_and_duration'
-                    WHEN exercise->>'lot' = 'Reps' THEN 'reps'
-                    WHEN exercise->>'lot' = 'RepsAndWeight' THEN 'reps_and_weight'
-                    ELSE exercise->>'lot'
-                END)
-            )
-            || jsonb_set(
-                exercise,
-                '{best_set,lot}',
-                to_jsonb(CASE
-                    WHEN exercise->'best_set'->>'lot' = 'Duration' THEN 'duration'
-                    WHEN exercise->'best_set'->>'lot' = 'DistanceAndDuration' THEN 'distance_and_duration'
-                    WHEN exercise->'best_set'->>'lot' = 'Reps' THEN 'reps'
-                    WHEN exercise->'best_set'->>'lot' = 'RepsAndWeight' THEN 'reps_and_weight'
-                    ELSE exercise->'best_set'->>'lot'
-                END)
-            );
-        END LOOP;
-
         -- Update exercises in information
         new_information_exercises := '[]'::jsonb;
         FOR exercise IN SELECT * FROM jsonb_array_elements(rec.information->'exercises')
@@ -98,11 +69,7 @@ BEGIN
 
         -- Update both summary and information in a single update statement
         UPDATE workout
-        SET summary = jsonb_set(
-                rec.summary,
-                '{exercises}',
-                new_summary_exercises
-            ),
+        SET summary = '{"exercises": [], "total": {"personal_bests_achieved": 0, "weight": "0", "reps": 0, "distance": "0", "duration": "0"}}',
             information = jsonb_set(
                 rec.information,
                 '{exercises}',
