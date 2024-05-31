@@ -50,7 +50,6 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .unique()
                     .name("queued_notification__user_id__index")
                     .table(QueuedNotification::Table)
                     .col(QueuedNotification::UserId)
