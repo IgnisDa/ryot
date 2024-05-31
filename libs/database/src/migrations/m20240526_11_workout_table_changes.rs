@@ -30,10 +30,10 @@ END;
 
         db.execute_unprepared(
             r#"
-UPDATE "user_to_entity" SET "exercise_extra_information" = REPLACE("exercise_extra_information"::text, 'Duration', 'duration')::jsonb WHERE "exercise_extra_information" IS NOT NULL;
-UPDATE "user_to_entity" SET "exercise_extra_information" = REPLACE("exercise_extra_information"::text, 'DistanceAndDuration', 'distance_and_duration')::jsonb WHERE "exercise_extra_information" IS NOT NULL;
-UPDATE "user_to_entity" SET "exercise_extra_information" = REPLACE("exercise_extra_information"::text, 'Reps', 'reps')::jsonb WHERE "exercise_extra_information" IS NOT NULL;
-UPDATE "user_to_entity" SET "exercise_extra_information" = REPLACE("exercise_extra_information"::text, 'RepsAndWeight', 'reps_and_weight')::jsonb WHERE "exercise_extra_information" IS NOT NULL;
+UPDATE "user_to_entity" SET "exercise_extra_information" =
+'{"history": [], "personal_bests": [], "lifetime_stats": {"personal_bests_achieved": 0,
+"weight": "0", "reps": 0, "distance": "0", "duration": "0"}}'
+WHERE "exercise_extra_information" IS NOT NULL;
             "#,
         )
         .await?;
