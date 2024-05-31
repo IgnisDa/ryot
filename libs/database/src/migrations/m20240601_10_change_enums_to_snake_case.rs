@@ -7,6 +7,10 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+
+        tracing::warn!("Starting to change all enums...");
+
+        tracing::warn!("Starting to change MediaLot enum");
         db.execute_unprepared(
             r#"
 UPDATE "metadata" SET lot = 'audio_book' where lot = 'AB';
@@ -39,6 +43,7 @@ UPDATE "metadata_group" SET lot = 'visual_novel' where lot = 'VN';
         )
         .await?;
 
+        tracing::warn!("Starting to change MediaSource enum");
         db.execute_unprepared(
             r#"
 UPDATE "metadata" SET source = 'anilist' WHERE source = 'AN';
@@ -92,6 +97,7 @@ UPDATE "person" SET source = 'vndb' WHERE source = 'VN';
         )
         .await?;
 
+        tracing::warn!("Starting to change UserLot enum");
         db.execute_unprepared(
             r#"
 UPDATE "user" SET lot = 'admin' WHERE lot = 'A';
@@ -100,6 +106,7 @@ UPDATE "user" SET lot = 'normal' WHERE lot = 'N';
         )
         .await?;
 
+        tracing::warn!("Starting to change SeenState enum");
         db.execute_unprepared(
             r#"
 UPDATE "seen" SET state = 'completed' WHERE state = 'CO';
@@ -110,6 +117,7 @@ UPDATE "seen" SET state = 'on_a_hold' WHERE state = 'OH';
         )
         .await?;
 
+        tracing::warn!("Starting to change Visibility enum");
         db.execute_unprepared(
             r#"
 UPDATE "review" SET visibility = 'public' WHERE visibility = 'PU';
@@ -118,6 +126,7 @@ UPDATE "review" SET visibility = 'private' WHERE visibility = 'PR';
         )
         .await?;
 
+        tracing::warn!("Starting to change ImportSource enum");
         db.execute_unprepared(
             r#"
 UPDATE "import_report" SET source = 'audiobookshelf' WHERE source = 'AB';
@@ -136,6 +145,7 @@ UPDATE "import_report" SET source = 'trakt' WHERE source = 'TR';
         )
         .await?;
 
+        tracing::warn!("Starting to change MetadataToMetadataRelation enum");
         db.execute_unprepared(
             r#"
 UPDATE "metadata_to_metadata" SET relation = 'suggestion' WHERE relation = 'SU';
@@ -143,6 +153,7 @@ UPDATE "metadata_to_metadata" SET relation = 'suggestion' WHERE relation = 'SU';
         )
         .await?;
 
+        tracing::warn!("Starting to change ExerciseSource enum");
         db.execute_unprepared(
             r#"
 UPDATE "exercise" SET source = 'github' WHERE source = 'GH';
@@ -151,6 +162,7 @@ UPDATE "exercise" SET source = 'custom' WHERE source = 'CU';
         )
         .await?;
 
+        tracing::warn!("Starting to change ExerciseLot enum");
         db.execute_unprepared(
             r#"
 UPDATE "exercise" SET lot = 'duration' WHERE lot = 'D';
@@ -161,6 +173,7 @@ UPDATE "exercise" SET lot = 'reps_and_weight' WHERE lot = 'RW';
         )
         .await?;
 
+        tracing::warn!("Starting to change ExerciseForce enum");
         db.execute_unprepared(
             r#"
 UPDATE "exercise" SET force = 'pull' WHERE force = 'PUL';
@@ -170,6 +183,7 @@ UPDATE "exercise" SET force = 'static' WHERE force = 'S';
         )
         .await?;
 
+        tracing::warn!("Starting to change ExerciseLevel enum");
         db.execute_unprepared(
             r#"
 UPDATE "exercise" SET level = 'beginner' WHERE level = 'B';
@@ -179,6 +193,7 @@ UPDATE "exercise" SET level = 'intermediate' WHERE level = 'I';
         )
         .await?;
 
+        tracing::warn!("Starting to change ExerciseMechanic enum");
         db.execute_unprepared(
             r#"
 UPDATE "exercise" SET mechanic = 'compound' WHERE mechanic = 'C';
@@ -187,6 +202,7 @@ UPDATE "exercise" SET mechanic = 'isolation' WHERE mechanic = 'I';
         )
         .await?;
 
+        tracing::warn!("Starting to change ExerciseEquipment enum");
         db.execute_unprepared(
             r#"
 UPDATE "exercise" SET equipment = 'bands' WHERE equipment = 'BAN';
@@ -205,6 +221,7 @@ UPDATE "exercise" SET equipment = 'other' WHERE equipment = 'O';
         )
         .await?;
 
+        tracing::warn!("Starting to change UserToMediaReason enum");
         db.execute_unprepared(
             r#"
 UPDATE "user_to_entity"
@@ -224,6 +241,8 @@ SET media_reason = array_replace(media_reason, 'Watchlist', 'watchlist');
         "#,
         )
         .await?;
+
+        tracing::warn!("Complete...\n\n");
         Ok(())
     }
 
