@@ -26,7 +26,7 @@ use strum::Display;
     db_type = "String(StringLen::None)",
     rename_all = "snake_case"
 )]
-#[config(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum MediaLot {
     AudioBook,
     Anime,
@@ -61,7 +61,7 @@ pub enum MediaLot {
     db_type = "String(StringLen::None)",
     rename_all = "snake_case"
 )]
-#[config(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum MediaSource {
     Anilist,
     #[default]
@@ -297,7 +297,6 @@ pub enum ExerciseEquipment {
     db_type = "String(StringLen::None)",
     rename_all = "snake_case"
 )]
-#[config(rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseLot {
     Duration,

@@ -127,7 +127,7 @@ pub struct StringIdObject {
 /// Complete export of the user.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-#[schematic(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
     /// Data about user's media.
     pub media: Option<Vec<media::ImportOrExportMediaItem>>,
@@ -153,7 +153,7 @@ pub struct ChangeCollectionToEntityInput {
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
-#[schematic(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub struct IdAndNamedObject {
     pub id: i32,
     pub name: String,
@@ -884,7 +884,7 @@ pub mod media {
         Schematic,
     )]
     #[graphql(input_name = "PersonSourceSpecificsInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct PersonSourceSpecifics {
         pub is_tmdb_company: Option<bool>,
         pub is_anilist_studio: Option<bool>,
@@ -985,7 +985,7 @@ pub mod media {
     /// A specific instance when an entity was seen.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
         pub progress: Option<Decimal>,
@@ -1012,7 +1012,7 @@ pub mod media {
     /// Review data associated to a rating.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportItemReview {
         /// The visibility set by the user.
         pub visibility: Option<Visibility>,
@@ -1027,7 +1027,7 @@ pub mod media {
     /// A rating given to an entity.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
@@ -1050,7 +1050,7 @@ pub mod media {
     /// Details about a specific media item that needs to be imported or exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportMediaItem {
         /// An string to help identify it in the original source.
         pub source_id: String,
@@ -1075,7 +1075,7 @@ pub mod media {
     /// Details about a specific media group item that needs to be imported or exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportMediaGroupItem {
         /// Name of the group.
         pub title: String,
@@ -1094,7 +1094,7 @@ pub mod media {
     /// Details about a specific creator item that needs to be exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportPersonItem {
         /// The provider identifier.
         pub identifier: String,
@@ -1212,7 +1212,7 @@ pub mod media {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportItemReviewComment {
         pub id: String,
         pub text: String,
@@ -1432,7 +1432,7 @@ pub mod fitness {
         Default,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct UserMeasurementStats {
         pub weight: Option<Decimal>,
         pub body_mass_index: Option<Decimal>,
@@ -1477,7 +1477,7 @@ pub mod fitness {
         AddAssign,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutOrExerciseTotals {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
@@ -1522,7 +1522,7 @@ pub mod fitness {
         Default,
     )]
     #[graphql(input_name = "SetStatisticInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSetStatistic {
         pub duration: Option<Decimal>,
         pub distance: Option<Decimal>,
@@ -1546,7 +1546,7 @@ pub mod fitness {
         Copy,
         ConfigEnum,
     )]
-    #[config(rename_all = "PascalCase")]
+    #[serde(rename_all = "snake_case")]
     pub enum SetLot {
         Normal,
         WarmUp,
@@ -1568,7 +1568,7 @@ pub mod fitness {
         Default,
         ConfigEnum,
     )]
-    #[config(rename_all = "PascalCase")]
+    #[serde(rename_all = "snake_case")]
     pub enum WorkoutSetPersonalBest {
         #[default]
         Weight,
@@ -1592,7 +1592,7 @@ pub mod fitness {
         Schematic,
         Default,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSetTotals {
         pub weight: Option<Decimal>,
     }
@@ -1609,7 +1609,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSetRecord {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
@@ -1714,7 +1714,7 @@ pub mod fitness {
         Schematic,
     )]
     #[graphql(input_name = "EntityAssetsInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct EntityAssets {
         /// The keys of the S3 images.
         pub images: Vec<String>,
@@ -1734,7 +1734,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ProcessedExercise {
         pub name: String,
         pub lot: ExerciseLot,
@@ -1778,7 +1778,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutInformation {
         pub exercises: Vec<ProcessedExercise>,
         pub assets: EntityAssets,
@@ -1796,7 +1796,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
         #[serde(alias = "name")]
@@ -1816,7 +1816,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummary {
         pub total: WorkoutOrExerciseTotals,
         pub exercises: Vec<WorkoutSummaryExercise>,

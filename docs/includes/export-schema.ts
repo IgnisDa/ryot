@@ -206,9 +206,9 @@ export interface EntityAssets {
 
 export type ExerciseLot = 'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight';
 
-export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
+export type SetLot = 'normal' | 'warm_up' | 'drop' | 'failure';
 
-export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'Pace' | 'Reps';
+export type WorkoutSetPersonalBest = 'weight' | 'one_rm' | 'volume' | 'time' | 'pace' | 'reps';
 
 export interface WorkoutSetStatistic {
 	distance: string | null;
