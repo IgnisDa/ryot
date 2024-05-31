@@ -147,7 +147,7 @@ UPDATE "person" SET
     "temp__images" = "images",
     "temp__is_partial" = "is_partial",
     "temp__source_specifics" = "source_specifics",
-    "temp__state_changes" = "state_changes";
+    "temp__state_changes" = '{"media_associated": []}';
 
 -- Step 3: Set temporary columns to not null if the original columns were not null
 ALTER TABLE "person" ALTER COLUMN "temp__identifier" SET NOT NULL;
