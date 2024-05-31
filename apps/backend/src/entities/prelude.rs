@@ -13,6 +13,7 @@ pub use super::metadata_to_metadata::Entity as MetadataToMetadata;
 pub use super::metadata_to_metadata_group::Entity as MetadataToMetadataGroup;
 pub use super::metadata_to_person::Entity as MetadataToPerson;
 pub use super::person::Entity as Person;
+pub use super::queued_notification::Entity as QueuedNotification;
 pub use super::review::Entity as Review;
 pub use super::seen::Entity as Seen;
 pub use super::user::Entity as User;

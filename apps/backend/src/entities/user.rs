@@ -80,6 +80,8 @@ pub enum Relation {
     Exercise,
     #[sea_orm(has_many = "super::import_report::Entity")]
     ImportReport,
+    #[sea_orm(has_many = "super::queued_notification::Entity")]
+    QueuedNotification,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
@@ -109,6 +111,12 @@ impl Related<super::exercise::Entity> for Entity {
 impl Related<super::import_report::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ImportReport.def()
+    }
+}
+
+impl Related<super::queued_notification::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::QueuedNotification.def()
     }
 }
 
