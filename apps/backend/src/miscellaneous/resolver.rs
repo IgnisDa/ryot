@@ -63,8 +63,8 @@ use crate::{
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Metadata,
             MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-            MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToCollection,
-            UserToEntity, Workout,
+            MetadataToPerson, Person, QueuedNotification, Review, Seen, User, UserMeasurement,
+            UserToCollection, UserToEntity, Workout,
         },
         review, seen,
         user::{
@@ -7096,6 +7096,8 @@ WHERE id IN (
             tracing::debug!("Removing genre id = {:#?}", genre);
             Genre::delete_by_id(genre).exec(&self.db).await?;
         }
+        tracing::debug!("Deleting all queued notifications");
+        QueuedNotification::delete_many().exec(&self.db).await?;
         Ok(())
     }
 
