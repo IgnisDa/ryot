@@ -7168,7 +7168,6 @@ WHERE id IN (
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        self.send_pending_notifications().await.unwrap();
         Ok(true)
     }
 }
