@@ -7114,11 +7114,9 @@ WHERE id IN (
                 .collect::<Vec<String>>()
                 .join("\n");
             for notification in user_details.notifications {
-                notification
-                    .settings
-                    .send_message(&self.config, &msg)
-                    .await
-                    .ok();
+                if let Err(err) = notification.settings.send_message(&self.config, &msg).await {
+                    tracing::trace!("Error sending notification: {:?}", err);
+                }
             }
         }
         Ok(())
