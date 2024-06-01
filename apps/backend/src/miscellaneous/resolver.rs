@@ -352,7 +352,7 @@ struct ReviewItem {
     text_original: Option<String>,
     text_rendered: Option<String>,
     visibility: Visibility,
-    spoiler: bool,
+    is_spoiler: bool,
     posted_by: IdAndNamedObject,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
@@ -746,7 +746,7 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
         review: Some(ImportOrExportItemReview {
             visibility: Some(rev.visibility),
             date: Some(rev.posted_on),
-            spoiler: Some(rev.spoiler),
+            spoiler: Some(rev.is_spoiler),
             text: rev.text_original,
         }),
         rating: rev.rating,
@@ -3752,7 +3752,7 @@ impl MiscellaneousService {
                     id: r.id,
                     posted_on: r.posted_on,
                     rating,
-                    spoiler: r.spoiler,
+                    is_spoiler: r.is_spoiler,
                     text_original: r.text.clone(),
                     text_rendered: r.text.map(|t| markdown_to_html(&t)),
                     visibility: r.visibility,
@@ -4120,8 +4120,8 @@ impl MiscellaneousService {
             comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
-        if let Some(s) = input.spoiler {
-            review_obj.spoiler = ActiveValue::Set(s);
+        if let Some(s) = input.is_spoiler {
+            review_obj.is_spoiler = ActiveValue::Set(s);
         }
         if let Some(v) = input.visibility {
             review_obj.visibility = ActiveValue::Set(v);
@@ -7070,14 +7070,14 @@ GROUP BY m.id;
 
     async fn invalidate_import_jobs(&self) -> Result<()> {
         let all_jobs = ImportReport::find()
-            .filter(import_report::Column::Success.is_null())
+            .filter(import_report::Column::WasSuccess.is_null())
             .all(&self.db)
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
                 tracing::debug!("Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
-                job.success = ActiveValue::Set(Some(false));
+                job.was_success = ActiveValue::Set(Some(false));
                 job.save(&self.db).await?;
             }
         }

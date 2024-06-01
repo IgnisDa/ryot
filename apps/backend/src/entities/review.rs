@@ -24,7 +24,7 @@ pub struct Model {
     pub rating: Option<Decimal>,
     pub text: Option<String>,
     pub visibility: Visibility,
-    pub spoiler: bool,
+    pub is_spoiler: bool,
     pub user_id: i32,
     pub metadata_id: Option<String>,
     pub person_id: Option<String>,

@@ -20,7 +20,7 @@ pub struct Model {
     pub started_on: DateTimeUtc,
     pub finished_on: Option<DateTimeUtc>,
     pub details: Option<ImportResultResponse>,
-    pub success: Option<bool>,
+    pub was_success: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

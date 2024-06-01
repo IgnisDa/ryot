@@ -648,7 +648,7 @@ impl ImporterService {
         let mut model: import_report::ActiveModel = job.into();
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
-        model.success = ActiveValue::Set(Some(true));
+        model.was_success = ActiveValue::Set(Some(true));
         let model = model.update(&self.media_service.db).await.unwrap();
         Ok(model)
     }
@@ -670,12 +670,12 @@ fn convert_review_into_input(
         UserReviewScale::OutOfHundred => review.rating,
     };
     let text = review.review.clone().and_then(|r| r.text);
-    let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
+    let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
     let date = review.review.clone().map(|r| r.date);
     Some(PostReviewInput {
         rating,
         text,
-        spoiler,
+        is_spoiler,
         visibility: review.review.clone().and_then(|r| r.visibility),
         date: date.flatten(),
         metadata_id,
