@@ -138,6 +138,15 @@ ALTER TABLE "user_to_collection" ADD CONSTRAINT "user_to_collection-fk2" FOREIGN
 ALTER TABLE "user_to_entity" ADD CONSTRAINT "user_to_entity-fk1" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE "workout" ADD CONSTRAINT "workout_to_user_foreign_key" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE "exercise" ADD CONSTRAINT "workout_to_user_foreign_key" FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON UPDATE CASCADE ON DELETE SET NULL;
+
+ALTER TABLE ONLY user_measurement ADD CONSTRAINT "pk-user_measurement" PRIMARY KEY (user_id, "timestamp");
+ALTER TABLE ONLY user_to_collection ADD CONSTRAINT "pk-user_to_collection" PRIMARY KEY (user_id, collection_id);
+CREATE UNIQUE INDEX "collection__name-user_id__index" ON collection USING btree (name, user_id);
+CREATE INDEX "queued_notification__user_id__index" ON queued_notification USING btree (user_id);
+CREATE UNIQUE INDEX "user_to_entity-uqi1" ON user_to_entity USING btree (user_id, metadata_id);
+CREATE UNIQUE INDEX "user_to_entity-uqi2" ON user_to_entity USING btree (user_id, exercise_id);
+CREATE UNIQUE INDEX "user_to_entity-uqi3" ON user_to_entity USING btree (user_id, person_id);
+CREATE UNIQUE INDEX "user_to_entity-uqi4" ON user_to_entity USING btree (user_id, metadata_group_id);
             "#,
         )
         .await?;
