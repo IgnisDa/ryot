@@ -234,7 +234,7 @@ const reviewSchema = z
 		rating: z.string().optional(),
 		text: z.string().optional(),
 		visibility: z.nativeEnum(Visibility).optional(),
-		spoiler: zx.CheckboxAsString.optional(),
+		isSpoiler: zx.CheckboxAsString.optional(),
 		metadataId: z.string().optional(),
 		metadataGroupId: z.string().optional(),
 		collectionId: z.string().optional(),
