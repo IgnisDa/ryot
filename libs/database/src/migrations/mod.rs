@@ -20,6 +20,7 @@ mod m20231219_create_metadata_relations;
 mod m20240509_create_user_to_collection;
 mod m20240531_create_queued_notification;
 mod m20240606_is_v6_migration;
+mod m20240607_change_boolean_column_names;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -59,6 +60,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240509_create_user_to_collection::Migration),
             Box::new(m20240531_create_queued_notification::Migration),
             Box::new(m20240606_is_v6_migration::Migration),
+            Box::new(m20240607_change_boolean_column_names::Migration),
         ]
     }
 }

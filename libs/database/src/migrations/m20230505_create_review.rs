@@ -28,7 +28,7 @@ pub enum Review {
     PersonId,
     MetadataGroupId,
     CollectionId,
-    Spoiler,
+    IsSpoiler,
     Comments,
     ShowExtraInformation,
     PodcastExtraInformation,
@@ -53,7 +53,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::Rating).decimal())
                     .col(ColumnDef::new(Review::Text).text())
                     .col(
-                        ColumnDef::new(Review::Spoiler)
+                        ColumnDef::new(Review::IsSpoiler)
                             .boolean()
                             .not_null()
                             .default(false),

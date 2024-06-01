@@ -14,7 +14,7 @@ pub enum ImportReport {
     FinishedOn,
     Source,
     Details,
-    Success,
+    WasSuccess,
 }
 
 #[async_trait::async_trait]
@@ -39,7 +39,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(ImportReport::FinishedOn).timestamp_with_time_zone())
-                    .col(ColumnDef::new(ImportReport::Success).boolean())
+                    .col(ColumnDef::new(ImportReport::WasSuccess).boolean())
                     .col(ColumnDef::new(ImportReport::Details).json_binary())
                     .foreign_key(
                         ForeignKey::create()
