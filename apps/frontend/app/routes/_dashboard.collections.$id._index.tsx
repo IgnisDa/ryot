@@ -264,10 +264,12 @@ export default function Page() {
 											<Select
 												placeholder="Select an entity type"
 												defaultValue={loaderData.query.entityLot}
-												data={Object.values(EntityLot).map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												}))}
+												data={Object.values(EntityLot)
+													.filter((o) => o !== EntityLot.Collection)
+													.map((o) => ({
+														value: o.toString(),
+														label: startCase(o.toLowerCase()),
+													}))}
 												onChange={(v) => setP("entityLot", v)}
 												clearable
 											/>
