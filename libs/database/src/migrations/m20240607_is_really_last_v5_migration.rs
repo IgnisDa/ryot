@@ -10,7 +10,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 ALTER TABLE "review" ALTER COLUMN "visibility" SET DEFAULT 'private';
-ALTER TABLE "seen" ALTER COLUMN "in_progress" SET DEFAULT 'private';
+ALTER TABLE "seen" ALTER COLUMN "state" SET DEFAULT 'in_progress';
         "#,
         )
         .await?;
