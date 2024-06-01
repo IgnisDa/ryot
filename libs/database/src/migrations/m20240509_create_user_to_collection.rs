@@ -19,7 +19,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(UserToCollection::Table)
-                    .col(ColumnDef::new(UserToCollection::UserId).integer())
+                    .col(ColumnDef::new(UserToCollection::UserId).text())
                     .col(
                         ColumnDef::new(UserToCollection::CollectionId)
                             .text()

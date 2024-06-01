@@ -40,7 +40,7 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Workout::UserId).integer().not_null())
+                    .col(ColumnDef::new(Workout::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("workout_to_user_foreign_key")

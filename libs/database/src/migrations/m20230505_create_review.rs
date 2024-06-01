@@ -64,7 +64,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Visibility::Private),
                     )
-                    .col(ColumnDef::new(Review::UserId).integer().not_null())
+                    .col(ColumnDef::new(Review::UserId).text().not_null())
                     .col(ColumnDef::new(Review::Comments).json_binary().not_null())
                     .col(ColumnDef::new(Review::ShowExtraInformation).json_binary())
                     .col(ColumnDef::new(Review::PodcastExtraInformation).json_binary())

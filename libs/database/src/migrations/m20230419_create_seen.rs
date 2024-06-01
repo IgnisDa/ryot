@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Seen::StartedOn).date())
                     .col(ColumnDef::new(Seen::FinishedOn).date())
-                    .col(ColumnDef::new(Seen::UserId).integer().not_null())
+                    .col(ColumnDef::new(Seen::UserId).text().not_null())
                     .col(
                         ColumnDef::new(Seen::State)
                             .text()

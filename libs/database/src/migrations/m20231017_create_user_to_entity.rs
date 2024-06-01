@@ -75,7 +75,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
+                    .col(ColumnDef::new(UserToEntity::UserId).text().not_null())
                     .col(ColumnDef::new(UserToEntity::MediaReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())

@@ -39,7 +39,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Collection::Name).text().not_null())
-                    .col(ColumnDef::new(Collection::UserId).integer().not_null())
+                    .col(ColumnDef::new(Collection::UserId).text().not_null())
                     .col(ColumnDef::new(Collection::Description).text())
                     .col(
                         ColumnDef::new(Collection::LastUpdatedOn)

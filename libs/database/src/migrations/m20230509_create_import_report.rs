@@ -31,7 +31,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(ImportReport::Source).text().not_null())
-                    .col(ColumnDef::new(ImportReport::UserId).integer().not_null())
+                    .col(ColumnDef::new(ImportReport::UserId).text().not_null())
                     .col(
                         ColumnDef::new(ImportReport::StartedOn)
                             .timestamp_with_time_zone()

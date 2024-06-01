@@ -31,11 +31,7 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(QueuedNotification::UserId)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(QueuedNotification::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("queued_notification_to_user_foreign_key")
