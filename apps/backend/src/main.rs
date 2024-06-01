@@ -131,9 +131,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v4(&db).await {
-        tracing::error!("Migration from v4 failed: {}", err);
-        bail!("There was an error migrating from v4.")
+    if let Err(err) = migrate_from_v5(&db).await {
+        tracing::error!("Migration from v5 failed: {}", err);
+        bail!("There was an error migrating from v5.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
@@ -362,8 +362,8 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-// upgrade from v4 ONLY IF APPLICABLE
-async fn migrate_from_v4(db: &DatabaseConnection) -> Result<()> {
+// upgrade from v5 ONLY IF APPLICABLE
+async fn migrate_from_v5(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -374,13 +374,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240324_perform_v4_migration'
+            WHERE version = 'm20240415_is_v5_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20240411_perform_v4_4_3_migration'
+                WHERE version = 'm20240606_is_last_v5_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v4 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v5 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
@@ -400,7 +400,9 @@ BEGIN
                 ('m20230912_create_calendar_event', 1684693316),
                 ('m20231016_create_collection_to_entity', 1684693316),
                 ('m20231017_create_user_to_entity', 1684693316),
-                ('m20231219_create_metadata_relations', 1684693316);
+                ('m20231219_create_metadata_relations', 1684693316),
+                ('m20240509_create_user_to_collection', 1684693316),
+                ('m20240531_create_queued_notification', 1684693316);
         END IF;
     END IF;
 END $$;

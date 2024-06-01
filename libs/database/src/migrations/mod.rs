@@ -18,34 +18,8 @@ mod m20230912_create_calendar_event;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
 mod m20231219_create_metadata_relations;
-mod m20240415_is_v5_migration;
-mod m20240416_change_json_to_generic_json;
-mod m20240425_add_created_by_user_id_column_to_execise;
-mod m20240503_update_user_to_entity_to_recalculate;
-mod m20240504_add_columns_for_state_changes;
-mod m20240506_0_add_done_collection_for_existing_users;
-mod m20240506_1_add_entities_to_done_collection_for_existing_users;
-mod m20240507_0_remove_visibility_from_collection;
-mod m20240508_set_state_changes_to_null;
 mod m20240509_create_user_to_collection;
-mod m20240509_q_associate_collections_with_owners;
-mod m20240510_0_add_information_template_to_collection;
-mod m20240510_1_port_owned_information;
-mod m20240511_port_reminders_to_information;
 mod m20240531_create_queued_notification;
-mod m20240601_00_change_collection_primary_key;
-mod m20240601_01_change_review_primary_key;
-mod m20240601_02_change_calendar_event_primary_key;
-mod m20240601_03_change_seen_primary_key;
-mod m20240601_04_change_import_report_primary_key;
-mod m20240601_05_change_genre_primary_key;
-mod m20240601_06_change_metadata_group_primary_key;
-mod m20240601_07_change_person_primary_key;
-mod m20240601_08_change_metadata_primary_key;
-mod m20240601_09_complete_cleanup_of_primary_keys;
-mod m20240601_10_change_enums_to_snake_case;
-mod m20240601_11_workout_table_changes;
-mod m20240606_is_last_v5_migration;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -98,34 +72,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
             Box::new(m20231219_create_metadata_relations::Migration),
-            Box::new(m20240415_is_v5_migration::Migration),
-            Box::new(m20240416_change_json_to_generic_json::Migration),
-            Box::new(m20240425_add_created_by_user_id_column_to_execise::Migration),
-            Box::new(m20240503_update_user_to_entity_to_recalculate::Migration),
-            Box::new(m20240504_add_columns_for_state_changes::Migration),
-            Box::new(m20240506_0_add_done_collection_for_existing_users::Migration),
-            Box::new(m20240506_1_add_entities_to_done_collection_for_existing_users::Migration),
-            Box::new(m20240507_0_remove_visibility_from_collection::Migration),
-            Box::new(m20240508_set_state_changes_to_null::Migration),
             Box::new(m20240509_create_user_to_collection::Migration),
-            Box::new(m20240509_q_associate_collections_with_owners::Migration),
-            Box::new(m20240510_0_add_information_template_to_collection::Migration),
-            Box::new(m20240510_1_port_owned_information::Migration),
-            Box::new(m20240511_port_reminders_to_information::Migration),
             Box::new(m20240531_create_queued_notification::Migration),
-            Box::new(m20240601_00_change_collection_primary_key::Migration),
-            Box::new(m20240601_01_change_review_primary_key::Migration),
-            Box::new(m20240601_02_change_calendar_event_primary_key::Migration),
-            Box::new(m20240601_03_change_seen_primary_key::Migration),
-            Box::new(m20240601_04_change_import_report_primary_key::Migration),
-            Box::new(m20240601_05_change_genre_primary_key::Migration),
-            Box::new(m20240601_06_change_metadata_group_primary_key::Migration),
-            Box::new(m20240601_07_change_person_primary_key::Migration),
-            Box::new(m20240601_08_change_metadata_primary_key::Migration),
-            Box::new(m20240601_09_complete_cleanup_of_primary_keys::Migration),
-            Box::new(m20240601_10_change_enums_to_snake_case::Migration),
-            Box::new(m20240601_11_workout_table_changes::Migration),
-            Box::new(m20240606_is_last_v5_migration::Migration),
         ]
     }
 }
