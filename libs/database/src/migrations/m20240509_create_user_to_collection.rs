@@ -19,12 +19,12 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(UserToCollection::Table)
-                    .col(ColumnDef::new(UserToCollection::UserId).text())
                     .col(
                         ColumnDef::new(UserToCollection::CollectionId)
                             .text()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(UserToCollection::UserId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_collection-fk1")

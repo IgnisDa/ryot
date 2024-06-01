@@ -31,7 +31,6 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(ImportReport::Source).text().not_null())
-                    .col(ColumnDef::new(ImportReport::UserId).text().not_null())
                     .col(
                         ColumnDef::new(ImportReport::StartedOn)
                             .timestamp_with_time_zone()
@@ -41,6 +40,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ImportReport::FinishedOn).timestamp_with_time_zone())
                     .col(ColumnDef::new(ImportReport::WasSuccess).boolean())
                     .col(ColumnDef::new(ImportReport::Details).json_binary())
+                    .col(ColumnDef::new(ImportReport::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("media_import_report_to_user_foreign_key")

@@ -40,15 +40,6 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Workout::UserId).text().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("workout_to_user_foreign_key")
-                            .from(Workout::Table, Workout::UserId)
-                            .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
                     .col(ColumnDef::new(Workout::Name).text().not_null())
                     .col(ColumnDef::new(Workout::Comment).text())
                     .col(ColumnDef::new(Workout::Summary).json_binary().not_null())
@@ -58,6 +49,15 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Workout::RepeatedFrom).text())
+                    .col(ColumnDef::new(Workout::UserId).text().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("workout_to_user_foreign_key")
+                            .from(Workout::Table, Workout::UserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;

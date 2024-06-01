@@ -39,7 +39,6 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Collection::Name).text().not_null())
-                    .col(ColumnDef::new(Collection::UserId).text().not_null())
                     .col(ColumnDef::new(Collection::Description).text())
                     .col(
                         ColumnDef::new(Collection::LastUpdatedOn)
@@ -47,6 +46,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(Collection::InformationTemplate).json_binary())
+                    .col(ColumnDef::new(Collection::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_user_foreign_key")
@@ -55,7 +56,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Collection::InformationTemplate).json_binary())
                     .to_owned(),
             )
             .await?;
