@@ -75,7 +75,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20231219_create_metadata_relations::Migration),
             Box::new(m20240509_create_user_to_collection::Migration),
             Box::new(m20240531_create_queued_notification::Migration),
-            Box::new(m20240606_is_v6_migration::Migration),
         ]
     }
 }
