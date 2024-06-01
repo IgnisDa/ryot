@@ -7,13 +7,18 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(
-            r#"
-ALTER TABLE "review" RENAME COLUMN "spoiler" TO "is_spoiler";
-ALTER TABLE "import_report" RENAME COLUMN "success" TO "was_success";
-        "#,
-        )
-        .await?;
+        if !manager.has_column("review", "is_spoiler").await? {
+            db.execute_unprepared(
+                r#"ALTER TABLE "review" RENAME COLUMN "spoiler" TO "is_spoiler""#,
+            )
+            .await?;
+        }
+        if !manager.has_column("import_report", "was_success").await? {
+            db.execute_unprepared(
+                r#"ALTER TABLE "import_report" RENAME COLUMN "success" TO "was_success""#,
+            )
+            .await?;
+        }
         Ok(())
     }
 
