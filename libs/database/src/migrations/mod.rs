@@ -1,5 +1,4 @@
 use sea_orm::entity::prelude::*;
-use sea_orm::{DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
 
 mod m20230410_create_metadata;
@@ -34,22 +33,6 @@ pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
 pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
-
-pub async fn get_whether_column_is_text<'a>(
-    table_name: &str,
-    column_name: &str,
-    db: &SchemaManagerConnection<'a>,
-) -> Result<bool, DbErr> {
-    let resp = db.query_one(Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        r#"SELECT data_type = 'text' as is_text FROM information_schema.columns WHERE table_name = $1 AND column_name = $2"#,
-        [table_name.into(), column_name.into()]
-    ))
-    .await?
-    .unwrap();
-    let is_text: bool = resp.try_get("", "is_text")?;
-    Ok(is_text)
-}
 
 pub struct Migrator;
 
