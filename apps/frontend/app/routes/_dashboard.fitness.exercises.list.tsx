@@ -88,7 +88,7 @@ const searchParamsSchema = z.object({
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscle: z.nativeEnum(ExerciseMuscle).optional(),
-	collection: zx.IntAsString.optional(),
+	collection: z.string().optional(),
 	selectionEnabled: zx.BoolAsString.optional(),
 });
 

@@ -427,6 +427,7 @@ export default function Page() {
 											<Accordion.Item
 												value={report.id.toString()}
 												key={report.id}
+												data-import-report-id={report.id}
 											>
 												<Accordion.Control
 													disabled={typeof report.success !== "boolean"}

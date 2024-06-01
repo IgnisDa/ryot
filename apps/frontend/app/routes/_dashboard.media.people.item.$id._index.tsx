@@ -69,7 +69,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const personId = params.id ? Number(params.id) : null;
+	const personId = params.id;
 	invariant(personId, "No ID provided");
 	const [
 		userPreferences,
@@ -133,7 +133,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const personIdSchema = z.object({ personId: zx.IntAsString });
+const personIdSchema = z.object({ personId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -152,7 +152,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="person"
-				objectId={loaderData.personId}
+				objectId={loaderData.personId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.personDetails.details.name}
 			/>

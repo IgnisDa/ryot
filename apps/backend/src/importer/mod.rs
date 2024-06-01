@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::prelude::Storage;
+use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use database::{ImportSource, MediaLot};
@@ -27,7 +27,7 @@ use crate::{
             ImportOrExportMediaItem, ImportOrExportPersonItem, PostReviewInput,
             ProgressUpdateInput,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, IdObject,
+        BackgroundJob, ChangeCollectionToEntityInput, StringIdObject,
     },
     traits::AuthProvider,
     users::{UserPreferences, UserReviewScale},
@@ -195,7 +195,7 @@ impl ImporterMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: DeployImportJobInput,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.deploy_import_job(user_id, input).await
@@ -227,18 +227,16 @@ impl ImporterService {
         &self,
         user_id: i32,
         input: DeployImportJobInput,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-        let task = self
-            .media_service
+        self.media_service
             .perform_application_job
             .clone()
-            .push(job)
+            .enqueue(job)
             .await
             .unwrap();
-        let job_id = task.to_string();
-        tracing::debug!("Deployed import job with id = {id}", id = job_id);
-        Ok(job_id)
+        tracing::debug!("Deployed import job");
+        Ok(true)
     }
 
     pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
@@ -341,7 +339,7 @@ impl ImporterService {
                             force_update: Some(true),
                         })
                         .await;
-                    resp.map(|r| IdObject { id: r.id })
+                    resp.map(|r| StringIdObject { id: r.id })
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service
@@ -372,7 +370,7 @@ impl ImporterService {
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
-                            metadata_id: metadata.id,
+                            metadata_id: metadata.id.clone(),
                             progress,
                             date: seen.ended_on.map(|d| d.date_naive()),
                             show_season_number: seen.show_season_number,
@@ -398,9 +396,13 @@ impl ImporterService {
                 };
             }
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, Some(metadata.id), None, None)
-                {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    Some(metadata.id.clone()),
+                    None,
+                    None,
+                ) {
                     if let Err(e) = self.media_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
@@ -427,7 +429,7 @@ impl ImporterService {
                         ChangeCollectionToEntityInput {
                             creator_user_id: user_id,
                             collection_name: col.to_string(),
-                            metadata_id: Some(metadata.id),
+                            metadata_id: Some(metadata.id.clone()),
                             ..Default::default()
                         },
                     )
@@ -454,7 +456,7 @@ impl ImporterService {
                 .media_service
                 .commit_metadata_group_internal(&item.identifier, item.lot, item.source)
                 .await;
-            let metadata_id = match data {
+            let metadata_group_id = match data {
                 Ok(r) => r.0,
                 Err(e) => {
                     tracing::error!("{e:?}");
@@ -468,9 +470,13 @@ impl ImporterService {
                 }
             };
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, None, None, Some(metadata_id))
-                {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    None,
+                    None,
+                    Some(metadata_group_id.clone()),
+                ) {
                     if let Err(e) = self.media_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
@@ -497,7 +503,7 @@ impl ImporterService {
                         ChangeCollectionToEntityInput {
                             creator_user_id: user_id,
                             collection_name: col.to_string(),
-                            metadata_id: Some(metadata_id),
+                            metadata_group_id: Some(metadata_group_id.clone()),
                             ..Default::default()
                         },
                     )
@@ -524,9 +530,13 @@ impl ImporterService {
                 })
                 .await?;
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, None, Some(person.id), None)
-                {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    None,
+                    Some(person.id.clone()),
+                    None,
+                ) {
                     if let Err(e) = self.media_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: None,
@@ -553,7 +563,7 @@ impl ImporterService {
                         ChangeCollectionToEntityInput {
                             creator_user_id: user_id,
                             collection_name: col.to_string(),
-                            person_id: Some(person.id),
+                            person_id: Some(person.id.clone()),
                             ..Default::default()
                         },
                     )
@@ -647,9 +657,9 @@ impl ImporterService {
 fn convert_review_into_input(
     review: &ImportOrExportItemRating,
     preferences: &UserPreferences,
-    metadata_id: Option<i32>,
-    person_id: Option<i32>,
-    metadata_group_id: Option<i32>,
+    metadata_id: Option<String>,
+    person_id: Option<String>,
+    metadata_group_id: Option<String>,
 ) -> Option<PostReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
         tracing::debug!("Skipping review since it has no content");

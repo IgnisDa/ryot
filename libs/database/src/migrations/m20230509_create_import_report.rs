@@ -26,9 +26,8 @@ impl MigrationTrait for Migration {
                     .table(ImportReport::Table)
                     .col(
                         ColumnDef::new(ImportReport::Id)
-                            .integer()
+                            .text()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(ImportReport::Source).text().not_null())

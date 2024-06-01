@@ -1,19 +1,13 @@
 [package]
 name = "ryot"
-version = "5.4.7"
+version = "5.5.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
-# TODO: Upgrade when https://github.com/geofmureithi/apalis/issues/301 is fixed
-apalis = { version = "0.4.9", features = [
-    "cron",
-    "extensions",
-    "limit",
-    "sqlite",
-] }
+apalis = { version = "0.5.3", features = ["cron", "limit"] }
 argon2 = "0.5.3"
 async-graphql = { workspace = true }
 async-graphql-axum = "7.0.3"
@@ -54,7 +48,7 @@ lettre = { version = "0.11.6", features = [
     "builder",
 ], default-features = false }
 markdown = "1.0.0-alpha.15"
-nanoid = "0.4.0"
+nanoid = { workspace = true }
 openidconnect = "3.5.0"
 paginate = "1.1.11"
 rand = "0.8.5"
@@ -67,19 +61,19 @@ schematic = { workspace = true }
 scraper = "0.19.0"
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
-sea-query = "0.30.7"
+sea-query = "0.31.0-rc.6"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { version = "3.7.0", features = ["chrono_0_4"] }
 serde-xml-rs = "0.6.0"
 slug = "0.1.5"
-sqlx = { version = "0.7.4", default-features = false }
 strum = { workspace = true }
 struson = { version = "0.5.0", features = ["serde"] }
 surf = { version = "2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
 tokio = { version = "1.37.0", features = ["full"] }
+tower = { version = "0.4.13", features = ["buffer"] }
 tower-http = { version = "0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "0.3.18"

@@ -33,23 +33,26 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-pub async fn media_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+pub async fn media_jobs(
+    _information: ScheduledJob,
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     misc_service.perform_media_jobs().await.unwrap();
     Ok(())
 }
 
-pub async fn user_jobs(_information: ScheduledJob, ctx: JobContext) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+pub async fn user_jobs(
+    _information: ScheduledJob,
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     misc_service.perform_user_jobs().await.unwrap();
     Ok(())
 }
 
 pub async fn yank_integrations_data(
     _information: ScheduledJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     tracing::trace!("Getting data from yanked integrations for all users");
     misc_service.yank_integrations_data().await.unwrap();
     Ok(())
@@ -64,15 +67,14 @@ pub enum CoreApplicationJob {
     BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
 }
 
-impl Job for CoreApplicationJob {
+impl Message for CoreApplicationJob {
     const NAME: &'static str = "apalis::CoreApplicationJob";
 }
 
 pub async fn perform_core_application_job(
     information: CoreApplicationJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
+    misc_service: Data<Arc<MiscellaneousService>>,
+) -> Result<(), Error> {
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();
@@ -100,9 +102,9 @@ pub async fn perform_core_application_job(
 pub enum ApplicationJob {
     ImportFromExternalSource(i32, Box<DeployImportJobInput>),
     ReEvaluateUserWorkouts(i32),
-    UpdateMetadata(i32),
+    UpdateMetadata(String),
     UpdateGithubExerciseJob(Exercise),
-    UpdatePerson(i32),
+    UpdatePerson(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ReviewPosted(ReviewPostedEvent),
@@ -111,18 +113,17 @@ pub enum ApplicationJob {
     PerformBackgroundTasks,
 }
 
-impl Job for ApplicationJob {
+impl Message for ApplicationJob {
     const NAME: &'static str = "apalis::ApplicationJob";
 }
 
 pub async fn perform_application_job(
     information: ApplicationJob,
-    ctx: JobContext,
-) -> Result<(), JobError> {
-    let importer_service = ctx.data::<Arc<ImporterService>>().unwrap();
-    let exporter_service = ctx.data::<Arc<ExporterService>>().unwrap();
-    let misc_service = ctx.data::<Arc<MiscellaneousService>>().unwrap();
-    let exercise_service = ctx.data::<Arc<ExerciseService>>().unwrap();
+    misc_service: Data<Arc<MiscellaneousService>>,
+    importer_service: Data<Arc<ImporterService>>,
+    exporter_service: Data<Arc<ExporterService>>,
+    exercise_service: Data<Arc<ExerciseService>>,
+) -> Result<(), Error> {
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();
@@ -140,7 +141,7 @@ pub async fn perform_application_job(
             .await
             .is_ok(),
         ApplicationJob::UpdateMetadata(metadata_id) => misc_service
-            .update_metadata_and_notify_users(metadata_id)
+            .update_metadata_and_notify_users(&metadata_id)
             .await
             .is_ok(),
         ApplicationJob::UpdatePerson(person_id) => misc_service

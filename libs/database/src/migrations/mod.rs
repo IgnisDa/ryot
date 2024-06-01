@@ -1,4 +1,5 @@
 use sea_orm::entity::prelude::*;
+use sea_orm::{DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
 
 mod m20230410_create_metadata;
@@ -32,6 +33,19 @@ mod m20240510_0_add_information_template_to_collection;
 mod m20240510_1_port_owned_information;
 mod m20240511_port_reminders_to_information;
 mod m20240531_create_queued_notification;
+mod m20240601_00_change_collection_primary_key;
+mod m20240601_01_change_review_primary_key;
+mod m20240601_02_change_calendar_event_primary_key;
+mod m20240601_03_change_seen_primary_key;
+mod m20240601_04_change_import_report_primary_key;
+mod m20240601_05_change_genre_primary_key;
+mod m20240601_06_change_metadata_group_primary_key;
+mod m20240601_07_change_person_primary_key;
+mod m20240601_08_change_metadata_primary_key;
+mod m20240601_09_complete_cleanup_of_primary_keys;
+mod m20240601_10_change_enums_to_snake_case;
+mod m20240601_11_workout_table_changes;
+mod m20240606_is_last_v5_migration;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -45,6 +59,22 @@ pub use m20230622_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
 pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
+
+pub async fn get_whether_column_is_text<'a>(
+    table_name: &str,
+    column_name: &str,
+    db: &SchemaManagerConnection<'a>,
+) -> Result<bool, DbErr> {
+    let resp = db.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        r#"SELECT data_type = 'text' as is_text FROM information_schema.columns WHERE table_name = $1 AND column_name = $2"#,
+        [table_name.into(), column_name.into()]
+    ))
+    .await?
+    .unwrap();
+    let is_text: bool = resp.try_get("", "is_text")?;
+    Ok(is_text)
+}
 
 pub struct Migrator;
 
@@ -61,9 +91,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20230504_create_collection::Migration),
             Box::new(m20230505_create_review::Migration),
             Box::new(m20230509_create_import_report::Migration),
-            Box::new(m20230622_create_exercise::Migration),
-            Box::new(m20230804_create_user_measurement::Migration),
             Box::new(m20230819_create_workout::Migration),
+            Box::new(m20230804_create_user_measurement::Migration),
+            Box::new(m20230622_create_exercise::Migration),
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),
@@ -83,6 +113,19 @@ impl MigratorTrait for Migrator {
             Box::new(m20240510_1_port_owned_information::Migration),
             Box::new(m20240511_port_reminders_to_information::Migration),
             Box::new(m20240531_create_queued_notification::Migration),
+            Box::new(m20240601_00_change_collection_primary_key::Migration),
+            Box::new(m20240601_01_change_review_primary_key::Migration),
+            Box::new(m20240601_02_change_calendar_event_primary_key::Migration),
+            Box::new(m20240601_03_change_seen_primary_key::Migration),
+            Box::new(m20240601_04_change_import_report_primary_key::Migration),
+            Box::new(m20240601_05_change_genre_primary_key::Migration),
+            Box::new(m20240601_06_change_metadata_group_primary_key::Migration),
+            Box::new(m20240601_07_change_person_primary_key::Migration),
+            Box::new(m20240601_08_change_metadata_primary_key::Migration),
+            Box::new(m20240601_09_complete_cleanup_of_primary_keys::Migration),
+            Box::new(m20240601_10_change_enums_to_snake_case::Migration),
+            Box::new(m20240601_11_workout_table_changes::Migration),
+            Box::new(m20240606_is_last_v5_migration::Migration),
         ]
     }
 }

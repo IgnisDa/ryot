@@ -213,7 +213,7 @@ const commitPersonSchema = z.object({
 });
 
 const reviewCommentSchema = z.object({
-	reviewId: zx.IntAsString,
+	reviewId: z.string(),
 	commentId: z.string().optional(),
 	text: z.string().optional(),
 	decrementLikes: zx.BoolAsString.optional(),
@@ -235,11 +235,11 @@ const reviewSchema = z
 		text: z.string().optional(),
 		visibility: z.nativeEnum(Visibility).optional(),
 		spoiler: zx.CheckboxAsString.optional(),
-		metadataId: zx.IntAsString.optional(),
-		metadataGroupId: zx.IntAsString.optional(),
-		collectionId: zx.IntAsString.optional(),
-		personId: zx.IntAsString.optional(),
-		reviewId: zx.IntAsString.optional(),
+		metadataId: z.string().optional(),
+		metadataGroupId: z.string().optional(),
+		collectionId: z.string().optional(),
+		personId: z.string().optional(),
+		reviewId: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
@@ -249,17 +249,13 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 		changeCollectionToEntitySchema.passthrough(),
 	);
 	const metadataId =
-		submission.entityLot === EntityLot.Media
-			? Number(submission.entityId)
-			: undefined;
+		submission.entityLot === EntityLot.Media ? submission.entityId : undefined;
 	const metadataGroupId =
 		submission.entityLot === EntityLot.MediaGroup
-			? Number(submission.entityId)
+			? submission.entityId
 			: undefined;
 	const personId =
-		submission.entityLot === EntityLot.Person
-			? Number(submission.entityId)
-			: undefined;
+		submission.entityLot === EntityLot.Person ? submission.entityId : undefined;
 	const exerciseId =
 		submission.entityLot === EntityLot.Exercise
 			? submission.entityId

@@ -154,10 +154,6 @@ podcasts:
 
 # Settings related to scheduler.
 scheduler:
-  # The url to the SQLite database where job related data needs to be stored.
-  # @envvar SCHEDULER_DATABASE_URL
-  database_url: "sqlite::memory:"
-
   # The number of jobs to process every 5 seconds when updating metadata in
   # the background.
   # @envvar SCHEDULER_RATE_LIMIT_NUM

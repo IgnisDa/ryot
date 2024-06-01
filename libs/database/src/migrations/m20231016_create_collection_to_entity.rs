@@ -48,11 +48,16 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(CollectionToEntity::ExerciseId).text())
+                    .col(ColumnDef::new(CollectionToEntity::Information).json_binary())
                     .col(
                         ColumnDef::new(CollectionToEntity::CollectionId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).text())
+                    .col(ColumnDef::new(CollectionToEntity::PersonId).text())
+                    .col(ColumnDef::new(CollectionToEntity::MetadataId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk1")
@@ -61,7 +66,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::MetadataId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk2")
@@ -70,7 +74,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::PersonId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk3")
@@ -79,7 +82,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk4")
@@ -91,7 +93,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::ExerciseId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk5")
@@ -100,7 +101,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(CollectionToEntity::Information).json_binary())
                     .to_owned(),
             )
             .await?;

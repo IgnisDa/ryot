@@ -1,14 +1,12 @@
 use std::{fs::File, sync::Arc};
 
-use apalis::{prelude::Storage, sqlite::SqliteStorage};
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use database::{
     AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
     ExerciseMechanic, ExerciseMuscle, ExerciseSource,
 };
-use futures::TryStreamExt;
 use itertools::Itertools;
-use nanoid::nanoid;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
@@ -55,7 +53,7 @@ struct ExerciseListFilter {
     mechanic: Option<ExerciseMechanic>,
     equipment: Option<ExerciseEquipment>,
     muscle: Option<ExerciseMuscle>,
-    collection: Option<i32>,
+    collection: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -295,7 +293,7 @@ pub struct ExerciseService {
     db: DatabaseConnection,
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
-    perform_application_job: SqliteStorage<ApplicationJob>,
+    perform_application_job: MemoryStorage<ApplicationJob>,
 }
 
 impl AuthProvider for ExerciseService {}
@@ -305,7 +303,7 @@ impl ExerciseService {
         db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &SqliteStorage<ApplicationJob>,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
     ) -> Self {
         Self {
             db: db.clone(),
@@ -585,18 +583,16 @@ impl ExerciseService {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn deploy_update_exercise_library_job(&self) -> Result<i32> {
+    pub async fn deploy_update_exercise_library_job(&self) -> Result<bool> {
         let exercises = self.get_all_exercises_from_dataset().await?;
-        let mut job_ids = vec![];
         for exercise in exercises {
-            let job = self
-                .perform_application_job
+            self.perform_application_job
                 .clone()
-                .push(ApplicationJob::UpdateGithubExerciseJob(exercise))
-                .await?;
-            job_ids.push(job.to_string());
+                .enqueue(ApplicationJob::UpdateGithubExerciseJob(exercise))
+                .await
+                .unwrap();
         }
-        Ok(job_ids.len().try_into().unwrap())
+        Ok(true)
     }
 
     #[tracing::instrument(skip(self, ex))]
@@ -726,8 +722,6 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
-        let id = nanoid!(12);
-        tracing::debug!("Creating new workout with id: {}", id);
         let identifier = input
             .calculate_and_commit(
                 user_id,
@@ -853,57 +847,6 @@ impl ExerciseService {
             let workout_input = self.db_workout_to_workout_input(workout);
             self.create_user_workout(user_id, workout_input).await?;
             tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
-        }
-        let mut all_associations = UserToEntity::find()
-            .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .stream(&self.db)
-            .await?;
-        while let Some(association) = all_associations.try_next().await? {
-            let workout_date = Workout::find_by_id(
-                association
-                    .exercise_extra_information
-                    .clone()
-                    .unwrap_or_default()
-                    .history
-                    .first()
-                    .cloned()
-                    .unwrap_or_default()
-                    .workout_id,
-            )
-            .one(&self.db)
-            .await?
-            .unwrap()
-            .start_time;
-            let mut association: user_to_entity::ActiveModel = association.into();
-            association.last_updated_on = ActiveValue::Set(workout_date);
-            association.update(&self.db).await?;
-        }
-        let mut all_user_to_entity = UserToEntity::find()
-            .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .stream(&self.db)
-            .await?;
-        while let Some(association) = all_user_to_entity.try_next().await? {
-            let first_workout_in_history = association
-                .exercise_extra_information
-                .clone()
-                .unwrap()
-                .history
-                .last()
-                .cloned()
-                .unwrap()
-                .workout_id;
-            let time_performed = Workout::find()
-                .select_only()
-                .column(workout::Column::StartTime)
-                .filter(workout::Column::Id.eq(first_workout_in_history))
-                .into_tuple::<DateTimeUtc>()
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let mut association: user_to_entity::ActiveModel = association.into();
-            association.created_on = ActiveValue::Set(time_performed);
-            association.update(&self.db).await?;
         }
         Ok(())
     }

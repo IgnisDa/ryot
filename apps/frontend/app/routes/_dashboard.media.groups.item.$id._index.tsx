@@ -61,7 +61,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const metadataGroupId = params.id ? Number(params.id) : null;
+	const metadataGroupId = params.id;
 	invariant(metadataGroupId, "No ID provided");
 	const [
 		userPreferences,
@@ -122,7 +122,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="metadataGroup"
-				objectId={loaderData.metadataGroupId}
+				objectId={loaderData.metadataGroupId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
 			/>

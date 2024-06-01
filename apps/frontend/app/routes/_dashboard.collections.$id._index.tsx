@@ -80,7 +80,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const id = params.id ? Number(params.id) : null;
+	const id = params.id;
 	invariant(id, "No ID provided");
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const { collectionContents: info } = await gqlClient.request(

@@ -27,6 +27,7 @@ import {
 	Stack,
 	Tabs,
 	Text,
+	TextInput,
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
@@ -138,9 +139,8 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const id = params.id;
-	invariant(id, "No ID provided");
-	const metadataId = Number.parseInt(id);
+	const metadataId = params.id;
+	invariant(metadataId, "No ID provided");
 	const headers = await getAuthorizationHeader(request);
 	const [
 		userPreferences,
@@ -384,7 +384,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const metadataIdSchema = z.object({ metadataId: zx.IntAsString });
+const metadataIdSchema = z.object({ metadataId: z.string() });
 
 const bulkUpdateSchema = z
 	.object({
@@ -396,11 +396,11 @@ const bulkUpdateSchema = z
 	.merge(MetadataSpecificsSchema)
 	.merge(metadataIdSchema);
 
-const seenIdSchema = z.object({ seenId: zx.IntAsString });
+const seenIdSchema = z.object({ seenId: z.string() });
 
 const mergeMetadataSchema = z.object({
-	mergeFrom: zx.IntAsString,
-	mergeInto: zx.IntAsString,
+	mergeFrom: z.string(),
+	mergeInto: z.string(),
 });
 
 const dateString = z
@@ -408,7 +408,7 @@ const dateString = z
 	.transform((v) => formatDateToNaiveDate(new Date(v)));
 
 const editSeenItem = z.object({
-	seenId: zx.IntAsString,
+	seenId: z.string(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 });
@@ -521,7 +521,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="metadata"
-				objectId={loaderData.metadataId}
+				objectId={loaderData.metadataId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.mediaMainDetails.title}
 				lot={loaderData.mediaMainDetails.lot}
@@ -1785,7 +1785,7 @@ const IndividualProgressModal = (props: {
 	title: string;
 	opened: boolean;
 	onClose: () => void;
-	metadataId: number;
+	metadataId: string;
 	progress: number;
 	inProgress: AllUserHistory[number];
 	total?: number | null;
@@ -1927,7 +1927,7 @@ const MetadataCreator = (props: {
 const AdjustSeenTimesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	seenId: number;
+	seenId: string;
 	startedAt?: string | null;
 	endedAt?: string | null;
 }) => {
@@ -1976,7 +1976,7 @@ const AdjustSeenTimesModal = (props: {
 
 const MergeMetadataModal = (props: {
 	opened: boolean;
-	metadataId: number;
+	metadataId: string;
 	onClose: () => void;
 }) => {
 	return (
@@ -1994,7 +1994,7 @@ const MergeMetadataModal = (props: {
 						This will move all your history, reviews, and collections from the
 						source media to the destination media. This action is irreversible.
 					</Text>
-					<NumberInput label="Destination media ID" name="mergeInto" required />
+					<TextInput label="Destination media ID" name="mergeInto" required />
 					<Button type="submit" onClick={props.onClose}>
 						Submit
 					</Button>

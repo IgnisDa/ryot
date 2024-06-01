@@ -86,10 +86,10 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineCollectionFilter: undefined,
+	minecollection: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
-	mineSortBy: MediaSortBy.LastUpdated,
+	mineSortBy: MediaSortBy.LastSeen,
 };
 
 enum Action {
@@ -153,7 +153,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				generalFilter: z
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
-				collectionFilter: zx.IntAsString.optional(),
+				collection: z.string().optional(),
 			});
 			const { metadataList } = await gqlClient.request(
 				MetadataListDocument,
@@ -164,7 +164,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						filter: {
 							general: urlParse.generalFilter,
-							collection: urlParse.collectionFilter,
+							collection: urlParse.collection,
 						},
 					},
 				},
@@ -239,8 +239,7 @@ export default function Page() {
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collectionFilter !==
-			defaultFilters.mineCollectionFilter;
+		loaderData.mediaList?.url.collection !== defaultFilters.minecollection;
 
 	return (
 		<Container>
@@ -367,7 +366,7 @@ export default function Page() {
 									{loaderData.collections.length > 0 ? (
 										<Select
 											placeholder="Select a collection"
-											defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
+											defaultValue={loaderData.mediaList.url.collection?.toString()}
 											data={[
 												{
 													group: "My collections",
@@ -377,7 +376,7 @@ export default function Page() {
 													})),
 												},
 											]}
-											onChange={(v) => setP("collectionFilter", v)}
+											onChange={(v) => setP("collection", v)}
 											clearable
 										/>
 									) : null}

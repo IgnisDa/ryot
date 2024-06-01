@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc};
 
-use apalis::prelude::Storage;
+use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use nanoid::nanoid;
@@ -81,8 +81,9 @@ impl ExporterService {
         self.media_service
             .perform_application_job
             .clone()
-            .push(ApplicationJob::PerformExport(user_id, to_export))
-            .await?;
+            .enqueue(ApplicationJob::PerformExport(user_id, to_export))
+            .await
+            .unwrap();
         Ok(true)
     }
 

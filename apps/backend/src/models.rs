@@ -10,7 +10,7 @@ use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaLot, MediaSource, SeenState, Visibility,
+    MediaLot, MediaSource, SeenState, UserToMediaReason, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::prelude::FromPrimitive;
@@ -19,8 +19,7 @@ use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
 use sea_orm::{
-    prelude::DateTimeUtc, DeriveActiveEnum, DerivePartialModel, EnumIter, FromJsonQueryResult,
-    FromQueryResult,
+    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -120,10 +119,15 @@ pub struct IdObject {
     pub id: i32,
 }
 
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
+pub struct StringIdObject {
+    pub id: String,
+}
+
 /// Complete export of the user.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-#[schematic(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
     /// Data about user's media.
     pub media: Option<Vec<media::ImportOrExportMediaItem>>,
@@ -141,15 +145,15 @@ pub struct CompleteExport {
 pub struct ChangeCollectionToEntityInput {
     pub creator_user_id: i32,
     pub collection_name: String,
-    pub metadata_id: Option<i32>,
-    pub person_id: Option<i32>,
-    pub metadata_group_id: Option<i32>,
+    pub metadata_id: Option<String>,
+    pub person_id: Option<String>,
+    pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
     pub information: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
-#[schematic(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub struct IdAndNamedObject {
     pub id: i32,
     pub name: String,
@@ -201,7 +205,7 @@ pub mod media {
 
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
     pub struct MediaCreatorSearchItem {
-        pub id: i32,
+        pub id: String,
         pub name: String,
         pub image: Option<String>,
         pub media_count: i64,
@@ -211,7 +215,7 @@ pub mod media {
     pub struct CreateOrUpdateCollectionInput {
         pub name: String,
         pub description: Option<String>,
-        pub update_id: Option<i32>,
+        pub update_id: Option<String>,
         pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 
@@ -224,14 +228,14 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
     pub struct GenreListItem {
-        pub id: i32,
+        pub id: String,
         pub name: String,
         pub num_items: Option<i64>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
     pub struct MetadataGroupListItem {
-        pub id: i32,
+        pub id: String,
         pub title: String,
         pub description: Option<String>,
         pub lot: MediaLot,
@@ -773,22 +777,21 @@ pub mod media {
 
     #[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
     pub struct UserSummaryUniqueItems {
-        pub audio_books: HashSet<i32>,
-        pub anime_episodes: HashSet<(i32, i32)>,
-        pub anime: HashSet<i32>,
-        #[serde(default)] // FIXME: Remove in the next major release
-        pub manga_volumes: HashSet<(i32, i32)>,
-        pub manga_chapters: HashSet<(i32, i32)>,
-        pub manga: HashSet<i32>,
-        pub books: HashSet<i32>,
-        pub movies: HashSet<i32>,
-        pub visual_novels: HashSet<i32>,
-        pub video_games: HashSet<i32>,
-        pub show_episodes: HashSet<(i32, i32, i32)>,
-        pub show_seasons: HashSet<(i32, i32)>,
-        pub shows: HashSet<i32>,
-        pub podcast_episodes: HashSet<(i32, i32)>,
-        pub podcasts: HashSet<i32>,
+        pub audio_books: HashSet<String>,
+        pub anime_episodes: HashSet<(String, i32)>,
+        pub anime: HashSet<String>,
+        pub manga_volumes: HashSet<(String, i32)>,
+        pub manga_chapters: HashSet<(String, i32)>,
+        pub manga: HashSet<String>,
+        pub books: HashSet<String>,
+        pub movies: HashSet<String>,
+        pub visual_novels: HashSet<String>,
+        pub video_games: HashSet<String>,
+        pub show_episodes: HashSet<(String, i32, i32)>,
+        pub show_seasons: HashSet<(String, i32)>,
+        pub shows: HashSet<String>,
+        pub podcast_episodes: HashSet<(String, i32)>,
+        pub podcasts: HashSet<String>,
     }
 
     #[derive(
@@ -818,13 +821,13 @@ pub mod media {
         pub text: Option<String>,
         pub visibility: Option<Visibility>,
         pub spoiler: Option<bool>,
-        pub metadata_id: Option<i32>,
-        pub person_id: Option<i32>,
-        pub metadata_group_id: Option<i32>,
-        pub collection_id: Option<i32>,
+        pub metadata_id: Option<String>,
+        pub person_id: Option<String>,
+        pub metadata_group_id: Option<String>,
+        pub collection_id: Option<String>,
         pub date: Option<DateTimeUtc>,
         /// ID of the review if this is an update to an existing review
-        pub review_id: Option<i32>,
+        pub review_id: Option<String>,
         pub show_season_number: Option<i32>,
         pub show_episode_number: Option<i32>,
         pub podcast_episode_number: Option<i32>,
@@ -835,7 +838,7 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
     pub struct ProgressUpdateInput {
-        pub metadata_id: i32,
+        pub metadata_id: String,
         pub progress: Option<Decimal>,
         pub date: Option<NaiveDate>,
         pub show_season_number: Option<i32>,
@@ -854,37 +857,6 @@ pub mod media {
         NoSeenInProgress,
     }
 
-    #[derive(
-        Copy,
-        Clone,
-        Debug,
-        Enum,
-        PartialEq,
-        Eq,
-        DeriveActiveEnum,
-        EnumIter,
-        Serialize,
-        Deserialize,
-        Hash,
-    )]
-    #[sea_orm(rs_type = "String", db_type = "String(None)")]
-    pub enum UserToMediaReason {
-        #[sea_orm(string_value = "Seen")]
-        Seen,
-        #[sea_orm(string_value = "Reviewed")]
-        Reviewed,
-        #[sea_orm(string_value = "Collection")]
-        Collection,
-        #[sea_orm(string_value = "Reminder")]
-        Reminder,
-        #[sea_orm(string_value = "Owned")]
-        Owned,
-        #[sea_orm(string_value = "Monitoring")]
-        Monitoring,
-        #[sea_orm(string_value = "Watchlist")]
-        Watchlist,
-    }
-
     #[derive(Debug, SimpleObject)]
     pub struct ProgressUpdateError {
         pub error: ProgressUpdateErrorVariant,
@@ -892,7 +864,7 @@ pub mod media {
 
     #[derive(Union)]
     pub enum ProgressUpdateResultUnion {
-        Ok(IdObject),
+        Ok(StringIdObject),
         Error(ProgressUpdateError),
     }
 
@@ -912,7 +884,7 @@ pub mod media {
         Schematic,
     )]
     #[graphql(input_name = "PersonSourceSpecificsInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct PersonSourceSpecifics {
         pub is_tmdb_company: Option<bool>,
         pub is_anilist_studio: Option<bool>,
@@ -1013,7 +985,7 @@ pub mod media {
     /// A specific instance when an entity was seen.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportMediaItemSeen {
         /// The progress of media done. If none, it is considered as done.
         pub progress: Option<Decimal>,
@@ -1040,7 +1012,7 @@ pub mod media {
     /// Review data associated to a rating.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportItemReview {
         /// The visibility set by the user.
         pub visibility: Option<Visibility>,
@@ -1055,7 +1027,7 @@ pub mod media {
     /// A rating given to an entity.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportItemRating {
         /// Data about the review.
         pub review: Option<ImportOrExportItemReview>,
@@ -1078,7 +1050,7 @@ pub mod media {
     /// Details about a specific media item that needs to be imported or exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportMediaItem {
         /// An string to help identify it in the original source.
         pub source_id: String,
@@ -1103,7 +1075,7 @@ pub mod media {
     /// Details about a specific media group item that needs to be imported or exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportMediaGroupItem {
         /// Name of the group.
         pub title: String,
@@ -1122,7 +1094,7 @@ pub mod media {
     /// Details about a specific creator item that needs to be exported.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportPersonItem {
         /// The provider identifier.
         pub identifier: String,
@@ -1240,7 +1212,7 @@ pub mod media {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ImportOrExportItemReviewComment {
         pub id: String,
         pub text: String,
@@ -1300,10 +1272,10 @@ pub mod media {
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     pub struct ReviewPostedEvent {
-        pub obj_id: i32,
+        pub obj_id: String,
         pub obj_title: String,
         pub username: String,
-        pub review_id: i32,
+        pub review_id: String,
         pub entity_lot: EntityLot,
     }
 
@@ -1315,7 +1287,7 @@ pub mod media {
     #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]
     pub struct PartialMetadata {
         #[boilermates(not_in("PartialMetadataWithoutId"))]
-        pub id: i32,
+        pub id: String,
         pub identifier: String,
         pub title: String,
         pub image: Option<String>,
@@ -1460,7 +1432,7 @@ pub mod fitness {
         Default,
     )]
     #[graphql(input_name = "UserMeasurementDataInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct UserMeasurementStats {
         pub weight: Option<Decimal>,
         pub body_mass_index: Option<Decimal>,
@@ -1505,7 +1477,7 @@ pub mod fitness {
         AddAssign,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutOrExerciseTotals {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
@@ -1550,7 +1522,7 @@ pub mod fitness {
         Default,
     )]
     #[graphql(input_name = "SetStatisticInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSetStatistic {
         pub duration: Option<Decimal>,
         pub distance: Option<Decimal>,
@@ -1574,7 +1546,7 @@ pub mod fitness {
         Copy,
         ConfigEnum,
     )]
-    #[config(rename_all = "PascalCase")]
+    #[serde(rename_all = "snake_case")]
     pub enum SetLot {
         Normal,
         WarmUp,
@@ -1596,7 +1568,7 @@ pub mod fitness {
         Default,
         ConfigEnum,
     )]
-    #[config(rename_all = "PascalCase")]
+    #[serde(rename_all = "snake_case")]
     pub enum WorkoutSetPersonalBest {
         #[default]
         Weight,
@@ -1620,7 +1592,7 @@ pub mod fitness {
         Schematic,
         Default,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSetTotals {
         pub weight: Option<Decimal>,
     }
@@ -1637,7 +1609,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSetRecord {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
@@ -1742,7 +1714,7 @@ pub mod fitness {
         Schematic,
     )]
     #[graphql(input_name = "EntityAssetsInput")]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct EntityAssets {
         /// The keys of the S3 images.
         pub images: Vec<String>,
@@ -1762,7 +1734,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct ProcessedExercise {
         pub name: String,
         pub lot: ExerciseLot,
@@ -1806,7 +1778,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutInformation {
         pub exercises: Vec<ProcessedExercise>,
         pub assets: EntityAssets,
@@ -1824,7 +1796,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
         #[serde(alias = "name")]
@@ -1844,7 +1816,7 @@ pub mod fitness {
         SimpleObject,
         Schematic,
     )]
-    #[schematic(rename_all = "snake_case")]
+    #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummary {
         pub total: WorkoutOrExerciseTotals,
         pub exercises: Vec<WorkoutSummaryExercise>,

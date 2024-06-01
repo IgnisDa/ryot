@@ -43,13 +43,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Review::Table)
-                    .col(
-                        ColumnDef::new(Review::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Review::Id).text().not_null().primary_key())
                     .col(
                         ColumnDef::new(Review::PostedOn)
                             .timestamp_with_time_zone()
@@ -71,15 +65,15 @@ impl MigrationTrait for Migration {
                             .default(Visibility::Private),
                     )
                     .col(ColumnDef::new(Review::UserId).integer().not_null())
-                    .col(ColumnDef::new(Review::MetadataId).integer())
-                    .col(ColumnDef::new(Review::PersonId).integer())
-                    .col(ColumnDef::new(Review::MetadataGroupId).integer())
-                    .col(ColumnDef::new(Review::CollectionId).integer())
                     .col(ColumnDef::new(Review::Comments).json_binary().not_null())
                     .col(ColumnDef::new(Review::ShowExtraInformation).json_binary())
                     .col(ColumnDef::new(Review::PodcastExtraInformation).json_binary())
                     .col(ColumnDef::new(Review::AnimeExtraInformation).json_binary())
                     .col(ColumnDef::new(Review::MangaExtraInformation).json_binary())
+                    .col(ColumnDef::new(Review::CollectionId).text())
+                    .col(ColumnDef::new(Review::MetadataGroupId).text())
+                    .col(ColumnDef::new(Review::PersonId).text())
+                    .col(ColumnDef::new(Review::MetadataId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_user_foreign_key")

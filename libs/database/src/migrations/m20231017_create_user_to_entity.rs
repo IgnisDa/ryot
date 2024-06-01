@@ -15,6 +15,7 @@ pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
 pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
 pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
+    ALTER TABLE "user_to_entity" DROP CONSTRAINT IF EXISTS "user_to_entity__ensure_one_entity";
     ALTER TABLE "user_to_entity"
     ADD CONSTRAINT "user_to_entity__ensure_one_entity"
     CHECK (
@@ -77,7 +78,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
                     .col(ColumnDef::new(UserToEntity::MediaReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
-                    .col(ColumnDef::new(UserToEntity::MetadataId).integer())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
@@ -88,8 +88,10 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(UserToEntity::PersonId).integer())
                     .col(ColumnDef::new(UserToEntity::NeedsToBeUpdated).boolean())
+                    .col(ColumnDef::new(UserToEntity::MetadataGroupId).text())
+                    .col(ColumnDef::new(UserToEntity::PersonId).text())
+                    .col(ColumnDef::new(UserToEntity::MetadataId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")
@@ -122,7 +124,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserToEntity::MetadataGroupId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_GROUP_FK_NAME)

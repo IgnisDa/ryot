@@ -9,10 +9,10 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub last_updated_on: DateTimeUtc,
-    pub collection_id: i32,
-    pub metadata_id: Option<i32>,
-    pub person_id: Option<i32>,
-    pub metadata_group_id: Option<i32>,
+    pub collection_id: String,
+    pub metadata_id: Option<String>,
+    pub person_id: Option<String>,
+    pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
     pub information: Option<serde_json::Value>,
 }

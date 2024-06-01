@@ -28,9 +28,8 @@ impl MigrationTrait for Migration {
                     .table(Collection::Table)
                     .col(
                         ColumnDef::new(Collection::Id)
-                            .integer()
+                            .text()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(

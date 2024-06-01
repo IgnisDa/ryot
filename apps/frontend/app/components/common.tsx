@@ -187,9 +187,7 @@ export const AddEntityToCollectionModal = (props: {
 						value={selectedCollection?.id.toString()}
 						onChange={(v) => {
 							if (v) {
-								const collection = props.collections.find(
-									(c) => c.id === Number(v),
-								);
+								const collection = props.collections.find((c) => c.id === v);
 								if (collection) setSelectedCollection(collection);
 							}
 						}}

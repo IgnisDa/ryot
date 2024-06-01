@@ -1,4 +1,4 @@
-query UserMetadataGroupDetails($metadataGroupId: Int!) {
+query UserMetadataGroupDetails($metadataGroupId: String!) {
   userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
     reviews {
       ...ReviewItemPart
