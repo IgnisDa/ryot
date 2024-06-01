@@ -11,9 +11,9 @@ mod m20230502_create_genre;
 mod m20230504_create_collection;
 mod m20230505_create_review;
 mod m20230509_create_import_report;
-mod m20230622_create_exercise;
-mod m20230804_create_user_measurement;
 mod m20230819_create_workout;
+mod m20230820_create_user_measurement;
+mod m20230822_create_exercise;
 mod m20230912_create_calendar_event;
 mod m20231016_create_collection_to_entity;
 mod m20231017_create_user_to_entity;
@@ -30,7 +30,7 @@ pub use m20230502_create_genre::{
     Genre as AliasedGenre, MetadataToGenre as AliasedMetadataToGenre,
 };
 pub use m20230505_create_review::Review as AliasedReview;
-pub use m20230622_create_exercise::Exercise as AliasedExercise;
+pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
 pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
@@ -67,8 +67,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20230505_create_review::Migration),
             Box::new(m20230509_create_import_report::Migration),
             Box::new(m20230819_create_workout::Migration),
-            Box::new(m20230804_create_user_measurement::Migration),
-            Box::new(m20230622_create_exercise::Migration),
+            Box::new(m20230820_create_user_measurement::Migration),
+            Box::new(m20230822_create_exercise::Migration),
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),
             Box::new(m20231017_create_user_to_entity::Migration),

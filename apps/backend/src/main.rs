@@ -394,15 +394,15 @@ BEGIN
                 ('m20230504_create_collection', 1684693316),
                 ('m20230505_create_review', 1684693316),
                 ('m20230509_create_import_report', 1684693316),
-                ('m20230622_create_exercise', 1684693316),
-                ('m20230804_create_user_measurement', 1684693316),
                 ('m20230819_create_workout', 1684693316),
+                ('m20230820_create_user_measurement', 1684693316),
+                ('m20230822_create_exercise', 1684693316),
                 ('m20230912_create_calendar_event', 1684693316),
                 ('m20231016_create_collection_to_entity', 1684693316),
                 ('m20231017_create_user_to_entity', 1684693316),
                 ('m20231219_create_metadata_relations', 1684693316),
-                ('m20240509_create_user_to_collection', 1684693316),
-                ('m20240531_create_queued_notification', 1684693316);
+                ('m20240509_create_user_to_collection', 1717207621),
+                ('m20240531_create_queued_notification', 1717207621);
         END IF;
     END IF;
 END $$;
