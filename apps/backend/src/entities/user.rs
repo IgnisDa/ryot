@@ -32,7 +32,7 @@ pub struct UserWithOnlyPreferences {
 )]
 #[sea_orm(entity = "Entity")]
 pub struct UserWithOnlyIntegrationsAndNotifications {
-    pub id: i32,
+    pub id: String,
     pub yank_integrations: Option<Vec<UserYankIntegration>>,
     pub sink_integrations: Vec<UserSinkIntegration>,
     pub notifications: Vec<UserNotification>,
@@ -51,7 +51,7 @@ pub struct UserWithOnlySummary {
 #[sea_orm(table_name = "user")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: String,
     pub name: String,
     #[graphql(skip)]
     pub password: Option<String>,

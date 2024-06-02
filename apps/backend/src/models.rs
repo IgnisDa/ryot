@@ -143,7 +143,7 @@ pub struct CompleteExport {
 
 #[derive(Debug, InputObject, Default)]
 pub struct ChangeCollectionToEntityInput {
-    pub creator_user_id: i32,
+    pub creator_user_id: String,
     pub collection_name: String,
     pub metadata_id: Option<String>,
     pub person_id: Option<String>,
@@ -155,7 +155,7 @@ pub struct ChangeCollectionToEntityInput {
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct IdAndNamedObject {
-    pub id: i32,
+    pub id: String,
     pub name: String,
 }
 
@@ -1218,7 +1218,7 @@ pub mod media {
         pub text: String,
         pub user: IdAndNamedObject,
         /// The user ids of all those who liked it.
-        pub liked_by: HashSet<i32>,
+        pub liked_by: HashSet<String>,
         pub created_on: DateTimeUtc,
     }
 

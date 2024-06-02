@@ -225,7 +225,7 @@ impl ImporterService {
 
     pub async fn deploy_import_job(
         &self,
-        user_id: i32,
+        user_id: String,
         input: DeployImportJobInput,
     ) -> Result<bool> {
         let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
@@ -239,7 +239,7 @@ impl ImporterService {
         Ok(true)
     }
 
-    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
+    pub async fn import_reports(&self, user_id: String) -> Result<Vec<import_report::Model>> {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)
@@ -252,12 +252,12 @@ impl ImporterService {
     #[tracing::instrument(skip(self, input))]
     pub async fn start_importing(
         &self,
-        user_id: i32,
+        user_id: String,
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
-        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let db_import_job = self.start_import_job(&user_id, input.source).await?;
         let preferences =
-            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
+            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, &user_id)
                 .await?
                 .preferences;
         let mut import = match input.source {
@@ -318,7 +318,7 @@ impl ImporterService {
         }
         for col_details in import.collections.clone() {
             self.media_service
-                .create_or_update_collection(user_id, col_details)
+                .create_or_update_collection(&user_id, col_details)
                 .await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
@@ -382,7 +382,7 @@ impl ImporterService {
                             provider_watched_on: seen.provider_watched_on.clone(),
                             change_state: None,
                         },
-                        user_id,
+                        &user_id,
                         false,
                     )
                     .await
@@ -403,7 +403,7 @@ impl ImporterService {
                     None,
                     None,
                 ) {
-                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -416,7 +416,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 self.media_service
                     .create_or_update_collection(
-                        user_id,
+                        &user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
@@ -425,9 +425,9 @@ impl ImporterService {
                     .await?;
                 self.media_service
                     .add_entity_to_collection(
-                        user_id,
+                        &user_id,
                         ChangeCollectionToEntityInput {
-                            creator_user_id: user_id,
+                            creator_user_id: user_id.clone(),
                             collection_name: col.to_string(),
                             metadata_id: Some(metadata.id.clone()),
                             ..Default::default()
@@ -477,7 +477,7 @@ impl ImporterService {
                     None,
                     Some(metadata_group_id.clone()),
                 ) {
-                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -490,7 +490,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 self.media_service
                     .create_or_update_collection(
-                        user_id,
+                        &user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
@@ -499,9 +499,9 @@ impl ImporterService {
                     .await?;
                 self.media_service
                     .add_entity_to_collection(
-                        user_id,
+                        &user_id,
                         ChangeCollectionToEntityInput {
-                            creator_user_id: user_id,
+                            creator_user_id: user_id.clone(),
                             collection_name: col.to_string(),
                             metadata_group_id: Some(metadata_group_id.clone()),
                             ..Default::default()
@@ -537,7 +537,7 @@ impl ImporterService {
                     Some(person.id.clone()),
                     None,
                 ) {
-                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: None,
                             step: ImportFailStep::ReviewConversion,
@@ -550,7 +550,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 self.media_service
                     .create_or_update_collection(
-                        user_id,
+                        &user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
@@ -559,9 +559,9 @@ impl ImporterService {
                     .await?;
                 self.media_service
                     .add_entity_to_collection(
-                        user_id,
+                        &user_id,
                         ChangeCollectionToEntityInput {
-                            creator_user_id: user_id,
+                            creator_user_id: user_id.clone(),
                             collection_name: col.to_string(),
                             person_id: Some(person.id.clone()),
                             ..Default::default()
@@ -580,7 +580,7 @@ impl ImporterService {
         for workout in import.workouts.clone() {
             if let Err(err) = self
                 .exercise_service
-                .create_user_workout(user_id, workout)
+                .create_user_workout(&user_id, workout)
                 .await
             {
                 import.failed_items.push(ImportFailedItem {
@@ -594,7 +594,7 @@ impl ImporterService {
         for measurement in import.measurements.clone() {
             if let Err(err) = self
                 .exercise_service
-                .create_user_measurement(user_id, measurement)
+                .create_user_measurement(&user_id, measurement)
                 .await
             {
                 import.failed_items.push(ImportFailedItem {
@@ -619,7 +619,7 @@ impl ImporterService {
         };
         self.finish_import_job(db_import_job, details).await?;
         self.media_service
-            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
+            .deploy_background_job(&user_id, BackgroundJob::CalculateSummary)
             .await
             .ok();
         Ok(())
@@ -627,11 +627,11 @@ impl ImporterService {
 
     async fn start_import_job(
         &self,
-        user_id: i32,
+        user_id: &String,
         source: ImportSource,
     ) -> Result<import_report::Model> {
         let model = import_report::ActiveModel {
-            user_id: ActiveValue::Set(user_id),
+            user_id: ActiveValue::Set(user_id.to_owned()),
             source: ActiveValue::Set(source),
             ..Default::default()
         };

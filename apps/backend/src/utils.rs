@@ -160,7 +160,7 @@ pub async fn create_app_services(
 }
 
 pub async fn get_user_to_entity_association<C>(
-    user_id: &i32,
+    user_id: &String,
     metadata_id: Option<String>,
     person_id: Option<String>,
     exercise_id: Option<String>,
@@ -187,7 +187,7 @@ where
 }
 
 pub async fn associate_user_with_entity<C>(
-    user_id: &i32,
+    user_id: &String,
     metadata_id: Option<String>,
     person_id: Option<String>,
     exercise_id: Option<String>,
@@ -216,7 +216,7 @@ where
     Ok(match user_to_meta {
         None => {
             let user_to_meta = user_to_entity::ActiveModel {
-                user_id: ActiveValue::Set(*user_id),
+                user_id: ActiveValue::Set(user_id.to_owned()),
                 metadata_id: ActiveValue::Set(metadata_id),
                 person_id: ActiveValue::Set(person_id),
                 exercise_id: ActiveValue::Set(exercise_id),
@@ -236,9 +236,9 @@ where
     })
 }
 
-pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<i32> {
+pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
     jwt::verify(token, jwt_secret)
-        .map(|c| c.sub.parse().unwrap())
+        .map(|c| c.sub)
         .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
 }
 
@@ -272,7 +272,7 @@ type CteCol = collection_to_entity::Column;
 
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
-    user_id: i32,
+    user_id: &String,
     metadata_id: Option<String>,
     person_id: Option<String>,
     metadata_group_id: Option<String>,
@@ -305,7 +305,7 @@ pub async fn entity_in_collections(
 
 pub async fn add_entity_to_collection(
     db: &DatabaseConnection,
-    user_id: i32,
+    user_id: &String,
     input: ChangeCollectionToEntityInput,
 ) -> Result<bool> {
     let collection = Collection::find()
@@ -368,7 +368,7 @@ pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
     Utc::now().with_timezone(timezone).date_naive()
 }
 
-pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::Model> {
+pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<user::Model> {
     User::find_by_id(user_id)
         .one(db)
         .await
@@ -377,7 +377,7 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: i32) -> Result<user::M
 }
 
 // DEV: Use this wherever possible since this results in less memory consumption.
-pub async fn partial_user_by_id<T>(db: &DatabaseConnection, user_id: i32) -> Result<T>
+pub async fn partial_user_by_id<T>(db: &DatabaseConnection, user_id: &String) -> Result<T>
 where
     T: PartialModelTrait,
 {
@@ -392,7 +392,7 @@ where
 #[derive(Debug, Default)]
 pub struct AuthContext {
     pub auth_token: Option<String>,
-    pub user_id: Option<i32>,
+    pub user_id: Option<String>,
 }
 
 #[async_trait]

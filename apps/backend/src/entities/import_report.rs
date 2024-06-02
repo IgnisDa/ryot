@@ -15,7 +15,7 @@ use crate::importer::ImportResultResponse;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    pub user_id: i32,
+    pub user_id: String,
     pub source: ImportSource,
     pub started_on: DateTimeUtc,
     pub finished_on: Option<DateTimeUtc>,

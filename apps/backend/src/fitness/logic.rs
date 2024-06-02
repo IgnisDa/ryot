@@ -90,7 +90,7 @@ impl UserWorkoutInput {
     /// Create a workout in the database and also update user and exercise associations.
     pub async fn calculate_and_commit(
         self,
-        user_id: i32,
+        user_id: &String,
         db: &DatabaseConnection,
         save_history: usize,
     ) -> Result<String> {
@@ -137,7 +137,7 @@ impl UserWorkoutInput {
             let association = match association {
                 None => {
                     let user_to_ex = user_to_entity::ActiveModel {
-                        user_id: ActiveValue::Set(user_id),
+                        user_id: ActiveValue::Set(user_id.clone()),
                         exercise_id: ActiveValue::Set(Some(ex.exercise_id.clone())),
                         exercise_extra_information: ActiveValue::Set(Some(
                             UserToExerciseExtraInformation {
@@ -292,7 +292,7 @@ impl UserWorkoutInput {
             end_time: input.end_time,
             start_time: input.start_time,
             repeated_from: input.repeated_from,
-            user_id,
+            user_id: user_id.clone(),
             name: input.name,
             comment: input.comment,
             summary: WorkoutSummary {
@@ -321,10 +321,10 @@ impl UserWorkoutInput {
 impl workout::Model {
     // DEV: For exercises, reduce count, remove from history if present. We will not
     // recalculate exercise associations totals or change personal bests.
-    pub async fn delete_existing(self, db: &DatabaseConnection, user_id: i32) -> Result<()> {
+    pub async fn delete_existing(self, db: &DatabaseConnection, user_id: String) -> Result<()> {
         for (idx, ex) in self.information.exercises.iter().enumerate() {
             let association = match UserToEntity::find()
-                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
                 .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
                 .one(db)
                 .await?

@@ -184,7 +184,7 @@ impl ExerciseQuery {
     ) -> Result<workout::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.workout_details(user_id, workout_id).await
+        service.workout_details(&user_id, workout_id).await
     }
 
     /// Get information about an exercise for a user.
@@ -206,7 +206,7 @@ impl ExerciseQuery {
     ) -> Result<Vec<user_measurement::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_measurements_list(user_id, input).await
+        service.user_measurements_list(&user_id, input).await
     }
 }
 
@@ -223,7 +223,7 @@ impl ExerciseMutation {
     ) -> Result<DateTimeUtc> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_measurement(user_id, input).await
+        service.create_user_measurement(&user_id, input).await
     }
 
     /// Delete a user measurement.
@@ -245,7 +245,7 @@ impl ExerciseMutation {
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_workout(user_id, input).await
+        service.create_user_workout(&user_id, input).await
     }
 
     /// Change the details about a user's workout.
@@ -363,7 +363,11 @@ impl ExerciseService {
         }
     }
 
-    async fn workout_details(&self, user_id: i32, workout_id: String) -> Result<workout::Model> {
+    async fn workout_details(
+        &self,
+        user_id: &String,
+        workout_id: String,
+    ) -> Result<workout::Model> {
         let maybe_workout = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(user_id))
             .one(&self.db)
@@ -378,12 +382,12 @@ impl ExerciseService {
 
     async fn user_exercise_details(
         &self,
-        user_id: i32,
+        user_id: String,
         input: UserExerciseDetailsInput,
     ) -> Result<UserExerciseDetails> {
         let collections = entity_in_collections(
             &self.db,
-            user_id,
+            &user_id,
             None,
             None,
             None,
@@ -443,7 +447,7 @@ impl ExerciseService {
 
     async fn user_workout_list(
         &self,
-        user_id: i32,
+        user_id: String,
         input: SearchInput,
     ) -> Result<SearchResults<WorkoutListItem>> {
         let page = input.page.unwrap_or(1);
@@ -472,7 +476,7 @@ impl ExerciseService {
 
     async fn exercises_list(
         &self,
-        user_id: i32,
+        user_id: String,
         input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
         let ex = Alias::new("exercise");
@@ -552,7 +556,7 @@ impl ExerciseService {
                     .rev()
                     .on_condition(move |_left, right| {
                         Condition::all()
-                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(user_id))
+                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(&user_id))
                     }),
             )
             .order_by_desc(order_by_col)
@@ -655,7 +659,7 @@ impl ExerciseService {
 
     pub async fn export_measurements(
         &self,
-        user_id: i32,
+        user_id: &String,
         writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
         let measurements = self
@@ -675,7 +679,7 @@ impl ExerciseService {
 
     async fn user_measurements_list(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: UserMeasurementsListInput,
     ) -> Result<Vec<user_measurement::Model>> {
         let resp = UserMeasurement::find()
@@ -694,16 +698,20 @@ impl ExerciseService {
 
     pub async fn create_user_measurement(
         &self,
-        user_id: i32,
+        user_id: &String,
         mut input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        input.user_id = user_id;
+        input.user_id = user_id.to_owned();
         let um: user_measurement::ActiveModel = input.into();
         let um = um.insert(&self.db).await?;
         Ok(um.timestamp)
     }
 
-    async fn delete_user_measurement(&self, user_id: i32, timestamp: DateTimeUtc) -> Result<bool> {
+    async fn delete_user_measurement(
+        &self,
+        user_id: String,
+        timestamp: DateTimeUtc,
+    ) -> Result<bool> {
         if let Some(m) = UserMeasurement::find_by_id((timestamp, user_id))
             .one(&self.db)
             .await?
@@ -718,10 +726,10 @@ impl ExerciseService {
     #[tracing::instrument(skip(self, input))]
     pub async fn create_user_workout(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
+        let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, &user_id).await?;
         let identifier = input
             .calculate_and_commit(
                 user_id,
@@ -732,7 +740,11 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    async fn edit_user_workout(&self, user_id: i32, input: EditUserWorkoutInput) -> Result<bool> {
+    async fn edit_user_workout(
+        &self,
+        user_id: String,
+        input: EditUserWorkoutInput,
+    ) -> Result<bool> {
         if let Some(wkt) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
             .filter(workout::Column::Id.eq(input.id))
@@ -757,10 +769,14 @@ impl ExerciseService {
         }
     }
 
-    async fn create_custom_exercise(&self, user_id: i32, input: exercise::Model) -> Result<String> {
+    async fn create_custom_exercise(
+        &self,
+        user_id: String,
+        input: exercise::Model,
+    ) -> Result<String> {
         let exercise_id = input.id.clone();
         let mut input = input;
-        input.created_by_user_id = Some(user_id);
+        input.created_by_user_id = Some(user_id.clone());
         input.source = ExerciseSource::Custom;
         input.attributes.internal_images = input
             .attributes
@@ -784,7 +800,7 @@ impl ExerciseService {
         };
         add_entity_to_collection(
             &self.db,
-            user_id,
+            &user_id.clone(),
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id,
                 collection_name: DefaultCollection::Custom.to_string(),
@@ -798,7 +814,7 @@ impl ExerciseService {
 
     pub async fn export_workouts(
         &self,
-        user_id: i32,
+        user_id: &String,
         writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
         let workout_ids = Workout::find()
@@ -816,9 +832,9 @@ impl ExerciseService {
         Ok(true)
     }
 
-    pub async fn delete_user_workout(&self, user_id: i32, workout_id: String) -> Result<bool> {
+    pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
         if let Some(wkt) = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::UserId.eq(&user_id))
             .filter(workout::Column::Id.eq(workout_id))
             .one(&self.db)
             .await?
@@ -830,14 +846,14 @@ impl ExerciseService {
         }
     }
 
-    pub async fn re_evaluate_user_workouts(&self, user_id: i32) -> Result<()> {
+    pub async fn re_evaluate_user_workouts(&self, user_id: String) -> Result<()> {
         UserToEntity::delete_many()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
             .exec(&self.db)
             .await?;
         let workouts = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::UserId.eq(&user_id))
             .order_by_asc(workout::Column::EndTime)
             .all(&self.db)
             .await?;
@@ -845,7 +861,7 @@ impl ExerciseService {
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
             let workout_input = self.db_workout_to_workout_input(workout);
-            self.create_user_workout(user_id, workout_input).await?;
+            self.create_user_workout(&user_id, workout_input).await?;
             tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
         }
         Ok(())
@@ -886,11 +902,11 @@ impl ExerciseService {
 
     async fn edit_custom_exercise(
         &self,
-        user_id: i32,
+        user_id: String,
         input: EditCustomExerciseInput,
     ) -> Result<bool> {
         let entities = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(input.old_name.clone()))
             .all(&self.db)
             .await?;

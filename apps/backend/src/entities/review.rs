@@ -25,7 +25,7 @@ pub struct Model {
     pub text: Option<String>,
     pub visibility: Visibility,
     pub is_spoiler: bool,
-    pub user_id: i32,
+    pub user_id: String,
     pub metadata_id: Option<String>,
     pub person_id: Option<String>,
     pub metadata_group_id: Option<String>,

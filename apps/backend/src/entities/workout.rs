@@ -30,7 +30,7 @@ pub struct Model {
     pub end_time: DateTimeUtc,
     #[graphql(skip)]
     #[serde(skip)]
-    pub user_id: i32,
+    pub user_id: String,
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,
     pub name: String,

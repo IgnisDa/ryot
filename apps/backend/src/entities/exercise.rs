@@ -46,7 +46,7 @@ pub struct Model {
     pub muscles: Vec<ExerciseMuscle>,
     pub attributes: ExerciseAttributes,
     #[graphql(skip_input)]
-    pub created_by_user_id: Option<i32>,
+    pub created_by_user_id: Option<String>,
 }
 
 #[async_trait]

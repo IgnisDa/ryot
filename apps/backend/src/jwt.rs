@@ -23,10 +23,10 @@ impl Claims {
     }
 }
 
-pub fn sign(id: i32, jwt_secret: &str, token_valid_for_days: i64) -> Result<String> {
+pub fn sign(id: String, jwt_secret: &str, token_valid_for_days: i64) -> Result<String> {
     let tokens = encode(
         &Header::default(),
-        &Claims::new(id.to_string(), token_valid_for_days),
+        &Claims::new(id, token_valid_for_days),
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )?;
     Ok(tokens)

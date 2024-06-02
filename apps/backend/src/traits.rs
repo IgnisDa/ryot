@@ -106,7 +106,7 @@ pub trait AuthProvider {
             .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
     }
 
-    async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<i32> {
+    async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let ctx = ctx.data_unchecked::<AuthContext>();
         if let Some(id) = ctx.user_id {
             Ok(id)
