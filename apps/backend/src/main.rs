@@ -378,7 +378,7 @@ BEGIN
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20240606_is_last_v5_migration'
+                WHERE version = 'm20240607_is_really_last_v5_migration'
             ) THEN
                 RAISE EXCEPTION 'Final migration for v5 does not exist, upgrade aborted.';
             END IF;
