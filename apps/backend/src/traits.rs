@@ -108,7 +108,7 @@ pub trait AuthProvider {
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let ctx = ctx.data_unchecked::<AuthContext>();
-        if let Some(id) = ctx.user_id {
+        if let Some(id) = ctx.user_id.to_owned() {
             Ok(id)
         } else {
             Err(Error::new("User was not logged in"))
