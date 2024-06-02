@@ -3382,7 +3382,7 @@ impl MiscellaneousService {
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
             .filter(metadata::Column::Identifier.is_in(&all_identifiers))
-            .into_tuple::<(String, i32, bool)>()
+            .into_tuple::<(String, String, bool)>()
             .all(&self.db)
             .await?
             .into_iter()
@@ -3394,7 +3394,7 @@ impl MiscellaneousService {
             .map(|i| {
                 let interaction = interactions.get(&i.identifier).cloned();
                 MetadataSearchItemResponse {
-                    has_interacted: interaction.unwrap_or_default().1,
+                    has_interacted: interaction.clone().unwrap_or_default().1,
                     database_id: interaction.map(|i| i.0),
                     item: i,
                 }
