@@ -1,9 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue, DatabaseBackend, FromJsonQueryResult, Statement};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 async fn get_whether_column_is_text<'a>(
     table_name: &str,
@@ -41,7 +42,7 @@ mod user {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-mod old_review {
+mod review {
     use super::*;
 
     #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
@@ -60,7 +61,7 @@ mod old_review {
 
     #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq)]
     pub struct IdAndNamedObject {
-        pub id: i32,
+        pub id: Value,
         pub name: String,
     }
 
@@ -69,40 +70,7 @@ mod old_review {
         pub id: String,
         pub text: String,
         pub user: IdAndNamedObject,
-        pub liked_by: HashSet<i32>,
-        pub created_on: DateTimeUtc,
-    }
-}
-
-mod new_review {
-    use super::*;
-
-    #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-    #[sea_orm(table_name = "review")]
-    pub struct Model {
-        #[sea_orm(primary_key, auto_increment = false)]
-        pub id: String,
-        #[sea_orm(column_type = "Json")]
-        pub comments: Vec<ImportOrExportItemReviewComment>,
-    }
-
-    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-    pub enum Relation {}
-
-    impl ActiveModelBehavior for ActiveModel {}
-
-    #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq)]
-    pub struct IdAndNamedObject {
-        pub id: String,
-        pub name: String,
-    }
-
-    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
-    pub struct ImportOrExportItemReviewComment {
-        pub id: String,
-        pub text: String,
-        pub user: IdAndNamedObject,
-        pub liked_by: HashSet<String>,
+        pub liked_by: Vec<Value>,
         pub created_on: DateTimeUtc,
     }
 }
@@ -224,6 +192,16 @@ CREATE UNIQUE INDEX "user_to_entity-uqi4" ON user_to_entity USING btree (user_id
         )
         .await?;
 
+        let mut all_user_ids = HashMap::new();
+        for user in user::Entity::find().all(db).await? {
+            let new_id = format!("usr_{}", nanoid!(12));
+            let correct_id = user.id.clone().replace("usr_", "").parse::<i64>().unwrap();
+            all_user_ids.insert(correct_id, new_id.clone());
+            let mut user: user::ActiveModel = user.into();
+            user.temp_id = ActiveValue::Set(new_id);
+            user.update(db).await?;
+        }
+
         let mut all_reviews = vec![];
         let response = db
             .query_all(Statement::from_sql_and_values(
@@ -232,55 +210,35 @@ CREATE UNIQUE INDEX "user_to_entity-uqi4" ON user_to_entity USING btree (user_id
                 [],
             ))
             .await?;
-
         for item in response {
             let id: String = item.try_get("", "id")?;
-            let comments: Vec<old_review::ImportOrExportItemReviewComment> =
+            let comments: Vec<review::ImportOrExportItemReviewComment> =
                 item.try_get("", "comments")?;
-            all_reviews.push(old_review::Model { id, comments });
+            all_reviews.push(review::Model { id, comments });
         }
-
-        let mut all_user_ids = HashMap::new();
-        for user in user::Entity::find().all(db).await? {
-            let new_id = format!("usr_{}", nanoid!(12));
-            let correct_id = user.id.clone().replace("usr_", "").parse::<i32>().unwrap();
-            all_user_ids.insert(correct_id, new_id.clone());
-            let mut user: user::ActiveModel = user.into();
-            user.temp_id = ActiveValue::Set(new_id);
-            user.update(db).await?;
-        }
-
-        let mut update_reviews = vec![];
-        for review in all_reviews.iter_mut() {
-            let mut nw_review = new_review::Model {
-                id: review.id.clone(),
-                comments: vec![],
-            };
+        for review in all_reviews.into_iter() {
+            let mut review = review.clone();
             for comment in review.comments.iter_mut() {
-                let comment = new_review::ImportOrExportItemReviewComment {
-                    id: comment.id.clone(),
-                    text: comment.text.clone(),
-                    user: new_review::IdAndNamedObject {
-                        id: all_user_ids.get(&comment.user.id).unwrap().clone(),
-                        name: comment.user.name.clone(),
-                    },
-                    liked_by: comment
-                        .liked_by
-                        .iter()
-                        .map(|x| all_user_ids.get(x).unwrap().clone())
-                        .collect(),
-                    created_on: comment.created_on,
-                };
-                nw_review.comments.push(comment);
+                comment.liked_by = comment
+                    .liked_by
+                    .iter()
+                    .map(|id| {
+                        let correct_id = id.as_i64().unwrap();
+                        let new_id = all_user_ids.get(&correct_id).unwrap();
+                        Value::String(new_id.clone())
+                    })
+                    .collect();
+                comment.user.id = Value::String(
+                    all_user_ids
+                        .get(&comment.user.id.as_i64().unwrap())
+                        .unwrap()
+                        .clone(),
+                );
             }
-            update_reviews.push(nw_review);
-        }
-
-        dbg!(&update_reviews);
-        for review in update_reviews {
-            dbg!(&review);
-            let review: new_review::ActiveModel = review.into();
-            review.update(db).await?;
+            let cloned_comments = review.comments.clone();
+            let mut updated: review::ActiveModel = review.into();
+            updated.comments = ActiveValue::Set(cloned_comments);
+            updated.update(db).await?;
         }
 
         db.execute_unprepared(r#"UPDATE "user" SET "id" = "temp_id""#)
