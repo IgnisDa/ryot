@@ -21,18 +21,22 @@ async fn get_whether_column_is_text<'a>(
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "user")]
-pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: String,
-    pub temp_id: String,
+mod user {
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
+    #[sea_orm(table_name = "user")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: String,
+        pub temp_id: String,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
 }
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
-
-impl ActiveModelBehavior for ActiveModel {}
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
@@ -151,9 +155,9 @@ CREATE UNIQUE INDEX "user_to_entity-uqi4" ON user_to_entity USING btree (user_id
         )
         .await?;
 
-        for user in Entity::find().all(db).await? {
+        for user in user::Entity::find().all(db).await? {
             let new_id = format!("usr_{}", nanoid!(12));
-            let mut user: ActiveModel = user.into();
+            let mut user: user::ActiveModel = user.into();
             user.temp_id = ActiveValue::Set(new_id);
             user.update(db).await?;
         }
