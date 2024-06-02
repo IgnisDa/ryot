@@ -19,7 +19,7 @@ use crate::{
             MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataImageLot,
             MetadataSearchItem, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
         },
-        IdAndNamedObject, SearchDetails, SearchResults,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client, TEMP_DIR},
@@ -268,6 +268,12 @@ async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
     let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
     let path = PathBuf::new().join(TEMP_DIR).join(FILE);
     let settings = if !path.exists() {
+        #[derive(Debug, Serialize, Deserialize, Default)]
+        #[serde(rename_all = "snake_case")]
+        pub struct IdAndNamedObject {
+            pub id: i32,
+            pub name: String,
+        }
         #[derive(Debug, Serialize, Deserialize, Default)]
         struct GenreResponse {
             genres: Vec<IdAndNamedObject>,
