@@ -936,7 +936,7 @@ export type MetadataSearchItem = {
 };
 
 export type MetadataSearchItemResponse = {
-  databaseId?: Maybe<Scalars['Int']['output']>;
+  databaseId?: Maybe<Scalars['String']['output']>;
   /** Whether the user has interacted with this media item. */
   hasInteracted: Scalars['Boolean']['output'];
   item: MetadataSearchItem;
@@ -2791,7 +2791,7 @@ export type MetadataSearchQueryVariables = Exact<{
 }>;
 
 
-export type MetadataSearchQuery = { metadataSearch: { details: { total: number, nextPage?: number | null }, items: Array<{ databaseId?: number | null, hasInteracted: boolean, item: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } };
+export type MetadataSearchQuery = { metadataSearch: { details: { total: number, nextPage?: number | null }, items: Array<{ databaseId?: string | null, hasInteracted: boolean, item: { identifier: string, title: string, image?: string | null, publishYear?: number | null } }> } };
 
 export type PeopleSearchQueryVariables = Exact<{
   input: PeopleSearchInput;

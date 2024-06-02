@@ -511,7 +511,7 @@ const MediaSearchItem = (props: {
 	action: "search" | "list";
 	hasInteracted: boolean;
 	reviewScale: UserReviewScale;
-	maybeItemId?: number;
+	maybeItemId?: string;
 }) => {
 	const navigate = useNavigate();
 	const loaderData = useLoaderData<typeof loader>();

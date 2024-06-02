@@ -200,7 +200,7 @@ pub mod media {
         pub item: MetadataSearchItem,
         /// Whether the user has interacted with this media item.
         pub has_interacted: bool,
-        pub database_id: Option<i32>,
+        pub database_id: Option<String>,
     }
 
     #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
