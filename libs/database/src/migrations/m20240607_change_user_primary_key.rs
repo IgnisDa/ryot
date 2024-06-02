@@ -201,6 +201,14 @@ CREATE UNIQUE INDEX "user_to_entity-uqi4" ON user_to_entity USING btree (user_id
             user.update(db).await?;
         }
 
+        for review in review::Entity::find()
+            .filter(review::Column::Comments.ne("[]"))
+            .all(db)
+            .await?
+        {
+            dbg!(review);
+        }
+
         db.execute_unprepared(r#"UPDATE "user" SET "id" = "temp_id""#)
             .await?;
 
