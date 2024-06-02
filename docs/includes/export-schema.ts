@@ -44,7 +44,7 @@ export interface UserMeasurement {
 export type MediaLot = 'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel';
 
 export interface IdAndNamedObject {
-	id: number;
+	id: string;
 	name: string;
 }
 
@@ -53,7 +53,7 @@ export interface ImportOrExportItemReviewComment {
 	created_on: string;
 	id: string;
 	/** The user ids of all those who liked it. */
-	liked_by: number[];
+	liked_by: string[];
 	text: string;
 	user: IdAndNamedObject;
 }
