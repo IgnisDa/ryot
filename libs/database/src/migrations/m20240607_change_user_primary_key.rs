@@ -1,6 +1,9 @@
+use std::collections::HashSet;
+
 use nanoid::nanoid;
-use sea_orm::{entity::prelude::*, ActiveValue, DatabaseBackend, Statement};
+use sea_orm::{entity::prelude::*, ActiveValue, DatabaseBackend, FromJsonQueryResult, Statement};
 use sea_orm_migration::prelude::*;
+use serde::{Deserialize, Serialize};
 
 async fn get_whether_column_is_text<'a>(
     table_name: &str,
@@ -36,6 +39,42 @@ mod user {
     pub enum Relation {}
 
     impl ActiveModelBehavior for ActiveModel {}
+}
+
+mod review {
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+    #[sea_orm(table_name = "review")]
+    pub struct Model {
+        #[sea_orm(primary_key, auto_increment = false)]
+        pub id: String,
+        #[sea_orm(column_type = "Json")]
+        pub comments: Vec<ImportOrExportItemReviewComment>,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+
+    #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq)]
+    #[serde(rename_all = "snake_case")]
+    pub struct IdAndNamedObject {
+        pub id: String,
+        pub name: String,
+    }
+
+    #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default)]
+    #[serde(rename_all = "snake_case")]
+    pub struct ImportOrExportItemReviewComment {
+        pub id: String,
+        pub text: String,
+        pub user: IdAndNamedObject,
+        /// The user ids of all those who liked it.
+        pub liked_by: HashSet<String>,
+        pub created_on: DateTimeUtc,
+    }
 }
 
 #[async_trait::async_trait]
@@ -161,6 +200,7 @@ CREATE UNIQUE INDEX "user_to_entity-uqi4" ON user_to_entity USING btree (user_id
             user.temp_id = ActiveValue::Set(new_id);
             user.update(db).await?;
         }
+
         db.execute_unprepared(r#"UPDATE "user" SET "id" = "temp_id""#)
             .await?;
 
