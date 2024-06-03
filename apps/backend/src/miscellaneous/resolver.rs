@@ -8,7 +8,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
@@ -24,7 +23,6 @@ use database::{
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
-use harsh::Harsh;
 use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
@@ -728,10 +726,6 @@ struct GroupedCalendarEvent {
 
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
-}
-
-fn get_id_hasher(salt: &str) -> Harsh {
-    Harsh::builder().length(10).salt(salt).build().unwrap()
 }
 
 fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
@@ -2476,7 +2470,7 @@ impl MiscellaneousService {
             | BackgroundJob::UpdateAllExercises
             | BackgroundJob::RecalculateCalendarEvents
             | BackgroundJob::PerformBackgroundTasks => {
-                self.admin_account_guard(&user_id).await?;
+                self.admin_account_guard(user_id).await?;
             }
             _ => {}
         }
@@ -2557,20 +2551,20 @@ impl MiscellaneousService {
             let monitoring_collection_id = collections
                 .iter()
                 .find(|c| {
-                    c.name == DefaultCollection::Monitoring.to_string() && &c.user_id == &user_id
+                    c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id
                 })
                 .map(|c| c.id.clone())
                 .unwrap();
             let watchlist_collection_id = collections
                 .iter()
                 .find(|c| {
-                    c.name == DefaultCollection::Watchlist.to_string() && &c.user_id == &user_id
+                    c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id
                 })
                 .map(|c| c.id.clone())
                 .unwrap();
             let owned_collection_id = collections
                 .iter()
-                .find(|c| c.name == DefaultCollection::Owned.to_string() && &c.user_id == &user_id)
+                .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
                 .map(|c| c.id.clone())
                 .unwrap();
             let reminder_collection_id = collections
@@ -3817,7 +3811,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r_id in all_reviews {
-            reviews.push(self.review_by_id(r_id, &user_id, true).await?);
+            reviews.push(self.review_by_id(r_id, user_id, true).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -4339,7 +4333,7 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         associate_user_with_entity(
-            &user_id,
+            user_id,
             input.metadata_id,
             input.person_id,
             input.exercise_id,
@@ -4392,7 +4386,7 @@ impl MiscellaneousService {
                 .await
                 .ok();
             }
-            associate_user_with_entity(&user_id, Some(metadata_id), None, None, None, &self.db)
+            associate_user_with_entity(user_id, Some(metadata_id), None, None, None, &self.db)
                 .await?;
             Ok(StringIdObject { id: seen_id })
         } else {
@@ -4829,7 +4823,7 @@ impl MiscellaneousService {
         for col in DefaultCollection::iter() {
             let meta = col.meta().to_owned();
             self.create_or_update_collection(
-                &user_id,
+                user_id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
                     description: Some(meta.1.to_owned()),
@@ -5406,9 +5400,7 @@ impl MiscellaneousService {
             id: new_integration_id,
             timestamp: Utc::now(),
             settings: {
-                let slug = get_id_hasher(&self.config.integration.hasher_salt)
-                    .encode(&[user_id.try_into().unwrap()]);
-                let slug = format!("{}--{}", slug, nanoid!(5));
+                let slug = nanoid!(12);
                 match input.lot {
                     UserSinkIntegrationSettingKind::Jellyfin => {
                         UserSinkIntegrationSetting::Jellyfin { slug }
@@ -5717,42 +5709,26 @@ impl MiscellaneousService {
 
     pub async fn process_integration_webhook(
         &self,
-        user_hash_id: String,
-        integration: String,
+        integration_slug: String,
         payload: String,
     ) -> Result<String> {
-        let integration = match integration.as_str() {
-            "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
-            "plex" => UserSinkIntegrationSettingKind::Plex,
-            "kodi" => UserSinkIntegrationSettingKind::Kodi,
-            _ => return Err(anyhow!("Incorrect integration requested").into()),
-        };
-        tracing::debug!("Processing integration webhook for {}", integration);
-        let (user_hash, _) = user_hash_id
-            .split_once("--")
-            .ok_or(anyhow!("Unexpected format"))?;
-        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash)?;
-        let user_id: String = user_id
-            .first()
-            .ok_or(anyhow!("Incorrect hash id provided"))?
-            .to_owned()
-            .try_into()?;
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
+        tracing::debug!(
+            "Processing integration webhook for slug {}",
+            integration_slug
+        );
+        let user = User::find()
+            .filter(user::Column::SinkIntegrations.eq("FIXME"))
+            .into_partial_model::<UserWithOnlyIntegrationsAndNotifications>()
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("No user this sink integration found".to_owned()))?;
         let integration = user
             .sink_integrations
             .into_iter()
             .find(|i| match &i.settings {
-                UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Jellyfin
-                }
-                UserSinkIntegrationSetting::Plex { slug, .. } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Plex
-                }
-                UserSinkIntegrationSetting::Kodi { slug } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Kodi
-                }
+                UserSinkIntegrationSetting::Jellyfin { slug } => slug == &integration_slug,
+                UserSinkIntegrationSetting::Plex { slug, .. } => slug == &integration_slug,
+                UserSinkIntegrationSetting::Kodi { slug } => slug == &integration_slug,
             })
             .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
         let maybe_progress_update = match integration.settings {
@@ -5772,7 +5748,7 @@ impl MiscellaneousService {
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(pu, &user_id).await?;
+                self.integration_progress_update(pu, &user.id).await?;
                 Ok("Progress updated successfully".to_owned())
             }
             Err(e) => Err(Error::new(e.to_string())),
@@ -5818,7 +5794,7 @@ impl MiscellaneousService {
                 provider_watched_on: pu.provider_watched_on,
                 change_state: None,
             },
-            &user_id,
+            user_id,
             true,
         )
         .await
@@ -6923,7 +6899,7 @@ impl MiscellaneousService {
             let users_to_notify = person_map.get(&person_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
-                    self.queue_media_state_changed_notification_for_user(&user_id, &notification)
+                    self.queue_media_state_changed_notification_for_user(user_id, &notification)
                         .await
                         .ok();
                 }

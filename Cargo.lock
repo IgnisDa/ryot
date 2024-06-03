@@ -2793,12 +2793,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "harsh"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6fce2283849822530a18d7d8eeb1719ac65a27cfb6649c0dc8dfd2d2cc5edfb"
-
-[[package]]
 name = "hashbag"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4969,7 +4963,7 @@ checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
 
 [[package]]
 name = "ryot"
-version = "6.0.0"
+version = "5.5.5"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4995,7 +4989,6 @@ dependencies = [
  "flate2",
  "futures",
  "graphql_client",
- "harsh",
  "hashbag",
  "http 1.1.0",
  "http-types",

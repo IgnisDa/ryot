@@ -39,9 +39,9 @@ media which have a match from _Audible_.
 All webhook URLs follow this format:
 
 ```txt
-https://<instance_url>/backend/webhooks/integrations/<name>/<slug>
+https://<instance_url>/backend/webhooks/integrations/<slug>
 # example
-https://app.ryot.io/backend/webhooks/integrations/plex/nBrLZdk53g--5V6T1
+https://app.ryot.io/backend/webhooks/integrations/nBrLZdk53g5V
 ```
 
 !!! warning

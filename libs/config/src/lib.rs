@@ -285,9 +285,6 @@ pub struct IntegrationConfig {
     /// every `n` hours.
     #[setting(default = 2)]
     pub pull_every: i32,
-    /// The salt used to hash user IDs.
-    #[setting(default = format!("{}", PROJECT_NAME))]
-    pub hasher_salt: String,
     /// The minimum progress limit after which a media is considered to be started.
     #[setting(default = 2)]
     pub minimum_progress_limit: i32,
@@ -463,7 +460,6 @@ impl AppConfig {
         cl.file_storage.s3_access_key_id = gt();
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
-        cl.integration.hasher_salt = gt();
         cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.video_games.twitch.client_id = gt();

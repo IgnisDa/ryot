@@ -315,12 +315,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 
 	const integrationUrl =
 		typeof window !== "undefined"
-			? `${
-					window.location.origin
-				}/backend/webhooks/integrations/${props.integration.description
-					.toLowerCase()
-					.split(" ")
-					.at(0)}/${props.integration.slug}`
+			? `${window.location.origin}/backend/webhooks/integrations/${props.integration.slug}`
 			: "";
 
 	return (
