@@ -39,11 +39,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Integration::LastTriggeredOn).timestamp_with_time_zone())
-                    .col(
-                        ColumnDef::new(Integration::SourceSpecifics)
-                            .json_binary()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Integration::SourceSpecifics).json_binary())
                     .col(ColumnDef::new(Integration::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()

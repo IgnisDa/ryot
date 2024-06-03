@@ -15,6 +15,8 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     #[graphql(skip_input)]
     pub id: String,
+    #[graphql(skip_input)]
+    pub user_id: String,
     pub lot: IntegrationLot,
     pub source: IntegrationSource,
     #[graphql(skip_input)]
@@ -22,9 +24,7 @@ pub struct Model {
     #[graphql(skip_input)]
     pub last_triggered_on: Option<DateTimeWithTimeZone>,
     #[sea_orm(column_type = "Json")]
-    pub source_specifics: IntegrationSourceSpecifics,
-    #[graphql(skip_input)]
-    pub user_id: String,
+    pub source_specifics: Option<IntegrationSourceSpecifics>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
