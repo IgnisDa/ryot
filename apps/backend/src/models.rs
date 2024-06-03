@@ -28,6 +28,7 @@ use strum::Display;
 use crate::{
     entities::{exercise::ExerciseListItem, prelude::Workout, user_measurement, workout},
     file_storage::FileStorageService,
+    miscellaneous::CollectionExtraInformation,
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
@@ -184,8 +185,6 @@ pub enum MediaStateChanged {
 }
 
 pub mod media {
-    use crate::miscellaneous::CollectionExtraInformation;
-
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
