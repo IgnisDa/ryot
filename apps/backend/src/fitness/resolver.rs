@@ -729,7 +729,7 @@ impl ExerciseService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, &user_id).await?;
+        let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
         let identifier = input
             .calculate_and_commit(
                 user_id,

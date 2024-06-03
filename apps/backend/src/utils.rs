@@ -349,7 +349,7 @@ pub async fn add_entity_to_collection(
         };
         if created_collection.insert(db).await.is_ok() {
             associate_user_with_entity(
-                &user_id,
+                user_id,
                 input.metadata_id,
                 input.person_id,
                 input.exercise_id,

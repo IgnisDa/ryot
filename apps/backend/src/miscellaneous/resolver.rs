@@ -2470,7 +2470,7 @@ impl MiscellaneousService {
             | BackgroundJob::UpdateAllExercises
             | BackgroundJob::RecalculateCalendarEvents
             | BackgroundJob::PerformBackgroundTasks => {
-                self.admin_account_guard(&user_id).await?;
+                self.admin_account_guard(user_id).await?;
             }
             _ => {}
         }
@@ -2551,20 +2551,20 @@ impl MiscellaneousService {
             let monitoring_collection_id = collections
                 .iter()
                 .find(|c| {
-                    c.name == DefaultCollection::Monitoring.to_string() && &c.user_id == &user_id
+                    c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id
                 })
                 .map(|c| c.id.clone())
                 .unwrap();
             let watchlist_collection_id = collections
                 .iter()
                 .find(|c| {
-                    c.name == DefaultCollection::Watchlist.to_string() && &c.user_id == &user_id
+                    c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id
                 })
                 .map(|c| c.id.clone())
                 .unwrap();
             let owned_collection_id = collections
                 .iter()
-                .find(|c| c.name == DefaultCollection::Owned.to_string() && &c.user_id == &user_id)
+                .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
                 .map(|c| c.id.clone())
                 .unwrap();
             let reminder_collection_id = collections
@@ -3811,7 +3811,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r_id in all_reviews {
-            reviews.push(self.review_by_id(r_id, &user_id, true).await?);
+            reviews.push(self.review_by_id(r_id, user_id, true).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -4333,7 +4333,7 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         associate_user_with_entity(
-            &user_id,
+            user_id,
             input.metadata_id,
             input.person_id,
             input.exercise_id,
@@ -4386,7 +4386,7 @@ impl MiscellaneousService {
                 .await
                 .ok();
             }
-            associate_user_with_entity(&user_id, Some(metadata_id), None, None, None, &self.db)
+            associate_user_with_entity(user_id, Some(metadata_id), None, None, None, &self.db)
                 .await?;
             Ok(StringIdObject { id: seen_id })
         } else {
@@ -4823,7 +4823,7 @@ impl MiscellaneousService {
         for col in DefaultCollection::iter() {
             let meta = col.meta().to_owned();
             self.create_or_update_collection(
-                &user_id,
+                user_id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
                     description: Some(meta.1.to_owned()),
@@ -5794,7 +5794,7 @@ impl MiscellaneousService {
                 provider_watched_on: pu.provider_watched_on,
                 change_state: None,
             },
-            &user_id,
+            user_id,
             true,
         )
         .await
@@ -6899,7 +6899,7 @@ impl MiscellaneousService {
             let users_to_notify = person_map.get(&person_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
-                    self.queue_media_state_changed_notification_for_user(&user_id, &notification)
+                    self.queue_media_state_changed_notification_for_user(user_id, &notification)
                         .await
                         .ok();
                 }
