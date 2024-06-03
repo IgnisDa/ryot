@@ -6,6 +6,8 @@ use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::m20230417_create_user::SINK_INTEGRATIONS_INDEX_SQL;
+
 async fn get_whether_column_is_text<'a>(
     table_name: &str,
     column_name: &str,
@@ -338,6 +340,8 @@ CREATE UNIQUE INDEX "user__oidc_issuer_id__index" ON "user" ("oidc_issuer_id");
             "#,
         )
         .await?;
+
+        db.execute_unprepared(SINK_INTEGRATIONS_INDEX_SQL).await?;
 
         Ok(())
     }
