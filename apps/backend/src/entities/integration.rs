@@ -15,7 +15,7 @@ pub struct Model {
     pub created_on: DateTimeWithTimeZone,
     pub last_triggered_on: Option<DateTimeWithTimeZone>,
     #[sea_orm(column_type = "Json")]
-    pub extra_details: Option<Json>,
+    pub source_specifics: Json,
     pub user_id: String,
 }
 
