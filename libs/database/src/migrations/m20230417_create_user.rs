@@ -1,14 +1,7 @@
-use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
-
-pub static SINK_INTEGRATIONS_INDEX_SQL: &str = indoc! { r#"
-    DROP INDEX IF EXISTS "user__sink_integrations__index";
-    CREATE INDEX "user__sink_integrations__index" ON "user"
-    USING GIN (jsonb_path_query_array(sink_integrations, '$[*].settings.d.slug'));
-"# };
 
 #[derive(Iden)]
 pub enum User {
@@ -31,7 +24,6 @@ pub enum User {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let db = manager.get_connection();
         manager
             .create_table(
                 Table::create()
@@ -70,7 +62,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        db.execute_unprepared(SINK_INTEGRATIONS_INDEX_SQL).await?;
         Ok(())
     }
 
