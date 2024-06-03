@@ -368,3 +368,30 @@ pub enum UserToMediaReason {
     Monitoring,
     Watchlist,
 }
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Enum,
+    PartialEq,
+    Eq,
+    DeriveActiveEnum,
+    EnumIter,
+    Serialize,
+    Deserialize,
+    Hash,
+    Display,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrationLot {
+    Audiobookshelf,
+    Jellyfin,
+    Plex,
+    Kodi,
+}
