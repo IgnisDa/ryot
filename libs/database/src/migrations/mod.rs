@@ -22,6 +22,7 @@ mod m20240531_create_queued_notification;
 mod m20240606_is_v6_migration;
 mod m20240607_change_boolean_column_names;
 mod m20240607_change_user_primary_key;
+mod m20240607_create_integrations;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -63,6 +64,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240606_is_v6_migration::Migration),
             Box::new(m20240607_change_boolean_column_names::Migration),
             Box::new(m20240607_change_user_primary_key::Migration),
+            Box::new(m20240607_create_integrations::Migration),
         ]
     }
 }
