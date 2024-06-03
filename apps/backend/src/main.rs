@@ -208,7 +208,7 @@ async fn main() -> Result<()> {
         .allow_credentials(true);
 
     let webhook_routes = Router::new().route(
-        "/integrations/:integration/:user_hash_id",
+        "/integrations/:integration/:integration_slug",
         post(integration_webhook),
     );
 

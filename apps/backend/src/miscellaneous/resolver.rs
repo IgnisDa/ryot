@@ -24,7 +24,6 @@ use database::{
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
-use harsh::Harsh;
 use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
@@ -728,10 +727,6 @@ struct GroupedCalendarEvent {
 
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
-}
-
-fn get_id_hasher(salt: &str) -> Harsh {
-    Harsh::builder().length(10).salt(salt).build().unwrap()
 }
 
 fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
@@ -5406,9 +5401,7 @@ impl MiscellaneousService {
             id: new_integration_id,
             timestamp: Utc::now(),
             settings: {
-                let slug = get_id_hasher(&self.config.integration.hasher_salt)
-                    .encode(&[user_id.try_into().unwrap()]);
-                let slug = format!("{}--{}", slug, nanoid!(5));
+                let slug = nanoid!(12);
                 match input.lot {
                     UserSinkIntegrationSettingKind::Jellyfin => {
                         UserSinkIntegrationSetting::Jellyfin { slug }
@@ -5717,7 +5710,7 @@ impl MiscellaneousService {
 
     pub async fn process_integration_webhook(
         &self,
-        user_hash_id: String,
+        integration_slug: String,
         integration: String,
         payload: String,
     ) -> Result<String> {
@@ -5728,30 +5721,25 @@ impl MiscellaneousService {
             _ => return Err(anyhow!("Incorrect integration requested").into()),
         };
         tracing::debug!("Processing integration webhook for {}", integration);
-        let (user_hash, _) = user_hash_id
-            .split_once("--")
-            .ok_or(anyhow!("Unexpected format"))?;
-        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash)?;
-        let user_id: String = user_id
-            .first()
-            .ok_or(anyhow!("Incorrect hash id provided"))?
-            .to_owned()
-            .try_into()?;
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
+        let user = User::find()
+            .filter(user::Column::SinkIntegrations.eq("FIXME"))
+            .into_partial_model::<UserWithOnlyIntegrationsAndNotifications>()
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("No user this sink integration found".to_owned()))?;
         let integration = user
             .sink_integrations
             .into_iter()
-            .find(|i| match &i.settings {
+            .find(|i| match i.settings {
                 UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Jellyfin
+                    slug == integration_slug
+                        && integration == UserSinkIntegrationSettingKind::Jellyfin
                 }
                 UserSinkIntegrationSetting::Plex { slug, .. } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Plex
+                    slug == integration_slug && integration == UserSinkIntegrationSettingKind::Plex
                 }
                 UserSinkIntegrationSetting::Kodi { slug } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Kodi
+                    slug == integration_slug && integration == UserSinkIntegrationSettingKind::Kodi
                 }
             })
             .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
@@ -5772,7 +5760,7 @@ impl MiscellaneousService {
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(pu, &user_id).await?;
+                self.integration_progress_update(pu, &user.id).await?;
                 Ok("Progress updated successfully".to_owned())
             }
             Err(e) => Err(Error::new(e.to_string())),
