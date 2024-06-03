@@ -10,6 +10,7 @@ pub enum Integration {
     Table,
     Id,
     Lot,
+    Source,
     CreatedOn,
     LastTriggeredOn,
     ExtraDetails,
@@ -30,6 +31,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Integration::Lot).text().not_null())
+                    .col(ColumnDef::new(Integration::Source).text().not_null())
                     .col(
                         ColumnDef::new(Integration::CreatedOn)
                             .timestamp_with_time_zone()
@@ -47,6 +49,15 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("integration__lot")
+                    .table(Integration::Table)
+                    .col(Integration::Lot)
                     .to_owned(),
             )
             .await?;
