@@ -1346,6 +1346,29 @@ pub mod media {
     pub struct PersonStateChanges {
         pub media_associated: HashSet<MediaAssociatedPersonStateChanges>,
     }
+
+    #[skip_serializing_none]
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        InputObject,
+        Clone,
+        SimpleObject,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Hash,
+        Default,
+        Schematic,
+    )]
+    #[graphql(input_name = "IntegrationSourceSpecificsInput")]
+    #[serde(rename_all = "snake_case")]
+    pub struct IntegrationSourceSpecifics {
+        pub plex_user: Option<String>,
+        pub audiobookshelf_base_url: Option<String>,
+        pub audiobookshelf_token: Option<String>,
+    }
 }
 
 pub mod fitness {

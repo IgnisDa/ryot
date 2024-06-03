@@ -5,6 +5,8 @@ use database::{IntegrationLot, IntegrationSource};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 
+use crate::models::media::IntegrationSourceSpecifics;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "integration")]
 pub struct Model {
@@ -15,7 +17,7 @@ pub struct Model {
     pub created_on: DateTimeWithTimeZone,
     pub last_triggered_on: Option<DateTimeWithTimeZone>,
     #[sea_orm(column_type = "Json")]
-    pub source_specifics: Json,
+    pub source_specifics: IntegrationSourceSpecifics,
     pub user_id: String,
 }
 
