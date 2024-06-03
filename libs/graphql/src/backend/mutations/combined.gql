@@ -56,6 +56,12 @@ mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {
   createUserSinkIntegration(input: $input)
 }
 
+mutation CreateIntegration($input: CreateIntegrationInput!) {
+  createIntegration(input: $input) {
+    id
+  }
+}
+
 mutation CreateUserWorkout($input: UserWorkoutInput!) {
   createUserWorkout(input: $input)
 }
@@ -82,7 +88,7 @@ mutation DeleteSeenItem($seenId: String!) {
   }
 }
 
-mutation DeleteUser($toDeleteUserId: Int!) {
+mutation DeleteUser($toDeleteUserId: String!) {
   deleteUser(toDeleteUserId: $toDeleteUserId)
 }
 

@@ -18,8 +18,8 @@ use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollectionToEntity, AliasedExercise, AliasedMetadata, AliasedMetadataGroup,
     AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUserToCollection,
-    AliasedUserToEntity, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserLot,
-    UserToMediaReason, Visibility,
+    AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot, MediaSource,
+    MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -54,9 +54,9 @@ use uuid::Uuid;
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
-        calendar_event, collection, collection_to_entity, exercise, genre, import_report, metadata,
-        metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
-        metadata_to_person, person,
+        calendar_event, collection, collection_to_entity, exercise, genre, import_report,
+        integration, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+        metadata_to_metadata_group, metadata_to_person, person,
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Metadata,
             MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
@@ -82,9 +82,9 @@ use crate::{
             CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaAssociatedPersonStateChanges,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
-            MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
+            ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
+            MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails, MediaListItem,
+            MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
@@ -176,6 +176,12 @@ struct CreateUserYankIntegrationInput {
     base_url: String,
     #[graphql(secret)]
     token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct CreateIntegrationInput {
+    source: IntegrationSource,
+    source_specifics: Option<IntegrationSourceSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -1272,6 +1278,17 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_user_yank_integration(user_id, input).await
+    }
+
+    /// Create an integration for the currently logged in user.
+    async fn create_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: CreateIntegrationInput,
+    ) -> Result<StringIdObject> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.create_integration(user_id, input).await
     }
 
     /// Delete an integration for the currently logged in user.
@@ -5447,6 +5464,26 @@ impl MiscellaneousService {
         user.yank_integrations = ActiveValue::Set(Some(integrations));
         user.update(&self.db).await?;
         Ok(new_integration_id)
+    }
+
+    async fn create_integration(
+        &self,
+        user_id: String,
+        input: CreateIntegrationInput,
+    ) -> Result<StringIdObject> {
+        let lot = match input.source {
+            IntegrationSource::Audiobookshelf => IntegrationLot::Yank,
+            _ => IntegrationLot::Sink,
+        };
+        let to_insert = integration::ActiveModel {
+            lot: ActiveValue::Set(lot),
+            user_id: ActiveValue::Set(user_id),
+            source: ActiveValue::Set(input.source),
+            source_specifics: ActiveValue::Set(input.source_specifics),
+            ..Default::default()
+        };
+        let integration = to_insert.insert(&self.db).await?;
+        Ok(StringIdObject { id: integration.id })
     }
 
     async fn delete_user_integration(
