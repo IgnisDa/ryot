@@ -81,6 +81,8 @@ pub enum Relation {
     Exercise,
     #[sea_orm(has_many = "super::import_report::Entity")]
     ImportReport,
+    #[sea_orm(has_many = "super::integration::Entity")]
+    Integration,
     #[sea_orm(has_many = "super::queued_notification::Entity")]
     QueuedNotification,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -97,12 +99,6 @@ pub enum Relation {
     Workout,
 }
 
-impl Related<super::collection::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Collection.def()
-    }
-}
-
 impl Related<super::exercise::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Exercise.def()
@@ -112,6 +108,12 @@ impl Related<super::exercise::Entity> for Entity {
 impl Related<super::import_report::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ImportReport.def()
+    }
+}
+
+impl Related<super::integration::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Integration.def()
     }
 }
 
@@ -154,6 +156,15 @@ impl Related<super::user_to_entity::Entity> for Entity {
 impl Related<super::workout::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Workout.def()
+    }
+}
+
+impl Related<super::collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_to_collection::Relation::Collection.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_to_collection::Relation::User.def().rev())
     }
 }
 

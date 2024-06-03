@@ -6,6 +6,7 @@ pub use super::collection_to_entity::Entity as CollectionToEntity;
 pub use super::exercise::Entity as Exercise;
 pub use super::genre::Entity as Genre;
 pub use super::import_report::Entity as ImportReport;
+pub use super::integration::Entity as Integration;
 pub use super::metadata::Entity as Metadata;
 pub use super::metadata_group::Entity as MetadataGroup;
 pub use super::metadata_to_genre::Entity as MetadataToGenre;
