@@ -8,7 +8,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
@@ -5711,16 +5710,12 @@ impl MiscellaneousService {
     pub async fn process_integration_webhook(
         &self,
         integration_slug: String,
-        integration: String,
         payload: String,
     ) -> Result<String> {
-        let integration = match integration.as_str() {
-            "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
-            "plex" => UserSinkIntegrationSettingKind::Plex,
-            "kodi" => UserSinkIntegrationSettingKind::Kodi,
-            _ => return Err(anyhow!("Incorrect integration requested").into()),
-        };
-        tracing::debug!("Processing integration webhook for {}", integration);
+        tracing::debug!(
+            "Processing integration webhook for slug {}",
+            integration_slug
+        );
         let user = User::find()
             .filter(user::Column::SinkIntegrations.eq("FIXME"))
             .into_partial_model::<UserWithOnlyIntegrationsAndNotifications>()
@@ -5730,17 +5725,10 @@ impl MiscellaneousService {
         let integration = user
             .sink_integrations
             .into_iter()
-            .find(|i| match i.settings {
-                UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    slug == integration_slug
-                        && integration == UserSinkIntegrationSettingKind::Jellyfin
-                }
-                UserSinkIntegrationSetting::Plex { slug, .. } => {
-                    slug == integration_slug && integration == UserSinkIntegrationSettingKind::Plex
-                }
-                UserSinkIntegrationSetting::Kodi { slug } => {
-                    slug == integration_slug && integration == UserSinkIntegrationSettingKind::Kodi
-                }
+            .find(|i| match &i.settings {
+                UserSinkIntegrationSetting::Jellyfin { slug } => slug == &integration_slug,
+                UserSinkIntegrationSetting::Plex { slug, .. } => slug == &integration_slug,
+                UserSinkIntegrationSetting::Kodi { slug } => slug == &integration_slug,
             })
             .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
         let maybe_progress_update = match integration.settings {

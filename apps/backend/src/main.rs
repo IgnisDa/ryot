@@ -207,10 +207,8 @@ async fn main() -> Result<()> {
         .allow_origin(cors_origins)
         .allow_credentials(true);
 
-    let webhook_routes = Router::new().route(
-        "/integrations/:integration/:integration_slug",
-        post(integration_webhook),
-    );
+    let webhook_routes =
+        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
 
     let mut gql = post(graphql_handler);
     if app_services.config.server.graphql_playground_enabled {
