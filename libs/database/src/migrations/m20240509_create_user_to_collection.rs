@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+use crate::get_whether_column_is_text;
+
 use super::{m20230417_create_user::User, m20230504_create_collection::Collection};
 
 #[derive(DeriveMigrationName)]
@@ -15,16 +17,19 @@ pub enum UserToCollection {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        let mut base = ColumnDef::new(UserToCollection::CollectionId);
+        let collection_column = if get_whether_column_is_text("collection", "id", db).await? {
+            base.text()
+        } else {
+            base.integer()
+        };
         manager
             .create_table(
                 Table::create()
                     .table(UserToCollection::Table)
                     .col(ColumnDef::new(UserToCollection::UserId).integer())
-                    .col(
-                        ColumnDef::new(UserToCollection::CollectionId)
-                            .text()
-                            .not_null(),
-                    )
+                    .col(collection_column.not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_collection-fk1")
