@@ -6930,6 +6930,9 @@ GROUP BY m.id;
     }
 
     async fn remove_old_metadata_from_monitoring_collection(&self) -> Result<()> {
+        // TODO: Make sure that this respects `collection_to_entity.information.Days ||
+        // self.config.media.monitoring_remove_after_days` to decide whether to remove
+        // entity
         let older_than = Utc::now()
             - ChronoDuration::try_days(self.config.media.monitoring_remove_after_days).unwrap();
         self.db
