@@ -38,6 +38,7 @@ import {
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/ts-utils";
 import { IconCheck, IconCopy, IconEye, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
@@ -219,7 +220,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 
 	const integrationUrl =
 		typeof window !== "undefined"
-			? `${window.location.origin}/backend/webhooks/integrations/${props.integration.slug}`
+			? `${window.location.origin}/backend/webhooks/integrations/${props.integration.id}`
 			: "";
 
 	return (
@@ -227,13 +228,21 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
-						<Text size="xs">{props.integration.description}</Text>
-						<Text size="xs">
-							{dayjsLib(props.integration.timestamp).fromNow()}
+						<Text size="sm" fw="bold">
+							{changeCase(props.integration.source)}
 						</Text>
+						<Text size="xs">
+							Created: {dayjsLib(props.integration.createdOn).fromNow()}
+						</Text>
+						{props.integration.lastTriggeredOn ? (
+							<Text size="xs">
+								Triggered:
+								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
+							</Text>
+						) : undefined}
 					</Box>
 					<Group>
-						{props.integration.slug ? (
+						{props.integration.id ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
 								<IconEye />
 							</ActionIcon>
