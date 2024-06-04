@@ -39,9 +39,9 @@ media which have a match from _Audible_.
 All webhook URLs follow this format:
 
 ```txt
-https://<instance_url>/backend/webhooks/integrations/<slug>
+https://<instance_url>/backend/_i/<slug>
 # example
-https://app.ryot.io/backend/webhooks/integrations/nBrLZdk53g5V
+https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI
 ```
 
 !!! warning
@@ -50,9 +50,8 @@ https://app.ryot.io/backend/webhooks/integrations/nBrLZdk53g5V
 
 ### Jellyfin
 
-Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to
-Ryot. It will work for all the media that have been a valid TMDb ID attached
-to their metadata.
+Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to Ryot. It
+will work for all the media that have been a valid TMDb ID attached to their metadata.
 
 !!! info
 
