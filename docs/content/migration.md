@@ -5,11 +5,10 @@ order.
 
 ## From `v5.*` to `v6.*`
 
-!!! warning "Webhook URL changes"
+!!! warning "Integrations deleted"
 
-    If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/_i`
-    prefix. Please take a look at the [integration](integrations.md#sink-plugins) docs for the
-    new format.
+    All integrations need to be recreated. Please take a look at the
+    [integration](./integrations.md) docs.
 
 1. Upgrade the server to `v5.5.6` to make sure all `v5` migrations are applied. For
    example, you can make this change: `image: "ghcr.io/ignisda/ryot:v5.5.6"` in your
