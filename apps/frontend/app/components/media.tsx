@@ -852,7 +852,11 @@ export const PostReviewModal = (props: {
 								/>
 							))
 							.exhaustive()}
-						<Checkbox label="This review is a spoiler" mt="lg" name="isSpoiler" />
+						<Checkbox
+							label="This review is a spoiler"
+							mt="lg"
+							name="isSpoiler"
+						/>
 					</Flex>
 					{props.lot === MediaLot.Show ? (
 						<Flex gap="md">
