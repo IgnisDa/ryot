@@ -3,6 +3,25 @@
 All steps below are required unless otherwise stated. Please follow them in the correct
 order.
 
+## From `v5.*` to `v6.*`
+
+!!! warning "Webhook URL changes"
+
+    If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/_i`
+    prefix. Please take a look at the [integration](integrations.md#sink-plugins) docs for the
+    new format.
+
+1. Upgrade the server to `v5.5.6` to make sure all `v5` migrations are applied. For
+   example, you can make this change: `image: "ghcr.io/ignisda/ryot:v5.5.6"` in your
+   docker-compose file.
+
+2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+   is a guide on how to do this.
+
+3. Now you can upgrade to the latest version (`v6.*`). For example you can make this
+   change: `image: "ghcr.io/ignisda/ryot:latest"` in your docker-compose file. This will
+   automatically apply all migrations.
+
 ## From `v4.*` to `v5.*`
 
 1. Upgrade the server to `v4.4.3` to make sure all `v4` migrations are applied. For
