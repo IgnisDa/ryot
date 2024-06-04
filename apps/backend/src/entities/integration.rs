@@ -20,9 +20,9 @@ pub struct Model {
     pub lot: IntegrationLot,
     pub source: IntegrationSource,
     #[graphql(skip_input)]
-    pub created_on: DateTimeWithTimeZone,
+    pub created_on: DateTimeUtc,
     #[graphql(skip_input)]
-    pub last_triggered_on: Option<DateTimeWithTimeZone>,
+    pub last_triggered_on: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]
     pub source_specifics: Option<IntegrationSourceSpecifics>,
 }

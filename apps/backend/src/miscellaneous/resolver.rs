@@ -5479,10 +5479,11 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut progress_updates = vec![];
+        let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
             let response = match integration.source {
                 IntegrationSource::Audiobookshelf => {
-                    let specifics = integration.source_specifics.unwrap();
+                    let specifics = integration.clone().source_specifics.unwrap();
                     self.get_integration_service()
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
@@ -5494,10 +5495,21 @@ impl MiscellaneousService {
             };
             if let Ok(data) = response {
                 progress_updates.extend(data);
+                to_update_integrations.push(integration.id);
             }
         }
         for pu in progress_updates.into_iter() {
             self.integration_progress_update(pu, user_id).await.ok();
+        }
+        if !to_update_integrations.is_empty() {
+            Integration::update_many()
+                .filter(integration::Column::Id.is_in(to_update_integrations))
+                .col_expr(
+                    integration::Column::LastTriggeredOn,
+                    Expr::value(Utc::now()),
+                )
+                .exec(&self.db)
+                .await?;
         }
         Ok(true)
     }
@@ -5575,7 +5587,7 @@ impl MiscellaneousService {
                     .await
             }
             IntegrationSource::Plex => {
-                let specifics = integration.source_specifics.unwrap();
+                let specifics = integration.clone().source_specifics.unwrap();
                 self.get_integration_service()
                     .plex_progress(&payload, specifics.plex_username, &self.db)
                     .await
@@ -5586,6 +5598,9 @@ impl MiscellaneousService {
             Ok(pu) => {
                 self.integration_progress_update(pu, &integration.user_id)
                     .await?;
+                let mut to_update: integration::ActiveModel = integration.into();
+                to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+                to_update.update(&self.db).await?;
                 Ok("Progress updated successfully".to_owned())
             }
             Err(e) => Err(Error::new(e.to_string())),

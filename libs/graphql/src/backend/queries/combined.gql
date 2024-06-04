@@ -59,13 +59,9 @@ query UserIntegrations {
   userIntegrations {
     id
     lot
+    source
     createdOn
     lastTriggeredOn
-    sourceSpecifics {
-      audiobookshelfBaseUrl
-      audiobookshelfToken
-      plexUsername
-    }
   }
 }
 
