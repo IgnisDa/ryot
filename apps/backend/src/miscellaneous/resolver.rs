@@ -49,7 +49,6 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
-use uuid::Uuid;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -4827,7 +4826,7 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateCustomMetadataInput,
     ) -> Result<StringIdObject> {
-        let identifier = Uuid::new_v4().to_string();
+        let identifier = nanoid!(10);
         let images = input
             .images
             .unwrap_or_default()

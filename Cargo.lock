@@ -421,7 +421,6 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-futures",
- "uuid",
 ]
 
 [[package]]
@@ -5026,7 +5025,6 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]
@@ -5232,7 +5230,6 @@ dependencies = [
  "rust_decimal",
  "sea-query-derive",
  "serde_json",
- "uuid",
 ]
 
 [[package]]
@@ -5246,7 +5243,6 @@ dependencies = [
  "sea-query",
  "serde_json",
  "sqlx",
- "uuid",
 ]
 
 [[package]]
@@ -5800,7 +5796,6 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
- "uuid",
  "webpki-roots 0.25.4",
 ]
 
@@ -5884,7 +5879,6 @@ dependencies = [
  "stringprep",
  "thiserror",
  "tracing",
- "uuid",
  "whoami",
 ]
 
@@ -5925,7 +5919,6 @@ dependencies = [
  "stringprep",
  "thiserror",
  "tracing",
- "uuid",
  "whoami",
 ]
 
@@ -5951,7 +5944,6 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
- "uuid",
 ]
 
 [[package]]
@@ -6825,7 +6817,6 @@ version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
 dependencies = [
- "getrandom 0.2.12",
  "serde",
 ]
 
