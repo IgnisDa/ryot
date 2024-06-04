@@ -242,7 +242,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 						</Text>
 						{props.integration.lastTriggeredOn ? (
 							<Text size="xs">
-								Triggered:
+								Triggered:{" "}
 								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
 							</Text>
 						) : undefined}
