@@ -150,21 +150,6 @@ struct CreateCustomMetadataInput {
     visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
-#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserIntegrationLot {
-    Yank,
-    Sink,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserIntegration {
-    id: usize,
-    description: String,
-    timestamp: DateTimeUtc,
-    lot: UserIntegrationLot,
-    slug: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateIntegrationInput {
     source: IntegrationSource,
@@ -926,10 +911,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the integrations for the currently logged in user.
-    async fn user_integrations(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserIntegration>> {
+    async fn user_integrations(&self, gql_ctx: &Context<'_>) -> Result<Vec<integration::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_integrations(&user_id).await
@@ -5268,8 +5250,12 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn user_integrations(&self, user_id: &String) -> Result<Vec<GraphqlUserIntegration>> {
-        todo!()
+    async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        Ok(integrations)
     }
 
     async fn user_notification_platforms(

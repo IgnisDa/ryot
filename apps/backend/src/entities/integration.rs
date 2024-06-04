@@ -15,7 +15,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     #[graphql(skip_input)]
     pub id: String,
-    #[graphql(skip_input)]
+    #[graphql(skip)]
     pub user_id: String,
     pub lot: IntegrationLot,
     pub source: IntegrationSource,
