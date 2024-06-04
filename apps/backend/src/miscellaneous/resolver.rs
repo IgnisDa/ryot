@@ -5725,42 +5725,32 @@ impl MiscellaneousService {
         payload: String,
     ) -> Result<String> {
         tracing::debug!(
-            "Processing integration webhook for slug {}",
+            "Processing integration webhook for slug: {}",
             integration_slug
         );
-        let user = User::find()
-            .filter(user::Column::SinkIntegrations.eq("FIXME"))
-            .into_partial_model::<UserWithOnlyIntegrationsAndNotifications>()
+        let integration = Integration::find_by_id(integration_slug)
             .one(&self.db)
             .await?
-            .ok_or_else(|| Error::new("No user this sink integration found".to_owned()))?;
-        let integration = user
-            .sink_integrations
-            .into_iter()
-            .find(|i| match &i.settings {
-                UserSinkIntegrationSetting::Jellyfin { slug } => slug == &integration_slug,
-                UserSinkIntegrationSetting::Plex { slug, .. } => slug == &integration_slug,
-                UserSinkIntegrationSetting::Kodi { slug } => slug == &integration_slug,
-            })
-            .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
-        let maybe_progress_update = match integration.settings {
-            UserSinkIntegrationSetting::Jellyfin { .. } => {
+            .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
+        let maybe_progress_update = match integration.source {
+            IntegrationSource::Kodi => self.get_integration_service().kodi_progress(&payload).await,
+            IntegrationSource::Jellyfin => {
                 self.get_integration_service()
                     .jellyfin_progress(&payload)
                     .await
             }
-            UserSinkIntegrationSetting::Plex { user, .. } => {
+            IntegrationSource::Plex => {
+                let specifics = integration.source_specifics.unwrap();
                 self.get_integration_service()
-                    .plex_progress(&payload, user, &self.db)
+                    .plex_progress(&payload, specifics.plex_username, &self.db)
                     .await
             }
-            UserSinkIntegrationSetting::Kodi { .. } => {
-                self.get_integration_service().kodi_progress(&payload).await
-            }
+            _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(pu, &user.id).await?;
+                self.integration_progress_update(pu, &integration.user_id)
+                    .await?;
                 Ok("Progress updated successfully".to_owned())
             }
             Err(e) => Err(Error::new(e.to_string())),
