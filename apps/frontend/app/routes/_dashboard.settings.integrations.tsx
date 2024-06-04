@@ -316,7 +316,10 @@ const CreateIntegrationModal = (props: {
 						label="Select a source"
 						name="source"
 						required
-						data={Object.values(IntegrationSource)}
+						data={Object.values(IntegrationSource).map((is) => ({
+							label: changeCase(is),
+							value: is,
+						}))}
 						onChange={(e) => setSource(e as IntegrationSource)}
 					/>
 					{match(source)
