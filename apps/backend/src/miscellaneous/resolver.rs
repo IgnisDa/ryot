@@ -64,10 +64,7 @@ use crate::{
             User, UserMeasurement, UserToCollection, UserToEntity, Workout,
         },
         queued_notification, review, seen,
-        user::{
-            self, UserWithOnlyIntegrationsAndNotifications, UserWithOnlyPreferences,
-            UserWithOnlySummary,
-        },
+        user::{self, UserWithOnlyNotifications, UserWithOnlyPreferences, UserWithOnlySummary},
         user_measurement, user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
@@ -119,8 +116,6 @@ use crate::{
     users::{
         UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
         UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
-        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrationSettingKind,
-        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -171,14 +166,6 @@ struct GraphqlUserIntegration {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserYankIntegrationInput {
-    lot: UserYankIntegrationSettingKind,
-    base_url: String,
-    #[graphql(secret)]
-    token: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateIntegrationInput {
     source: IntegrationSource,
     source_specifics: Option<IntegrationSourceSpecifics>,
@@ -200,12 +187,6 @@ struct CreateUserNotificationPlatformInput {
     #[graphql(secret)]
     auth_header: Option<String>,
     priority: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserSinkIntegrationInput {
-    lot: UserSinkIntegrationSettingKind,
-    username: Option<String>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1256,28 +1237,6 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.update_user_preference(user_id, input).await
-    }
-
-    /// Create a sink based integrations for the currently logged in user.
-    async fn create_user_sink_integration(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateUserSinkIntegrationInput,
-    ) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_sink_integration(user_id, input).await
-    }
-
-    /// Create a yank based integrations for the currently logged in user.
-    async fn create_user_yank_integration(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateUserYankIntegrationInput,
-    ) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_yank_integration(user_id, input).await
     }
 
     /// Create an integration for the currently logged in user.
@@ -4785,7 +4744,6 @@ impl MiscellaneousService {
             oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
-            sink_integrations: ActiveValue::Set(vec![]),
             notifications: ActiveValue::Set(vec![]),
             ..Default::default()
         };
@@ -5311,62 +5269,14 @@ impl MiscellaneousService {
     }
 
     async fn user_integrations(&self, user_id: &String) -> Result<Vec<GraphqlUserIntegration>> {
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
-        let mut all_integrations = vec![];
-        user.yank_integrations
-            .unwrap_or_default()
-            .into_iter()
-            .for_each(|i| {
-                let description = match i.settings {
-                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
-                        format!("Audiobookshelf URL: {}", base_url)
-                    }
-                };
-                all_integrations.push(GraphqlUserIntegration {
-                    id: i.id,
-                    lot: UserIntegrationLot::Yank,
-                    description,
-                    timestamp: i.timestamp,
-                    slug: None,
-                })
-            });
-        user.sink_integrations.into_iter().for_each(|i| {
-            let (description, slug) = match i.settings {
-                UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    (format!("Jellyfin slug: {}", &slug), slug)
-                }
-                UserSinkIntegrationSetting::Plex { slug, user } => (
-                    format!(
-                        "Plex slug: {},  Plex user: {}",
-                        &slug,
-                        user.unwrap_or_else(|| "N/A".to_owned())
-                    ),
-                    slug,
-                ),
-                UserSinkIntegrationSetting::Kodi { slug } => {
-                    (format!("Kodi slug: {}", &slug), slug)
-                }
-            };
-            all_integrations.push(GraphqlUserIntegration {
-                id: i.id,
-                lot: UserIntegrationLot::Sink,
-                description,
-                timestamp: i.timestamp,
-                slug: Some(slug),
-            })
-        });
-        Ok(all_integrations)
+        todo!()
     }
 
     async fn user_notification_platforms(
         &self,
         user_id: &String,
     ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
+        let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
         let mut all_notifications = vec![];
         user.notifications.into_iter().for_each(|n| {
             let description = match n.settings {
@@ -5402,67 +5312,6 @@ impl MiscellaneousService {
             })
         });
         Ok(all_notifications)
-    }
-
-    async fn create_user_sink_integration(
-        &self,
-        user_id: String,
-        input: CreateUserSinkIntegrationInput,
-    ) -> Result<usize> {
-        let user = user_by_id(&self.db, &user_id).await?;
-        let mut integrations = user.sink_integrations.clone();
-        let new_integration_id = integrations.len() + 1;
-        let new_integration = UserSinkIntegration {
-            id: new_integration_id,
-            timestamp: Utc::now(),
-            settings: {
-                let slug = nanoid!(12);
-                match input.lot {
-                    UserSinkIntegrationSettingKind::Jellyfin => {
-                        UserSinkIntegrationSetting::Jellyfin { slug }
-                    }
-                    UserSinkIntegrationSettingKind::Plex => UserSinkIntegrationSetting::Plex {
-                        slug,
-                        user: input.username,
-                    },
-                    UserSinkIntegrationSettingKind::Kodi => {
-                        UserSinkIntegrationSetting::Kodi { slug }
-                    }
-                }
-            },
-        };
-        integrations.insert(0, new_integration);
-        let mut user: user::ActiveModel = user.into();
-        user.sink_integrations = ActiveValue::Set(integrations);
-        user.update(&self.db).await?;
-        Ok(new_integration_id)
-    }
-
-    async fn create_user_yank_integration(
-        &self,
-        user_id: String,
-        input: CreateUserYankIntegrationInput,
-    ) -> Result<usize> {
-        let user = user_by_id(&self.db, &user_id).await?;
-        let mut integrations = user.yank_integrations.clone().unwrap_or_default();
-        let new_integration_id = integrations.len() + 1;
-        let new_integration = UserYankIntegration {
-            id: new_integration_id,
-            timestamp: Utc::now(),
-            settings: match input.lot {
-                UserYankIntegrationSettingKind::Audiobookshelf => {
-                    UserYankIntegrationSetting::Audiobookshelf {
-                        base_url: input.base_url,
-                        token: input.token,
-                    }
-                }
-            },
-        };
-        integrations.insert(0, new_integration);
-        let mut user: user::ActiveModel = user.into();
-        user.yank_integrations = ActiveValue::Set(Some(integrations));
-        user.update(&self.db).await?;
-        Ok(new_integration_id)
     }
 
     async fn create_user_integration(
@@ -7164,7 +7013,7 @@ WHERE id IN (
     #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find()
-            .into_partial_model::<UserWithOnlyIntegrationsAndNotifications>()
+            .into_partial_model::<UserWithOnlyNotifications>()
             .all(&self.db)
             .await?;
         for user_details in users {

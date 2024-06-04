@@ -52,10 +52,6 @@ mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformIn
   createUserNotificationPlatform(input: $input)
 }
 
-mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {
-  createUserSinkIntegration(input: $input)
-}
-
 mutation CreateUserIntegration($input: CreateIntegrationInput!) {
   createUserIntegration(input: $input) {
     id
@@ -64,10 +60,6 @@ mutation CreateUserIntegration($input: CreateIntegrationInput!) {
 
 mutation CreateUserWorkout($input: UserWorkoutInput!) {
   createUserWorkout(input: $input)
-}
-
-mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {
-  createUserYankIntegration(input: $input)
 }
 
 mutation DeleteCollection($collectionName: String!) {

@@ -340,38 +340,6 @@ pub struct UserPreferences {
 #[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
 #[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
-pub enum UserYankIntegrationSetting {
-    Audiobookshelf { base_url: String, token: String },
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-pub struct UserYankIntegration {
-    pub id: usize,
-    pub settings: UserYankIntegrationSetting,
-    /// the date and time it was added on
-    pub timestamp: DateTimeUtc,
-}
-
-#[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-#[serde(tag = "t", content = "d")]
-#[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
-pub enum UserSinkIntegrationSetting {
-    Jellyfin { slug: String },
-    Plex { slug: String, user: Option<String> },
-    Kodi { slug: String },
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-pub struct UserSinkIntegration {
-    pub id: usize,
-    pub settings: UserSinkIntegrationSetting,
-    /// the date and time it was added on
-    pub timestamp: DateTimeUtc,
-}
-
-#[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-#[serde(tag = "t", content = "d")]
-#[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
 pub enum UserNotificationSetting {
     Apprise {
         url: String,
