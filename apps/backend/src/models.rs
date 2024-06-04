@@ -1365,7 +1365,7 @@ pub mod media {
     #[graphql(input_name = "IntegrationSourceSpecificsInput")]
     #[serde(rename_all = "snake_case")]
     pub struct IntegrationSourceSpecifics {
-        pub plex_user: Option<String>,
+        pub plex_username: Option<String>,
         pub audiobookshelf_base_url: Option<String>,
         pub audiobookshelf_token: Option<String>,
     }

@@ -729,7 +729,7 @@ export enum IntegrationSource {
 export type IntegrationSourceSpecificsInput = {
   audiobookshelfBaseUrl?: InputMaybe<Scalars['String']['input']>;
   audiobookshelfToken?: InputMaybe<Scalars['String']['input']>;
-  plexUser?: InputMaybe<Scalars['String']['input']>;
+  plexUsername?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type LoginError = {
