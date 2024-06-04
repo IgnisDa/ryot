@@ -711,7 +711,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 };
 
 export const DisplayCollection = (props: {
-	userId: number;
+	userId: string;
 	col: { id: string; name: string };
 	entityId: string;
 	entityLot: EntityLot;
@@ -1003,7 +1003,7 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
-	userId: number;
+	userId: string;
 	entityLot: EntityLot;
 	inCollections: Array<string>;
 	formValue: string;

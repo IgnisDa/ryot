@@ -141,7 +141,7 @@ export const MediaDetailsLayout = (props: {
 type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 
 export const AddEntityToCollectionModal = (props: {
-	userId: number;
+	userId: string;
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;

@@ -223,7 +223,7 @@ const reviewCommentSchema = z.object({
 
 const changeCollectionToEntitySchema = z.object({
 	collectionName: z.string(),
-	creatorUserId: zx.IntAsString,
+	creatorUserId: z.string(),
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
 });
