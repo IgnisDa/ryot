@@ -33,19 +33,17 @@ import {
 import {
 	CreateUserSinkIntegrationDocument,
 	CreateUserYankIntegrationDocument,
-	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
-	UserIntegrationLot,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
+	DeleteIntegrationDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCheck, IconCopy, IconEye, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
-import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
@@ -76,7 +74,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await gqlClient.request(
-				DeleteUserIntegrationDocument,
+				DeleteIntegrationDocument,
 				submission,
 				await getAuthorizationHeader(request),
 			);
@@ -140,8 +138,7 @@ const createYankSchema = z.object({
 });
 
 const deleteSchema = z.object({
-	integrationId: zx.NumAsString,
-	integrationLot: z.nativeEnum(UserIntegrationLot),
+	integrationId: z.string(),
 });
 
 export default function Page() {
@@ -339,11 +336,6 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 							method="post"
 							ref={deleteFormRef}
 						>
-							<input
-								type="hidden"
-								name="integrationLot"
-								defaultValue={props.integration.lot}
-							/>
 							<input
 								type="hidden"
 								name="integrationId"
