@@ -5634,46 +5634,44 @@ impl MiscellaneousService {
             .collect()
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<usize> {
+    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
         let preferences = self.user_preferences(user_id).await?;
         if preferences.general.disable_yank_integrations {
-            return Ok(0);
+            return Ok(false);
         }
-        if let Some(integrations) =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?
-                .yank_integrations
-        {
-            let mut progress_updates = vec![];
-            for integration in integrations.iter() {
-                let response = match &integration.settings {
-                    UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
-                        self.get_integration_service()
-                            .audiobookshelf_progress(base_url, token)
-                            .await
-                    }
-                };
-                if let Ok(data) = response {
-                    progress_updates.extend(data);
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        let mut progress_updates = vec![];
+        for integration in integrations.into_iter() {
+            let response = match integration.source {
+                IntegrationSource::Audiobookshelf => {
+                    let specifics = integration.source_specifics.unwrap();
+                    self.get_integration_service()
+                        .audiobookshelf_progress(
+                            &specifics.audiobookshelf_base_url.unwrap(),
+                            &specifics.audiobookshelf_token.unwrap(),
+                        )
+                        .await
                 }
+                _ => continue,
+            };
+            if let Ok(data) = response {
+                progress_updates.extend(data);
             }
-            let mut updated_count = 0;
-            for pu in progress_updates.into_iter() {
-                if self.integration_progress_update(pu, user_id).await.is_ok() {
-                    updated_count += 1
-                }
-            }
-            Ok(updated_count)
-        } else {
-            Ok(0)
         }
+        for pu in progress_updates.into_iter() {
+            self.integration_progress_update(pu, user_id).await.ok();
+        }
+        Ok(true)
     }
 
     pub async fn yank_integrations_data(&self) -> Result<()> {
-        let users_with_integrations = User::find()
-            .filter(user::Column::YankIntegrations.is_not_null())
+        let users_with_integrations = Integration::find()
+            .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .select_only()
-            .column(user::Column::Id)
+            .column(integration::Column::UserId)
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
