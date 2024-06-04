@@ -226,7 +226,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 
 	const integrationUrl =
 		typeof window !== "undefined"
-			? `${window.location.origin}/backend/webhooks/integrations/${props.integration.id}`
+			? `${window.location.origin}/_i/${props.integration.id}`
 			: "";
 
 	return (
