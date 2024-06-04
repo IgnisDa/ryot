@@ -39,7 +39,13 @@ import {
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
-import { IconCheck, IconCopy, IconEye, IconTrash } from "@tabler/icons-react";
+import {
+	IconCheck,
+	IconCopy,
+	IconEye,
+	IconEyeClosed,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -244,7 +250,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 					<Group>
 						{props.integration.id ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
-								<IconEye />
+								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
 						) : null}
 						<fetcher.Form
