@@ -224,7 +224,11 @@ export const AddEntityToCollectionModal = (props: {
 												label={template.name}
 												description={template.description}
 												required={!!template.required}
-												defaultValue={template.defaultValue || undefined}
+												defaultValue={
+													template.defaultValue
+														? Number(template.defaultValue)
+														: undefined
+												}
 											/>
 										))
 										.with(CollectionExtraInformationLot.Date, () => (
@@ -235,7 +239,11 @@ export const AddEntityToCollectionModal = (props: {
 													required={!!template.required}
 													onChange={setOwnedOn}
 													value={ownedOn}
-													defaultValue={template.defaultValue? new Date(template.defaultValue) : undefined}
+													defaultValue={
+														template.defaultValue
+															? new Date(template.defaultValue)
+															: undefined
+													}
 												/>
 												<input
 													readOnly
