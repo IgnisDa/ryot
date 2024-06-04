@@ -58,10 +58,10 @@ use crate::{
         integration, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
         metadata_to_metadata_group, metadata_to_person, person,
         prelude::{
-            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Metadata,
-            MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-            MetadataToPerson, Person, QueuedNotification, Review, Seen, User, UserMeasurement,
-            UserToCollection, UserToEntity, Workout,
+            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
+            Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+            MetadataToMetadataGroup, MetadataToPerson, Person, QueuedNotification, Review, Seen,
+            User, UserMeasurement, UserToCollection, UserToEntity, Workout,
         },
         queued_notification, review, seen,
         user::{
@@ -1292,17 +1292,14 @@ impl MiscellaneousMutation {
     }
 
     /// Delete an integration for the currently logged in user.
-    async fn delete_user_integration(
+    async fn delete_integration(
         &self,
         gql_ctx: &Context<'_>,
-        integration_id: usize,
-        integration_lot: UserIntegrationLot,
+        integration_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .delete_user_integration(user_id, integration_id, integration_lot)
-            .await
+        service.delete_integration(user_id, integration_id).await
     }
 
     /// Add a notification platform for the currently logged in user.
@@ -5486,41 +5483,15 @@ impl MiscellaneousService {
         Ok(StringIdObject { id: integration.id })
     }
 
-    async fn delete_user_integration(
-        &self,
-        user_id: String,
-        integration_id: usize,
-        integration_type: UserIntegrationLot,
-    ) -> Result<bool> {
-        let user = user_by_id(&self.db, &user_id).await?;
-        let mut user_db: user::ActiveModel = user.clone().into();
-        match integration_type {
-            UserIntegrationLot::Yank => {
-                let remaining_integrations = user
-                    .yank_integrations
-                    .clone()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|i| i.id != integration_id)
-                    .collect_vec();
-                let update_value = if remaining_integrations.is_empty() {
-                    None
-                } else {
-                    Some(remaining_integrations)
-                };
-                user_db.yank_integrations = ActiveValue::Set(update_value);
-            }
-            UserIntegrationLot::Sink => {
-                let integrations = user.sink_integrations.clone();
-                let remaining_integrations = integrations
-                    .into_iter()
-                    .filter(|i| i.id != integration_id)
-                    .collect_vec();
-                let update_value = remaining_integrations;
-                user_db.sink_integrations = ActiveValue::Set(update_value);
-            }
-        };
-        user_db.update(&self.db).await?;
+    async fn delete_integration(&self, user_id: String, integration_id: String) -> Result<bool> {
+        let integration = Integration::find_by_id(integration_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
+        if integration.user_id != user_id {
+            return Err(Error::new("Integration does not belong to the user"));
+        }
+        integration.delete(&self.db).await?;
         Ok(true)
     }
 

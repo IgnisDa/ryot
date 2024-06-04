@@ -92,11 +92,8 @@ mutation DeleteUser($toDeleteUserId: String!) {
   deleteUser(toDeleteUserId: $toDeleteUserId)
 }
 
-mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {
-  deleteUserIntegration(
-    integrationId: $integrationId
-    integrationLot: $integrationLot
-  )
+mutation DeleteIntegration($integrationId: String!) {
+  deleteIntegration(integrationId: $integrationId)
 }
 
 mutation DeleteUserMeasurement($timestamp: DateTime!) {
