@@ -56,8 +56,8 @@ mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {
   createUserSinkIntegration(input: $input)
 }
 
-mutation CreateIntegration($input: CreateIntegrationInput!) {
-  createIntegration(input: $input) {
+mutation CreateUserIntegration($input: CreateIntegrationInput!) {
+  createUserIntegration(input: $input) {
     id
   }
 }
@@ -92,8 +92,8 @@ mutation DeleteUser($toDeleteUserId: String!) {
   deleteUser(toDeleteUserId: $toDeleteUserId)
 }
 
-mutation DeleteIntegration($integrationId: String!) {
-  deleteIntegration(integrationId: $integrationId)
+mutation DeleteUserIntegration($integrationId: String!) {
+  deleteUserIntegration(integrationId: $integrationId)
 }
 
 mutation DeleteUserMeasurement($timestamp: DateTime!) {

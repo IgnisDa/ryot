@@ -1281,25 +1281,27 @@ impl MiscellaneousMutation {
     }
 
     /// Create an integration for the currently logged in user.
-    async fn create_integration(
+    async fn create_user_integration(
         &self,
         gql_ctx: &Context<'_>,
         input: CreateIntegrationInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_integration(user_id, input).await
+        service.create_user_integration(user_id, input).await
     }
 
     /// Delete an integration for the currently logged in user.
-    async fn delete_integration(
+    async fn delete_user_integration(
         &self,
         gql_ctx: &Context<'_>,
         integration_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_integration(user_id, integration_id).await
+        service
+            .delete_user_integration(user_id, integration_id)
+            .await
     }
 
     /// Add a notification platform for the currently logged in user.
@@ -5463,7 +5465,7 @@ impl MiscellaneousService {
         Ok(new_integration_id)
     }
 
-    async fn create_integration(
+    async fn create_user_integration(
         &self,
         user_id: String,
         input: CreateIntegrationInput,
@@ -5483,7 +5485,11 @@ impl MiscellaneousService {
         Ok(StringIdObject { id: integration.id })
     }
 
-    async fn delete_integration(&self, user_id: String, integration_id: String) -> Result<bool> {
+    async fn delete_user_integration(
+        &self,
+        user_id: String,
+        integration_id: String,
+    ) -> Result<bool> {
         let integration = Integration::find_by_id(integration_id)
             .one(&self.db)
             .await?

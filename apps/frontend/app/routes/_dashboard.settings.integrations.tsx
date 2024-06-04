@@ -38,7 +38,7 @@ import {
 	type UserIntegrationsQuery,
 	UserSinkIntegrationSettingKind,
 	UserYankIntegrationSettingKind,
-	DeleteIntegrationDocument,
+	DeleteUserIntegrationDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconCheck, IconCopy, IconEye, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
@@ -74,7 +74,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await gqlClient.request(
-				DeleteIntegrationDocument,
+				DeleteUserIntegrationDocument,
 				submission,
 				await getAuthorizationHeader(request),
 			);
