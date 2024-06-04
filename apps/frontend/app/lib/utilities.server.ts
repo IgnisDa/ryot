@@ -386,10 +386,10 @@ export const getCoreDetails = async (request: Request) => {
 
 export const getUserPreferences = async (request: Request) => {
   await redirectIfNotAuthenticatedOrUpdated(request);
-  const prefs = await userPreferencesCookie.parse(
+  const preferences = await userPreferencesCookie.parse(
     request.headers.get("cookie") || ""
   );
-  return prefs as UserPreferences;
+  return preferences as UserPreferences;
 };
 
 export const getUserDetails = async (request: Request) => {
