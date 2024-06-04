@@ -52,6 +52,24 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("integration__lot")
+                    .table(Integration::Table)
+                    .col(Integration::Lot)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("integration__user_id")
+                    .table(Integration::Table)
+                    .col(Integration::UserId)
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 
