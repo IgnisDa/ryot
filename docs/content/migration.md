@@ -8,7 +8,7 @@ order.
 !!! warning "Integrations deleted"
 
     All integrations need to be recreated. Please take a look at the
-    [integration](./integrations.md) docs.
+    [docs](./integrations.md) for the new webhook format.
 
 1. Upgrade the server to `v5.5.6` to make sure all `v5` migrations are applied. For
    example, you can make this change: `image: "ghcr.io/ignisda/ryot:v5.5.6"` in your
