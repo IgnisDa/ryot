@@ -5500,16 +5500,14 @@ impl MiscellaneousService {
         for pu in progress_updates.into_iter() {
             self.integration_progress_update(pu, user_id).await.ok();
         }
-        if !to_update_integrations.is_empty() {
-            Integration::update_many()
-                .filter(integration::Column::Id.is_in(to_update_integrations))
-                .col_expr(
-                    integration::Column::LastTriggeredOn,
-                    Expr::value(Utc::now()),
-                )
-                .exec(&self.db)
-                .await?;
-        }
+        Integration::update_many()
+            .filter(integration::Column::Id.is_in(to_update_integrations))
+            .col_expr(
+                integration::Column::LastTriggeredOn,
+                Expr::value(Utc::now()),
+            )
+            .exec(&self.db)
+            .await?;
         Ok(true)
     }
 
@@ -6606,14 +6604,12 @@ impl MiscellaneousService {
             };
             metadata_updates.push(meta.id.clone());
         }
-        if !calendar_events_inserts.is_empty() {
-            tracing::debug!(
-                "Inserting {} calendar events",
-                calendar_events_inserts.len()
-            );
-            for cal_insert in calendar_events_inserts {
-                cal_insert.insert(&self.db).await.ok();
-            }
+        tracing::debug!(
+            "Inserting {} calendar events",
+            calendar_events_inserts.len()
+        );
+        for cal_insert in calendar_events_inserts {
+            cal_insert.insert(&self.db).await.ok();
         }
         tracing::debug!("Finished updating calendar events");
         Ok(())
