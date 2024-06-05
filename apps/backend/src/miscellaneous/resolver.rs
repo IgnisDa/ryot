@@ -44,8 +44,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, ConditionType, Expr, Func,
+    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -6929,30 +6929,58 @@ GROUP BY m.id;
         Ok(())
     }
 
-    async fn remove_old_metadata_from_monitoring_collection(&self) -> Result<()> {
-        // TODO: Make sure that this respects `collection_to_entity.information.Days ||
-        // self.config.media.monitoring_remove_after_days` to decide whether to remove
-        // entity
-        let older_than = Utc::now()
-            - ChronoDuration::try_days(self.config.media.monitoring_remove_after_days).unwrap();
-        self.db
-            .execute(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                r#"
-DELETE FROM collection_to_entity
-WHERE id IN (
-    SELECT cte.id
-    FROM collection_to_entity cte
-    JOIN collection c ON cte.collection_id = c.id AND c.name = $1
-    JOIN user_to_entity ute ON cte.metadata_id = ute.metadata_id
-    WHERE ute.metadata_id IS NOT NULL AND ute.last_updated_on < $2
-);
-       "#,
-                [
-                    DefaultCollection::Monitoring.to_string().into(),
-                    older_than.into(),
-                ],
-            ))
+    async fn remove_old_entities_from_monitoring_collection(&self) -> Result<()> {
+        let now = Utc::now();
+        #[derive(Debug, FromQueryResult)]
+        struct CustomQueryResponse {
+            id: i32,
+            last_updated_on: DateTimeUtc,
+            information: Option<serde_json::Value>,
+        }
+        let all_cte = CollectionToEntity::find()
+            .select_only()
+            .column(collection_to_entity::Column::Id)
+            .column(collection_to_entity::Column::Information)
+            .column(user_to_entity::Column::LastUpdatedOn)
+            .inner_join(Collection)
+            .join_rev(
+                JoinType::LeftJoin,
+                UserToEntity::belongs_to(CollectionToEntity)
+                    .from(user_to_entity::Column::MetadataId)
+                    .to(collection_to_entity::Column::MetadataId)
+                    .condition_type(ConditionType::Any)
+                    .on_condition(move |left, right| {
+                        Condition::any().add(
+                            Expr::col((left, user_to_entity::Column::PersonId))
+                                .equals((right, collection_to_entity::Column::PersonId)),
+                        )
+                    })
+                    .into(),
+            )
+            .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
+            .order_by_asc(collection_to_entity::Column::Id)
+            .into_model::<CustomQueryResponse>()
+            .all(&self.db)
+            .await?;
+        let mut to_delete = vec![];
+        for cte in all_cte {
+            let days = cte
+                .information
+                .and_then(|i| {
+                    i.as_object().cloned().and_then(|v| {
+                        v.get("Days")
+                            .cloned()
+                            .and_then(|g| g.as_str().and_then(|s| s.parse::<i64>().ok()))
+                    })
+                })
+                .unwrap_or(self.config.media.monitoring_remove_after_days);
+            if cte.last_updated_on < now - ChronoDuration::try_days(days).unwrap() {
+                to_delete.push(cte.id);
+            }
+        }
+        CollectionToEntity::delete_many()
+            .filter(collection_to_entity::Column::Id.is_in(to_delete))
+            .exec(&self.db)
             .await?;
         Ok(())
     }
@@ -7059,8 +7087,8 @@ WHERE id IN (
 
         tracing::trace!("Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.unwrap();
-        tracing::trace!("Removing stale media from Monitoring collection");
-        self.remove_old_metadata_from_monitoring_collection()
+        tracing::trace!("Removing stale entities from Monitoring collection");
+        self.remove_old_entities_from_monitoring_collection()
             .await
             .unwrap();
         tracing::trace!("Checking for updates for media in Watchlist");
@@ -7088,6 +7116,9 @@ WHERE id IN (
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.remove_old_entities_from_monitoring_collection()
+            .await
+            .unwrap();
         Ok(true)
     }
 }
