@@ -7112,9 +7112,6 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        self.remove_old_entities_from_monitoring_collection()
-            .await
-            .unwrap();
         Ok(true)
     }
 }
