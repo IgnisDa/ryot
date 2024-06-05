@@ -7037,6 +7037,10 @@ GROUP BY m.id;
         Ok(())
     }
 
+    pub async fn download_recommendations_for_users(&self) -> Result<()> {
+        Ok(())
+    }
+
     #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find()
@@ -7105,6 +7109,8 @@ GROUP BY m.id;
         self.send_pending_notifications().await.unwrap();
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
+        tracing::trace!("Downloading recommendations for users");
+        self.download_recommendations_for_users().await?;
 
         tracing::debug!("Completed media jobs...");
         Ok(())
