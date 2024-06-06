@@ -1,7 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	type ActionFunctionArgs,
-	json,
 	redirect,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
@@ -194,7 +193,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			}
 		})
 		.run();
-	if (Object.keys(returnData).length > 0) return json(returnData, { headers });
+	if (Object.keys(returnData).length > 0)
+		return Response.json(returnData, { headers });
 	return redirect(redirectTo, { headers });
 };
 

@@ -17,10 +17,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return {
-		details: {
-			images: exerciseDetails.attributes.images,
-		},
+	return Response.json({
+		details: { images: exerciseDetails.attributes.images },
 		history: userExerciseDetails.history,
-	};
+	});
 };
