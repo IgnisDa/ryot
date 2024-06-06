@@ -748,6 +748,13 @@ impl MediaProvider for TmdbMovieService {
             parts,
         ))
     }
+
+    async fn get_recommendations_for_metadata(
+        &self,
+        identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        Ok(vec![])
+    }
 }
 
 #[derive(Debug, Clone)]
