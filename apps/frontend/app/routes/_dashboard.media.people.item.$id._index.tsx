@@ -102,15 +102,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).personDetails.details.name
-			} | Ryot`,
-		},
-	];
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {

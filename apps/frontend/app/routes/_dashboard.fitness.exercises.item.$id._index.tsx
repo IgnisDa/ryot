@@ -111,15 +111,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).exerciseDetails.id
-			} | Ryot`,
-		},
-	];
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+	return [{ title: `${data?.exerciseDetails.id} | Ryot` }];
 };
 
 export default function Page() {

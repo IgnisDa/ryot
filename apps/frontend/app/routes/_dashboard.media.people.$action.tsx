@@ -152,12 +152,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = ({ params }) => {
-	return [
-		{
-			title: `${changeCase(params.action || "")} People | Ryot`,
-		},
-	];
+export const meta: MetaFunction<typeof loader> = ({ params }) => {
+	return [{ title: `${changeCase(params.action || "")} People | Ryot` }];
 };
 
 export default function Page() {
