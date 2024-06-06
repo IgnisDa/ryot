@@ -2891,7 +2891,7 @@ impl MiscellaneousService {
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
-        let provider = self.get_metadata_provider(lot, source).await?;
+        let provider = self.get_media_provider(lot, source).await?;
         let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
             Some(eg) => eg.id,
@@ -3314,7 +3314,7 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let provider = self.get_metadata_provider(input.lot, input.source).await?;
+        let provider = self.get_media_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -3391,7 +3391,7 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let provider = self.get_non_metadata_provider(input.source).await?;
+        let provider = self.get_non_media_provider(input.source).await?;
         let results = provider
             .people_search(
                 &query,
@@ -3421,7 +3421,7 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let provider = self.get_metadata_provider(input.lot, input.source).await?;
+        let provider = self.get_media_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -3459,7 +3459,7 @@ impl MiscellaneousService {
         .await)
     }
 
-    async fn get_metadata_provider(&self, lot: MediaLot, source: MediaSource) -> Result<Provider> {
+    async fn get_media_provider(&self, lot: MediaLot, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
@@ -3556,7 +3556,7 @@ impl MiscellaneousService {
         .await)
     }
 
-    async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
+    async fn get_non_media_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
@@ -3611,7 +3611,7 @@ impl MiscellaneousService {
         source: MediaSource,
         identifier: &str,
     ) -> Result<MediaDetails> {
-        let provider = self.get_metadata_provider(lot, source).await?;
+        let provider = self.get_media_provider(lot, source).await?;
         let results = provider.metadata_details(identifier).await?;
         Ok(results)
     }
@@ -6668,7 +6668,7 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        let provider = self.get_non_metadata_provider(person.source).await?;
+        let provider = self.get_non_media_provider(person.source).await?;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
             .await?;
