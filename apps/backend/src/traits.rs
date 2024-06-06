@@ -77,6 +77,12 @@ pub trait MediaProvider {
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         bail!("This provider does not support getting group details")
     }
+
+    /// Get trending media.
+    #[allow(unused_variables)]
+    async fn get_trending_media(&self) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        bail!("This provider does not support getting trending media")
+    }
 }
 
 pub trait MediaProviderLanguages {
