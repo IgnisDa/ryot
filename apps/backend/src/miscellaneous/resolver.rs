@@ -7062,7 +7062,15 @@ JOIN metadata m ON sub.metadata_id = m.id WHERE sub.rn = 1 and m.source in ($1, 
         ))
         .all(&self.db)
         .await?;
-        dbg!(media_items);
+        for media in media_items.into_iter() {
+            let provider = self.get_media_provider(media.lot, media.source).await?;
+            if let Ok(recommendations) = provider
+                .get_recommendations_for_metadata(&media.identifier)
+                .await
+            {
+                dbg!(&recommendations);
+            }
+        }
         Ok(())
     }
 
