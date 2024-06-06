@@ -2,11 +2,11 @@
 	"name": "@ryot/ts-utils",
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
-		"dayjs": "1.11.10",
+		"dayjs": "1.11.11",
 		"humanize-duration-ts": "2.1.1",
 		"lodash": "4.17.21"
 	},
 	"devDependencies": {
-		"@types/lodash": "^4.17.0"
+		"@types/lodash": "4.17.4"
 	}
 }
