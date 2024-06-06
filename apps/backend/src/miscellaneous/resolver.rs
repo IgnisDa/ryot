@@ -1983,7 +1983,7 @@ impl MiscellaneousService {
             .await?;
         let grouped_events = events
             .into_iter()
-            .group_by(|event| event.date)
+            .chunk_by(|event| event.date)
             .into_iter()
             .map(|(date, events)| GroupedCalendarEvent {
                 date,
