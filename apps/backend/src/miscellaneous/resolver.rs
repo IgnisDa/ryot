@@ -7038,6 +7038,31 @@ GROUP BY m.id;
     }
 
     pub async fn download_recommendations_for_users(&self) -> Result<()> {
+        #[derive(Debug, FromQueryResult)]
+        struct CustomQueryResponse {
+            lot: MediaLot,
+            source: MediaSource,
+            identifier: String,
+        }
+        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            r#"
+SELECT m.lot, m.identifier, m.source
+FROM (
+    SELECT user_id, metadata_id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_updated_on DESC) AS rn
+    FROM user_to_entity WHERE user_id IN (SELECT "id" from "user")
+) sub
+JOIN metadata m ON sub.metadata_id = m.id WHERE sub.rn = 1 and m.source in ($1, $2, $3) ORDER BY RANDOM() LIMIT 10;
+        "#,
+            [
+                MediaSource::Tmdb.into(),
+                MediaSource::Anilist.into(),
+                MediaSource::Listennotes.into(),
+            ],
+        ))
+        .all(&self.db)
+        .await?;
+        dbg!(media_items);
         Ok(())
     }
 
@@ -7118,6 +7143,7 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.download_recommendations_for_users().await?;
         Ok(true)
     }
 }
