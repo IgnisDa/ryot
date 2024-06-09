@@ -125,7 +125,7 @@ pub struct ExerciseConfig {}
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {
     /// Number of days after which a media should be removed from the Monitoring collection.
-    #[setting(default = 30)]
+    #[setting(default = 365)]
     pub monitoring_remove_after_days: i64,
 }
 
