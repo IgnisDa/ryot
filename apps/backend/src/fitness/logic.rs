@@ -1,5 +1,4 @@
 use anyhow::{bail, Result};
-use chrono::Utc;
 use database::ExerciseLot;
 use nanoid::nanoid;
 use rs_utils::LengthVec;
@@ -94,6 +93,7 @@ impl UserWorkoutInput {
         db: &DatabaseConnection,
         save_history: usize,
     ) -> Result<String> {
+        let end_time = self.end_time;
         let mut input = self;
         let id = input.id.unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
         tracing::trace!("Creating new workout with id = {}", id);
@@ -102,7 +102,7 @@ impl UserWorkoutInput {
         if input.exercises.is_empty() {
             bail!("This workout has no associated exercises")
         }
-        let mut set_confirmed_at = input
+        let mut first_set_of_exercise_confirmed_at = input
             .exercises
             .first()
             .unwrap()
@@ -146,20 +146,25 @@ impl UserWorkoutInput {
                                 personal_bests: vec![],
                             },
                         )),
+                        created_on: ActiveValue::Set(
+                            first_set_of_exercise_confirmed_at.unwrap_or(end_time),
+                        ),
                         ..Default::default()
                     };
                     user_to_ex.insert(db).await.unwrap()
                 }
                 Some(e) => {
-                    let performed = e.exercise_num_times_interacted.unwrap_or_default();
+                    let last_updated_on = e.last_updated_on;
                     let mut extra_info = e.exercise_extra_information.clone().unwrap_or_default();
                     extra_info.history.insert(0, history_item);
-                    let mut up: user_to_entity::ActiveModel = e.into();
-                    up.exercise_num_times_interacted = ActiveValue::Set(Some(performed + 1));
-                    up.exercise_extra_information = ActiveValue::Set(Some(extra_info));
-                    up.last_updated_on =
-                        ActiveValue::Set(set_confirmed_at.unwrap_or_else(Utc::now));
-                    up.update(db).await?
+                    let mut to_update: user_to_entity::ActiveModel = e.into();
+                    to_update.exercise_num_times_interacted =
+                        ActiveValue::Set(Some(extra_info.history.len().try_into().unwrap()));
+                    to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
+                    to_update.last_updated_on = ActiveValue::Set(
+                        first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on),
+                    );
+                    to_update.update(db).await?
                 }
             };
             if let Some(d) = ex.rest_time {
@@ -169,11 +174,16 @@ impl UserWorkoutInput {
                 .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
             for set in ex.sets.iter_mut() {
                 let mut actual_rest_time = None;
-                if exercise_idx != 0 && set.confirmed_at.is_some() && set_confirmed_at.is_some() {
-                    actual_rest_time =
-                        Some((set.confirmed_at.unwrap() - set_confirmed_at.unwrap()).num_seconds());
+                if exercise_idx != 0
+                    && set.confirmed_at.is_some()
+                    && first_set_of_exercise_confirmed_at.is_some()
+                {
+                    actual_rest_time = Some(
+                        (set.confirmed_at.unwrap() - first_set_of_exercise_confirmed_at.unwrap())
+                            .num_seconds(),
+                    );
                 }
-                set_confirmed_at = set.confirmed_at;
+                first_set_of_exercise_confirmed_at = set.confirmed_at;
                 set.remove_invalids(&db_ex.lot);
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
