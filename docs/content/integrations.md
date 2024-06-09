@@ -13,7 +13,7 @@ be of two types:
     completed when it has more than _95%_ progress. This can be changed via the
     `integration.{minimum,maximum}*` configuration keys.
 
-## Yank plugins
+## Yank integrations
 
 For each integration you want to enable, credentials for the external server
 must be saved to your profile. To do so, go to the "Settings" tab and add a
@@ -32,16 +32,15 @@ media which have a match from _Audible_.
 1. Obtain an API token as described in the Audiobookshelf
    [authentication](https://api.audiobookshelf.org/#authentication) docs.
 2. Go to your Ryot user settings and add the correct details as described in the
-   [yank](#yank-plugins) section.
+   [yank](#yank-integrations) section.
 
-## Sink plugins
+## Sink integrations
 
 All webhook URLs follow this format:
 
 ```txt
 https://<instance_url>/backend/_i/<slug>
-# example
-https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI
+https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 ```
 
 !!! warning
