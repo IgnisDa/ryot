@@ -167,6 +167,7 @@ struct TmdbFindByExernalSourceResponse {
 
 #[derive(Debug, Clone)]
 pub struct TmdbService {
+    client: Client,
     language: String,
     settings: Settings,
     timezone: Tz,
@@ -202,7 +203,6 @@ impl MediaProviderLanguages for TmdbService {
 
 #[derive(Debug, Clone)]
 pub struct NonMediaTmdbService {
-    client: Client,
     base: TmdbService,
 }
 
@@ -210,8 +210,8 @@ impl NonMediaTmdbService {
     pub async fn new(access_token: String, timezone: chrono_tz::Tz, language: String) -> Self {
         let (client, settings) = get_client_config(URL, &access_token).await;
         Self {
-            client,
             base: TmdbService {
+                client,
                 language,
                 settings,
                 timezone,
@@ -238,6 +238,7 @@ impl MediaProvider for NonMediaTmdbService {
         };
         let page = page.unwrap_or(1);
         let mut rsp = self
+            .base
             .client
             .get(format!("search/{}", typ))
             .query(&json!({
@@ -287,6 +288,7 @@ impl MediaProvider for NonMediaTmdbService {
             _ => "person",
         };
         let details: TmdbNonMediaEntity = self
+            .base
             .client
             .get(format!("{}/{}", typ, identity))
             .query(&json!({ "language": self.base.language }))
@@ -298,7 +300,7 @@ impl MediaProvider for NonMediaTmdbService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         self.base
-            .save_all_images(&self.client, typ, identity, &mut images)
+            .save_all_images(typ, identity, &mut images)
             .await?;
         let images = images
             .into_iter()
@@ -309,6 +311,7 @@ impl MediaProvider for NonMediaTmdbService {
         let mut related = vec![];
         if typ == "person" {
             let cred_det: TmdbCreditsResponse = self
+                .base
                 .client
                 .get(format!("{}/{}/combined_credits", typ, identity))
                 .query(&json!({ "language": self.base.language }))
@@ -339,7 +342,7 @@ impl MediaProvider for NonMediaTmdbService {
         } else {
             for m_typ in ["movie", "tv"] {
                 for i in 1.. {
-                    let cred_det: TmdbListResponse = self
+                    let cred_det: TmdbListResponse = self.base
                         .client
                         .get(format!("discover/{}", m_typ))
                         .query(
@@ -403,6 +406,7 @@ impl NonMediaTmdbService {
         external_source: &str,
     ) -> Result<String> {
         let details: TmdbFindByExernalSourceResponse = self
+            .base
             .client
             .get(format!("find/{}", external_id))
             .query(&json!({ "language": self.base.language, "external_source": external_source }))
@@ -424,7 +428,6 @@ impl NonMediaTmdbService {
 
 #[derive(Debug, Clone)]
 pub struct TmdbMovieService {
-    client: Client,
     base: TmdbService,
 }
 
@@ -436,8 +439,8 @@ impl TmdbMovieService {
     ) -> Self {
         let (client, settings) = get_client_config(URL, &config.access_token).await;
         Self {
-            client,
             base: TmdbService {
+                client,
                 language: config.locale.clone(),
                 settings,
                 timezone,
@@ -456,6 +459,7 @@ impl MediaProvider for TmdbMovieService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
+            .base
             .client
             .get("search/movie")
             .query(&json!({
@@ -495,6 +499,7 @@ impl MediaProvider for TmdbMovieService {
 
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
+            .base
             .client
             .get(format!("movie/{}", &identifier))
             .query(&json!({
@@ -513,6 +518,7 @@ impl MediaProvider for TmdbMovieService {
             }))
         }
         let mut rsp = self
+            .base
             .client
             .get(format!("movie/{}/credits", identifier))
             .query(&json!({
@@ -589,15 +595,12 @@ impl MediaProvider for TmdbMovieService {
             image_ids.push(u);
         }
         self.base
-            .save_all_images(&self.client, "movie", identifier, &mut image_ids)
+            .save_all_images("movie", identifier, &mut image_ids)
             .await?;
-        let suggestions = self
-            .base
-            .get_all_suggestions(&self.client, "movie", identifier)
-            .await?;
+        let suggestions = self.base.get_all_suggestions("movie", identifier).await?;
         let watch_providers = self
             .base
-            .get_all_watch_providers(&self.client, "movie", identifier)
+            .get_all_watch_providers("movie", identifier)
             .await?;
         Ok(MediaDetails {
             identifier: data.id.to_string(),
@@ -663,6 +666,7 @@ impl MediaProvider for TmdbMovieService {
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
+            .base
             .client
             .get("search/collection")
             .query(&json!({
@@ -713,6 +717,7 @@ impl MediaProvider for TmdbMovieService {
             parts: Vec<TmdbMediaEntry>,
         }
         let data: TmdbCollection = self
+            .base
             .client
             .get(format!("collection/{}", &identifier))
             .query(&json!({ "language": self.base.language }))
@@ -730,7 +735,7 @@ impl MediaProvider for TmdbMovieService {
             images.push(i);
         }
         self.base
-            .save_all_images(&self.client, "collection", identifier, &mut images)
+            .save_all_images("collection", identifier, &mut images)
             .await?;
         let parts = data
             .parts
@@ -768,7 +773,6 @@ impl MediaProvider for TmdbMovieService {
 
 #[derive(Debug, Clone)]
 pub struct TmdbShowService {
-    client: Client,
     base: TmdbService,
 }
 
@@ -780,8 +784,8 @@ impl TmdbShowService {
     ) -> Self {
         let (client, settings) = get_client_config(URL, &config.access_token).await;
         Self {
-            client,
             base: TmdbService {
+                client,
                 language: config.locale.clone(),
                 settings,
                 timezone,
@@ -794,6 +798,7 @@ impl TmdbShowService {
 impl MediaProvider for TmdbShowService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let mut rsp = self
+            .base
             .client
             .get(format!("tv/{}", &identifier))
             .query(&json!({
@@ -816,12 +821,9 @@ impl MediaProvider for TmdbShowService {
             image_ids.push(u);
         }
         self.base
-            .save_all_images(&self.client, "tv", identifier, &mut image_ids)
+            .save_all_images("tv", identifier, &mut image_ids)
             .await?;
-        let suggestions = self
-            .base
-            .get_all_suggestions(&self.client, "tv", identifier)
-            .await?;
+        let suggestions = self.base.get_all_suggestions("tv", identifier).await?;
 
         #[derive(Debug, Serialize, Deserialize, Clone)]
         struct TmdbEpisode {
@@ -848,6 +850,7 @@ impl MediaProvider for TmdbShowService {
         let mut seasons = vec![];
         for s in show_data.seasons.unwrap_or_default().iter() {
             let mut rsp = self
+                .base
                 .client
                 .get(format!(
                     "tv/{}/season/{}",
@@ -862,6 +865,7 @@ impl MediaProvider for TmdbShowService {
                 .map_err(|e| anyhow!(e))?;
             let mut data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
             let mut rsp = self
+                .base
                 .client
                 .get(format!(
                     "tv/{}/season/{}/credits",
@@ -951,10 +955,7 @@ impl MediaProvider for TmdbShowService {
             .iter()
             .flat_map(|s| s.episodes.iter())
             .count();
-        let watch_providers = self
-            .base
-            .get_all_watch_providers(&self.client, "tv", identifier)
-            .await?;
+        let watch_providers = self.base.get_all_watch_providers("tv", identifier).await?;
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
@@ -1063,6 +1064,7 @@ impl MediaProvider for TmdbShowService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let mut rsp = self
+            .base
             .client
             .get("search/tv")
             .query(&json!({
@@ -1148,12 +1150,12 @@ struct TmdbNonMediaEntity {
 impl TmdbService {
     async fn save_all_images(
         &self,
-        client: &Client,
         typ: &str,
         identifier: &str,
         images: &mut Vec<String>,
     ) -> Result<()> {
-        let mut rsp = client
+        let mut rsp = self
+            .client
             .get(format!("{}/{}/images", typ, identifier))
             .await
             .map_err(|e| anyhow!(e))?;
@@ -1183,7 +1185,6 @@ impl TmdbService {
 
     async fn get_all_suggestions(
         &self,
-        client: &Client,
         typ: &str,
         identifier: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
@@ -1194,7 +1195,8 @@ impl TmdbService {
         };
         let mut suggestions = vec![];
         for page in 1.. {
-            let new_recs: TmdbListResponse = client
+            let new_recs: TmdbListResponse = self
+                .client
                 .get(format!("{}/{}/recommendations", typ, identifier))
                 .query(&json!({ "page": page }))
                 .unwrap()
@@ -1225,11 +1227,11 @@ impl TmdbService {
 
     async fn get_all_watch_providers(
         &self,
-        client: &Client,
         typ: &str,
         identifier: &str,
     ) -> Result<Vec<WatchProvider>> {
-        let watch_providers_with_langs: TmdbWatchProviderResponse = client
+        let watch_providers_with_langs: TmdbWatchProviderResponse = self
+            .client
             .get(format!("{}/{}/watch/providers", typ, identifier))
             .query(&json!({ "language": self.language }))
             .unwrap()
