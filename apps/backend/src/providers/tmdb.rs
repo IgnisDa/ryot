@@ -187,6 +187,143 @@ impl TmdbService {
                 .map(|l| l.english_name.clone())
         })
     }
+
+    async fn save_all_images(
+        &self,
+        typ: &str,
+        identifier: &str,
+        images: &mut Vec<String>,
+    ) -> Result<()> {
+        let mut rsp = self
+            .client
+            .get(format!("{}/{}/images", typ, identifier))
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        if let Some(imgs) = new_images.posters {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.backdrops {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.logos {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        if let Some(imgs) = new_images.profiles {
+            for image in imgs {
+                images.push(image.file_path);
+            }
+        }
+        Ok(())
+    }
+
+    async fn get_all_suggestions(
+        &self,
+        typ: &str,
+        identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        let lot = match typ {
+            "movie" => MediaLot::Movie,
+            "tv" => MediaLot::Show,
+            _ => unreachable!(),
+        };
+        let mut suggestions = vec![];
+        for page in 1.. {
+            let new_recs: TmdbListResponse = self
+                .client
+                .get(format!("{}/{}/recommendations", typ, identifier))
+                .query(&json!({ "page": page }))
+                .unwrap()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            for entry in new_recs.results.into_iter() {
+                let name = match entry.title {
+                    Some(n) => n,
+                    _ => continue,
+                };
+                suggestions.push(PartialMetadataWithoutId {
+                    title: name,
+                    image: entry.poster_path.map(|p| self.get_image_url(p)),
+                    identifier: entry.id.to_string(),
+                    source: MediaSource::Tmdb,
+                    lot,
+                });
+            }
+            if new_recs.page >= new_recs.total_pages {
+                break;
+            }
+        }
+        Ok(suggestions)
+    }
+
+    async fn get_all_watch_providers(
+        &self,
+        typ: &str,
+        identifier: &str,
+    ) -> Result<Vec<WatchProvider>> {
+        let watch_providers_with_langs: TmdbWatchProviderResponse = self
+            .client
+            .get(format!("{}/{}/watch/providers", typ, identifier))
+            .query(&json!({ "language": self.language }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let mut watch_providers = Vec::<WatchProvider>::new();
+        for (country, lang_providers) in watch_providers_with_langs.results {
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.rent,
+                country.clone(),
+            );
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.buy,
+                country.clone(),
+            );
+            self.append_to_watch_provider(
+                &mut watch_providers,
+                lang_providers.flatrate,
+                country.clone(),
+            );
+        }
+        Ok(watch_providers)
+    }
+
+    fn append_to_watch_provider(
+        &self,
+        watch_providers: &mut Vec<WatchProvider>,
+        maybe_provider: Option<Vec<TmdbWatchProviderDetails>>,
+        country: String,
+    ) {
+        if let Some(provider) = maybe_provider {
+            for provider in provider {
+                let posn = watch_providers
+                    .iter()
+                    .position(|p| p.name == provider.provider_name);
+                if let Some(posn) = posn {
+                    watch_providers[posn].languages.insert(country.clone());
+                } else {
+                    watch_providers.push(WatchProvider {
+                        name: provider.provider_name,
+                        image: provider.logo_path.map(|i| self.get_image_url(i)),
+                        languages: HashSet::from_iter(vec![country.clone()]),
+                    });
+                }
+            }
+        }
+    }
 }
 
 impl MediaProviderLanguages for TmdbService {
@@ -1145,145 +1282,6 @@ struct TmdbNonMediaEntity {
     gender: Option<u8>,
     origin_country: Option<String>,
     place_of_birth: Option<String>,
-}
-
-impl TmdbService {
-    async fn save_all_images(
-        &self,
-        typ: &str,
-        identifier: &str,
-        images: &mut Vec<String>,
-    ) -> Result<()> {
-        let mut rsp = self
-            .client
-            .get(format!("{}/{}/images", typ, identifier))
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-        if let Some(imgs) = new_images.posters {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        if let Some(imgs) = new_images.backdrops {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        if let Some(imgs) = new_images.logos {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        if let Some(imgs) = new_images.profiles {
-            for image in imgs {
-                images.push(image.file_path);
-            }
-        }
-        Ok(())
-    }
-
-    async fn get_all_suggestions(
-        &self,
-        typ: &str,
-        identifier: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        let lot = match typ {
-            "movie" => MediaLot::Movie,
-            "tv" => MediaLot::Show,
-            _ => unreachable!(),
-        };
-        let mut suggestions = vec![];
-        for page in 1.. {
-            let new_recs: TmdbListResponse = self
-                .client
-                .get(format!("{}/{}/recommendations", typ, identifier))
-                .query(&json!({ "page": page }))
-                .unwrap()
-                .await
-                .map_err(|e| anyhow!(e))?
-                .body_json()
-                .await
-                .map_err(|e| anyhow!(e))?;
-            for entry in new_recs.results.into_iter() {
-                let name = match entry.title {
-                    Some(n) => n,
-                    _ => continue,
-                };
-                suggestions.push(PartialMetadataWithoutId {
-                    title: name,
-                    image: entry.poster_path.map(|p| self.get_image_url(p)),
-                    identifier: entry.id.to_string(),
-                    source: MediaSource::Tmdb,
-                    lot,
-                });
-            }
-            if new_recs.page >= new_recs.total_pages {
-                break;
-            }
-        }
-        Ok(suggestions)
-    }
-
-    async fn get_all_watch_providers(
-        &self,
-        typ: &str,
-        identifier: &str,
-    ) -> Result<Vec<WatchProvider>> {
-        let watch_providers_with_langs: TmdbWatchProviderResponse = self
-            .client
-            .get(format!("{}/{}/watch/providers", typ, identifier))
-            .query(&json!({ "language": self.language }))
-            .unwrap()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let mut watch_providers = Vec::<WatchProvider>::new();
-        for (country, lang_providers) in watch_providers_with_langs.results {
-            self.append_to_watch_provider(
-                &mut watch_providers,
-                lang_providers.rent,
-                country.clone(),
-            );
-            self.append_to_watch_provider(
-                &mut watch_providers,
-                lang_providers.buy,
-                country.clone(),
-            );
-            self.append_to_watch_provider(
-                &mut watch_providers,
-                lang_providers.flatrate,
-                country.clone(),
-            );
-        }
-        Ok(watch_providers)
-    }
-
-    fn append_to_watch_provider(
-        &self,
-        watch_providers: &mut Vec<WatchProvider>,
-        maybe_provider: Option<Vec<TmdbWatchProviderDetails>>,
-        country: String,
-    ) {
-        if let Some(provider) = maybe_provider {
-            for provider in provider {
-                let posn = watch_providers
-                    .iter()
-                    .position(|p| p.name == provider.provider_name);
-                if let Some(posn) = posn {
-                    watch_providers[posn].languages.insert(country.clone());
-                } else {
-                    watch_providers.push(WatchProvider {
-                        name: provider.provider_name,
-                        image: provider.logo_path.map(|i| self.get_image_url(i)),
-                        languages: HashSet::from_iter(vec![country.clone()]),
-                    });
-                }
-            }
-        }
-    }
 }
 
 fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {
