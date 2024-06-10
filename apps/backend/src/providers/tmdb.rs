@@ -14,6 +14,7 @@ use itertools::Itertools;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{http::headers::AUTHORIZATION, Client};
@@ -648,6 +649,10 @@ impl MediaProvider for TmdbMovieService {
             watch_providers,
             ..Default::default()
         })
+    }
+
+    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
+        Ok(true)
     }
 
     async fn metadata_group_search(
