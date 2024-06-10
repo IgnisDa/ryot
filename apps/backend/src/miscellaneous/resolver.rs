@@ -1123,7 +1123,7 @@ impl MiscellaneousMutation {
         metadata_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.deploy_update_metadata_job(&metadata_id).await
+        service.deploy_update_metadata_job(&metadata_id, true).await
     }
 
     /// Deploy a job to update a person's metadata.
@@ -1580,7 +1580,7 @@ impl MiscellaneousService {
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
         if model.is_partial.unwrap_or_default() {
-            self.deploy_update_metadata_job(metadata_id).await?;
+            self.deploy_update_metadata_job(metadata_id, true).await?;
         }
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
@@ -2441,7 +2441,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 for metadata_id in many_metadata {
-                    self.deploy_update_metadata_job(&metadata_id).await?;
+                    self.deploy_update_metadata_job(&metadata_id, true).await?;
                 }
             }
             BackgroundJob::UpdateAllExercises => {
@@ -3124,7 +3124,11 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn deploy_update_metadata_job(&self, metadata_id: &String) -> Result<bool> {
+    async fn deploy_update_metadata_job(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<bool> {
         let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -3132,7 +3136,7 @@ impl MiscellaneousService {
             .unwrap();
         self.perform_application_job
             .clone()
-            .enqueue(ApplicationJob::UpdateMetadata(metadata.id))
+            .enqueue(ApplicationJob::UpdateMetadata(metadata.id, force_update))
             .await
             .unwrap();
         Ok(true)
@@ -3630,7 +3634,7 @@ impl MiscellaneousService {
         {
             if input.force_update.unwrap_or_default() {
                 tracing::debug!("Forcing update of metadata with id {}", m.id);
-                self.update_metadata_and_notify_users(&m.id).await?;
+                self.update_metadata_and_notify_users(&m.id, true).await?;
             }
             Ok(m)
         } else {
@@ -4356,6 +4360,7 @@ impl MiscellaneousService {
     async fn update_metadata(
         &self,
         metadata_id: &String,
+        force_update: bool,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         tracing::debug!("Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
@@ -4377,8 +4382,15 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
-    pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
-        let notifications = self.update_metadata(metadata_id).await.unwrap();
+    pub async fn update_metadata_and_notify_users(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<()> {
+        let notifications = self
+            .update_metadata(metadata_id, force_update)
+            .await
+            .unwrap();
         if !notifications.is_empty() {
             let (meta_map, _, _) = self.get_entities_monitored_by().await.unwrap();
             let users_to_notify = meta_map.get(metadata_id).cloned().unwrap_or_default();
@@ -5807,7 +5819,7 @@ impl MiscellaneousService {
             meta_map
         );
         for (metadata_id, to_notify) in meta_map {
-            let notifications = self.update_metadata(&metadata_id).await?;
+            let notifications = self.update_metadata(&metadata_id, false).await?;
             for user in to_notify {
                 for notification in notifications.iter() {
                     self.queue_media_state_changed_notification_for_user(&user, notification)
