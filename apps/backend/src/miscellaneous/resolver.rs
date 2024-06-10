@@ -3486,6 +3486,7 @@ impl MiscellaneousService {
                 MediaLot::Show => Box::new(
                     TmdbShowService::new(
                         &self.config.movies_and_shows.tmdb,
+                        *self.timezone,
                         self.config.frontend.page_size,
                     )
                     .await,
@@ -3493,6 +3494,7 @@ impl MiscellaneousService {
                 MediaLot::Movie => Box::new(
                     TmdbMovieService::new(
                         &self.config.movies_and_shows.tmdb,
+                        *self.timezone,
                         self.config.frontend.page_size,
                     )
                     .await,
@@ -3551,6 +3553,7 @@ impl MiscellaneousService {
     pub async fn get_tmdb_non_media_service(&self) -> Result<NonMediaTmdbService> {
         Ok(NonMediaTmdbService::new(
             self.config.movies_and_shows.tmdb.access_token.clone(),
+            *self.timezone,
             self.config.movies_and_shows.tmdb.locale.clone(),
         )
         .await)

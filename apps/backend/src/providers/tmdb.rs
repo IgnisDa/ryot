@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use chrono_tz::Tz;
 use database::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
@@ -167,6 +168,7 @@ struct TmdbFindByExernalSourceResponse {
 pub struct TmdbService {
     language: String,
     settings: Settings,
+    timezone: Tz,
 }
 
 impl TmdbService {
@@ -204,11 +206,15 @@ pub struct NonMediaTmdbService {
 }
 
 impl NonMediaTmdbService {
-    pub async fn new(access_token: String, language: String) -> Self {
+    pub async fn new(access_token: String, timezone: chrono_tz::Tz, language: String) -> Self {
         let (client, settings) = get_client_config(URL, &access_token).await;
         Self {
             client,
-            base: TmdbService { language, settings },
+            base: TmdbService {
+                language,
+                settings,
+                timezone,
+            },
         }
     }
 }
@@ -422,13 +428,18 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(
+        config: &config::TmdbConfig,
+        timezone: chrono_tz::Tz,
+        _page_limit: i32,
+    ) -> Self {
         let (client, settings) = get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
                 language: config.locale.clone(),
                 settings,
+                timezone,
             },
         }
     }
@@ -757,13 +768,18 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(config: &config::TmdbConfig, _page_limit: i32) -> Self {
+    pub async fn new(
+        config: &config::TmdbConfig,
+        timezone: chrono_tz::Tz,
+        _page_limit: i32,
+    ) -> Self {
         let (client, settings) = get_client_config(URL, &config.access_token).await;
         Self {
             client,
             base: TmdbService {
                 language: config.locale.clone(),
                 settings,
+                timezone,
             },
         }
     }
