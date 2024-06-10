@@ -160,7 +160,7 @@ struct TmdbWatchProviderResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-struct TmdbFindByExernalSourceResponse {
+struct TmdbFindByExternalSourceResponse {
     movie_results: Vec<TmdbEntry>,
     tv_results: Vec<TmdbEntry>,
 }
@@ -405,7 +405,7 @@ impl NonMediaTmdbService {
         external_id: &str,
         external_source: &str,
     ) -> Result<String> {
-        let details: TmdbFindByExernalSourceResponse = self
+        let details: TmdbFindByExternalSourceResponse = self
             .base
             .client
             .get(format!("find/{}", external_id))
