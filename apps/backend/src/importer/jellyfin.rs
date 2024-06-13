@@ -58,8 +58,11 @@ struct ItemResponse {
     name: String,
     #[serde(rename = "Type")]
     typ: Option<MediaType>,
+    index_number: Option<i32>,
     series_id: Option<String>,
+    series_name: Option<String>,
     user_data: Option<ItemUserData>,
+    parent_index_number: Option<i32>,
     collection_type: Option<CollectionType>,
     provider_ids: Option<ItemProviderIdsPayload>,
 }
@@ -133,8 +136,8 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             .unwrap();
         for item in library_data.items {
             let typ = item.typ.clone().unwrap();
-            let (lot, tmdb_id) = match typ.clone() {
-                MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb),
+            let (lot, tmdb_id, ssn, sen) = match typ.clone() {
+                MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
                 MediaType::Series | MediaType::Episode => {
                     let series_id = item.series_id.unwrap();
                     let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
@@ -150,7 +153,12 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                         series_id_to_tmdb_id.insert(series_id.clone(), insert_id.clone());
                         tmdb_id = insert_id;
                     }
-                    (MediaLot::Show, tmdb_id)
+                    (
+                        MediaLot::Show,
+                        tmdb_id,
+                        item.parent_index_number,
+                        item.index_number,
+                    )
                 }
                 _ => {
                     failed_items.push(ImportFailedItem {
@@ -167,13 +175,15 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 let num_times_seen = item_user_data.play_count.unwrap_or(0);
                 let mut seen_history = (0..num_times_seen)
                     .map(|_| ImportOrExportMediaItemSeen {
+                        show_season_number: ssn,
+                        show_episode_number: sen,
                         ..Default::default()
                     })
                     .collect_vec();
                 seen_history.last_mut().unwrap().ended_on = item_user_data.last_played_date;
                 media.push(ImportOrExportMediaItem {
                     lot,
-                    source_id: item.name,
+                    source_id: item.series_name.unwrap_or(item.name),
                     source: MediaSource::Tmdb,
                     internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(tmdb_id)),
                     seen_history,
