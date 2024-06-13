@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt,
     fs::File,
     iter::zip,
     path::PathBuf,
@@ -561,9 +560,9 @@ struct ProgressUpdateCache {
     manga_chapter_number: Option<i32>,
 }
 
-impl fmt::Display for ProgressUpdateCache {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?}", self)
+impl ToString for ProgressUpdateCache {
+    fn to_string(&self) -> String {
+        format!("{:#?}", self)
     }
 }
 
