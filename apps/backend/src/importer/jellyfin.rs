@@ -133,31 +133,8 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             .unwrap();
         for item in library_data.items {
             let typ = item.typ.clone().unwrap();
-            match typ.clone() {
-                MediaType::Movie => {
-                    if let Some(tmdb_id) = item.provider_ids.unwrap().tmdb {
-                        let item_user_data = item.user_data.unwrap();
-                        let num_times_seen = item_user_data.play_count.unwrap_or(0);
-                        let mut seen_history = (0..num_times_seen)
-                            .map(|_| ImportOrExportMediaItemSeen {
-                                ..Default::default()
-                            })
-                            .collect_vec();
-                        seen_history.last_mut().unwrap().ended_on = item_user_data.last_played_date;
-                        media.push(ImportOrExportMediaItem {
-                            source_id: item.name,
-                            lot: MediaLot::Movie,
-                            source: MediaSource::Tmdb,
-                            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                                tmdb_id,
-                            )),
-                            seen_history,
-                            identifier: "".to_string(),
-                            reviews: vec![],
-                            collections: vec![],
-                        });
-                    }
-                }
+            let (lot, tmdb_id) = match typ.clone() {
+                MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb),
                 MediaType::Series | MediaType::Episode => {
                     let series_id = item.series_id.unwrap();
                     let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
@@ -173,7 +150,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                         series_id_to_tmdb_id.insert(series_id.clone(), insert_id.clone());
                         tmdb_id = insert_id;
                     }
-                    dbg!(&tmdb_id);
+                    (MediaLot::Show, tmdb_id)
                 }
                 _ => {
                     failed_items.push(ImportFailedItem {
@@ -184,11 +161,37 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                     });
                     continue;
                 }
+            };
+            if let Some(tmdb_id) = tmdb_id {
+                let item_user_data = item.user_data.unwrap();
+                let num_times_seen = item_user_data.play_count.unwrap_or(0);
+                let mut seen_history = (0..num_times_seen)
+                    .map(|_| ImportOrExportMediaItemSeen {
+                        ..Default::default()
+                    })
+                    .collect_vec();
+                seen_history.last_mut().unwrap().ended_on = item_user_data.last_played_date;
+                media.push(ImportOrExportMediaItem {
+                    lot,
+                    source_id: item.name,
+                    source: MediaSource::Tmdb,
+                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(tmdb_id)),
+                    seen_history,
+                    identifier: "".to_string(),
+                    reviews: vec![],
+                    collections: vec![],
+                });
+            } else {
+                failed_items.push(ImportFailedItem {
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: item.name,
+                    error: Some("No tmdb id found".to_string()),
+                    lot: None,
+                });
             }
         }
     }
 
-    dbg!(&series_id_to_tmdb_id);
     Ok(ImportResult {
         media,
         failed_items,
