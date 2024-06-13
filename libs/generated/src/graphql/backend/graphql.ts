@@ -299,8 +299,8 @@ export type DeployTraktImportInput = {
 };
 
 export type DeployUrlAndKeyAndUsernameImportInput = {
-  apiKey: Scalars['String']['input'];
   apiUrl: Scalars['String']['input'];
+  password: Scalars['String']['input'];
   username: Scalars['String']['input'];
 };
 

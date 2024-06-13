@@ -82,7 +82,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         .unwrap()
         .add_header(ACCEPT, "application/json")
         .unwrap()
-        .add_header("X-Emby-Token", input.api_key)
+        .add_header("X-Emby-Token", input.password)
         .unwrap()
         .set_base_url(Url::parse(&input.api_url).unwrap().join("/").unwrap())
         .try_into()
