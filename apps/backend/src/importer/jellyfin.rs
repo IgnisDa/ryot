@@ -3,7 +3,7 @@ use database::{MediaLot, MediaSource};
 use itertools::Itertools;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use surf::{
     http::headers::{ACCEPT, USER_AGENT},
     Client, Config, Url,
@@ -112,13 +112,10 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             });
             continue;
         }
-        let mut query = json!({
-            "parentId": library.id, "recursive": true,
+        let query = json!({
+            "parentId": library.id, "recursive": true, "IsPlayed": true,
             "includeItemTypes": "Movie,Series", "fields": "ProviderIds"
         });
-        if collection_type == CollectionType::Movies {
-            query["filters"] = Value::String("IsPlayed".to_string());
-        }
         let library_data: ItemsResponse = client
             .get(&format!("Users/{}/Items", user_id))
             .query(&query)
