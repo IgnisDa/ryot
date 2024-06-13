@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use database::{MediaLot, MediaSource};
+use enum_meta::HashMap;
 use itertools::Itertools;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,7 @@ enum CollectionType {
 enum MediaType {
     Movie,
     Series,
+    Episode,
     #[serde(untagged)]
     Unknown(String),
 }
@@ -54,9 +56,10 @@ struct ItemUserData {
 struct ItemResponse {
     id: String,
     name: String,
-    user_data: Option<ItemUserData>,
     #[serde(rename = "Type")]
     typ: Option<MediaType>,
+    series_id: Option<String>,
+    user_data: Option<ItemUserData>,
     collection_type: Option<CollectionType>,
     provider_ids: Option<ItemProviderIdsPayload>,
 }
@@ -101,6 +104,9 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         .body_json()
         .await
         .unwrap();
+
+    let mut series_id_to_tmdb_id: HashMap<String, Option<String>> = HashMap::new();
+
     for library in views_data.items {
         let collection_type = library.collection_type.unwrap();
         if matches!(collection_type, CollectionType::Unknown(_)) {
@@ -113,8 +119,8 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             continue;
         }
         let query = json!({
-            "parentId": library.id, "recursive": true, "IsPlayed": true,
-            "includeItemTypes": "Movie,Series", "fields": "ProviderIds"
+            "parentId": library.id, "recursive": true,
+            "IsPlayed": true, "fields": "ProviderIds"
         });
         let library_data: ItemsResponse = client
             .get(&format!("Users/{}/Items", user_id))
@@ -152,6 +158,23 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                         });
                     }
                 }
+                MediaType::Series | MediaType::Episode => {
+                    let series_id = item.series_id.unwrap();
+                    let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
+                    if tmdb_id.is_none() {
+                        let details: ItemResponse = client
+                            .get(&format!("Items/{}", series_id))
+                            .await
+                            .unwrap()
+                            .body_json()
+                            .await
+                            .unwrap();
+                        let insert_id = details.provider_ids.unwrap().tmdb;
+                        series_id_to_tmdb_id.insert(series_id.clone(), insert_id.clone());
+                        tmdb_id = insert_id;
+                    }
+                    dbg!(&tmdb_id);
+                }
                 _ => {
                     failed_items.push(ImportFailedItem {
                         step: ImportFailStep::ItemDetailsFromSource,
@@ -165,6 +188,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         }
     }
 
+    dbg!(&series_id_to_tmdb_id);
     Ok(ImportResult {
         media,
         failed_items,
