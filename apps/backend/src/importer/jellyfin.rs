@@ -74,7 +74,7 @@ struct ItemsResponse {
 }
 
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
-    let mut media = vec![];
+    let mut to_handle_media = vec![];
     let mut failed_items = vec![];
     let client: Client = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
@@ -187,7 +187,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 if let Some(last) = seen_history.last_mut() {
                     last.ended_on = item_user_data.last_played_date;
                 };
-                media.push(ImportOrExportMediaItem {
+                to_handle_media.push(ImportOrExportMediaItem {
                     lot,
                     source_id: item.series_name.unwrap_or(item.name),
                     source: MediaSource::Tmdb,
@@ -205,6 +205,22 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                     lot: None,
                 });
             }
+        }
+    }
+
+    let mut media: Vec<ImportOrExportMediaItem> = vec![];
+
+    for item in to_handle_media {
+        let mut found = false;
+        for media_item in media.iter_mut() {
+            if media_item.identifier == item.identifier && media_item.lot == item.lot {
+                found = true;
+                media_item.seen_history.extend(item.seen_history.clone());
+                break;
+            }
+        }
+        if !found {
+            media.push(item);
         }
     }
 
