@@ -2314,7 +2314,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
-                tracing::debug!("Progress update meta = {:?}", meta.title);
+                tracing::debug!("Progress update for meta {:?} ({:?})", meta.title, meta.lot);
 
                 let show_ei = if matches!(meta.lot, MediaLot::Show) {
                     let season = input.show_season_number.ok_or_else(|| {
