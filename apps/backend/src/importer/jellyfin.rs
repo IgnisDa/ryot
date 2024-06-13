@@ -49,6 +49,7 @@ struct ItemProviderIdsPayload {
 struct ItemUserData {
     play_count: Option<i32>,
     last_played_date: Option<DateTimeUtc>,
+    is_favorite: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -187,6 +188,10 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 if let Some(last) = seen_history.last_mut() {
                     last.ended_on = item_user_data.last_played_date;
                 };
+                let mut collections = vec![];
+                if let Some(true) = item_user_data.is_favorite {
+                    collections.push("Favorites".to_string());
+                }
                 to_handle_media.push(ImportOrExportMediaItem {
                     lot,
                     source_id: item.series_name.unwrap_or(item.name),
@@ -197,7 +202,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                     seen_history,
                     identifier: tmdb_id,
                     reviews: vec![],
-                    collections: vec![],
+                    collections,
                 });
             } else {
                 failed_items.push(ImportFailedItem {
@@ -218,6 +223,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             if media_item.identifier == item.identifier && media_item.lot == item.lot {
                 found = true;
                 media_item.seen_history.extend(item.seen_history.clone());
+                media_item.collections.extend(item.collections.clone());
                 break;
             }
         }
