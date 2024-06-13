@@ -1223,6 +1223,12 @@ impl MediaProvider for TmdbShowService {
         })
     }
 
+    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
+        self.base
+            .metadata_updated_since(identifier, since, "tv")
+            .await
+    }
+
     async fn metadata_search(
         &self,
         query: &str,
