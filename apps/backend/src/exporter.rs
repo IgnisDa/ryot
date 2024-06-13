@@ -77,7 +77,7 @@ impl ExporterService {
         }
     }
 
-    async fn deploy_export_job(&self, user_id: i32, to_export: Vec<ExportItem>) -> Result<bool> {
+    async fn deploy_export_job(&self, user_id: String, to_export: Vec<ExportItem>) -> Result<bool> {
         self.media_service
             .perform_application_job
             .clone()
@@ -87,7 +87,11 @@ impl ExporterService {
         Ok(true)
     }
 
-    pub async fn perform_export(&self, user_id: i32, to_export: Vec<ExportItem>) -> Result<bool> {
+    pub async fn perform_export(
+        &self,
+        user_id: String,
+        to_export: Vec<ExportItem>,
+    ) -> Result<bool> {
         if !self.config.file_storage.is_enabled() {
             return Err(Error::new(
                 "File storage needs to be enabled to perform an export.",
@@ -104,27 +108,27 @@ impl ExporterService {
             match export {
                 ExportItem::Media => {
                     self.media_service
-                        .export_media(user_id, &mut writer)
+                        .export_media(&user_id, &mut writer)
                         .await?;
                 }
                 ExportItem::MediaGroup => {
                     self.media_service
-                        .export_media_group(user_id, &mut writer)
+                        .export_media_group(&user_id, &mut writer)
                         .await?;
                 }
                 ExportItem::People => {
                     self.media_service
-                        .export_people(user_id, &mut writer)
+                        .export_people(&user_id, &mut writer)
                         .await?;
                 }
                 ExportItem::Measurements => {
                     self.exercise_service
-                        .export_measurements(user_id, &mut writer)
+                        .export_measurements(&user_id, &mut writer)
                         .await?;
                 }
                 ExportItem::Workouts => {
                     self.exercise_service
-                        .export_workouts(user_id, &mut writer)
+                        .export_workouts(&user_id, &mut writer)
                         .await?;
                 }
             };
@@ -169,7 +173,7 @@ impl ExporterService {
         Ok(true)
     }
 
-    async fn user_exports(&self, user_id: i32) -> Result<Vec<ExportJob>> {
+    async fn user_exports(&self, user_id: String) -> Result<Vec<ExportJob>> {
         if !self.config.file_storage.is_enabled() {
             return Ok(vec![]);
         }

@@ -2,21 +2,19 @@ use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;
 
-pub static COLLECTION_NAME_INDEX: &str = "collection__name__index";
-
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum Collection {
+pub enum Integration {
     Table,
     Id,
+    Lot,
+    Source,
     CreatedOn,
-    LastUpdatedOn,
-    Name,
+    LastTriggeredOn,
+    SourceSpecifics,
     UserId,
-    Description,
-    InformationTemplate,
 }
 
 #[async_trait::async_trait]
@@ -25,33 +23,28 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Collection::Table)
+                    .table(Integration::Table)
                     .col(
-                        ColumnDef::new(Collection::Id)
+                        ColumnDef::new(Integration::Id)
                             .text()
                             .not_null()
                             .primary_key(),
                     )
+                    .col(ColumnDef::new(Integration::Lot).text().not_null())
+                    .col(ColumnDef::new(Integration::Source).text().not_null())
                     .col(
-                        ColumnDef::new(Collection::CreatedOn)
+                        ColumnDef::new(Integration::CreatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Collection::Name).text().not_null())
-                    .col(ColumnDef::new(Collection::Description).text())
-                    .col(
-                        ColumnDef::new(Collection::LastUpdatedOn)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(ColumnDef::new(Collection::InformationTemplate).json_binary())
-                    .col(ColumnDef::new(Collection::UserId).text().not_null())
+                    .col(ColumnDef::new(Integration::LastTriggeredOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(Integration::SourceSpecifics).json_binary())
+                    .col(ColumnDef::new(Integration::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("collection_to_user_foreign_key")
-                            .from(Collection::Table, Collection::UserId)
+                            .name("integration_to_user_foreign_key")
+                            .from(Integration::Table, Integration::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
@@ -62,20 +55,18 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name(COLLECTION_NAME_INDEX)
-                    .table(Collection::Table)
-                    .col(Collection::Name)
+                    .name("integration__lot")
+                    .table(Integration::Table)
+                    .col(Integration::Lot)
                     .to_owned(),
             )
             .await?;
         manager
             .create_index(
                 Index::create()
-                    .unique()
-                    .name("collection__name-user_id__index")
-                    .table(Collection::Table)
-                    .col(Collection::Name)
-                    .col(Collection::UserId)
+                    .name("integration__user_id")
+                    .table(Integration::Table)
+                    .col(Integration::UserId)
                     .to_owned(),
             )
             .await?;

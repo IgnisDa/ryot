@@ -125,15 +125,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).info.details.name
-			} | Ryot`,
-		},
-	];
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+	return [{ title: `${data?.info.details.name} | Ryot` }];
 };
 
 export default function Page() {
@@ -264,10 +257,12 @@ export default function Page() {
 											<Select
 												placeholder="Select an entity type"
 												defaultValue={loaderData.query.entityLot}
-												data={Object.values(EntityLot).map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												}))}
+												data={Object.values(EntityLot)
+													.filter((o) => o !== EntityLot.Collection)
+													.map((o) => ({
+														value: o.toString(),
+														label: startCase(o.toLowerCase()),
+													}))}
 												onChange={(v) => setP("entityLot", v)}
 												clearable
 											/>

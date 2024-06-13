@@ -4,6 +4,10 @@
 }
 
 :{$PORT:8000} {
+	handle_path /_i/* {
+		rewrite * /webhooks/integrations{path}
+		reverse_proxy localhost:5000
+	}
 	handle_path /backend* {
 		reverse_proxy localhost:5000
 	}

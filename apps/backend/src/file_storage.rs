@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
-use uuid::Uuid;
+use nanoid::nanoid;
 
 #[derive(Debug)]
 pub struct FileStorageService {
@@ -60,7 +60,7 @@ impl FileStorageService {
         metadata: Option<HashMap<String, String>>,
     ) -> (String, String) {
         let first = if with_uploads { "uploads/" } else { "" };
-        let key = format!("{}{}/{}-{}", first, prefix, Uuid::new_v4(), filename);
+        let key = format!("{}{}/{}-{}", first, prefix, nanoid!(10), filename);
         let url = self
             .s3_client
             .put_object()

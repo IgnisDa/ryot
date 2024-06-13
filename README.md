@@ -31,6 +31,11 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
+## IMPORTANT NOTE FOR `v5.*` USERS
+
+If you were using `v5.*` of Ryot, please read the
+[migration guide](https://docs.ryot.io/migration.html#from-v5-v6) for instructions.
+
 ## 💻 Demo
 
 You can use the demo account on the Ryot website. Login with the username `demo` and

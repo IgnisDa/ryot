@@ -28,6 +28,7 @@ use strum::Display;
 use crate::{
     entities::{exercise::ExerciseListItem, prelude::Workout, user_measurement, workout},
     file_storage::FileStorageService,
+    miscellaneous::CollectionExtraInformation,
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
     utils::get_stored_asset,
 };
@@ -143,7 +144,7 @@ pub struct CompleteExport {
 
 #[derive(Debug, InputObject, Default)]
 pub struct ChangeCollectionToEntityInput {
-    pub creator_user_id: i32,
+    pub creator_user_id: String,
     pub collection_name: String,
     pub metadata_id: Option<String>,
     pub person_id: Option<String>,
@@ -155,7 +156,7 @@ pub struct ChangeCollectionToEntityInput {
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct IdAndNamedObject {
-    pub id: i32,
+    pub id: String,
     pub name: String,
 }
 
@@ -184,8 +185,6 @@ pub enum MediaStateChanged {
 }
 
 pub mod media {
-    use crate::miscellaneous::CollectionExtraInformation;
-
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -820,7 +819,7 @@ pub mod media {
         pub rating: Option<Decimal>,
         pub text: Option<String>,
         pub visibility: Option<Visibility>,
-        pub spoiler: Option<bool>,
+        pub is_spoiler: Option<bool>,
         pub metadata_id: Option<String>,
         pub person_id: Option<String>,
         pub metadata_group_id: Option<String>,
@@ -1218,7 +1217,7 @@ pub mod media {
         pub text: String,
         pub user: IdAndNamedObject,
         /// The user ids of all those who liked it.
-        pub liked_by: HashSet<i32>,
+        pub liked_by: HashSet<String>,
         pub created_on: DateTimeUtc,
     }
 
@@ -1346,6 +1345,29 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, Clone, FromJsonQueryResult, Eq, PartialEq, Default)]
     pub struct PersonStateChanges {
         pub media_associated: HashSet<MediaAssociatedPersonStateChanges>,
+    }
+
+    #[skip_serializing_none]
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        InputObject,
+        Clone,
+        SimpleObject,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Hash,
+        Default,
+        Schematic,
+    )]
+    #[graphql(input_name = "IntegrationSourceSpecificsInput")]
+    #[serde(rename_all = "snake_case")]
+    pub struct IntegrationSourceSpecifics {
+        pub plex_username: Option<String>,
+        pub audiobookshelf_base_url: Option<String>,
+        pub audiobookshelf_token: Option<String>,
     }
 }
 

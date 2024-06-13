@@ -1,5 +1,3 @@
-// FIXME: Change this be after `m20230819_create_workout`
-
 use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;
@@ -44,7 +42,7 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Exercise::CreatedByUserId).integer())
+                    .col(ColumnDef::new(Exercise::CreatedByUserId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("workout_to_user_foreign_key")

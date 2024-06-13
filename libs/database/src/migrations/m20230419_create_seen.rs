@@ -46,7 +46,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Seen::StartedOn).date())
                     .col(ColumnDef::new(Seen::FinishedOn).date())
-                    .col(ColumnDef::new(Seen::UserId).integer().not_null())
                     .col(
                         ColumnDef::new(Seen::State)
                             .text()
@@ -82,6 +81,7 @@ impl MigrationTrait for Migration {
                         .extra(TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL)
                     )
                     .col(ColumnDef::new(Seen::MetadataId).text().not_null())
+                    .col(ColumnDef::new(Seen::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")

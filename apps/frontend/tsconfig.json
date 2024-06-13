@@ -28,7 +28,8 @@
 			{
 				"name": "typescript-plugin-css-modules"
 			}
-		]
+		],
+		"types": ["@remix-run/react/future/single-fetch.d.ts"]
 	},
 	"references": [
 		{

@@ -31,21 +31,25 @@ import {
 	useLoaderData,
 } from "@remix-run/react";
 import {
-	CreateUserSinkIntegrationDocument,
-	CreateUserYankIntegrationDocument,
+	CreateUserIntegrationDocument,
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
-	UserIntegrationLot,
+	IntegrationSource,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
-	UserSinkIntegrationSettingKind,
-	UserYankIntegrationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
-import { IconCheck, IconCopy, IconEye, IconTrash } from "@tabler/icons-react";
+import { changeCase } from "@ryot/ts-utils";
+import {
+	IconCheck,
+	IconCopy,
+	IconEye,
+	IconEyeClosed,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
@@ -88,31 +92,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 		create: async () => {
-			const submission = processSubmission(formData, createYankSchema);
-			if (submission.yankLot) {
-				await gqlClient.request(
-					CreateUserYankIntegrationDocument,
-					{
-						input: {
-							baseUrl: submission.baseUrl as string,
-							token: submission.token as string,
-							lot: submission.yankLot,
-						},
-					},
-					await getAuthorizationHeader(request),
-				);
-			} else if (submission.sinkLot) {
-				await gqlClient.request(
-					CreateUserSinkIntegrationDocument,
-					{
-						input: {
-							username: submission.username,
-							lot: submission.sinkLot,
-						},
-					},
-					await getAuthorizationHeader(request),
-				);
-			}
+			const submission = processSubmission(formData, createSchema);
+			await gqlClient.request(
+				CreateUserIntegrationDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
 			return json({ status: "success", generateAuthToken: false } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -131,33 +116,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const createYankSchema = z.object({
-	baseUrl: z.string().url().optional(),
-	token: z.string().optional(),
-	username: z.string().optional(),
-	yankLot: z.nativeEnum(UserYankIntegrationSettingKind).optional(),
-	sinkLot: z.nativeEnum(UserSinkIntegrationSettingKind).optional(),
+const createSchema = z.object({
+	source: z.nativeEnum(IntegrationSource),
+	sourceSpecifics: z
+		.object({
+			plexUsername: z.string().optional(),
+			audiobookshelfBaseUrl: z.string().url().optional(),
+			audiobookshelfToken: z.string().optional(),
+		})
+		.optional(),
 });
 
 const deleteSchema = z.object({
-	integrationId: zx.NumAsString,
-	integrationLot: z.nativeEnum(UserIntegrationLot),
+	integrationId: z.string(),
 });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const [
-		createUserYankIntegrationModalOpened,
+		createIntegrationModalOpened,
 		{
 			open: openCreateUserYankIntegrationModal,
-			close: closeCreateUserYankIntegrationModal,
+			close: closeCreateIntegrationModal,
 		},
 	] = useDisclosure(false);
-	const [createUserYankIntegrationLot, setCreateUserYankIntegrationLot] =
-		useState<UserYankIntegrationSettingKind>();
-	const [createUserSinkIntegrationLot, setCreateUserSinkIntegrationLot] =
-		useState<UserSinkIntegrationSettingKind>();
 
 	return (
 		<Container size="xs">
@@ -193,82 +176,10 @@ export default function Page() {
 							Add new integration
 						</Button>
 					</Group>
-					<Modal
-						opened={createUserYankIntegrationModalOpened}
-						onClose={closeCreateUserYankIntegrationModal}
-						centered
-						withCloseButton={false}
-					>
-						<Form
-							action="?intent=create"
-							method="post"
-							onSubmit={() => {
-								closeCreateUserYankIntegrationModal();
-								setCreateUserYankIntegrationLot(undefined);
-								setCreateUserSinkIntegrationLot(undefined);
-							}}
-							replace
-						>
-							{createUserYankIntegrationLot ? (
-								<input
-									type="hidden"
-									name="yankLot"
-									value={createUserYankIntegrationLot}
-								/>
-							) : null}
-							{createUserSinkIntegrationLot ? (
-								<input
-									type="hidden"
-									name="sinkLot"
-									value={createUserSinkIntegrationLot}
-								/>
-							) : null}
-							<Stack>
-								<Select
-									label="Select a source"
-									required
-									data={[
-										...Object.values(UserYankIntegrationSettingKind),
-										...Object.values(UserSinkIntegrationSettingKind),
-									]}
-									// biome-ignore lint/suspicious/noExplicitAny: required here
-									onChange={(v: any) => {
-										if (v) {
-											if (
-												Object.values(UserYankIntegrationSettingKind).includes(
-													v,
-												)
-											) {
-												setCreateUserYankIntegrationLot(v);
-												setCreateUserSinkIntegrationLot(undefined);
-											}
-											if (
-												Object.values(UserSinkIntegrationSettingKind).includes(
-													v,
-												)
-											) {
-												setCreateUserSinkIntegrationLot(v);
-												setCreateUserYankIntegrationLot(undefined);
-											}
-										}
-									}}
-								/>
-								{createUserYankIntegrationLot ? (
-									<>
-										<TextInput label="Base Url" required name="baseUrl" />
-										<TextInput label="Token" required name="token" />
-									</>
-								) : null}
-								{createUserSinkIntegrationLot ===
-								UserSinkIntegrationSettingKind.Plex ? (
-									<>
-										<TextInput label="Username" name="username" />
-									</>
-								) : null}
-								<Button type="submit">Submit</Button>
-							</Stack>
-						</Form>
-					</Modal>
+					<CreateIntegrationModal
+						createModalOpened={createIntegrationModalOpened}
+						closeIntegrationModal={closeCreateIntegrationModal}
+					/>
 				</Box>
 				{actionData?.generateAuthToken ? (
 					<Alert title="This token will be shown only once" color="yellow">
@@ -315,12 +226,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 
 	const integrationUrl =
 		typeof window !== "undefined"
-			? `${
-					window.location.origin
-				}/backend/webhooks/integrations/${props.integration.description
-					.toLowerCase()
-					.split(" ")
-					.at(0)}/${props.integration.slug}`
+			? `${window.location.origin}/_i/${props.integration.id}`
 			: "";
 
 	return (
@@ -328,15 +234,23 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
-						<Text size="xs">{props.integration.description}</Text>
-						<Text size="xs">
-							{dayjsLib(props.integration.timestamp).fromNow()}
+						<Text size="sm" fw="bold">
+							{changeCase(props.integration.source)}
 						</Text>
+						<Text size="xs">
+							Created: {dayjsLib(props.integration.createdOn).fromNow()}
+						</Text>
+						{props.integration.lastTriggeredOn ? (
+							<Text size="xs">
+								Triggered:{" "}
+								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
+							</Text>
+						) : undefined}
 					</Box>
 					<Group>
-						{props.integration.slug ? (
+						{props.integration.id ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
-								<IconEye />
+								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
 						) : null}
 						<fetcher.Form
@@ -344,11 +258,6 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 							method="post"
 							ref={deleteFormRef}
 						>
-							<input
-								type="hidden"
-								name="integrationLot"
-								defaultValue={props.integration.lot}
-							/>
 							<input
 								type="hidden"
 								name="integrationId"
@@ -380,5 +289,66 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 				) : null}
 			</Stack>
 		</Paper>
+	);
+};
+
+const CreateIntegrationModal = (props: {
+	createModalOpened: boolean;
+	closeIntegrationModal: () => void;
+}) => {
+	const [source, setSource] = useState<IntegrationSource | null>(null);
+
+	return (
+		<Modal
+			opened={props.createModalOpened}
+			onClose={props.closeIntegrationModal}
+			centered
+			withCloseButton={false}
+		>
+			<Form
+				action="?intent=create"
+				method="post"
+				onSubmit={() => props.closeIntegrationModal()}
+				replace
+			>
+				<Stack>
+					<Select
+						label="Select a source"
+						name="source"
+						required
+						data={Object.values(IntegrationSource).map((is) => ({
+							label: changeCase(is),
+							value: is,
+						}))}
+						onChange={(e) => setSource(e as IntegrationSource)}
+					/>
+					{match(source)
+						.with(IntegrationSource.Audiobookshelf, () => (
+							<>
+								<TextInput
+									label="Base Url"
+									required
+									name="sourceSpecifics.audiobookshelfBaseUrl"
+								/>
+								<TextInput
+									label="Token"
+									required
+									name="sourceSpecifics.audiobookshelfToken"
+								/>
+							</>
+						))
+						.with(IntegrationSource.Plex, () => (
+							<>
+								<TextInput
+									label="Username"
+									name="sourceSpecifics.plexUsername"
+								/>
+							</>
+						))
+						.otherwise(() => undefined)}
+					<Button type="submit">Submit</Button>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };

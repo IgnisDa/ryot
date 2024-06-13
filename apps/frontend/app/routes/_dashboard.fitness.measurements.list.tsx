@@ -355,7 +355,12 @@ export default function Page() {
 									width: 80,
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<Form action="?intent=delete" method="post" replace>
+										<Form method="post" replace>
+											<input
+												type="hidden"
+												name="intent"
+												defaultValue="delete"
+											/>
 											<ActionIcon
 												color="red"
 												onClick={(e) => {

@@ -52,16 +52,14 @@ mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformIn
   createUserNotificationPlatform(input: $input)
 }
 
-mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {
-  createUserSinkIntegration(input: $input)
+mutation CreateUserIntegration($input: CreateIntegrationInput!) {
+  createUserIntegration(input: $input) {
+    id
+  }
 }
 
 mutation CreateUserWorkout($input: UserWorkoutInput!) {
   createUserWorkout(input: $input)
-}
-
-mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {
-  createUserYankIntegration(input: $input)
 }
 
 mutation DeleteCollection($collectionName: String!) {
@@ -82,15 +80,12 @@ mutation DeleteSeenItem($seenId: String!) {
   }
 }
 
-mutation DeleteUser($toDeleteUserId: Int!) {
+mutation DeleteUser($toDeleteUserId: String!) {
   deleteUser(toDeleteUserId: $toDeleteUserId)
 }
 
-mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {
-  deleteUserIntegration(
-    integrationId: $integrationId
-    integrationLot: $integrationLot
-  )
+mutation DeleteUserIntegration($integrationId: String!) {
+  deleteUserIntegration(integrationId: $integrationId)
 }
 
 mutation DeleteUserMeasurement($timestamp: DateTime!) {

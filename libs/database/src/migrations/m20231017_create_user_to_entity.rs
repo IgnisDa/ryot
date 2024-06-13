@@ -4,7 +4,7 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
-    m20230622_create_exercise::Exercise,
+    m20230822_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
@@ -47,7 +47,6 @@ pub enum UserToEntity {
     PersonId,
     MetadataGroupId,
     // specifics
-    MediaReminder,
     MetadataUnitsConsumed,
     ExerciseExtraInformation,
     ExerciseNumTimesInteracted,
@@ -75,8 +74,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(UserToEntity::UserId).integer().not_null())
-                    .col(ColumnDef::new(UserToEntity::MediaReminder).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
@@ -92,6 +89,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::MetadataGroupId).text())
                     .col(ColumnDef::new(UserToEntity::PersonId).text())
                     .col(ColumnDef::new(UserToEntity::MetadataId).text())
+                    .col(ColumnDef::new(UserToEntity::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")

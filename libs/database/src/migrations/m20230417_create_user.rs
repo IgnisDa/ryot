@@ -28,13 +28,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(User::Table)
-                    .col(
-                        ColumnDef::new(User::Id)
-                            .primary_key()
-                            .auto_increment()
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(User::Id).text().not_null().primary_key())
                     .col(ColumnDef::new(User::Name).text().not_null())
                     .col(ColumnDef::new(User::Password).text())
                     .col(ColumnDef::new(User::Lot).text().not_null())

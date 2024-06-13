@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     models::media::UserSummary,
-    users::{UserNotification, UserPreferences, UserSinkIntegration, UserYankIntegration},
+    users::{UserNotification, UserPreferences},
 };
 
 fn get_hasher() -> Argon2<'static> {
@@ -31,10 +31,8 @@ pub struct UserWithOnlyPreferences {
     Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
 )]
 #[sea_orm(entity = "Entity")]
-pub struct UserWithOnlyIntegrationsAndNotifications {
-    pub id: i32,
-    pub yank_integrations: Option<Vec<UserYankIntegration>>,
-    pub sink_integrations: Vec<UserSinkIntegration>,
+pub struct UserWithOnlyNotifications {
+    pub id: String,
     pub notifications: Vec<UserNotification>,
 }
 
@@ -51,7 +49,7 @@ pub struct UserWithOnlySummary {
 #[sea_orm(table_name = "user")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: String,
     pub name: String,
     #[graphql(skip)]
     pub password: Option<String>,
@@ -60,12 +58,6 @@ pub struct Model {
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,
-    #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
-    pub yank_integrations: Option<Vec<UserYankIntegration>>,
-    #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
-    pub sink_integrations: Vec<UserSinkIntegration>,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub notifications: Vec<UserNotification>,
@@ -81,6 +73,8 @@ pub enum Relation {
     Exercise,
     #[sea_orm(has_many = "super::import_report::Entity")]
     ImportReport,
+    #[sea_orm(has_many = "super::integration::Entity")]
+    Integration,
     #[sea_orm(has_many = "super::queued_notification::Entity")]
     QueuedNotification,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -97,12 +91,6 @@ pub enum Relation {
     Workout,
 }
 
-impl Related<super::collection::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Collection.def()
-    }
-}
-
 impl Related<super::exercise::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Exercise.def()
@@ -112,6 +100,12 @@ impl Related<super::exercise::Entity> for Entity {
 impl Related<super::import_report::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ImportReport.def()
+    }
+}
+
+impl Related<super::integration::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Integration.def()
     }
 }
 
@@ -154,6 +148,15 @@ impl Related<super::user_to_entity::Entity> for Entity {
 impl Related<super::workout::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Workout.def()
+    }
+}
+
+impl Related<super::collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_to_collection::Relation::Collection.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_to_collection::Relation::User.def().rev())
     }
 }
 

@@ -183,9 +183,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = ({ data }) => {
-	// biome-ignore lint/suspicious/noExplicitAny:
-	return [{ title: `${(data as any).mediaMainDetails.title} | Ryot` }];
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+	return [{ title: `${data?.mediaMainDetails.title} | Ryot` }];
 };
 
 const sleepForASecond = () =>

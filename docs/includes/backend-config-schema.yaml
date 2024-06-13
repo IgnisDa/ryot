@@ -103,10 +103,6 @@ frontend:
 
 # Settings related to external integrations.
 integration:
-  # The salt used to hash user IDs.
-  # @envvar INTEGRATION_HASHER_SALT
-  hasher_salt: ""
-
   # The maximum progress limit after which a media is considered to be completed.
   # @envvar INTEGRATION_MAXIMUM_PROGRESS_LIMIT
   maximum_progress_limit: 95

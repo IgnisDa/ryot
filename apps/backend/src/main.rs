@@ -131,9 +131,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v4(&db).await {
-        tracing::error!("Migration from v4 failed: {}", err);
-        bail!("There was an error migrating from v4.")
+    if let Err(err) = migrate_from_v5(&db).await {
+        tracing::error!("Migration from v5 failed: {}", err);
+        bail!("There was an error migrating from v5.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
@@ -207,10 +207,8 @@ async fn main() -> Result<()> {
         .allow_origin(cors_origins)
         .allow_credentials(true);
 
-    let webhook_routes = Router::new().route(
-        "/integrations/:integration/:user_hash_id",
-        post(integration_webhook),
-    );
+    let webhook_routes =
+        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
 
     let mut gql = post(graphql_handler);
     if app_services.config.server.graphql_playground_enabled {
@@ -362,8 +360,8 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-// upgrade from v4 ONLY IF APPLICABLE
-async fn migrate_from_v4(db: &DatabaseConnection) -> Result<()> {
+// upgrade from v5 ONLY IF APPLICABLE
+async fn migrate_from_v5(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -374,13 +372,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240324_perform_v4_migration'
+            WHERE version = 'm20240415_is_v5_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20240411_perform_v4_4_3_migration'
+                WHERE version = 'm20240608_definitely_final_v5_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v4 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v5 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
@@ -394,13 +392,15 @@ BEGIN
                 ('m20230504_create_collection', 1684693316),
                 ('m20230505_create_review', 1684693316),
                 ('m20230509_create_import_report', 1684693316),
-                ('m20230622_create_exercise', 1684693316),
-                ('m20230804_create_user_measurement', 1684693316),
                 ('m20230819_create_workout', 1684693316),
+                ('m20230820_create_user_measurement', 1684693316),
+                ('m20230822_create_exercise', 1684693316),
                 ('m20230912_create_calendar_event', 1684693316),
                 ('m20231016_create_collection_to_entity', 1684693316),
                 ('m20231017_create_user_to_entity', 1684693316),
-                ('m20231219_create_metadata_relations', 1684693316);
+                ('m20231219_create_metadata_relations', 1684693316),
+                ('m20240509_create_user_to_collection', 1717207621),
+                ('m20240531_create_queued_notification', 1717207621);
         END IF;
     END IF;
 END $$;

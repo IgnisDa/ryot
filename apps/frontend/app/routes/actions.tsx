@@ -1,7 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	type ActionFunctionArgs,
-	json,
 	redirect,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
@@ -194,7 +193,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			}
 		})
 		.run();
-	if (Object.keys(returnData).length > 0) return json(returnData, { headers });
+	if (Object.keys(returnData).length > 0)
+		return Response.json(returnData, { headers });
 	return redirect(redirectTo, { headers });
 };
 
@@ -223,7 +223,7 @@ const reviewCommentSchema = z.object({
 
 const changeCollectionToEntitySchema = z.object({
 	collectionName: z.string(),
-	creatorUserId: zx.IntAsString,
+	creatorUserId: z.string(),
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
 });
@@ -234,7 +234,7 @@ const reviewSchema = z
 		rating: z.string().optional(),
 		text: z.string().optional(),
 		visibility: z.nativeEnum(Visibility).optional(),
-		spoiler: zx.CheckboxAsString.optional(),
+		isSpoiler: zx.CheckboxAsString.optional(),
 		metadataId: z.string().optional(),
 		metadataGroupId: z.string().optional(),
 		collectionId: z.string().optional(),

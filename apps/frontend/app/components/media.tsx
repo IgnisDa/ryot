@@ -289,7 +289,7 @@ export const ReviewItemDisplay = (props: {
 						</Flex>
 					) : null}
 					{props.review.textRendered ? (
-						!props.review.spoiler ? (
+						!props.review.isSpoiler ? (
 							<>
 								<div
 									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
@@ -711,7 +711,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 };
 
 export const DisplayCollection = (props: {
-	userId: number;
+	userId: string;
 	col: { id: string; name: string };
 	entityId: string;
 	entityLot: EntityLot;
@@ -852,7 +852,11 @@ export const PostReviewModal = (props: {
 								/>
 							))
 							.exhaustive()}
-						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
+						<Checkbox
+							label="This review is a spoiler"
+							mt="lg"
+							name="isSpoiler"
+						/>
 					</Flex>
 					{props.lot === MediaLot.Show ? (
 						<Flex gap="md">
@@ -999,7 +1003,7 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
-	userId: number;
+	userId: string;
 	entityLot: EntityLot;
 	inCollections: Array<string>;
 	formValue: string;

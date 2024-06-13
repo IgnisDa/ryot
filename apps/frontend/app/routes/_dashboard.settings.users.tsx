@@ -31,7 +31,6 @@ import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
@@ -83,7 +82,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: { password: submission } },
 				await getAuthorizationHeader(request),
 			);
-			const success = registerUser.__typename === "IdObject";
+			const success = registerUser.__typename === "StringIdObject";
 			return json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: success ? "success" : "error",
@@ -110,7 +109,7 @@ const registerFormSchema = z.object({
 	password: z.string(),
 });
 
-const deleteSchema = z.object({ toDeleteUserId: zx.IntAsString });
+const deleteSchema = z.object({ toDeleteUserId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();

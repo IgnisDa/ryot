@@ -1,5 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
-import { type LoaderFunctionArgs, json, redirect } from "@remix-run/node";
+import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
 	CoreDetailsDocument,
 	GetOidcTokenDocument,
@@ -43,5 +43,5 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			),
 		});
 	}
-	return json({ input });
+	return Response.json({ input });
 };

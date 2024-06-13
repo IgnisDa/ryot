@@ -32,7 +32,7 @@ pub struct Model {
     #[graphql(skip)]
     #[sea_orm(primary_key, auto_increment = false)]
     #[serde(skip)]
-    pub user_id: i32,
+    pub user_id: String,
     /// The name given to this measurement by the user.
     pub name: Option<String>,
     /// Any comment associated entered by the user.

@@ -141,7 +141,7 @@ export const MediaDetailsLayout = (props: {
 type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 
 export const AddEntityToCollectionModal = (props: {
-	userId: number;
+	userId: string;
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;
@@ -215,6 +215,7 @@ export const AddEntityToCollectionModal = (props: {
 												label={template.name}
 												description={template.description}
 												required={!!template.required}
+												defaultValue={template.defaultValue || undefined}
 											/>
 										))
 										.with(CollectionExtraInformationLot.Number, () => (
@@ -223,6 +224,11 @@ export const AddEntityToCollectionModal = (props: {
 												label={template.name}
 												description={template.description}
 												required={!!template.required}
+												defaultValue={
+													template.defaultValue
+														? Number(template.defaultValue)
+														: undefined
+												}
 											/>
 										))
 										.with(CollectionExtraInformationLot.Date, () => (
@@ -233,6 +239,11 @@ export const AddEntityToCollectionModal = (props: {
 													required={!!template.required}
 													onChange={setOwnedOn}
 													value={ownedOn}
+													defaultValue={
+														template.defaultValue
+															? new Date(template.defaultValue)
+															: undefined
+													}
 												/>
 												<input
 													readOnly

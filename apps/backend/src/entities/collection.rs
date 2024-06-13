@@ -19,7 +19,7 @@ pub struct Model {
     pub last_updated_on: DateTimeUtc,
     pub name: String,
     pub description: Option<String>,
-    pub user_id: i32,
+    pub user_id: String,
     #[sea_orm(column_type = "Json")]
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }

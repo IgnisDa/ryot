@@ -63,8 +63,8 @@ pub async fn yank_integrations_data(
 // The background jobs which cannot be throttled.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum CoreApplicationJob {
-    YankIntegrationsData(i32),
-    BulkProgressUpdate(i32, Vec<ProgressUpdateInput>),
+    YankIntegrationsData(String),
+    BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 
 impl Message for CoreApplicationJob {
@@ -80,7 +80,7 @@ pub async fn perform_core_application_job(
     let start = Instant::now();
     let status = match information {
         CoreApplicationJob::YankIntegrationsData(user_id) => misc_service
-            .yank_integrations_data_for_user(user_id)
+            .yank_integrations_data_for_user(&user_id)
             .await
             .is_ok(),
         CoreApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
@@ -100,16 +100,16 @@ pub async fn perform_core_application_job(
 // The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
-    ImportFromExternalSource(i32, Box<DeployImportJobInput>),
-    ReEvaluateUserWorkouts(i32),
-    UpdateMetadata(String),
+    ImportFromExternalSource(String, Box<DeployImportJobInput>),
+    ReEvaluateUserWorkouts(String),
+    UpdateMetadata(String, bool),
     UpdateGithubExerciseJob(Exercise),
     UpdatePerson(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     ReviewPosted(ReviewPostedEvent),
-    PerformExport(i32, Vec<ExportItem>),
-    RecalculateUserSummary(i32),
+    PerformExport(String, Vec<ExportItem>),
+    RecalculateUserSummary(String),
     PerformBackgroundTasks,
 }
 
@@ -133,15 +133,15 @@ pub async fn perform_application_job(
             .await
             .is_ok(),
         ApplicationJob::RecalculateUserSummary(user_id) => misc_service
-            .calculate_user_summary(user_id, true)
+            .calculate_user_summary(&user_id, true)
             .await
             .is_ok(),
         ApplicationJob::ReEvaluateUserWorkouts(user_id) => exercise_service
             .re_evaluate_user_workouts(user_id)
             .await
             .is_ok(),
-        ApplicationJob::UpdateMetadata(metadata_id) => misc_service
-            .update_metadata_and_notify_users(&metadata_id)
+        ApplicationJob::UpdateMetadata(metadata_id, force_update) => misc_service
+            .update_metadata_and_notify_users(&metadata_id, force_update)
             .await
             .is_ok(),
         ApplicationJob::UpdatePerson(person_id) => misc_service

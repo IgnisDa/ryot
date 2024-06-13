@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230501_create_metadata_group::MetadataGroup, m20230504_create_collection::Collection,
-    m20230622_create_exercise::Exercise,
+    m20230822_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
@@ -19,6 +19,7 @@ pub enum CollectionToEntity {
     Table,
     Id,
     CollectionId,
+    CreatedOn,
     LastUpdatedOn,
     // the entities that can be added to a collection
     MetadataId,
@@ -41,6 +42,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .auto_increment()
                             .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionToEntity::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
                     )
                     .col(
                         ColumnDef::new(CollectionToEntity::LastUpdatedOn)

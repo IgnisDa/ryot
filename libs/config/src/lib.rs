@@ -250,6 +250,19 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
+impl IsFeatureEnabled for FileStorageConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.s3_access_key_id.is_empty()
+            && !self.s3_bucket_name.is_empty()
+            && !self.s3_secret_access_key.is_empty()
+        {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 /// The configuration related to Umami analytics. More information
 /// [here](https://umami.is/docs/tracker-configuration).
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -285,28 +298,12 @@ pub struct IntegrationConfig {
     /// every `n` hours.
     #[setting(default = 2)]
     pub pull_every: i32,
-    /// The salt used to hash user IDs.
-    #[setting(default = format!("{}", PROJECT_NAME))]
-    pub hasher_salt: String,
     /// The minimum progress limit after which a media is considered to be started.
     #[setting(default = 2)]
     pub minimum_progress_limit: i32,
     /// The maximum progress limit after which a media is considered to be completed.
     #[setting(default = 95)]
     pub maximum_progress_limit: i32,
-}
-
-impl IsFeatureEnabled for FileStorageConfig {
-    fn is_enabled(&self) -> bool {
-        let mut enabled = false;
-        if !self.s3_access_key_id.is_empty()
-            && !self.s3_bucket_name.is_empty()
-            && !self.s3_secret_access_key.is_empty()
-        {
-            enabled = true;
-        }
-        enabled
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -463,7 +460,6 @@ impl AppConfig {
         cl.file_storage.s3_access_key_id = gt();
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
-        cl.integration.hasher_salt = gt();
         cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.video_games.twitch.client_id = gt();

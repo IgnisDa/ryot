@@ -430,16 +430,16 @@ export default function Page() {
 												data-import-report-id={report.id}
 											>
 												<Accordion.Control
-													disabled={typeof report.success !== "boolean"}
+													disabled={typeof report.wasSuccess !== "boolean"}
 												>
 													<Indicator
 														inline
 														size={12}
 														offset={-3}
-														processing={typeof report.success !== "boolean"}
+														processing={typeof report.wasSuccess !== "boolean"}
 														color={
-															typeof report.success === "boolean"
-																? report.success
+															typeof report.wasSuccess === "boolean"
+																? report.wasSuccess
 																	? "green"
 																	: "red"
 																: undefined

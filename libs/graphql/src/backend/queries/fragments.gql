@@ -124,7 +124,7 @@ fragment ReviewItemPart on ReviewItem {
   rating
   textOriginal
   textRendered
-  spoiler
+  isSpoiler
   visibility
   postedOn
   postedBy {

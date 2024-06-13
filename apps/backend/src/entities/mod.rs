@@ -8,6 +8,7 @@ pub mod collection_to_entity;
 pub mod exercise;
 pub mod genre;
 pub mod import_report;
+pub mod integration;
 pub mod metadata;
 pub mod metadata_group;
 pub mod metadata_to_genre;

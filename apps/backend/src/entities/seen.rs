@@ -30,7 +30,7 @@ pub struct Model {
     pub progress: Decimal,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
-    pub user_id: i32,
+    pub user_id: String,
     pub metadata_id: String,
     pub state: SeenState,
     pub provider_watched_on: Option<String>,
