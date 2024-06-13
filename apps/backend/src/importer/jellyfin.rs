@@ -74,32 +74,41 @@ struct ItemsResponse {
     items: Vec<ItemResponse>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+struct AuthenticateResponse {
+    user: ItemResponse,
+    access_token: String,
+}
+
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
-    let mut to_handle_media = vec![];
-    let mut failed_items = vec![];
+    let authenticate: AuthenticateResponse = surf::post(format!(
+        "{}/Users/AuthenticateByName",
+        input.api_url
+    ))
+    .header(
+        "X-Emby-Authorization",
+        r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#,
+    )
+    .body_json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
+    .unwrap()
+    .await?
+    .body_json()
+    .await?;
     let client: Client = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
         .unwrap()
         .add_header(ACCEPT, "application/json")
         .unwrap()
-        .add_header("X-Emby-Token", input.password)
+        .add_header("X-Emby-Token", authenticate.access_token)
         .unwrap()
         .set_base_url(Url::parse(&input.api_url).unwrap().join("/").unwrap())
         .try_into()
         .unwrap();
+    let user_id = authenticate.user.id;
 
-    let users_data: Vec<ItemResponse> = client
-        .get("Users")
-        .await
-        .unwrap()
-        .body_json()
-        .await
-        .unwrap();
-    let user_id = users_data
-        .into_iter()
-        .find(|x| x.name == input.username)
-        .unwrap()
-        .id;
+    let mut to_handle_media = vec![];
+    let mut failed_items = vec![];
 
     let views_data: ItemsResponse = client
         .get(&format!("Users/{}/Views", user_id))
