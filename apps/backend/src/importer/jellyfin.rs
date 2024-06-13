@@ -136,29 +136,33 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             .unwrap();
         for item in library_data.items {
             let typ = item.typ.clone().unwrap();
+            tracing::debug!("Processing item: {:?} ({:?})", item.name, typ);
             let (lot, tmdb_id, ssn, sen) = match typ.clone() {
                 MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
                 MediaType::Series | MediaType::Episode => {
-                    let series_id = item.series_id.unwrap();
-                    let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
-                    if tmdb_id.is_none() {
-                        let details: ItemResponse = client
-                            .get(&format!("Items/{}", series_id))
-                            .await
-                            .unwrap()
-                            .body_json()
-                            .await
-                            .unwrap();
-                        let insert_id = details.provider_ids.unwrap().tmdb;
-                        series_id_to_tmdb_id.insert(series_id.clone(), insert_id.clone());
-                        tmdb_id = insert_id;
+                    if let Some(series_id) = item.series_id {
+                        let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
+                        if tmdb_id.is_none() {
+                            let details: ItemResponse = client
+                                .get(&format!("Items/{}", series_id))
+                                .await
+                                .unwrap()
+                                .body_json()
+                                .await
+                                .unwrap();
+                            let insert_id = details.provider_ids.unwrap().tmdb;
+                            series_id_to_tmdb_id.insert(series_id.clone(), insert_id.clone());
+                            tmdb_id = insert_id;
+                        }
+                        (
+                            MediaLot::Show,
+                            tmdb_id,
+                            item.parent_index_number,
+                            item.index_number,
+                        )
+                    } else {
+                        continue;
                     }
-                    (
-                        MediaLot::Show,
-                        tmdb_id,
-                        item.parent_index_number,
-                        item.index_number,
-                    )
                 }
                 _ => {
                     failed_items.push(ImportFailedItem {
@@ -180,7 +184,9 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                         ..Default::default()
                     })
                     .collect_vec();
-                seen_history.last_mut().unwrap().ended_on = item_user_data.last_played_date;
+                if let Some(last) = seen_history.last_mut() {
+                    last.ended_on = item_user_data.last_played_date;
+                };
                 media.push(ImportOrExportMediaItem {
                     lot,
                     source_id: item.series_name.unwrap_or(item.name),
