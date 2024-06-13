@@ -120,7 +120,7 @@ integration:
 media:
   # Number of days after which a media should be removed from the Monitoring collection.
   # @envvar MEDIA_MONITORING_REMOVE_AFTER_DAYS
-  monitoring_remove_after_days: 365
+  monitoring_remove_after_days: 30
 
 # Settings related to movies and shows.
 movies_and_shows:
