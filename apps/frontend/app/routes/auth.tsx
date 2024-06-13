@@ -48,7 +48,7 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	defaultForm: z.enum(["login", "register"]).optional(),
+	intent: z.enum(["login", "register"]).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema> &
@@ -66,7 +66,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		gqlClient.request(CoreDetailsDocument),
 	]);
 	return json({
-		defaultForm: query.defaultForm || "login",
+		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
 		localAuthDisabled: coreDetails.localAuthDisabled,
 		tokenValidForDays: coreDetails.tokenValidForDays,
@@ -115,11 +115,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					headers: await createToastHeaders({ message, type: "error" }),
 				});
 			}
-			return json({} as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Please login with your new credentials",
-				}),
+			return redirectWithToast($path("/auth"), {
+				type: "success",
+				message: "Please login with your new credentials",
 			});
 		},
 		login: async () => {
@@ -200,7 +198,7 @@ export default function Page() {
 	const [parent] = useAutoAnimate();
 	const [searchParams] = useSearchParams();
 	const redirectValue = searchParams.get(redirectToQueryParam);
-	const intent = loaderData.defaultForm;
+	const intent = loaderData.intent;
 
 	return (
 		<Stack
@@ -275,7 +273,7 @@ export default function Page() {
 					ta="right"
 					component={Link}
 					to={withQuery(".", {
-						defaultForm: intent === "login" ? "register" : "login",
+						intent: intent === "login" ? "register" : "login",
 					})}
 				>
 					{

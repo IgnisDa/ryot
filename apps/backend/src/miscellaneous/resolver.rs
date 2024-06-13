@@ -4737,6 +4737,7 @@ impl MiscellaneousService {
             UserLot::Normal
         };
         let user = user::ActiveModel {
+            id: ActiveValue::Set(format!("usr_{}", nanoid!(12))),
             name: ActiveValue::Set(username),
             password: ActiveValue::Set(password),
             oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
