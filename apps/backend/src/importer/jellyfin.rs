@@ -1,5 +1,7 @@
 use async_graphql::Result;
 use database::{MediaLot, MediaSource};
+use itertools::Itertools;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use surf::{
@@ -11,7 +13,9 @@ use crate::{
     importer::{
         DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
     },
-    models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
+    models::media::{
+        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    },
     utils::USER_AGENT_STR,
 };
 
@@ -40,9 +44,17 @@ struct ItemProviderIdsPayload {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
+struct ItemUserData {
+    play_count: Option<i32>,
+    last_played_date: Option<DateTimeUtc>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 struct ItemResponse {
     id: String,
     name: String,
+    user_data: Option<ItemUserData>,
     #[serde(rename = "Type")]
     typ: Option<MediaType>,
     collection_type: Option<CollectionType>,
@@ -117,22 +129,31 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             .await
             .unwrap();
         for item in library_data.items {
-            let typ = item.typ.unwrap();
+            let typ = item.typ.clone().unwrap();
             match typ.clone() {
                 MediaType::Movie => {
-                    let tmdb_id = item.provider_ids.unwrap().tmdb.unwrap();
-                    media.push(ImportOrExportMediaItem {
-                        source_id: item.name,
-                        lot: MediaLot::Movie,
-                        source: MediaSource::Tmdb,
-                        internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                            tmdb_id,
-                        )),
-                        identifier: "".to_string(),
-                        seen_history: vec![],
-                        reviews: vec![],
-                        collections: vec![],
-                    });
+                    if let Some(tmdb_id) = item.provider_ids.unwrap().tmdb {
+                        let item_user_data = item.user_data.unwrap();
+                        let num_times_seen = item_user_data.play_count.unwrap_or(0);
+                        let mut seen_history = (0..num_times_seen)
+                            .map(|_| ImportOrExportMediaItemSeen {
+                                ..Default::default()
+                            })
+                            .collect_vec();
+                        seen_history.last_mut().unwrap().ended_on = item_user_data.last_played_date;
+                        media.push(ImportOrExportMediaItem {
+                            source_id: item.name,
+                            lot: MediaLot::Movie,
+                            source: MediaSource::Tmdb,
+                            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                                tmdb_id,
+                            )),
+                            seen_history,
+                            identifier: "".to_string(),
+                            reviews: vec![],
+                            collections: vec![],
+                        });
+                    }
                 }
                 _ => {
                     failed_items.push(ImportFailedItem {
