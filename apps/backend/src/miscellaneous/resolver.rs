@@ -6963,9 +6963,8 @@ GROUP BY m.id;
             .await?;
         let mut to_delete = vec![];
         for cte in all_cte {
-            let last_updated_on = cte.last_updated_on.unwrap_or_else(Utc::now);
-            let delta = last_updated_on - cte.created_on;
-            if delta.num_days() > self.config.media.monitoring_remove_after_days {
+            let delta = cte.last_updated_on.unwrap_or_else(Utc::now) - cte.created_on;
+            if delta.num_days().abs() > self.config.media.monitoring_remove_after_days {
                 to_delete.push(cte.id);
             }
         }
