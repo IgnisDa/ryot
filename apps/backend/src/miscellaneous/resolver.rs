@@ -43,8 +43,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, ConditionType, Expr, Func,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -6943,33 +6943,19 @@ GROUP BY m.id;
     }
 
     async fn remove_old_entities_from_monitoring_collection(&self) -> Result<()> {
-        let now = Utc::now();
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
             id: i32,
-            last_updated_on: DateTimeUtc,
-            information: Option<serde_json::Value>,
+            created_on: DateTimeUtc,
+            last_updated_on: Option<DateTimeUtc>,
         }
         let all_cte = CollectionToEntity::find()
             .select_only()
             .column(collection_to_entity::Column::Id)
-            .column(collection_to_entity::Column::Information)
-            .column(user_to_entity::Column::LastUpdatedOn)
+            .column(collection_to_entity::Column::CreatedOn)
+            .column(metadata::Column::LastUpdatedOn)
+            .left_join(Metadata)
             .inner_join(Collection)
-            .join_rev(
-                JoinType::LeftJoin,
-                UserToEntity::belongs_to(CollectionToEntity)
-                    .from(user_to_entity::Column::MetadataId)
-                    .to(collection_to_entity::Column::MetadataId)
-                    .condition_type(ConditionType::Any)
-                    .on_condition(move |left, right| {
-                        Condition::any().add(
-                            Expr::col((left, user_to_entity::Column::PersonId))
-                                .equals((right, collection_to_entity::Column::PersonId)),
-                        )
-                    })
-                    .into(),
-            )
             .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
             .order_by_asc(collection_to_entity::Column::Id)
             .into_model::<CustomQueryResponse>()
@@ -6977,17 +6963,9 @@ GROUP BY m.id;
             .await?;
         let mut to_delete = vec![];
         for cte in all_cte {
-            let days = cte
-                .information
-                .and_then(|i| {
-                    i.as_object().cloned().and_then(|v| {
-                        v.get("Days")
-                            .cloned()
-                            .and_then(|g| g.as_str().and_then(|s| s.parse::<i64>().ok()))
-                    })
-                })
-                .unwrap_or(self.config.media.monitoring_remove_after_days);
-            if cte.last_updated_on < now - ChronoDuration::try_days(days).unwrap() {
+            let last_updated_on = cte.last_updated_on.unwrap_or_else(Utc::now);
+            let delta = last_updated_on - cte.created_on;
+            if delta.num_days() > self.config.media.monitoring_remove_after_days {
                 to_delete.push(cte.id);
             }
         }
@@ -7129,6 +7107,9 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.remove_old_entities_from_monitoring_collection()
+            .await
+            .unwrap();
         Ok(true)
     }
 }
