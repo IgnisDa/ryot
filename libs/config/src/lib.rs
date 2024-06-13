@@ -250,6 +250,19 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
+impl IsFeatureEnabled for FileStorageConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.s3_access_key_id.is_empty()
+            && !self.s3_bucket_name.is_empty()
+            && !self.s3_secret_access_key.is_empty()
+        {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 /// The configuration related to Umami analytics. More information
 /// [here](https://umami.is/docs/tracker-configuration).
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -291,19 +304,6 @@ pub struct IntegrationConfig {
     /// The maximum progress limit after which a media is considered to be completed.
     #[setting(default = 95)]
     pub maximum_progress_limit: i32,
-}
-
-impl IsFeatureEnabled for FileStorageConfig {
-    fn is_enabled(&self) -> bool {
-        let mut enabled = false;
-        if !self.s3_access_key_id.is_empty()
-            && !self.s3_bucket_name.is_empty()
-            && !self.s3_secret_access_key.is_empty()
-        {
-            enabled = true;
-        }
-        enabled
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
