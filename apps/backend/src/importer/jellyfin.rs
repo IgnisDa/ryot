@@ -191,9 +191,11 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                     lot,
                     source_id: item.series_name.unwrap_or(item.name),
                     source: MediaSource::Tmdb,
-                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(tmdb_id)),
+                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                        tmdb_id.clone(),
+                    )),
                     seen_history,
-                    identifier: "".to_string(),
+                    identifier: tmdb_id,
                     reviews: vec![],
                     collections: vec![],
                 });
