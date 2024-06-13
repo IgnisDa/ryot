@@ -10,9 +10,7 @@ impl MigrationTrait for Migration {
 
         db.execute_unprepared(
             r#"
-UPDATE "collection" SET "information_template" =
-'[{"name": "Days", "description": "How many days do you want to monitor for?", "lot": "Number", "default_value": "30"}]'
-WHERE "name" = 'Monitoring';
+ALTER TABLE "collection_to_entity" ADD COLUMN IF NOT EXISTS "created_on" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp;
             "#,
         )
         .await?;

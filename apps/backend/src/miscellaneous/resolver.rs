@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt,
     fs::File,
     iter::zip,
     path::PathBuf,
@@ -44,8 +43,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, ConditionType, Expr, Func,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -561,9 +560,9 @@ struct ProgressUpdateCache {
     manga_chapter_number: Option<i32>,
 }
 
-impl fmt::Display for ProgressUpdateCache {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?}", self)
+impl ToString for ProgressUpdateCache {
+    fn to_string(&self) -> String {
+        format!("{:#?}", self)
     }
 }
 
@@ -1123,7 +1122,7 @@ impl MiscellaneousMutation {
         metadata_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.deploy_update_metadata_job(&metadata_id).await
+        service.deploy_update_metadata_job(&metadata_id, true).await
     }
 
     /// Deploy a job to update a person's metadata.
@@ -1580,7 +1579,7 @@ impl MiscellaneousService {
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
         if model.is_partial.unwrap_or_default() {
-            self.deploy_update_metadata_job(metadata_id).await?;
+            self.deploy_update_metadata_job(metadata_id, true).await?;
         }
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
@@ -1983,7 +1982,7 @@ impl MiscellaneousService {
             .await?;
         let grouped_events = events
             .into_iter()
-            .group_by(|event| event.date)
+            .chunk_by(|event| event.date)
             .into_iter()
             .map(|(date, events)| GroupedCalendarEvent {
                 date,
@@ -2441,7 +2440,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
                 for metadata_id in many_metadata {
-                    self.deploy_update_metadata_job(&metadata_id).await?;
+                    self.deploy_update_metadata_job(&metadata_id, true).await?;
                 }
             }
             BackgroundJob::UpdateAllExercises => {
@@ -2891,7 +2890,7 @@ impl MiscellaneousService {
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
-        let provider = self.get_media_provider(lot, source).await?;
+        let provider = self.get_metadata_provider(lot, source).await?;
         let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
             Some(eg) => eg.id,
@@ -3124,7 +3123,11 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn deploy_update_metadata_job(&self, metadata_id: &String) -> Result<bool> {
+    async fn deploy_update_metadata_job(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<bool> {
         let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -3132,7 +3135,7 @@ impl MiscellaneousService {
             .unwrap();
         self.perform_application_job
             .clone()
-            .enqueue(ApplicationJob::UpdateMetadata(metadata.id))
+            .enqueue(ApplicationJob::UpdateMetadata(metadata.id, force_update))
             .await
             .unwrap();
         Ok(true)
@@ -3314,7 +3317,7 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let provider = self.get_media_provider(input.lot, input.source).await?;
+        let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -3391,7 +3394,7 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let provider = self.get_non_media_provider(input.source).await?;
+        let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
                 &query,
@@ -3421,24 +3424,9 @@ impl MiscellaneousService {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
-        let provider = self.get_media_provider(input.lot, input.source).await?;
+        let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
-            .await?;
-        Ok(results)
-    }
-
-    async fn details_from_provider_for_existing_media(
-        &self,
-        metadata_id: &String,
-    ) -> Result<MediaDetails> {
-        let metadata = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let results = self
-            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await?;
         Ok(results)
     }
@@ -3459,7 +3447,7 @@ impl MiscellaneousService {
         .await)
     }
 
-    async fn get_media_provider(&self, lot: MediaLot, source: MediaSource) -> Result<Provider> {
+    async fn get_metadata_provider(&self, lot: MediaLot, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
@@ -3486,6 +3474,7 @@ impl MiscellaneousService {
                 MediaLot::Show => Box::new(
                     TmdbShowService::new(
                         &self.config.movies_and_shows.tmdb,
+                        *self.timezone,
                         self.config.frontend.page_size,
                     )
                     .await,
@@ -3493,6 +3482,7 @@ impl MiscellaneousService {
                 MediaLot::Movie => Box::new(
                     TmdbMovieService::new(
                         &self.config.movies_and_shows.tmdb,
+                        *self.timezone,
                         self.config.frontend.page_size,
                     )
                     .await,
@@ -3551,12 +3541,13 @@ impl MiscellaneousService {
     pub async fn get_tmdb_non_media_service(&self) -> Result<NonMediaTmdbService> {
         Ok(NonMediaTmdbService::new(
             self.config.movies_and_shows.tmdb.access_token.clone(),
+            *self.timezone,
             self.config.movies_and_shows.tmdb.locale.clone(),
         )
         .await)
     }
 
-    async fn get_non_media_provider(&self, source: MediaSource) -> Result<Provider> {
+    async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
@@ -3611,7 +3602,7 @@ impl MiscellaneousService {
         source: MediaSource,
         identifier: &str,
     ) -> Result<MediaDetails> {
-        let provider = self.get_media_provider(lot, source).await?;
+        let provider = self.get_metadata_provider(lot, source).await?;
         let results = provider.metadata_details(identifier).await?;
         Ok(results)
     }
@@ -3627,7 +3618,7 @@ impl MiscellaneousService {
         {
             if input.force_update.unwrap_or_default() {
                 tracing::debug!("Forcing update of metadata with id {}", m.id);
-                self.update_metadata_and_notify_users(&m.id).await?;
+                self.update_metadata_and_notify_users(&m.id, true).await?;
             }
             Ok(m)
         } else {
@@ -4353,7 +4344,26 @@ impl MiscellaneousService {
     async fn update_metadata(
         &self,
         metadata_id: &String,
+        force_update: bool,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
+        let metadata = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        if !force_update {
+            // check whether the metadata needs to be updated
+            let provider = self
+                .get_metadata_provider(metadata.lot, metadata.source)
+                .await?;
+            if let Ok(false) = provider
+                .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
+                .await
+            {
+                tracing::debug!("Metadata {:?} does not need to be updated", metadata_id);
+                return Ok(vec![]);
+            }
+        }
         tracing::debug!("Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
@@ -4361,7 +4371,7 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         let maybe_details = self
-            .details_from_provider_for_existing_media(metadata_id)
+            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await;
         let notifications = match maybe_details {
             Ok(details) => self.update_media(metadata_id, details).await?,
@@ -4374,8 +4384,15 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
-    pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
-        let notifications = self.update_metadata(metadata_id).await.unwrap();
+    pub async fn update_metadata_and_notify_users(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<()> {
+        let notifications = self
+            .update_metadata(metadata_id, force_update)
+            .await
+            .unwrap();
         if !notifications.is_empty() {
             let (meta_map, _, _) = self.get_entities_monitored_by().await.unwrap();
             let users_to_notify = meta_map.get(metadata_id).cloned().unwrap_or_default();
@@ -5804,7 +5821,7 @@ impl MiscellaneousService {
             meta_map
         );
         for (metadata_id, to_notify) in meta_map {
-            let notifications = self.update_metadata(&metadata_id).await?;
+            let notifications = self.update_metadata(&metadata_id, false).await?;
             for user in to_notify {
                 for notification in notifications.iter() {
                     self.queue_media_state_changed_notification_for_user(&user, notification)
@@ -6668,7 +6685,7 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        let provider = self.get_non_media_provider(person.source).await?;
+        let provider = self.get_non_metadata_provider(person.source).await?;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
             .await?;
@@ -6926,33 +6943,19 @@ GROUP BY m.id;
     }
 
     async fn remove_old_entities_from_monitoring_collection(&self) -> Result<()> {
-        let now = Utc::now();
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
             id: i32,
-            last_updated_on: DateTimeUtc,
-            information: Option<serde_json::Value>,
+            created_on: DateTimeUtc,
+            last_updated_on: Option<DateTimeUtc>,
         }
         let all_cte = CollectionToEntity::find()
             .select_only()
             .column(collection_to_entity::Column::Id)
-            .column(collection_to_entity::Column::Information)
-            .column(user_to_entity::Column::LastUpdatedOn)
+            .column(collection_to_entity::Column::CreatedOn)
+            .column(metadata::Column::LastUpdatedOn)
+            .left_join(Metadata)
             .inner_join(Collection)
-            .join_rev(
-                JoinType::LeftJoin,
-                UserToEntity::belongs_to(CollectionToEntity)
-                    .from(user_to_entity::Column::MetadataId)
-                    .to(collection_to_entity::Column::MetadataId)
-                    .condition_type(ConditionType::Any)
-                    .on_condition(move |left, right| {
-                        Condition::any().add(
-                            Expr::col((left, user_to_entity::Column::PersonId))
-                                .equals((right, collection_to_entity::Column::PersonId)),
-                        )
-                    })
-                    .into(),
-            )
             .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
             .order_by_asc(collection_to_entity::Column::Id)
             .into_model::<CustomQueryResponse>()
@@ -6960,17 +6963,8 @@ GROUP BY m.id;
             .await?;
         let mut to_delete = vec![];
         for cte in all_cte {
-            let days = cte
-                .information
-                .and_then(|i| {
-                    i.as_object().cloned().and_then(|v| {
-                        v.get("Days")
-                            .cloned()
-                            .and_then(|g| g.as_str().and_then(|s| s.parse::<i64>().ok()))
-                    })
-                })
-                .unwrap_or(self.config.media.monitoring_remove_after_days);
-            if cte.last_updated_on < now - ChronoDuration::try_days(days).unwrap() {
+            let delta = cte.last_updated_on.unwrap_or_else(Utc::now) - cte.created_on;
+            if delta.num_days().abs() > self.config.media.monitoring_remove_after_days {
                 to_delete.push(cte.id);
             }
         }
@@ -7063,7 +7057,7 @@ JOIN metadata m ON sub.metadata_id = m.id WHERE sub.rn = 1 and m.source in ($1, 
         .all(&self.db)
         .await?;
         for media in media_items.into_iter() {
-            let provider = self.get_media_provider(media.lot, media.source).await?;
+            let provider = self.get_metadata_provider(media.lot, media.source).await?;
             if let Ok(recommendations) = provider
                 .get_recommendations_for_metadata(&media.identifier)
                 .await

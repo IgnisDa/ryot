@@ -215,7 +215,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	});
 };
 
-export const meta: MetaFunction = ({ params }) => {
+export const meta: MetaFunction<typeof loader> = ({ params }) => {
 	return [
 		{
 			title: `${changeCase(params.action || "")} ${changeCase(

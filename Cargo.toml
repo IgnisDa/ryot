@@ -3,16 +3,16 @@ members = ["apps/backend", "libs/config", "libs/database", "libs/rs-utils"]
 resolver = "2"
 
 [workspace.dependencies]
-anyhow = "1.0.82"
-async-graphql = { version = "7.0.5", features = [
+anyhow = "=1.0.82"
+async-graphql = { version = "=7.0.5", features = [
     "chrono",
     "decimal",
     "log",
     "tracing",
 ] }
-chrono = "0.4.38"
-nanoid = "0.4.0"
-schematic = { version = "0.16", features = [
+chrono = "=0.4.38"
+nanoid = "=0.4.0"
+schematic = { version = "=0.16.4", features = [
     "config",
     "json",
     "schema",
@@ -24,7 +24,7 @@ schematic = { version = "0.16", features = [
     "renderer_template",
     "yaml",
 ], default-features = false }
-sea-orm = { version = "1.0.0-rc.5", features = [
+sea-orm = { version = "=1.0.0-rc.5", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -34,8 +34,8 @@ sea-orm = { version = "1.0.0-rc.5", features = [
     "with-json",
     "with-rust_decimal",
 ], default-features = false }
-sea-orm-migration = "1.0.0-rc.5"
-serde = { version = "1.0.202", features = ["derive"] }
-serde_json = "1.0.116"
-strum = { version = "0.26.2", features = ["derive"] }
-tracing = { version = "0.1.40", features = ["attributes"] }
+sea-orm-migration = "=1.0.0-rc.5"
+serde = { version = "=1.0.202", features = ["derive"] }
+serde_json = "=1.0.117"
+strum = { version = "=0.26.2", features = ["derive"] }
+tracing = { version = "=0.1.40", features = ["attributes"] }
