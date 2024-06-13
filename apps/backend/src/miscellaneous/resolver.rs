@@ -3431,21 +3431,6 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    async fn details_from_provider_for_existing_media(
-        &self,
-        metadata_id: &String,
-    ) -> Result<MediaDetails> {
-        let metadata = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let results = self
-            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
-            .await?;
-        Ok(results)
-    }
-
     pub async fn get_openlibrary_service(&self) -> Result<OpenlibraryService> {
         Ok(OpenlibraryService::new(
             &self.config.books.openlibrary,
@@ -4361,6 +4346,24 @@ impl MiscellaneousService {
         metadata_id: &String,
         force_update: bool,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
+        let metadata = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        if !force_update {
+            // check whether the metadata needs to be updated
+            let provider = self
+                .get_metadata_provider(metadata.lot, metadata.source)
+                .await?;
+            if let Ok(false) = provider
+                .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
+                .await
+            {
+                tracing::debug!("Metadata {:?} does not need to be updated", metadata_id);
+                return Ok(vec![]);
+            }
+        }
         tracing::debug!("Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
@@ -4368,7 +4371,7 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         let maybe_details = self
-            .details_from_provider_for_existing_media(metadata_id)
+            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await;
         let notifications = match maybe_details {
             Ok(details) => self.update_media(metadata_id, details).await?,

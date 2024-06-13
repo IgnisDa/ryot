@@ -32,7 +32,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, TEMP_DIR},
+    utils::{get_base_http_client, get_current_date, TEMP_DIR},
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";
@@ -309,11 +309,11 @@ impl TmdbService {
     ) {
         if let Some(provider) = maybe_provider {
             for provider in provider {
-                let posn = watch_providers
+                let maybe_position = watch_providers
                     .iter()
                     .position(|p| p.name == provider.provider_name);
-                if let Some(posn) = posn {
-                    watch_providers[posn].languages.insert(country.clone());
+                if let Some(position) = maybe_position {
+                    watch_providers[position].languages.insert(country.clone());
                 } else {
                     watch_providers.push(WatchProvider {
                         name: provider.provider_name,
@@ -323,6 +323,34 @@ impl TmdbService {
                 }
             }
         }
+    }
+
+    async fn metadata_updated_since(
+        &self,
+        identifier: &str,
+        since: DateTimeUtc,
+        typ: &str,
+    ) -> Result<bool> {
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        struct TmdbChangesResponse {
+            changes: Vec<serde_json::Value>,
+        }
+        let end_date = get_current_date(&self.timezone);
+        let start_date = since.date_naive();
+        let changes = self
+            .client
+            .get(format!("{}/{}/changes", typ, identifier))
+            .query(&json!({
+                "start_date": start_date,
+                "end_date": end_date,
+            }))
+            .unwrap()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .body_json::<TmdbChangesResponse>()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        Ok(!changes.changes.is_empty())
     }
 }
 
@@ -792,7 +820,9 @@ impl MediaProvider for TmdbMovieService {
     }
 
     async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
-        Ok(true)
+        self.base
+            .metadata_updated_since(identifier, since, "movie")
+            .await
     }
 
     async fn metadata_group_search(
