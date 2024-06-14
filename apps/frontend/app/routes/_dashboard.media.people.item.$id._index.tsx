@@ -173,7 +173,7 @@ export default function Page() {
 								loaderData.personDetails.details.place,
 							loaderData.personDetails.details.gender,
 						]
-							.filter(Boolean)
+							.filter((s) => s !== undefined)
 							.join(" • ")}
 						{loaderData.personDetails.details.website ? (
 							<>

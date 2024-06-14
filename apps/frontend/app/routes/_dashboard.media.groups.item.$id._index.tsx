@@ -11,11 +11,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
@@ -59,7 +56,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataGroupId = params.id;
 	invariant(metadataGroupId, "No ID provided");
@@ -80,7 +77,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 		getUserCollectionsList(request),
 	]);
-	return json({
+	return {
 		query,
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
@@ -91,10 +88,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		metadataGroupId,
 		metadataGroupDetails,
 		userMetadataGroupDetails,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.metadataGroupDetails.details.title} | Ryot` }];
 };
 

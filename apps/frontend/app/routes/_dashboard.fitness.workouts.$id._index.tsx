@@ -24,12 +24,8 @@ import {
 import { DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
@@ -79,7 +75,7 @@ import {
 } from "~/lib/utilities.server";
 import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const workoutId = params.id;
 	invariant(workoutId, "No ID provided");
 	const [userPreferences, { workoutDetails }] = await Promise.all([
@@ -103,21 +99,21 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			doneOn: repeatedWorkoutData.startTime,
 		};
 	}
-	return json({
+	return {
 		workoutId,
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
 		workoutDetails,
 		repeatedWorkout,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.workoutDetails.name} | Ryot` }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		edit: async () => {
@@ -127,7 +123,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Workout edited successfully",
@@ -147,7 +143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 	});
-};
+});
 
 const deleteSchema = z.object({ workoutId: z.string() });
 

@@ -18,12 +18,8 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	Form,
 	useActionData,
@@ -59,7 +55,7 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
 		gqlClient.request(
 			UserIntegrationsDocument,
@@ -67,14 +63,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({ userIntegrations });
-};
+	return { userIntegrations };
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Integration Settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		delete: async () => {
@@ -84,12 +80,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", generateAuthToken: false } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Integration deleted successfully",
-				}),
-			});
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Integration deleted successfully",
+					}),
+				},
+			);
 		},
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
@@ -98,12 +97,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", generateAuthToken: false } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Integration created successfully",
-				}),
-			});
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Integration created successfully",
+					}),
+				},
+			);
 		},
 		generateAuthToken: async () => {
 			const { generateAuthToken } = await gqlClient.request(
@@ -111,10 +113,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				undefined,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", generateAuthToken } as const);
+			return Response.json({ status: "success", generateAuthToken } as const);
 		},
 	});
-};
+});
 
 const createSchema = z.object({
 	source: z.nativeEnum(IntegrationSource),

@@ -6,13 +6,12 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { useFetcher, useLoaderData } from "@remix-run/react";
+	type MetaArgs_SingleFetch,
+	useFetcher,
+	useLoaderData,
+} from "@remix-run/react";
 import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useRef } from "react";
 import { z } from "zod";
@@ -25,16 +24,16 @@ import {
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [userDetails] = await Promise.all([getUserDetails(request)]);
-	return json({ userDetails });
-};
+	return { userDetails };
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Profile Settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.formData();
 	const submission = processSubmission(formData, updateProfileFormSchema);
 	await gqlClient.request(
@@ -42,13 +41,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		{ input: submission },
 		await getAuthorizationHeader(request),
 	);
-	return json({ status: "success", submission } as const, {
+	return Response.json({ status: "success", submission } as const, {
 		headers: await createToastHeaders({
 			message:
 				"Profile updated. Please login again for changes to take effect.",
 		}),
 	});
-};
+});
 
 const updateProfileFormSchema = z.object({
 	username: z.string().optional(),

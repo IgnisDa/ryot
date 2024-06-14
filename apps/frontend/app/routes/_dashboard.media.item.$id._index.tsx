@@ -33,14 +33,17 @@ import {
 import { DateInput, DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	defer,
-	json,
 	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
 } from "@remix-run/node";
-import { Await, Form, Link, useLoaderData } from "@remix-run/react";
+import {
+	Await,
+	Form,
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
@@ -137,7 +140,7 @@ const searchParamsSchema = z
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataId = params.id;
 	invariant(metadataId, "No ID provided");
@@ -162,7 +165,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		{ metadataId },
 		headers,
 	);
-	return defer({
+	return {
 		query,
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
@@ -180,17 +183,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		mediaAdditionalDetails,
 		userMediaDetails,
 		collections,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.mediaMainDetails.title} | Ryot` }];
 };
 
 const sleepForASecond = () =>
 	new Promise((resolve) => setTimeout(resolve, 1000));
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		individualProgressUpdate: async () => {
@@ -201,7 +204,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			await sleepForASecond();
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Progress updated successfully",
@@ -215,7 +218,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Record deleted successfully",
@@ -229,7 +232,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Metadata update job deployed successfully",
@@ -255,7 +258,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Adjusted seen item successfully",
@@ -378,10 +381,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			};
 			if (submission[redirectToQueryParam])
 				return redirect(submission[redirectToQueryParam], headers);
-			return json({ status: "success", submission } as const, headers);
+			return Response.json({ status: "success", submission } as const, headers);
 		},
 	});
-};
+});
 
 const metadataIdSchema = z.object({ metadataId: z.string() });
 
@@ -611,7 +614,7 @@ export default function Page() {
 												60,
 										),
 								]
-									.filter(Boolean)
+									.filter((s) => s !== undefined)
 									.join(" • ")}
 							</Text>
 						)}
@@ -2021,7 +2024,7 @@ const AccordionLabel = (props: {
 		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
 		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
 	]
-		.filter(Boolean)
+		.filter((s) => s !== undefined)
 		.join("; ");
 
 	const isSeen = props.displayIndicator >= 1;
@@ -2136,7 +2139,7 @@ const SeenItem = (props: {
 		displayMangaExtraInformation,
 		watchedOnInformation,
 	]
-		.filter(Boolean)
+		.filter((s) => s !== undefined)
 		.join("; ");
 
 	const timeSpentInMilliseconds = (props.history.totalTimeSpent || 0) * 1000;

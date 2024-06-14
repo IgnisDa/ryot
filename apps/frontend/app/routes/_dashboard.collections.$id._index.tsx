@@ -16,12 +16,12 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+	useNavigate,
+} from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -79,7 +79,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const id = params.id;
 	invariant(id, "No ID provided");
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -111,7 +111,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		getUserPreferences(request),
 		getUserDetails(request),
 	]);
-	return json({
+	return {
 		id,
 		query,
 		info,
@@ -122,10 +122,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			disableReviews: userPreferences.general.disableReviews,
 		},
 		userDetails,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.info.details.name} | Ryot` }];
 };
 

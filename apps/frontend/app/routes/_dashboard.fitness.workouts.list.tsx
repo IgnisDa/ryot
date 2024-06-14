@@ -13,12 +13,12 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	type UserUnitSystem,
 	UserWorkoutListDocument,
@@ -54,7 +54,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [userPreferences, coreDetails, { userWorkoutList }] = await Promise.all(
 		[
@@ -69,17 +69,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			),
 		],
 	);
-	return json({
+	return {
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
 		},
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		query,
 		userWorkoutList,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Workouts | Ryot" }];
 };
 

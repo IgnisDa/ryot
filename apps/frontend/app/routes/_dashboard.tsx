@@ -19,7 +19,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { type LoaderFunctionArgs, json } from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	Link,
@@ -61,7 +61,7 @@ import {
 } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, coreDetails] = await Promise.all([
 		getUserPreferences(request),
@@ -102,7 +102,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				}
 			: undefined,
 	]
-		.filter(Boolean)
 		.map((link, _index) =>
 			link
 				? {
@@ -115,7 +114,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 								}),
 					}
 				: undefined,
-		);
+		)
+		.filter((link) => link !== undefined);
 
 	const fitnessLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
@@ -145,7 +145,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		userDetails.__typename === "User" && userDetails.lot === UserLot.Admin
 			? { label: "Users", link: $path("/settings/users") }
 			: undefined,
-	];
+	].filter((link) => link !== undefined);
 
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
@@ -157,7 +157,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		!serverVariables.DISABLE_TELEMETRY &&
 		!userDetails.isDemo;
 
-	return json({
+	return {
 		envData: serverVariables,
 		mediaLinks,
 		userDetails,
@@ -174,8 +174,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			collectionsEnabled: userPreferences.featuresEnabled.others.collections,
 			calendarEnabled: userPreferences.featuresEnabled.others.calendar,
 		},
-	});
-};
+	};
+});
 
 export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
@@ -427,7 +427,7 @@ function LinksGroup({
 	const { dir } = useDirection();
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
-	const allLinks = (hasLinks ? links || [] : []).filter(Boolean);
+	const allLinks = (hasLinks ? links || [] : []).filter((s) => s !== undefined);
 	const items = allLinks.map((link) => (
 		<NavLink
 			className={classes.link}

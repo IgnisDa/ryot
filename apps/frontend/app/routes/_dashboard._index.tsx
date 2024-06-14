@@ -13,11 +13,8 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
@@ -71,7 +68,7 @@ const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
 	return t;
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const prefs = await getUserPreferences(request);
 	const takeUpcoming = getTake(prefs, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(prefs, DashboardElementLot.InProgress);
@@ -103,7 +100,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	);
 	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
-	return json({
+	return {
 		workoutInProgress,
 		userPreferences: {
 			reviewScale: prefs.general.reviewScale,
@@ -115,10 +112,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		latestUserSummary,
 		userUpcomingCalendarEvents,
 		collectionContents,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 

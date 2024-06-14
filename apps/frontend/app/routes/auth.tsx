@@ -58,7 +58,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
-		return redirectWithToast($path("/"), {
+		throw await redirectWithToast($path("/"), {
 			message: "You were already logged in",
 		});
 	const [enabledFeatures, { coreDetails }] = await Promise.all([

@@ -16,15 +16,11 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader, unstable_defineAction } from "@remix-run/node";
 import {
 	Form,
 	Link,
+	type MetaArgs_SingleFetch,
 	useFetcher,
 	useLoaderData,
 	useNavigation,
@@ -55,22 +51,19 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [userDetails, userCollectionsList] = await Promise.all([
 		getUserDetails(request),
 		getUserCollectionsList(request),
 	]);
-	return json({
-		collections: userCollectionsList,
-		currentUserId: userDetails.id,
-	});
-};
+	return { collections: userCollectionsList, currentUserId: userDetails.id };
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Your collections | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		createOrUpdate: async () => {
@@ -81,7 +74,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ input: submission },
 					await getAuthorizationHeader(request),
 				);
-				return json(
+				return Response.json(
 					{},
 					{
 						headers: await createToastHeaders({
@@ -98,7 +91,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					const err = e.response.errors?.[0].message;
 					if (err) message = err;
 				}
-				return json(
+				return Response.json(
 					{},
 					{
 						status: 400,
@@ -122,7 +115,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			} catch {
 				wasSuccessful = false;
 			}
-			return json(
+			return Response.json(
 				{},
 				{
 					headers: await createToastHeaders({
@@ -135,7 +128,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 		},
 	});
-};
+});
 
 const createOrUpdateSchema = z.object({
 	name: z.string(),

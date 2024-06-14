@@ -16,13 +16,12 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
 	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomMetadataDocument,
@@ -39,18 +38,18 @@ import {
 	s3FileUploader,
 } from "~/lib/utilities.server";
 
-export const loader = async (_args: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async (_args) => {
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
-	return json({
+	return {
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Create Media | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const uploaders = s3FileUploader("metadata");
 	const formData = await unstable_parseMultipartFormData(request, uploaders);
 	const submission = processSubmission(formData, schema);
@@ -70,7 +69,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		await getAuthorizationHeader(request),
 	);
 	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
-};
+});
 
 const optionalString = z.string().optional();
 const optionalStringArray = z.array(z.string()).optional();
