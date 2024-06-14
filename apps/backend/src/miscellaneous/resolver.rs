@@ -7151,7 +7151,35 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        use sea_query::{Iden, Write};
+
+        // FIXME: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
+        struct Md5;
+        impl Iden for Md5 {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "MD5").unwrap();
+            }
+        }
+
         self.download_recommendations_for_users().await?;
+        let items = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Title)
+            .filter(metadata::Column::IsRecommendation.eq(true))
+            .order_by(
+                SimpleExpr::FunctionCall(
+                    Func::cust(Md5).arg(
+                        Expr::col(metadata::Column::Title)
+                            .concatenate(Expr::val("usr_2G2UTC2Q1aur"))
+                            .concatenate(Expr::val("2024-06-14")),
+                    ),
+                ),
+                Order::Desc,
+            )
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        dbg!(&items);
         Ok(true)
     }
 }
