@@ -1,7 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	type ActionFunctionArgs,
 	redirect,
+	unstable_defineAction,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
@@ -38,13 +38,12 @@ import {
 
 export const loader = async () => redirect($path("/"));
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request, response }) => {
 	const formData = await request.clone().formData();
 	const url = new URL(request.url);
 	const intent = url.searchParams.get("intent") as string;
 	invariant(intent, "No intent provided");
 	let redirectTo = (formData.get(redirectToQueryParam) as string) || "/";
-	let headers = {};
 	let returnData = {};
 	await match(intent)
 		.with("commitMedia", async () => {
@@ -103,13 +102,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				request.headers.get("cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
-			headers = {
-				"set-cookie": await colorSchemeCookie.serialize(newColorScheme),
-			};
+			response.headers.append(
+				"set-cookie",
+				await colorSchemeCookie.serialize(newColorScheme),
+			);
 		})
 		.with("logout", async () => {
 			redirectTo = $path("/auth");
-			headers = await getLogoutCookies();
+			response.headers = await getLogoutCookies();
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
@@ -118,7 +118,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			headers = await createToastHeaders({
+			response.headers = await createToastHeaders({
 				message:
 					submission.incrementLikes || submission.decrementLikes
 						? "Score changed successfully"
@@ -147,7 +147,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					await getAuthorizationHeader(request),
 				);
 			}
-			headers = await createToastHeaders({
+			response.headers = await createToastHeaders({
 				message: "Media added to collection successfully",
 				type: "success",
 			});
@@ -176,7 +176,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ reviewId: submission.reviewId },
 					await getAuthorizationHeader(request),
 				);
-				headers = await createToastHeaders({
+				response.headers = await createToastHeaders({
 					message: "Review deleted successfully",
 					type: "success",
 				});
@@ -186,17 +186,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ input: submission },
 					await getAuthorizationHeader(request),
 				);
-				headers = await createToastHeaders({
+				response.headers = await createToastHeaders({
 					message: "Review submitted successfully",
 					type: "success",
 				});
 			}
 		})
 		.run();
-	if (Object.keys(returnData).length > 0)
-		return Response.json(returnData, { headers });
-	return redirect(redirectTo, { headers });
-};
+	if (Object.keys(returnData).length > 0) return Response.json(returnData);
+	return redirect(redirectTo);
+});
 
 const commitMediaSchema = z.object({
 	identifier: z.string(),
