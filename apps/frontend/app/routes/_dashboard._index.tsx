@@ -69,49 +69,55 @@ const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
 };
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const prefs = await getUserPreferences(request);
-	const takeUpcoming = getTake(prefs, DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(prefs, DashboardElementLot.InProgress);
+	const preferences = await getUserPreferences(request);
+	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
 	const userCollectionsList = await getUserCollectionsList(request);
 	const foundCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
 	invariant(foundCollection, 'No collection found for "In Progress"');
-	const { collectionContents } = await gqlClient.request(
-		CollectionContentsDocument,
-		{
-			input: {
-				collectionId: foundCollection.id,
-				take: takeInProgress,
-				sort: { order: GraphqlSortOrder.Desc },
+	const [
+		{ collectionContents: inProgressCollectionContents },
+		{ userUpcomingCalendarEvents },
+		{ latestUserSummary },
+	] = await Promise.all([
+		await gqlClient.request(
+			CollectionContentsDocument,
+			{
+				input: {
+					collectionId: foundCollection.id,
+					take: takeInProgress,
+					sort: { order: GraphqlSortOrder.Desc },
+				},
 			},
-		},
-		await getAuthorizationHeader(request),
-	);
-	const { userUpcomingCalendarEvents } = await gqlClient.request(
-		UserUpcomingCalendarEventsDocument,
-		{ input: { nextMedia: takeUpcoming } },
-		await getAuthorizationHeader(request),
-	);
-	const { latestUserSummary } = await gqlClient.request(
-		LatestUserSummaryDocument,
-		undefined,
-		await getAuthorizationHeader(request),
-	);
+			await getAuthorizationHeader(request),
+		),
+		await gqlClient.request(
+			UserUpcomingCalendarEventsDocument,
+			{ input: { nextMedia: takeUpcoming } },
+			await getAuthorizationHeader(request),
+		),
+		await gqlClient.request(
+			LatestUserSummaryDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+	]);
 	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return {
 		workoutInProgress,
 		userPreferences: {
-			reviewScale: prefs.general.reviewScale,
-			dashboard: prefs.general.dashboard,
-			media: prefs.featuresEnabled.media,
-			fitness: prefs.featuresEnabled.fitness,
-			unitSystem: prefs.fitness.exercises.unitSystem,
+			reviewScale: preferences.general.reviewScale,
+			dashboard: preferences.general.dashboard,
+			media: preferences.featuresEnabled.media,
+			fitness: preferences.featuresEnabled.fitness,
+			unitSystem: preferences.fitness.exercises.unitSystem,
 		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
-		collectionContents,
+		inProgressCollectionContents,
 	};
 });
 
@@ -156,23 +162,26 @@ export default function Page() {
 							) : null,
 						)
 						.with([DashboardElementLot.InProgress, false], () =>
-							loaderData.collectionContents.results.items.length > 0 ? (
+							loaderData.inProgressCollectionContents.results.items.length >
+							0 ? (
 								<Section key="inProgress">
 									<Title>In Progress</Title>
 									<ApplicationGrid>
-										{loaderData.collectionContents.results.items.map((lm) => (
-											<MediaItemWithoutUpdateModal
-												key={lm.details.identifier}
-												reviewScale={loaderData.userPreferences.reviewScale}
-												item={{
-													...lm.details,
-													publishYear: lm.details.publishYear?.toString(),
-												}}
-												lot={lm.metadataLot}
-												entityLot={lm.entityLot}
-												noRatingLink
-											/>
-										))}
+										{loaderData.inProgressCollectionContents.results.items.map(
+											(lm) => (
+												<MediaItemWithoutUpdateModal
+													key={lm.details.identifier}
+													reviewScale={loaderData.userPreferences.reviewScale}
+													item={{
+														...lm.details,
+														publishYear: lm.details.publishYear?.toString(),
+													}}
+													lot={lm.metadataLot}
+													entityLot={lm.entityLot}
+													noRatingLink
+												/>
+											),
+										)}
 									</ApplicationGrid>
 								</Section>
 							) : null,
