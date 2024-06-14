@@ -252,6 +252,7 @@ export type CreateUserNotificationPlatformInput = {
 
 export enum DashboardElementLot {
   InProgress = 'IN_PROGRESS',
+  Recommendations = 'RECOMMENDATIONS',
   Summary = 'SUMMARY',
   Upcoming = 'UPCOMING'
 }

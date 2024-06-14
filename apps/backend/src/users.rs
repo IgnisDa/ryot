@@ -267,6 +267,7 @@ pub enum DashboardElementLot {
     Upcoming,
     InProgress,
     Summary,
+    Recommendations,
 }
 
 #[skip_serializing_none]
@@ -301,6 +302,11 @@ impl Default for UserGeneralPreferences {
             review_scale: UserReviewScale::default(),
             display_nsfw: true,
             dashboard: vec![
+                UserGeneralDashboardElement {
+                    section: DashboardElementLot::Recommendations,
+                    hidden: false,
+                    num_elements: Some(8),
+                },
                 UserGeneralDashboardElement {
                     section: DashboardElementLot::Upcoming,
                     hidden: false,
