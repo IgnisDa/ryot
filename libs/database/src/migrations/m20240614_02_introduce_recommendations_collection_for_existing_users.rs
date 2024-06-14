@@ -1,3 +1,4 @@
+use nanoid::nanoid;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -7,7 +8,7 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(
+        db.execute_unprepared(&format!(
             r#"
 DO $$
 DECLARE
@@ -15,16 +16,17 @@ DECLARE
 BEGIN
     FOR user_rec IN SELECT id FROM "user"
     LOOP
-        INSERT INTO collection (name, description, user_id, created_on, last_updated_on)
+        INSERT INTO collection (name, description, user_id, created_on, last_updated_on, id)
         VALUES (
             'Recommendations', 'Items that are recommended to me based on my consumption.',
-            user_rec.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            user_rec.id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'col_{id}'
         )
         ON CONFLICT DO NOTHING;
     END LOOP;
 END $$;
             "#,
-        )
+            id = nanoid!(12),
+        ))
         .await?;
         Ok(())
     }
