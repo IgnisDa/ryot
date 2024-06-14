@@ -614,7 +614,7 @@ export default function Page() {
 												60,
 										),
 								]
-									.filter((s) => s !== undefined)
+									.filter(Boolean)
 									.join(" • ")}
 							</Text>
 						)}
