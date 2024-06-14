@@ -7108,7 +7108,7 @@ ORDER BY RANDOM() LIMIT 10;
                         Func::cust(Md5).arg(
                             Expr::col(metadata::Column::Title)
                                 .concatenate(Expr::val(user_id))
-                                .concatenate(Expr::val("2024-06-14")),
+                                .concatenate(Expr::current_date()),
                         ),
                     ),
                     Order::Desc,
