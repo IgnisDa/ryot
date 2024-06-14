@@ -7116,8 +7116,8 @@ ORDER BY RANDOM() LIMIT 10;
                     SimpleExpr::FunctionCall(
                         Func::cust(Md5).arg(
                             Expr::col(metadata::Column::Title)
-                                .concatenate(Expr::val(&user_id))
-                                .concatenate(Expr::current_date()),
+                                .concat(Expr::val(&user_id))
+                                .concat(Expr::current_date()),
                         ),
                     ),
                     Order::Desc,
