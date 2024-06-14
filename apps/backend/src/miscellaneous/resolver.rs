@@ -2910,7 +2910,7 @@ impl MiscellaneousService {
         data: PartialMetadataWithoutId,
         metadata_id: &str,
     ) -> Result<()> {
-        let db_partial_metadata = self.create_partial_metadata(data).await?;
+        let db_partial_metadata = self.create_partial_metadata(data, None).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
@@ -2924,6 +2924,7 @@ impl MiscellaneousService {
     async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
+        is_recommendation: Option<bool>,
     ) -> Result<PartialMetadata> {
         let mode = if let Some(c) = Metadata::find()
             .filter(metadata::Column::Identifier.eq(&data.identifier))
@@ -2948,6 +2949,7 @@ impl MiscellaneousService {
                 source: ActiveValue::Set(data.source),
                 images: ActiveValue::Set(image),
                 is_partial: ActiveValue::Set(Some(true)),
+                is_recommendation: ActiveValue::Set(is_recommendation),
                 ..Default::default()
             };
             c.insert(&self.db).await?
@@ -3661,7 +3663,7 @@ impl MiscellaneousService {
             .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
             .await?;
         for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = self.create_partial_metadata(media).await?;
+            let db_partial_metadata = self.create_partial_metadata(media, None).await?;
             MetadataToMetadataGroup::delete_many()
                 .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
                 .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -6713,7 +6715,7 @@ impl MiscellaneousService {
         to_update_person.name = ActiveValue::Set(provider_person.name);
         for (role, media) in provider_person.related.clone() {
             let title = media.title.clone();
-            let pm = self.create_partial_metadata(media).await?;
+            let pm = self.create_partial_metadata(media, None).await?;
             let already_intermediate = MetadataToPerson::find()
                 .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
                 .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -7064,7 +7066,9 @@ ORDER BY RANDOM() LIMIT 10;
                 .get_recommendations_for_metadata(&media.identifier)
                 .await
             {
-                dbg!(&recommendations);
+                for rec in recommendations {
+                    self.create_partial_metadata(rec, Some(true)).await.ok();
+                }
             }
         }
         Ok(())
