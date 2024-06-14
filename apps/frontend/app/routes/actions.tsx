@@ -193,8 +193,11 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			}
 		})
 		.run();
-	if (Object.keys(returnData).length > 0) return Response.json(returnData);
-	return redirect(redirectTo);
+	if (redirectTo) {
+		response.headers.append("Location", redirectTo);
+		response.status = 302;
+	}
+	return Object.keys(returnData).length ? returnData : null;
 });
 
 const commitMediaSchema = z.object({
