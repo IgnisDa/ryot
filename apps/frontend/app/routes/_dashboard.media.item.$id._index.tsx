@@ -2024,7 +2024,7 @@ const AccordionLabel = (props: {
 		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
 		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
 	]
-		.filter((s) => s !== undefined)
+		.filter(Boolean)
 		.join("; ");
 
 	const isSeen = props.displayIndicator >= 1;
@@ -2139,7 +2139,7 @@ const SeenItem = (props: {
 		displayMangaExtraInformation,
 		watchedOnInformation,
 	]
-		.filter((s) => s !== undefined)
+		.filter(Boolean)
 		.join("; ");
 
 	const timeSpentInMilliseconds = (props.history.totalTimeSpent || 0) * 1000;

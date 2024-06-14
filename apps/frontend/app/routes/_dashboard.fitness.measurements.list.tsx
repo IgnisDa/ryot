@@ -337,7 +337,7 @@ export default function Page() {
 										.map(([name, enabled]) =>
 											enabled ? `stats.${name}` : null,
 										)
-										.filter((stat) => stat !== undefined),
+										.filter(Boolean),
 									...loaderData.userPreferences.fitness.measurements.custom.map(
 										(c) => `stats.custom.${c.name}`,
 									),
