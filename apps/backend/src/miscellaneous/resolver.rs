@@ -43,8 +43,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -7071,6 +7071,53 @@ ORDER BY RANDOM() LIMIT 10;
                 }
             }
         }
+
+        let mut users_stream = User::find()
+            .select_only()
+            .column(user::Column::Id)
+            .into_tuple::<String>()
+            .stream(&self.db)
+            .await?;
+        while let Some(user_id) = users_stream.try_next().await? {
+            let rec_col = Collection::find()
+                .filter(collection::Column::Name.eq(DefaultCollection::Recommendations.to_string()))
+                .filter(collection::Column::UserId.eq(&user_id))
+                .select_only()
+                .column(collection::Column::Id)
+                .into_tuple::<String>()
+                .one(&self.db)
+                .await?
+                .unwrap();
+            CollectionToEntity::delete_many()
+                .filter(collection_to_entity::Column::CollectionId.eq(&rec_col))
+                .exec(&self.db)
+                .await?;
+            // FIXME: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
+            struct Md5;
+            impl Iden for Md5 {
+                fn unquoted(&self, s: &mut dyn Write) {
+                    write!(s, "MD5").unwrap();
+                }
+            }
+            let items = Metadata::find()
+                .select_only()
+                .column(metadata::Column::Title)
+                .filter(metadata::Column::IsRecommendation.eq(true))
+                .order_by(
+                    SimpleExpr::FunctionCall(
+                        Func::cust(Md5).arg(
+                            Expr::col(metadata::Column::Title)
+                                .concatenate(Expr::val(user_id))
+                                .concatenate(Expr::val("2024-06-14")),
+                        ),
+                    ),
+                    Order::Desc,
+                )
+                .into_tuple::<String>()
+                .all(&self.db)
+                .await?;
+            dbg!(&items);
+        }
         Ok(())
     }
 
@@ -7140,10 +7187,10 @@ ORDER BY RANDOM() LIMIT 10;
         self.queue_notifications_for_released_media().await.unwrap();
         tracing::trace!("Sending all pending notifications");
         self.send_pending_notifications().await.unwrap();
-        tracing::trace!("Removing useless data");
-        self.remove_useless_data().await?;
         tracing::trace!("Downloading recommendations for users");
         self.download_recommendations_for_users().await?;
+        tracing::trace!("Removing useless data");
+        self.remove_useless_data().await?;
 
         tracing::debug!("Completed media jobs...");
         Ok(())
@@ -7151,35 +7198,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        use sea_query::{Iden, Write};
-
-        // FIXME: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
-        struct Md5;
-        impl Iden for Md5 {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "MD5").unwrap();
-            }
-        }
-
         self.download_recommendations_for_users().await?;
-        let items = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Title)
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .order_by(
-                SimpleExpr::FunctionCall(
-                    Func::cust(Md5).arg(
-                        Expr::col(metadata::Column::Title)
-                            .concatenate(Expr::val("usr_2G2UTC2Q1aur"))
-                            .concatenate(Expr::val("2024-06-14")),
-                    ),
-                ),
-                Order::Desc,
-            )
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        dbg!(&items);
         Ok(true)
     }
 }
