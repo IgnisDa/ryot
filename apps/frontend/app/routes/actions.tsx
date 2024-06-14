@@ -43,7 +43,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 	const url = new URL(request.url);
 	const intent = url.searchParams.get("intent") as string;
 	invariant(intent, "No intent provided");
-	let redirectTo = (formData.get(redirectToQueryParam) as string) || "/";
+	let redirectTo = formData.get(redirectToQueryParam);
 	let returnData = {};
 	await match(intent)
 		.with("commitMedia", async () => {
@@ -194,10 +194,10 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.run();
 	if (redirectTo) {
-		response.headers.append("Location", redirectTo);
+		response.headers.append("Location", redirectTo.toString());
 		response.status = 302;
 	}
-	return Object.keys(returnData).length ? returnData : null;
+	return returnData;
 });
 
 const commitMediaSchema = z.object({
