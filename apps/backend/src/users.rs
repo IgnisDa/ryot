@@ -278,7 +278,7 @@ pub enum DashboardElementLot {
 pub struct UserGeneralDashboardElement {
     pub section: DashboardElementLot,
     pub hidden: bool,
-    pub num_elements: Option<i32>,
+    pub num_elements: Option<u64>,
 }
 
 #[derive(

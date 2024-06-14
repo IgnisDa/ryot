@@ -112,7 +112,7 @@ use crate::{
         MediaProviderLanguages,
     },
     users::{
-        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
+        DashboardElementLot, UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
         UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
     },
     utils::{
@@ -7079,6 +7079,14 @@ ORDER BY RANDOM() LIMIT 10;
             .stream(&self.db)
             .await?;
         while let Some(user_id) = users_stream.try_next().await? {
+            let user_preferences = self.user_preferences(&user_id).await?;
+            let limit = user_preferences
+                .general
+                .dashboard
+                .into_iter()
+                .find(|d| d.section == DashboardElementLot::Recommendations)
+                .unwrap()
+                .num_elements;
             let rec_col = Collection::find()
                 .filter(collection::Column::Name.eq(DefaultCollection::Recommendations.to_string()))
                 .filter(collection::Column::UserId.eq(&user_id))
@@ -7092,7 +7100,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .filter(collection_to_entity::Column::CollectionId.eq(&rec_col))
                 .exec(&self.db)
                 .await?;
-            // FIXME: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
+            // TODO: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
             struct Md5;
             impl Iden for Md5 {
                 fn unquoted(&self, s: &mut dyn Write) {
@@ -7113,6 +7121,7 @@ ORDER BY RANDOM() LIMIT 10;
                     ),
                     Order::Desc,
                 )
+                .limit(limit)
                 .into_tuple::<String>()
                 .all(&self.db)
                 .await?;
