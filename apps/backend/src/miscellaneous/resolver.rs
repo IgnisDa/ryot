@@ -2910,7 +2910,7 @@ impl MiscellaneousService {
         data: PartialMetadataWithoutId,
         metadata_id: &str,
     ) -> Result<()> {
-        let db_partial_metadata = self.create_partial_metadata(data, None).await?;
+        let db_partial_metadata = self.create_partial_metadata(data).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
@@ -2924,7 +2924,6 @@ impl MiscellaneousService {
     async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
-        is_recommendation: Option<bool>,
     ) -> Result<PartialMetadata> {
         let mode = if let Some(c) = Metadata::find()
             .filter(metadata::Column::Identifier.eq(&data.identifier))
@@ -2949,7 +2948,6 @@ impl MiscellaneousService {
                 source: ActiveValue::Set(data.source),
                 images: ActiveValue::Set(image),
                 is_partial: ActiveValue::Set(Some(true)),
-                is_recommendation: ActiveValue::Set(is_recommendation),
                 ..Default::default()
             };
             c.insert(&self.db).await?
@@ -3663,7 +3661,7 @@ impl MiscellaneousService {
             .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
             .await?;
         for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = self.create_partial_metadata(media, None).await?;
+            let db_partial_metadata = self.create_partial_metadata(media).await?;
             MetadataToMetadataGroup::delete_many()
                 .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
                 .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -6715,7 +6713,7 @@ impl MiscellaneousService {
         to_update_person.name = ActiveValue::Set(provider_person.name);
         for (role, media) in provider_person.related.clone() {
             let title = media.title.clone();
-            let pm = self.create_partial_metadata(media, None).await?;
+            let pm = self.create_partial_metadata(media).await?;
             let already_intermediate = MetadataToPerson::find()
                 .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
                 .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -7060,6 +7058,7 @@ ORDER BY RANDOM() LIMIT 10;
         ))
         .all(&self.db)
         .await?;
+        let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
             let provider = self.get_metadata_provider(media.lot, media.source).await?;
             if let Ok(recommendations) = provider
@@ -7067,7 +7066,9 @@ ORDER BY RANDOM() LIMIT 10;
                 .await
             {
                 for rec in recommendations {
-                    self.create_partial_metadata(rec, Some(true)).await.ok();
+                    if let Ok(meta) = self.create_partial_metadata(rec).await {
+                        media_item_ids.push(meta.id);
+                    }
                 }
             }
         }
@@ -7110,7 +7111,7 @@ ORDER BY RANDOM() LIMIT 10;
             let items = Metadata::find()
                 .select_only()
                 .column(metadata::Column::Id)
-                .filter(metadata::Column::IsRecommendation.eq(true))
+                .filter(metadata::Column::Id.is_in(&media_item_ids))
                 .order_by(
                     SimpleExpr::FunctionCall(
                         Func::cust(Md5).arg(

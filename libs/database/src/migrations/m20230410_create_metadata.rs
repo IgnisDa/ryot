@@ -41,8 +41,6 @@ pub enum Metadata {
     IsNsfw,
     // those creators who can not be created as a `person` due to incomplete info
     FreeCreators,
-    // whether this is a recommendation
-    IsRecommendation,
     // specifics for each type of media
     AudioBookSpecifics,
     AnimeSpecifics,
@@ -103,7 +101,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::VisualNovelSpecifics).json_binary())
                     .col(ColumnDef::new(Metadata::WatchProviders).json_binary())
                     .col(ColumnDef::new(Metadata::StateChanges).json_binary())
-                    .col(ColumnDef::new(Metadata::IsRecommendation).boolean())
                     .to_owned(),
             )
             .await?;
