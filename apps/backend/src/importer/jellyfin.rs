@@ -82,19 +82,17 @@ struct AuthenticateResponse {
 }
 
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
-    let authenticate: AuthenticateResponse = surf::post(format!(
-        "{}/Users/AuthenticateByName",
-        input.api_url
-    ))
-    .header(
-        "X-Emby-Authorization",
-        r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#,
-    )
-    .body_json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
-    .unwrap()
-    .await?
-    .body_json()
-    .await?;
+    let uri = format!("{}/Users/AuthenticateByName", input.api_url);
+    let authenticate: AuthenticateResponse = surf::post(uri)
+        .header(
+            "X-Emby-Authorization",
+            r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#,
+        )
+        .body_json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
+        .unwrap()
+        .await?
+        .body_json()
+        .await?;
     let client: Client = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
         .unwrap()
