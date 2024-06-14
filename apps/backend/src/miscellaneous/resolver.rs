@@ -7042,12 +7042,13 @@ GROUP BY m.id;
         let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
             DbBackend::Postgres,
             r#"
-SELECT m.lot, m.identifier, m.source
+SELECT "m"."lot", "m"."identifier", "m"."source"
 FROM (
-    SELECT user_id, metadata_id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_updated_on DESC) AS rn
-    FROM user_to_entity WHERE user_id IN (SELECT "id" from "user")
-) sub
-JOIN metadata m ON sub.metadata_id = m.id WHERE sub.rn = 1 and m.source in ($1, $2, $3) ORDER BY RANDOM() LIMIT 10;
+    SELECT "user_id", "metadata_id", ROW_NUMBER() OVER (PARTITION BY "user_id" ORDER BY "last_updated_on" DESC) AS "rn"
+    FROM "user_to_entity" WHERE "user_id" IN (SELECT "id" from "user")
+) "sub"
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" WHERE "sub"."rn" = 1 AND "m"."source" in ($1, $2, $3)
+ORDER BY RANDOM() LIMIT 10;
         "#,
             [
                 MediaSource::Tmdb.into(),
