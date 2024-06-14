@@ -16,7 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineLoader, unstable_defineAction } from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	Link,

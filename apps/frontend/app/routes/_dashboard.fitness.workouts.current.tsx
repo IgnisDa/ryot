@@ -48,6 +48,7 @@ import {
 	unstable_defineLoader,
 } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
 	ExerciseLot,
@@ -110,7 +111,6 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/workout";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
 
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
