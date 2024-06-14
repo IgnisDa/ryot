@@ -223,7 +223,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 	const [parent] = useAutoAnimate();
 	const [integrationInputOpened, { toggle: integrationInputToggle }] =
 		useDisclosure(false);
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	const integrationUrl =

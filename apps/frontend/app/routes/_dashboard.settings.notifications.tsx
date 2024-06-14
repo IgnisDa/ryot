@@ -320,7 +320,7 @@ export default function Page() {
 const DisplayNotification = (props: {
 	notification: UserNotificationPlatformsQuery["userNotificationPlatforms"][number];
 }) => {
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	return (
 		<Paper p="xs" withBorder>

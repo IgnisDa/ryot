@@ -80,6 +80,7 @@ import {
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import type { ApplicationUser } from "~/lib/utilities.server";
+import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
 export const commitMedia = async (
@@ -166,7 +167,7 @@ export const ReviewItemDisplay = (props: {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-	const deleteReviewFetcher = useFetcher();
+	const deleteReviewFetcher = useFetcher<typeof action>();
 
 	const submit = useSubmit();
 

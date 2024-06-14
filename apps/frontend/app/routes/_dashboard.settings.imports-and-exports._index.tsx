@@ -214,7 +214,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const formRef = useRef<HTMLFormElement>(null);
 
 	return (

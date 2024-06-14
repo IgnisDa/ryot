@@ -280,7 +280,7 @@ const DisplayCollection = (props: {
 	openModal: () => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [`${props.collection.count} items`];
 

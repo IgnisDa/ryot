@@ -219,7 +219,7 @@ export default function Page() {
 
 	const stopTimer = () => setCurrentTimer(RESET);
 
-	const createUserWorkoutFetcher = useFetcher();
+	const createUserWorkoutFetcher = useFetcher<typeof action>();
 
 	useEffect(() => {
 		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");

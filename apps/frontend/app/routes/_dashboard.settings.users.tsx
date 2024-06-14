@@ -114,7 +114,7 @@ export default function Page() {
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
 	] = useDisclosure(false);
 	const [password, setPassword] = useState("");
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
