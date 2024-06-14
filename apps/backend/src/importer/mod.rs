@@ -372,7 +372,7 @@ impl ImporterService {
                         ProgressUpdateInput {
                             metadata_id: metadata.id.clone(),
                             progress,
-                            date: seen.ended_on.map(|d| d.date_naive()),
+                            date: seen.ended_on,
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
                             podcast_episode_number: seen.podcast_episode_number,

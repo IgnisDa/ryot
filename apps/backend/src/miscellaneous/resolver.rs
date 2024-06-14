@@ -33,7 +33,7 @@ use openidconnect::{
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
-use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
+use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -6314,8 +6314,8 @@ impl MiscellaneousService {
                     let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
                     ImportOrExportMediaItemSeen {
                         progress: Some(s.progress),
-                        started_on: s.started_on.map(convert_naive_to_utc),
-                        ended_on: s.finished_on.map(convert_naive_to_utc),
+                        started_on: s.started_on,
+                        ended_on: s.finished_on,
                         provider_watched_on: s.provider_watched_on,
                         show_season_number,
                         show_episode_number,
