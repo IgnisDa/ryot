@@ -27,17 +27,21 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         let users = user::Entity::find().all(db).await?;
         for user in users {
+            let collection_id = format!("col_{}", nanoid!(12));
             db.execute_unprepared(&format!(
                 r#"
     INSERT INTO collection (name, description, user_id, created_on, last_updated_on, id)
     VALUES (
             'Recommendations', 'Items that are recommended to me based on my consumption.',
-            '{user_id}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'col_{new_id}'
+            '{user_id}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '{collection_id}'
         )
     ON CONFLICT DO NOTHING;
+
+    INSERT INTO user_to_collection (user_id, collection_id)
+    VALUES ('{user_id}', '{collection_id}');
             "#,
                 user_id = user.id,
-                new_id = nanoid!(12),
+                collection_id = collection_id,
             ))
             .await?;
         }
