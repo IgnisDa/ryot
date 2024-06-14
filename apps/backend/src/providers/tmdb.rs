@@ -1313,6 +1313,13 @@ impl MediaProvider for TmdbShowService {
             items: resp.to_vec(),
         })
     }
+
+    async fn get_recommendations_for_metadata(
+        &self,
+        identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        self.base.metadata_recommendations(identifier, "tv").await
+    }
 }
 
 async fn get_client_config(url: &str, access_token: &str) -> (Client, Settings) {
