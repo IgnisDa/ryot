@@ -989,9 +989,9 @@ pub mod media {
         /// The progress of media done. If none, it is considered as done.
         pub progress: Option<Decimal>,
         /// The timestamp when started watching.
-        pub started_on: Option<DateTimeUtc>,
+        pub started_on: Option<NaiveDate>,
         /// The timestamp when finished watching.
-        pub ended_on: Option<DateTimeUtc>,
+        pub ended_on: Option<NaiveDate>,
         /// If for a show, the season which was seen.
         pub show_season_number: Option<i32>,
         /// If for a show, the episode which was seen.

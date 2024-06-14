@@ -159,7 +159,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
             let seen = ImportOrExportMediaItemSeen {
                 show_season_number: ssn,
                 show_episode_number: sen,
-                ended_on: item_user_data.last_played_date,
+                ended_on: item_user_data.last_played_date.map(|d| d.date_naive()),
                 ..Default::default()
             };
             let mut collections = vec![];
