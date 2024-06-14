@@ -1,7 +1,6 @@
 use async_graphql::Result;
 use database::{MediaLot, MediaSource};
 use enum_meta::HashMap;
-use itertools::Itertools;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -41,7 +40,6 @@ struct ItemProviderIdsPayload {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 struct ItemUserData {
-    play_count: Option<i32>,
     last_played_date: Option<DateTimeUtc>,
     is_favorite: Option<bool>,
 }
@@ -158,16 +156,11 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         };
         if let Some(tmdb_id) = tmdb_id {
             let item_user_data = item.user_data.unwrap();
-            let num_times_seen = item_user_data.play_count.unwrap_or(0);
-            let mut seen_history = (0..num_times_seen)
-                .map(|_| ImportOrExportMediaItemSeen {
-                    show_season_number: ssn,
-                    show_episode_number: sen,
-                    ..Default::default()
-                })
-                .collect_vec();
-            if let Some(last) = seen_history.last_mut() {
-                last.ended_on = item_user_data.last_played_date;
+            let seen = ImportOrExportMediaItemSeen {
+                show_season_number: ssn,
+                show_episode_number: sen,
+                ended_on: item_user_data.last_played_date,
+                ..Default::default()
             };
             let mut collections = vec![];
             if let Some(true) = item_user_data.is_favorite {
@@ -180,7 +173,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
                     tmdb_id.clone(),
                 )),
-                seen_history,
+                seen_history: vec![seen],
                 identifier: tmdb_id,
                 reviews: vec![],
                 collections,
