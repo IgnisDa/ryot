@@ -7109,13 +7109,13 @@ ORDER BY RANDOM() LIMIT 10;
             }
             let items = Metadata::find()
                 .select_only()
-                .column(metadata::Column::Title)
+                .column(metadata::Column::Id)
                 .filter(metadata::Column::IsRecommendation.eq(true))
                 .order_by(
                     SimpleExpr::FunctionCall(
                         Func::cust(Md5).arg(
                             Expr::col(metadata::Column::Title)
-                                .concatenate(Expr::val(user_id))
+                                .concatenate(Expr::val(&user_id))
                                 .concatenate(Expr::current_date()),
                         ),
                     ),
@@ -7125,7 +7125,19 @@ ORDER BY RANDOM() LIMIT 10;
                 .into_tuple::<String>()
                 .all(&self.db)
                 .await?;
-            dbg!(&items);
+            for item in items {
+                self.add_entity_to_collection(
+                    &user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.clone(),
+                        collection_name: DefaultCollection::Recommendations.to_string(),
+                        metadata_id: Some(item),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .ok();
+            }
         }
         Ok(())
     }
