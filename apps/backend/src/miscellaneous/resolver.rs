@@ -7044,10 +7044,10 @@ GROUP BY m.id;
             r#"
 SELECT "m"."lot", "m"."identifier", "m"."source"
 FROM (
-    SELECT "user_id", "metadata_id", ROW_NUMBER() OVER (PARTITION BY "user_id" ORDER BY "last_updated_on" DESC) AS "rn"
-    FROM "user_to_entity" WHERE "user_id" IN (SELECT "id" from "user")
+    SELECT "user_id", "metadata_id" FROM "user_to_entity"
+    WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
 ) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" WHERE "sub"."rn" = 1 AND "m"."source" in ($1, $2, $3)
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" in ($1, $2, $3)
 ORDER BY RANDOM() LIMIT 10;
         "#,
             [
