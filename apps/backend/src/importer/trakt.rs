@@ -202,7 +202,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     continue;
                 }
                 d.seen_history.push(ImportOrExportMediaItemSeen {
-                    ended_on: item.watched_at,
+                    ended_on: item.watched_at.map(|d| d.date_naive()),
                     show_season_number,
                     provider_watched_on: Some(ImportSource::Trakt.to_string()),
                     show_episode_number,

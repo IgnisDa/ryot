@@ -4,13 +4,13 @@ use std::{
 };
 
 use async_graphql::Result;
+use chrono::NaiveDate;
 use database::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
-use rs_utils::{convert_naive_to_utc, convert_string_to_date};
+use rs_utils::convert_string_to_date;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
-use sea_orm::prelude::DateTimeUtc;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
@@ -55,11 +55,11 @@ where
     Ok(deserialized)
 }
 
-fn get_date(date: String) -> Option<DateTimeUtc> {
+fn get_date(date: String) -> Option<NaiveDate> {
     if date.starts_with("0000") {
         None
     } else {
-        convert_string_to_date(&date).map(convert_naive_to_utc)
+        convert_string_to_date(&date)
     }
 }
 

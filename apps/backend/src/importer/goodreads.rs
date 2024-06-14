@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::NaiveDate;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use database::{ImportSource, MediaLot, MediaSource};
@@ -87,11 +87,7 @@ pub async fn import(
             ];
             if let Some(w) = record.date_read {
                 let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
-                let read_at = Some(DateTime::from_naive_utc_and_offset(
-                    NaiveDateTime::new(w, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
-                    Utc,
-                ));
-                seen_history.first_mut().unwrap().ended_on = read_at;
+                seen_history.first_mut().unwrap().ended_on = Some(w);
             }
             let mut collections = vec![];
             if !record.bookshelf.is_empty() {

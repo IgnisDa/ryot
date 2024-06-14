@@ -1,12 +1,11 @@
 use async_graphql::Result;
 use database::{MediaLot, MediaSource};
 use enum_meta::HashMap;
-use itertools::Itertools;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use surf::{
-    http::headers::{ACCEPT, USER_AGENT},
+    http::headers::{ACCEPT, AUTHORIZATION, USER_AGENT},
     Client, Config, Url,
 };
 
@@ -20,14 +19,8 @@ use crate::{
     utils::USER_AGENT_STR,
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
-#[serde(rename_all = "lowercase")]
-enum CollectionType {
-    Movies,
-    Tvshows,
-    #[serde(untagged)]
-    Unknown(String),
-}
+static EMBY_HEADER_VALUE: &str =
+    r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 enum MediaType {
@@ -47,7 +40,6 @@ struct ItemProviderIdsPayload {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 struct ItemUserData {
-    play_count: Option<i32>,
     last_played_date: Option<DateTimeUtc>,
     is_favorite: Option<bool>,
 }
@@ -64,7 +56,6 @@ struct ItemResponse {
     series_name: Option<String>,
     user_data: Option<ItemUserData>,
     parent_index_number: Option<i32>,
-    collection_type: Option<CollectionType>,
     provider_ids: Option<ItemProviderIdsPayload>,
 }
 
@@ -82,19 +73,18 @@ struct AuthenticateResponse {
 }
 
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
-    let authenticate: AuthenticateResponse = surf::post(format!(
-        "{}/Users/AuthenticateByName",
-        input.api_url
-    ))
-    .header(
-        "X-Emby-Authorization",
-        r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#,
-    )
-    .body_json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
-    .unwrap()
-    .await?
-    .body_json()
-    .await?;
+    let uri = format!("{}/Users/AuthenticateByName", input.api_url);
+    let authenticate: AuthenticateResponse = surf::post(uri)
+        .header(AUTHORIZATION, EMBY_HEADER_VALUE)
+        .body_json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
+        .unwrap()
+        .await
+        .unwrap()
+        .body_json()
+        .await
+        .unwrap();
+    tracing::debug!("Authenticated with token: {}", authenticate.access_token);
+
     let client: Client = Config::new()
         .add_header(USER_AGENT, USER_AGENT_STR)
         .unwrap()
@@ -106,12 +96,16 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         .try_into()
         .unwrap();
     let user_id = authenticate.user.id;
+    tracing::debug!("Authenticated as user id: {}", user_id);
 
     let mut to_handle_media = vec![];
     let mut failed_items = vec![];
 
-    let views_data: ItemsResponse = client
-        .get(&format!("Users/{}/Views", user_id))
+    let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
+    let library_data: ItemsResponse = client
+        .get(&format!("Users/{}/Items", user_id))
+        .query(&query)
+        .unwrap()
         .await
         .unwrap()
         .body_json()
@@ -120,107 +114,77 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
 
     let mut series_id_to_tmdb_id: HashMap<String, Option<String>> = HashMap::new();
 
-    for library in views_data.items {
-        let collection_type = library.collection_type.unwrap();
-        if matches!(collection_type, CollectionType::Unknown(_)) {
-            failed_items.push(ImportFailedItem {
-                step: ImportFailStep::ItemDetailsFromSource,
-                identifier: library.name,
-                error: Some(format!("Unknown collection type: {:?}", collection_type)),
-                lot: None,
-            });
-            continue;
-        }
-        let query = json!({
-            "parentId": library.id, "recursive": true,
-            "IsPlayed": true, "fields": "ProviderIds"
-        });
-        let library_data: ItemsResponse = client
-            .get(&format!("Users/{}/Items", user_id))
-            .query(&query)
-            .unwrap()
-            .await
-            .unwrap()
-            .body_json()
-            .await
-            .unwrap();
-        for item in library_data.items {
-            let typ = item.typ.clone().unwrap();
-            tracing::debug!("Processing item: {:?} ({:?})", item.name, typ);
-            let (lot, tmdb_id, ssn, sen) = match typ.clone() {
-                MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
-                MediaType::Series | MediaType::Episode => {
-                    if let Some(series_id) = item.series_id {
-                        let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
-                        if tmdb_id.is_none() {
-                            let details: ItemResponse = client
-                                .get(&format!("Items/{}", series_id))
-                                .await
-                                .unwrap()
-                                .body_json()
-                                .await
-                                .unwrap();
-                            let insert_id = details.provider_ids.unwrap().tmdb;
-                            series_id_to_tmdb_id.insert(series_id.clone(), insert_id.clone());
-                            tmdb_id = insert_id;
-                        }
-                        (
-                            MediaLot::Show,
-                            tmdb_id,
-                            item.parent_index_number,
-                            item.index_number,
-                        )
-                    } else {
-                        continue;
+    for item in library_data.items {
+        let typ = item.typ.clone().unwrap();
+        tracing::debug!("Processing item: {:?} ({:?})", item.name, typ);
+        let (lot, tmdb_id, ssn, sen) = match typ.clone() {
+            MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
+            MediaType::Series | MediaType::Episode => {
+                if let Some(series_id) = item.series_id {
+                    let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
+                    if tmdb_id.is_none() {
+                        let details: ItemResponse = client
+                            .get(&format!("Items/{}", series_id))
+                            .await
+                            .unwrap()
+                            .body_json()
+                            .await
+                            .unwrap();
+                        let insert_id = details.provider_ids.unwrap().tmdb;
+                        series_id_to_tmdb_id.insert(series_id.clone(), insert_id.clone());
+                        tmdb_id = insert_id;
                     }
-                }
-                _ => {
-                    failed_items.push(ImportFailedItem {
-                        step: ImportFailStep::ItemDetailsFromSource,
-                        identifier: item.name,
-                        error: Some(format!("Unknown media type: {:?}", typ)),
-                        lot: None,
-                    });
+                    (
+                        MediaLot::Show,
+                        tmdb_id,
+                        item.parent_index_number,
+                        item.index_number,
+                    )
+                } else {
                     continue;
                 }
-            };
-            if let Some(tmdb_id) = tmdb_id {
-                let item_user_data = item.user_data.unwrap();
-                let num_times_seen = item_user_data.play_count.unwrap_or(0);
-                let mut seen_history = (0..num_times_seen)
-                    .map(|_| ImportOrExportMediaItemSeen {
-                        show_season_number: ssn,
-                        show_episode_number: sen,
-                        ..Default::default()
-                    })
-                    .collect_vec();
-                if let Some(last) = seen_history.last_mut() {
-                    last.ended_on = item_user_data.last_played_date;
-                };
-                let mut collections = vec![];
-                if let Some(true) = item_user_data.is_favorite {
-                    collections.push("Favorites".to_string());
-                }
-                to_handle_media.push(ImportOrExportMediaItem {
-                    lot,
-                    source_id: item.series_name.unwrap_or(item.name),
-                    source: MediaSource::Tmdb,
-                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                        tmdb_id.clone(),
-                    )),
-                    seen_history,
-                    identifier: tmdb_id,
-                    reviews: vec![],
-                    collections,
-                });
-            } else {
+            }
+            _ => {
                 failed_items.push(ImportFailedItem {
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: item.name,
-                    error: Some("No tmdb id found".to_string()),
+                    error: Some(format!("Unknown media type: {:?}", typ)),
                     lot: None,
                 });
+                continue;
             }
+        };
+        if let Some(tmdb_id) = tmdb_id {
+            let item_user_data = item.user_data.unwrap();
+            let seen = ImportOrExportMediaItemSeen {
+                show_season_number: ssn,
+                show_episode_number: sen,
+                ended_on: item_user_data.last_played_date.map(|d| d.date_naive()),
+                ..Default::default()
+            };
+            let mut collections = vec![];
+            if let Some(true) = item_user_data.is_favorite {
+                collections.push("Favorites".to_string());
+            }
+            to_handle_media.push(ImportOrExportMediaItem {
+                lot,
+                source_id: item.series_name.unwrap_or(item.name),
+                source: MediaSource::Tmdb,
+                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
+                    tmdb_id.clone(),
+                )),
+                seen_history: vec![seen],
+                identifier: tmdb_id,
+                reviews: vec![],
+                collections,
+            });
+        } else {
+            failed_items.push(ImportFailedItem {
+                step: ImportFailStep::ItemDetailsFromSource,
+                identifier: item.name,
+                error: Some("No tmdb id found".to_string()),
+                lot: None,
+            });
         }
     }
 
