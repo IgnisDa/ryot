@@ -34,7 +34,7 @@ hosted tracker you will ever need!
 ## IMPORTANT NOTE FOR `v5.*` USERS
 
 If you were using `v5.*` of Ryot, please read the
-[migration guide](https://docs.ryot.io/migration.html#from-v5-v6) for instructions.
+[migration guide](https://docs.ryot.io/migration#from-v5-to-v6) for instructions.
 
 ## 💻 Demo
 

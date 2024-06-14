@@ -167,16 +167,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	});
 };
 
-const urlAndKeyImportFormSchema = z.object({
-	apiUrl: z.string().url(),
-	apiKey: z.string(),
-});
-
 const usernameImportFormSchema = z.object({ username: z.string() });
 
-const jellyfinImportFormSchema = urlAndKeyImportFormSchema.merge(
-	usernameImportFormSchema,
+const apiUrlImportFormSchema = z.object({
+	apiUrl: z.string().url(),
+});
+
+const urlAndKeyImportFormSchema = apiUrlImportFormSchema.merge(
+	z.object({ apiKey: z.string() }),
 );
+
+const jellyfinImportFormSchema = usernameImportFormSchema
+	.merge(apiUrlImportFormSchema)
+	.merge(z.object({ password: z.string() }));
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -326,16 +329,16 @@ export default function Page() {
 														required
 														name="apiUrl"
 													/>
-													<PasswordInput
-														mt="sm"
-														label="API Key"
-														required
-														name="apiKey"
-													/>
 													<TextInput
 														label="Username"
 														required
 														name="username"
+													/>
+													<PasswordInput
+														mt="sm"
+														label="Password"
+														required
+														name="password"
 													/>
 												</>
 											))

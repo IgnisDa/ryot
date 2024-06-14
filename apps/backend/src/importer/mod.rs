@@ -106,8 +106,8 @@ pub struct DeployUrlAndKeyImportInput {
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployUrlAndKeyAndUsernameImportInput {
     api_url: String,
-    api_key: String,
     username: String,
+    password: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

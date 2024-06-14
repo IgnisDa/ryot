@@ -174,7 +174,7 @@ export default function Page() {
 					</Form>
 				</Modal>
 				{loaderData.usersList.map((user) => (
-					<Paper p="xs" withBorder key={user.id}>
+					<Paper p="xs" withBorder key={user.id} data-user-id={user.id}>
 						<Flex align="center" justify="space-between">
 							<Box>
 								<Text>{user.name}</Text>

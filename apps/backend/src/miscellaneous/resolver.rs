@@ -2314,7 +2314,7 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
-                tracing::debug!("Progress update meta = {:?}", meta.title);
+                tracing::debug!("Progress update for meta {:?} ({:?})", meta.title, meta.lot);
 
                 let show_ei = if matches!(meta.lot, MediaLot::Show) {
                     let season = input.show_season_number.ok_or_else(|| {
@@ -4737,6 +4737,7 @@ impl MiscellaneousService {
             UserLot::Normal
         };
         let user = user::ActiveModel {
+            id: ActiveValue::Set(format!("usr_{}", nanoid!(12))),
             name: ActiveValue::Set(username),
             password: ActiveValue::Set(password),
             oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
