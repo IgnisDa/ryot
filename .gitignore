@@ -51,3 +51,4 @@ node_modules
 remix-routes.d.ts
 .astro
 dist
+.vscode/settings.json
