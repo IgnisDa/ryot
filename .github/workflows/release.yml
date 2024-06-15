@@ -6,7 +6,7 @@ on:
       - "*-?v[0-9]+*"
 
 env:
-  REGISTRY: ghcr.io
+  GHCR_REGISTRY: ghcr.io
 
 permissions:
   contents: write
@@ -73,35 +73,49 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to the container registry
+      - name: Log in to the ghcr container registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to the docker hub container registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Get docker image names
         id: required_args
         uses: actions/github-script@v7
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         with:
           script: |
+            const repoName = context.payload.repository.name;
+            const refName = context.ref.replace('refs/tags/', '');
+            const dockerHubActor = process.env.DOCKER_USERNAME;
+            const ghcrRegistry = process.env.GHCR_REGISTRY;
+            const ghcrActor = context.actor;
+
             function generateVersionArray(version) {
               const parts = version.split(".");
-              let versionArray = [];
+              const versionArray = [];
               for (let i = 0; i < parts.length; i++)
                 versionArray.push(parts.slice(0, i + 1).join("."));
               versionArray.push("latest");
               return versionArray;
             }
 
-            const registry = process.env.REGISTRY;
-            const actor = context.actor;
-            const repoName = context.payload.repository.name;
-            const refName = context.ref.replace('refs/tags/', '');
-            const imageName = `${registry}/${actor}/${repoName}`;
             const versionTags = generateVersionArray(refName);
-            const tags = versionTags.map(tag => `${imageName}:${tag}`);
-            const imageNames = tags.join(',').toLowerCase();
+            const ghcrImageName = `${ghcrRegistry}/${ghcrActor}/${repoName}`;
+            const ghcrTags = versionTags.map((tag) => `${ghcrImageName}:${tag}`);
+
+            const dockerHubImageName = `${dockerHubActor}/${repoName}`;
+            const dockerHubTags = versionTags.map((tag) => `${dockerHubImageName}:${tag}`);
+
+            const imageNames = [...ghcrTags, dockerHubTags].join(",").toLowerCase();
             core.setOutput('image_names', imageNames);
 
       - name: Build and push to ghcr

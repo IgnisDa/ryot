@@ -4977,7 +4977,7 @@ checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 
 [[package]]
 name = "ryot"
-version = "6.1.2"
+version = "6.1.3"
 dependencies = [
  "anyhow",
  "apalis",
