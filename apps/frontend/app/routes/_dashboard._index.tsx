@@ -60,8 +60,8 @@ import {
 
 const cookieName = CurrentWorkoutKey;
 
-const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
-	const t = prefs.general.dashboard.find(
+const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
+	const t = preferences.general.dashboard.find(
 		(de) => de.section === el,
 	)?.numElements;
 	invariant(typeof t === "number", `No take found for ${el}`);
@@ -72,25 +72,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const preferences = await getUserPreferences(request);
 	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
-	const takeRecommendations = getTake(
-		preferences,
-		DashboardElementLot.Recommendations,
-	);
 	const userCollectionsList = await getUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
-	const foundRecommendationsCollection = userCollectionsList.find(
-		(c) => c.name === "Recommendations",
-	);
 	invariant(foundInProgressCollection, 'No collection found for "In Progress"');
-	invariant(
-		foundRecommendationsCollection,
-		'No collection found for "Recommendations"',
-	);
 	const [
 		{ collectionContents: inProgressCollectionContents },
-		{ collectionContents: recommendationsCollectionContents },
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
 	] = await Promise.all([
@@ -100,17 +88,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 				input: {
 					collectionId: foundInProgressCollection.id,
 					take: takeInProgress,
-					sort: { order: GraphqlSortOrder.Desc },
-				},
-			},
-			await getAuthorizationHeader(request),
-		),
-		await gqlClient.request(
-			CollectionContentsDocument,
-			{
-				input: {
-					collectionId: foundRecommendationsCollection.id,
-					take: takeRecommendations,
 					sort: { order: GraphqlSortOrder.Desc },
 				},
 			},
@@ -141,7 +118,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		latestUserSummary,
 		userUpcomingCalendarEvents,
 		inProgressCollectionContents,
-		recommendationsCollectionContents,
 	};
 });
 
@@ -192,31 +168,6 @@ export default function Page() {
 									<Title>In Progress</Title>
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
-											(lm) => (
-												<MediaItemWithoutUpdateModal
-													key={lm.details.identifier}
-													reviewScale={loaderData.userPreferences.reviewScale}
-													item={{
-														...lm.details,
-														publishYear: lm.details.publishYear?.toString(),
-													}}
-													lot={lm.metadataLot}
-													entityLot={lm.entityLot}
-													noRatingLink
-												/>
-											),
-										)}
-									</ApplicationGrid>
-								</Section>
-							) : null,
-						)
-						.with([DashboardElementLot.Recommendations, false], () =>
-							loaderData.recommendationsCollectionContents.results.items
-								.length > 0 ? (
-								<Section key="recommendations">
-									<Title>Recommendations</Title>
-									<ApplicationGrid>
-										{loaderData.recommendationsCollectionContents.results.items.map(
 											(lm) => (
 												<MediaItemWithoutUpdateModal
 													key={lm.details.identifier}

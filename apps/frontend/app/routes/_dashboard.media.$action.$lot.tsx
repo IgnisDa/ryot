@@ -108,7 +108,7 @@ const metadataMapping = {
 	[MediaLot.Movie]: [MediaSource.Tmdb],
 	[MediaLot.Show]: [MediaSource.Tmdb],
 	[MediaLot.VisualNovel]: [MediaSource.Vndb],
-} as const;
+};
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const [
