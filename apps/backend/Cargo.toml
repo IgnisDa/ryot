@@ -10,9 +10,9 @@ anyhow = { workspace = true }
 apalis = { version = "=0.5.3", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.0"
 async-graphql = { workspace = true }
-async-graphql-axum = "=7.0.5"
+async-graphql-axum = "=7.0.6"
 async-trait = "=0.1.80"
-aws-sdk-s3 = { version = "=1.34.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.36.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 cached = { version = "=0.51.4", features = ["disk_store"] }
@@ -30,7 +30,7 @@ derive_more = { version = "=1.0.0-beta.6", features = [
     "add_assign",
 ], default-features = false }
 dotenvy = "=0.15.7"
-enum_meta = "=0.6.0"
+enum_meta = "=0.7.0"
 flate2 = "=1.0.30"
 futures = "=0.3.30"
 graphql_client = "=0.14.0"
@@ -51,7 +51,7 @@ nanoid = { workspace = true }
 openidconnect = "=3.5.0"
 paginate = "=1.1.11"
 rand = "=0.9.0-alpha.1"
-regex = "=1.10.4"
+regex = "=1.10.5"
 rs-utils = { path = "../../libs/rs-utils" }
 rust_decimal = "=1.35.0"
 rust_decimal_macros = "=1.34.2"
