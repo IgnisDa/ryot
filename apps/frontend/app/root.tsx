@@ -12,9 +12,8 @@ import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import {
 	type LinksFunction,
-	type LoaderFunctionArgs,
 	type MetaFunction,
-	json,
+	unstable_defineLoader,
 } from "@remix-run/node";
 import {
 	Links,
@@ -92,17 +91,17 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
 	const defaultColorScheme = colorScheme || "light";
-	return json(
+	return Response.json(
 		{ toast, defaultColorScheme },
 		{ headers: combineHeaders(toastHeaders) },
 	);
-};
+});
 
 const queryClient = new QueryClient();
 

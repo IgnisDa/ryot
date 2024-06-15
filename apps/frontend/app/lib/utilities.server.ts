@@ -1,7 +1,6 @@
 import { parseWithZod } from "@conform-to/zod";
 import { $path } from "@ignisda/remix-routes";
 import {
-	json,
 	redirect,
 	unstable_composeUploadHandlers,
 	unstable_createMemoryUploadHandler,
@@ -141,9 +140,11 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 ): output<Schema> => {
 	const submission = parseWithZod(formData, { schema });
 	if (submission.status !== "success")
-		throw json({ status: "idle", submission } as const);
+		throw Response.json({ status: "idle", submission } as const);
 	if (!submission.value)
-		throw json({ status: "error", submission } as const, { status: 400 });
+		throw Response.json({ status: "error", submission } as const, {
+			status: 400,
+		});
 	return submission.value;
 };
 
