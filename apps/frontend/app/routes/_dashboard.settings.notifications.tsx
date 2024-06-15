@@ -17,13 +17,13 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { Form, useFetcher, useLoaderData } from "@remix-run/react";
+	Form,
+	type MetaArgs_SingleFetch,
+	useFetcher,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	CreateUserNotificationPlatformDocument,
 	DeleteUserNotificationPlatformDocument,
@@ -49,7 +49,7 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreDetails, { userNotificationPlatforms }] = await Promise.all([
 		getCoreDetails(request),
 		gqlClient.request(
@@ -58,17 +58,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({
+	return {
 		userNotificationPlatforms,
 		coreDetails: { docsLink: coreDetails.docsLink },
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Notification Settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		create: async () => {
@@ -78,7 +78,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const);
+			return Response.json({ status: "success", submission } as const);
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
@@ -87,7 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Notification platform deleted successfully",
@@ -100,7 +100,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				undefined,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success" } as const, {
+			return Response.json({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: testUserNotificationPlatforms ? "success" : "error",
 					message: testUserNotificationPlatforms
@@ -110,7 +110,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 	});
-};
+});
 
 const deleteSchema = z.object({ notificationId: zx.NumAsString });
 
@@ -320,7 +320,7 @@ export default function Page() {
 const DisplayNotification = (props: {
 	notification: UserNotificationPlatformsQuery["userNotificationPlatforms"][number];
 }) => {
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	return (
 		<Paper p="xs" withBorder>

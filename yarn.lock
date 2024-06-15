@@ -1780,18 +1780,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@biomejs/biome@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/biome@npm:1.8.0"
+"@biomejs/biome@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/biome@npm:1.8.1"
   dependencies:
-    "@biomejs/cli-darwin-arm64": "npm:1.8.0"
-    "@biomejs/cli-darwin-x64": "npm:1.8.0"
-    "@biomejs/cli-linux-arm64": "npm:1.8.0"
-    "@biomejs/cli-linux-arm64-musl": "npm:1.8.0"
-    "@biomejs/cli-linux-x64": "npm:1.8.0"
-    "@biomejs/cli-linux-x64-musl": "npm:1.8.0"
-    "@biomejs/cli-win32-arm64": "npm:1.8.0"
-    "@biomejs/cli-win32-x64": "npm:1.8.0"
+    "@biomejs/cli-darwin-arm64": "npm:1.8.1"
+    "@biomejs/cli-darwin-x64": "npm:1.8.1"
+    "@biomejs/cli-linux-arm64": "npm:1.8.1"
+    "@biomejs/cli-linux-arm64-musl": "npm:1.8.1"
+    "@biomejs/cli-linux-x64": "npm:1.8.1"
+    "@biomejs/cli-linux-x64-musl": "npm:1.8.1"
+    "@biomejs/cli-win32-arm64": "npm:1.8.1"
+    "@biomejs/cli-win32-x64": "npm:1.8.1"
   dependenciesMeta:
     "@biomejs/cli-darwin-arm64":
       optional: true
@@ -1811,62 +1811,62 @@ __metadata:
       optional: true
   bin:
     biome: bin/biome
-  checksum: 10/a83d41d3559de0c30aa91ddb603851440578cf76ebf5bb540c6b81679ccabfe5d92ba108d7321b84b87acac124fa581c6302ba8a7919f391b444ca6048a5e86f
+  checksum: 10/93732980dd65b6bca772e5b7980f46f061ca10e5bcb22c0b24b1d9e9018445bd19cd565e16302e5588c4bf46c2a8a6c394a62650b42d129da281385ebba9bb1c
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-arm64@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-darwin-arm64@npm:1.8.0"
+"@biomejs/cli-darwin-arm64@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-darwin-arm64@npm:1.8.1"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-x64@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-darwin-x64@npm:1.8.0"
+"@biomejs/cli-darwin-x64@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-darwin-x64@npm:1.8.1"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-arm64-musl@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-linux-arm64-musl@npm:1.8.0"
+"@biomejs/cli-linux-arm64-musl@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-linux-arm64-musl@npm:1.8.1"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-arm64@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-linux-arm64@npm:1.8.0"
+"@biomejs/cli-linux-arm64@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-linux-arm64@npm:1.8.1"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-x64-musl@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-linux-x64-musl@npm:1.8.0"
+"@biomejs/cli-linux-x64-musl@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-linux-x64-musl@npm:1.8.1"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-x64@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-linux-x64@npm:1.8.0"
+"@biomejs/cli-linux-x64@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-linux-x64@npm:1.8.1"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-arm64@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-win32-arm64@npm:1.8.0"
+"@biomejs/cli-win32-arm64@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-win32-arm64@npm:1.8.1"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-x64@npm:1.8.0":
-  version: 1.8.0
-  resolution: "@biomejs/cli-win32-x64@npm:1.8.0"
+"@biomejs/cli-win32-x64@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@biomejs/cli-win32-x64@npm:1.8.1"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -4453,7 +4453,6 @@ __metadata:
     tiny-invariant: "npm:1.3.3"
     ts-essentials: "npm:10.0.0"
     ts-pattern: "npm:5.1.2"
-    typescript: "npm:5.4.5"
     typescript-plugin-css-modules: "npm:5.1.0"
     ufo: "npm:1.5.3"
     uuid: "npm:9.0.1"
@@ -4504,9 +4503,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/root@workspace:."
   dependencies:
-    "@biomejs/biome": "npm:1.8.0"
+    "@biomejs/biome": "npm:1.8.1"
     tsconfig-moon: "npm:1.3.0"
-    typescript: "npm:5.4.5"
+    typescript: "npm:5.5.0-beta"
   languageName: unknown
   linkType: soft
 
@@ -15065,23 +15064,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:5.4.5":
-  version: 5.4.5
-  resolution: "typescript@npm:5.4.5"
+"typescript@npm:5.5.0-beta":
+  version: 5.5.0-beta
+  resolution: "typescript@npm:5.5.0-beta"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/d04a9e27e6d83861f2126665aa8d84847e8ebabcea9125b9ebc30370b98cb38b5dff2508d74e2326a744938191a83a69aa9fddab41f193ffa43eabfdf3f190a5
+  checksum: 10/94d187972aff9c1b521fa40cb4e8121cd0ca701c7e33a28f7d2b6b16179b51d8f209822fd49da1899ffe949446f45624face5083fd9f1cfd0dd532f5865fcdee
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A5.4.5#optional!builtin<compat/typescript>":
-  version: 5.4.5
-  resolution: "typescript@patch:typescript@npm%3A5.4.5#optional!builtin<compat/typescript>::version=5.4.5&hash=5adc0c"
+"typescript@patch:typescript@npm%3A5.5.0-beta#optional!builtin<compat/typescript>":
+  version: 5.5.0-beta
+  resolution: "typescript@patch:typescript@npm%3A5.5.0-beta#optional!builtin<compat/typescript>::version=5.5.0-beta&hash=5adc0c"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/760f7d92fb383dbf7dee2443bf902f4365db2117f96f875cf809167f6103d55064de973db9f78fe8f31ec08fff52b2c969aee0d310939c0a3798ec75d0bca2e1
+  checksum: 10/9e8f80a63e41e84c859ab5c53c96a06db5f2c749b0321acc1cfdd366900da58f3ac8710b84cfef808c568b535a3f2a6589e38a5cbeb8c4a49f1b3e7bdc4b05ff
   languageName: node
   linkType: hard
 

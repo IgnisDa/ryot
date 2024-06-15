@@ -14,13 +14,13 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+	Form,
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	DeployUpdatePersonJobDocument,
 	EntityLot,
@@ -67,7 +67,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const personId = params.id;
 	invariant(personId, "No ID provided");
@@ -88,7 +88,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 		getUserCollectionsList(request),
 	]);
-	return json({
+	return {
 		query,
 		personId,
 		userPreferences: {
@@ -99,14 +99,14 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		collections,
 		userPersonDetails,
 		personDetails,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		deployUpdatePersonJob: async () => {
@@ -116,7 +116,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Metadata person job deployed successfully",
@@ -124,7 +124,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 	});
-};
+});
 
 const personIdSchema = z.object({ personId: z.string() });
 

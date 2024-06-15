@@ -11,12 +11,12 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
@@ -34,32 +34,30 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	date: z
-		.string()
-		.default(() => new Date().toISOString())
-		.transform((v) => dayjsLib(v)),
+	date: z.coerce.date(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
+	const date = dayjsLib(query.date);
 	const [coreDetails, { userCalendarEvents }] = await Promise.all([
 		getCoreDetails(request),
 		gqlClient.request(
 			UserCalendarEventsDocument,
-			{ input: { month: query.date.month() + 1, year: query.date.year() } },
+			{ input: { month: date.month() + 1, year: date.year() } },
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({
+	return {
 		query,
 		coreDetails,
 		calendarEvents: userCalendarEvents,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Calendar | Ryot" }];
 };
 

@@ -13,11 +13,8 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
@@ -63,62 +60,68 @@ import {
 
 const cookieName = CurrentWorkoutKey;
 
-const getTake = (prefs: UserPreferences, el: DashboardElementLot) => {
-	const t = prefs.general.dashboard.find(
+const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
+	const t = preferences.general.dashboard.find(
 		(de) => de.section === el,
 	)?.numElements;
 	invariant(typeof t === "number", `No take found for ${el}`);
 	return t;
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-	const prefs = await getUserPreferences(request);
-	const takeUpcoming = getTake(prefs, DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(prefs, DashboardElementLot.InProgress);
+export const loader = unstable_defineLoader(async ({ request }) => {
+	const preferences = await getUserPreferences(request);
+	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
 	const userCollectionsList = await getUserCollectionsList(request);
-	const foundCollection = userCollectionsList.find(
+	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
-	invariant(foundCollection, 'No collection found for "In Progress"');
-	const { collectionContents } = await gqlClient.request(
-		CollectionContentsDocument,
-		{
-			input: {
-				collectionId: foundCollection.id,
-				take: takeInProgress,
-				sort: { order: GraphqlSortOrder.Desc },
+	invariant(foundInProgressCollection, 'No collection found for "In Progress"');
+	const [
+		{ collectionContents: inProgressCollectionContents },
+		{ userUpcomingCalendarEvents },
+		{ latestUserSummary },
+	] = await Promise.all([
+		await gqlClient.request(
+			CollectionContentsDocument,
+			{
+				input: {
+					collectionId: foundInProgressCollection.id,
+					take: takeInProgress,
+					sort: { order: GraphqlSortOrder.Desc },
+				},
 			},
-		},
-		await getAuthorizationHeader(request),
-	);
-	const { userUpcomingCalendarEvents } = await gqlClient.request(
-		UserUpcomingCalendarEventsDocument,
-		{ input: { nextMedia: takeUpcoming } },
-		await getAuthorizationHeader(request),
-	);
-	const { latestUserSummary } = await gqlClient.request(
-		LatestUserSummaryDocument,
-		undefined,
-		await getAuthorizationHeader(request),
-	);
+			await getAuthorizationHeader(request),
+		),
+		await gqlClient.request(
+			UserUpcomingCalendarEventsDocument,
+			{ input: { nextMedia: takeUpcoming } },
+			await getAuthorizationHeader(request),
+		),
+		await gqlClient.request(
+			LatestUserSummaryDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
+	]);
 	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
-	return json({
+	return {
 		workoutInProgress,
 		userPreferences: {
-			reviewScale: prefs.general.reviewScale,
-			dashboard: prefs.general.dashboard,
-			media: prefs.featuresEnabled.media,
-			fitness: prefs.featuresEnabled.fitness,
-			unitSystem: prefs.fitness.exercises.unitSystem,
+			reviewScale: preferences.general.reviewScale,
+			dashboard: preferences.general.dashboard,
+			media: preferences.featuresEnabled.media,
+			fitness: preferences.featuresEnabled.fitness,
+			unitSystem: preferences.fitness.exercises.unitSystem,
 		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
-		collectionContents,
-	});
-};
+		inProgressCollectionContents,
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
@@ -159,23 +162,26 @@ export default function Page() {
 							) : null,
 						)
 						.with([DashboardElementLot.InProgress, false], () =>
-							loaderData.collectionContents.results.items.length > 0 ? (
+							loaderData.inProgressCollectionContents.results.items.length >
+							0 ? (
 								<Section key="inProgress">
 									<Title>In Progress</Title>
 									<ApplicationGrid>
-										{loaderData.collectionContents.results.items.map((lm) => (
-											<MediaItemWithoutUpdateModal
-												key={lm.details.identifier}
-												reviewScale={loaderData.userPreferences.reviewScale}
-												item={{
-													...lm.details,
-													publishYear: lm.details.publishYear?.toString(),
-												}}
-												lot={lm.metadataLot}
-												entityLot={lm.entityLot}
-												noRatingLink
-											/>
-										))}
+										{loaderData.inProgressCollectionContents.results.items.map(
+											(lm) => (
+												<MediaItemWithoutUpdateModal
+													key={lm.details.identifier}
+													reviewScale={loaderData.userPreferences.reviewScale}
+													item={{
+														...lm.details,
+														publishYear: lm.details.publishYear?.toString(),
+													}}
+													lot={lm.metadataLot}
+													entityLot={lm.entityLot}
+													noRatingLink
+												/>
+											),
+										)}
 									</ApplicationGrid>
 								</Section>
 							) : null,

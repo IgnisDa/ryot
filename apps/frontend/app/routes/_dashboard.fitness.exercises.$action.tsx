@@ -12,14 +12,16 @@ import {
 	Title,
 } from "@mantine/core";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
 	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import {
+	Form,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	CreateCustomExerciseDocument,
 	EditCustomExerciseDocument,
@@ -57,7 +59,7 @@ enum Action {
 	Update = "update",
 }
 
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const action = params.action as Action;
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const details = await match(action)
@@ -72,18 +74,18 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		})
 		.run();
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
-	return json({
+	return {
 		action,
 		details,
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Create Exercise | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const uploaders = s3FileUploader("exercises");
 	const formData = await unstable_parseMultipartFormData(
 		request.clone(),
@@ -131,7 +133,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	} catch (e) {
 		if (e instanceof ClientError && e.response.errors) {
 			const message = e.response.errors[0].message;
-			return json(
+			return Response.json(
 				{ error: e.message },
 				{
 					status: 400,
@@ -141,7 +143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		}
 		throw e;
 	}
-};
+});
 
 const optionalString = z.string().optional();
 const optionalStringArray = z.array(z.string()).optional();

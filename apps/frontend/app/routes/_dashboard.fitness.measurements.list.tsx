@@ -22,13 +22,15 @@ import { DateTimePicker } from "@mantine/dates";
 import "@mantine/dates/styles.css";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
 	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import {
+	Form,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	CreateUserMeasurementDocument,
 	DeleteUserMeasurementDocument,
@@ -75,7 +77,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 const defaultTimeSpan = TimeSpan.Last30Days;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
 	const [startTime, endTime] = match(query.timeSpan || defaultTimeSpan)
@@ -98,18 +100,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({
+	return {
 		query,
 		userPreferences: { fitness: userPreferences.fitness },
 		userMeasurementsList,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		create: async () => {
@@ -132,7 +134,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			};
 			const redirectTo = formData.get(redirectToQueryParam);
 			if (redirectTo) return redirect(redirectTo.toString(), toastHeaders);
-			return json(
+			return Response.json(
 				{ status: "success", submission: input } as const,
 				toastHeaders,
 			);
@@ -144,7 +146,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Measurement deleted successfully",
@@ -152,7 +154,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 	});
-};
+});
 
 const deleteSchema = z.object({ timestamp: z.string() });
 

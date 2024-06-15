@@ -7,13 +7,12 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+	Form,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
@@ -28,16 +27,16 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [userDetails] = await Promise.all([getUserDetails(request)]);
-	return json({ userDetails });
-};
+	return { userDetails };
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Miscellaneous settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	const submission = processSubmission(formData, jobSchema);
 	await gqlClient.request(
@@ -45,13 +44,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		submission,
 		await getAuthorizationHeader(request),
 	);
-	return json({ status: "success" } as const, {
+	return Response.json({ status: "success" } as const, {
 		headers: await createToastHeaders({
 			type: "success",
 			message: "Job has been deployed",
 		}),
 	});
-};
+});
 
 const jobSchema = z.object({
 	jobName: z.nativeEnum(BackgroundJob),

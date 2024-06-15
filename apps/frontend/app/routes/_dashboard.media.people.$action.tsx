@@ -16,12 +16,12 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+	useNavigate,
+} from "@remix-run/react";
 import {
 	GraphqlSortOrder,
 	MediaSource,
@@ -82,7 +82,7 @@ const SEARCH_SOURCES_ALLOWED = [
 	MediaSource.Igdb,
 ] as const;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const action = params.action as Action;
 	const [coreDetails, userPreferences] = await Promise.all([
 		getCoreDetails(request),
@@ -141,7 +141,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			return [undefined, { search: peopleSearch, url: urlParse }] as const;
 		})
 		.exhaustive();
-	return json({
+	return {
 		action,
 		query,
 		page,
@@ -149,10 +149,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 		peopleList,
 		peopleSearch,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction<typeof loader> = ({ params }) => {
+export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${changeCase(params.action || "")} People | Ryot` }];
 };
 
