@@ -197,7 +197,11 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		response.headers.append("Location", redirectTo.toString());
 		response.status = 302;
 	}
-	return returnData;
+	// FIXME Once https://discord.com/channels/770287896669978684/1251219797098762290 is resolved
+	return Response.json(returnData, {
+		headers: response.headers,
+		status: response.status,
+	});
 });
 
 const commitMediaSchema = z.object({
