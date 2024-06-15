@@ -202,7 +202,7 @@ export default function Page() {
 			</Modal>
 			<Container size="xs">
 				<Stack>
-					<Group justify="space-between">
+					<Group justify="space-between" wrap="nowrap">
 						<Title>{loaderData.workoutDetails.name}</Title>
 						<Menu shadow="md" position="bottom-end">
 							<Menu.Target>
