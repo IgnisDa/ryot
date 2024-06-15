@@ -29,6 +29,7 @@ import {
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
+	extendResponseHeaders,
 	getAuthorizationHeader,
 	getLogoutCookies,
 	gqlClient,
@@ -43,7 +44,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 	const url = new URL(request.url);
 	const intent = url.searchParams.get("intent") as string;
 	invariant(intent, "No intent provided");
-	let redirectTo = formData.get(redirectToQueryParam);
+	const redirectToForm = formData.get(redirectToQueryParam);
+	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
 	let returnData = {};
 	await match(intent)
 		.with("commitMedia", async () => {
@@ -109,7 +111,10 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("logout", async () => {
 			redirectTo = $path("/auth");
-			response.headers = await getLogoutCookies();
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await getLogoutCookies(),
+			);
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
@@ -118,15 +123,18 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			response.headers = await createToastHeaders({
-				message:
-					submission.incrementLikes || submission.decrementLikes
-						? "Score changed successfully"
-						: `Comment ${
-								submission.shouldDelete ? "deleted" : "posted"
-							} successfully`,
-				type: "success",
-			});
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await createToastHeaders({
+					message:
+						submission.incrementLikes || submission.decrementLikes
+							? "Score changed successfully"
+							: `Comment ${
+									submission.shouldDelete ? "deleted" : "posted"
+								} successfully`,
+					type: "success",
+				}),
+			);
 		})
 		.with("addEntityToCollection", async () => {
 			const [submission, input] =
@@ -147,10 +155,13 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					await getAuthorizationHeader(request),
 				);
 			}
-			response.headers = await createToastHeaders({
-				message: "Media added to collection successfully",
-				type: "success",
-			});
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await createToastHeaders({
+					message: "Media added to collection successfully",
+					type: "success",
+				}),
+			);
 		})
 		.with("removeEntityFromCollection", async () => {
 			const [submission, input] =
@@ -176,20 +187,26 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					{ reviewId: submission.reviewId },
 					await getAuthorizationHeader(request),
 				);
-				response.headers = await createToastHeaders({
-					message: "Review deleted successfully",
-					type: "success",
-				});
+				response.headers = extendResponseHeaders(
+					response.headers,
+					await createToastHeaders({
+						message: "Review deleted successfully",
+						type: "success",
+					}),
+				);
 			} else {
 				await gqlClient.request(
 					PostReviewDocument,
 					{ input: submission },
 					await getAuthorizationHeader(request),
 				);
-				response.headers = await createToastHeaders({
-					message: "Review submitted successfully",
-					type: "success",
-				});
+				response.headers = extendResponseHeaders(
+					response.headers,
+					await createToastHeaders({
+						message: "Review submitted successfully",
+						type: "success",
+					}),
+				);
 			}
 		})
 		.run();
@@ -197,11 +214,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		response.headers.append("Location", redirectTo.toString());
 		response.status = 302;
 	}
-	// FIXME Once https://discord.com/channels/770287896669978684/1251219797098762290 is resolved
-	return Response.json(returnData, {
-		headers: response.headers,
-		status: response.status,
-	});
+	return Response.json(returnData);
 });
 
 const commitMediaSchema = z.object({

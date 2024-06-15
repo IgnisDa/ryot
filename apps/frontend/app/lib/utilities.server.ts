@@ -1,14 +1,12 @@
 import { parseWithZod } from "@conform-to/zod";
 import { $path } from "@ignisda/remix-routes";
 import {
-	redirect,
-	unstable_composeUploadHandlers,
-	unstable_createMemoryUploadHandler,
-} from "@remix-run/node";
-import {
 	type CookieOptions,
 	createCookie,
 	createCookieSessionStorage,
+	redirect,
+	unstable_composeUploadHandlers,
+	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
 	type CoreDetails,
@@ -399,4 +397,13 @@ export const getUserDetails = async (request: Request) => {
 		request.headers.get("cookie") || "",
 	);
 	return details as ApplicationUser;
+};
+
+export const extendResponseHeaders = (
+	responseHeaders: Headers,
+	headers: Headers,
+) => {
+	for (const [key, value] of headers.entries())
+		responseHeaders.append(key, value);
+	return responseHeaders;
 };

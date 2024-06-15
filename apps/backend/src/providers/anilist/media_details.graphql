@@ -48,6 +48,7 @@ query MediaDetailsQuery($id: Int!) {
           id
           type
           title {
+            english
             userPreferred
           }
           coverImage {

@@ -43,5 +43,5 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			),
 		});
 	}
-	return { input };
+	return Response.json({ input });
 });

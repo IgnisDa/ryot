@@ -5888,8 +5888,10 @@ impl MiscellaneousService {
                 )
             })
             .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
-            // fuck it. we ball. (extremely unsafe, guaranteed to fail if table names change)
-            .group_by(Expr::cust("genre.id, genre.name"))
+            .group_by(Expr::tuple([
+                Expr::col(genre::Column::Id).into(),
+                Expr::col(genre::Column::Name).into(),
+            ]))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
         let paginator = query
             .clone()

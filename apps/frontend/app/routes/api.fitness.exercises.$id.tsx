@@ -17,8 +17,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return {
+	return Response.json({
 		details: { images: exerciseDetails.attributes.images },
 		history: userExerciseDetails.history,
-	};
+	});
 });
