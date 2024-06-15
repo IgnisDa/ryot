@@ -42,7 +42,7 @@ use utils::TEMP_DIR;
 
 use crate::{
     background::{
-        media_jobs, perform_application_job, perform_core_application_job, user_jobs,
+        background_jobs, perform_application_job, perform_core_application_job,
         yank_integrations_data,
     },
     entities::prelude::Exercise,
@@ -92,7 +92,6 @@ async fn main() -> Result<()> {
         .map(|f| f.parse().unwrap())
         .collect_vec();
     let rate_limit_count = config.scheduler.rate_limit_num;
-    let user_cleanup_every = config.scheduler.user_cleanup_every;
     let pull_every = config.integration.pull_every;
     let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
@@ -237,7 +236,6 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let media_service_1 = app_services.media_service.clone();
     let media_service_2 = app_services.media_service.clone();
     let media_service_3 = app_services.media_service.clone();
     let media_service_4 = app_services.media_service.clone();
@@ -246,25 +244,9 @@ async fn main() -> Result<()> {
 
     let monitor = async {
         Monitor::<TokioExecutor>::new()
-            // cron jobs
             .register_with_count(
                 1,
-                WorkerBuilder::new("general_user_cleanup")
-                    .stream(
-                        CronStream::new_with_timezone(
-                            Schedule::from_str(&format!("0 0 */{} ? * *", user_cleanup_every))
-                                .unwrap(),
-                            tz,
-                        )
-                        .into_stream(),
-                    )
-                    .layer(ApalisTraceLayer::new())
-                    .data(media_service_1.clone())
-                    .build_fn(user_jobs),
-            )
-            .register_with_count(
-                1,
-                WorkerBuilder::new("general_media_cleanup_job")
+                WorkerBuilder::new("background_jobs")
                     .stream(
                         // every day
                         CronStream::new_with_timezone(
@@ -275,7 +257,7 @@ async fn main() -> Result<()> {
                     )
                     .layer(ApalisTraceLayer::new())
                     .data(media_service_2.clone())
-                    .build_fn(media_jobs),
+                    .build_fn(background_jobs),
             )
             .register_with_count(
                 1,

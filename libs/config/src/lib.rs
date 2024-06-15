@@ -313,10 +313,6 @@ pub struct SchedulerConfig {
     /// the background.
     #[setting(default = 5)]
     pub rate_limit_num: u64,
-    /// Deploy a job every x hours that performs user cleanup and summary
-    /// calculation.
-    #[setting(default = 12)]
-    pub user_cleanup_every: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

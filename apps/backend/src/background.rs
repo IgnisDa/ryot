@@ -33,19 +33,11 @@ impl Job for ScheduledJob {
     const NAME: &'static str = "apalis::ScheduledJob";
 }
 
-pub async fn media_jobs(
+pub async fn background_jobs(
     _information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
-    misc_service.perform_media_jobs().await.unwrap();
-    Ok(())
-}
-
-pub async fn user_jobs(
-    _information: ScheduledJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
-) -> Result<(), Error> {
-    misc_service.perform_user_jobs().await.unwrap();
+    misc_service.perform_background_jobs().await.unwrap();
     Ok(())
 }
 
@@ -156,8 +148,7 @@ pub async fn perform_application_job(
             misc_service.recalculate_calendar_events().await.is_ok()
         }
         ApplicationJob::PerformBackgroundTasks => {
-            misc_service.perform_user_jobs().await.unwrap();
-            misc_service.perform_media_jobs().await.is_ok()
+            misc_service.perform_background_jobs().await.is_ok()
         }
         ApplicationJob::AssociateGroupWithMetadata(lot, source, identifier) => misc_service
             .commit_metadata_group(CommitMediaInput {

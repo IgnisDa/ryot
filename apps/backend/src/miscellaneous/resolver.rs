@@ -7061,20 +7061,8 @@ GROUP BY m.id;
         Ok(())
     }
 
-    pub async fn perform_user_jobs(&self) -> Result<()> {
-        tracing::debug!("Starting user jobs...");
-
-        tracing::trace!("Cleaning up user and metadata association");
-        self.cleanup_user_and_metadata_association().await?;
-        tracing::trace!("Removing old user summaries and regenerating them");
-        self.regenerate_user_summaries().await?;
-
-        tracing::debug!("Completed user jobs...");
-        Ok(())
-    }
-
-    pub async fn perform_media_jobs(&self) -> Result<()> {
-        tracing::debug!("Starting media jobs...");
+    pub async fn perform_background_jobs(&self) -> Result<()> {
+        tracing::debug!("Starting background jobs...");
 
         tracing::trace!("Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.unwrap();
@@ -7098,10 +7086,14 @@ GROUP BY m.id;
         self.queue_notifications_for_released_media().await.unwrap();
         tracing::trace!("Sending all pending notifications");
         self.send_pending_notifications().await.unwrap();
+        tracing::trace!("Cleaning up user and metadata association");
+        self.cleanup_user_and_metadata_association().await?;
+        tracing::trace!("Removing old user summaries and regenerating them");
+        self.regenerate_user_summaries().await?;
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
 
-        tracing::debug!("Completed media jobs...");
+        tracing::debug!("Completed background jobs...");
         Ok(())
     }
 

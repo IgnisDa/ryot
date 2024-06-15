@@ -155,11 +155,6 @@ scheduler:
   # @envvar SCHEDULER_RATE_LIMIT_NUM
   rate_limit_num: 5
 
-  # Deploy a job every x hours that performs user cleanup and summary
-  # calculation.
-  # @envvar SCHEDULER_USER_CLEANUP_EVERY
-  user_cleanup_every: 12
-
 # Settings related to server.
 server:
   # The path where the config file will be written once the server boots up.
