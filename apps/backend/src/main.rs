@@ -11,11 +11,10 @@ use anyhow::{bail, Result};
 use apalis::{
     cron::{CronStream, Schedule},
     layers::{
-        Extension as ApalisExtension, RateLimitLayer as ApalisRateLimitLayer,
-        TraceLayer as ApalisTraceLayer,
+        limit::RateLimitLayer as ApalisRateLimitLayer, tracing::TraceLayer as ApalisTraceLayer,
     },
-    prelude::{timer::TokioTimer as SleepTimer, Job as ApalisJob, *},
-    sqlite::SqliteStorage,
+    prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
+    utils::TokioExecutor,
 };
 use aws_sdk_s3::config::Region;
 use axum::{
@@ -32,9 +31,8 @@ use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
 use sea_orm_migration::MigratorTrait;
-use serde::{de::DeserializeOwned, Serialize};
-use sqlx::{pool::PoolOptions, SqlitePool};
 use tokio::{join, net::TcpListener};
+use tower::buffer::BufferLayer;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -44,7 +42,7 @@ use utils::TEMP_DIR;
 
 use crate::{
     background::{
-        media_jobs, perform_application_job, perform_core_application_job, user_jobs,
+        background_jobs, perform_application_job, perform_core_application_job,
         yank_integrations_data,
     },
     entities::prelude::Exercise,
@@ -94,7 +92,6 @@ async fn main() -> Result<()> {
         .map(|f| f.parse().unwrap())
         .collect_vec();
     let rate_limit_count = config.scheduler.rate_limit_num;
-    let user_cleanup_every = config.scheduler.user_cleanup_every;
     let pull_every = config.integration.pull_every;
     let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
@@ -133,9 +130,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v4(&db).await {
-        tracing::error!("Migration from v4 failed: {}", err);
-        bail!("There was an error migrating from v4.")
+    if let Err(err) = migrate_from_v5(&db).await {
+        tracing::error!("Migration from v5 failed: {}", err);
+        bail!("There was an error migrating from v5.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
@@ -143,14 +140,8 @@ async fn main() -> Result<()> {
         bail!("There was an error running the database migrations.");
     };
 
-    let pool = PoolOptions::new()
-        .max_lifetime(None)
-        .idle_timeout(None)
-        .connect(&config.scheduler.database_url)
-        .await?;
-
-    let perform_application_job_storage = create_storage(pool.clone()).await;
-    let perform_core_application_job_storage = create_storage(pool.clone()).await;
+    let perform_application_job_storage = MemoryStorage::new();
+    let perform_core_application_job_storage = MemoryStorage::new();
 
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
@@ -215,10 +206,8 @@ async fn main() -> Result<()> {
         .allow_origin(cors_origins)
         .allow_credentials(true);
 
-    let webhook_routes = Router::new().route(
-        "/integrations/:integration/:user_hash_id",
-        post(integration_webhook),
-    );
+    let webhook_routes =
+        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
 
     let mut gql = post(graphql_handler);
     if app_services.config.server.graphql_playground_enabled {
@@ -247,7 +236,6 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let media_service_1 = app_services.media_service.clone();
     let media_service_2 = app_services.media_service.clone();
     let media_service_3 = app_services.media_service.clone();
     let media_service_4 = app_services.media_service.clone();
@@ -255,69 +243,64 @@ async fn main() -> Result<()> {
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {
-        Monitor::new()
-            // cron jobs
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("general_user_cleanup-{c}"))
-                    .stream(
-                        CronStream::new(
-                            Schedule::from_str(&format!("0 0 */{} ? * *", user_cleanup_every))
-                                .unwrap(),
-                        )
-                        .timer(SleepTimer)
-                        .to_stream_with_timezone(tz),
-                    )
-                    .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_1.clone()))
-                    .build_fn(user_jobs)
-            })
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("general_media_cleanup_job-{c}"))
+        Monitor::<TokioExecutor>::new()
+            .register_with_count(
+                1,
+                WorkerBuilder::new("background_jobs")
                     .stream(
                         // every day
-                        CronStream::new(Schedule::from_str("0 0 0 * * *").unwrap())
-                            .timer(SleepTimer)
-                            .to_stream_with_timezone(tz),
-                    )
-                    .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_2.clone()))
-                    .build_fn(media_jobs)
-            })
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("yank_integrations_data-{c}"))
-                    .stream(
-                        CronStream::new(
-                            Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
+                        CronStream::new_with_timezone(
+                            Schedule::from_str("0 0 0 * * *").unwrap(),
+                            tz,
                         )
-                        .timer(SleepTimer)
-                        .to_stream_with_timezone(tz),
+                        .into_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_3.clone()))
-                    .build_fn(yank_integrations_data)
-            })
+                    .data(media_service_2.clone())
+                    .build_fn(background_jobs),
+            )
+            .register_with_count(
+                1,
+                WorkerBuilder::new("yank_integrations_data")
+                    .stream(
+                        CronStream::new_with_timezone(
+                            Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
+                            tz,
+                        )
+                        .into_stream(),
+                    )
+                    .layer(ApalisTraceLayer::new())
+                    .data(media_service_3.clone())
+                    .build_fn(yank_integrations_data),
+            )
             // application jobs
-            .register_with_count(1, move |c| {
-                WorkerBuilder::new(format!("perform_core_application_job-{c}"))
+            .register_with_count(
+                1,
+                WorkerBuilder::new("perform_core_application_job")
                     .layer(ApalisTraceLayer::new())
-                    .layer(ApalisExtension(media_service_5.clone()))
-                    .with_storage(perform_core_application_job_storage.clone())
-                    .build_fn(perform_core_application_job)
-            })
-            .register_with_count(3, move |c| {
-                WorkerBuilder::new(format!("perform_application_job-{c}"))
-                    .layer(ApalisTraceLayer::new())
-                    .layer(ApalisRateLimitLayer::new(
-                        rate_limit_count,
-                        Duration::new(5, 0),
-                    ))
-                    .layer(ApalisExtension(importer_service_1.clone()))
-                    .layer(ApalisExtension(exporter_service_1.clone()))
-                    .layer(ApalisExtension(media_service_4.clone()))
-                    .layer(ApalisExtension(exercise_service_1.clone()))
-                    .with_storage(perform_application_job_storage.clone())
-                    .build_fn(perform_application_job)
-            })
+                    .data(media_service_5.clone())
+                    .source(perform_core_application_job_storage)
+                    .build_fn(perform_core_application_job),
+            )
+            .register_with_count(
+                3,
+                WorkerBuilder::new("perform_application_job")
+                    .data(importer_service_1.clone())
+                    .data(exporter_service_1.clone())
+                    .data(media_service_4.clone())
+                    .data(exercise_service_1.clone())
+                    .source(perform_application_job_storage)
+                    // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
+                    .chain(|s| {
+                        s.layer(BufferLayer::new(1024))
+                            .layer(ApalisRateLimitLayer::new(
+                                rate_limit_count,
+                                Duration::new(5, 0),
+                            ))
+                            .layer(ApalisTraceLayer::new())
+                    })
+                    .build_fn(perform_application_job),
+            )
             .run()
             .await
             .unwrap();
@@ -336,14 +319,6 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
-}
-
-async fn create_storage<T: ApalisJob + DeserializeOwned + Serialize>(
-    pool: SqlitePool,
-) -> SqliteStorage<T> {
-    let st = SqliteStorage::new(pool);
-    st.setup().await.unwrap();
-    st
 }
 
 fn init_tracing() -> Result<()> {
@@ -367,8 +342,8 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-// upgrade from v4 ONLY IF APPLICABLE
-async fn migrate_from_v4(db: &DatabaseConnection) -> Result<()> {
+// upgrade from v5 ONLY IF APPLICABLE
+async fn migrate_from_v5(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -379,13 +354,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240324_perform_v4_migration'
+            WHERE version = 'm20240415_is_v5_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20240411_perform_v4_4_3_migration'
+                WHERE version = 'm20240608_definitely_final_v5_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration before v5 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v5 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
@@ -399,13 +374,15 @@ BEGIN
                 ('m20230504_create_collection', 1684693316),
                 ('m20230505_create_review', 1684693316),
                 ('m20230509_create_import_report', 1684693316),
-                ('m20230622_create_exercise', 1684693316),
-                ('m20230804_create_user_measurement', 1684693316),
                 ('m20230819_create_workout', 1684693316),
+                ('m20230820_create_user_measurement', 1684693316),
+                ('m20230822_create_exercise', 1684693316),
                 ('m20230912_create_calendar_event', 1684693316),
                 ('m20231016_create_collection_to_entity', 1684693316),
                 ('m20231017_create_user_to_entity', 1684693316),
-                ('m20231219_create_metadata_relations', 1684693316);
+                ('m20231219_create_metadata_relations', 1684693316),
+                ('m20240509_create_user_to_collection', 1717207621),
+                ('m20240531_create_queued_notification', 1717207621);
         END IF;
     END IF;
 END $$;

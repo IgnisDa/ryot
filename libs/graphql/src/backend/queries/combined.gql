@@ -47,10 +47,11 @@ query UserCollectionsList($name: String) {
     creatorUserId
     creatorUsername
     informationTemplate {
-      name
-      description
       lot
+      name
       required
+      description
+      defaultValue
     }
   }
 }
@@ -59,9 +60,9 @@ query UserIntegrations {
   userIntegrations {
     id
     lot
-    description
-    timestamp
-    slug
+    source
+    createdOn
+    lastTriggeredOn
   }
 }
 

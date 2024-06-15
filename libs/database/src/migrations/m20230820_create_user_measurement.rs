@@ -29,7 +29,6 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(UserMeasurement::UserId).integer().not_null())
                     .col(ColumnDef::new(UserMeasurement::Name).text())
                     .col(ColumnDef::new(UserMeasurement::Comment).text())
                     .primary_key(
@@ -43,6 +42,7 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(UserMeasurement::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-user_measurement-user_id")

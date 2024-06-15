@@ -52,23 +52,21 @@ mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformIn
   createUserNotificationPlatform(input: $input)
 }
 
-mutation CreateUserSinkIntegration($input: CreateUserSinkIntegrationInput!) {
-  createUserSinkIntegration(input: $input)
+mutation CreateUserIntegration($input: CreateIntegrationInput!) {
+  createUserIntegration(input: $input) {
+    id
+  }
 }
 
 mutation CreateUserWorkout($input: UserWorkoutInput!) {
   createUserWorkout(input: $input)
 }
 
-mutation CreateUserYankIntegration($input: CreateUserYankIntegrationInput!) {
-  createUserYankIntegration(input: $input)
-}
-
 mutation DeleteCollection($collectionName: String!) {
   deleteCollection(collectionName: $collectionName)
 }
 
-mutation DeleteReview($reviewId: Int!) {
+mutation DeleteReview($reviewId: String!) {
   deleteReview(reviewId: $reviewId)
 }
 
@@ -76,21 +74,18 @@ mutation DeleteS3Object($key: String!) {
   deleteS3Object(key: $key)
 }
 
-mutation DeleteSeenItem($seenId: Int!) {
+mutation DeleteSeenItem($seenId: String!) {
   deleteSeenItem(seenId: $seenId) {
     id
   }
 }
 
-mutation DeleteUser($toDeleteUserId: Int!) {
+mutation DeleteUser($toDeleteUserId: String!) {
   deleteUser(toDeleteUserId: $toDeleteUserId)
 }
 
-mutation DeleteUserIntegration($integrationId: Int!, $integrationLot: UserIntegrationLot!) {
-  deleteUserIntegration(
-    integrationId: $integrationId
-    integrationLot: $integrationLot
-  )
+mutation DeleteUserIntegration($integrationId: String!) {
+  deleteUserIntegration(integrationId: $integrationId)
 }
 
 mutation DeleteUserMeasurement($timestamp: DateTime!) {
@@ -121,11 +116,11 @@ mutation DeployImportJob($input: DeployImportJobInput!) {
   deployImportJob(input: $input)
 }
 
-mutation DeployUpdateMetadataJob($metadataId: Int!) {
+mutation DeployUpdateMetadataJob($metadataId: String!) {
   deployUpdateMetadataJob(metadataId: $metadataId)
 }
 
-mutation DeployUpdatePersonJob($personId: Int!) {
+mutation DeployUpdatePersonJob($personId: String!) {
   deployUpdatePersonJob(personId: $personId)
 }
 
@@ -141,7 +136,7 @@ mutation GenerateAuthToken {
   generateAuthToken
 }
 
-mutation MergeMetadata($mergeFrom: Int!, $mergeInto: Int!) {
+mutation MergeMetadata($mergeFrom: String!, $mergeInto: String!) {
   mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 

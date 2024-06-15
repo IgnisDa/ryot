@@ -80,6 +80,7 @@ import {
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import type { ApplicationUser } from "~/lib/utilities.server";
+import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
 export const commitMedia = async (
@@ -154,10 +155,10 @@ export const ReviewItemDisplay = (props: {
 	user: ApplicationUser;
 	reviewScale: UserReviewScale;
 	title: string;
-	metadataId?: number;
-	metadataGroupId?: number;
-	personId?: number;
-	collectionId?: number;
+	metadataId?: string;
+	metadataGroupId?: string;
+	personId?: string;
+	collectionId?: string;
 	lot?: MediaLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -166,7 +167,7 @@ export const ReviewItemDisplay = (props: {
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(undefined);
-	const deleteReviewFetcher = useFetcher();
+	const deleteReviewFetcher = useFetcher<typeof action>();
 
 	const submit = useSubmit();
 
@@ -178,11 +179,11 @@ export const ReviewItemDisplay = (props: {
 				data={postReviewModalData}
 				entityType={props.entityType}
 				objectId={
-					props.metadataId ||
-					props.metadataGroupId ||
-					props.collectionId ||
-					props.personId ||
-					-1
+					props.metadataId?.toString() ||
+					props.metadataGroupId?.toString() ||
+					props.collectionId?.toString() ||
+					props.personId?.toString() ||
+					""
 				}
 				reviewScale={props.reviewScale}
 				title={props.title}
@@ -289,7 +290,7 @@ export const ReviewItemDisplay = (props: {
 						</Flex>
 					) : null}
 					{props.review.textRendered ? (
-						!props.review.spoiler ? (
+						!props.review.isSpoiler ? (
 							<>
 								<div
 									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
@@ -711,8 +712,8 @@ export const MediaItemWithoutUpdateModal = (props: {
 };
 
 export const DisplayCollection = (props: {
-	userId: number;
-	col: { id: number; name: string };
+	userId: string;
+	col: { id: string; name: string };
 	entityId: string;
 	entityLot: EntityLot;
 }) => {
@@ -773,7 +774,7 @@ type EntityType = "metadata" | "metadataGroup" | "collection" | "person";
 export const PostReviewModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	objectId: number;
+	objectId: string;
 	entityType: EntityType;
 	title: string;
 	reviewScale: UserReviewScale;
@@ -852,7 +853,11 @@ export const PostReviewModal = (props: {
 								/>
 							))
 							.exhaustive()}
-						<Checkbox label="This review is a spoiler" mt="lg" name="spoiler" />
+						<Checkbox
+							label="This review is a spoiler"
+							mt="lg"
+							name="isSpoiler"
+						/>
 					</Flex>
 					{props.lot === MediaLot.Show ? (
 						<Flex gap="md">
@@ -999,10 +1004,10 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
-	userId: number;
+	userId: string;
 	entityLot: EntityLot;
 	inCollections: Array<string>;
-	formValue: number;
+	formValue: string;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");
 	const action = isMonitored

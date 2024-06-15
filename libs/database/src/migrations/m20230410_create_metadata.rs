@@ -62,20 +62,17 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Metadata::Table)
-                    .col(
-                        ColumnDef::new(Metadata::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Metadata::Id).text().not_null().primary_key())
+                    .col(ColumnDef::new(Metadata::Lot).text().not_null())
+                    .col(ColumnDef::new(Metadata::ProductionStatus).text())
+                    .col(ColumnDef::new(Metadata::Identifier).text().not_null())
+                    .col(ColumnDef::new(Metadata::Source).text().not_null())
                     .col(
                         ColumnDef::new(Metadata::CreatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(Metadata::Lot).text().not_null())
                     .col(
                         ColumnDef::new(Metadata::LastUpdatedOn)
                             .timestamp_with_time_zone()
@@ -86,9 +83,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Description).text())
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
-                    .col(ColumnDef::new(Metadata::Identifier).text().not_null())
-                    .col(ColumnDef::new(Metadata::Source).text().not_null())
-                    .col(ColumnDef::new(Metadata::ProductionStatus).text())
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal())
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean())
                     .col(ColumnDef::new(Metadata::Images).json_binary())

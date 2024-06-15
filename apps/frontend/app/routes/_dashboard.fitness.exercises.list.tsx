@@ -23,12 +23,13 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+	useNavigate,
+} from "@remix-run/react";
 import {
 	ExerciseEquipment,
 	ExerciseForce,
@@ -88,13 +89,13 @@ const searchParamsSchema = z.object({
 	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscle: z.nativeEnum(ExerciseMuscle).optional(),
-	collection: zx.IntAsString.optional(),
+	collection: z.string().optional(),
 	selectionEnabled: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [
 		coreDetails,
@@ -132,7 +133,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		),
 		getUserCollectionsList(request),
 	]);
-	return json({
+	return {
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		userCollectionsList,
 		userPreferences,
@@ -140,10 +141,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 		query,
 		exerciseParameters,
 		exercisesList,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Exercises | Ryot" }];
 };
 

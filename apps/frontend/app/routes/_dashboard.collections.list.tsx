@@ -16,15 +16,11 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	Link,
+	type MetaArgs_SingleFetch,
 	useFetcher,
 	useLoaderData,
 	useNavigation,
@@ -45,7 +41,6 @@ import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
-import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
@@ -56,22 +51,19 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [userDetails, userCollectionsList] = await Promise.all([
 		getUserDetails(request),
 		getUserCollectionsList(request),
 	]);
-	return json({
-		collections: userCollectionsList,
-		currentUserId: userDetails.id,
-	});
-};
+	return { collections: userCollectionsList, currentUserId: userDetails.id };
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Your collections | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		createOrUpdate: async () => {
@@ -82,7 +74,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ input: submission },
 					await getAuthorizationHeader(request),
 				);
-				return json(
+				return Response.json(
 					{},
 					{
 						headers: await createToastHeaders({
@@ -99,7 +91,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					const err = e.response.errors?.[0].message;
 					if (err) message = err;
 				}
-				return json(
+				return Response.json(
 					{},
 					{
 						status: 400,
@@ -123,7 +115,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			} catch {
 				wasSuccessful = false;
 			}
-			return json(
+			return Response.json(
 				{},
 				{
 					headers: await createToastHeaders({
@@ -136,17 +128,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 		},
 	});
-};
+});
 
 const createOrUpdateSchema = z.object({
 	name: z.string(),
 	description: z.string().optional(),
-	updateId: zx.IntAsString.optional(),
+	updateId: z.string().optional(),
 });
 
 type UpdateCollectionInput = {
 	name: string;
-	id: number;
+	id: string;
 	isDefault: boolean;
 	description?: string | null;
 };
@@ -154,6 +146,9 @@ type UpdateCollectionInput = {
 export default function Page() {
 	const transition = useNavigation();
 	const loaderData = useLoaderData<typeof loader>();
+	const userCreatedCollections = loaderData.collections.filter(
+		(c) => !c.isDefault,
+	);
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
@@ -201,10 +196,9 @@ export default function Page() {
 							</Tabs.Tab>
 						</Tabs.List>
 						<Tabs.Panel value="userCreated">
-							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								{loaderData.collections
-									.filter((c) => !c.isDefault)
-									.map((c) => (
+							{userCreatedCollections.length > 0 ? (
+								<SimpleGrid cols={{ base: 1, md: 2 }}>
+									{userCreatedCollections.map((c) => (
 										<DisplayCollection
 											key={c.id}
 											collection={c}
@@ -212,7 +206,10 @@ export default function Page() {
 											openModal={createOrUpdateModalOpen}
 										/>
 									))}
-							</SimpleGrid>
+								</SimpleGrid>
+							) : (
+								<Text>You have not created any collections yet</Text>
+							)}
 						</Tabs.Panel>
 						<Tabs.Panel value="systemCreated">
 							<SimpleGrid cols={{ base: 1, md: 2 }}>
@@ -283,7 +280,7 @@ const DisplayCollection = (props: {
 	openModal: () => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [`${props.collection.count} items`];
 

@@ -21,9 +21,10 @@ impl MigrationTrait for Migration {
                     .table(UserToCollection::Table)
                     .col(
                         ColumnDef::new(UserToCollection::CollectionId)
-                            .integer()
+                            .text()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(UserToCollection::UserId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_collection-fk1")
@@ -32,7 +33,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(UserToCollection::UserId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_collection-fk2")

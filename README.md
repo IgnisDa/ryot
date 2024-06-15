@@ -15,8 +15,8 @@
   <a href="https://github.com/ignisda/ryot/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple">
   </a>
-  <a href="https://github.com/IgnisDa/ryot/pkgs/container/ryot">
-    <img alt="Image size" src="https://ghcr-badge.egpl.dev/ignisda/ryot/size">
+  <a href="https://hub.docker.com/r/ignisda/ryot">
+    <img alt="Image size" src="https://img.shields.io/docker/image-size/ignisda/ryot">
   </a>
 </div>
 
@@ -30,6 +30,11 @@
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
+
+## IMPORTANT NOTE FOR `v5.*` USERS
+
+If you were using `v5.*` of Ryot, please read the
+[migration guide](https://docs.ryot.io/migration#from-v5-to-v6) for instructions.
 
 ## 💻 Demo
 

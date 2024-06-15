@@ -42,7 +42,7 @@ impl MigrationTrait for Migration {
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Exercise::CreatedByUserId).integer())
+                    .col(ColumnDef::new(Exercise::CreatedByUserId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("workout_to_user_foreign_key")

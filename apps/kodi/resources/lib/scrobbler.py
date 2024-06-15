@@ -45,7 +45,7 @@ class Scrobbler:
         episode_number = None
 
         if video_info_tag.getMediaType() == "episode":
-            lot = "Show"
+            lot = "show"
             res = kodi_json_request(
                 "VideoLibrary.GetEpisodeDetails",
                 {"episodeid": video_info_tag.getDbId(), "properties": ["tvshowid"]},
@@ -72,7 +72,7 @@ class Scrobbler:
 
         elif video_info_tag.getMediaType() == "movie":
             tmdb_id = video_info_tag.getUniqueID("tmdb")
-            lot = "Movie"
+            lot = "movie"
             title = video_info_tag.getTitle()
 
         if not title:

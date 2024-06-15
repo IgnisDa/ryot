@@ -14,13 +14,13 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+	Form,
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	DeployUpdatePersonJobDocument,
 	EntityLot,
@@ -67,9 +67,9 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const personId = params.id ? Number(params.id) : null;
+	const personId = params.id;
 	invariant(personId, "No ID provided");
 	const [
 		userPreferences,
@@ -88,7 +88,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 		getUserCollectionsList(request),
 	]);
-	return json({
+	return {
 		query,
 		personId,
 		userPreferences: {
@@ -99,21 +99,14 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		collections,
 		userPersonDetails,
 		personDetails,
-	});
+	};
+});
+
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
 };
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).personDetails.details.name
-			} | Ryot`,
-		},
-	];
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		deployUpdatePersonJob: async () => {
@@ -123,7 +116,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Metadata person job deployed successfully",
@@ -131,9 +124,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 	});
-};
+});
 
-const personIdSchema = z.object({ personId: zx.IntAsString });
+const personIdSchema = z.object({ personId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -152,7 +145,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="person"
-				objectId={loaderData.personId}
+				objectId={loaderData.personId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.personDetails.details.name}
 			/>
@@ -351,19 +344,23 @@ export default function Page() {
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
-									<Stack>
-										{loaderData.userPersonDetails.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												personId={loaderData.personId}
-												title={loaderData.personDetails.details.name}
-												user={loaderData.userDetails}
-												reviewScale={loaderData.userPreferences.reviewScale}
-												entityType="person"
-											/>
-										))}
-									</Stack>
+									{loaderData.userPersonDetails.reviews.length > 0 ? (
+										<Stack>
+											{loaderData.userPersonDetails.reviews.map((r) => (
+												<ReviewItemDisplay
+													review={r}
+													key={r.id}
+													personId={loaderData.personId}
+													title={loaderData.personDetails.details.name}
+													user={loaderData.userDetails}
+													reviewScale={loaderData.userPreferences.reviewScale}
+													entityType="person"
+												/>
+											))}
+										</Stack>
+									) : (
+										<Text>No reviews</Text>
+									)}
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}

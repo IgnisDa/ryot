@@ -8,11 +8,8 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
@@ -30,9 +27,9 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const genreId = params.id ? Number(params.id) : null;
+	const genreId = params.id;
 	invariant(genreId, "No ID provided");
 	const [coreDetails, { genreDetails }] = await Promise.all([
 		getCoreDetails(request),
@@ -40,22 +37,15 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			input: { genreId, page: query.page },
 		}),
 	]);
-	return json({
+	return {
 		query,
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		genreDetails,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).genreDetails.details.name
-			} | Ryot`,
-		},
-	];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${data?.genreDetails.details.name} | Ryot` }];
 };
 
 export default function Page() {

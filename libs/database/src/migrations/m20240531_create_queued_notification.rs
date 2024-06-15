@@ -6,15 +6,11 @@ use super::m20230417_create_user::User;
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum ImportReport {
+pub enum QueuedNotification {
     Table,
     Id,
     UserId,
-    StartedOn,
-    FinishedOn,
-    Source,
-    Details,
-    WasSuccess,
+    Message,
 }
 
 #[async_trait::async_trait]
@@ -23,32 +19,36 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(ImportReport::Table)
+                    .table(QueuedNotification::Table)
                     .col(
-                        ColumnDef::new(ImportReport::Id)
+                        ColumnDef::new(QueuedNotification::Id)
                             .text()
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ImportReport::Source).text().not_null())
                     .col(
-                        ColumnDef::new(ImportReport::StartedOn)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
+                        ColumnDef::new(QueuedNotification::Message)
+                            .text()
+                            .not_null(),
                     )
-                    .col(ColumnDef::new(ImportReport::FinishedOn).timestamp_with_time_zone())
-                    .col(ColumnDef::new(ImportReport::WasSuccess).boolean())
-                    .col(ColumnDef::new(ImportReport::Details).json_binary())
-                    .col(ColumnDef::new(ImportReport::UserId).text().not_null())
+                    .col(ColumnDef::new(QueuedNotification::UserId).text().not_null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("media_import_report_to_user_foreign_key")
-                            .from(ImportReport::Table, ImportReport::UserId)
+                            .name("queued_notification_to_user_foreign_key")
+                            .from(QueuedNotification::Table, QueuedNotification::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("queued_notification__user_id__index")
+                    .table(QueuedNotification::Table)
+                    .col(QueuedNotification::UserId)
                     .to_owned(),
             )
             .await?;

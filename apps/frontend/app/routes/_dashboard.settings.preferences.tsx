@@ -24,12 +24,8 @@ import {
 } from "@mantine/core";
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	type DashboardElementLot,
@@ -67,20 +63,20 @@ const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
 });
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchSchema);
 	const [userPreferences, userDetails] = await Promise.all([
 		getUserPreferences(request),
 		getUserDetails(request),
 	]);
-	return json({
+	return {
 		query,
 		userDetails: { isDemo: userDetails.isDemo },
 		userPreferences,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Preference | Ryot" }];
 };
 
@@ -91,7 +87,7 @@ const notificationContent = {
 		"Changing preferences is disabled for demo users. Please create an account to save your preferences.",
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const entries = Object.entries(Object.fromEntries(await request.formData()));
 	const submission = [];
 	for (let [property, value] of entries) {
@@ -117,11 +113,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		message: "Preferences updated",
 		type: "success",
 	});
-	return json(
+	return Response.json(
 		{},
 		{ headers: combineHeaders(applicationHeaders, toastHeaders) },
 	);
-};
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();

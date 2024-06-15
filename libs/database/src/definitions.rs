@@ -21,27 +21,22 @@ use strum::Display;
     Hash,
     ConfigEnum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-#[config(rename_all = "PascalCase")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[serde(rename_all = "snake_case")]
 pub enum MediaLot {
-    #[sea_orm(string_value = "AB")]
     AudioBook,
-    #[sea_orm(string_value = "AN")]
     Anime,
     #[default]
-    #[sea_orm(string_value = "BO")]
     Book,
-    #[sea_orm(string_value = "PO")]
     Podcast,
-    #[sea_orm(string_value = "MA")]
     Manga,
-    #[sea_orm(string_value = "MO")]
     Movie,
-    #[sea_orm(string_value = "SH")]
     Show,
-    #[sea_orm(string_value = "VG")]
     VideoGame,
-    #[sea_orm(string_value = "VN")]
     VisualNovel,
 }
 
@@ -61,44 +56,38 @@ pub enum MediaLot {
     Hash,
     ConfigEnum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-#[config(rename_all = "PascalCase")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[serde(rename_all = "snake_case")]
 pub enum MediaSource {
-    #[sea_orm(string_value = "AN")]
     Anilist,
     #[default]
-    #[sea_orm(string_value = "AU")]
     Audible,
-    #[sea_orm(string_value = "CU")]
     Custom,
-    #[sea_orm(string_value = "GO")]
     GoogleBooks,
-    #[sea_orm(string_value = "IG")]
     Igdb,
-    #[sea_orm(string_value = "IT")]
     Itunes,
-    #[sea_orm(string_value = "LI")]
     Listennotes,
-    #[sea_orm(string_value = "MU")]
     MangaUpdates,
-    #[sea_orm(string_value = "MY")]
     Mal,
-    #[sea_orm(string_value = "OL")]
     Openlibrary,
-    #[sea_orm(string_value = "TM")]
     Tmdb,
-    #[sea_orm(string_value = "VN")]
     Vndb,
 }
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 pub enum UserLot {
-    #[sea_orm(string_value = "A")]
     Admin,
-    #[sea_orm(string_value = "N")]
     Normal,
 }
 
@@ -106,15 +95,15 @@ pub enum UserLot {
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 pub enum SeenState {
-    #[sea_orm(string_value = "CO")]
     Completed,
-    #[sea_orm(string_value = "DR")]
     Dropped,
-    #[sea_orm(string_value = "IP")]
     InProgress,
-    #[sea_orm(string_value = "OH")]
     OnAHold,
 }
 
@@ -132,12 +121,14 @@ pub enum SeenState {
     Default,
     ConfigEnum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 pub enum Visibility {
     #[default]
-    #[sea_orm(string_value = "PU")]
     Public,
-    #[sea_orm(string_value = "PR")]
     Private,
 }
 
@@ -154,31 +145,23 @@ pub enum Visibility {
     Enum,
     Display,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 pub enum ImportSource {
-    #[sea_orm(string_value = "AB")]
     Audiobookshelf,
-    #[sea_orm(string_value = "GJ")]
     GenericJson,
-    #[sea_orm(string_value = "GO")]
     Goodreads,
-    #[sea_orm(string_value = "IM")]
     Imdb,
-    #[sea_orm(string_value = "JE")]
     Jellyfin,
-    #[sea_orm(string_value = "MA")]
     Mal,
-    #[sea_orm(string_value = "MO")]
     Movary,
-    #[sea_orm(string_value = "MT")]
     MediaTracker,
-    #[sea_orm(string_value = "OP")]
     OpenScale,
-    #[sea_orm(string_value = "SA")]
     StrongApp,
-    #[sea_orm(string_value = "ST")]
     StoryGraph,
-    #[sea_orm(string_value = "TR")]
     Trakt,
 }
 
@@ -225,77 +208,73 @@ pub enum ExerciseMuscle {
 #[derive(
     Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseForce {
-    #[sea_orm(string_value = "PUL")]
     Pull,
-    #[sea_orm(string_value = "PUS")]
     Push,
-    #[sea_orm(string_value = "S")]
     Static,
 }
 
 #[derive(
     Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseLevel {
-    #[sea_orm(string_value = "B")]
     Beginner,
-    #[sea_orm(string_value = "E")]
     Expert,
-    #[sea_orm(string_value = "I")]
     Intermediate,
 }
 
 #[derive(
     Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseMechanic {
-    #[sea_orm(string_value = "C")]
     Compound,
-    #[sea_orm(string_value = "I")]
     Isolation,
 }
 
 #[derive(
     Debug, Clone, Serialize, Enum, Copy, Deserialize, DeriveActiveEnum, EnumIter, Eq, PartialEq,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseEquipment {
-    #[sea_orm(string_value = "BAN")]
     Bands,
-    #[sea_orm(string_value = "BAR")]
     Barbell,
-    #[sea_orm(string_value = "BO")]
     BodyOnly,
-    #[sea_orm(string_value = "C")]
     Cable,
-    #[sea_orm(string_value = "D")]
     Dumbbell,
-    #[sea_orm(string_value = "EX")]
     #[serde(alias = "exercise ball")]
     ExerciseBall,
-    #[sea_orm(string_value = "EZ")]
     #[serde(alias = "e-z curl bar")]
     EZCurlBar,
-    #[sea_orm(string_value = "F")]
     #[serde(alias = "foam roll")]
     FoamRoll,
-    #[sea_orm(string_value = "K")]
     #[serde(alias = "body only")]
     Kettlebells,
-    #[sea_orm(string_value = "MA")]
     Machine,
-    #[sea_orm(string_value = "ME")]
     #[serde(alias = "medicine ball")]
     MedicineBall,
-    #[sea_orm(string_value = "O")]
     Other,
 }
 
@@ -313,16 +292,16 @@ pub enum ExerciseEquipment {
     EnumIter,
     ConfigEnum,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
-#[config(rename_all = "PascalCase")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[serde(rename_all = "snake_case")]
 pub enum ExerciseLot {
-    #[sea_orm(string_value = "D")]
     Duration,
-    #[sea_orm(string_value = "DD")]
     DistanceAndDuration,
-    #[sea_orm(string_value = "R")]
     Reps,
-    #[sea_orm(string_value = "RW")]
     RepsAndWeight,
 }
 
@@ -339,18 +318,105 @@ pub enum ExerciseLot {
     Copy,
     EnumIter,
 )]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 pub enum ExerciseSource {
-    #[sea_orm(string_value = "GH")]
     Github,
     #[default]
-    #[sea_orm(string_value = "CU")]
     Custom,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
-#[sea_orm(rs_type = "String", db_type = "String(None)")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
 pub enum MetadataToMetadataRelation {
-    #[sea_orm(string_value = "SU")]
     Suggestion,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Enum,
+    PartialEq,
+    Eq,
+    DeriveActiveEnum,
+    EnumIter,
+    Serialize,
+    Deserialize,
+    Hash,
+    Display,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[strum(serialize_all = "snake_case")]
+pub enum UserToMediaReason {
+    Seen,
+    Reviewed,
+    Collection,
+    Reminder,
+    Owned,
+    Monitoring,
+    Watchlist,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Enum,
+    PartialEq,
+    Eq,
+    DeriveActiveEnum,
+    EnumIter,
+    Serialize,
+    Deserialize,
+    Hash,
+    Display,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrationLot {
+    Yank,
+    Sink,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Enum,
+    PartialEq,
+    Eq,
+    DeriveActiveEnum,
+    EnumIter,
+    Serialize,
+    Deserialize,
+    Hash,
+    Display,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrationSource {
+    Audiobookshelf,
+    Jellyfin,
+    Plex,
+    Kodi,
 }

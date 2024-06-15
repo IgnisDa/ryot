@@ -1,8 +1,7 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	type ActionFunctionArgs,
-	json,
 	redirect,
+	unstable_defineAction,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
@@ -30,6 +29,7 @@ import {
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
+	extendResponseHeaders,
 	getAuthorizationHeader,
 	getLogoutCookies,
 	gqlClient,
@@ -39,13 +39,13 @@ import {
 
 export const loader = async () => redirect($path("/"));
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request, response }) => {
 	const formData = await request.clone().formData();
 	const url = new URL(request.url);
 	const intent = url.searchParams.get("intent") as string;
 	invariant(intent, "No intent provided");
-	let redirectTo = (formData.get(redirectToQueryParam) as string) || "/";
-	let headers = {};
+	const redirectToForm = formData.get(redirectToQueryParam);
+	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
 	let returnData = {};
 	await match(intent)
 		.with("commitMedia", async () => {
@@ -104,13 +104,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				request.headers.get("cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
-			headers = {
-				"set-cookie": await colorSchemeCookie.serialize(newColorScheme),
-			};
+			response.headers.append(
+				"set-cookie",
+				await colorSchemeCookie.serialize(newColorScheme),
+			);
 		})
 		.with("logout", async () => {
 			redirectTo = $path("/auth");
-			headers = await getLogoutCookies();
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await getLogoutCookies(),
+			);
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
@@ -119,15 +123,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			headers = await createToastHeaders({
-				message:
-					submission.incrementLikes || submission.decrementLikes
-						? "Score changed successfully"
-						: `Comment ${
-								submission.shouldDelete ? "deleted" : "posted"
-							} successfully`,
-				type: "success",
-			});
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await createToastHeaders({
+					message:
+						submission.incrementLikes || submission.decrementLikes
+							? "Score changed successfully"
+							: `Comment ${
+									submission.shouldDelete ? "deleted" : "posted"
+								} successfully`,
+					type: "success",
+				}),
+			);
 		})
 		.with("addEntityToCollection", async () => {
 			const [submission, input] =
@@ -148,10 +155,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					await getAuthorizationHeader(request),
 				);
 			}
-			headers = await createToastHeaders({
-				message: "Media added to collection successfully",
-				type: "success",
-			});
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await createToastHeaders({
+					message: "Media added to collection successfully",
+					type: "success",
+				}),
+			);
 		})
 		.with("removeEntityFromCollection", async () => {
 			const [submission, input] =
@@ -177,26 +187,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ reviewId: submission.reviewId },
 					await getAuthorizationHeader(request),
 				);
-				headers = await createToastHeaders({
-					message: "Review deleted successfully",
-					type: "success",
-				});
+				response.headers = extendResponseHeaders(
+					response.headers,
+					await createToastHeaders({
+						message: "Review deleted successfully",
+						type: "success",
+					}),
+				);
 			} else {
 				await gqlClient.request(
 					PostReviewDocument,
 					{ input: submission },
 					await getAuthorizationHeader(request),
 				);
-				headers = await createToastHeaders({
-					message: "Review submitted successfully",
-					type: "success",
-				});
+				response.headers = extendResponseHeaders(
+					response.headers,
+					await createToastHeaders({
+						message: "Review submitted successfully",
+						type: "success",
+					}),
+				);
 			}
 		})
 		.run();
-	if (Object.keys(returnData).length > 0) return json(returnData, { headers });
-	return redirect(redirectTo, { headers });
-};
+	if (redirectTo) {
+		response.headers.append("Location", redirectTo.toString());
+		response.status = 302;
+	}
+	return Response.json(returnData);
+});
 
 const commitMediaSchema = z.object({
 	identifier: z.string(),
@@ -213,7 +232,7 @@ const commitPersonSchema = z.object({
 });
 
 const reviewCommentSchema = z.object({
-	reviewId: zx.IntAsString,
+	reviewId: z.string(),
 	commentId: z.string().optional(),
 	text: z.string().optional(),
 	decrementLikes: zx.BoolAsString.optional(),
@@ -223,7 +242,7 @@ const reviewCommentSchema = z.object({
 
 const changeCollectionToEntitySchema = z.object({
 	collectionName: z.string(),
-	creatorUserId: zx.IntAsString,
+	creatorUserId: z.string(),
 	entityId: z.string(),
 	entityLot: z.nativeEnum(EntityLot),
 });
@@ -234,12 +253,12 @@ const reviewSchema = z
 		rating: z.string().optional(),
 		text: z.string().optional(),
 		visibility: z.nativeEnum(Visibility).optional(),
-		spoiler: zx.CheckboxAsString.optional(),
-		metadataId: zx.IntAsString.optional(),
-		metadataGroupId: zx.IntAsString.optional(),
-		collectionId: zx.IntAsString.optional(),
-		personId: zx.IntAsString.optional(),
-		reviewId: zx.IntAsString.optional(),
+		isSpoiler: zx.CheckboxAsString.optional(),
+		metadataId: z.string().optional(),
+		metadataGroupId: z.string().optional(),
+		collectionId: z.string().optional(),
+		personId: z.string().optional(),
+		reviewId: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
@@ -249,17 +268,13 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 		changeCollectionToEntitySchema.passthrough(),
 	);
 	const metadataId =
-		submission.entityLot === EntityLot.Media
-			? Number(submission.entityId)
-			: undefined;
+		submission.entityLot === EntityLot.Media ? submission.entityId : undefined;
 	const metadataGroupId =
 		submission.entityLot === EntityLot.MediaGroup
-			? Number(submission.entityId)
+			? submission.entityId
 			: undefined;
 	const personId =
-		submission.entityLot === EntityLot.Person
-			? Number(submission.entityId)
-			: undefined;
+		submission.entityLot === EntityLot.Person ? submission.entityId : undefined;
 	const exerciseId =
 		submission.entityLot === EntityLot.Exercise
 			? submission.entityId

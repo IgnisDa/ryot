@@ -250,6 +250,19 @@ pub struct FileStorageConfig {
     pub s3_url: String,
 }
 
+impl IsFeatureEnabled for FileStorageConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.s3_access_key_id.is_empty()
+            && !self.s3_bucket_name.is_empty()
+            && !self.s3_secret_access_key.is_empty()
+        {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 /// The configuration related to Umami analytics. More information
 /// [here](https://umami.is/docs/tracker-configuration).
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -285,9 +298,6 @@ pub struct IntegrationConfig {
     /// every `n` hours.
     #[setting(default = 2)]
     pub pull_every: i32,
-    /// The salt used to hash user IDs.
-    #[setting(default = format!("{}", PROJECT_NAME))]
-    pub hasher_salt: String,
     /// The minimum progress limit after which a media is considered to be started.
     #[setting(default = 2)]
     pub minimum_progress_limit: i32,
@@ -296,33 +306,13 @@ pub struct IntegrationConfig {
     pub maximum_progress_limit: i32,
 }
 
-impl IsFeatureEnabled for FileStorageConfig {
-    fn is_enabled(&self) -> bool {
-        let mut enabled = false;
-        if !self.s3_access_key_id.is_empty()
-            && !self.s3_bucket_name.is_empty()
-            && !self.s3_secret_access_key.is_empty()
-        {
-            enabled = true;
-        }
-        enabled
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
 pub struct SchedulerConfig {
-    /// The url to the SQLite database where job related data needs to be stored.
-    #[setting(default = "sqlite::memory:")]
-    pub database_url: String,
     /// The number of jobs to process every 5 seconds when updating metadata in
     /// the background.
     #[setting(default = 5)]
     pub rate_limit_num: u64,
-    /// Deploy a job every x hours that performs user cleanup and summary
-    /// calculation.
-    #[setting(default = 12)]
-    pub user_cleanup_every: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -466,10 +456,8 @@ impl AppConfig {
         cl.file_storage.s3_access_key_id = gt();
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
-        cl.integration.hasher_salt = gt();
         cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
-        cl.scheduler.database_url = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
         cl.server.config_dump_path = gt();

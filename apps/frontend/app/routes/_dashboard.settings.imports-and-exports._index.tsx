@@ -22,15 +22,14 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
+	unstable_defineAction,
+	unstable_defineLoader,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
 	type FetcherWithComponents,
 	Form,
+	type MetaArgs_SingleFetch,
 	useFetcher,
 	useLoaderData,
 } from "@remix-run/react";
@@ -64,7 +63,7 @@ import {
 	temporaryFileUploadHandler,
 } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreDetails, coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
 			getCoreDetails(request),
@@ -80,19 +79,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			),
 		]);
-	return json({
+	return {
 		coreEnabledFeatures,
 		importReports,
 		userExports,
 		coreDetails: { docsLink: coreDetails.docsLink },
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Imports and Exports | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await unstable_parseMultipartFormData(
 		request,
 		temporaryFileUploadHandler,
@@ -143,12 +142,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: { source, ...values } },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", generateAuthToken: false } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Import job started in the background",
-				}),
-			});
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Import job started in the background",
+					}),
+				},
+			);
 		},
 		deployExport: async () => {
 			const toExport = processSubmission(formData, deployExportForm);
@@ -157,26 +159,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				toExport,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", generateAuthToken: false } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Export job started in the background",
-				}),
-			});
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Export job started in the background",
+					}),
+				},
+			);
 		},
 	});
-};
-
-const urlAndKeyImportFormSchema = z.object({
-	apiUrl: z.string().url(),
-	apiKey: z.string(),
 });
 
 const usernameImportFormSchema = z.object({ username: z.string() });
 
-const jellyfinImportFormSchema = urlAndKeyImportFormSchema.merge(
-	usernameImportFormSchema,
+const apiUrlImportFormSchema = z.object({
+	apiUrl: z.string().url(),
+});
+
+const urlAndKeyImportFormSchema = apiUrlImportFormSchema.merge(
+	z.object({ apiKey: z.string() }),
 );
+
+const jellyfinImportFormSchema = usernameImportFormSchema
+	.merge(apiUrlImportFormSchema)
+	.merge(z.object({ password: z.string() }));
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -206,7 +214,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const formRef = useRef<HTMLFormElement>(null);
 
 	return (
@@ -326,16 +334,16 @@ export default function Page() {
 														required
 														name="apiUrl"
 													/>
-													<PasswordInput
-														mt="sm"
-														label="API Key"
-														required
-														name="apiKey"
-													/>
 													<TextInput
 														label="Username"
 														required
 														name="username"
+													/>
+													<PasswordInput
+														mt="sm"
+														label="Password"
+														required
+														name="password"
 													/>
 												</>
 											))
@@ -427,18 +435,19 @@ export default function Page() {
 											<Accordion.Item
 												value={report.id.toString()}
 												key={report.id}
+												data-import-report-id={report.id}
 											>
 												<Accordion.Control
-													disabled={typeof report.success !== "boolean"}
+													disabled={typeof report.wasSuccess !== "boolean"}
 												>
 													<Indicator
 														inline
 														size={12}
 														offset={-3}
-														processing={typeof report.success !== "boolean"}
+														processing={typeof report.wasSuccess !== "boolean"}
 														color={
-															typeof report.success === "boolean"
-																? report.success
+															typeof report.wasSuccess === "boolean"
+																? report.wasSuccess
 																	? "green"
 																	: "red"
 																: undefined

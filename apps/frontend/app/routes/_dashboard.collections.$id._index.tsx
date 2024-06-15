@@ -16,12 +16,12 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+	useNavigate,
+} from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -79,8 +79,8 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-	const id = params.id ? Number(params.id) : null;
+export const loader = unstable_defineLoader(async ({ request, params }) => {
+	const id = params.id;
 	invariant(id, "No ID provided");
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const { collectionContents: info } = await gqlClient.request(
@@ -111,7 +111,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		getUserPreferences(request),
 		getUserDetails(request),
 	]);
-	return json({
+	return {
 		id,
 		query,
 		info,
@@ -122,18 +122,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 			disableReviews: userPreferences.general.disableReviews,
 		},
 		userDetails,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).info.details.name
-			} | Ryot`,
-		},
-	];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${data?.info.details.name} | Ryot` }];
 };
 
 export default function Page() {
@@ -264,10 +257,12 @@ export default function Page() {
 											<Select
 												placeholder="Select an entity type"
 												defaultValue={loaderData.query.entityLot}
-												data={Object.values(EntityLot).map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												}))}
+												data={Object.values(EntityLot)
+													.filter((o) => o !== EntityLot.Collection)
+													.map((o) => ({
+														value: o.toString(),
+														label: startCase(o.toLowerCase()),
+													}))}
 												onChange={(v) => setP("entityLot", v)}
 												clearable
 											/>
@@ -336,19 +331,23 @@ export default function Page() {
 						</Tabs.Panel>
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
-								<Stack>
-									{loaderData.info.reviews.map((r) => (
-										<ReviewItemDisplay
-											title={loaderData.info.details.name}
-											review={r}
-											key={r.id}
-											collectionId={loaderData.id}
-											reviewScale={loaderData.userPreferences.reviewScale}
-											user={loaderData.userDetails}
-											entityType="collection"
-										/>
-									))}
-								</Stack>
+								{loaderData.info.reviews.length > 0 ? (
+									<Stack>
+										{loaderData.info.reviews.map((r) => (
+											<ReviewItemDisplay
+												title={loaderData.info.details.name}
+												review={r}
+												key={r.id}
+												collectionId={loaderData.id}
+												reviewScale={loaderData.userPreferences.reviewScale}
+												user={loaderData.userDetails}
+												entityType="collection"
+											/>
+										))}
+									</Stack>
+								) : (
+									<Text>No reviews</Text>
+								)}
 							</Tabs.Panel>
 						) : null}
 					</Tabs>

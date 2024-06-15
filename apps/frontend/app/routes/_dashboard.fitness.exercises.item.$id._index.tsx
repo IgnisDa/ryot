@@ -21,11 +21,8 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
@@ -75,7 +72,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ params, request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const exerciseId = params.id;
 	invariant(typeof exerciseId === "string", "id must be a string");
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -99,7 +96,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const canCurrentUserUpdate =
 		exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === exerciseDetails.createdByUserId;
-	return json({
+	return {
 		userId: userDetails.id,
 		query,
 		exerciseDetails,
@@ -108,18 +105,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 		exerciseId,
 		collections,
 		canCurrentUserUpdate,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).exerciseDetails.id
-			} | Ryot`,
-		},
-	];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${data?.exerciseDetails.id} | Ryot` }];
 };
 
 export default function Page() {

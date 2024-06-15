@@ -11,11 +11,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
@@ -59,9 +56,9 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const metadataGroupId = params.id ? Number(params.id) : null;
+	const metadataGroupId = params.id;
 	invariant(metadataGroupId, "No ID provided");
 	const [
 		userPreferences,
@@ -80,7 +77,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		),
 		getUserCollectionsList(request),
 	]);
-	return json({
+	return {
 		query,
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
@@ -91,18 +88,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		metadataGroupId,
 		metadataGroupDetails,
 		userMetadataGroupDetails,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = ({ data }) => {
-	return [
-		{
-			title: `${
-				// biome-ignore lint/suspicious/noExplicitAny:
-				(data as any).metadataGroupDetails.details.title
-			} | Ryot`,
-		},
-	];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${data?.metadataGroupDetails.details.title} | Ryot` }];
 };
 
 export default function Page() {
@@ -122,7 +112,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="metadataGroup"
-				objectId={loaderData.metadataGroupId}
+				objectId={loaderData.metadataGroupId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
 			/>
@@ -232,19 +222,23 @@ export default function Page() {
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
-									<Stack>
-										{loaderData.userMetadataGroupDetails.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												metadataGroupId={loaderData.metadataGroupId}
-												reviewScale={loaderData.userPreferences.reviewScale}
-												user={loaderData.userDetails}
-												title={loaderData.metadataGroupDetails.details.title}
-												entityType="metadataGroup"
-											/>
-										))}
-									</Stack>
+									{loaderData.userMetadataGroupDetails.reviews.length > 0 ? (
+										<Stack>
+											{loaderData.userMetadataGroupDetails.reviews.map((r) => (
+												<ReviewItemDisplay
+													review={r}
+													key={r.id}
+													metadataGroupId={loaderData.metadataGroupId}
+													reviewScale={loaderData.userPreferences.reviewScale}
+													user={loaderData.userDetails}
+													title={loaderData.metadataGroupDetails.details.title}
+													entityType="metadataGroup"
+												/>
+											))}
+										</Stack>
+									) : (
+										<Text>No reviews</Text>
+									)}
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}

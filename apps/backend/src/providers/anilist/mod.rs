@@ -625,10 +625,15 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         .unwrap()
         .into_iter()
         .flat_map(|r| {
-            r.unwrap()
-                .media_recommendation
-                .map(|data| PartialMetadataWithoutId {
-                    title: data.title.unwrap().user_preferred.unwrap(),
+            r.unwrap().media_recommendation.map(|data| {
+                let title = data.title.unwrap();
+                let title = if prefer_english {
+                    title.english.or(title.user_preferred).unwrap()
+                } else {
+                    title.user_preferred.unwrap()
+                };
+                PartialMetadataWithoutId {
+                    title,
                     identifier: data.id.to_string(),
                     source: MediaSource::Anilist,
                     lot: match data.type_.unwrap() {
@@ -637,7 +642,8 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
                         media_details_query::MediaType::Other(_) => unreachable!(),
                     },
                     image: data.cover_image.unwrap().extra_large,
-                })
+                }
+            })
         })
         .collect();
     let score = details.average_score.map(Decimal::from);

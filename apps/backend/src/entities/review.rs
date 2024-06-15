@@ -2,8 +2,9 @@
 
 use async_trait::async_trait;
 use database::Visibility;
+use nanoid::nanoid;
 use rust_decimal::Decimal;
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,18 +18,18 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "review")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     pub posted_on: DateTimeUtc,
     pub rating: Option<Decimal>,
     pub text: Option<String>,
     pub visibility: Visibility,
-    pub spoiler: bool,
-    pub user_id: i32,
-    pub metadata_id: Option<i32>,
-    pub person_id: Option<i32>,
-    pub metadata_group_id: Option<i32>,
-    pub collection_id: Option<i32>,
+    pub is_spoiler: bool,
+    pub user_id: String,
+    pub metadata_id: Option<String>,
+    pub person_id: Option<String>,
+    pub metadata_group_id: Option<String>,
+    pub collection_id: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
@@ -113,6 +114,16 @@ impl Related<super::user::Entity> for Entity {
 
 #[async_trait]
 impl ActiveModelBehavior for ActiveModel {
+    async fn before_save<C>(mut self, _db: &C, insert: bool) -> Result<Self, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        if insert {
+            self.id = ActiveValue::Set(format!("rev_{}", nanoid!(12)));
+        }
+        Ok(self)
+    }
+
     async fn after_save<C>(model: Model, db: &C, insert: bool) -> Result<Model, DbErr>
     where
         C: ConnectionTrait,
@@ -120,10 +131,10 @@ impl ActiveModelBehavior for ActiveModel {
         if insert {
             associate_user_with_entity(
                 &model.user_id,
-                model.metadata_id,
-                model.person_id,
+                model.metadata_id.clone(),
+                model.person_id.clone(),
                 None,
-                model.metadata_group_id,
+                model.metadata_group_id.clone(),
                 db,
             )
             .await

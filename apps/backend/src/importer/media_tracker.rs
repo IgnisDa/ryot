@@ -1,12 +1,12 @@
 use async_graphql::Result;
 use database::{ImportSource, MediaLot, MediaSource};
+use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use surf::{http::headers::USER_AGENT, Client, Config, Url};
-use uuid::Uuid;
 
 use crate::{
     importer::{
@@ -237,7 +237,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
-                    (Uuid::new_v4().to_string(), MediaSource::Custom)
+                    (nanoid!(10), MediaSource::Custom)
                 } else {
                     (
                         get_key(&details.openlibrary_id.clone().unwrap()),
@@ -348,7 +348,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                         (None, None)
                     };
                     ImportOrExportMediaItemSeen {
-                        ended_on: s.date,
+                        ended_on: s.date.map(|d| d.date_naive()),
                         show_season_number: season_number,
                         show_episode_number: episode_number,
                         provider_watched_on: Some(ImportSource::MediaTracker.to_string()),

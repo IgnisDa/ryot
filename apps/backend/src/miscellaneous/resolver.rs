@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt,
     fs::File,
     iter::zip,
     path::PathBuf,
@@ -8,8 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
-use apalis::{prelude::Storage as ApalisStorage, sqlite::SqliteStorage};
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
@@ -19,12 +17,11 @@ use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollectionToEntity, AliasedExercise, AliasedMetadata, AliasedMetadataGroup,
     AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUserToCollection,
-    AliasedUserToEntity, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserLot,
-    Visibility,
+    AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot, MediaSource,
+    MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
-use harsh::Harsh;
 use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
@@ -36,12 +33,12 @@ use openidconnect::{
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
-use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
+use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait,
-    DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
+    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
+    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
@@ -50,27 +47,22 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 use struson::writer::{JsonStreamWriter, JsonWriter};
-use uuid::Uuid;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
-        calendar_event, collection, collection_to_entity, exercise, genre, import_report, metadata,
-        metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
-        metadata_to_person, person,
+        calendar_event, collection, collection_to_entity, exercise, genre, import_report,
+        integration, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+        metadata_to_metadata_group, metadata_to_person, person,
         prelude::{
-            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Metadata,
-            MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-            MetadataToPerson, Person, Review, Seen, User, UserMeasurement, UserToCollection,
-            UserToEntity, Workout,
+            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
+            Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+            MetadataToMetadataGroup, MetadataToPerson, Person, QueuedNotification, Review, Seen,
+            User, UserMeasurement, UserToCollection, UserToEntity, Workout,
         },
-        review, seen,
-        user::{
-            self, UserWithOnlyIntegrationsAndNotifications, UserWithOnlyPreferences,
-            UserWithOnlySummary,
-        },
+        queued_notification, review, seen,
+        user::{self, UserWithOnlyNotifications, UserWithOnlyPreferences, UserWithOnlySummary},
         user_measurement, user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
@@ -85,9 +77,9 @@ use crate::{
             CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, MangaSpecifics, MediaAssociatedPersonStateChanges,
-            MediaCreatorSearchItem, MediaDetails, MediaListItem, MetadataFreeCreator,
-            MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
+            ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
+            MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails, MediaListItem,
+            MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
@@ -95,11 +87,10 @@ use crate::{
             PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserSummary, UserToMediaReason, VideoGameSpecifics,
-            VisualNovelSpecifics, WatchProvider,
+            ShowSpecifics, UserSummary, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject, IdObject,
-        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
+        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
     },
     providers::{
         anilist::{
@@ -123,8 +114,6 @@ use crate::{
     users::{
         UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
         UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
-        UserSinkIntegration, UserSinkIntegrationSetting, UserSinkIntegrationSettingKind,
-        UserYankIntegration, UserYankIntegrationSetting, UserYankIntegrationSettingKind,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -159,27 +148,10 @@ struct CreateCustomMetadataInput {
     visual_novel_specifics: Option<VisualNovelSpecifics>,
 }
 
-#[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
-enum UserIntegrationLot {
-    Yank,
-    Sink,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserIntegration {
-    id: usize,
-    description: String,
-    timestamp: DateTimeUtc,
-    lot: UserIntegrationLot,
-    slug: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserYankIntegrationInput {
-    lot: UserYankIntegrationSettingKind,
-    base_url: String,
-    #[graphql(secret)]
-    token: String,
+struct CreateIntegrationInput {
+    source: IntegrationSource,
+    source_specifics: Option<IntegrationSourceSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -198,12 +170,6 @@ struct CreateUserNotificationPlatformInput {
     #[graphql(secret)]
     auth_header: Option<String>,
     priority: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateUserSinkIntegrationInput {
-    lot: UserSinkIntegrationSettingKind,
-    username: Option<String>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -267,7 +233,7 @@ struct RegisterError {
 
 #[derive(Union)]
 enum RegisterResult {
-    Ok(IdObject),
+    Ok(StringIdObject),
     Error(RegisterError),
 }
 
@@ -311,7 +277,7 @@ struct UpdateUserPreferenceInput {
 
 #[derive(Debug, InputObject)]
 struct GenreDetailsInput {
-    genre_id: i32,
+    genre_id: String,
     page: Option<u64>,
 }
 
@@ -331,7 +297,7 @@ struct CollectionContentsFilter {
 
 #[derive(Debug, InputObject)]
 struct CollectionContentsInput {
-    collection_id: i32,
+    collection_id: String,
     search: Option<SearchInput>,
     filter: Option<CollectionContentsFilter>,
     take: Option<u64>,
@@ -348,13 +314,13 @@ struct CollectionContents {
 
 #[derive(Debug, SimpleObject)]
 struct ReviewItem {
-    id: i32,
+    id: String,
     posted_on: DateTimeUtc,
     rating: Option<Decimal>,
     text_original: Option<String>,
     text_rendered: Option<String>,
     visibility: Visibility,
-    spoiler: bool,
+    is_spoiler: bool,
     posted_by: IdAndNamedObject,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
@@ -365,12 +331,12 @@ struct ReviewItem {
 
 #[derive(Debug, SimpleObject, FromQueryResult)]
 struct CollectionItem {
-    id: i32,
+    id: String,
     name: String,
     count: i64,
     is_default: bool,
     description: Option<String>,
-    creator_user_id: i32,
+    creator_user_id: String,
     creator_username: String,
     information_template: Option<Vec<CollectionExtraInformation>>,
 }
@@ -383,7 +349,7 @@ struct GeneralFeatures {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct MetadataCreator {
-    id: Option<i32>,
+    id: Option<String>,
     name: String,
     image: Option<String>,
     character: Option<String>,
@@ -439,8 +405,8 @@ struct MediaBaseData {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlMediaGroup {
-    id: i32,
+struct GraphqlMetadataGroup {
+    id: String,
     name: String,
     part: i32,
 }
@@ -459,7 +425,7 @@ struct GraphqlMediaAssets {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GraphqlMetadataDetails {
-    id: i32,
+    id: String,
     title: String,
     identifier: String,
     is_nsfw: Option<bool>,
@@ -487,7 +453,7 @@ struct GraphqlMetadataDetails {
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
     suggestions: Vec<PartialMetadata>,
-    group: Option<GraphqlMediaGroup>,
+    group: Option<GraphqlMetadataGroup>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
@@ -541,14 +507,13 @@ enum MediaGeneralFilter {
     Unrated,
     Dropped,
     OnAHold,
-    Completed,
     Unseen,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaFilter {
     general: Option<MediaGeneralFilter>,
-    collection: Option<i32>,
+    collection: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -587,8 +552,8 @@ struct CoreDetails {
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
 struct ProgressUpdateCache {
-    user_id: i32,
-    metadata_id: i32,
+    user_id: String,
+    metadata_id: String,
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
     podcast_episode_number: Option<i32>,
@@ -596,9 +561,9 @@ struct ProgressUpdateCache {
     manga_chapter_number: Option<i32>,
 }
 
-impl fmt::Display for ProgressUpdateCache {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?}", self)
+impl ToString for ProgressUpdateCache {
+    fn to_string(&self) -> String {
+        format!("{:#?}", self)
     }
 }
 
@@ -642,24 +607,8 @@ struct UserMediaNextEntry {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateMediaReminderInput {
-    remind_on: NaiveDate,
-    message: String,
-    metadata_id: Option<i32>,
-    metadata_group_id: Option<i32>,
-    person_id: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct DeleteMediaReminderInput {
-    metadata_id: Option<i32>,
-    metadata_group_id: Option<i32>,
-    person_id: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct EditSeenItemInput {
-    seen_id: i32,
+    seen_id: String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
 }
@@ -673,7 +622,7 @@ struct PresignedPutUrlResponse {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateReviewCommentInput {
     /// The review this comment belongs to.
-    review_id: i32,
+    review_id: String,
     comment_id: Option<String>,
     text: Option<String>,
     increment_likes: Option<bool>,
@@ -683,9 +632,9 @@ struct CreateReviewCommentInput {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 struct GraphqlCalendarEvent {
-    calendar_event_id: i32,
+    calendar_event_id: String,
     date: NaiveDate,
-    metadata_id: i32,
+    metadata_id: String,
     metadata_title: String,
     metadata_image: Option<String>,
     metadata_lot: MediaLot,
@@ -750,10 +699,6 @@ fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
 }
 
-fn get_id_hasher(salt: &str) -> Harsh {
-    Harsh::builder().length(10).salt(salt).build().unwrap()
-}
-
 fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
     let (show_season_number, show_episode_number) = match rev.show_extra_information {
         Some(d) => (Some(d.season), Some(d.episode)),
@@ -766,7 +711,7 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
         review: Some(ImportOrExportItemReview {
             visibility: Some(rev.visibility),
             date: Some(rev.posted_on),
-            spoiler: Some(rev.spoiler),
+            spoiler: Some(rev.is_spoiler),
             text: rev.text_original,
         }),
         rating: rev.rating,
@@ -805,7 +750,7 @@ impl MiscellaneousQuery {
     ) -> Result<Vec<CollectionItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_collections_list(user_id, name).await
+        service.user_collections_list(&user_id, name).await
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -822,14 +767,18 @@ impl MiscellaneousQuery {
     async fn metadata_details(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: String,
     ) -> Result<GraphqlMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_details(metadata_id).await
+        service.metadata_details(&metadata_id).await
     }
 
     /// Get details about a creator present in the database.
-    async fn person_details(&self, gql_ctx: &Context<'_>, person_id: i32) -> Result<PersonDetails> {
+    async fn person_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        person_id: String,
+    ) -> Result<PersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.person_details(person_id).await
     }
@@ -848,7 +797,7 @@ impl MiscellaneousQuery {
     async fn metadata_group_details(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_group_id: i32,
+        metadata_group_id: String,
     ) -> Result<MetadataGroupDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.metadata_group_details(metadata_group_id).await
@@ -885,7 +834,7 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<MetadataSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.metadata_search(user_id, input).await
+        service.metadata_search(&user_id, input).await
     }
 
     /// Get paginated list of genres.
@@ -922,14 +871,14 @@ impl MiscellaneousQuery {
     async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.latest_user_summary(user_id).await
+        service.latest_user_summary(&user_id).await
     }
 
     /// Get details that can be displayed to a user for a metadata group.
     async fn user_metadata_group_details(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_group_id: i32,
+        metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -942,14 +891,14 @@ impl MiscellaneousQuery {
     async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_preferences(user_id).await
+        service.user_preferences(&user_id).await
     }
 
     /// Get details about all the users in the service.
     async fn users_list(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.admin_account_guard(user_id).await?;
+        service.admin_account_guard(&user_id).await?;
         service.users_list().await
     }
 
@@ -961,13 +910,10 @@ impl MiscellaneousQuery {
     }
 
     /// Get all the integrations for the currently logged in user.
-    async fn user_integrations(
-        &self,
-        gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserIntegration>> {
+    async fn user_integrations(&self, gql_ctx: &Context<'_>) -> Result<Vec<integration::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_integrations(user_id).await
+        service.user_integrations(&user_id).await
     }
 
     /// Get all the notification platforms for the currently logged in user.
@@ -977,14 +923,14 @@ impl MiscellaneousQuery {
     ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_notification_platforms(user_id).await
+        service.user_notification_platforms(&user_id).await
     }
 
     /// Get details that can be displayed to a user for a media.
     async fn user_metadata_details(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
+        metadata_id: String,
     ) -> Result<UserMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -995,7 +941,7 @@ impl MiscellaneousQuery {
     async fn user_person_details(
         &self,
         gql_ctx: &Context<'_>,
-        person_id: i32,
+        person_id: String,
     ) -> Result<UserPersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -1043,7 +989,7 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.people_search(user_id, input).await
+        service.people_search(&user_id, input).await
     }
 
     /// Search for a list of groups from a given source.
@@ -1054,7 +1000,7 @@ impl MiscellaneousQuery {
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.metadata_group_search(user_id, input).await
+        service.metadata_group_search(&user_id, input).await
     }
 
     /// Get an authorization URL using the configured OIDC client.
@@ -1076,14 +1022,18 @@ pub struct MiscellaneousMutation;
 #[Object]
 impl MiscellaneousMutation {
     /// Create or update a review.
-    async fn post_review(&self, gql_ctx: &Context<'_>, input: PostReviewInput) -> Result<IdObject> {
+    async fn post_review(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: PostReviewInput,
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.post_review(user_id, input).await
+        service.post_review(&user_id, input).await
     }
 
     /// Delete a review if it belongs to the currently logged in user.
-    async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: i32) -> Result<bool> {
+    async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.delete_review(user_id, review_id).await
@@ -1094,10 +1044,10 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CreateOrUpdateCollectionInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_or_update_collection(user_id, input).await
+        service.create_or_update_collection(&user_id, input).await
     }
 
     /// Add a entity to a collection if it is not there, otherwise do nothing.
@@ -1108,7 +1058,7 @@ impl MiscellaneousMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.add_entity_to_collection(user_id, input).await
+        service.add_entity_to_collection(&user_id, input).await
     }
 
     /// Remove an entity from a collection if it is not there, otherwise do nothing.
@@ -1116,10 +1066,10 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: ChangeCollectionToEntityInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.remove_entity_from_collection(user_id, input).await
+        service.remove_entity_from_collection(&user_id, input).await
     }
 
     /// Delete a collection.
@@ -1134,10 +1084,14 @@ impl MiscellaneousMutation {
     }
 
     /// Delete a seen item from a user's history.
-    async fn delete_seen_item(&self, gql_ctx: &Context<'_>, seen_id: i32) -> Result<IdObject> {
+    async fn delete_seen_item(
+        &self,
+        gql_ctx: &Context<'_>,
+        seen_id: String,
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.delete_seen_item(user_id, seen_id).await
+        service.delete_seen_item(&user_id, seen_id).await
     }
 
     /// Create a custom media item.
@@ -1145,7 +1099,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CreateCustomMetadataInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.create_custom_metadata(user_id, input).await
@@ -1166,18 +1120,18 @@ impl MiscellaneousMutation {
     async fn deploy_update_metadata_job(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: i32,
-    ) -> Result<String> {
+        metadata_id: String,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.deploy_update_metadata_job(metadata_id).await
+        service.deploy_update_metadata_job(&metadata_id, true).await
     }
 
     /// Deploy a job to update a person's metadata.
     async fn deploy_update_person_job(
         &self,
         gql_ctx: &Context<'_>,
-        person_id: i32,
-    ) -> Result<String> {
+        person_id: String,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.deploy_update_person_job(person_id).await
     }
@@ -1187,8 +1141,8 @@ impl MiscellaneousMutation {
     async fn merge_metadata(
         &self,
         gql_ctx: &Context<'_>,
-        merge_from: i32,
-        merge_into: i32,
+        merge_from: String,
+        merge_into: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -1202,7 +1156,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CommitMediaInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.commit_metadata(input).await
     }
@@ -1212,7 +1166,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CommitPersonInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.commit_person(input).await
     }
@@ -1222,7 +1176,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CommitMediaInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.commit_metadata_group(input).await
     }
@@ -1245,7 +1199,11 @@ impl MiscellaneousMutation {
     }
 
     /// Update a user's profile details.
-    async fn update_user(&self, gql_ctx: &Context<'_>, input: UpdateUserInput) -> Result<IdObject> {
+    async fn update_user(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserInput,
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.update_user(user_id, input).await
@@ -1262,39 +1220,27 @@ impl MiscellaneousMutation {
         service.update_user_preference(user_id, input).await
     }
 
-    /// Create a sink based integrations for the currently logged in user.
-    async fn create_user_sink_integration(
+    /// Create an integration for the currently logged in user.
+    async fn create_user_integration(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateUserSinkIntegrationInput,
-    ) -> Result<usize> {
+        input: CreateIntegrationInput,
+    ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_sink_integration(user_id, input).await
-    }
-
-    /// Create a yank based integrations for the currently logged in user.
-    async fn create_user_yank_integration(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateUserYankIntegrationInput,
-    ) -> Result<usize> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_yank_integration(user_id, input).await
+        service.create_user_integration(user_id, input).await
     }
 
     /// Delete an integration for the currently logged in user.
     async fn delete_user_integration(
         &self,
         gql_ctx: &Context<'_>,
-        integration_id: usize,
-        integration_lot: UserIntegrationLot,
+        integration_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .delete_user_integration(user_id, integration_id, integration_lot)
+            .delete_user_integration(user_id, integration_id)
             .await
     }
 
@@ -1316,7 +1262,7 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
-            .send_notifications_to_user_platforms(user_id, "Test notification message triggered.")
+            .queue_notifications_to_user_platforms(&user_id, "Test notification message triggered.")
             .await
     }
 
@@ -1334,10 +1280,10 @@ impl MiscellaneousMutation {
     }
 
     /// Delete a user. The account making the user must an `Admin`.
-    async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: i32) -> Result<bool> {
+    async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.admin_account_guard(user_id).await?;
+        service.admin_account_guard(&user_id).await?;
         service.delete_user(to_delete_user_id).await
     }
 
@@ -1399,7 +1345,7 @@ impl MiscellaneousMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_background_job(user_id, job_name).await
+        service.deploy_background_job(&user_id, job_name).await
     }
 
     /// Use this mutation to call a function that needs to be tested for implementation.
@@ -1413,8 +1359,8 @@ impl MiscellaneousMutation {
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
-    pub perform_application_job: SqliteStorage<ApplicationJob>,
-    pub perform_core_application_job: SqliteStorage<CoreApplicationJob>,
+    pub perform_application_job: MemoryStorage<ApplicationJob>,
+    pub perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     timezone: Arc<chrono_tz::Tz>,
     file_storage_service: Arc<FileStorageService>,
     config: Arc<config::AppConfig>,
@@ -1429,8 +1375,8 @@ impl MiscellaneousService {
         db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &SqliteStorage<ApplicationJob>,
-        perform_core_application_job: &SqliteStorage<CoreApplicationJob>,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
+        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
         timezone: Arc<chrono_tz::Tz>,
         oidc_client: Arc<Option<CoreClient>>,
     ) -> Self {
@@ -1461,7 +1407,7 @@ impl MiscellaneousService {
     }
 }
 
-type EntityToMonitoredByMap = HashMap<i32, Vec<i32>>;
+type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
@@ -1498,7 +1444,7 @@ impl MiscellaneousService {
         Ok(GraphqlMediaAssets { images, videos })
     }
 
-    async fn generic_metadata(&self, metadata_id: i32) -> Result<MediaBaseData> {
+    async fn generic_metadata(&self, metadata_id: &String) -> Result<MediaBaseData> {
         let mut meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -1515,7 +1461,7 @@ impl MiscellaneousService {
             .unwrap();
         #[derive(Debug, FromQueryResult)]
         struct PartialCreator {
-            id: i32,
+            id: String,
             name: String,
             images: Option<Vec<MetadataImage>>,
             role: String,
@@ -1523,7 +1469,7 @@ impl MiscellaneousService {
         }
         let crts = MetadataToPerson::find()
             .expr(Expr::col(Asterisk))
-            .filter(metadata_to_person::Column::MetadataId.eq(meta.id))
+            .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
             .join(
                 JoinType::Join,
                 metadata_to_person::Relation::Person
@@ -1593,11 +1539,11 @@ impl MiscellaneousService {
         let partial_metadata_ids = MetadataToMetadata::find()
             .select_only()
             .column(metadata_to_metadata::Column::ToMetadataId)
-            .filter(metadata_to_metadata::Column::FromMetadataId.eq(meta.id))
+            .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
             .filter(
                 metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
             )
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await?;
         let suggestions_temp = Metadata::find()
@@ -1626,7 +1572,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn metadata_details(&self, metadata_id: i32) -> Result<GraphqlMetadataDetails> {
+    async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
         let MediaBaseData {
             model,
             creators,
@@ -1635,7 +1581,7 @@ impl MiscellaneousService {
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
         if model.is_partial.unwrap_or_default() {
-            self.deploy_update_metadata_job(metadata_id).await?;
+            self.deploy_update_metadata_job(metadata_id, true).await?;
         }
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
@@ -1695,7 +1641,7 @@ impl MiscellaneousService {
                 None => None,
                 Some(a) => {
                     let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
-                    Some(GraphqlMediaGroup {
+                    Some(GraphqlMetadataGroup {
                         id: grp.id,
                         name: grp.title,
                         part: a.part,
@@ -1741,16 +1687,23 @@ impl MiscellaneousService {
 
     async fn user_metadata_details(
         &self,
-        user_id: i32,
-        metadata_id: i32,
+        user_id: String,
+        metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        let media_details = self.metadata_details(metadata_id).await?;
-        let collections =
-            entity_in_collections(&self.db, user_id, Some(metadata_id), None, None, None).await?;
+        let media_details = self.metadata_details(&metadata_id).await?;
+        let collections = entity_in_collections(
+            &self.db,
+            &user_id,
+            Some(metadata_id.clone()),
+            None,
+            None,
+            None,
+        )
+        .await?;
         let reviews = self
-            .item_reviews(user_id, Some(metadata_id), None, None, None)
+            .item_reviews(&user_id, Some(metadata_id.clone()), None, None, None)
             .await?;
-        let history = self.seen_history(user_id, metadata_id).await?;
+        let history = self.seen_history(&user_id, &metadata_id).await?;
         let in_progress = history
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -1833,7 +1786,7 @@ impl MiscellaneousService {
                 Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
                     .equals((seen_alias.clone(), AliasedSeen::MetadataId)),
             )
-            .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Id)).eq(metadata_id))
+            .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Id)).eq(&metadata_id))
             .group_by_col((metadata_alias.clone(), AliasedMetadata::Id))
             .to_owned();
         let stmt = self.get_db_stmt(seen_select);
@@ -1874,14 +1827,14 @@ impl MiscellaneousService {
 
     async fn user_person_details(
         &self,
-        user_id: i32,
-        creator_id: i32,
+        user_id: String,
+        person_id: String,
     ) -> Result<UserPersonDetails> {
         let reviews = self
-            .item_reviews(user_id, None, Some(creator_id), None, None)
+            .item_reviews(&user_id, None, Some(person_id.clone()), None, None)
             .await?;
         let collections =
-            entity_in_collections(&self.db, user_id, None, Some(creator_id), None, None).await?;
+            entity_in_collections(&self.db, &user_id, None, Some(person_id), None, None).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -1890,14 +1843,20 @@ impl MiscellaneousService {
 
     async fn user_metadata_group_details(
         &self,
-        user_id: i32,
-        metadata_group_id: i32,
+        user_id: String,
+        metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
-        let collections =
-            entity_in_collections(&self.db, user_id, None, None, Some(metadata_group_id), None)
-                .await?;
+        let collections = entity_in_collections(
+            &self.db,
+            &user_id,
+            None,
+            None,
+            Some(metadata_group_id.clone()),
+            None,
+        )
+        .await?;
         let reviews = self
-            .item_reviews(user_id, None, None, Some(metadata_group_id), None)
+            .item_reviews(&user_id, None, None, Some(metadata_group_id), None)
             .await?;
         Ok(UserMetadataGroupDetails {
             reviews,
@@ -1907,7 +1866,7 @@ impl MiscellaneousService {
 
     async fn get_calendar_events(
         &self,
-        user_id: i32,
+        user_id: String,
         only_monitored: bool,
         start_date: Option<NaiveDate>,
         end_date: Option<NaiveDate>,
@@ -1915,9 +1874,9 @@ impl MiscellaneousService {
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
-            id: i32,
+            id: String,
             date: NaiveDate,
-            metadata_id: i32,
+            metadata_id: String,
             metadata_show_extra_information: Option<SeenShowExtraInformation>,
             metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
             m_title: String,
@@ -1958,7 +1917,7 @@ impl MiscellaneousService {
                     .to(calendar_event::Column::MetadataId)
                     .on_condition(move |left, _right| {
                         Condition::all().add_option(match only_monitored {
-                            true => Some(Expr::val(DefaultCollection::Monitoring.to_string()).eq(
+                            true => Some(Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
                                 PgFunc::any(Expr::col((left, user_to_entity::Column::MediaReason))),
                             )),
                             false => None,
@@ -2016,7 +1975,7 @@ impl MiscellaneousService {
 
     async fn user_calendar_events(
         &self,
-        user_id: i32,
+        user_id: String,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let (end_date, start_date) = get_first_and_last_day_of_month(input.year, input.month);
@@ -2025,7 +1984,7 @@ impl MiscellaneousService {
             .await?;
         let grouped_events = events
             .into_iter()
-            .group_by(|event| event.date)
+            .chunk_by(|event| event.date)
             .into_iter()
             .map(|(date, events)| GroupedCalendarEvent {
                 date,
@@ -2037,7 +1996,7 @@ impl MiscellaneousService {
 
     async fn user_upcoming_calendar_events(
         &self,
-        user_id: i32,
+        user_id: String,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         let from_date = Utc::now().date_naive();
@@ -2053,7 +2012,11 @@ impl MiscellaneousService {
         Ok(events)
     }
 
-    async fn seen_history(&self, user_id: i32, metadata_id: i32) -> Result<Vec<seen::Model>> {
+    async fn seen_history(
+        &self,
+        user_id: &String,
+        metadata_id: &String,
+    ) -> Result<Vec<seen::Model>> {
         let seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::MetadataId.eq(metadata_id))
@@ -2066,17 +2029,18 @@ impl MiscellaneousService {
 
     async fn metadata_list(
         &self,
-        user_id: i32,
+        user_id: String,
         input: MetadataListInput,
     ) -> Result<SearchResults<MediaListItem>> {
         let avg_rating_col = "average_rating";
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
+        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, &user_id)
             .await?
             .preferences;
-
+        let cloned_user_id_1 = user_id.clone();
+        let cloned_user_id_2 = user_id.clone();
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
-            id: i32,
+            id: String,
             title: String,
             publish_year: Option<i32>,
             images: Option<Vec<MetadataImage>>,
@@ -2116,7 +2080,7 @@ impl MiscellaneousService {
             )
             .group_by(metadata::Column::Id)
             .group_by(user_to_entity::Column::MediaReason)
-            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
             .apply_if(input.lot, |query, v| {
                 query.filter(metadata::Column::Lot.eq(v))
             })
@@ -2126,7 +2090,9 @@ impl MiscellaneousService {
                 metadata::Relation::Review
                     .def()
                     .on_condition(move |_left, right| {
-                        Condition::all().add(Expr::col((right, review::Column::UserId)).eq(user_id))
+                        Condition::all().add(
+                            Expr::col((right, review::Column::UserId)).eq(cloned_user_id_1.clone()),
+                        )
                     }),
             )
             .join(
@@ -2134,7 +2100,9 @@ impl MiscellaneousService {
                 metadata::Relation::Seen
                     .def()
                     .on_condition(move |_left, right| {
-                        Condition::all().add(Expr::col((right, seen::Column::UserId)).eq(user_id))
+                        Condition::all().add(
+                            Expr::col((right, seen::Column::UserId)).eq(cloned_user_id_2.clone()),
+                        )
                     }),
             )
             .apply_if(input.search.query.clone(), |query, v| {
@@ -2160,21 +2128,29 @@ impl MiscellaneousService {
                 s => query.filter(seen::Column::State.eq(match s {
                     MediaGeneralFilter::Dropped => SeenState::Dropped,
                     MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                    MediaGeneralFilter::Completed => SeenState::InProgress,
                     _ => unreachable!(),
                 })),
             })
             .apply_if(input.sort.map(|s| s.by), |query, v| match v {
-                MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
-                // FIXME: nulls last when https://github.com/SeaQL/sea-orm/issues/2227 is resolved
-                MediaSortBy::ReleaseDate => query.order_by(metadata::Column::PublishYear, order_by),
-                MediaSortBy::Rating => {
-                    query.order_by(Expr::col(Alias::new(avg_rating_col)), order_by)
-                }
                 MediaSortBy::LastUpdated => query
                     .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
                     .group_by(user_to_entity::Column::LastUpdatedOn),
-                MediaSortBy::LastSeen => query.order_by(seen::Column::FinishedOn.max(), order_by),
+                MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+                MediaSortBy::ReleaseDate => query.order_by_with_nulls(
+                    metadata::Column::PublishYear,
+                    order_by,
+                    NullOrdering::Last,
+                ),
+                MediaSortBy::Rating => query.order_by_with_nulls(
+                    Expr::col(Alias::new(avg_rating_col)),
+                    order_by,
+                    NullOrdering::Last,
+                ),
+                MediaSortBy::LastSeen => query.order_by_with_nulls(
+                    seen::Column::FinishedOn.max(),
+                    order_by,
+                    NullOrdering::Last,
+                ),
             });
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
 
@@ -2214,13 +2190,13 @@ impl MiscellaneousService {
     pub async fn progress_update(
         &self,
         input: ProgressUpdateInput,
-        user_id: i32,
+        user_id: &String,
         // update only if media has not been consumed for this user in the last `n` duration
         respect_cache: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
-            user_id,
-            metadata_id: input.metadata_id,
+            user_id: user_id.to_owned(),
+            metadata_id: input.metadata_id.clone(),
             show_season_number: input.show_season_number,
             show_episode_number: input.show_episode_number,
             podcast_episode_number: input.podcast_episode_number,
@@ -2239,7 +2215,7 @@ impl MiscellaneousService {
             .filter(seen::Column::Progress.lt(100))
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::State.ne(SeenState::Dropped))
-            .filter(seen::Column::MetadataId.eq(input.metadata_id))
+            .filter(seen::Column::MetadataId.eq(&input.metadata_id))
             .order_by_desc(seen::Column::LastUpdatedOn)
             .all(&self.db)
             .await
@@ -2335,12 +2311,12 @@ impl MiscellaneousService {
             ProgressUpdateAction::Now
             | ProgressUpdateAction::InThePast
             | ProgressUpdateAction::JustStarted => {
-                let meta = Metadata::find_by_id(input.metadata_id)
+                let meta = Metadata::find_by_id(&input.metadata_id)
                     .one(&self.db)
                     .await
                     .unwrap()
                     .unwrap();
-                tracing::debug!("Progress update meta = {:?}", meta.title);
+                tracing::debug!("Progress update for meta {:?} ({:?})", meta.title, meta.lot);
 
                 let show_ei = if matches!(meta.lot, MediaLot::Show) {
                     let season = input.show_season_number.ok_or_else(|| {
@@ -2391,7 +2367,7 @@ impl MiscellaneousService {
                 tracing::debug!("Progress update percentage = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
-                    user_id: ActiveValue::Set(user_id),
+                    user_id: ActiveValue::Set(user_id.to_owned()),
                     metadata_id: ActiveValue::Set(input.metadata_id),
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
@@ -2407,40 +2383,41 @@ impl MiscellaneousService {
             }
         };
         tracing::debug!("Progress update = {:?}", seen);
-        let id = seen.id;
+        let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache.cache_set(cache, ()).unwrap();
         }
         self.after_media_seen_tasks(seen).await?;
-        Ok(ProgressUpdateResultUnion::Ok(IdObject { id }))
+        Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
     }
 
     async fn deploy_bulk_progress_update(
         &self,
-        user_id: i32,
+        user_id: String,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         self.perform_core_application_job
             .clone()
-            .push(CoreApplicationJob::BulkProgressUpdate(user_id, input))
-            .await?;
+            .enqueue(CoreApplicationJob::BulkProgressUpdate(user_id, input))
+            .await
+            .unwrap();
         Ok(true)
     }
 
     pub async fn bulk_progress_update(
         &self,
-        user_id: i32,
+        user_id: String,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, user_id, false).await.ok();
+            self.progress_update(seen, &user_id, false).await.ok();
         }
         Ok(true)
     }
 
     pub async fn deploy_background_job(
         &self,
-        user_id: i32,
+        user_id: &String,
         job_name: BackgroundJob,
     ) -> Result<bool> {
         let core_sqlite_storage = &mut self.perform_core_application_job.clone();
@@ -2460,12 +2437,12 @@ impl MiscellaneousService {
                     .select_only()
                     .column(metadata::Column::Id)
                     .order_by_asc(metadata::Column::LastUpdatedOn)
-                    .into_tuple::<i32>()
+                    .into_tuple::<String>()
                     .all(&self.db)
                     .await
                     .unwrap();
                 for metadata_id in many_metadata {
-                    self.deploy_update_metadata_job(metadata_id).await?;
+                    self.deploy_update_metadata_job(&metadata_id, true).await?;
                 }
             }
             BackgroundJob::UpdateAllExercises => {
@@ -2479,28 +2456,33 @@ impl MiscellaneousService {
             }
             BackgroundJob::RecalculateCalendarEvents => {
                 sqlite_storage
-                    .push(ApplicationJob::RecalculateCalendarEvents)
-                    .await?;
+                    .enqueue(ApplicationJob::RecalculateCalendarEvents)
+                    .await
+                    .unwrap();
             }
             BackgroundJob::PerformBackgroundTasks => {
                 sqlite_storage
-                    .push(ApplicationJob::PerformBackgroundTasks)
-                    .await?;
+                    .enqueue(ApplicationJob::PerformBackgroundTasks)
+                    .await
+                    .unwrap();
             }
             BackgroundJob::YankIntegrationsData => {
                 core_sqlite_storage
-                    .push(CoreApplicationJob::YankIntegrationsData(user_id))
-                    .await?;
+                    .enqueue(CoreApplicationJob::YankIntegrationsData(user_id.to_owned()))
+                    .await
+                    .unwrap();
             }
             BackgroundJob::CalculateSummary => {
                 sqlite_storage
-                    .push(ApplicationJob::RecalculateUserSummary(user_id))
-                    .await?;
+                    .enqueue(ApplicationJob::RecalculateUserSummary(user_id.to_owned()))
+                    .await
+                    .unwrap();
             }
             BackgroundJob::EvaluateWorkouts => {
                 sqlite_storage
-                    .push(ApplicationJob::ReEvaluateUserWorkouts(user_id))
-                    .await?;
+                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+                    .await
+                    .unwrap();
             }
         };
         Ok(true)
@@ -2510,7 +2492,7 @@ impl MiscellaneousService {
         let all_users = User::find()
             .select_only()
             .column(user::Column::Id)
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await
             .unwrap();
@@ -2519,7 +2501,7 @@ impl MiscellaneousService {
                 .column(collection::Column::Id)
                 .column(collection::Column::UserId)
                 .left_join(UserToCollection)
-                .filter(user_to_collection::Column::UserId.eq(user_id))
+                .filter(user_to_collection::Column::UserId.eq(&user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
@@ -2528,26 +2510,26 @@ impl MiscellaneousService {
                 .find(|c| {
                     c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id
                 })
-                .map(|c| c.id)
+                .map(|c| c.id.clone())
                 .unwrap();
             let watchlist_collection_id = collections
                 .iter()
                 .find(|c| {
                     c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id
                 })
-                .map(|c| c.id)
+                .map(|c| c.id.clone())
                 .unwrap();
             let owned_collection_id = collections
                 .iter()
                 .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
-                .map(|c| c.id)
+                .map(|c| c.id.clone())
                 .unwrap();
             let reminder_collection_id = collections
                 .iter()
                 .find(|c| {
                     c.name == DefaultCollection::Reminders.to_string() && c.user_id == user_id
                 })
-                .map(|c| c.id)
+                .map(|c| c.id.clone())
                 .unwrap();
             let all_user_to_entities = UserToEntity::find()
                 .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
@@ -2559,8 +2541,8 @@ impl MiscellaneousService {
                 let mut new_reasons = HashSet::new();
                 if ute.metadata_id.is_some() {
                     if Seen::find()
-                        .filter(seen::Column::UserId.eq(ute.user_id))
-                        .filter(seen::Column::MetadataId.eq(ute.metadata_id))
+                        .filter(seen::Column::UserId.eq(&ute.user_id))
+                        .filter(seen::Column::MetadataId.eq(ute.metadata_id.clone()))
                         .count(&self.db)
                         .await
                         .unwrap()
@@ -2579,23 +2561,23 @@ impl MiscellaneousService {
                     .column(collection_to_entity::Column::CollectionId)
                     .filter(
                         collection_to_entity::Column::MetadataId
-                            .eq(ute.metadata_id)
-                            .or(collection_to_entity::Column::PersonId.eq(ute.person_id))
+                            .eq(ute.metadata_id.clone())
+                            .or(collection_to_entity::Column::PersonId.eq(ute.person_id.clone()))
                             .or(collection_to_entity::Column::MetadataGroupId
-                                .eq(ute.metadata_group_id)),
+                                .eq(ute.metadata_group_id.clone())),
                     )
                     .filter(collection_to_entity::Column::CollectionId.is_not_null())
-                    .into_tuple::<i32>()
+                    .into_tuple::<String>()
                     .all(&self.db)
                     .await
                     .unwrap();
                 if Review::find()
-                    .filter(review::Column::UserId.eq(ute.user_id))
+                    .filter(review::Column::UserId.eq(&ute.user_id))
                     .filter(
                         review::Column::MetadataId
-                            .eq(ute.metadata_id)
-                            .or(review::Column::MetadataGroupId.eq(ute.metadata_group_id))
-                            .or(review::Column::PersonId.eq(ute.person_id)),
+                            .eq(ute.metadata_id.clone())
+                            .or(review::Column::MetadataGroupId.eq(ute.metadata_group_id.clone()))
+                            .or(review::Column::PersonId.eq(ute.person_id.clone())),
                     )
                     .count(&self.db)
                     .await
@@ -2646,7 +2628,7 @@ impl MiscellaneousService {
 
     async fn update_media(
         &self,
-        metadata_id: i32,
+        metadata_id: &String,
         input: MediaDetails,
     ) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
@@ -2844,7 +2826,7 @@ impl MiscellaneousService {
         let metadata = meta.update(&self.db).await.unwrap();
 
         self.change_metadata_associations(
-            metadata.id,
+            &metadata.id,
             metadata.lot,
             metadata.source,
             input.genres,
@@ -2858,7 +2840,7 @@ impl MiscellaneousService {
 
     async fn associate_person_with_metadata(
         &self,
-        metadata_id: i32,
+        metadata_id: &str,
         person: PartialMetadataPerson,
         index: usize,
     ) -> Result<()> {
@@ -2872,7 +2854,7 @@ impl MiscellaneousService {
             })
             .await?;
         let intermediate = metadata_to_person::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             person_id: ActiveValue::Set(db_person.id),
             role: ActiveValue::Set(role),
             index: ActiveValue::Set(Some(index.try_into().unwrap())),
@@ -2890,10 +2872,11 @@ impl MiscellaneousService {
     ) -> Result<()> {
         self.perform_application_job
             .clone()
-            .push(ApplicationJob::AssociateGroupWithMetadata(
+            .enqueue(ApplicationJob::AssociateGroupWithMetadata(
                 lot, source, identifier,
             ))
-            .await?;
+            .await
+            .unwrap();
         Ok(())
     }
 
@@ -2902,7 +2885,7 @@ impl MiscellaneousService {
         identifier: &String,
         lot: MediaLot,
         source: MediaSource,
-    ) -> Result<(i32, Vec<PartialMetadataWithoutId>)> {
+    ) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
         let existing_group = MetadataGroup::find()
             .filter(metadata_group::Column::Identifier.eq(identifier))
             .filter(metadata_group::Column::Lot.eq(lot))
@@ -2915,7 +2898,7 @@ impl MiscellaneousService {
             Some(eg) => eg.id,
             None => {
                 let mut db_group: metadata_group::ActiveModel =
-                    group_details.into_model(0, None).into();
+                    group_details.into_model("".to_string(), None).into();
                 db_group.id = ActiveValue::NotSet;
                 let new_group = db_group.insert(&self.db).await?;
                 new_group.id
@@ -2927,11 +2910,11 @@ impl MiscellaneousService {
     async fn associate_suggestion_with_metadata(
         &self,
         data: PartialMetadataWithoutId,
-        metadata_id: i32,
+        metadata_id: &str,
     ) -> Result<()> {
         let db_partial_metadata = self.create_partial_metadata(data).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
-            from_metadata_id: ActiveValue::Set(metadata_id),
+            from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
             relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
             ..Default::default()
@@ -2982,7 +2965,7 @@ impl MiscellaneousService {
         Ok(model)
     }
 
-    async fn associate_genre_with_metadata(&self, name: String, metadata_id: i32) -> Result<()> {
+    async fn associate_genre_with_metadata(&self, name: String, metadata_id: &str) -> Result<()> {
         let db_genre = if let Some(c) = Genre::find()
             .filter(genre::Column::Name.eq(&name))
             .one(&self.db)
@@ -2998,14 +2981,14 @@ impl MiscellaneousService {
             c.insert(&self.db).await.unwrap()
         };
         let intermediate = metadata_to_genre::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id),
+            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
             genre_id: ActiveValue::Set(db_genre.id),
         };
         intermediate.insert(&self.db).await.ok();
         Ok(())
     }
 
-    async fn edit_seen_item(&self, user_id: i32, input: EditSeenItemInput) -> Result<bool> {
+    async fn edit_seen_item(&self, user_id: String, input: EditSeenItemInput) -> Result<bool> {
         let seen = match Seen::find_by_id(input.seen_id).one(&self.db).await.unwrap() {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),
@@ -3032,7 +3015,7 @@ impl MiscellaneousService {
         &self,
         details: MediaDetails,
         is_partial: Option<bool>,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let mut images = vec![];
         images.extend(details.url_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::Url(i.image),
@@ -3081,7 +3064,7 @@ impl MiscellaneousService {
         let metadata = metadata.insert(&self.db).await?;
 
         self.change_metadata_associations(
-            metadata.id,
+            &metadata.id,
             metadata.lot,
             metadata.source,
             details.genres,
@@ -3090,13 +3073,13 @@ impl MiscellaneousService {
             details.people,
         )
         .await?;
-        Ok(IdObject { id: metadata.id })
+        Ok(StringIdObject { id: metadata.id })
     }
 
     #[allow(clippy::too_many_arguments)]
     async fn change_metadata_associations(
         &self,
-        metadata_id: i32,
+        metadata_id: &String,
         lot: MediaLot,
         source: MediaSource,
         genres: Vec<String>,
@@ -3142,39 +3125,48 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn deploy_update_metadata_job(&self, metadata_id: i32) -> Result<String> {
+    async fn deploy_update_metadata_job(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<bool> {
         let metadata = Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let job_id = self
-            .perform_application_job
+        self.perform_application_job
             .clone()
-            .push(ApplicationJob::UpdateMetadata(metadata.id))
-            .await?;
-        Ok(job_id.to_string())
+            .enqueue(ApplicationJob::UpdateMetadata(metadata.id, force_update))
+            .await
+            .unwrap();
+        Ok(true)
     }
 
-    async fn deploy_update_person_job(&self, person_id: i32) -> Result<String> {
+    async fn deploy_update_person_job(&self, person_id: String) -> Result<bool> {
         let person = Person::find_by_id(person_id)
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let job_id = self
-            .perform_application_job
+        self.perform_application_job
             .clone()
-            .push(ApplicationJob::UpdatePerson(person.id))
-            .await?;
-        Ok(job_id.to_string())
+            .enqueue(ApplicationJob::UpdatePerson(person.id))
+            .await
+            .unwrap();
+        Ok(true)
     }
 
-    async fn merge_metadata(&self, user_id: i32, merge_from: i32, merge_into: i32) -> Result<bool> {
+    async fn merge_metadata(
+        &self,
+        user_id: String,
+        merge_from: String,
+        merge_into: String,
+    ) -> Result<bool> {
         let txn = self.db.begin().await?;
         for old_seen in Seen::find()
-            .filter(seen::Column::MetadataId.eq(merge_from))
-            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::MetadataId.eq(&merge_from))
+            .filter(seen::Column::UserId.eq(&user_id))
             .all(&txn)
             .await
             .unwrap()
@@ -3185,15 +3177,15 @@ impl MiscellaneousService {
                 last_updated_on: ActiveValue::NotSet,
                 total_time_spent: ActiveValue::NotSet,
                 num_times_updated: ActiveValue::NotSet,
-                metadata_id: ActiveValue::Set(merge_into),
+                metadata_id: ActiveValue::Set(merge_into.clone()),
                 ..old_seen_active
             };
             new_seen.insert(&txn).await?;
             old_seen.delete(&txn).await?;
         }
         for old_review in Review::find()
-            .filter(review::Column::MetadataId.eq(merge_from))
-            .filter(review::Column::UserId.eq(user_id))
+            .filter(review::Column::MetadataId.eq(&merge_from))
+            .filter(review::Column::UserId.eq(&user_id))
             .all(&txn)
             .await
             .unwrap()
@@ -3201,7 +3193,7 @@ impl MiscellaneousService {
             let old_review_active: review::ActiveModel = old_review.clone().into();
             let new_review = review::ActiveModel {
                 id: ActiveValue::NotSet,
-                metadata_id: ActiveValue::Set(Some(merge_into)),
+                metadata_id: ActiveValue::Set(Some(merge_into.clone())),
                 ..old_review_active
             };
             new_review.insert(&txn).await?;
@@ -3211,37 +3203,50 @@ impl MiscellaneousService {
             .select_only()
             .column(collection::Column::Id)
             .left_join(UserToCollection)
-            .filter(user_to_collection::Column::UserId.eq(user_id))
-            .into_tuple::<i32>()
+            .filter(user_to_collection::Column::UserId.eq(&user_id))
+            .into_tuple::<String>()
             .all(&txn)
             .await
             .unwrap();
         for item in CollectionToEntity::find()
-            .filter(collection_to_entity::Column::MetadataId.eq(merge_from))
+            .filter(collection_to_entity::Column::MetadataId.eq(&merge_from))
             .filter(collection_to_entity::Column::CollectionId.is_in(collections))
             .all(&txn)
             .await?
             .into_iter()
         {
             if CollectionToEntity::find()
-                .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id))
-                .filter(collection_to_entity::Column::MetadataId.eq(merge_into))
+                .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id.clone()))
+                .filter(collection_to_entity::Column::MetadataId.eq(&merge_into))
                 .count(&txn)
                 .await?
                 == 0
             {
                 let mut item_active: collection_to_entity::ActiveModel = item.into();
-                item_active.metadata_id = ActiveValue::Set(Some(merge_into));
+                item_active.metadata_id = ActiveValue::Set(Some(merge_into.clone()));
                 item_active.update(&txn).await?;
             }
         }
-        if let Some(_association) =
-            get_user_to_entity_association(&user_id, Some(merge_into), None, None, None, &txn).await
+        if let Some(_association) = get_user_to_entity_association(
+            &user_id,
+            Some(merge_into.clone()),
+            None,
+            None,
+            None,
+            &txn,
+        )
+        .await
         {
-            let old_association =
-                get_user_to_entity_association(&user_id, Some(merge_from), None, None, None, &txn)
-                    .await
-                    .unwrap();
+            let old_association = get_user_to_entity_association(
+                &user_id,
+                Some(merge_from.clone()),
+                None,
+                None,
+                None,
+                &txn,
+            )
+            .await
+            .unwrap();
             let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
             cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
             cloned.update(&txn).await?;
@@ -3250,7 +3255,7 @@ impl MiscellaneousService {
                 .filter(user_to_entity::Column::MetadataId.eq(merge_from))
                 .filter(user_to_entity::Column::UserId.eq(user_id))
                 .set(user_to_entity::ActiveModel {
-                    metadata_id: ActiveValue::Set(Some(merge_into)),
+                    metadata_id: ActiveValue::Set(Some(merge_into.clone())),
                     ..Default::default()
                 })
                 .exec(&txn)
@@ -3260,7 +3265,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn user_preferences(&self, user_id: i32) -> Result<UserPreferences> {
+    async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
         let mut preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
@@ -3297,7 +3302,7 @@ impl MiscellaneousService {
 
     async fn metadata_search(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: MetadataSearchInput,
     ) -> Result<SearchResults<MetadataSearchItemResponse>> {
         let query = input.search.query.unwrap_or_default();
@@ -3310,6 +3315,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
+        let cloned_user_id = user_id.to_owned();
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
@@ -3328,8 +3334,10 @@ impl MiscellaneousService {
                 metadata::Relation::UserToEntity
                     .def()
                     .on_condition(move |_left, right| {
-                        Condition::all()
-                            .add(Expr::col((right, user_to_entity::Column::UserId)).eq(user_id))
+                        Condition::all().add(
+                            Expr::col((right, user_to_entity::Column::UserId))
+                                .eq(cloned_user_id.clone()),
+                        )
                     }),
             )
             .select_only()
@@ -3345,7 +3353,7 @@ impl MiscellaneousService {
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
             .filter(metadata::Column::Identifier.is_in(&all_identifiers))
-            .into_tuple::<(String, i32, bool)>()
+            .into_tuple::<(String, String, bool)>()
             .all(&self.db)
             .await?
             .into_iter()
@@ -3357,7 +3365,7 @@ impl MiscellaneousService {
             .map(|i| {
                 let interaction = interactions.get(&i.identifier).cloned();
                 MetadataSearchItemResponse {
-                    has_interacted: interaction.unwrap_or_default().1,
+                    has_interacted: interaction.clone().unwrap_or_default().1,
                     database_id: interaction.map(|i| i.0),
                     item: i,
                 }
@@ -3372,7 +3380,7 @@ impl MiscellaneousService {
 
     async fn people_search(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: PeopleSearchInput,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let query = input.search.query.unwrap_or_default();
@@ -3402,7 +3410,7 @@ impl MiscellaneousService {
 
     async fn metadata_group_search(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: MetadataGroupSearchInput,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let query = input.search.query.unwrap_or_default();
@@ -3421,21 +3429,6 @@ impl MiscellaneousService {
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
-            .await?;
-        Ok(results)
-    }
-
-    async fn details_from_provider_for_existing_media(
-        &self,
-        metadata_id: i32,
-    ) -> Result<MediaDetails> {
-        let metadata = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        let results = self
-            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await?;
         Ok(results)
     }
@@ -3483,6 +3476,7 @@ impl MiscellaneousService {
                 MediaLot::Show => Box::new(
                     TmdbShowService::new(
                         &self.config.movies_and_shows.tmdb,
+                        *self.timezone,
                         self.config.frontend.page_size,
                     )
                     .await,
@@ -3490,6 +3484,7 @@ impl MiscellaneousService {
                 MediaLot::Movie => Box::new(
                     TmdbMovieService::new(
                         &self.config.movies_and_shows.tmdb,
+                        *self.timezone,
                         self.config.frontend.page_size,
                     )
                     .await,
@@ -3548,6 +3543,7 @@ impl MiscellaneousService {
     pub async fn get_tmdb_non_media_service(&self) -> Result<NonMediaTmdbService> {
         Ok(NonMediaTmdbService::new(
             self.config.movies_and_shows.tmdb.access_token.clone(),
+            *self.timezone,
             self.config.movies_and_shows.tmdb.locale.clone(),
         )
         .await)
@@ -3613,18 +3609,18 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<IdObject> {
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
         if let Some(m) = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
             .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
             .one(&self.db)
             .await?
-            .map(|m| IdObject { id: m.id })
+            .map(|m| StringIdObject { id: m.id })
         {
             if input.force_update.unwrap_or_default() {
                 tracing::debug!("Forcing update of metadata with id {}", m.id);
-                self.update_metadata_and_notify_users(m.id).await?;
+                self.update_metadata_and_notify_users(&m.id, true).await?;
             }
             Ok(m)
         } else {
@@ -3636,7 +3632,7 @@ impl MiscellaneousService {
         }
     }
 
-    pub async fn commit_person(&self, input: CommitPersonInput) -> Result<IdObject> {
+    pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
         if let Some(p) = Person::find()
             .filter(person::Column::Source.eq(input.source))
             .filter(person::Column::Identifier.eq(input.identifier.clone()))
@@ -3645,7 +3641,7 @@ impl MiscellaneousService {
             })
             .one(&self.db)
             .await?
-            .map(|p| IdObject { id: p.id })
+            .map(|p| StringIdObject { id: p.id })
         {
             Ok(p)
         } else {
@@ -3658,36 +3654,36 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let person = person.insert(&self.db).await?;
-            Ok(IdObject { id: person.id })
+            Ok(StringIdObject { id: person.id })
         }
     }
 
-    pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<IdObject> {
+    pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
         let (group_id, associated_items) = self
             .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
             .await?;
         for (idx, media) in associated_items.into_iter().enumerate() {
             let db_partial_metadata = self.create_partial_metadata(media).await?;
             MetadataToMetadataGroup::delete_many()
-                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group_id))
-                .filter(metadata_to_metadata_group::Column::MetadataId.eq(db_partial_metadata.id))
+                .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
+                .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
                 .exec(&self.db)
                 .await
                 .ok();
             let intermediate = metadata_to_metadata_group::ActiveModel {
-                metadata_group_id: ActiveValue::Set(group_id),
+                metadata_group_id: ActiveValue::Set(group_id.clone()),
                 metadata_id: ActiveValue::Set(db_partial_metadata.id),
                 part: ActiveValue::Set((idx + 1).try_into().unwrap()),
             };
             intermediate.insert(&self.db).await.ok();
         }
-        Ok(IdObject { id: group_id })
+        Ok(StringIdObject { id: group_id })
     }
 
     async fn review_by_id(
         &self,
-        review_id: i32,
-        user_id: i32,
+        review_id: String,
+        user_id: &String,
         respect_preferences: bool,
     ) -> Result<ReviewItem> {
         let review = Review::find_by_id(review_id).one(&self.db).await?;
@@ -3715,7 +3711,7 @@ impl MiscellaneousService {
                     id: r.id,
                     posted_on: r.posted_on,
                     rating,
-                    spoiler: r.spoiler,
+                    is_spoiler: r.is_spoiler,
                     text_original: r.text.clone(),
                     text_rendered: r.text.map(|t| markdown_to_html(&t)),
                     visibility: r.visibility,
@@ -3736,11 +3732,11 @@ impl MiscellaneousService {
 
     async fn item_reviews(
         &self,
-        user_id: i32,
-        metadata_id: Option<i32>,
-        creator_id: Option<i32>,
-        metadata_group_id: Option<i32>,
-        collection_id: Option<i32>,
+        user_id: &String,
+        metadata_id: Option<String>,
+        person_id: Option<String>,
+        metadata_group_id: Option<String>,
+        collection_id: Option<String>,
     ) -> Result<Vec<ReviewItem>> {
         let all_reviews = Review::find()
             .select_only()
@@ -3752,13 +3748,13 @@ impl MiscellaneousService {
             .apply_if(metadata_group_id, |query, v| {
                 query.filter(review::Column::MetadataGroupId.eq(v))
             })
-            .apply_if(creator_id, |query, v| {
+            .apply_if(person_id, |query, v| {
                 query.filter(review::Column::PersonId.eq(v))
             })
             .apply_if(collection_id, |query, v| {
                 query.filter(review::Column::CollectionId.eq(v))
             })
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await
             .unwrap();
@@ -3769,7 +3765,7 @@ impl MiscellaneousService {
         let all_reviews = reviews
             .into_iter()
             .filter(|r| match r.visibility {
-                Visibility::Private => r.posted_by.id == user_id,
+                Visibility::Private => &r.posted_by.id == user_id,
                 _ => true,
             })
             .collect();
@@ -3778,7 +3774,7 @@ impl MiscellaneousService {
 
     async fn user_collections_list(
         &self,
-        user_id: i32,
+        user_id: &String,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
         let subquery = Query::select()
@@ -3835,7 +3831,7 @@ impl MiscellaneousService {
         let sort = input.sort.unwrap_or_default();
         let filter = input.filter.unwrap_or_default();
         let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
-        let maybe_collection = Collection::find_by_id(input.collection_id)
+        let maybe_collection = Collection::find_by_id(input.collection_id.clone())
             .one(&self.db)
             .await
             .unwrap();
@@ -3853,7 +3849,7 @@ impl MiscellaneousService {
                 .left_join(MetadataGroup)
                 .left_join(Person)
                 .left_join(Exercise)
-                .filter(collection_to_entity::Column::CollectionId.eq(collection.id))
+                .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
                 .apply_if(search.query, |query, v| {
                     query.filter(
                         Condition::any()
@@ -4005,7 +4001,7 @@ impl MiscellaneousService {
         let user = collection.find_related(User).one(&self.db).await?.unwrap();
         let reviews = self
             .item_reviews(
-                collection.user_id,
+                &collection.user_id,
                 None,
                 None,
                 None,
@@ -4020,17 +4016,17 @@ impl MiscellaneousService {
         })
     }
 
-    pub async fn post_review(&self, user_id: i32, input: PostReviewInput) -> Result<IdObject> {
+    pub async fn post_review(
+        &self,
+        user_id: &String,
+        input: PostReviewInput,
+    ) -> Result<StringIdObject> {
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
             .await?
             .preferences;
         if preferences.general.disable_reviews {
             return Err(Error::new("Reviews are disabled"));
         }
-        let review_id = match input.review_id {
-            Some(i) => ActiveValue::Set(i),
-            None => ActiveValue::NotSet,
-        };
         let show_ei = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
@@ -4060,7 +4056,10 @@ impl MiscellaneousService {
             return Err(Error::new("At-least one of rating or review is required."));
         }
         let mut review_obj = review::ActiveModel {
-            id: review_id,
+            id: match input.review_id.clone() {
+                Some(i) => ActiveValue::Unchanged(i),
+                None => ActiveValue::NotSet,
+            },
             rating: ActiveValue::Set(input.rating.map(
                 |r| match preferences.general.review_scale {
                     UserReviewScale::OutOfFive => r * dec!(20),
@@ -4080,8 +4079,8 @@ impl MiscellaneousService {
             comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
-        if let Some(s) = input.spoiler {
-            review_obj.spoiler = ActiveValue::Set(s);
+        if let Some(s) = input.is_spoiler {
+            review_obj.is_spoiler = ActiveValue::Set(s);
         }
         if let Some(v) = input.visibility {
             review_obj.visibility = ActiveValue::Set(v);
@@ -4093,25 +4092,25 @@ impl MiscellaneousService {
         if insert.visibility.unwrap() == Visibility::Public {
             let (obj_id, obj_title, entity_lot) = if let Some(mi) = insert.metadata_id.unwrap() {
                 (
-                    mi,
-                    self.generic_metadata(mi).await?.model.title,
+                    mi.to_string(),
+                    self.generic_metadata(&mi).await?.model.title,
                     EntityLot::Media,
                 )
             } else if let Some(mgi) = insert.metadata_group_id.unwrap() {
                 (
-                    mgi,
+                    mgi.to_string(),
                     self.metadata_group_details(mgi).await?.details.title,
                     EntityLot::MediaGroup,
                 )
             } else if let Some(pi) = insert.person_id.unwrap() {
                 (
-                    pi,
+                    pi.to_string(),
                     self.person_details(pi).await?.details.name,
                     EntityLot::Person,
                 )
             } else if let Some(ci) = insert.collection_id.unwrap() {
                 (
-                    ci,
+                    ci.clone(),
                     self.collection_contents(CollectionContentsInput {
                         collection_id: ci,
                         filter: None,
@@ -4127,27 +4126,28 @@ impl MiscellaneousService {
             } else {
                 unreachable!()
             };
-            let user = user_by_id(&self.db, insert.user_id.unwrap()).await?;
+            let user = user_by_id(&self.db, &insert.user_id.unwrap()).await?;
             // DEV: Do not send notification if updating a review
             if input.review_id.is_none() {
                 self.perform_application_job
                     .clone()
-                    .push(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                    .enqueue(ApplicationJob::ReviewPosted(ReviewPostedEvent {
                         obj_id,
                         obj_title,
                         entity_lot,
                         username: user.name,
                         review_id: insert.id.clone().unwrap(),
                     }))
-                    .await?;
+                    .await
+                    .unwrap();
             }
         }
-        Ok(IdObject {
+        Ok(StringIdObject {
             id: insert.id.unwrap(),
         })
     }
 
-    async fn delete_review(&self, user_id: i32, review_id: i32) -> Result<bool> {
+    async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
         let review = Review::find()
             .filter(review::Column::Id.eq(review_id))
             .one(&self.db)
@@ -4158,10 +4158,10 @@ impl MiscellaneousService {
                 if r.user_id == user_id {
                     associate_user_with_entity(
                         &user_id,
-                        r.metadata_id,
-                        r.person_id,
+                        r.metadata_id.clone(),
+                        r.person_id.clone(),
                         None,
-                        r.metadata_group_id,
+                        r.metadata_group_id.clone(),
                         &self.db,
                     )
                     .await?;
@@ -4177,23 +4177,23 @@ impl MiscellaneousService {
 
     pub async fn create_or_update_collection(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: CreateOrUpdateCollectionInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let meta = Collection::find()
             .filter(collection::Column::Name.eq(input.name.clone()))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
+            .filter(collection::Column::UserId.eq(user_id))
             .one(&self.db)
             .await
             .unwrap();
         let mut new_name = input.name.clone();
         match meta {
-            Some(m) if input.update_id.is_none() => Ok(IdObject { id: m.id }),
+            Some(m) if input.update_id.is_none() => Ok(StringIdObject { id: m.id }),
             _ => {
                 let col = collection::ActiveModel {
                     id: match input.update_id {
                         Some(i) => {
-                            let already = Collection::find_by_id(i)
+                            let already = Collection::find_by_id(i.clone())
                                 .one(&self.db)
                                 .await
                                 .unwrap()
@@ -4204,7 +4204,7 @@ impl MiscellaneousService {
                             {
                                 new_name = already.name;
                             }
-                            ActiveValue::Unchanged(i)
+                            ActiveValue::Unchanged(i.clone())
                         }
                         None => ActiveValue::NotSet,
                     },
@@ -4220,18 +4220,18 @@ impl MiscellaneousService {
                 })?;
                 let id = inserted.id.unwrap();
                 user_to_collection::ActiveModel {
-                    user_id: ActiveValue::Set(user_id),
-                    collection_id: ActiveValue::Set(id),
+                    user_id: ActiveValue::Set(user_id.to_owned()),
+                    collection_id: ActiveValue::Set(id.clone()),
                 }
                 .insert(&self.db)
                 .await
                 .ok();
-                Ok(IdObject { id })
+                Ok(StringIdObject { id })
             }
         }
     }
 
-    async fn delete_collection(&self, user_id: i32, name: &str) -> Result<bool> {
+    async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
         if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
             return Err(Error::new("Can not delete a default collection".to_owned()));
         }
@@ -4250,7 +4250,7 @@ impl MiscellaneousService {
 
     pub async fn add_entity_to_collection(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
         add_entity_to_collection(&self.db, user_id, input).await
@@ -4258,9 +4258,9 @@ impl MiscellaneousService {
 
     pub async fn remove_entity_from_collection(
         &self,
-        user_id: i32,
+        user_id: &String,
         input: ChangeCollectionToEntityInput,
-    ) -> Result<IdObject> {
+    ) -> Result<StringIdObject> {
         let collect = Collection::find()
             .left_join(UserToCollection)
             .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
@@ -4270,18 +4270,19 @@ impl MiscellaneousService {
             .unwrap()
             .unwrap();
         CollectionToEntity::delete_many()
-            .filter(collection_to_entity::Column::CollectionId.eq(collect.id))
+            .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
             .filter(
                 collection_to_entity::Column::MetadataId
-                    .eq(input.metadata_id)
-                    .or(collection_to_entity::Column::PersonId.eq(input.person_id))
-                    .or(collection_to_entity::Column::MetadataGroupId.eq(input.metadata_group_id))
+                    .eq(input.metadata_id.clone())
+                    .or(collection_to_entity::Column::PersonId.eq(input.person_id.clone()))
+                    .or(collection_to_entity::Column::MetadataGroupId
+                        .eq(input.metadata_group_id.clone()))
                     .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone())),
             )
             .exec(&self.db)
             .await?;
         associate_user_with_entity(
-            &user_id,
+            user_id,
             input.metadata_id,
             input.person_id,
             input.exercise_id,
@@ -4289,10 +4290,10 @@ impl MiscellaneousService {
             &self.db,
         )
         .await?;
-        Ok(IdObject { id: collect.id })
+        Ok(StringIdObject { id: collect.id })
     }
 
-    async fn delete_seen_item(&self, user_id: i32, seen_id: i32) -> Result<IdObject> {
+    async fn delete_seen_item(&self, user_id: &String, seen_id: String) -> Result<StringIdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
             let (ssn, sen) = match &si.show_extra_information {
@@ -4303,8 +4304,8 @@ impl MiscellaneousService {
             let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
             let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
             let cache = ProgressUpdateCache {
-                user_id,
-                metadata_id: si.metadata_id,
+                user_id: user_id.to_owned(),
+                metadata_id: si.metadata_id.clone(),
                 show_season_number: ssn,
                 show_episode_number: sen,
                 podcast_episode_number: pen,
@@ -4312,10 +4313,10 @@ impl MiscellaneousService {
                 manga_chapter_number: mcn,
             };
             self.seen_progress_cache.cache_remove(&cache).unwrap();
-            let seen_id = si.id;
+            let seen_id = si.id.clone();
             let progress = si.progress;
-            let metadata_id = si.metadata_id;
-            if si.user_id != user_id {
+            let metadata_id = si.metadata_id.clone();
+            if &si.user_id != user_id {
                 return Err(Error::new(
                     "This seen item does not belong to this user".to_owned(),
                 ));
@@ -4325,24 +4326,46 @@ impl MiscellaneousService {
                 self.remove_entity_from_collection(
                     user_id,
                     ChangeCollectionToEntityInput {
-                        creator_user_id: user_id,
+                        creator_user_id: user_id.to_owned(),
                         collection_name: DefaultCollection::InProgress.to_string(),
-                        metadata_id: Some(metadata_id),
+                        metadata_id: Some(metadata_id.clone()),
                         ..Default::default()
                     },
                 )
                 .await
                 .ok();
             }
-            associate_user_with_entity(&user_id, Some(metadata_id), None, None, None, &self.db)
+            associate_user_with_entity(user_id, Some(metadata_id), None, None, None, &self.db)
                 .await?;
-            Ok(IdObject { id: seen_id })
+            Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
         }
     }
 
-    async fn update_metadata(&self, metadata_id: i32) -> Result<Vec<(String, MediaStateChanged)>> {
+    async fn update_metadata(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<Vec<(String, MediaStateChanged)>> {
+        let metadata = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        if !force_update {
+            // check whether the metadata needs to be updated
+            let provider = self
+                .get_metadata_provider(metadata.lot, metadata.source)
+                .await?;
+            if let Ok(false) = provider
+                .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
+                .await
+            {
+                tracing::debug!("Metadata {:?} does not need to be updated", metadata_id);
+                return Ok(vec![]);
+            }
+        }
         tracing::debug!("Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
@@ -4350,7 +4373,7 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         let maybe_details = self
-            .details_from_provider_for_existing_media(metadata_id)
+            .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await;
         let notifications = match maybe_details {
             Ok(details) => self.update_media(metadata_id, details).await?,
@@ -4363,19 +4386,23 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
-    pub async fn update_metadata_and_notify_users(&self, metadata_id: i32) -> Result<()> {
-        let notifications = self.update_metadata(metadata_id).await.unwrap();
+    pub async fn update_metadata_and_notify_users(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<()> {
+        let notifications = self
+            .update_metadata(metadata_id, force_update)
+            .await
+            .unwrap();
         if !notifications.is_empty() {
             let (meta_map, _, _) = self.get_entities_monitored_by().await.unwrap();
-            let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
+            let users_to_notify = meta_map.get(metadata_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
-                    self.send_media_state_changed_notification_for_user(
-                        user_id.to_owned(),
-                        &notification,
-                    )
-                    .await
-                    .ok();
+                    self.queue_media_state_changed_notification_for_user(user_id, &notification)
+                        .await
+                        .ok();
                 }
             }
         }
@@ -4385,7 +4412,7 @@ impl MiscellaneousService {
     async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
         let found_token = user_id_from_token(token, &self.config.users.jwt_secret);
         if let Ok(user_id) = found_token {
-            let user = user_by_id(&self.db, user_id).await?;
+            let user = user_by_id(&self.db, &user_id).await?;
             Ok(UserDetailsResult::Ok(Box::new(user)))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
@@ -4394,7 +4421,7 @@ impl MiscellaneousService {
         }
     }
 
-    async fn latest_user_summary(&self, user_id: i32) -> Result<UserSummary> {
+    async fn latest_user_summary(&self, user_id: &String) -> Result<UserSummary> {
         let ls = partial_user_by_id::<UserWithOnlySummary>(&self.db, user_id).await?;
         Ok(ls.summary.unwrap_or_default())
     }
@@ -4402,9 +4429,9 @@ impl MiscellaneousService {
     #[tracing::instrument(skip(self))]
     pub async fn calculate_user_summary(
         &self,
-        user_id: i32,
+        user_id: &String,
         calculate_from_beginning: bool,
-    ) -> Result<IdObject> {
+    ) -> Result<()> {
         let (mut ls, start_from) = match calculate_from_beginning {
             true => {
                 UserToEntity::update_many()
@@ -4548,44 +4575,50 @@ impl MiscellaneousService {
             let meta = metadata.to_owned().unwrap();
             let mut units_consumed = None;
             if let Some(item) = meta.audio_book_specifics {
-                ls.unique_items.audio_books.insert(meta.id);
+                ls.unique_items.audio_books.insert(meta.id.clone());
                 if let Some(r) = item.runtime {
                     ls.media.audio_books.runtime += r;
                     units_consumed = Some(r);
                 }
             } else if let Some(item) = meta.book_specifics {
-                ls.unique_items.books.insert(meta.id);
+                ls.unique_items.books.insert(meta.id.clone());
                 if let Some(pg) = item.pages {
                     ls.media.books.pages += pg;
                     units_consumed = Some(pg);
                 }
             } else if let Some(item) = meta.movie_specifics {
-                ls.unique_items.movies.insert(meta.id);
+                ls.unique_items.movies.insert(meta.id.clone());
                 if let Some(r) = item.runtime {
                     ls.media.movies.runtime += r;
                     units_consumed = Some(r);
                 }
             } else if let Some(_item) = meta.anime_specifics {
-                ls.unique_items.anime.insert(meta.id);
+                ls.unique_items.anime.insert(meta.id.clone());
                 if let Some(s) = seen.anime_extra_information.to_owned() {
                     if let Some(episode) = s.episode {
-                        ls.unique_items.anime_episodes.insert((meta.id, episode));
+                        ls.unique_items
+                            .anime_episodes
+                            .insert((meta.id.clone(), episode));
                         units_consumed = Some(1);
                     }
                 }
             } else if let Some(_item) = meta.manga_specifics {
-                ls.unique_items.manga.insert(meta.id);
+                ls.unique_items.manga.insert(meta.id.clone());
                 if let Some(s) = seen.manga_extra_information.to_owned() {
                     units_consumed = Some(1);
                     if let Some(chapter) = s.chapter {
-                        ls.unique_items.manga_chapters.insert((meta.id, chapter));
+                        ls.unique_items
+                            .manga_chapters
+                            .insert((meta.id.clone(), chapter));
                     }
                     if let Some(volume) = s.volume {
-                        ls.unique_items.manga_volumes.insert((meta.id, volume));
+                        ls.unique_items
+                            .manga_volumes
+                            .insert((meta.id.clone(), volume));
                     }
                 }
             } else if let Some(item) = meta.show_specifics {
-                ls.unique_items.shows.insert(seen.metadata_id);
+                ls.unique_items.shows.insert(meta.id.clone());
                 if let Some(s) = seen.show_extra_information.to_owned() {
                     if let Some((season, episode)) = item.get_episode(s.season, s.episode) {
                         if let Some(r) = episode.runtime {
@@ -4593,17 +4626,17 @@ impl MiscellaneousService {
                             units_consumed = Some(r);
                         }
                         ls.unique_items.show_episodes.insert((
-                            meta.id,
+                            meta.id.clone(),
                             season.season_number,
                             episode.episode_number,
                         ));
                         ls.unique_items
                             .show_seasons
-                            .insert((meta.id, season.season_number));
+                            .insert((meta.id.clone(), season.season_number));
                     }
                 };
             } else if let Some(item) = meta.podcast_specifics {
-                ls.unique_items.podcasts.insert(seen.metadata_id);
+                ls.unique_items.podcasts.insert(meta.id.clone());
                 if let Some(s) = seen.podcast_extra_information.to_owned() {
                     if let Some(episode) = item.get_episode(s.episode) {
                         if let Some(r) = episode.runtime {
@@ -4612,13 +4645,13 @@ impl MiscellaneousService {
                         }
                         ls.unique_items
                             .podcast_episodes
-                            .insert((meta.id, s.episode));
+                            .insert((meta.id.clone(), s.episode));
                     }
                 }
             } else if let Some(_item) = meta.video_game_specifics {
-                ls.unique_items.video_games.insert(seen.metadata_id);
+                ls.unique_items.video_games.insert(meta.id.clone());
             } else if let Some(item) = meta.visual_novel_specifics {
-                ls.unique_items.visual_novels.insert(seen.metadata_id);
+                ls.unique_items.visual_novels.insert(meta.id.clone());
                 if let Some(r) = item.length {
                     ls.media.visual_novels.runtime += r;
                     units_consumed = Some(r);
@@ -4628,7 +4661,7 @@ impl MiscellaneousService {
             if let Some(consumed_update) = units_consumed {
                 UserToEntity::update_many()
                     .filter(user_to_entity::Column::UserId.eq(user_id))
-                    .filter(user_to_entity::Column::MetadataId.eq(meta.id))
+                    .filter(user_to_entity::Column::MetadataId.eq(&meta.id))
                     .col_expr(
                         user_to_entity::Column::MetadataUnitsConsumed,
                         Expr::expr(Func::coalesce([
@@ -4664,13 +4697,13 @@ impl MiscellaneousService {
         ls.calculated_on = Utc::now();
 
         let user_model = user::ActiveModel {
-            id: ActiveValue::Unchanged(user_id),
+            id: ActiveValue::Unchanged(user_id.to_owned()),
             summary: ActiveValue::Set(Some(ls)),
             ..Default::default()
         };
         let obj = user_model.update(&self.db).await.unwrap();
         tracing::debug!("Calculated summary for user {:?}", obj.name);
-        Ok(IdObject { id: obj.id })
+        Ok(())
     }
 
     async fn register_user(&self, input: AuthUserInput) -> Result<RegisterResult> {
@@ -4706,19 +4739,19 @@ impl MiscellaneousService {
             UserLot::Normal
         };
         let user = user::ActiveModel {
+            id: ActiveValue::Set(format!("usr_{}", nanoid!(12))),
             name: ActiveValue::Set(username),
             password: ActiveValue::Set(password),
             oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
-            sink_integrations: ActiveValue::Set(vec![]),
             notifications: ActiveValue::Set(vec![]),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
-        self.user_created_job(user.id).await?;
-        self.calculate_user_summary(user.id, true).await?;
-        Ok(RegisterResult::Ok(IdObject { id: user.id }))
+        self.user_created_job(&user.id).await?;
+        self.calculate_user_summary(&user.id, true).await?;
+        Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
     }
 
     async fn login_user(&self, input: AuthUserInput) -> Result<LoginResult> {
@@ -4761,7 +4794,7 @@ impl MiscellaneousService {
     }
 
     // this job is run when a user is created for the first time
-    async fn user_created_job(&self, user_id: i32) -> Result<()> {
+    async fn user_created_job(&self, user_id: &String) -> Result<()> {
         for col in DefaultCollection::iter() {
             let meta = col.meta().to_owned();
             self.create_or_update_collection(
@@ -4779,7 +4812,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_user(&self, user_id: i32, input: UpdateUserInput) -> Result<IdObject> {
+    async fn update_user(&self, user_id: String, input: UpdateUserInput) -> Result<StringIdObject> {
         let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
             .one(&self.db)
             .await
@@ -4791,29 +4824,29 @@ impl MiscellaneousService {
         }
         user_obj.password = ActiveValue::Set(input.password);
         let user_obj = user_obj.update(&self.db).await.unwrap();
-        Ok(IdObject { id: user_obj.id })
+        Ok(StringIdObject { id: user_obj.id })
     }
 
     async fn regenerate_user_summaries(&self) -> Result<()> {
         let all_users = User::find()
             .select_only()
             .column(user::Column::Id)
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await
             .unwrap();
         for user_id in all_users {
-            self.calculate_user_summary(user_id, false).await?;
+            self.calculate_user_summary(&user_id, false).await?;
         }
         Ok(())
     }
 
     async fn create_custom_metadata(
         &self,
-        user_id: i32,
+        user_id: String,
         input: CreateCustomMetadataInput,
-    ) -> Result<IdObject> {
-        let identifier = Uuid::new_v4().to_string();
+    ) -> Result<StringIdObject> {
+        let identifier = nanoid!(10);
         let images = input
             .images
             .unwrap_or_default()
@@ -4879,11 +4912,11 @@ impl MiscellaneousService {
             .commit_metadata_internal(details, Some(is_partial))
             .await?;
         self.add_entity_to_collection(
-            user_id,
+            &user_id,
             ChangeCollectionToEntityInput {
-                creator_user_id: user_id,
+                creator_user_id: user_id.to_owned(),
                 collection_name: DefaultCollection::Custom.to_string(),
-                metadata_id: Some(media.id),
+                metadata_id: Some(media.id.clone()),
                 ..Default::default()
             },
         )
@@ -4898,11 +4931,11 @@ impl MiscellaneousService {
 
     async fn update_user_preference(
         &self,
-        user_id: i32,
+        user_id: String,
         input: UpdateUserPreferenceInput,
     ) -> Result<bool> {
         let err = || Error::new("Incorrect property value encountered");
-        let user_model = user_by_id(&self.db, user_id).await?;
+        let user_model = user_by_id(&self.db, &user_id).await?;
         let mut preferences = user_model.preferences.clone();
         match input.property.is_empty() {
             true => {
@@ -5236,63 +5269,19 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn user_integrations(&self, user_id: i32) -> Result<Vec<GraphqlUserIntegration>> {
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
-        let mut all_integrations = vec![];
-        user.yank_integrations
-            .unwrap_or_default()
-            .into_iter()
-            .for_each(|i| {
-                let description = match i.settings {
-                    UserYankIntegrationSetting::Audiobookshelf { base_url, .. } => {
-                        format!("Audiobookshelf URL: {}", base_url)
-                    }
-                };
-                all_integrations.push(GraphqlUserIntegration {
-                    id: i.id,
-                    lot: UserIntegrationLot::Yank,
-                    description,
-                    timestamp: i.timestamp,
-                    slug: None,
-                })
-            });
-        user.sink_integrations.into_iter().for_each(|i| {
-            let (description, slug) = match i.settings {
-                UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    (format!("Jellyfin slug: {}", &slug), slug)
-                }
-                UserSinkIntegrationSetting::Plex { slug, user } => (
-                    format!(
-                        "Plex slug: {},  Plex user: {}",
-                        &slug,
-                        user.unwrap_or_else(|| "N/A".to_owned())
-                    ),
-                    slug,
-                ),
-                UserSinkIntegrationSetting::Kodi { slug } => {
-                    (format!("Kodi slug: {}", &slug), slug)
-                }
-            };
-            all_integrations.push(GraphqlUserIntegration {
-                id: i.id,
-                lot: UserIntegrationLot::Sink,
-                description,
-                timestamp: i.timestamp,
-                slug: Some(slug),
-            })
-        });
-        Ok(all_integrations)
+    async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        Ok(integrations)
     }
 
     async fn user_notification_platforms(
         &self,
-        user_id: i32,
+        user_id: &String,
     ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
+        let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
         let mut all_notifications = vec![];
         user.notifications.into_iter().for_each(|n| {
             let description = match n.settings {
@@ -5330,113 +5319,48 @@ impl MiscellaneousService {
         Ok(all_notifications)
     }
 
-    async fn create_user_sink_integration(
+    async fn create_user_integration(
         &self,
-        user_id: i32,
-        input: CreateUserSinkIntegrationInput,
-    ) -> Result<usize> {
-        let user = user_by_id(&self.db, user_id).await?;
-        let mut integrations = user.sink_integrations.clone();
-        let new_integration_id = integrations.len() + 1;
-        let new_integration = UserSinkIntegration {
-            id: new_integration_id,
-            timestamp: Utc::now(),
-            settings: {
-                let slug = get_id_hasher(&self.config.integration.hasher_salt)
-                    .encode(&[user_id.try_into().unwrap()]);
-                let slug = format!("{}--{}", slug, nanoid!(5));
-                match input.lot {
-                    UserSinkIntegrationSettingKind::Jellyfin => {
-                        UserSinkIntegrationSetting::Jellyfin { slug }
-                    }
-                    UserSinkIntegrationSettingKind::Plex => UserSinkIntegrationSetting::Plex {
-                        slug,
-                        user: input.username,
-                    },
-                    UserSinkIntegrationSettingKind::Kodi => {
-                        UserSinkIntegrationSetting::Kodi { slug }
-                    }
-                }
-            },
+        user_id: String,
+        input: CreateIntegrationInput,
+    ) -> Result<StringIdObject> {
+        let lot = match input.source {
+            IntegrationSource::Audiobookshelf => IntegrationLot::Yank,
+            _ => IntegrationLot::Sink,
         };
-        integrations.insert(0, new_integration);
-        let mut user: user::ActiveModel = user.into();
-        user.sink_integrations = ActiveValue::Set(integrations);
-        user.update(&self.db).await?;
-        Ok(new_integration_id)
-    }
-
-    async fn create_user_yank_integration(
-        &self,
-        user_id: i32,
-        input: CreateUserYankIntegrationInput,
-    ) -> Result<usize> {
-        let user = user_by_id(&self.db, user_id).await?;
-        let mut integrations = user.yank_integrations.clone().unwrap_or_default();
-        let new_integration_id = integrations.len() + 1;
-        let new_integration = UserYankIntegration {
-            id: new_integration_id,
-            timestamp: Utc::now(),
-            settings: match input.lot {
-                UserYankIntegrationSettingKind::Audiobookshelf => {
-                    UserYankIntegrationSetting::Audiobookshelf {
-                        base_url: input.base_url,
-                        token: input.token,
-                    }
-                }
-            },
+        let to_insert = integration::ActiveModel {
+            lot: ActiveValue::Set(lot),
+            user_id: ActiveValue::Set(user_id),
+            source: ActiveValue::Set(input.source),
+            source_specifics: ActiveValue::Set(input.source_specifics),
+            ..Default::default()
         };
-        integrations.insert(0, new_integration);
-        let mut user: user::ActiveModel = user.into();
-        user.yank_integrations = ActiveValue::Set(Some(integrations));
-        user.update(&self.db).await?;
-        Ok(new_integration_id)
+        let integration = to_insert.insert(&self.db).await?;
+        Ok(StringIdObject { id: integration.id })
     }
 
     async fn delete_user_integration(
         &self,
-        user_id: i32,
-        integration_id: usize,
-        integration_type: UserIntegrationLot,
+        user_id: String,
+        integration_id: String,
     ) -> Result<bool> {
-        let user = user_by_id(&self.db, user_id).await?;
-        let mut user_db: user::ActiveModel = user.clone().into();
-        match integration_type {
-            UserIntegrationLot::Yank => {
-                let remaining_integrations = user
-                    .yank_integrations
-                    .clone()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|i| i.id != integration_id)
-                    .collect_vec();
-                let update_value = if remaining_integrations.is_empty() {
-                    None
-                } else {
-                    Some(remaining_integrations)
-                };
-                user_db.yank_integrations = ActiveValue::Set(update_value);
-            }
-            UserIntegrationLot::Sink => {
-                let integrations = user.sink_integrations.clone();
-                let remaining_integrations = integrations
-                    .into_iter()
-                    .filter(|i| i.id != integration_id)
-                    .collect_vec();
-                let update_value = remaining_integrations;
-                user_db.sink_integrations = ActiveValue::Set(update_value);
-            }
-        };
-        user_db.update(&self.db).await?;
+        let integration = Integration::find_by_id(integration_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
+        if integration.user_id != user_id {
+            return Err(Error::new("Integration does not belong to the user"));
+        }
+        integration.delete(&self.db).await?;
         Ok(true)
     }
 
     async fn create_user_notification_platform(
         &self,
-        user_id: i32,
+        user_id: String,
         input: CreateUserNotificationPlatformInput,
     ) -> Result<usize> {
-        let user = user_by_id(&self.db, user_id).await?;
+        let user = user_by_id(&self.db, &user_id).await?;
         let mut notifications = user.notifications.clone();
         let new_notification_id = notifications.len() + 1;
         let new_notification = UserNotification {
@@ -5486,10 +5410,10 @@ impl MiscellaneousService {
 
     async fn delete_user_notification_platform(
         &self,
-        user_id: i32,
+        user_id: String,
         notification_id: usize,
     ) -> Result<bool> {
-        let user = user_by_id(&self.db, user_id).await?;
+        let user = user_by_id(&self.db, &user_id).await?;
         let mut user_db: user::ActiveModel = user.clone().into();
         let notifications = user.notifications.clone();
         let remaining_notifications = notifications
@@ -5564,57 +5488,65 @@ impl MiscellaneousService {
             .collect()
     }
 
-    pub async fn yank_integrations_data_for_user(&self, user_id: i32) -> Result<usize> {
+    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
         let preferences = self.user_preferences(user_id).await?;
         if preferences.general.disable_yank_integrations {
-            return Ok(0);
+            return Ok(false);
         }
-        if let Some(integrations) =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?
-                .yank_integrations
-        {
-            let mut progress_updates = vec![];
-            for integration in integrations.iter() {
-                let response = match &integration.settings {
-                    UserYankIntegrationSetting::Audiobookshelf { base_url, token } => {
-                        self.get_integration_service()
-                            .audiobookshelf_progress(base_url, token)
-                            .await
-                    }
-                };
-                if let Ok(data) = response {
-                    progress_updates.extend(data);
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        let mut progress_updates = vec![];
+        let mut to_update_integrations = vec![];
+        for integration in integrations.into_iter() {
+            let response = match integration.source {
+                IntegrationSource::Audiobookshelf => {
+                    let specifics = integration.clone().source_specifics.unwrap();
+                    self.get_integration_service()
+                        .audiobookshelf_progress(
+                            &specifics.audiobookshelf_base_url.unwrap(),
+                            &specifics.audiobookshelf_token.unwrap(),
+                        )
+                        .await
                 }
+                _ => continue,
+            };
+            if let Ok(data) = response {
+                progress_updates.extend(data);
+                to_update_integrations.push(integration.id);
             }
-            let mut updated_count = 0;
-            for pu in progress_updates.into_iter() {
-                if self.integration_progress_update(pu, user_id).await.is_ok() {
-                    updated_count += 1
-                }
-            }
-            Ok(updated_count)
-        } else {
-            Ok(0)
         }
+        for pu in progress_updates.into_iter() {
+            self.integration_progress_update(pu, user_id).await.ok();
+        }
+        Integration::update_many()
+            .filter(integration::Column::Id.is_in(to_update_integrations))
+            .col_expr(
+                integration::Column::LastTriggeredOn,
+                Expr::value(Utc::now()),
+            )
+            .exec(&self.db)
+            .await?;
+        Ok(true)
     }
 
     pub async fn yank_integrations_data(&self) -> Result<()> {
-        let users_with_integrations = User::find()
-            .filter(user::Column::YankIntegrations.is_not_null())
+        let users_with_integrations = Integration::find()
+            .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .select_only()
-            .column(user::Column::Id)
-            .into_tuple::<i32>()
+            .column(integration::Column::UserId)
+            .into_tuple::<String>()
             .all(&self.db)
             .await?;
         for user_id in users_with_integrations {
             tracing::debug!("Yanking integrations data for user {}", user_id);
-            self.yank_integrations_data_for_user(user_id).await?;
+            self.yank_integrations_data_for_user(&user_id).await?;
         }
         Ok(())
     }
 
-    async fn admin_account_guard(&self, user_id: i32) -> Result<()> {
+    async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
         let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
             return Err(Error::new("Only admins can perform this operation."));
@@ -5629,7 +5561,7 @@ impl MiscellaneousService {
             .await?)
     }
 
-    async fn delete_user(&self, to_delete_user_id: i32) -> Result<bool> {
+    async fn delete_user(&self, to_delete_user_id: String) -> Result<bool> {
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
         if let Some(u) = maybe_user {
             if self
@@ -5653,69 +5585,50 @@ impl MiscellaneousService {
 
     pub async fn process_integration_webhook(
         &self,
-        user_hash_id: String,
-        integration: String,
+        integration_slug: String,
         payload: String,
     ) -> Result<String> {
-        let integration = match integration.as_str() {
-            "jellyfin" => UserSinkIntegrationSettingKind::Jellyfin,
-            "plex" => UserSinkIntegrationSettingKind::Plex,
-            "kodi" => UserSinkIntegrationSettingKind::Kodi,
-            _ => return Err(anyhow!("Incorrect integration requested").into()),
-        };
-        tracing::debug!("Processing integration webhook for {}", integration);
-        let (user_hash, _) = user_hash_id
-            .split_once("--")
-            .ok_or(anyhow!("Unexpected format"))?;
-        let user_id = get_id_hasher(&self.config.integration.hasher_salt).decode(user_hash)?;
-        let user_id: i32 = user_id
-            .first()
-            .ok_or(anyhow!("Incorrect hash id provided"))?
-            .to_owned()
-            .try_into()?;
-        let user =
-            partial_user_by_id::<UserWithOnlyIntegrationsAndNotifications>(&self.db, user_id)
-                .await?;
-        let integration = user
-            .sink_integrations
-            .into_iter()
-            .find(|i| match &i.settings {
-                UserSinkIntegrationSetting::Jellyfin { slug } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Jellyfin
-                }
-                UserSinkIntegrationSetting::Plex { slug, .. } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Plex
-                }
-                UserSinkIntegrationSetting::Kodi { slug } => {
-                    slug == &user_hash_id && integration == UserSinkIntegrationSettingKind::Kodi
-                }
-            })
-            .ok_or_else(|| Error::new("Webhook URL does not match".to_owned()))?;
-        let maybe_progress_update = match integration.settings {
-            UserSinkIntegrationSetting::Jellyfin { .. } => {
+        tracing::debug!(
+            "Processing integration webhook for slug: {}",
+            integration_slug
+        );
+        let integration = Integration::find_by_id(integration_slug)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
+        let maybe_progress_update = match integration.source {
+            IntegrationSource::Kodi => self.get_integration_service().kodi_progress(&payload).await,
+            IntegrationSource::Jellyfin => {
                 self.get_integration_service()
                     .jellyfin_progress(&payload)
                     .await
             }
-            UserSinkIntegrationSetting::Plex { user, .. } => {
+            IntegrationSource::Plex => {
+                let specifics = integration.clone().source_specifics.unwrap();
                 self.get_integration_service()
-                    .plex_progress(&payload, user, &self.db)
+                    .plex_progress(&payload, specifics.plex_username, &self.db)
                     .await
             }
-            UserSinkIntegrationSetting::Kodi { .. } => {
-                self.get_integration_service().kodi_progress(&payload).await
-            }
+            _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(pu, user_id).await?;
+                self.integration_progress_update(pu, &integration.user_id)
+                    .await?;
+                let mut to_update: integration::ActiveModel = integration.into();
+                to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+                to_update.update(&self.db).await?;
                 Ok("Progress updated successfully".to_owned())
             }
             Err(e) => Err(Error::new(e.to_string())),
         }
     }
 
-    async fn integration_progress_update(&self, pu: IntegrationMedia, user_id: i32) -> Result<()> {
+    async fn integration_progress_update(
+        &self,
+        pu: IntegrationMedia,
+        user_id: &String,
+    ) -> Result<()> {
         let maximum_limit =
             Decimal::from_i32(self.config.integration.maximum_progress_limit).unwrap();
         let minimum_limit =
@@ -5728,7 +5641,7 @@ impl MiscellaneousService {
         } else {
             pu.progress
         };
-        let IdObject { id } = self
+        let StringIdObject { id } = self
             .commit_metadata(CommitMediaInput {
                 lot: pu.lot,
                 source: pu.source,
@@ -5761,22 +5674,22 @@ impl MiscellaneousService {
     async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
         let add_entity_to_collection = |collection_name: &str| {
             self.add_entity_to_collection(
-                seen.user_id,
+                &seen.user_id,
                 ChangeCollectionToEntityInput {
-                    creator_user_id: seen.user_id,
+                    creator_user_id: seen.user_id.clone(),
                     collection_name: collection_name.to_string(),
-                    metadata_id: Some(seen.metadata_id),
+                    metadata_id: Some(seen.metadata_id.clone()),
                     ..Default::default()
                 },
             )
         };
         let remove_entity_from_collection = |collection_name: &str| {
             self.remove_entity_from_collection(
-                seen.user_id,
+                &seen.user_id,
                 ChangeCollectionToEntityInput {
-                    creator_user_id: seen.user_id,
+                    creator_user_id: seen.user_id.clone(),
                     collection_name: collection_name.to_string(),
-                    metadata_id: Some(seen.metadata_id),
+                    metadata_id: Some(seen.metadata_id.clone()),
                     ..Default::default()
                 },
             )
@@ -5796,7 +5709,7 @@ impl MiscellaneousService {
                     .ok();
             }
             SeenState::Completed => {
-                let metadata = self.generic_metadata(seen.metadata_id).await?;
+                let metadata = self.generic_metadata(&seen.metadata_id).await?;
                 if metadata.model.lot == MediaLot::Podcast
                     || metadata.model.lot == MediaLot::Show
                     || metadata.model.lot == MediaLot::Anime
@@ -5832,7 +5745,7 @@ impl MiscellaneousService {
                     if all_episodes.is_empty() {
                         return Ok(());
                     }
-                    let seen_history = self.seen_history(seen.user_id, seen.metadata_id).await?;
+                    let seen_history = self.seen_history(&seen.user_id, &seen.metadata_id).await?;
                     let mut bag = HashMap::<String, i32>::from_iter(
                         all_episodes.iter().cloned().map(|e| (e, 0)),
                     );
@@ -5885,39 +5798,36 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, msg))]
-    async fn send_notifications_to_user_platforms(&self, user_id: i32, msg: &str) -> Result<bool> {
+    async fn queue_notifications_to_user_platforms(
+        &self,
+        user_id: &String,
+        msg: &str,
+    ) -> Result<bool> {
         let user_details = user_by_id(&self.db, user_id).await?;
-        let mut success = true;
         if user_details.preferences.notifications.enabled {
-            tracing::debug!("Sending notification to user: {:?}", msg);
-            for notification in user_details.notifications {
-                if notification
-                    .settings
-                    .send_message(&self.config, msg)
-                    .await
-                    .is_err()
-                {
-                    success = false;
-                }
-            }
+            let insert_data = queued_notification::ActiveModel {
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                message: ActiveValue::Set(msg.to_owned()),
+                ..Default::default()
+            };
+            insert_data.insert(&self.db).await?;
         } else {
             tracing::debug!("User has disabled notifications");
         }
-        Ok(success)
+        Ok(true)
     }
 
-    async fn update_watchlist_metadata_and_send_notifications(&self) -> Result<()> {
+    async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
         let (meta_map, _, _) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
         for (metadata_id, to_notify) in meta_map {
-            let notifications = self.update_metadata(metadata_id).await?;
+            let notifications = self.update_metadata(&metadata_id, false).await?;
             for user in to_notify {
                 for notification in notifications.iter() {
-                    self.send_media_state_changed_notification_for_user(user, notification)
+                    self.queue_media_state_changed_notification_for_user(&user, notification)
                         .await?;
                 }
             }
@@ -5925,17 +5835,20 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_monitored_people_and_send_notifications(&self) -> Result<()> {
+    async fn update_monitored_people_and_queue_notifications(&self) -> Result<()> {
         let (_, _, person_map) = self.get_entities_monitored_by().await?;
         tracing::debug!(
             "Users to be notified for people state changes: {:?}",
             person_map
         );
         for (person_id, to_notify) in person_map {
-            let notifications = self.update_person(person_id).await.unwrap_or_default();
+            let notifications = self
+                .update_person(person_id.parse().unwrap())
+                .await
+                .unwrap_or_default();
             for user in to_notify {
                 for notification in notifications.iter() {
-                    self.send_media_state_changed_notification_for_user(user, notification)
+                    self.queue_media_state_changed_notification_for_user(&user, notification)
                         .await?;
                 }
             }
@@ -5943,15 +5856,15 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn send_media_state_changed_notification_for_user(
+    async fn queue_media_state_changed_notification_for_user(
         &self,
-        user_id: i32,
+        user_id: &String,
         notification: &(String, MediaStateChanged),
     ) -> Result<()> {
         let (msg, change) = notification;
-        let notif_prefs = self.user_preferences(user_id).await?.notifications;
-        if notif_prefs.enabled && notif_prefs.to_send.contains(change) {
-            self.send_notifications_to_user_platforms(user_id, msg)
+        let notification_preferences = self.user_preferences(user_id).await?.notifications;
+        if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
+            self.queue_notifications_to_user_platforms(user_id, msg)
                 .await
                 .ok();
         } else {
@@ -5977,8 +5890,10 @@ impl MiscellaneousService {
                 )
             })
             .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
-            // fuck it. we ball. (extremely unsafe, guaranteed to fail if table names change)
-            .group_by(Expr::cust("genre.id, genre.name"))
+            .group_by(Expr::tuple([
+                Expr::col(genre::Column::Id).into(),
+                Expr::col(genre::Column::Name).into(),
+            ]))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
         let paginator = query
             .clone()
@@ -6007,7 +5922,7 @@ impl MiscellaneousService {
 
     async fn metadata_groups_list(
         &self,
-        user_id: i32,
+        user_id: String,
         input: SearchInput,
     ) -> Result<SearchResults<MetadataGroupListItem>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
@@ -6054,12 +5969,12 @@ impl MiscellaneousService {
 
     async fn people_list(
         &self,
-        user_id: i32,
+        user_id: String,
         input: PeopleListInput,
     ) -> Result<SearchResults<MediaCreatorSearchItem>> {
         #[derive(Debug, FromQueryResult)]
         struct PartialCreator {
-            id: i32,
+            id: String,
             name: String,
             images: Option<Vec<MetadataImage>>,
             media_count: i64,
@@ -6127,10 +6042,13 @@ impl MiscellaneousService {
         })
     }
 
-    async fn person_details(&self, person_id: i32) -> Result<PersonDetails> {
-        let mut details = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
+    async fn person_details(&self, person_id: String) -> Result<PersonDetails> {
+        let mut details = Person::find_by_id(person_id.clone())
+            .one(&self.db)
+            .await?
+            .unwrap();
         if details.is_partial.unwrap_or_default() {
-            self.deploy_update_person_job(person_id).await?;
+            self.deploy_update_person_job(person_id.clone()).await?;
         }
         details.display_images = details.images.as_urls(&self.file_storage_service).await;
         let associations = MetadataToPerson::find()
@@ -6198,7 +6116,7 @@ impl MiscellaneousService {
 
     async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
         let page = input.page.unwrap_or(1);
-        let genre = Genre::find_by_id(input.genre_id)
+        let genre = Genre::find_by_id(input.genre_id.clone())
             .one(&self.db)
             .await?
             .unwrap();
@@ -6249,7 +6167,10 @@ impl MiscellaneousService {
         })
     }
 
-    async fn metadata_group_details(&self, metadata_group_id: i32) -> Result<MetadataGroupDetails> {
+    async fn metadata_group_details(
+        &self,
+        metadata_group_id: String,
+    ) -> Result<MetadataGroupDetails> {
         let mut group = MetadataGroup::find_by_id(metadata_group_id)
             .one(&self.db)
             .await?
@@ -6284,9 +6205,9 @@ impl MiscellaneousService {
         let associations = MetadataToMetadataGroup::find()
             .select_only()
             .column(metadata_to_metadata_group::Column::MetadataId)
-            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id.clone()))
             .order_by_asc(metadata_to_metadata_group::Column::Part)
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await?;
         let contents_temp = Metadata::find()
@@ -6315,7 +6236,7 @@ impl MiscellaneousService {
         })
     }
 
-    async fn send_pending_reminders(&self) -> Result<()> {
+    async fn queue_pending_reminders(&self) -> Result<()> {
         #[derive(Debug, Serialize, Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct UserMediaReminder {
@@ -6335,17 +6256,17 @@ impl MiscellaneousService {
                 let related_users = col.find_related(UserToCollection).all(&self.db).await?;
                 if get_current_date(self.timezone.as_ref()) == reminder.reminder {
                     for user in related_users {
-                        self.send_notifications_to_user_platforms(user.user_id, &reminder.text)
+                        self.queue_notifications_to_user_platforms(&user.user_id, &reminder.text)
                             .await?;
                         self.remove_entity_from_collection(
-                            user.user_id,
+                            &user.user_id,
                             ChangeCollectionToEntityInput {
-                                creator_user_id: col.user_id,
+                                creator_user_id: col.user_id.clone(),
                                 collection_name: DefaultCollection::Reminders.to_string(),
-                                metadata_id: cte.metadata_id,
+                                metadata_id: cte.metadata_id.clone(),
                                 exercise_id: cte.exercise_id.clone(),
-                                metadata_group_id: cte.metadata_group_id,
-                                person_id: cte.person_id,
+                                metadata_group_id: cte.metadata_group_id.clone(),
+                                person_id: cte.person_id.clone(),
                                 ..Default::default()
                             },
                         )
@@ -6359,7 +6280,7 @@ impl MiscellaneousService {
 
     pub async fn export_media(
         &self,
-        user_id: i32,
+        user_id: &String,
         writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
         let related_metadata = UserToEntity::find()
@@ -6395,8 +6316,8 @@ impl MiscellaneousService {
                     let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
                     ImportOrExportMediaItemSeen {
                         progress: Some(s.progress),
-                        started_on: s.started_on.map(convert_naive_to_utc),
-                        ended_on: s.finished_on.map(convert_naive_to_utc),
+                        started_on: s.started_on,
+                        ended_on: s.finished_on,
                         provider_watched_on: s.provider_watched_on,
                         show_season_number,
                         show_episode_number,
@@ -6443,7 +6364,7 @@ impl MiscellaneousService {
 
     pub async fn export_media_group(
         &self,
-        user_id: i32,
+        user_id: &String,
         writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
         let related_metadata = UserToEntity::find()
@@ -6493,7 +6414,7 @@ impl MiscellaneousService {
 
     pub async fn export_people(
         &self,
-        user_id: i32,
+        user_id: &String,
         writer: &mut JsonStreamWriter<File>,
     ) -> Result<bool> {
         let related_people = UserToEntity::find()
@@ -6541,7 +6462,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    async fn generate_auth_token(&self, user_id: i32) -> Result<String> {
+    async fn generate_auth_token(&self, user_id: String) -> Result<String> {
         let auth_token = jwt::sign(
             user_id,
             &self.config.users.jwt_secret,
@@ -6552,7 +6473,7 @@ impl MiscellaneousService {
 
     async fn create_review_comment(
         &self,
-        user_id: i32,
+        user_id: String,
         input: CreateReviewCommentInput,
     ) -> Result<bool> {
         let review = Review::find_by_id(input.review_id)
@@ -6571,7 +6492,7 @@ impl MiscellaneousService {
                 .iter_mut()
                 .find(|r| &r.id == input.comment_id.as_ref().unwrap())
                 .unwrap();
-            comment.liked_by.insert(user_id);
+            comment.liked_by.insert(user_id.clone());
         } else if input.decrement_likes.unwrap_or_default() {
             let comment = comments
                 .iter_mut()
@@ -6579,7 +6500,7 @@ impl MiscellaneousService {
                 .unwrap();
             comment.liked_by.remove(&user_id);
         } else {
-            let user = user_by_id(&self.db, user_id).await?;
+            let user = user_by_id(&self.db, &user_id).await?;
             comments.push(ImportOrExportItemReviewComment {
                 id: nanoid!(20),
                 text: input.text.unwrap(),
@@ -6665,7 +6586,7 @@ impl MiscellaneousService {
             if let Some(ps) = &meta.podcast_specifics {
                 for episode in ps.episodes.iter() {
                     let event = calendar_event::ActiveModel {
-                        metadata_id: ActiveValue::Set(Some(meta.id)),
+                        metadata_id: ActiveValue::Set(Some(meta.id.clone())),
                         date: ActiveValue::Set(episode.publish_date),
                         metadata_podcast_extra_information: ActiveValue::Set(Some(
                             SeenPodcastExtraInformation {
@@ -6681,7 +6602,7 @@ impl MiscellaneousService {
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
                             let event = calendar_event::ActiveModel {
-                                metadata_id: ActiveValue::Set(Some(meta.id)),
+                                metadata_id: ActiveValue::Set(Some(meta.id.clone())),
                                 date: ActiveValue::Set(date),
                                 metadata_show_extra_information: ActiveValue::Set(Some(
                                     SeenShowExtraInformation {
@@ -6697,29 +6618,27 @@ impl MiscellaneousService {
                 }
             } else {
                 let event = calendar_event::ActiveModel {
-                    metadata_id: ActiveValue::Set(Some(meta.id)),
+                    metadata_id: ActiveValue::Set(Some(meta.id.clone())),
                     date: ActiveValue::Set(meta.publish_date.unwrap()),
                     ..Default::default()
                 };
                 calendar_events_inserts.push(event);
             };
-            metadata_updates.push(meta.id);
+            metadata_updates.push(meta.id.clone());
         }
-        if !calendar_events_inserts.is_empty() {
-            tracing::debug!(
-                "Inserting {} calendar events",
-                calendar_events_inserts.len()
-            );
-            for cal_insert in calendar_events_inserts {
-                cal_insert.insert(&self.db).await.ok();
-            }
+        tracing::debug!(
+            "Inserting {} calendar events",
+            calendar_events_inserts.len()
+        );
+        for cal_insert in calendar_events_inserts {
+            cal_insert.insert(&self.db).await.ok();
         }
         tracing::debug!("Finished updating calendar events");
         Ok(())
     }
 
     #[tracing::instrument(skip(self))]
-    async fn send_notifications_for_released_media(&self) -> Result<()> {
+    async fn queue_notifications_for_released_media(&self) -> Result<()> {
         let today = get_current_date(self.timezone.as_ref());
         let calendar_events = CalendarEvent::find()
             .filter(calendar_event::Column::Date.eq(today))
@@ -6730,7 +6649,11 @@ impl MiscellaneousService {
             .into_iter()
             .map(|(cal_event, meta)| {
                 let meta = meta.unwrap();
-                let url = self.get_entity_details_frontend_url(meta.id, EntityLot::Media, None);
+                let url = self.get_entity_details_frontend_url(
+                    meta.id.to_string(),
+                    EntityLot::Media,
+                    None,
+                );
                 let notification = if let Some(show) = cal_event.metadata_show_extra_information {
                     format!(
                         "S{}E{} of {} ({}) has been released today.",
@@ -6745,7 +6668,7 @@ impl MiscellaneousService {
                     format!("{} ({}) has been released today.", meta.title, url)
                 };
                 (
-                    meta.id,
+                    meta.id.to_string(),
                     (notification, MediaStateChanged::MetadataPublished),
                 )
             })
@@ -6754,16 +6677,19 @@ impl MiscellaneousService {
         for (metadata_id, notification) in notifications.into_iter() {
             let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
             for user in users_to_notify {
-                self.send_media_state_changed_notification_for_user(user, &notification)
+                self.queue_media_state_changed_notification_for_user(&user, &notification)
                     .await?;
             }
         }
         Ok(())
     }
 
-    async fn update_person(&self, person_id: i32) -> Result<Vec<(String, MediaStateChanged)>> {
+    async fn update_person(&self, person_id: String) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
-        let person = Person::find_by_id(person_id).one(&self.db).await?.unwrap();
+        let person = Person::find_by_id(person_id.clone())
+            .one(&self.db)
+            .await?
+            .unwrap();
         let provider = self.get_non_metadata_provider(person.source).await?;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
@@ -6793,15 +6719,15 @@ impl MiscellaneousService {
             let title = media.title.clone();
             let pm = self.create_partial_metadata(media).await?;
             let already_intermediate = MetadataToPerson::find()
-                .filter(metadata_to_person::Column::MetadataId.eq(pm.id))
-                .filter(metadata_to_person::Column::PersonId.eq(person_id))
+                .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
+                .filter(metadata_to_person::Column::PersonId.eq(&person_id))
                 .filter(metadata_to_person::Column::Role.eq(&role))
                 .one(&self.db)
                 .await?;
             if already_intermediate.is_none() {
                 let intermediate = metadata_to_person::ActiveModel {
-                    person_id: ActiveValue::Set(person.id),
-                    metadata_id: ActiveValue::Set(pm.id),
+                    person_id: ActiveValue::Set(person.id.clone()),
+                    metadata_id: ActiveValue::Set(pm.id.clone()),
                     role: ActiveValue::Set(role.clone()),
                     ..Default::default()
                 };
@@ -6832,19 +6758,19 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
-    pub async fn update_person_and_notify_users(&self, person_id: i32) -> Result<()> {
-        let notifications = self.update_person(person_id).await.unwrap_or_default();
+    pub async fn update_person_and_notify_users(&self, person_id: String) -> Result<()> {
+        let notifications = self
+            .update_person(person_id.clone())
+            .await
+            .unwrap_or_default();
         if !notifications.is_empty() {
             let (_, _, person_map) = self.get_entities_monitored_by().await.unwrap();
             let users_to_notify = person_map.get(&person_id).cloned().unwrap_or_default();
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
-                    self.send_media_state_changed_notification_for_user(
-                        user_id.to_owned(),
-                        &notification,
-                    )
-                    .await
-                    .ok();
+                    self.queue_media_state_changed_notification_for_user(user_id, &notification)
+                        .await
+                        .ok();
                 }
             }
         }
@@ -6854,14 +6780,14 @@ impl MiscellaneousService {
     async fn get_entities_monitored_by(
         &self,
     ) -> Result<(
-        EntityToMonitoredByMap,
-        EntityToMonitoredByMap,
-        EntityToMonitoredByMap,
+        EntityBeingMonitoredByMap,
+        EntityBeingMonitoredByMap,
+        EntityBeingMonitoredByMap,
     )> {
         #[derive(Debug, FromQueryResult, Clone, Default)]
         struct UsersToBeNotified {
-            entity_id: i32,
-            to_notify: Vec<i32>,
+            entity_id: String,
+            to_notify: Vec<String>,
         }
         let get_sql = |entity_type: &str| {
             format!(
@@ -6886,7 +6812,7 @@ GROUP BY m.id;
         let meta_map = meta_map
             .into_iter()
             .map(|m| (m.entity_id, m.to_notify))
-            .collect::<EntityToMonitoredByMap>();
+            .collect::<EntityBeingMonitoredByMap>();
         let meta_group_map: Vec<_> = UsersToBeNotified::find_by_statement(
             Statement::from_sql_and_values(DbBackend::Postgres, get_sql("metadata_group"), []),
         )
@@ -6895,7 +6821,7 @@ GROUP BY m.id;
         let meta_group_map = meta_group_map
             .into_iter()
             .map(|m| (m.entity_id, m.to_notify))
-            .collect::<EntityToMonitoredByMap>();
+            .collect::<EntityBeingMonitoredByMap>();
         let person_map: Vec<_> = UsersToBeNotified::find_by_statement(
             Statement::from_sql_and_values(DbBackend::Postgres, get_sql("person"), []),
         )
@@ -6904,7 +6830,7 @@ GROUP BY m.id;
         let person_map = person_map
             .into_iter()
             .map(|m| (m.entity_id, m.to_notify))
-            .collect::<EntityToMonitoredByMap>();
+            .collect::<EntityBeingMonitoredByMap>();
         Ok((meta_map, meta_group_map, person_map))
     }
 
@@ -6927,17 +6853,17 @@ GROUP BY m.id;
                 "(preferences -> 'notifications' -> 'to_send' ? '{}') = true",
                 MediaStateChanged::ReviewPosted
             )))
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .all(&self.db)
             .await?;
         for user_id in users {
             let url = self.get_entity_details_frontend_url(
-                event.obj_id,
+                event.obj_id.clone(),
                 event.entity_lot,
                 Some("reviews"),
             );
-            self.send_notifications_to_user_platforms(
-                user_id,
+            self.queue_notifications_to_user_platforms(
+                &user_id,
                 &format!(
                     "New review posted for {} ({}, {}) by {}.",
                     event.obj_title, event.entity_lot, url, event.username
@@ -6950,7 +6876,7 @@ GROUP BY m.id;
 
     fn get_entity_details_frontend_url(
         &self,
-        id: i32,
+        id: String,
         entity_lot: EntityLot,
         default_tab: Option<&str>,
     ) -> String {
@@ -7007,41 +6933,49 @@ GROUP BY m.id;
 
     async fn invalidate_import_jobs(&self) -> Result<()> {
         let all_jobs = ImportReport::find()
-            .filter(import_report::Column::Success.is_null())
+            .filter(import_report::Column::WasSuccess.is_null())
             .all(&self.db)
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
                 tracing::debug!("Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
-                job.success = ActiveValue::Set(Some(false));
+                job.was_success = ActiveValue::Set(Some(false));
                 job.save(&self.db).await?;
             }
         }
         Ok(())
     }
 
-    async fn remove_old_metadata_from_monitoring_collection(&self) -> Result<()> {
-        let older_than = Utc::now()
-            - ChronoDuration::try_days(self.config.media.monitoring_remove_after_days).unwrap();
-        self.db
-            .execute(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                r#"
-DELETE FROM collection_to_entity
-WHERE id IN (
-    SELECT cte.id
-    FROM collection_to_entity cte
-    JOIN collection c ON cte.collection_id = c.id AND c.name = $1
-    JOIN user_to_entity ute ON cte.metadata_id = ute.metadata_id
-    WHERE ute.metadata_id IS NOT NULL AND ute.last_updated_on < $2
-);
-       "#,
-                [
-                    DefaultCollection::Monitoring.to_string().into(),
-                    older_than.into(),
-                ],
-            ))
+    async fn remove_old_entities_from_monitoring_collection(&self) -> Result<()> {
+        #[derive(Debug, FromQueryResult)]
+        struct CustomQueryResponse {
+            id: i32,
+            created_on: DateTimeUtc,
+            last_updated_on: Option<DateTimeUtc>,
+        }
+        let all_cte = CollectionToEntity::find()
+            .select_only()
+            .column(collection_to_entity::Column::Id)
+            .column(collection_to_entity::Column::CreatedOn)
+            .column(metadata::Column::LastUpdatedOn)
+            .left_join(Metadata)
+            .inner_join(Collection)
+            .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
+            .order_by_asc(collection_to_entity::Column::Id)
+            .into_model::<CustomQueryResponse>()
+            .all(&self.db)
+            .await?;
+        let mut to_delete = vec![];
+        for cte in all_cte {
+            let delta = cte.last_updated_on.unwrap_or_else(Utc::now) - cte.created_on;
+            if delta.num_days().abs() > self.config.media.monitoring_remove_after_days {
+                to_delete.push(cte.id);
+            }
+        }
+        CollectionToEntity::delete_many()
+            .filter(collection_to_entity::Column::Id.is_in(to_delete))
+            .exec(&self.db)
             .await?;
         Ok(())
     }
@@ -7052,7 +6986,7 @@ WHERE id IN (
             .column(metadata::Column::Id)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::MetadataId.is_null())
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .stream(&self.db)
             .await?;
         while let Some(meta) = metadata_stream.try_next().await? {
@@ -7064,7 +6998,7 @@ WHERE id IN (
             .column(person::Column::Id)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::PersonId.is_null())
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .stream(&self.db)
             .await?;
         while let Some(person) = people_stream.try_next().await? {
@@ -7076,7 +7010,7 @@ WHERE id IN (
             .column(metadata_group::Column::Id)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::MetadataGroupId.is_null())
-            .into_tuple::<i32>()
+            .into_tuple::<String>()
             .stream(&self.db)
             .await?;
         while let Some(meta_group) = metadata_group_stream.try_next().await? {
@@ -7085,48 +7019,85 @@ WHERE id IN (
                 .exec(&self.db)
                 .await?;
         }
+        let mut genre_stream = Genre::find()
+            .select_only()
+            .column(genre::Column::Id)
+            .left_join(MetadataToGenre)
+            .filter(metadata_to_genre::Column::MetadataId.is_null())
+            .into_tuple::<String>()
+            .stream(&self.db)
+            .await?;
+        while let Some(genre) = genre_stream.try_next().await? {
+            tracing::debug!("Removing genre id = {:#?}", genre);
+            Genre::delete_by_id(genre).exec(&self.db).await?;
+        }
+        tracing::debug!("Deleting all queued notifications");
+        QueuedNotification::delete_many().exec(&self.db).await?;
         Ok(())
     }
 
-    pub async fn perform_user_jobs(&self) -> Result<()> {
-        tracing::debug!("Starting user jobs...");
+    #[tracing::instrument(skip(self))]
+    pub async fn send_pending_notifications(&self) -> Result<()> {
+        let users = User::find()
+            .into_partial_model::<UserWithOnlyNotifications>()
+            .all(&self.db)
+            .await?;
+        for user_details in users {
+            tracing::debug!("Sending notification to user: {:?}", user_details.id);
+            let notifications = QueuedNotification::find()
+                .filter(queued_notification::Column::UserId.eq(user_details.id))
+                .all(&self.db)
+                .await?;
+            if notifications.is_empty() {
+                continue;
+            }
+            let msg = notifications
+                .into_iter()
+                .map(|n| n.message)
+                .collect::<Vec<String>>()
+                .join("\n");
+            for notification in user_details.notifications {
+                if let Err(err) = notification.settings.send_message(&self.config, &msg).await {
+                    tracing::trace!("Error sending notification: {:?}", err);
+                }
+            }
+        }
+        Ok(())
+    }
 
+    pub async fn perform_background_jobs(&self) -> Result<()> {
+        tracing::debug!("Starting background jobs...");
+
+        tracing::trace!("Invalidating invalid media import jobs");
+        self.invalidate_import_jobs().await.unwrap();
+        tracing::trace!("Removing stale entities from Monitoring collection");
+        self.remove_old_entities_from_monitoring_collection()
+            .await
+            .unwrap();
+        tracing::trace!("Checking for updates for media in Watchlist");
+        self.update_watchlist_metadata_and_queue_notifications()
+            .await
+            .unwrap();
+        tracing::trace!("Checking for updates for monitored people");
+        self.update_monitored_people_and_queue_notifications()
+            .await
+            .unwrap();
+        tracing::trace!("Checking and queuing any pending reminders");
+        self.queue_pending_reminders().await.unwrap();
+        tracing::trace!("Recalculating calendar events");
+        self.recalculate_calendar_events().await.unwrap();
+        tracing::trace!("Queuing notifications for released media");
+        self.queue_notifications_for_released_media().await.unwrap();
+        tracing::trace!("Sending all pending notifications");
+        self.send_pending_notifications().await.unwrap();
         tracing::trace!("Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association().await?;
         tracing::trace!("Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await?;
-
-        tracing::debug!("Completed user jobs...");
-        Ok(())
-    }
-
-    pub async fn perform_media_jobs(&self) -> Result<()> {
-        tracing::debug!("Starting media jobs...");
-
-        tracing::trace!("Invalidating invalid media import jobs");
-        self.invalidate_import_jobs().await.unwrap();
-        tracing::trace!("Removing stale media from Monitoring collection");
-        self.remove_old_metadata_from_monitoring_collection()
-            .await
-            .unwrap();
-        tracing::trace!("Checking for updates for media in Watchlist");
-        self.update_watchlist_metadata_and_send_notifications()
-            .await
-            .unwrap();
-        tracing::trace!("Checking for updates for monitored people");
-        self.update_monitored_people_and_send_notifications()
-            .await
-            .unwrap();
-        tracing::trace!("Checking and sending any pending reminders");
-        self.send_pending_reminders().await.unwrap();
-        tracing::trace!("Recalculating calendar events");
-        self.recalculate_calendar_events().await.unwrap();
-        tracing::trace!("Sending notifications for released media");
-        self.send_notifications_for_released_media().await.unwrap();
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
 
-        tracing::debug!("Completed media jobs...");
+        tracing::debug!("Completed background jobs...");
         Ok(())
     }
 

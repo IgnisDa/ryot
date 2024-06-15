@@ -1,4 +1,4 @@
-query PersonDetails($personId: Int!) {
+query PersonDetails($personId: String!) {
   personDetails(personId: $personId) {
     sourceUrl
     details {

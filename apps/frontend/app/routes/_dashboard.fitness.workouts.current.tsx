@@ -43,13 +43,12 @@ import {
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
 	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
 } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
 	ExerciseLot,
@@ -116,11 +115,11 @@ import {
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookies = request.headers.get("cookie");
 	const inProgress = parse(cookies || "")[workoutCookieName] === "true";
 	if (!inProgress)
-		return redirectWithToast($path("/"), {
+		throw await redirectWithToast($path("/"), {
 			type: "error",
 			message: "No workout in progress",
 		});
@@ -131,7 +130,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			getCoreEnabledFeatures(),
 		],
 	);
-	return json({
+	return {
 		coreDetails,
 		userPreferences: {
 			unitSystem: userPreferences.fitness.exercises.unitSystem,
@@ -139,14 +138,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 				userPreferences.featuresEnabled.fitness.measurements,
 		},
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Current Workout | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		createWorkout: async () => {
@@ -167,7 +166,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			);
 		},
 	});
-};
+});
 
 const deleteUploadedAsset = (key: string) => {
 	const formData = new FormData();
@@ -220,7 +219,7 @@ export default function Page() {
 
 	const stopTimer = () => setCurrentTimer(RESET);
 
-	const createUserWorkoutFetcher = useFetcher();
+	const createUserWorkoutFetcher = useFetcher<typeof action>();
 
 	useEffect(() => {
 		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
@@ -295,7 +294,7 @@ export default function Page() {
 										value={`${
 											currentWorkout.exercises
 												.map((e) => e.sets.every((s) => s.confirmed))
-												.filter(Boolean).length
+												.filter((e) => e !== undefined).length
 										}/${currentWorkout.exercises.length}`}
 									/>
 									<StatDisplay
@@ -704,7 +703,9 @@ const ExerciseDisplay = (props: {
 		.exhaustive();
 
 	const toBeDisplayedColumns =
-		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
+		[durationCol, distanceCol, weightCol, repsCol].filter(
+			(c) => c !== undefined,
+		).length + 1;
 
 	return currentWorkout ? (
 		<>

@@ -3,21 +3,35 @@
 All steps below are required unless otherwise stated. Please follow them in the correct
 order.
 
+## From `v5.*` to `v6.*`
+
+!!! warning "Integrations deleted"
+
+    All integrations need to be recreated. Please take a look at the
+    [docs](./integrations.md) for the new webhook format.
+
+1. Upgrade the server to `v5.5.6` to make sure all `v5` migrations are applied. For
+   example, you can make this change: `image: "ignisda/ryot:v5.5.6"` in your docker-compose
+   file.
+
+2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+   is a guide on how to do this.
+
+3. Now you can upgrade to the latest version (`v6.*`). For example you can make this
+   change: `image: "ignisda/ryot:latest"` in your docker-compose file. This will
+   automatically apply all migrations.
+
 ## From `v4.*` to `v5.*`
 
-!!! warning "New upgrade strategy"
-
-    Starting from `v5`, the server can be updated without any complicated steps.
-
 1. Upgrade the server to `v4.4.3` to make sure all `v4` migrations are applied. For
-   example, you can make this change: `image: "ghcr.io/ignisda/ryot:v4.4.3"` in your
-   docker-compose file.
+   example, you can make this change: `image: "ignisda/ryot:v4.4.3"` in your docker-compose
+   file.
 
 2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v5.*`). For example you can make this
-   change: `image: "ghcr.io/ignisda/ryot:latest"` in your docker-compose file. This will
+   change: `image: "ignisda/ryot:latest"` in your docker-compose file. This will
    automatically apply all migrations.
 
 ## From `v3.*` to `v4.*`
@@ -25,11 +39,12 @@ order.
 !!! warning "Webhook URL changes"
 
     If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
-    prefix. Please take a look at the [integration](integrations.md#sink-plugins) docs for the
+    prefix. Please take a look at the [integration](./integrations.md#sink-integrations) docs for the
     new format.
 
-1. Upgrade the server to `v3.5.4` to make sure all pending migrations are applied. For example,
-   you can make this change: `image: "ghcr.io/ignisda/ryot:v3.5.4"` in your docker-compose file.
+1. Upgrade the server to `v3.5.4` to make sure all pending migrations are applied. For
+   example, you can make this change: `image: "ignisda/ryot:v3.5.4"` in your docker-compose
+   file.
 
 2. Go to the "Preferences" settings, then the "General" tab, and click on "Disable yank
    integrations" twice. This will ensure that latest preferences have been applied.
@@ -71,7 +86,7 @@ order.
    ```
 
 8. Now you can upgrade to the latest version (`v4.*`) safely. For example you can make this
-   change: `image: "ghcr.io/ignisda/ryot:latest"` in your docker-compose file.
+   change: `image: "ignisda/ryot:latest"` in your docker-compose file.
 
 ## From `v2.*` to `v3.*`
 
@@ -117,7 +132,7 @@ order.
 
 2. Run the last release of the server to perform all migrations (make sure to connect it to the correct database).
    ```bash
-   $ docker run --volume ./ryot/data:/data ghcr.io/ignisda/ryot:v1.22.1
+   $ docker run --volume ./ryot/data:/data ignisda/ryot:v1.22.1
    ```
 
 3. Once the migrations from the above step are done, stop the server.

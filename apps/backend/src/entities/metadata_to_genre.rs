@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "metadata_to_genre")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub metadata_id: i32,
+    pub metadata_id: String,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub genre_id: i32,
+    pub genre_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

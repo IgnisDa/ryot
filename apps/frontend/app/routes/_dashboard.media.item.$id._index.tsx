@@ -27,19 +27,23 @@ import {
 	Stack,
 	Tabs,
 	Text,
+	TextInput,
 	Title,
 } from "@mantine/core";
 import { DateInput, DatePickerInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	defer,
-	json,
 	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
 } from "@remix-run/node";
-import { Await, Form, Link, useLoaderData } from "@remix-run/react";
+import {
+	Await,
+	Form,
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
 	DeployBulkProgressUpdateDocument,
@@ -136,11 +140,10 @@ const searchParamsSchema = z
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const id = params.id;
-	invariant(id, "No ID provided");
-	const metadataId = Number.parseInt(id);
+	const metadataId = params.id;
+	invariant(metadataId, "No ID provided");
 	const headers = await getAuthorizationHeader(request);
 	const [
 		userPreferences,
@@ -162,7 +165,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		{ metadataId },
 		headers,
 	);
-	return defer({
+	return {
 		query,
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
@@ -180,18 +183,17 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		mediaAdditionalDetails,
 		userMediaDetails,
 		collections,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = ({ data }) => {
-	// biome-ignore lint/suspicious/noExplicitAny:
-	return [{ title: `${(data as any).mediaMainDetails.title} | Ryot` }];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${data?.mediaMainDetails.title} | Ryot` }];
 };
 
 const sleepForASecond = () =>
 	new Promise((resolve) => setTimeout(resolve, 1000));
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		individualProgressUpdate: async () => {
@@ -202,7 +204,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				await getAuthorizationHeader(request),
 			);
 			await sleepForASecond();
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Progress updated successfully",
@@ -216,7 +218,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Record deleted successfully",
@@ -230,7 +232,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Metadata update job deployed successfully",
@@ -256,7 +258,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Adjusted seen item successfully",
@@ -379,12 +381,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			};
 			if (submission[redirectToQueryParam])
 				return redirect(submission[redirectToQueryParam], headers);
-			return json({ status: "success", submission } as const, headers);
+			return Response.json({ status: "success", submission } as const, headers);
 		},
 	});
-};
+});
 
-const metadataIdSchema = z.object({ metadataId: zx.IntAsString });
+const metadataIdSchema = z.object({ metadataId: z.string() });
 
 const bulkUpdateSchema = z
 	.object({
@@ -396,11 +398,11 @@ const bulkUpdateSchema = z
 	.merge(MetadataSpecificsSchema)
 	.merge(metadataIdSchema);
 
-const seenIdSchema = z.object({ seenId: zx.IntAsString });
+const seenIdSchema = z.object({ seenId: z.string() });
 
 const mergeMetadataSchema = z.object({
-	mergeFrom: zx.IntAsString,
-	mergeInto: zx.IntAsString,
+	mergeFrom: z.string(),
+	mergeInto: z.string(),
 });
 
 const dateString = z
@@ -408,7 +410,7 @@ const dateString = z
 	.transform((v) => formatDateToNaiveDate(new Date(v)));
 
 const editSeenItem = z.object({
-	seenId: zx.IntAsString,
+	seenId: z.string(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 });
@@ -521,7 +523,7 @@ export default function Page() {
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
 				entityType="metadata"
-				objectId={loaderData.metadataId}
+				objectId={loaderData.metadataId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
 				title={loaderData.mediaMainDetails.title}
 				lot={loaderData.mediaMainDetails.lot}
@@ -1785,7 +1787,7 @@ const IndividualProgressModal = (props: {
 	title: string;
 	opened: boolean;
 	onClose: () => void;
-	metadataId: number;
+	metadataId: string;
 	progress: number;
 	inProgress: AllUserHistory[number];
 	total?: number | null;
@@ -1863,7 +1865,7 @@ const IndividualProgressModal = (props: {
 							</Text>
 							<Flex align="center" gap="xs">
 								<NumberInput
-									value={((props.total || 1) * (value || 1)) / 100}
+									defaultValue={((props.total || 1) * (value || 1)) / 100}
 									onChange={(v) => {
 										const newVal = (Number(v) / (props.total || 1)) * 100;
 										setValue(newVal);
@@ -1927,7 +1929,7 @@ const MetadataCreator = (props: {
 const AdjustSeenTimesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	seenId: number;
+	seenId: string;
 	startedAt?: string | null;
 	endedAt?: string | null;
 }) => {
@@ -1976,7 +1978,7 @@ const AdjustSeenTimesModal = (props: {
 
 const MergeMetadataModal = (props: {
 	opened: boolean;
-	metadataId: number;
+	metadataId: string;
 	onClose: () => void;
 }) => {
 	return (
@@ -1994,7 +1996,7 @@ const MergeMetadataModal = (props: {
 						This will move all your history, reviews, and collections from the
 						source media to the destination media. This action is irreversible.
 					</Text>
-					<NumberInput label="Destination media ID" name="mergeInto" required />
+					<TextInput label="Destination media ID" name="mergeInto" required />
 					<Button type="submit" onClick={props.onClose}>
 						Submit
 					</Button>

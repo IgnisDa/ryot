@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::prelude::Storage;
+use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use database::{ImportSource, MediaLot};
@@ -27,7 +27,7 @@ use crate::{
             ImportOrExportMediaItem, ImportOrExportPersonItem, PostReviewInput,
             ProgressUpdateInput,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, IdObject,
+        BackgroundJob, ChangeCollectionToEntityInput, StringIdObject,
     },
     traits::AuthProvider,
     users::{UserPreferences, UserReviewScale},
@@ -106,8 +106,8 @@ pub struct DeployUrlAndKeyImportInput {
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployUrlAndKeyAndUsernameImportInput {
     api_url: String,
-    api_key: String,
     username: String,
+    password: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -195,7 +195,7 @@ impl ImporterMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: DeployImportJobInput,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.deploy_import_job(user_id, input).await
@@ -225,23 +225,21 @@ impl ImporterService {
 
     pub async fn deploy_import_job(
         &self,
-        user_id: i32,
+        user_id: String,
         input: DeployImportJobInput,
-    ) -> Result<String> {
+    ) -> Result<bool> {
         let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-        let task = self
-            .media_service
+        self.media_service
             .perform_application_job
             .clone()
-            .push(job)
+            .enqueue(job)
             .await
             .unwrap();
-        let job_id = task.to_string();
-        tracing::debug!("Deployed import job with id = {id}", id = job_id);
-        Ok(job_id)
+        tracing::debug!("Deployed import job");
+        Ok(true)
     }
 
-    pub async fn import_reports(&self, user_id: i32) -> Result<Vec<import_report::Model>> {
+    pub async fn import_reports(&self, user_id: String) -> Result<Vec<import_report::Model>> {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)
@@ -254,12 +252,12 @@ impl ImporterService {
     #[tracing::instrument(skip(self, input))]
     pub async fn start_importing(
         &self,
-        user_id: i32,
+        user_id: String,
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
-        let db_import_job = self.start_import_job(user_id, input.source).await?;
+        let db_import_job = self.start_import_job(&user_id, input.source).await?;
         let preferences =
-            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, user_id)
+            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, &user_id)
                 .await?
                 .preferences;
         let mut import = match input.source {
@@ -320,7 +318,7 @@ impl ImporterService {
         }
         for col_details in import.collections.clone() {
             self.media_service
-                .create_or_update_collection(user_id, col_details)
+                .create_or_update_collection(&user_id, col_details)
                 .await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
@@ -341,7 +339,7 @@ impl ImporterService {
                             force_update: Some(true),
                         })
                         .await;
-                    resp.map(|r| IdObject { id: r.id })
+                    resp.map(|r| StringIdObject { id: r.id })
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service
@@ -372,9 +370,9 @@ impl ImporterService {
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
-                            metadata_id: metadata.id,
+                            metadata_id: metadata.id.clone(),
                             progress,
-                            date: seen.ended_on.map(|d| d.date_naive()),
+                            date: seen.ended_on,
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
                             podcast_episode_number: seen.podcast_episode_number,
@@ -384,7 +382,7 @@ impl ImporterService {
                             provider_watched_on: seen.provider_watched_on.clone(),
                             change_state: None,
                         },
-                        user_id,
+                        &user_id,
                         false,
                     )
                     .await
@@ -398,10 +396,14 @@ impl ImporterService {
                 };
             }
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, Some(metadata.id), None, None)
-                {
-                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    Some(metadata.id.clone()),
+                    None,
+                    None,
+                ) {
+                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -414,7 +416,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 self.media_service
                     .create_or_update_collection(
-                        user_id,
+                        &user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
@@ -423,11 +425,11 @@ impl ImporterService {
                     .await?;
                 self.media_service
                     .add_entity_to_collection(
-                        user_id,
+                        &user_id,
                         ChangeCollectionToEntityInput {
-                            creator_user_id: user_id,
+                            creator_user_id: user_id.clone(),
                             collection_name: col.to_string(),
-                            metadata_id: Some(metadata.id),
+                            metadata_id: Some(metadata.id.clone()),
                             ..Default::default()
                         },
                     )
@@ -454,7 +456,7 @@ impl ImporterService {
                 .media_service
                 .commit_metadata_group_internal(&item.identifier, item.lot, item.source)
                 .await;
-            let metadata_id = match data {
+            let metadata_group_id = match data {
                 Ok(r) => r.0,
                 Err(e) => {
                     tracing::error!("{e:?}");
@@ -468,10 +470,14 @@ impl ImporterService {
                 }
             };
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, None, None, Some(metadata_id))
-                {
-                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    None,
+                    None,
+                    Some(metadata_group_id.clone()),
+                ) {
+                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -484,7 +490,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 self.media_service
                     .create_or_update_collection(
-                        user_id,
+                        &user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
@@ -493,11 +499,11 @@ impl ImporterService {
                     .await?;
                 self.media_service
                     .add_entity_to_collection(
-                        user_id,
+                        &user_id,
                         ChangeCollectionToEntityInput {
-                            creator_user_id: user_id,
+                            creator_user_id: user_id.clone(),
                             collection_name: col.to_string(),
-                            metadata_id: Some(metadata_id),
+                            metadata_group_id: Some(metadata_group_id.clone()),
                             ..Default::default()
                         },
                     )
@@ -524,10 +530,14 @@ impl ImporterService {
                 })
                 .await?;
             for review in item.reviews.iter() {
-                if let Some(input) =
-                    convert_review_into_input(review, &preferences, None, Some(person.id), None)
-                {
-                    if let Err(e) = self.media_service.post_review(user_id, input).await {
+                if let Some(input) = convert_review_into_input(
+                    review,
+                    &preferences,
+                    None,
+                    Some(person.id.clone()),
+                    None,
+                ) {
+                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: None,
                             step: ImportFailStep::ReviewConversion,
@@ -540,7 +550,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 self.media_service
                     .create_or_update_collection(
-                        user_id,
+                        &user_id,
                         CreateOrUpdateCollectionInput {
                             name: col.to_string(),
                             ..Default::default()
@@ -549,11 +559,11 @@ impl ImporterService {
                     .await?;
                 self.media_service
                     .add_entity_to_collection(
-                        user_id,
+                        &user_id,
                         ChangeCollectionToEntityInput {
-                            creator_user_id: user_id,
+                            creator_user_id: user_id.clone(),
                             collection_name: col.to_string(),
-                            person_id: Some(person.id),
+                            person_id: Some(person.id.clone()),
                             ..Default::default()
                         },
                     )
@@ -570,7 +580,7 @@ impl ImporterService {
         for workout in import.workouts.clone() {
             if let Err(err) = self
                 .exercise_service
-                .create_user_workout(user_id, workout)
+                .create_user_workout(&user_id, workout)
                 .await
             {
                 import.failed_items.push(ImportFailedItem {
@@ -584,7 +594,7 @@ impl ImporterService {
         for measurement in import.measurements.clone() {
             if let Err(err) = self
                 .exercise_service
-                .create_user_measurement(user_id, measurement)
+                .create_user_measurement(&user_id, measurement)
                 .await
             {
                 import.failed_items.push(ImportFailedItem {
@@ -609,7 +619,7 @@ impl ImporterService {
         };
         self.finish_import_job(db_import_job, details).await?;
         self.media_service
-            .deploy_background_job(user_id, BackgroundJob::CalculateSummary)
+            .deploy_background_job(&user_id, BackgroundJob::CalculateSummary)
             .await
             .ok();
         Ok(())
@@ -617,11 +627,11 @@ impl ImporterService {
 
     async fn start_import_job(
         &self,
-        user_id: i32,
+        user_id: &String,
         source: ImportSource,
     ) -> Result<import_report::Model> {
         let model = import_report::ActiveModel {
-            user_id: ActiveValue::Set(user_id),
+            user_id: ActiveValue::Set(user_id.to_owned()),
             source: ActiveValue::Set(source),
             ..Default::default()
         };
@@ -638,7 +648,7 @@ impl ImporterService {
         let mut model: import_report::ActiveModel = job.into();
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
-        model.success = ActiveValue::Set(Some(true));
+        model.was_success = ActiveValue::Set(Some(true));
         let model = model.update(&self.media_service.db).await.unwrap();
         Ok(model)
     }
@@ -647,9 +657,9 @@ impl ImporterService {
 fn convert_review_into_input(
     review: &ImportOrExportItemRating,
     preferences: &UserPreferences,
-    metadata_id: Option<i32>,
-    person_id: Option<i32>,
-    metadata_group_id: Option<i32>,
+    metadata_id: Option<String>,
+    person_id: Option<String>,
+    metadata_group_id: Option<String>,
 ) -> Option<PostReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
         tracing::debug!("Skipping review since it has no content");
@@ -660,12 +670,12 @@ fn convert_review_into_input(
         UserReviewScale::OutOfHundred => review.rating,
     };
     let text = review.review.clone().and_then(|r| r.text);
-    let spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
+    let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
     let date = review.review.clone().map(|r| r.date);
     Some(PostReviewInput {
         rating,
         text,
-        spoiler,
+        is_spoiler,
         visibility: review.review.clone().and_then(|r| r.visibility),
         date: date.flatten(),
         metadata_id,

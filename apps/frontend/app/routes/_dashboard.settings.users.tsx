@@ -12,12 +12,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserDocument,
@@ -31,7 +27,6 @@ import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
@@ -41,7 +36,7 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreDetails, { usersList }] = await Promise.all([
 		getCoreDetails(request),
 		gqlClient.request(
@@ -50,14 +45,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return json({ coreDetails, usersList });
-};
+	return { coreDetails, usersList };
+});
 
-export const meta: MetaFunction = () => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		delete: async () => {
@@ -67,7 +62,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: deleteUser ? "success" : "error",
 					message: deleteUser
@@ -83,8 +78,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: { password: submission } },
 				await getAuthorizationHeader(request),
 			);
-			const success = registerUser.__typename === "IdObject";
-			return json({ status: "success", submission } as const, {
+			const success = registerUser.__typename === "StringIdObject";
+			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: success ? "success" : "error",
 					message: success
@@ -103,14 +98,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			});
 		},
 	});
-};
+});
 
 const registerFormSchema = z.object({
 	username: z.string(),
 	password: z.string(),
 });
 
-const deleteSchema = z.object({ toDeleteUserId: zx.IntAsString });
+const deleteSchema = z.object({ toDeleteUserId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -119,7 +114,7 @@ export default function Page() {
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
 	] = useDisclosure(false);
 	const [password, setPassword] = useState("");
-	const fetcher = useFetcher();
+	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
@@ -175,7 +170,7 @@ export default function Page() {
 					</Form>
 				</Modal>
 				{loaderData.usersList.map((user) => (
-					<Paper p="xs" withBorder key={user.id}>
+					<Paper p="xs" withBorder key={user.id} data-user-id={user.id}>
 						<Flex align="center" justify="space-between">
 							<Box>
 								<Text>{user.name}</Text>

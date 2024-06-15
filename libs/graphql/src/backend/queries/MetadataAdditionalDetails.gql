@@ -1,4 +1,4 @@
-query MetadataAdditionalDetails($metadataId: Int!) {
+query MetadataAdditionalDetails($metadataId: String!) {
   metadataDetails(metadataId: $metadataId) {
     lot
     creators {

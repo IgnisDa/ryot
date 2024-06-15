@@ -17,11 +17,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
-} from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	Link,
 	useLoaderData,
@@ -86,10 +83,10 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	mineCollectionFilter: undefined,
+	minecollection: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
-	mineSortBy: MediaSortBy.LastUpdated,
+	mineSortBy: MediaSortBy.LastSeen,
 };
 
 enum Action {
@@ -111,9 +108,9 @@ const metadataMapping = {
 	[MediaLot.Movie]: [MediaSource.Tmdb],
 	[MediaLot.Show]: [MediaSource.Tmdb],
 	[MediaLot.VisualNovel]: [MediaSource.Vndb],
-} as const;
+};
 
-export const loader = async ({ request, params }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const [
 		userDetails,
 		coreDetails,
@@ -153,7 +150,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 				generalFilter: z
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
-				collectionFilter: zx.IntAsString.optional(),
+				collection: z.string().optional(),
 			});
 			const { metadataList } = await gqlClient.request(
 				MetadataListDocument,
@@ -164,7 +161,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						filter: {
 							general: urlParse.generalFilter,
-							collection: urlParse.collectionFilter,
+							collection: urlParse.collection,
 						},
 					},
 				},
@@ -199,7 +196,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		})
 		.exhaustive();
 	const url = new URL(request.url);
-	return json({
+	return {
 		lot,
 		query,
 		action,
@@ -212,10 +209,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
 		userPreferences: { reviewScale: userPreferences.general.reviewScale },
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = ({ params }) => {
+export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [
 		{
 			title: `${changeCase(params.action || "")} ${changeCase(
@@ -239,8 +236,7 @@ export default function Page() {
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collectionFilter !==
-			defaultFilters.mineCollectionFilter;
+		loaderData.mediaList?.url.collection !== defaultFilters.minecollection;
 
 	return (
 		<Container>
@@ -367,7 +363,7 @@ export default function Page() {
 									{loaderData.collections.length > 0 ? (
 										<Select
 											placeholder="Select a collection"
-											defaultValue={loaderData.mediaList.url.collectionFilter?.toString()}
+											defaultValue={loaderData.mediaList.url.collection?.toString()}
 											data={[
 												{
 													group: "My collections",
@@ -377,7 +373,7 @@ export default function Page() {
 													})),
 												},
 											]}
-											onChange={(v) => setP("collectionFilter", v)}
+											onChange={(v) => setP("collection", v)}
 											clearable
 										/>
 									) : null}
@@ -512,7 +508,7 @@ const MediaSearchItem = (props: {
 	action: "search" | "list";
 	hasInteracted: boolean;
 	reviewScale: UserReviewScale;
-	maybeItemId?: number;
+	maybeItemId?: string;
 }) => {
 	const navigate = useNavigate();
 	const loaderData = useLoaderData<typeof loader>();

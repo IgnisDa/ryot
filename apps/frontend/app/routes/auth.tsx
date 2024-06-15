@@ -11,13 +11,17 @@ import {
 	TextInput,
 } from "@mantine/core";
 import {
-	type ActionFunctionArgs,
-	type LoaderFunctionArgs,
-	type MetaFunction,
-	json,
 	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
 } from "@remix-run/node";
-import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+	useSearchParams,
+} from "@remix-run/react";
 import {
 	CoreDetailsDocument,
 	GetOidcRedirectUrlDocument,
@@ -48,35 +52,37 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	defaultForm: z.enum(["login", "register"]).optional(),
+	intent: z.enum(["login", "register"]).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [isAuthenticated, _] = await getIsAuthenticated(request);
 	if (isAuthenticated)
-		return redirectWithToast($path("/"), {
+		throw await redirectWithToast($path("/"), {
 			message: "You were already logged in",
 		});
 	const [enabledFeatures, { coreDetails }] = await Promise.all([
 		getCoreEnabledFeatures(),
 		gqlClient.request(CoreDetailsDocument),
 	]);
-	return json({
-		defaultForm: query.defaultForm || "login",
+	return {
+		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
 		localAuthDisabled: coreDetails.localAuthDisabled,
 		tokenValidForDays: coreDetails.tokenValidForDays,
 		signupAllowed: enabledFeatures.signupAllowed,
-	});
-};
+	};
+});
 
-export const meta: MetaFunction = () => [{ title: "Authentication | Ryot" }];
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => [
+	{ title: "Authentication | Ryot" },
+];
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.formData();
 	return namedAction(request, {
 		register: async () => {
@@ -84,7 +90,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				schema: registerSchema,
 			});
 			if (submission.status !== "success")
-				return json({} as const, {
+				return Response.json({} as const, {
 					status: 400,
 					headers: await createToastHeaders({
 						type: "error",
@@ -110,16 +116,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						() => "This username already exists",
 					)
 					.exhaustive();
-				return json({} as const, {
+				return Response.json({} as const, {
 					status: 400,
 					headers: await createToastHeaders({ message, type: "error" }),
 				});
 			}
-			return json({} as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Please login with your new credentials",
-				}),
+			return await redirectWithToast($path("/auth"), {
+				type: "success",
+				message: "Please login with your new credentials",
 			});
 		},
 		login: async () => {
@@ -161,7 +165,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					() => "The provider chosen was incorrect",
 				)
 				.exhaustive();
-			return json({} as const, {
+			return Response.json({} as const, {
 				headers: await createToastHeaders({ message, type: "error" }),
 			});
 		},
@@ -172,7 +176,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			return redirect(getOidcRedirectUrl);
 		},
 	});
-};
+});
 
 const registerSchema = z
 	.object({
@@ -200,7 +204,7 @@ export default function Page() {
 	const [parent] = useAutoAnimate();
 	const [searchParams] = useSearchParams();
 	const redirectValue = searchParams.get(redirectToQueryParam);
-	const intent = loaderData.defaultForm;
+	const intent = loaderData.intent;
 
 	return (
 		<Stack
@@ -275,7 +279,7 @@ export default function Page() {
 					ta="right"
 					component={Link}
 					to={withQuery(".", {
-						defaultForm: intent === "login" ? "register" : "login",
+						intent: intent === "login" ? "register" : "login",
 					})}
 				>
 					{

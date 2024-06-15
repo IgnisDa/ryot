@@ -103,10 +103,6 @@ frontend:
 
 # Settings related to external integrations.
 integration:
-  # The salt used to hash user IDs.
-  # @envvar INTEGRATION_HASHER_SALT
-  hasher_salt: ""
-
   # The maximum progress limit after which a media is considered to be completed.
   # @envvar INTEGRATION_MAXIMUM_PROGRESS_LIMIT
   maximum_progress_limit: 95
@@ -154,19 +150,10 @@ podcasts:
 
 # Settings related to scheduler.
 scheduler:
-  # The url to the SQLite database where job related data needs to be stored.
-  # @envvar SCHEDULER_DATABASE_URL
-  database_url: "sqlite::memory:"
-
   # The number of jobs to process every 5 seconds when updating metadata in
   # the background.
   # @envvar SCHEDULER_RATE_LIMIT_NUM
   rate_limit_num: 5
-
-  # Deploy a job every x hours that performs user cleanup and summary
-  # calculation.
-  # @envvar SCHEDULER_USER_CLEANUP_EVERY
-  user_cleanup_every: 12
 
 # Settings related to server.
 server:

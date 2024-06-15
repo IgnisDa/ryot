@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
+use sea_orm::prelude::DateTimeUtc;
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
@@ -34,6 +35,12 @@ pub trait MediaProvider {
     #[allow(unused_variables)]
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         bail!("This provider does not support getting media details")
+    }
+
+    /// Get whether a metadata has been updated since the given date.
+    #[allow(unused_variables)]
+    async fn metadata_updated_since(&self, identifier: &str, since: DateTimeUtc) -> Result<bool> {
+        bail!("This provider does not support checking if metadata has been updated")
     }
 
     /// Search for people via a query.
@@ -106,9 +113,9 @@ pub trait AuthProvider {
             .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
     }
 
-    async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<i32> {
+    async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let ctx = ctx.data_unchecked::<AuthContext>();
-        if let Some(id) = ctx.user_id {
+        if let Some(id) = ctx.user_id.to_owned() {
             Ok(id)
         } else {
             Err(Error::new("User was not logged in"))

@@ -2,6 +2,7 @@
 
 /* eslint-disable */
 
+/** The actual statistics that were logged in a user measurement. */
 export interface UserMeasurementStats {
 	abdominal_skinfold: string | null;
 	basal_metabolic_rate: string | null;
@@ -41,10 +42,11 @@ export interface UserMeasurement {
 	timestamp: string;
 }
 
-export type MediaLot = 'AudioBook' | 'Anime' | 'Book' | 'Podcast' | 'Manga' | 'Movie' | 'Show' | 'VideoGame' | 'VisualNovel';
+/** The different types of media that can be stored. */
+export type MediaLot = 'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel';
 
 export interface IdAndNamedObject {
-	id: number;
+	id: string;
 	name: string;
 }
 
@@ -53,7 +55,7 @@ export interface ImportOrExportItemReviewComment {
 	created_on: string;
 	id: string;
 	/** The user ids of all those who liked it. */
-	liked_by: number[];
+	liked_by: string[];
 	text: string;
 	user: IdAndNamedObject;
 }
@@ -120,7 +122,8 @@ export interface ImportOrExportMediaItemSeen {
 	started_on: string | null;
 }
 
-export type MediaSource = 'Anilist' | 'Audible' | 'Custom' | 'GoogleBooks' | 'Igdb' | 'Itunes' | 'Listennotes' | 'MangaUpdates' | 'Mal' | 'Openlibrary' | 'Tmdb' | 'Vndb';
+/** The different sources (or providers) from which data can be obtained from. */
+export type MediaSource = 'anilist' | 'audible' | 'custom' | 'google_books' | 'igdb' | 'itunes' | 'listennotes' | 'manga_updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMediaItem {
@@ -131,7 +134,7 @@ export interface ImportOrExportMediaItem {
 	/**
 	 * The type of media.
 	 *
-	 * @default 'Book'
+	 * @default 'book'
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -141,7 +144,7 @@ export interface ImportOrExportMediaItem {
 	/**
 	 * The source of media.
 	 *
-	 * @default 'Audible'
+	 * @default 'audible'
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
@@ -157,7 +160,7 @@ export interface ImportOrExportMediaGroupItem {
 	/**
 	 * The type of media.
 	 *
-	 * @default 'Book'
+	 * @default 'book'
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -165,7 +168,7 @@ export interface ImportOrExportMediaGroupItem {
 	/**
 	 * The source of media.
 	 *
-	 * @default 'Audible'
+	 * @default 'audible'
 	 */
 	source: MediaSource;
 	/** Name of the group. */
@@ -190,13 +193,14 @@ export interface ImportOrExportPersonItem {
 	/**
 	 * The source of data.
 	 *
-	 * @default 'Audible'
+	 * @default 'audible'
 	 */
 	source: MediaSource;
 	/** The source specific data. */
 	source_specifics: PersonSourceSpecifics | null;
 }
 
+/** The assets that were uploaded for an entity. */
 export interface EntityAssets {
 	/** The keys of the S3 images. */
 	images: string[];
@@ -204,12 +208,16 @@ export interface EntityAssets {
 	videos: string[];
 }
 
-export type ExerciseLot = 'Duration' | 'DistanceAndDuration' | 'Reps' | 'RepsAndWeight';
+/** The different types of exercises that can be done. */
+export type ExerciseLot = 'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight';
 
-export type SetLot = 'Normal' | 'WarmUp' | 'Drop' | 'Failure';
+/** The types of set (mostly characterized by exertion level). */
+export type SetLot = 'normal' | 'warm_up' | 'drop' | 'failure';
 
-export type WorkoutSetPersonalBest = 'Weight' | 'OneRm' | 'Volume' | 'Time' | 'Pace' | 'Reps';
+/** The different types of personal bests that can be achieved on a set. */
+export type WorkoutSetPersonalBest = 'weight' | 'one_rm' | 'volume' | 'time' | 'pace' | 'reps';
 
+/** Details about the statistics of the set performed. */
 export interface WorkoutSetStatistic {
 	distance: string | null;
 	duration: string | null;
@@ -230,11 +238,11 @@ export interface WorkoutSetRecord {
 	confirmed_at: string | null;
 	lot: SetLot;
 	personal_bests: WorkoutSetPersonalBest[];
-	/** Details about the statistics of the set performed. */
 	statistic: WorkoutSetStatistic;
-	totals: WorkoutSetTotals;
+	totals?: WorkoutSetTotals;
 }
 
+/** The totals of a workout and the different bests achieved. */
 export interface WorkoutOrExerciseTotals {
 	distance: string;
 	duration: string;
@@ -242,13 +250,12 @@ export interface WorkoutOrExerciseTotals {
 	personal_bests_achieved: number;
 	reps: number;
 	/** The total seconds that were logged in the rest timer. */
-	rest_time: number;
+	rest_time?: number;
 	weight: string;
 }
 
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
-	/** The assets that were uploaded for an entity. */
 	assets: EntityAssets;
 	lot: ExerciseLot;
 	name: string;
@@ -257,19 +264,17 @@ export interface ProcessedExercise {
 	sets: WorkoutSetRecord[];
 	/** The indices of the exercises with which this has been superset with. */
 	superset_with: number[];
-	/** The totals of a workout and the different bests achieved. */
 	total: WorkoutOrExerciseTotals;
 }
 
+/** Information about a workout done. */
 export interface WorkoutInformation {
-	/** The assets that were uploaded for an entity. */
 	assets: EntityAssets;
 	exercises: ProcessedExercise[];
 }
 
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
-	/** Details about the set performed. */
 	best_set: WorkoutSetRecord;
 	id: string;
 	lot: ExerciseLot;
@@ -278,7 +283,6 @@ export interface WorkoutSummaryExercise {
 
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
-	/** The totals of a workout and the different bests achieved. */
 	total: WorkoutOrExerciseTotals;
 }
 
@@ -287,7 +291,6 @@ export interface Workout {
 	comment: string | null;
 	end_time: string;
 	id: string;
-	/** Information about a workout done. */
 	information: WorkoutInformation;
 	name: string;
 	start_time: string;

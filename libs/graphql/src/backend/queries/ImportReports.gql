@@ -4,7 +4,7 @@ query ImportReports {
     source
     startedOn
     finishedOn
-    success
+    wasSuccess
     details {
       import {
         total

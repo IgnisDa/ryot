@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub from_metadata_id: i32,
+    pub from_metadata_id: String,
     pub relation: MetadataToMetadataRelation,
-    pub to_metadata_id: i32,
+    pub to_metadata_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

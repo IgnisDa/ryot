@@ -7,9 +7,13 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(r#"update user_to_entity set needs_to_be_updated = true;"#)
-            .await?;
 
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "collection_to_entity" ADD COLUMN IF NOT EXISTS "created_on" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp;
+            "#,
+        )
+        .await?;
         Ok(())
     }
 

@@ -4,7 +4,7 @@ mutation RegisterUser($input: AuthUserInput!) {
     ... on RegisterError {
       error
     }
-    ... on IdObject {
+    ... on StringIdObject {
       id
     }
   }

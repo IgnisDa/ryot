@@ -4,6 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use database::SeenState;
+use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{entity::prelude::*, ActiveValue};
@@ -24,13 +25,13 @@ use crate::{
 #[graphql(name = "Seen")]
 #[sea_orm(table_name = "seen")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     pub progress: Decimal,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
-    pub user_id: i32,
-    pub metadata_id: i32,
+    pub user_id: String,
+    pub metadata_id: String,
     pub state: SeenState,
     pub provider_watched_on: Option<String>,
     #[graphql(skip)]
@@ -80,7 +81,7 @@ impl Related<super::user::Entity> for Entity {
 
 #[async_trait]
 impl ActiveModelBehavior for ActiveModel {
-    async fn before_save<C>(mut self, _db: &C, _insert: bool) -> Result<Self, DbErr>
+    async fn before_save<C>(mut self, _db: &C, insert: bool) -> Result<Self, DbErr>
     where
         C: ConnectionTrait,
     {
@@ -88,6 +89,9 @@ impl ActiveModelBehavior for ActiveModel {
         let progress = self.progress.clone().unwrap();
         if progress == dec!(100) && state == SeenState::InProgress {
             self.state = ActiveValue::Set(SeenState::Completed);
+        }
+        if insert {
+            self.id = ActiveValue::Set(format!("see_{}", nanoid!(12)));
         }
         Ok(self)
     }
@@ -99,7 +103,7 @@ impl ActiveModelBehavior for ActiveModel {
         if insert {
             associate_user_with_entity(
                 &model.user_id,
-                Some(model.metadata_id),
+                Some(model.metadata_id.clone()),
                 None,
                 None,
                 None,

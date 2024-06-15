@@ -69,7 +69,7 @@ pub async fn import(
         let timestamp = utils::get_date_time_with_offset(ndt, timezone.clone());
         measurements.push(user_measurement::Model {
             timestamp,
-            user_id: 0,
+            user_id: "".to_string(),
             name: None,
             comment: record.comment,
             stats: UserMeasurementStats {
