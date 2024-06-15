@@ -84,15 +84,6 @@ pub trait MediaProvider {
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         bail!("This provider does not support getting group details")
     }
-
-    /// Get recommendations for a media item.
-    #[allow(unused_variables)]
-    async fn get_recommendations_for_metadata(
-        &self,
-        identifier: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        bail!("This provider does not support getting recommendations")
-    }
 }
 
 pub trait MediaProviderLanguages {

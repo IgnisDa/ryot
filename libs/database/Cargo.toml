@@ -16,4 +16,4 @@ strum = { workspace = true }
 tracing = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["nanoid", "serde_json", "tracing"]
+ignored = ["serde_json", "tracing"]

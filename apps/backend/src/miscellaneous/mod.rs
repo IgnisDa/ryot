@@ -46,7 +46,6 @@ pub enum DefaultCollection {
     Custom,
     Owned,
     Reminders,
-    Recommendations,
 }
 
 meta! {
@@ -55,7 +54,6 @@ meta! {
     InProgress, (None, "Media items that I am currently watching.");
     Completed, (None, "Media items that I have completed.");
     Custom, (None, "Items that I have created manually.");
-    Recommendations, (None, "Items that are recommended to me based on my consumption.");
     Monitoring, (Some(
         vec![
             CollectionExtraInformation {

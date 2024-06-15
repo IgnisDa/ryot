@@ -352,37 +352,6 @@ impl TmdbService {
             .map_err(|e| anyhow!(e))?;
         Ok(!changes.changes.is_empty())
     }
-
-    async fn metadata_recommendations(
-        &self,
-        identifier: &str,
-        typ: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        let recommendations = self
-            .client
-            .get(format!("{}/{}/recommendations", typ, identifier))
-            .await
-            .map_err(|e| anyhow!(e))?
-            .body_json::<TmdbListResponse>()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let recommendations = recommendations
-            .results
-            .into_iter()
-            .map(|r| PartialMetadataWithoutId {
-                title: r.title.unwrap_or_default(),
-                image: r.poster_path.map(|p| self.get_image_url(p)),
-                identifier: r.id.to_string(),
-                source: MediaSource::Tmdb,
-                lot: match typ {
-                    "movie" => MediaLot::Movie,
-                    "tv" => MediaLot::Show,
-                    _ => unreachable!(),
-                },
-            })
-            .collect();
-        Ok(recommendations)
-    }
 }
 
 impl MediaProviderLanguages for TmdbService {
@@ -967,15 +936,6 @@ impl MediaProvider for TmdbMovieService {
             parts,
         ))
     }
-
-    async fn get_recommendations_for_metadata(
-        &self,
-        identifier: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        self.base
-            .metadata_recommendations(identifier, "movie")
-            .await
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -1312,13 +1272,6 @@ impl MediaProvider for TmdbShowService {
             },
             items: resp.to_vec(),
         })
-    }
-
-    async fn get_recommendations_for_metadata(
-        &self,
-        identifier: &str,
-    ) -> Result<Vec<PartialMetadataWithoutId>> {
-        self.base.metadata_recommendations(identifier, "tv").await
     }
 }
 

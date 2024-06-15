@@ -43,8 +43,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -112,7 +112,7 @@ use crate::{
         MediaProviderLanguages,
     },
     users::{
-        DashboardElementLot, UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
+        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
         UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
     },
     utils::{
@@ -7032,117 +7032,6 @@ GROUP BY m.id;
         Ok(())
     }
 
-    pub async fn download_recommendations_for_users(&self) -> Result<()> {
-        #[derive(Debug, FromQueryResult)]
-        struct CustomQueryResponse {
-            lot: MediaLot,
-            source: MediaSource,
-            identifier: String,
-        }
-        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            r#"
-SELECT "m"."lot", "m"."identifier", "m"."source"
-FROM (
-    SELECT "user_id", "metadata_id" FROM "user_to_entity"
-    WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
-) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" in ($1, $2, $3)
-ORDER BY RANDOM() LIMIT 10;
-        "#,
-            [
-                MediaSource::Tmdb.into(),
-                MediaSource::Anilist.into(),
-                MediaSource::Listennotes.into(),
-            ],
-        ))
-        .all(&self.db)
-        .await?;
-        let mut media_item_ids = vec![];
-        for media in media_items.into_iter() {
-            let provider = self.get_metadata_provider(media.lot, media.source).await?;
-            if let Ok(recommendations) = provider
-                .get_recommendations_for_metadata(&media.identifier)
-                .await
-            {
-                for rec in recommendations {
-                    if let Ok(meta) = self.create_partial_metadata(rec).await {
-                        media_item_ids.push(meta.id);
-                    }
-                }
-            }
-        }
-
-        let mut users_stream = User::find()
-            .select_only()
-            .column(user::Column::Id)
-            .into_tuple::<String>()
-            .stream(&self.db)
-            .await?;
-        while let Some(user_id) = users_stream.try_next().await? {
-            let user_preferences = self.user_preferences(&user_id).await?;
-            let limit = user_preferences
-                .general
-                .dashboard
-                .into_iter()
-                .find(|d| d.section == DashboardElementLot::Recommendations)
-                .unwrap()
-                .num_elements;
-            let rec_col = Collection::find()
-                .filter(collection::Column::Name.eq(DefaultCollection::Recommendations.to_string()))
-                .filter(collection::Column::UserId.eq(&user_id))
-                .select_only()
-                .column(collection::Column::Id)
-                .into_tuple::<String>()
-                .one(&self.db)
-                .await?
-                .unwrap();
-            CollectionToEntity::delete_many()
-                .filter(collection_to_entity::Column::CollectionId.eq(&rec_col))
-                .exec(&self.db)
-                .await?;
-            // TODO: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
-            struct Md5;
-            impl Iden for Md5 {
-                fn unquoted(&self, s: &mut dyn Write) {
-                    write!(s, "MD5").unwrap();
-                }
-            }
-            let items = Metadata::find()
-                .select_only()
-                .column(metadata::Column::Id)
-                .filter(metadata::Column::Id.is_in(&media_item_ids))
-                .order_by(
-                    SimpleExpr::FunctionCall(
-                        Func::cust(Md5).arg(
-                            Expr::col(metadata::Column::Title)
-                                .concat(Expr::val(&user_id))
-                                .concat(Expr::current_date()),
-                        ),
-                    ),
-                    Order::Desc,
-                )
-                .limit(limit)
-                .into_tuple::<String>()
-                .all(&self.db)
-                .await?;
-            for item in items {
-                self.add_entity_to_collection(
-                    &user_id,
-                    ChangeCollectionToEntityInput {
-                        creator_user_id: user_id.clone(),
-                        collection_name: DefaultCollection::Recommendations.to_string(),
-                        metadata_id: Some(item),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .ok();
-            }
-        }
-        Ok(())
-    }
-
     #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find()
@@ -7209,8 +7098,6 @@ ORDER BY RANDOM() LIMIT 10;
         self.queue_notifications_for_released_media().await.unwrap();
         tracing::trace!("Sending all pending notifications");
         self.send_pending_notifications().await.unwrap();
-        tracing::trace!("Downloading recommendations for users");
-        self.download_recommendations_for_users().await?;
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
 
@@ -7220,7 +7107,6 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        self.download_recommendations_for_users().await?;
         Ok(true)
     }
 }
