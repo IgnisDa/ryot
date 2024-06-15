@@ -4,12 +4,15 @@
 
     The first user you register is automatically set as admin of the instance.
 
-The docker image is `ghcr.io/ignisda/ryot:latest`.
+The docker image is `ignisda/ryot-pro`. Images are also available on the Github Container
+Registry as `ghcr.io/ignisda/ryot-pro`.
+
+To know more about the pro version, visit the [website](https://ryot.io).
 
 ```yaml
 services:
   ryot-db:
-    image: postgres:16-alpine # atleast version 15 is required
+    image: postgres:16-alpine # at-least version 15 is required
     restart: unless-stopped
     volumes:
       - postgres_storage:/var/lib/postgresql/data
@@ -20,9 +23,10 @@ services:
     container_name: ryot-db
 
   ryot:
-    image: ghcr.io/ignisda/ryot:latest
+    image: ignisda/ryot-pro:latest # or ignisda/ryot:latest for the community version
     environment:
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
+      - SERVER_PRO_KEY=<pro_key_issued_to_you> # if using the pro version
       # - FRONTEND_INSECURE_COOKIES=true # if running on HTTP
     ports:
       - "8000:8000"

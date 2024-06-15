@@ -15,8 +15,8 @@
   <a href="https://github.com/ignisda/ryot/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple">
   </a>
-  <a href="https://github.com/IgnisDa/ryot/pkgs/container/ryot">
-    <img alt="Image size" src="https://ghcr-badge.egpl.dev/ignisda/ryot/size">
+  <a href="https://hub.docker.com/r/ignisda/ryot">
+    <img alt="Image size" src="https://img.shields.io/docker/image-size/ignisda/ryot">
   </a>
 </div>
 

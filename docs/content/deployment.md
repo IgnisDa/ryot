@@ -8,12 +8,11 @@ is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
 1. Click on "+ New Project" on your dashboard and select "Empty project".
 2. Once the project is created click on "+ New" and select "Database" and then
   "Add PostgreSQL".
-3. Click on "+ New" again and select "Docker Image". Type `ghcr.io/ignisda/ryot`
-  and hit Enter.
+3. Click on "+ New" again and select "Docker Image". Type `ignisda/ryot` and hit Enter.
 4. Click on the newly created service and go to the "Variables" section. Click on
   "New Variable" and then "Add Reference". Click on "Add".
 5. Go to the "Settings" tab and then click on "Generate Domain".
-6. Optionally, you can set the [healthcheck](https://docs.railway.app/deploy/healthchecks)
+6. Optionally, you can set the [health-check](https://docs.railway.app/deploy/healthchecks)
   path to `/backend/config`.
 
 ## Dokku
@@ -35,7 +34,7 @@ if [ "$EUID" -ne 0 ]
   exit
 fi
 
-IMAGE_NAME="ghcr.io/ignisda/ryot"
+IMAGE_NAME="ignisda/ryot"
 APPNAME=""
 
 read -rp "Enter the name of the app: " APPNAME
