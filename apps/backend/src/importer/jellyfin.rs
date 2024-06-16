@@ -50,7 +50,7 @@ struct ItemResponse {
     id: String,
     name: String,
     #[serde(rename = "Type")]
-    typ: Option<MediaType>,
+    type_: Option<MediaType>,
     index_number: Option<i32>,
     series_id: Option<String>,
     series_name: Option<String>,
@@ -115,9 +115,9 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
     let mut series_id_to_tmdb_id: HashMap<String, Option<String>> = HashMap::new();
 
     for item in library_data.items {
-        let typ = item.typ.clone().unwrap();
-        tracing::debug!("Processing item: {:?} ({:?})", item.name, typ);
-        let (lot, tmdb_id, ssn, sen) = match typ.clone() {
+        let type_ = item.type_.clone().unwrap();
+        tracing::debug!("Processing item: {:?} ({:?})", item.name, type_);
+        let (lot, tmdb_id, ssn, sen) = match type_.clone() {
             MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
             MediaType::Series | MediaType::Episode => {
                 if let Some(series_id) = item.series_id {
@@ -148,7 +148,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 failed_items.push(ImportFailedItem {
                     step: ImportFailStep::ItemDetailsFromSource,
                     identifier: item.name,
-                    error: Some(format!("Unknown media type: {:?}", typ)),
+                    error: Some(format!("Unknown media type: {:?}", type_)),
                     lot: None,
                 });
                 continue;

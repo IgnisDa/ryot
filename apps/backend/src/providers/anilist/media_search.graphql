@@ -12,7 +12,7 @@ query MediaSearchQuery(
       id
       title {
         english
-        userPreferred
+        native
       }
       coverImage {
         extraLarge

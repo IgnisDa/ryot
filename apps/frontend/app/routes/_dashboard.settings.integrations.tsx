@@ -123,7 +123,7 @@ const createSchema = z.object({
 	sourceSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
-			audiobookshelfBaseUrl: z.string().url().optional(),
+			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
 		})
 		.optional(),
