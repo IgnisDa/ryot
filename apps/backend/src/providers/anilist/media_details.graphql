@@ -3,7 +3,7 @@ query MediaDetailsQuery($id: Int!) {
     id
     title {
       english
-      userPreferred
+      native
     }
     isAdult
     episodes
@@ -49,7 +49,7 @@ query MediaDetailsQuery($id: Int!) {
           type
           title {
             english
-            userPreferred
+            native
           }
           coverImage {
             extraLarge

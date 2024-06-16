@@ -9,7 +9,7 @@ query StudioQuery($id: Int!) {
           id
           type
           title {
-            userPreferred
+            native
           }
           coverImage {
             extraLarge
