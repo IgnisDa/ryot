@@ -116,13 +116,7 @@ const deleteSchema = z.object({ notificationId: zx.NumAsString });
 
 const createSchema = z.object({
 	lot: z.nativeEnum(UserNotificationSettingKind),
-	baseUrl: z
-		.string()
-		.url()
-		.refine((val) => !val.endsWith("/"), {
-			message: "Trailing slash not allowed",
-		})
-		.optional(),
+	baseUrl: z.string().optional(),
 	apiToken: z.string().optional(),
 	authHeader: z.string().optional(),
 	priority: z.number().optional(),

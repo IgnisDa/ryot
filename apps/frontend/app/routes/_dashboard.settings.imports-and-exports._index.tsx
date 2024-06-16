@@ -175,7 +175,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 const usernameImportFormSchema = z.object({ username: z.string() });
 
 const apiUrlImportFormSchema = z.object({
-	apiUrl: z.string().url(),
+	apiUrl: z.string(),
 });
 
 const urlAndKeyImportFormSchema = apiUrlImportFormSchema.merge(
