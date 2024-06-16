@@ -6541,7 +6541,11 @@ impl MiscellaneousService {
                                     need_to_delete = true;
                                 }
                             }
+                        } else {
+                            need_to_delete = true;
                         }
+                    } else {
+                        need_to_delete = true;
                     }
                 } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
                     if let Some(podcast_info) = &meta.podcast_specifics {
@@ -6549,7 +6553,11 @@ impl MiscellaneousService {
                             if ep.publish_date != cal_event.date {
                                 need_to_delete = true;
                             }
+                        } else {
+                            need_to_delete = true;
                         }
+                    } else {
+                        need_to_delete = true;
                     }
                 } else if cal_event.date != meta.publish_date.unwrap() {
                     need_to_delete = true;

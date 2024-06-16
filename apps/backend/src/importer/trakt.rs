@@ -122,8 +122,8 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         })
         .collect_vec();
 
-    for typ in ["movies", "shows"] {
-        let mut rsp = client.get(format!("ratings/{}", typ)).await.unwrap();
+    for type_ in ["movies", "shows"] {
+        let mut rsp = client.get(format!("ratings/{}", type_)).await.unwrap();
         let ratings: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
         for item in ratings.iter() {
             match process_item(item) {

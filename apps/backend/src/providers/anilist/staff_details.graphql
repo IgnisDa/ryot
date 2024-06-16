@@ -26,7 +26,8 @@ query StaffQuery($id: Int!) {
           id
           type
           title {
-            userPreferred
+            native
+            english
           }
           coverImage {
             extraLarge
@@ -41,7 +42,8 @@ query StaffQuery($id: Int!) {
           id
           type
           title {
-            userPreferred
+            native
+            english
           }
           coverImage {
             extraLarge
