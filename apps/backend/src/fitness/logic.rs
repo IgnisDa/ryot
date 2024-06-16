@@ -149,6 +149,7 @@ impl UserWorkoutInput {
                         created_on: ActiveValue::Set(
                             first_set_of_exercise_confirmed_at.unwrap_or(end_time),
                         ),
+                        exercise_num_times_interacted: ActiveValue::Set(Some(1)),
                         ..Default::default()
                     };
                     user_to_ex.insert(db).await.unwrap()
