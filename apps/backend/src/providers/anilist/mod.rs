@@ -350,10 +350,13 @@ impl MediaProvider for NonMediaAnilistService {
                 .into_iter()
                 .map(|r| {
                     let data = r.unwrap().node.unwrap();
+                    let title = data.title.unwrap();
+                    let title =
+                        preferred_language(title.native, title.english, self.base.prefer_english);
                     (
                         "Voicing".to_owned(),
                         PartialMetadataWithoutId {
-                            title: data.title.unwrap().native.unwrap(),
+                            title,
                             identifier: data.id.to_string(),
                             source: MediaSource::Anilist,
                             lot: match data.type_.unwrap() {
@@ -375,10 +378,16 @@ impl MediaProvider for NonMediaAnilistService {
                     .into_iter()
                     .map(|r| {
                         let data = r.unwrap().node.unwrap();
+                        let title = data.title.unwrap();
+                        let title = preferred_language(
+                            title.native,
+                            title.english,
+                            self.base.prefer_english,
+                        );
                         (
                             "Production".to_owned(),
                             PartialMetadataWithoutId {
-                                title: data.title.unwrap().native.unwrap(),
+                                title,
                                 identifier: data.id.to_string(),
                                 source: MediaSource::Anilist,
                                 lot: match data.type_.unwrap() {
@@ -627,11 +636,7 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         .flat_map(|r| {
             r.unwrap().media_recommendation.map(|data| {
                 let title = data.title.unwrap();
-                let title = if prefer_english {
-                    title.english.or(title.native).unwrap()
-                } else {
-                    title.native.unwrap()
-                };
+                let title = preferred_language(title.native, title.english, prefer_english);
                 PartialMetadataWithoutId {
                     title,
                     identifier: data.id.to_string(),
@@ -656,11 +661,7 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         },
     }));
     let title = details.title.unwrap();
-    let title = if prefer_english {
-        title.english.or(title.native).unwrap()
-    } else {
-        title.native.unwrap()
-    };
+    let title = preferred_language(title.native, title.english, prefer_english);
     Ok(MediaDetails {
         title,
         identifier: details.id.to_string(),
@@ -731,11 +732,7 @@ async fn search(
         .flatten()
         .map(|b| {
             let title = b.title.unwrap();
-            let title = if prefer_english {
-                title.english.or(title.native).unwrap()
-            } else {
-                title.native.unwrap()
-            };
+            let title = preferred_language(title.native, title.english, prefer_english);
             MetadataSearchItem {
                 identifier: b.id.to_string(),
                 title,
@@ -747,4 +744,17 @@ async fn search(
         })
         .collect();
     Ok((media, total, next_page))
+}
+
+fn preferred_language(
+    native: Option<String>,
+    english: Option<String>,
+    prefer_english: bool,
+) -> String {
+    let title = if prefer_english {
+        english.or(native)
+    } else {
+        native
+    };
+    title.unwrap()
 }

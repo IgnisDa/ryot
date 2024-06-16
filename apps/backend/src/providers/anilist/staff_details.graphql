@@ -27,6 +27,7 @@ query StaffQuery($id: Int!) {
           type
           title {
             native
+            english
           }
           coverImage {
             extraLarge
@@ -42,6 +43,7 @@ query StaffQuery($id: Int!) {
           type
           title {
             native
+            english
           }
           coverImage {
             extraLarge
