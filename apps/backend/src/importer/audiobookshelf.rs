@@ -65,72 +65,75 @@ pub async fn import(
         for item in finished_items.results {
             let metadata = item.media.clone().unwrap().metadata;
             let title = metadata.title.clone();
-            let (identifier, lot, source, episodes) =
-                if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
-                    match &metadata.isbn {
-                        Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
-                            Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks, None),
-                            _ => {
-                                failed_items.push(ImportFailedItem {
-                                    error: Some("No Google Books ID found".to_string()),
-                                    identifier: title,
-                                    lot: None,
-                                    step: ImportFailStep::InputTransformation,
-                                });
-                                continue;
-                            }
-                        },
+            let (identifier, lot, source, episodes) = if Some("epub".to_string())
+                == item.media.as_ref().unwrap().ebook_format
+            {
+                match &metadata.isbn {
+                    Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
+                        Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks, None),
                         _ => {
                             failed_items.push(ImportFailedItem {
-                                error: Some("No ISBN found".to_string()),
+                                error: Some("No Google Books ID found".to_string()),
                                 identifier: title,
                                 lot: None,
                                 step: ImportFailStep::InputTransformation,
                             });
                             continue;
                         }
+                    },
+                    _ => {
+                        failed_items.push(ImportFailedItem {
+                            error: Some("No ISBN found".to_string()),
+                            identifier: title,
+                            lot: None,
+                            step: ImportFailStep::InputTransformation,
+                        });
+                        continue;
                     }
-                } else if let Some(asin) = metadata.asin.clone() {
-                    (asin, MediaLot::AudioBook, MediaSource::Audible, None)
-                } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                    let item_details = get_item_details(&client, &item.id, None).await?;
-                    match item_details.media.and_then(|m| m.episodes) {
-                        Some(episodes) => {
-                            let mut to_return = vec![];
-                            for episode in episodes {
-                                let episode_details =
-                                    get_item_details(&client, &item.id, Some(episode.id)).await?;
-                                if let Some(true) =
-                                    episode_details.user_media_progress.map(|u| u.is_finished)
+                }
+            } else if let Some(asin) = metadata.asin.clone() {
+                (asin, MediaLot::AudioBook, MediaSource::Audible, None)
+            } else if let Some(itunes_id) = metadata.itunes_id.clone() {
+                let item_details = get_item_details(&client, &item.id, None).await?;
+                match item_details.media.and_then(|m| m.episodes) {
+                    Some(episodes) => {
+                        let mut to_return = vec![];
+                        for episode in episodes {
+                            let episode_details =
+                                get_item_details(&client, &item.id, Some(episode.id.unwrap()))
+                                    .await?;
+                            if let Some(true) =
+                                episode_details.user_media_progress.map(|u| u.is_finished)
+                            {
+                                if let Ok(Some(pe)) =
+                                    itunes_podcast_episode_by_name(&episode.title, &itunes_id, db)
+                                        .await
                                 {
-                                    if let Ok(Some(pe)) =
-                                        itunes_podcast_episode_by_name(&title, &itunes_id, db).await
-                                    {
-                                        to_return.push(pe);
-                                    }
+                                    to_return.push(pe);
                                 }
                             }
-                            (
-                                itunes_id,
-                                MediaLot::Podcast,
-                                MediaSource::Itunes,
-                                Some(to_return),
-                            )
                         }
-                        _ => {
-                            failed_items.push(ImportFailedItem {
-                                error: Some("No episodes found for podcast".to_string()),
-                                identifier: title,
-                                lot: Some(MediaLot::Podcast),
-                                step: ImportFailStep::ItemDetailsFromSource,
-                            });
-                            continue;
-                        }
+                        (
+                            itunes_id,
+                            MediaLot::Podcast,
+                            MediaSource::Itunes,
+                            Some(to_return),
+                        )
                     }
-                } else {
-                    tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
-                    continue;
-                };
+                    _ => {
+                        failed_items.push(ImportFailedItem {
+                            error: Some("No episodes found for podcast".to_string()),
+                            identifier: title,
+                            lot: Some(MediaLot::Podcast),
+                            step: ImportFailStep::ItemDetailsFromSource,
+                        });
+                        continue;
+                    }
+                }
+            } else {
+                tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
+                continue;
+            };
             let mut seen_history = vec![];
             if let Some(podcasts) = episodes {
                 for episode in podcasts {
@@ -158,7 +161,6 @@ pub async fn import(
             })
         }
     }
-    // dbg!(&media);
     Ok(ImportResult {
         media,
         failed_items,
