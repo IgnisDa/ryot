@@ -124,11 +124,15 @@ impl IntegrationService {
         })
     }
 
-    pub async fn plex_progress(
+    pub async fn plex_progress<F>(
         &self,
         payload: &str,
         plex_user: Option<String>,
-    ) -> Result<IntegrationMedia> {
+        _commit_metadata: impl Fn(CommitMediaInput) -> F,
+    ) -> Result<IntegrationMedia>
+    where
+        F: Future<Output = GqlResult<StringIdObject>>,
+    {
         mod models {
             use super::*;
 

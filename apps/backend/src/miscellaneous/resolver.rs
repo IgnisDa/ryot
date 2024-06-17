@@ -5603,7 +5603,9 @@ impl MiscellaneousService {
             IntegrationSource::Plex => {
                 let specifics = integration.clone().source_specifics.unwrap();
                 service
-                    .plex_progress(&payload, specifics.plex_username)
+                    .plex_progress(&payload, specifics.plex_username, |input| {
+                        self.commit_metadata(input)
+                    })
                     .await
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
