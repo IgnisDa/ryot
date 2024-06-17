@@ -284,9 +284,13 @@ impl ImporterService {
             )
             .await
             .unwrap(),
-            ImportSource::Audiobookshelf => audiobookshelf::import(input.url_and_key.unwrap())
-                .await
-                .unwrap(),
+            ImportSource::Audiobookshelf => audiobookshelf::import(
+                input.url_and_key.unwrap(),
+                &self.media_service.get_isbn_service().await.unwrap(),
+                &self.media_service.db,
+            )
+            .await
+            .unwrap(),
             ImportSource::Imdb => imdb::import(
                 input.generic_csv.unwrap(),
                 &self
