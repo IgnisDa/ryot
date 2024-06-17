@@ -5623,6 +5623,7 @@ impl MiscellaneousService {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn integration_progress_update(
         &self,
         pu: IntegrationMedia,
@@ -5648,25 +5649,28 @@ impl MiscellaneousService {
                 force_update: None,
             })
             .await?;
-        self.progress_update(
-            ProgressUpdateInput {
-                metadata_id: id,
-                progress: Some(progress),
-                date: Some(Utc::now().date_naive()),
-                show_season_number: pu.show_season_number,
-                show_episode_number: pu.show_episode_number,
-                podcast_episode_number: pu.podcast_episode_number,
-                anime_episode_number: pu.anime_episode_number,
-                manga_chapter_number: pu.manga_chapter_number,
-                manga_volume_number: pu.manga_volume_number,
-                provider_watched_on: pu.provider_watched_on,
-                change_state: None,
-            },
-            user_id,
-            true,
-        )
-        .await
-        .ok();
+        if let Err(err) = self
+            .progress_update(
+                ProgressUpdateInput {
+                    metadata_id: id,
+                    progress: Some(progress),
+                    date: Some(Utc::now().date_naive()),
+                    show_season_number: pu.show_season_number,
+                    show_episode_number: pu.show_episode_number,
+                    podcast_episode_number: pu.podcast_episode_number,
+                    anime_episode_number: pu.anime_episode_number,
+                    manga_chapter_number: pu.manga_chapter_number,
+                    manga_volume_number: pu.manga_volume_number,
+                    provider_watched_on: pu.provider_watched_on,
+                    change_state: None,
+                },
+                user_id,
+                true,
+            )
+            .await
+        {
+            tracing::debug!("Error updating progress: {:?}", err);
+        };
         Ok(())
     }
 
