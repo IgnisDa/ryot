@@ -266,8 +266,10 @@ impl IntegrationService {
             use super::*;
 
             #[derive(Debug, Serialize, Deserialize)]
+            #[serde(rename_all = "camelCase")]
             pub struct ItemProgress {
                 pub progress: Decimal,
+                pub ebook_progress: Option<Decimal>,
             }
             #[derive(Debug, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -402,12 +404,17 @@ impl IntegrationService {
             {
                 Ok(resp) => {
                     tracing::debug!("Got response for individual item progress {:?}", resp);
+                    let progress = if let Some(ebook_progress) = resp.ebook_progress {
+                        ebook_progress
+                    } else {
+                        resp.progress
+                    };
                     media_items.push(IntegrationMedia {
                         lot,
                         source,
                         identifier,
                         podcast_episode_number,
-                        progress: resp.progress * dec!(100),
+                        progress: progress * dec!(100),
                         provider_watched_on: Some("Audiobookshelf".to_string()),
                         ..Default::default()
                     });
