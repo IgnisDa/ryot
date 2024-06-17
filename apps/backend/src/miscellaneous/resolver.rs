@@ -5505,6 +5505,7 @@ impl MiscellaneousService {
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
                             &specifics.audiobookshelf_token.unwrap(),
+                            &self.get_isbn_service().await.unwrap(),
                         )
                         .await
                 }

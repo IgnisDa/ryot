@@ -10,6 +10,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
+    providers::google_books::GoogleBooksService,
     utils::{get_base_http_client, ilike_sql},
 };
 
@@ -259,11 +260,12 @@ impl IntegrationService {
         Ok(payload)
     }
 
-    #[tracing::instrument(skip(self, access_token))]
+    #[tracing::instrument(skip(self, access_token, isbn_service))]
     pub async fn audiobookshelf_progress(
         &self,
         base_url: &str,
         access_token: &str,
+        isbn_service: &GoogleBooksService,
     ) -> Result<Vec<IntegrationMedia>> {
         mod models {
             use super::*;
