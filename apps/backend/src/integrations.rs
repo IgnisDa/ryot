@@ -260,7 +260,6 @@ impl IntegrationService {
         Ok(payload)
     }
 
-    #[tracing::instrument(skip_all, fields(base_url))]
     pub async fn audiobookshelf_progress<F>(
         &self,
         base_url: &str,
