@@ -1,11 +1,16 @@
+use anyhow::Result;
 use async_graphql::{Enum, InputObject, SimpleObject};
+use database::{MediaLot, MediaSource};
 use enum_meta::{meta, Meta};
 use rust_decimal::Decimal;
-use sea_orm::FromJsonQueryResult;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, FromJsonQueryResult, QueryFilter};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
 
-use crate::traits::MediaProviderLanguages;
+use crate::{
+    entities::{metadata, prelude::Metadata},
+    traits::MediaProviderLanguages,
+};
 
 pub mod resolver;
 
@@ -161,4 +166,26 @@ pub mod audiobookshelf_models {
     pub struct Response {
         pub library_items: Vec<Item>,
     }
+}
+
+pub async fn itunes_podcast_episode_by_name(
+    name: &str,
+    identifier: &str,
+    db: &DatabaseConnection,
+) -> Result<Option<i32>> {
+    let podcast = Metadata::find()
+        .filter(metadata::Column::Lot.eq(MediaLot::Podcast))
+        .filter(metadata::Column::Source.eq(MediaSource::Itunes))
+        .filter(metadata::Column::Identifier.eq(identifier))
+        .one(db)
+        .await?;
+    Ok(podcast.and_then(|e| {
+        e.podcast_specifics.and_then(|podcast| {
+            podcast
+                .episodes
+                .iter()
+                .find(|e| e.title == name)
+                .map(|e| e.number)
+        })
+    }))
 }

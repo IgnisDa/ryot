@@ -10,7 +10,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    miscellaneous::audiobookshelf_models,
+    miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
     providers::google_books::GoogleBooksService,
     utils::{get_base_http_client, ilike_sql},
 };
@@ -310,28 +310,14 @@ impl IntegrationService {
                 } else if let Some(itunes_id) = metadata.itunes_id.clone() {
                     match &item.recent_episode {
                         Some(pe) => {
-                            let lot = MediaLot::Podcast;
-                            let source = MediaSource::Itunes;
-                            let episode = Metadata::find()
-                                .filter(metadata::Column::Lot.eq(lot))
-                                .filter(metadata::Column::Source.eq(source))
-                                .filter(metadata::Column::Identifier.eq(&itunes_id))
-                                .one(&self.db)
-                                .await?;
-                            match episode.and_then(|e| {
-                                e.podcast_specifics.and_then(|podcast| {
-                                    podcast
-                                        .episodes
-                                        .iter()
-                                        .find(|e| e.title == pe.title)
-                                        .map(|e| e.number)
-                                })
-                            }) {
-                                Some(episode) => (
+                            match itunes_podcast_episode_by_name(&pe.title, &itunes_id, &self.db)
+                                .await
+                            {
+                                Ok(Some(episode)) => (
                                     format!("{}/{}", item.id, pe.id),
                                     itunes_id,
-                                    lot,
-                                    source,
+                                    MediaLot::Podcast,
+                                    MediaSource::Itunes,
                                     Some(episode),
                                 ),
                                 _ => {
