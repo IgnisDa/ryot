@@ -26,8 +26,8 @@ new integration under the "Integrations" tab.
       This will only import media that are in progress. Perform an
       [import](./importing.md#audiobookshelf) if you want to import media that are finished.
 
-The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all
-media which have a match from _Audible_.
+The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
+have an Audible ID or ITunes ID or ISBN.
 
 1. Obtain an API token as described in the Audiobookshelf
    [authentication](https://api.audiobookshelf.org/#authentication) docs.

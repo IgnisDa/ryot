@@ -146,8 +146,8 @@ the "Watchlist" collection.
 
 ## Audiobookshelf
 
-The Audiobookshelf importer supports only audio books. If also need to import podcasts,
-please open an issue and wait till podcast support is added.
+The Audiobookshelf importer supports importing all media that have a valid Audible ID or
+ITunes ID or ISBN.
 
 !!! warning
 
