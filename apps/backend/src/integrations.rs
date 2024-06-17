@@ -267,9 +267,9 @@ impl IntegrationService {
         access_token: &str,
         isbn_service: &GoogleBooksService,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> GqlResult<Vec<IntegrationMedia>>
+    ) -> Result<Vec<IntegrationMedia>>
     where
-        F: Future<Output = Result<StringIdObject>>,
+        F: Future<Output = GqlResult<StringIdObject>>,
     {
         let client: Client = get_base_http_client(
             &format!("{}/api/", base_url),
@@ -326,7 +326,8 @@ impl IntegrationService {
                                 source,
                                 ..Default::default()
                             })
-                            .await?;
+                            .await
+                            .ok();
                             match itunes_podcast_episode_by_name(&pe.title, &itunes_id, &self.db)
                                 .await
                             {
