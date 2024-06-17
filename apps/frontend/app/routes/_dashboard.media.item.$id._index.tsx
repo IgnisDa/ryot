@@ -2373,7 +2373,7 @@ const DisplayPodcastEpisode = (props: {
 			{props.idx !== 0 ? <Divider /> : null}
 			<AccordionLabel
 				{...props.episode}
-				name={props.episode.title}
+				name={`${props.idx + 1}. ${props.episode.title}`}
 				posterImages={[props.episode.thumbnail || ""]}
 				publishDate={props.episode.publishDate}
 				displayIndicator={numTimesEpisodeSeen}
