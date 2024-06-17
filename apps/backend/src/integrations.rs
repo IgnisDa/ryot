@@ -330,24 +330,22 @@ impl IntegrationService {
                 tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
                 continue;
             };
-            if let Some(asin) = item.media.metadata.asin.clone() {
-                let resp: models::ItemProgress = client
-                    .get(format!("me/progress/{}", item.id))
-                    .await
-                    .map_err(|e| anyhow!(e))?
-                    .body_json()
-                    .await
-                    .unwrap();
-                tracing::debug!("Got response for individual item progress {:#?}", resp);
-                media_items.push(IntegrationMedia {
-                    identifier: asin,
-                    lot: MediaLot::AudioBook,
-                    source: MediaSource::Audible,
-                    progress: resp.progress * dec!(100),
-                    provider_watched_on: Some("Audiobookshelf".to_string()),
-                    ..Default::default()
-                });
-            }
+            let resp: models::ItemProgress = client
+                .get(format!("me/progress/{}", item.id))
+                .await
+                .map_err(|e| anyhow!(e))?
+                .body_json()
+                .await
+                .unwrap();
+            tracing::debug!("Got response for individual item progress {:#?}", resp);
+            media_items.push(IntegrationMedia {
+                lot,
+                source,
+                identifier,
+                progress: resp.progress * dec!(100),
+                provider_watched_on: Some("Audiobookshelf".to_string()),
+                ..Default::default()
+            });
         }
         Ok(media_items)
     }
