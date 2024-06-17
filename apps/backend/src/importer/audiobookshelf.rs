@@ -98,7 +98,7 @@ pub async fn import(
                 match item_details.media.and_then(|m| m.episodes) {
                     Some(episodes) => {
                         let mut to_return = vec![];
-                        for (idx, episode) in episodes.into_iter().enumerate() {
+                        for episode in episodes {
                             let episode_details =
                                 get_item_details(&client, &item.id, Some(episode.id.unwrap()))
                                     .await?;
@@ -110,8 +110,6 @@ pub async fn import(
                                         .await
                                 {
                                     to_return.push(pe);
-                                } else {
-                                    to_return.push(idx as i32);
                                 }
                             }
                         }
