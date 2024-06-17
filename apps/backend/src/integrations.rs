@@ -287,6 +287,7 @@ impl IntegrationService {
             #[serde(rename_all = "camelCase")]
             pub struct RecentEpisode {
                 pub id: String,
+                pub title: String,
                 pub season: Option<String>,
                 pub episode: Option<String>,
             }
@@ -318,7 +319,7 @@ impl IntegrationService {
         tracing::debug!("Got response for items in progress {:?}", resp);
         let mut media_items = vec![];
         for item in resp.library_items.iter() {
-            let (progress_id, identifier, lot, source) =
+            let (progress_id, identifier, lot, source, podcast_episode_number) =
                 if Some("epub".to_string()) == item.media.ebook_format {
                     match &item.media.metadata.isbn {
                         Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
@@ -327,6 +328,7 @@ impl IntegrationService {
                                 id,
                                 MediaLot::Book,
                                 MediaSource::GoogleBooks,
+                                None,
                             ),
                             _ => {
                                 tracing::debug!("No Google Books ID found for ISBN {:#?}", isbn);
@@ -344,15 +346,44 @@ impl IntegrationService {
                         asin,
                         MediaLot::AudioBook,
                         MediaSource::Audible,
+                        None,
                     )
                 } else if let Some(itunes_id) = item.media.metadata.itunes_id.clone() {
                     match &item.recent_episode {
-                        Some(pe) => (
-                            format!("{}/{}", item.id, pe.id),
-                            itunes_id,
-                            MediaLot::Podcast,
-                            MediaSource::Itunes,
-                        ),
+                        Some(pe) => {
+                            let lot = MediaLot::Podcast;
+                            let source = MediaSource::Itunes;
+                            let episode = Metadata::find()
+                                .filter(metadata::Column::Lot.eq(lot))
+                                .filter(metadata::Column::Source.eq(source))
+                                .filter(metadata::Column::Identifier.eq(&itunes_id))
+                                .one(&self.db)
+                                .await?;
+                            match episode.and_then(|e| {
+                                e.podcast_specifics.and_then(|podcast| {
+                                    podcast
+                                        .episodes
+                                        .iter()
+                                        .find(|e| e.title == pe.title)
+                                        .map(|e| e.number)
+                                })
+                            }) {
+                                Some(episode) => (
+                                    format!("{}/{}", item.id, pe.id),
+                                    itunes_id,
+                                    lot,
+                                    source,
+                                    Some(episode),
+                                ),
+                                _ => {
+                                    tracing::debug!(
+                                        "No podcast found for iTunes ID {:#?}",
+                                        itunes_id
+                                    );
+                                    continue;
+                                }
+                            }
+                        }
                         _ => {
                             tracing::debug!("No recent episode found for item {:#?}", item);
                             continue;
@@ -375,6 +406,7 @@ impl IntegrationService {
                         lot,
                         source,
                         identifier,
+                        podcast_episode_number,
                         progress: resp.progress * dec!(100),
                         provider_watched_on: Some("Audiobookshelf".to_string()),
                         ..Default::default()
