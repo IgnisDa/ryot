@@ -271,6 +271,7 @@ impl IntegrationService {
             #[derive(Debug, Serialize, Deserialize)]
             #[serde(rename_all = "camelCase")]
             pub struct ItemMetadata {
+                pub title: String,
                 pub asin: Option<String>,
                 pub isbn: Option<String>,
                 pub itunes_id: Option<String>,
@@ -329,7 +330,6 @@ impl IntegrationService {
                 tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
                 continue;
             };
-            println!("{} {} {}\n", identifier, lot, source);
             if let Some(asin) = item.media.metadata.asin.clone() {
                 let resp: models::ItemProgress = client
                     .get(format!("me/progress/{}", item.id))
