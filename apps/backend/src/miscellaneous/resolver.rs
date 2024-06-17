@@ -1424,7 +1424,7 @@ impl MiscellaneousService {
     }
 
     fn get_integration_service(&self) -> IntegrationService {
-        IntegrationService::new()
+        IntegrationService::new(&self.db)
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
@@ -5505,6 +5505,8 @@ impl MiscellaneousService {
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
                             &specifics.audiobookshelf_token.unwrap(),
+                            &self.get_isbn_service().await.unwrap(),
+                            |input| self.commit_metadata(input),
                         )
                         .await
                 }
@@ -5594,17 +5596,14 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
+        let service = self.get_integration_service();
         let maybe_progress_update = match integration.source {
-            IntegrationSource::Kodi => self.get_integration_service().kodi_progress(&payload).await,
-            IntegrationSource::Jellyfin => {
-                self.get_integration_service()
-                    .jellyfin_progress(&payload)
-                    .await
-            }
+            IntegrationSource::Kodi => service.kodi_progress(&payload).await,
+            IntegrationSource::Jellyfin => service.jellyfin_progress(&payload).await,
             IntegrationSource::Plex => {
                 let specifics = integration.clone().source_specifics.unwrap();
-                self.get_integration_service()
-                    .plex_progress(&payload, specifics.plex_username, &self.db)
+                service
+                    .plex_progress(&payload, specifics.plex_username)
                     .await
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
@@ -5622,6 +5621,7 @@ impl MiscellaneousService {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     async fn integration_progress_update(
         &self,
         pu: IntegrationMedia,
@@ -5647,25 +5647,28 @@ impl MiscellaneousService {
                 force_update: None,
             })
             .await?;
-        self.progress_update(
-            ProgressUpdateInput {
-                metadata_id: id,
-                progress: Some(progress),
-                date: Some(Utc::now().date_naive()),
-                show_season_number: pu.show_season_number,
-                show_episode_number: pu.show_episode_number,
-                podcast_episode_number: pu.podcast_episode_number,
-                anime_episode_number: pu.anime_episode_number,
-                manga_chapter_number: pu.manga_chapter_number,
-                manga_volume_number: pu.manga_volume_number,
-                provider_watched_on: pu.provider_watched_on,
-                change_state: None,
-            },
-            user_id,
-            true,
-        )
-        .await
-        .ok();
+        if let Err(err) = self
+            .progress_update(
+                ProgressUpdateInput {
+                    metadata_id: id,
+                    progress: Some(progress),
+                    date: Some(Utc::now().date_naive()),
+                    show_season_number: pu.show_season_number,
+                    show_episode_number: pu.show_episode_number,
+                    podcast_episode_number: pu.podcast_episode_number,
+                    anime_episode_number: pu.anime_episode_number,
+                    manga_chapter_number: pu.manga_chapter_number,
+                    manga_volume_number: pu.manga_volume_number,
+                    provider_watched_on: pu.provider_watched_on,
+                    change_state: None,
+                },
+                user_id,
+                true,
+            )
+            .await
+        {
+            tracing::debug!("Error updating progress: {:?}", err);
+        };
         Ok(())
     }
 
