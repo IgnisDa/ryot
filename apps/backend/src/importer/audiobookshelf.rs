@@ -43,9 +43,13 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .unwrap();
     for library in libraries_resp.libraries {
         tracing::debug!("Importing library {:?}", library.name.unwrap());
+        let mut query = json!({});
+        if let Some(audiobookshelf_models::MediaType::Book) = library.media_type {
+            query["filter"] = json!(format!("progress.{}", BASE64.encode(b"finished")));
+        }
         let finished_items: ListResponse = client
             .get(&format!("libraries/{}/items", library.id))
-            .query(&json!({ "filter": format!("progress.{}", BASE64.encode(b"finished")) }))
+            .query(&query)
             .unwrap()
             .await
             .map_err(|e| anyhow!(e))?
