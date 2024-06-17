@@ -307,7 +307,29 @@ impl IntegrationService {
         tracing::debug!("Got response for items in progress {:#?}", resp);
         let mut media_items = vec![];
         for item in resp.library_items.iter() {
-            dbg!(&item);
+            let (identifier, lot, source) = if Some("epub".to_string()) == item.media.ebook_format {
+                match &item.media.metadata.isbn {
+                    Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
+                        Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks),
+                        _ => {
+                            tracing::debug!("No Google Books ID found for ISBN {:#?}", isbn);
+                            continue;
+                        }
+                    },
+                    _ => {
+                        tracing::debug!("No ISBN found for item {:#?}", item);
+                        continue;
+                    }
+                }
+            } else if let Some(asin) = item.media.metadata.asin.clone() {
+                (asin, MediaLot::AudioBook, MediaSource::Audible)
+            } else if let Some(itunes_id) = item.media.metadata.itunes_id.clone() {
+                (itunes_id, MediaLot::Podcast, MediaSource::Itunes)
+            } else {
+                tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
+                continue;
+            };
+            println!("{} {} {}\n", identifier, lot, source);
             if let Some(asin) = item.media.metadata.asin.clone() {
                 let resp: models::ItemProgress = client
                     .get(format!("me/progress/{}", item.id))
