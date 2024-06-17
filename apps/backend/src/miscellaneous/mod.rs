@@ -1,5 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
+use rust_decimal::Decimal;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
@@ -106,5 +107,50 @@ impl MediaProviderLanguages for CustomService {
 
     fn default_language() -> String {
         "us".to_owned()
+    }
+}
+
+pub mod audiobookshelf_models {
+    use super::*;
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ItemProgress {
+        pub progress: Decimal,
+        pub ebook_progress: Option<Decimal>,
+    }
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ItemMetadata {
+        pub title: String,
+        pub asin: Option<String>,
+        pub isbn: Option<String>,
+        pub itunes_id: Option<String>,
+    }
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ItemMedia {
+        pub metadata: ItemMetadata,
+        pub ebook_format: Option<String>,
+    }
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct RecentEpisode {
+        pub id: String,
+        pub title: String,
+        pub season: Option<String>,
+        pub episode: Option<String>,
+    }
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Item {
+        pub id: String,
+        pub media: ItemMedia,
+        pub recent_episode: Option<RecentEpisode>,
+    }
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Response {
+        pub library_items: Vec<Item>,
     }
 }

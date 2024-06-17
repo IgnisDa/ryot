@@ -10,6 +10,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
+    miscellaneous::audiobookshelf_models,
     providers::google_books::GoogleBooksService,
     utils::{get_base_http_client, ilike_sql},
 };
@@ -262,56 +263,11 @@ impl IntegrationService {
         access_token: &str,
         isbn_service: &GoogleBooksService,
     ) -> Result<Vec<IntegrationMedia>> {
-        mod models {
-            use super::*;
-
-            #[derive(Debug, Serialize, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct ItemProgress {
-                pub progress: Decimal,
-                pub ebook_progress: Option<Decimal>,
-            }
-            #[derive(Debug, Serialize, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct ItemMetadata {
-                pub title: String,
-                pub asin: Option<String>,
-                pub isbn: Option<String>,
-                pub itunes_id: Option<String>,
-            }
-            #[derive(Debug, Serialize, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct ItemMedia {
-                pub metadata: ItemMetadata,
-                pub ebook_format: Option<String>,
-            }
-            #[derive(Debug, Serialize, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct RecentEpisode {
-                pub id: String,
-                pub title: String,
-                pub season: Option<String>,
-                pub episode: Option<String>,
-            }
-            #[derive(Debug, Serialize, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct Item {
-                pub id: String,
-                pub media: ItemMedia,
-                pub recent_episode: Option<RecentEpisode>,
-            }
-            #[derive(Debug, Serialize, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct Response {
-                pub library_items: Vec<Item>,
-            }
-        }
-
         let client: Client = get_base_http_client(
             &format!("{}/api/", base_url),
             vec![(AUTHORIZATION, format!("Bearer {access_token}"))],
         );
-        let resp: models::Response = client
+        let resp: audiobookshelf_models::Response = client
             .get("me/items-in-progress")
             .await
             .map_err(|e| anyhow!(e))?
@@ -399,7 +355,7 @@ impl IntegrationService {
                 .get(format!("me/progress/{}", progress_id))
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<models::ItemProgress>()
+                .body_json::<audiobookshelf_models::ItemProgress>()
                 .await
             {
                 Ok(resp) => {
