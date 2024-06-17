@@ -31,11 +31,13 @@ pub struct IntegrationMedia {
 }
 
 #[derive(Debug)]
-pub struct IntegrationService;
+pub struct IntegrationService {
+    db: DatabaseConnection,
+}
 
 impl IntegrationService {
-    pub fn new() -> Self {
-        Self
+    pub fn new(db: &DatabaseConnection) -> Self {
+        Self { db: db.clone() }
     }
 
     pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMedia> {
@@ -121,7 +123,6 @@ impl IntegrationService {
         &self,
         payload: &str,
         plex_user: Option<String>,
-        db: &DatabaseConnection,
     ) -> Result<IntegrationMedia> {
         mod models {
             use super::*;
@@ -215,7 +216,7 @@ impl IntegrationService {
                         ))
                         .ilike(ilike_sql(identifier)),
                     )
-                    .one(db)
+                    .one(&self.db)
                     .await?;
                 if db_show.is_none() {
                     bail!("No show found with TMDb ID {}", identifier);

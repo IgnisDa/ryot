@@ -1424,7 +1424,7 @@ impl MiscellaneousService {
     }
 
     fn get_integration_service(&self) -> IntegrationService {
-        IntegrationService::new()
+        IntegrationService::new(&self.db)
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
@@ -5595,17 +5595,14 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
+        let service = self.get_integration_service();
         let maybe_progress_update = match integration.source {
-            IntegrationSource::Kodi => self.get_integration_service().kodi_progress(&payload).await,
-            IntegrationSource::Jellyfin => {
-                self.get_integration_service()
-                    .jellyfin_progress(&payload)
-                    .await
-            }
+            IntegrationSource::Kodi => service.kodi_progress(&payload).await,
+            IntegrationSource::Jellyfin => service.jellyfin_progress(&payload).await,
             IntegrationSource::Plex => {
                 let specifics = integration.clone().source_specifics.unwrap();
-                self.get_integration_service()
-                    .plex_progress(&payload, specifics.plex_username, &self.db)
+                service
+                    .plex_progress(&payload, specifics.plex_username)
                     .await
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
