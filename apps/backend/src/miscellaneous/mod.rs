@@ -113,13 +113,19 @@ impl MediaProviderLanguages for CustomService {
 pub mod audiobookshelf_models {
     use super::*;
 
+    #[derive(Debug, Serialize, Deserialize, Clone, Display)]
+    #[serde(rename_all = "snake_case")]
+    pub enum MediaType {
+        Book,
+        Podcast,
+    }
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct ItemProgress {
         pub progress: Decimal,
         pub ebook_progress: Option<Decimal>,
     }
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     #[serde(rename_all = "camelCase")]
     pub struct ItemMetadata {
         pub title: String,
@@ -127,7 +133,7 @@ pub mod audiobookshelf_models {
         pub isbn: Option<String>,
         pub itunes_id: Option<String>,
     }
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, Clone)]
     #[serde(rename_all = "camelCase")]
     pub struct ItemMedia {
         pub metadata: ItemMetadata,
@@ -145,7 +151,9 @@ pub mod audiobookshelf_models {
     #[serde(rename_all = "camelCase")]
     pub struct Item {
         pub id: String,
-        pub media: ItemMedia,
+        pub name: Option<String>,
+        pub media: Option<ItemMedia>,
+        pub media_type: Option<MediaType>,
         pub recent_episode: Option<RecentEpisode>,
     }
     #[derive(Debug, Serialize, Deserialize)]

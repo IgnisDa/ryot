@@ -277,9 +277,10 @@ impl IntegrationService {
         tracing::debug!("Got response for items in progress {:?}", resp);
         let mut media_items = vec![];
         for item in resp.library_items.iter() {
+            let metadata = item.media.clone().unwrap().metadata;
             let (progress_id, identifier, lot, source, podcast_episode_number) =
-                if Some("epub".to_string()) == item.media.ebook_format {
-                    match &item.media.metadata.isbn {
+                if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
+                    match &metadata.isbn {
                         Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
                             Some(id) => (
                                 item.id.clone(),
@@ -298,7 +299,7 @@ impl IntegrationService {
                             continue;
                         }
                     }
-                } else if let Some(asin) = item.media.metadata.asin.clone() {
+                } else if let Some(asin) = metadata.asin.clone() {
                     (
                         item.id.clone(),
                         asin,
@@ -306,7 +307,7 @@ impl IntegrationService {
                         MediaSource::Audible,
                         None,
                     )
-                } else if let Some(itunes_id) = item.media.metadata.itunes_id.clone() {
+                } else if let Some(itunes_id) = metadata.itunes_id.clone() {
                     match &item.recent_episode {
                         Some(pe) => {
                             let lot = MediaLot::Podcast;
