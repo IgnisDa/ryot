@@ -314,7 +314,7 @@ impl IntegrationService {
             .body_json()
             .await
             .unwrap();
-        tracing::debug!("Got response for items in progress {:#?}", resp);
+        tracing::debug!("Got response for items in progress {:?}", resp);
         let mut media_items = vec![];
         for item in resp.library_items.iter() {
             let (progress_id, identifier, lot, source) =
@@ -369,7 +369,7 @@ impl IntegrationService {
                 .await
             {
                 Ok(resp) => {
-                    tracing::debug!("Got response for individual item progress {:#?}", resp);
+                    tracing::debug!("Got response for individual item progress {:?}", resp);
                     media_items.push(IntegrationMedia {
                         lot,
                         source,
@@ -380,12 +380,11 @@ impl IntegrationService {
                     });
                 }
                 _ => {
-                    tracing::debug!("No progress found for item {:#?}", item);
+                    tracing::debug!("No progress found for item {:?}", item);
                     continue;
                 }
             };
         }
-        dbg!(&media_items);
         Ok(media_items)
     }
 }
