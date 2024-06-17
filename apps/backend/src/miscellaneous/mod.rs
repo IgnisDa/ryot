@@ -9,6 +9,7 @@ use strum::{Display, EnumIter};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
+    models::StringIdObject,
     traits::MediaProviderLanguages,
 };
 
@@ -128,6 +129,7 @@ pub mod audiobookshelf_models {
     #[serde(rename_all = "camelCase")]
     pub struct ItemProgress {
         pub progress: Decimal,
+        pub is_finished: bool,
         pub ebook_progress: Option<Decimal>,
     }
     #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -143,6 +145,7 @@ pub mod audiobookshelf_models {
     pub struct ItemMedia {
         pub metadata: ItemMetadata,
         pub ebook_format: Option<String>,
+        pub episodes: Option<Vec<StringIdObject>>,
     }
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -160,6 +163,7 @@ pub mod audiobookshelf_models {
         pub media: Option<ItemMedia>,
         pub media_type: Option<MediaType>,
         pub recent_episode: Option<RecentEpisode>,
+        pub user_media_progress: Option<ItemProgress>,
     }
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]

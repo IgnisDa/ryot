@@ -5,7 +5,7 @@ use database::{ImportSource, MediaLot, MediaSource};
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::http::headers::AUTHORIZATION;
+use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
@@ -93,26 +93,39 @@ pub async fn import(
                 } else if let Some(asin) = metadata.asin.clone() {
                     (asin, MediaLot::AudioBook, MediaSource::Audible, None)
                 } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                    // TODO: If it is a podcast, we use will have to request for each episode in the following manner:
-                    // curl "https://abs.wobblehouse.com/api/items/0d80aad6-a474-4d48-bb5b-f3628d47e4a0?include=progress&expanded=1&episode=f8e60387-c746-4850-8f9e-c2672c166438"
-                    // then use `userMediaProgress.isFinished` to determine if the podcast episode is complete
-                    if let Ok(pe) =
-                        itunes_podcast_episode_by_name(&metadata.title, &itunes_id, db).await
-                    {
-                        (
-                            itunes_id,
-                            MediaLot::Podcast,
-                            MediaSource::Itunes,
-                            Some(vec![1, 2, 3]),
-                        )
-                    } else {
-                        failed_items.push(ImportFailedItem {
-                            error: Some("No recent episode found".to_string()),
-                            identifier: title,
-                            lot: Some(MediaLot::Podcast),
-                            step: ImportFailStep::ItemDetailsFromSource,
-                        });
-                        continue;
+                    let item_details = get_item_details(&client, &item.id, None).await?;
+                    match item_details.media.and_then(|m| m.episodes) {
+                        Some(episodes) => {
+                            let mut to_return = vec![];
+                            for episode in episodes {
+                                let episode_details =
+                                    get_item_details(&client, &item.id, Some(episode.id)).await?;
+                                if let Some(true) =
+                                    episode_details.user_media_progress.map(|u| u.is_finished)
+                                {
+                                    if let Ok(Some(pe)) =
+                                        itunes_podcast_episode_by_name(&title, &itunes_id, db).await
+                                    {
+                                        to_return.push(pe);
+                                    }
+                                }
+                            }
+                            (
+                                itunes_id,
+                                MediaLot::Podcast,
+                                MediaSource::Itunes,
+                                Some(to_return),
+                            )
+                        }
+                        _ => {
+                            failed_items.push(ImportFailedItem {
+                                error: Some("No episodes found for podcast".to_string()),
+                                identifier: title,
+                                lot: Some(MediaLot::Podcast),
+                                step: ImportFailStep::ItemDetailsFromSource,
+                            });
+                            continue;
+                        }
                     }
                 } else {
                     tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
@@ -145,10 +158,29 @@ pub async fn import(
             })
         }
     }
-    dbg!(&media);
+    // dbg!(&media);
     Ok(ImportResult {
         media,
         failed_items,
         ..Default::default()
     })
+}
+
+async fn get_item_details(
+    client: &Client,
+    id: &str,
+    episode: Option<String>,
+) -> Result<audiobookshelf_models::Item> {
+    let mut query = json!({ "expanded": "1", "include": "progress" });
+    if let Some(episode) = episode {
+        query["episode"] = json!(episode);
+    }
+    let item: audiobookshelf_models::Item = client
+        .get(&format!("items/{}", id))
+        .query(&query)?
+        .await
+        .map_err(|e| anyhow!(e))?
+        .body_json()
+        .await?;
+    Ok(item)
 }
