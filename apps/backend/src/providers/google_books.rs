@@ -241,9 +241,7 @@ impl GoogleBooksService {
         let mut resp = self
             .client
             .get("")
-            .query(&serde_json::json!({
-                "q": format!("isbn:{}", isbn)
-            }))
+            .query(&serde_json::json!({ "q": format!("isbn:{}", isbn) }))
             .unwrap()
             .await
             .ok()?;
