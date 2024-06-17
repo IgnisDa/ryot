@@ -123,7 +123,8 @@ where
                                     source,
                                     ..Default::default()
                                 })
-                                .await?;
+                                .await
+                                .ok();
                                 if let Ok(Some(pe)) =
                                     itunes_podcast_episode_by_name(&episode.title, &itunes_id, db)
                                         .await
