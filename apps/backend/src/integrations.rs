@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use anyhow::{anyhow, bail, Result};
 use database::{MediaLot, MediaSource};
 use regex::Regex;
@@ -11,6 +13,7 @@ use surf::{http::headers::AUTHORIZATION, Client};
 use crate::{
     entities::{metadata, prelude::Metadata},
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
+    models::{media::CommitMediaInput, StringIdObject},
     providers::google_books::GoogleBooksService,
     utils::{get_base_http_client, ilike_sql},
 };
@@ -257,12 +260,16 @@ impl IntegrationService {
     }
 
     #[tracing::instrument(skip(self, access_token, isbn_service))]
-    pub async fn audiobookshelf_progress(
+    pub async fn audiobookshelf_progress<F>(
         &self,
         base_url: &str,
         access_token: &str,
         isbn_service: &GoogleBooksService,
-    ) -> Result<Vec<IntegrationMedia>> {
+        commit_metadata: impl Fn(CommitMediaInput) -> F,
+    ) -> Result<Vec<IntegrationMedia>>
+    where
+        F: Future<Output = Result<StringIdObject>>,
+    {
         let client: Client = get_base_http_client(
             &format!("{}/api/", base_url),
             vec![(AUTHORIZATION, format!("Bearer {access_token}"))],
@@ -310,14 +317,23 @@ impl IntegrationService {
                 } else if let Some(itunes_id) = metadata.itunes_id.clone() {
                     match &item.recent_episode {
                         Some(pe) => {
+                            let lot = MediaLot::Podcast;
+                            let source = MediaSource::Itunes;
+                            commit_metadata(CommitMediaInput {
+                                identifier: itunes_id.clone(),
+                                lot,
+                                source,
+                                ..Default::default()
+                            })
+                            .await?;
                             match itunes_podcast_episode_by_name(&pe.title, &itunes_id, &self.db)
                                 .await
                             {
                                 Ok(Some(episode)) => (
                                     format!("{}/{}", item.id, pe.id),
                                     itunes_id,
-                                    MediaLot::Podcast,
-                                    MediaSource::Itunes,
+                                    lot,
+                                    source,
                                     Some(episode),
                                 ),
                                 _ => {
