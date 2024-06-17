@@ -151,11 +151,8 @@ ITunes ID or ISBN.
 
 !!! warning
 
-    - This will only import media that are already finished. Setup an
+      This will only import media that are already finished. Setup an
       [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
-    - Due to a limitation in the ABS API, you need to manually interact with the podcasts
-      you want to import at-least once. To do so, search them using the search bar and add them
-      to your watchlist.
 
 ### Steps
 
