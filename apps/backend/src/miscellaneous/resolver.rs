@@ -5506,6 +5506,7 @@ impl MiscellaneousService {
                             &specifics.audiobookshelf_base_url.unwrap(),
                             &specifics.audiobookshelf_token.unwrap(),
                             &self.get_isbn_service().await.unwrap(),
+                            |input| self.commit_metadata(input),
                         )
                         .await
                 }

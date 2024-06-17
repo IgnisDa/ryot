@@ -1,6 +1,7 @@
 use std::future::Future;
 
 use anyhow::{anyhow, bail, Result};
+use async_graphql::Result as GqlResult;
 use database::{MediaLot, MediaSource};
 use regex::Regex;
 use rust_decimal::Decimal;
@@ -259,14 +260,14 @@ impl IntegrationService {
         Ok(payload)
     }
 
-    #[tracing::instrument(skip(self, access_token, isbn_service, commit_metadata))]
+    #[tracing::instrument(skip_all, fields(base_url))]
     pub async fn audiobookshelf_progress<F>(
         &self,
         base_url: &str,
         access_token: &str,
         isbn_service: &GoogleBooksService,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> Result<Vec<IntegrationMedia>>
+    ) -> GqlResult<Vec<IntegrationMedia>>
     where
         F: Future<Output = Result<StringIdObject>>,
     {
