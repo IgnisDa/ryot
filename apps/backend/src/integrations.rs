@@ -14,7 +14,7 @@ use crate::{
     utils::{get_base_http_client, ilike_sql},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IntegrationMedia {
     pub identifier: String,
     pub lot: MediaLot,
@@ -113,10 +113,7 @@ impl IntegrationService {
             show_season_number: payload.item.season_number,
             show_episode_number: payload.item.episode_number,
             provider_watched_on: Some("Jellyfin".to_string()),
-            podcast_episode_number: None,
-            manga_chapter_number: None,
-            anime_episode_number: None,
-            manga_volume_number: None,
+            ..Default::default()
         })
     }
 
@@ -243,10 +240,7 @@ impl IntegrationService {
             provider_watched_on: Some("Plex".to_string()),
             show_season_number: payload.metadata.season_number,
             show_episode_number: payload.metadata.episode_number,
-            podcast_episode_number: None,
-            anime_episode_number: None,
-            manga_chapter_number: None,
-            manga_volume_number: None,
+            ..Default::default()
         })
     }
 
@@ -329,12 +323,7 @@ impl IntegrationService {
                     source: MediaSource::Audible,
                     progress: resp.progress * dec!(100),
                     provider_watched_on: Some("Audiobookshelf".to_string()),
-                    show_season_number: None,
-                    show_episode_number: None,
-                    podcast_episode_number: None,
-                    anime_episode_number: None,
-                    manga_chapter_number: None,
-                    manga_volume_number: None,
+                    ..Default::default()
                 });
             }
         }
