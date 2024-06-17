@@ -259,7 +259,7 @@ impl IntegrationService {
         Ok(payload)
     }
 
-    #[tracing::instrument(skip(self, access_token, isbn_service))]
+    #[tracing::instrument(skip(self, access_token, isbn_service, commit_metadata))]
     pub async fn audiobookshelf_progress<F>(
         &self,
         base_url: &str,
