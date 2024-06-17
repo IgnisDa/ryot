@@ -288,6 +288,7 @@ impl ImporterService {
                 input.url_and_key.unwrap(),
                 &self.media_service.get_isbn_service().await.unwrap(),
                 &self.media_service.db,
+                |input| self.media_service.commit_metadata(input),
             )
             .await
             .unwrap(),

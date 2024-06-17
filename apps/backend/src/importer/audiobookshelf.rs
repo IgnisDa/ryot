@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
@@ -10,8 +12,12 @@ use surf::{http::headers::AUTHORIZATION, Client};
 use crate::{
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
-    models::media::{
-        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    models::{
+        media::{
+            CommitMediaInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
+            ImportOrExportMediaItemSeen,
+        },
+        StringIdObject,
     },
     providers::google_books::GoogleBooksService,
     utils::get_base_http_client,
@@ -29,11 +35,15 @@ pub struct ListResponse {
     pub results: Vec<audiobookshelf_models::Item>,
 }
 
-pub async fn import(
+pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
     isbn_service: &GoogleBooksService,
     db: &DatabaseConnection,
-) -> Result<ImportResult> {
+    commit_metadata: impl Fn(CommitMediaInput) -> F,
+) -> Result<ImportResult>
+where
+    F: Future<Output = Result<StringIdObject>>,
+{
     let mut media = vec![];
     let mut failed_items = vec![];
     let client = get_base_http_client(
@@ -97,6 +107,8 @@ pub async fn import(
                 let item_details = get_item_details(&client, &item.id, None).await?;
                 match item_details.media.and_then(|m| m.episodes) {
                     Some(episodes) => {
+                        let lot = MediaLot::Podcast;
+                        let source = MediaSource::Itunes;
                         let mut to_return = vec![];
                         for episode in episodes {
                             let episode_details =
@@ -105,6 +117,13 @@ pub async fn import(
                             if let Some(true) =
                                 episode_details.user_media_progress.map(|u| u.is_finished)
                             {
+                                commit_metadata(CommitMediaInput {
+                                    identifier: itunes_id.clone(),
+                                    lot,
+                                    source,
+                                    ..Default::default()
+                                })
+                                .await?;
                                 if let Ok(Some(pe)) =
                                     itunes_podcast_episode_by_name(&episode.title, &itunes_id, db)
                                         .await
@@ -113,12 +132,7 @@ pub async fn import(
                                 }
                             }
                         }
-                        (
-                            itunes_id,
-                            MediaLot::Podcast,
-                            MediaSource::Itunes,
-                            Some(to_return),
-                        )
+                        (itunes_id, lot, source, Some(to_return))
                     }
                     _ => {
                         failed_items.push(ImportFailedItem {
