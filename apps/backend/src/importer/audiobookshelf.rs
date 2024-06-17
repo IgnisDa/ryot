@@ -4,11 +4,11 @@ use data_encoding::BASE64;
 use database::{ImportSource, MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use strum::Display;
 use surf::http::headers::AUTHORIZATION;
 
 use crate::{
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
+    miscellaneous::audiobookshelf_models,
     models::media::{
         ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
     },
@@ -17,38 +17,14 @@ use crate::{
 
 use super::DeployUrlAndKeyImportInput;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Display)]
-#[serde(rename_all = "snake_case")]
-enum MediaType {
-    Book,
-    Podcast,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LibraryListItemMetadata {
-    asin: Option<String>,
-    title: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LibraryListItem {
-    id: String,
-    media_type: Option<MediaType>,
-    name: Option<String>,
-    metadata: Option<LibraryListItemMetadata>,
-    media: Option<Box<LibraryListItem>>,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LibrariesListResponse {
-    pub libraries: Vec<LibraryListItem>,
+    pub libraries: Vec<audiobookshelf_models::Item>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListResponse {
-    pub results: Vec<LibraryListItem>,
+    pub results: Vec<audiobookshelf_models::Item>,
 }
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
@@ -66,7 +42,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .await
         .unwrap();
     for library in libraries_resp.libraries {
-        tracing::debug!("Importing library {:?}", library.name);
+        tracing::debug!("Importing library {:?}", library.name.unwrap());
         let finished_items: ListResponse = client
             .get(&format!("libraries/{}/items", library.id))
             .query(&json!({ "filter": format!("progress.{}", BASE64.encode(b"finished")) }))
@@ -77,9 +53,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             .await
             .unwrap();
         for item in finished_items.results {
-            let metadata = item.media.unwrap().metadata.unwrap();
+            dbg!(&item);
+            let metadata = item.media.unwrap().metadata;
             match item.media_type.unwrap() {
-                MediaType::Book => {
+                audiobookshelf_models::MediaType::Book => {
                     let lot = MediaLot::AudioBook;
                     if let Some(asin) = metadata.asin {
                         media.push(ImportOrExportMediaItem {
@@ -88,7 +65,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                             )),
                             lot,
                             source: MediaSource::Audible,
-                            source_id: metadata.title.unwrap_or_default(),
+                            source_id: metadata.title,
                             identifier: "".to_string(),
                             seen_history: vec![ImportOrExportMediaItemSeen {
                                 provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
@@ -100,7 +77,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                     } else {
                         failed_items.push(ImportFailedItem {
                             error: Some("No ASIN found".to_string()),
-                            identifier: metadata.title.unwrap_or_default(),
+                            identifier: metadata.title,
                             lot: Some(lot),
                             step: ImportFailStep::InputTransformation,
                         });
@@ -109,7 +86,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 s => {
                     failed_items.push(ImportFailedItem {
                         error: Some(format!("Import of {s:#?} media type is not supported yet")),
-                        identifier: metadata.title.unwrap_or_default(),
+                        identifier: metadata.title,
                         lot: None,
                         step: ImportFailStep::ItemDetailsFromSource,
                     });
