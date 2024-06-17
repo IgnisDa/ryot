@@ -273,12 +273,17 @@ impl IntegrationService {
                 pub progress: Decimal,
             }
             #[derive(Debug, Serialize, Deserialize)]
+            #[serde(rename_all = "camelCase")]
             pub struct ItemMetadata {
                 pub asin: Option<String>,
+                pub isbn: Option<String>,
+                pub itunes_id: Option<String>,
             }
             #[derive(Debug, Serialize, Deserialize)]
+            #[serde(rename_all = "camelCase")]
             pub struct ItemMedia {
                 pub metadata: ItemMetadata,
+                pub ebook_format: Option<String>,
             }
             #[derive(Debug, Serialize, Deserialize)]
             pub struct Item {
@@ -306,6 +311,7 @@ impl IntegrationService {
         tracing::debug!("Got response for items in progress {:#?}", resp);
         let mut media_items = vec![];
         for item in resp.library_items.iter() {
+            dbg!(&item);
             if let Some(asin) = item.media.metadata.asin.clone() {
                 let resp: models::ItemProgress = client
                     .get(format!("me/progress/{}", item.id))
