@@ -3813,6 +3813,10 @@ impl MiscellaneousService {
                 ))
                 .equals((AliasedCollection::Table, AliasedCollection::Id)),
             )
+            .and_where(
+                Expr::col((AliasedUser::Table, AliasedUser::Id))
+                    .not_equals((AliasedCollection::Table, AliasedCollection::UserId)),
+            )
             .to_owned();
         let count_subquery = Query::select()
             .expr(collection_to_entity::Column::Id.count())
@@ -3847,10 +3851,13 @@ impl MiscellaneousService {
                 "count",
             )
             .expr_as_(
-                SimpleExpr::SubQuery(
-                    None,
-                    Box::new(collaborators_subquery.into_sub_query_statement()),
-                ),
+                SimpleExpr::FunctionCall(Func::coalesce([
+                    SimpleExpr::SubQuery(
+                        None,
+                        Box::new(collaborators_subquery.into_sub_query_statement()),
+                    ),
+                    SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
+                ])),
                 "collaborators",
             )
             .column(collection::Column::Description)
