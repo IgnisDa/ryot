@@ -1261,9 +1261,7 @@ impl MiscellaneousMutation {
     async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service
-            .queue_notifications_to_user_platforms(&user_id, "Test notification message triggered.")
-            .await
+        service.test_user_notification_platforms(&user_id).await
     }
 
     /// Delete a notification platform for the currently logged in user.
@@ -7045,6 +7043,18 @@ GROUP BY m.id;
         tracing::debug!("Deleting all queued notifications");
         QueuedNotification::delete_many().exec(&self.db).await?;
         Ok(())
+    }
+
+    async fn test_user_notification_platforms(&self, user_id: &String) -> Result<bool> {
+        let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
+        for platform in user.notifications {
+            let msg = format!(
+                "This is a test notification for platform: {}",
+                platform.settings.kind()
+            );
+            platform.settings.send_message(&self.config, &msg).await?;
+        }
+        Ok(true)
     }
 
     #[tracing::instrument(skip(self))]
