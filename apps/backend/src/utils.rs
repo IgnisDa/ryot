@@ -16,6 +16,10 @@ use openidconnect::{
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    ClientBuilder,
+};
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
@@ -255,6 +259,25 @@ pub fn get_base_http_client(
     config
         .set_base_url(Url::parse(url).unwrap())
         .try_into()
+        .unwrap()
+}
+
+pub fn get_base_http_client_new(
+    url: &str,
+    headers: Option<Vec<(reqwest::header::HeaderName, HeaderValue)>>,
+) -> reqwest::Client {
+    let mut req_headers = HeaderMap::new();
+    req_headers.insert(
+        reqwest::header::USER_AGENT,
+        HeaderValue::from_static(USER_AGENT_STR),
+    );
+    for (header, value) in headers.unwrap_or_default().into_iter() {
+        req_headers.insert(header, value);
+    }
+    ClientBuilder::new()
+        .default_headers(req_headers)
+        .base_url(url.to_owned())
+        .build()
         .unwrap()
 }
 
