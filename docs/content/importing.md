@@ -1,9 +1,9 @@
 # Importing
 
-Importing is meant to be a one-time operation. They are irreversible. Ryot
-supports importing media from a number of sources. I recommend you make a database backup
-before starting an import. To start, click on "Imports and Exports" link under the
-"Settings" section in the sidebar.
+Importing is meant to be a one-time operation. They are irreversible, i.e., importing from
+the same source twice will create duplicates. I recommend you make a database backup before
+starting an import. To start, click on "Imports and Exports" link under the "Settings"
+section in the sidebar.
 
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
 You can see the reports under "Import History" of the imports page.
@@ -151,8 +151,10 @@ ITunes ID or ISBN.
 
 !!! warning
 
-      This will only import media that are already finished. Setup an
+    - This will only import media that are already finished. Setup an
       [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
+    - If you have enabled the option to auto delete podcast episodes, you'll have to
+      manually mark them as completed.
 
 ### Steps
 
