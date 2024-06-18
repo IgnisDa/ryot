@@ -16,9 +16,9 @@ use cached::{DiskCache, IOCached};
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollectionToEntity, AliasedExercise, AliasedMetadata, AliasedMetadataGroup,
-    AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUserToCollection,
-    AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot, MediaSource,
-    MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
+    AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUser,
+    AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
+    MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -43,8 +43,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -336,9 +336,8 @@ struct CollectionItem {
     count: i64,
     is_default: bool,
     description: Option<String>,
-    creator_user_id: String,
-    creator_username: String,
     information_template: Option<Vec<CollectionExtraInformation>>,
+    creator: IdAndNamedObject,
 }
 
 #[derive(SimpleObject)]
@@ -3775,6 +3774,12 @@ impl MiscellaneousService {
         user_id: &String,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
+        struct JsonBuildObject;
+        impl Iden for JsonBuildObject {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "JSON_BUILD_OBJECT").unwrap();
+            }
+        }
         let subquery = Query::select()
             .expr(collection_to_entity::Column::Id.count())
             .from(CollectionToEntity)
@@ -3808,8 +3813,16 @@ impl MiscellaneousService {
                 Box::new(subquery.into_sub_query_statement()),
             ))
             .column(collection::Column::Description)
-            .column_as(user::Column::Id, "creator_user_id")
-            .column_as(user::Column::Name, "creator_username")
+            .column_as(
+                SimpleExpr::FunctionCall(
+                    Func::cust(JsonBuildObject)
+                        .arg(Expr::val("id"))
+                        .arg(Expr::col((AliasedUser::Table, user::Column::Id)))
+                        .arg(Expr::val("name"))
+                        .arg(Expr::col((AliasedUser::Table, user::Column::Name))),
+                ),
+                "creator",
+            )
             .order_by_desc(collection::Column::LastUpdatedOn)
             .left_join(User)
             .left_join(UserToCollection)
