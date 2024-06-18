@@ -33,6 +33,7 @@ pub use m20230501_create_metadata_group::MetadataGroup as AliasedMetadataGroup;
 pub use m20230502_create_genre::{
     Genre as AliasedGenre, MetadataToGenre as AliasedMetadataToGenre,
 };
+pub use m20230504_create_collection::Collection as AliasedCollection;
 pub use m20230505_create_review::Review as AliasedReview;
 pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;

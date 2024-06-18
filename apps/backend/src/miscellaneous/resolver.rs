@@ -15,10 +15,11 @@ use async_graphql::{
 use cached::{DiskCache, IOCached};
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
-    AliasedCollectionToEntity, AliasedExercise, AliasedMetadata, AliasedMetadataGroup,
-    AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
-    MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
+    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen,
+    AliasedUser, AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource,
+    MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason,
+    Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -338,6 +339,7 @@ struct CollectionItem {
     description: Option<String>,
     information_template: Option<Vec<CollectionExtraInformation>>,
     creator: IdAndNamedObject,
+    collaborators: Vec<IdAndNamedObject>,
 }
 
 #[derive(SimpleObject)]
@@ -3780,6 +3782,40 @@ impl MiscellaneousService {
                 write!(s, "JSON_BUILD_OBJECT").unwrap();
             }
         }
+        struct JsonAgg;
+        impl Iden for JsonAgg {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "JSON_AGG").unwrap();
+            }
+        }
+        let collaborators_subquery = Query::select()
+            .from(UserToCollection)
+            .expr(SimpleExpr::FunctionCall(
+                Func::cust(JsonAgg).arg(
+                    Func::cust(JsonBuildObject)
+                        .arg(Expr::val("id"))
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
+                        .arg(Expr::val("name"))
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
+                ),
+            ))
+            .join(
+                JoinType::InnerJoin,
+                AliasedUser::Table,
+                Expr::col((
+                    AliasedUserToCollection::Table,
+                    AliasedUserToCollection::UserId,
+                ))
+                .equals((AliasedUser::Table, AliasedUser::Id)),
+            )
+            .and_where(
+                Expr::col((
+                    AliasedUserToCollection::Table,
+                    AliasedUserToCollection::CollectionId,
+                ))
+                .equals((AliasedCollection::Table, AliasedCollection::Id)),
+            )
+            .to_owned();
         let count_subquery = Query::select()
             .expr(collection_to_entity::Column::Id.count())
             .from(CollectionToEntity)
@@ -3810,7 +3846,14 @@ impl MiscellaneousService {
             .column(collection::Column::InformationTemplate)
             .expr_as_(
                 SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
-                "count"
+                "count",
+            )
+            .expr_as_(
+                SimpleExpr::SubQuery(
+                    None,
+                    Box::new(collaborators_subquery.into_sub_query_statement()),
+                ),
+                "collaborators",
             )
             .column(collection::Column::Description)
             .column_as(
