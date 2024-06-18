@@ -484,13 +484,13 @@ const Footer = () => {
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
-				{!loaderData.coreDetails.isPro ? (
+				{/* {!loaderData.coreDetails.isPro ? (
 					<Anchor href={loaderData.coreDetails.websiteUrl} target="_blank">
 						<Text c="lime" fw="bold">
 							Ryot Pro
 						</Text>
 					</Anchor>
-				) : null}
+				) : null} */}
 				<Anchor href="https://diptesh.me" target="_blank">
 					<Text c="indigo" fw="bold">
 						{loaderData.coreDetails.authorName}
