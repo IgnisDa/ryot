@@ -284,8 +284,8 @@ const DisplayCollection = (props: {
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [`${props.collection.count} items`];
 
-	if (props.collection.creatorUserId !== loaderData.currentUserId)
-		additionalDisplay.push(`By ${props.collection.creatorUsername}`);
+	if (props.collection.creator.id !== loaderData.currentUserId)
+		additionalDisplay.push(`By ${props.collection.creator.name}`);
 
 	return (
 		<Flex align="center" justify="space-between" gap="md" mr="lg">

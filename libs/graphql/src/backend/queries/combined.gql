@@ -44,8 +44,10 @@ query UserCollectionsList($name: String) {
     count
     isDefault
     description
-    creatorUserId
-    creatorUsername
+    creator {
+      id
+      name
+    }
     informationTemplate {
       lot
       name

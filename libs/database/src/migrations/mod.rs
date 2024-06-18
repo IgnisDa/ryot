@@ -27,6 +27,7 @@ mod m20240608_add_created_on_column_to_collection_to_entity;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
+pub use m20230417_create_user::User as AliasedUser;
 pub use m20230419_create_seen::Seen as AliasedSeen;
 pub use m20230501_create_metadata_group::MetadataGroup as AliasedMetadataGroup;
 pub use m20230502_create_genre::{

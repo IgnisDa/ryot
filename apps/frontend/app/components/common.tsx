@@ -150,7 +150,7 @@ export const AddEntityToCollectionModal = (props: {
 }) => {
 	const selectData = Object.entries(
 		groupBy(props.collections, (c) =>
-			c.creatorUserId === props.userId ? "You" : c.creatorUsername,
+			c.creator.id === props.userId ? "You" : c.creator.name,
 		),
 	).map(([g, items]) => ({
 		group: g,
@@ -204,7 +204,7 @@ export const AddEntityToCollectionModal = (props: {
 								readOnly
 								hidden
 								name="creatorUserId"
-								value={selectedCollection.creatorUserId}
+								value={selectedCollection.creator.id}
 							/>
 							{selectedCollection.informationTemplate?.map((template) => (
 								<Fragment key={template.name}>
