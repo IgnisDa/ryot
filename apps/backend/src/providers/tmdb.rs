@@ -35,7 +35,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_new, get_current_date, TEMP_DIR},
+    utils::{get_base_http_client, get_current_date, TEMP_DIR},
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";
@@ -1280,7 +1280,7 @@ impl MediaProvider for TmdbShowService {
 }
 
 async fn get_client_config(url: &str, access_token: &str) -> (Client, Settings) {
-    let client: Client = get_base_http_client_new(
+    let client: Client = get_base_http_client(
         url,
         Some(vec![(
             AUTHORIZATION,

@@ -17,7 +17,7 @@ use crate::{
         CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
         ImportOrExportMediaItemSeen,
     },
-    utils::{get_base_http_client_new, JSON},
+    utils::{get_base_http_client, JSON},
 };
 
 const API_URL: &str = "https://api.trakt.tv";
@@ -61,7 +61,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     let mut media = vec![];
     let mut failed_items = vec![];
 
-    let client = get_base_http_client_new(
+    let client = get_base_http_client(
         &format!("{}/users/{}/", API_URL, input.username),
         Some(vec![
             (CONTENT_TYPE, JSON.clone()),

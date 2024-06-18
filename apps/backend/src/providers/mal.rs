@@ -21,7 +21,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.myanimelist.net/v2/";
@@ -130,7 +130,7 @@ impl MediaProvider for MalMangaService {
 }
 
 async fn get_client_config(url: &str, client_id: &str) -> Client {
-    get_base_http_client_new(
+    get_base_http_client(
         url,
         Some(vec![(
             HeaderName::from_static("X-MAL-CLIENT-ID"),

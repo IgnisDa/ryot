@@ -17,7 +17,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.mangaupdates.com/v1/";
@@ -40,7 +40,7 @@ impl MediaProviderLanguages for MangaUpdatesService {
 
 impl MangaUpdatesService {
     pub async fn new(_config: &config::MangaUpdatesConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client_new(URL, None);
+        let client = get_base_http_client(URL, None);
         Self { client, page_limit }
     }
 }

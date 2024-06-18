@@ -16,7 +16,7 @@ use crate::{
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
     models::{media::CommitMediaInput, StringIdObject},
     providers::google_books::GoogleBooksService,
-    utils::{get_base_http_client_new, ilike_sql},
+    utils::{get_base_http_client, ilike_sql},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -270,7 +270,7 @@ impl IntegrationService {
     where
         F: Future<Output = GqlResult<StringIdObject>>,
     {
-        let client = get_base_http_client_new(
+        let client = get_base_http_client(
             &format!("{}/api/", base_url),
             Some(vec![(
                 AUTHORIZATION,

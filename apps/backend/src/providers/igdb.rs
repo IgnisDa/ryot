@@ -28,7 +28,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_new, TEMP_DIR},
+    utils::{get_base_http_client, TEMP_DIR},
 };
 
 static URL: &str = "https://api.igdb.com/v4/";
@@ -646,7 +646,7 @@ async fn get_client(config: &config::VideoGameConfig) -> Client {
         let data = fs::read_to_string(path).unwrap();
         serde_json::from_str(&data).unwrap()
     };
-    get_base_http_client_new(
+    get_base_http_client(
         URL,
         Some(vec![
             (

@@ -23,7 +23,7 @@ use crate::{
         StringIdObject,
     },
     providers::google_books::GoogleBooksService,
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 use super::DeployUrlAndKeyImportInput;
@@ -49,7 +49,7 @@ where
 {
     let mut media = vec![];
     let mut failed_items = vec![];
-    let client = get_base_http_client_new(
+    let client = get_base_http_client(
         &format!("{}/api/", input.api_url),
         Some(vec![(
             AUTHORIZATION,

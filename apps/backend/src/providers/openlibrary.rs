@@ -19,7 +19,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://openlibrary.org/";
@@ -107,7 +107,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &config::OpenlibraryConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client_new(URL, None);
+        let client = get_base_http_client(URL, None);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),

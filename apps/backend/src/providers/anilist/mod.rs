@@ -18,7 +18,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://graphql.anilist.co";
@@ -513,7 +513,7 @@ impl MediaProvider for AnilistMangaService {
 }
 
 async fn get_client_config(url: &str) -> Client {
-    get_base_http_client_new(url, None)
+    get_base_http_client(url, None)
 }
 
 async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {

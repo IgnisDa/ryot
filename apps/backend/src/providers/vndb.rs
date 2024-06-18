@@ -17,7 +17,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
@@ -46,7 +46,7 @@ impl MediaProviderLanguages for VndbService {
 
 impl VndbService {
     pub async fn new(_config: &config::VisualNovelConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client_new(URL, None);
+        let client = get_base_http_client(URL, None);
         Self { client, page_limit }
     }
 }

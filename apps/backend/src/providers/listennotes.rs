@@ -25,7 +25,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client_new, TEMP_DIR},
+    utils::{get_base_http_client, TEMP_DIR},
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
@@ -269,7 +269,7 @@ impl ListennotesService {
 }
 
 async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
-    let client = get_base_http_client_new(
+    let client = get_base_http_client(
         url,
         Some(vec![(
             HeaderName::from_static("X-ListenAPI-Key"),

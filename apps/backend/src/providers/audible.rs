@@ -22,7 +22,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
@@ -181,7 +181,7 @@ impl AudibleService {
 
     pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
         let url = Self::url_from_locale(&config.locale);
-        let client = get_base_http_client_new(&url, None);
+        let client = get_base_http_client(&url, None);
         Self {
             client,
             page_limit,

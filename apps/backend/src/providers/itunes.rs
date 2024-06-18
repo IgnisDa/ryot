@@ -16,7 +16,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client_new,
+    utils::get_base_http_client,
 };
 
 static URL: &str = "https://itunes.apple.com/";
@@ -40,7 +40,7 @@ impl MediaProviderLanguages for ITunesService {
 
 impl ITunesService {
     pub async fn new(config: &config::ITunesConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client_new(URL, None);
+        let client = get_base_http_client(URL, None);
         Self {
             client,
             language: config.locale.clone(),
