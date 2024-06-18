@@ -3,10 +3,9 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use database::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
-use http_types::mime;
 use itertools::Itertools;
+use reqwest::Client;
 use rust_decimal::Decimal;
-use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     models::{
@@ -19,7 +18,7 @@ use crate::{
         SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::get_base_http_client_new,
 };
 
 static URL: &str = "https://graphql.anilist.co";
@@ -141,12 +140,11 @@ impl MediaProvider for NonMediaAnilistService {
                 .base
                 .client
                 .post("")
-                .body_json(&body)
-                .unwrap()
+                .json(&body)
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<Response<studio_search_query::ResponseData>>()
+                .json::<Response<studio_search_query::ResponseData>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
@@ -185,12 +183,11 @@ impl MediaProvider for NonMediaAnilistService {
                 .base
                 .client
                 .post("")
-                .body_json(&body)
-                .unwrap()
+                .json(&body)
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<Response<staff_search_query::ResponseData>>()
+                .json::<Response<staff_search_query::ResponseData>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
@@ -248,12 +245,11 @@ impl MediaProvider for NonMediaAnilistService {
                 .base
                 .client
                 .post("")
-                .body_json(&body)
-                .unwrap()
+                .json(&body)
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<Response<studio_query::ResponseData>>()
+                .json::<Response<studio_query::ResponseData>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
@@ -307,12 +303,11 @@ impl MediaProvider for NonMediaAnilistService {
                 .base
                 .client
                 .post("")
-                .body_json(&body)
-                .unwrap()
+                .json(&body)
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<Response<staff_query::ResponseData>>()
+                .json::<Response<staff_query::ResponseData>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
@@ -518,7 +513,7 @@ impl MediaProvider for AnilistMangaService {
 }
 
 async fn get_client_config(url: &str) -> Client {
-    get_base_http_client(url, vec![(ACCEPT, mime::JSON)])
+    get_base_http_client_new(url, None)
 }
 
 async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {
@@ -528,12 +523,11 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
     let body = MediaDetailsQuery::build_query(variables);
     let details = client
         .post("")
-        .body_json(&body)
-        .unwrap()
+        .json(&body)
         .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json::<Response<media_details_query::ResponseData>>()
+        .json::<Response<media_details_query::ResponseData>>()
         .await
         .map_err(|e| anyhow!(e))?
         .data
@@ -707,12 +701,11 @@ async fn search(
     let body = MediaSearchQuery::build_query(variables);
     let search = client
         .post("")
-        .body_json(&body)
-        .unwrap()
+        .json(&body)
         .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json::<Response<media_search_query::ResponseData>>()
+        .json::<Response<media_search_query::ResponseData>>()
         .await
         .map_err(|e| anyhow!(e))?
         .data
