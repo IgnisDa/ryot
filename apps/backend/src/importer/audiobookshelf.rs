@@ -79,9 +79,11 @@ where
             .json::<ListResponse>()
             .await
             .unwrap();
-        for item in finished_items.results {
+        let len = finished_items.results.len();
+        for (idx, item) in finished_items.results.into_iter().enumerate() {
             let metadata = item.media.clone().unwrap().metadata;
             let title = metadata.title.clone();
+            tracing::trace!("Importing item {:?} ({}/{})", title, idx + 1, len);
             let (identifier, lot, source, episodes) = if Some("epub".to_string())
                 == item.media.as_ref().unwrap().ebook_format
             {
@@ -118,6 +120,7 @@ where
                         let source = MediaSource::Itunes;
                         let mut to_return = vec![];
                         for episode in episodes {
+                            tracing::trace!("Importing episode {:?}", episode.title);
                             let episode_details =
                                 get_item_details(&client, &item.id, Some(episode.id.unwrap()))
                                     .await?;
