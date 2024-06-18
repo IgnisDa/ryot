@@ -1,12 +1,15 @@
 use async_graphql::Result;
 use database::{ImportSource, MediaLot, MediaSource};
 use nanoid::nanoid;
+use reqwest::{
+    header::{HeaderMap, HeaderValue, USER_AGENT},
+    ClientBuilder,
+};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
-use surf::{http::headers::USER_AGENT, Client, Config, Url};
 
 use crate::{
     importer::{
@@ -140,27 +143,27 @@ struct ItemDetails {
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let api_url = input.api_url.trim_end_matches('/');
-    let client: Client = Config::new()
-        .add_header(USER_AGENT, USER_AGENT_STR)
-        .unwrap()
-        .add_header("Access-Token", input.api_key)
-        .unwrap()
-        .set_base_url(Url::parse(&format!("{}/api/", api_url)).unwrap())
-        .try_into()
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
+    headers.insert("Access-Token", input.api_key.parse().unwrap());
+    let client = ClientBuilder::new()
+        .default_headers(headers)
+        .base_url(format!("{}/api/", api_url))
+        .build()
         .unwrap();
 
-    let mut rsp = client.get("user").await.unwrap();
-    let data: IdObject = rsp.body_json().await.unwrap();
+    let rsp = client.get("user").send().await.unwrap();
+    let data: IdObject = rsp.json().await.unwrap();
 
     let user_id: i32 = data.id;
 
-    let mut rsp = client
+    let rsp = client
         .get("lists")
         .query(&serde_json::json!({ "userId": user_id }))
-        .unwrap()
+        .send()
         .await
         .unwrap();
-    let mut lists: Vec<ListResponse> = rsp.body_json().await.unwrap();
+    let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
 
     let collections = lists
         .iter()
@@ -174,21 +177,21 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         })
         .collect();
     for list in lists.iter_mut() {
-        let mut rsp = client
+        let rsp = client
             .get("list/items")
             .query(&serde_json::json!({ "listId": list.id }))
-            .unwrap()
+            .send()
             .await
             .unwrap();
-        let items: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
+        let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
         list.items = items;
     }
 
     let mut failed_items = vec![];
 
     // all items returned here are seen at least once
-    let mut rsp = client.get("items").await.unwrap();
-    let mut data: Vec<Item> = rsp.body_json().await.unwrap();
+    let rsp = client.get("items").send().await.unwrap();
+    let mut data: Vec<Item> = rsp.json().await.unwrap();
 
     // There are a few items that are added to lists but have not been seen, so will
     // add them manually.
@@ -220,8 +223,12 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             }
         };
         let lot = MediaLot::from(media_type.clone());
-        let mut rsp = client.get(format!("details/{}", d.id)).await.unwrap();
-        let details: ItemDetails = match rsp.body_json().await {
+        let rsp = client
+            .get(format!("details/{}", d.id))
+            .send()
+            .await
+            .unwrap();
+        let details: ItemDetails = match rsp.json().await {
             Ok(s) => s,
             Err(e) => {
                 tracing::error!("Encountered error for id = {id:?}: {e:?}", id = d.id);

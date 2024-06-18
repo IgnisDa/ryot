@@ -4,10 +4,13 @@ use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
 use database::{ImportSource, MediaLot, MediaSource};
+use reqwest::{
+    header::{HeaderValue, AUTHORIZATION},
+    Client,
+};
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
@@ -48,13 +51,17 @@ where
     let mut failed_items = vec![];
     let client = get_base_http_client(
         &format!("{}/api/", input.api_url),
-        vec![(AUTHORIZATION, format!("Bearer {}", input.api_key))],
+        Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", input.api_key)).unwrap(),
+        )]),
     );
-    let libraries_resp: LibrariesListResponse = client
+    let libraries_resp = client
         .get("libraries")
+        .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json()
+        .json::<LibrariesListResponse>()
         .await
         .unwrap();
     for library in libraries_resp.libraries {
@@ -63,18 +70,20 @@ where
         if let Some(audiobookshelf_models::MediaType::Book) = library.media_type {
             query["filter"] = json!(format!("progress.{}", BASE64.encode(b"finished")));
         }
-        let finished_items: ListResponse = client
+        let finished_items = client
             .get(&format!("libraries/{}/items", library.id))
             .query(&query)
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json::<ListResponse>()
             .await
             .unwrap();
-        for item in finished_items.results {
+        let len = finished_items.results.len();
+        for (idx, item) in finished_items.results.into_iter().enumerate() {
             let metadata = item.media.clone().unwrap().metadata;
             let title = metadata.title.clone();
+            tracing::trace!("Importing item {:?} ({}/{})", title, idx + 1, len);
             let (identifier, lot, source, episodes) = if Some("epub".to_string())
                 == item.media.as_ref().unwrap().ebook_format
             {
@@ -111,6 +120,7 @@ where
                         let source = MediaSource::Itunes;
                         let mut to_return = vec![];
                         for episode in episodes {
+                            tracing::trace!("Importing episode {:?}", episode.title);
                             let episode_details =
                                 get_item_details(&client, &item.id, Some(episode.id.unwrap()))
                                     .await?;
@@ -192,12 +202,13 @@ async fn get_item_details(
     if let Some(episode) = episode {
         query["episode"] = json!(episode);
     }
-    let item: audiobookshelf_models::Item = client
+    let item = client
         .get(&format!("items/{}", id))
-        .query(&query)?
+        .query(&query)
+        .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json()
+        .json::<audiobookshelf_models::Item>()
         .await?;
     Ok(item)
 }

@@ -3,12 +3,11 @@ use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use database::{MediaLot, MediaSource};
-use http_types::mime;
 use itertools::Itertools;
+use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     models::{
@@ -108,7 +107,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &config::OpenlibraryConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
+        let client = get_base_http_client(URL, None);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
@@ -183,7 +182,7 @@ impl MediaProvider for OpenlibraryService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let rsp = self
             .client
             .get("search/authors.json")
             .query(&json!({
@@ -191,11 +190,10 @@ impl MediaProvider for OpenlibraryService {
                 "offset": (page - 1) * self.page_limit,
                 "limit": self.page_limit,
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenAuthorLibrarySearchResponse =
-            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: OpenAuthorLibrarySearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .docs
             .into_iter()
@@ -226,12 +224,13 @@ impl MediaProvider for OpenlibraryService {
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        let mut rsp = self
+        let rsp = self
             .client
             .get(format!("authors/{}.json", identity))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: PersonDetailsOpenlibraryAuthor = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: PersonDetailsOpenlibraryAuthor = rsp.json().await.map_err(|e| anyhow!(e))?;
         let identifier = get_key(&data.key);
         let description = data.bio.map(|d| match d {
             OpenlibraryDescription::Text(s) => s,
@@ -249,10 +248,10 @@ impl MediaProvider for OpenlibraryService {
             .client
             .get(format!("authors/{}/works.json", identity))
             .query(&serde_json::json!({ "limit": 600 }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let mut related = vec![];
@@ -300,24 +299,25 @@ impl MediaProvider for OpenlibraryService {
 
     #[tracing::instrument(skip(self))]
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self
+        let rsp = self
             .client
             .get(format!("works/{}.json", identifier))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
 
         tracing::debug!("Getting work details.");
-        let data: MetadataDetailsOpenlibraryBook = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: MetadataDetailsOpenlibraryBook = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
         tracing::debug!("Getting edition details.");
-        let mut rsp = self
+        let rsp = self
             .client
             .get(format!("works/{}/editions.json", identifier))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let editions: OpenlibraryEditionsResponse =
-            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let editions: OpenlibraryEditionsResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let entries = editions.entries.unwrap_or_default();
         let all_pages = entries
@@ -402,10 +402,10 @@ impl MediaProvider for OpenlibraryService {
             .client
             .get("partials.json")
             .query(&json!({ "workid": identifier, "_component": "RelatedWorkCarousel" }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json::<OpenlibraryPartialResponse>()
+            .json::<OpenlibraryPartialResponse>()
             .await
             .map_err(|e| anyhow!(e))?
             .data;
@@ -486,7 +486,7 @@ impl MediaProvider for OpenlibraryService {
             "first_publish_year",
         ]
         .join(",");
-        let mut rsp = self
+        let rsp = self
             .client
             .get("search.json")
             .query(&json!({
@@ -496,11 +496,10 @@ impl MediaProvider for OpenlibraryService {
                 "limit": self.page_limit,
                 "type": "work".to_owned(),
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: OpenMediaLibrarySearchResponse =
-            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: OpenMediaLibrarySearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .docs
             .into_iter()

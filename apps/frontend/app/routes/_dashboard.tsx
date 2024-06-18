@@ -28,10 +28,7 @@ import {
 	type ShouldRevalidateFunction,
 	useLoaderData,
 } from "@remix-run/react";
-import {
-	type CoreDetails,
-	UserLot,
-} from "@ryot/generated/graphql/backend/graphql";
+import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
@@ -387,7 +384,7 @@ export default function Layout() {
 							<Outlet />
 						</Box>
 						<Box className={classes.shellFooter}>
-							<Footer coreDetails={loaderData.coreDetails} />
+							<Footer />
 						</Box>
 					</AppShell.Main>
 				</Flex>
@@ -481,19 +478,28 @@ function LinksGroup({
 	);
 }
 
-const Footer = (props: { coreDetails: CoreDetails }) => {
+const Footer = () => {
+	const loaderData = useLoaderData<typeof loader>();
+
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
+				{/* {!loaderData.coreDetails.isPro ? (
+					<Anchor href={loaderData.coreDetails.websiteUrl} target="_blank">
+						<Text c="lime" fw="bold">
+							Ryot Pro
+						</Text>
+					</Anchor>
+				) : null} */}
 				<Anchor href="https://diptesh.me" target="_blank">
 					<Text c="indigo" fw="bold">
-						{props.coreDetails.authorName}
+						{loaderData.coreDetails.authorName}
 					</Text>
 				</Anchor>
 				<Text c="pink" fw="bold" visibleFrom="md">
-					{props.coreDetails.timezone}
+					{loaderData.coreDetails.timezone}
 				</Text>
-				<Anchor href={props.coreDetails.repositoryLink} target="_blank">
+				<Anchor href={loaderData.coreDetails.repositoryLink} target="_blank">
 					<Text c="orange" fw="bold">
 						Github
 					</Text>

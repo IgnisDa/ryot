@@ -2385,7 +2385,7 @@ const DisplayPodcastEpisode = (props: {
 						props.setData({ podcastEpisodeNumber: props.episode.number });
 					}}
 				>
-					{numTimesEpisodeSeen > 0 ? "Rewatch this" : "Mark as seen"}
+					{numTimesEpisodeSeen > 0 ? "Re-listen this" : "Mark as listened"}
 				</Button>
 			</AccordionLabel>
 		</Fragment>

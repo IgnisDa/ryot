@@ -3,41 +3,49 @@ use std::{env, sync::Arc};
 use anyhow::{anyhow, Result};
 use config::AppConfig;
 use convert_case::{Case, Casing};
-use http_types::mime;
 use lettre::{transport::smtp::authentication::Credentials, Message, SmtpTransport, Transport};
+use reqwest::{
+    header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
+    Client,
+};
 use rs_utils::PROJECT_NAME;
-use surf::http::headers::AUTHORIZATION;
 
-use crate::{users::UserNotificationSetting, utils::AVATAR_URL};
+use crate::{
+    users::UserNotificationSetting,
+    utils::{AVATAR_URL, JSON},
+};
 
 impl UserNotificationSetting {
     // TODO: Allow formatting messages
     pub async fn send_message(&self, config: &Arc<AppConfig>, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);
+        let client = Client::new();
         if env::var("DISABLE_NOTIFICATIONS").is_ok() {
             tracing::warn!("Notification not sent. Body was: {:#?}", msg);
             return Ok(());
         }
         match self {
             Self::Apprise { url, key } => {
-                surf::post(format!("{}/notify/{}", url, key))
-                    .content_type(mime::JSON)
-                    .body_json(&serde_json::json!({
+                client
+                    .post(format!("{}/notify/{}", url, key))
+                    .header(CONTENT_TYPE, JSON.clone())
+                    .json(&serde_json::json!({
                         "body": msg,
                         "title": project_name,
                     }))
-                    .unwrap()
+                    .send()
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
             Self::Discord { url } => {
-                surf::post(url)
-                    .body_json(&serde_json::json!({
+                client
+                    .post(url)
+                    .json(&serde_json::json!({
                         "content": msg,
                         "username": project_name,
                         "avatar_url": AVATAR_URL
                     }))
-                    .unwrap()
+                    .send()
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
@@ -46,9 +54,10 @@ impl UserNotificationSetting {
                 token,
                 priority,
             } => {
-                surf::post(format!("{}/message", url))
-                    .header("X-Gotify-Key", token)
-                    .body_json(&serde_json::json!({
+                client
+                    .post(format!("{}/message", url))
+                    .header("X-Gotify-Key", HeaderValue::from_str(token).unwrap())
+                    .json(&serde_json::json!({
                         "message": msg,
                         "title": project_name,
                         "priority": priority.unwrap_or(5),
@@ -58,7 +67,7 @@ impl UserNotificationSetting {
                             }
                          }
                     }))
-                    .unwrap()
+                    .send()
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
@@ -68,59 +77,66 @@ impl UserNotificationSetting {
                 topic,
                 auth_header,
             } => {
-                let mut request = surf::post(format!(
-                    "{}/{}",
-                    url.clone().unwrap_or_else(|| "https://ntfy.sh".to_owned()),
-                    topic
-                ))
-                .header("Title", project_name)
-                .header("Attach", AVATAR_URL)
-                .header(
-                    "Priority",
-                    priority
-                        .map(|p| p.to_string())
-                        .unwrap_or_else(|| "3".to_owned()),
-                );
+                let mut request = client
+                    .post(format!(
+                        "{}/{}",
+                        url.clone().unwrap_or_else(|| "https://ntfy.sh".to_owned()),
+                        topic
+                    ))
+                    .header("Title", project_name)
+                    .header("Attach", AVATAR_URL)
+                    .header(
+                        "Priority",
+                        priority
+                            .map(|p| p.to_string())
+                            .unwrap_or_else(|| "3".to_owned()),
+                    );
                 if let Some(token) = auth_header {
-                    request = request.header(AUTHORIZATION, format!("Bearer {}", token));
+                    request = request.header(
+                        AUTHORIZATION,
+                        HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+                    );
                 }
                 request
-                    .body_string(msg.to_owned())
+                    .body(msg.to_owned())
+                    .send()
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
             Self::PushBullet { api_token } => {
-                surf::post("https://api.pushbullet.com/v2/pushes")
+                client
+                    .post("https://api.pushbullet.com/v2/pushes")
                     .header("Access-Token", api_token)
-                    .body_json(&serde_json::json!({
+                    .json(&serde_json::json!({
                         "body": msg,
                         "title": project_name,
                         "type": "note"
                     }))
-                    .unwrap()
+                    .send()
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
             Self::PushOver { key, app_key } => {
-                surf::post("https://api.pushover.net/1/messages.json")
+                client.post("https://api.pushover.net/1/messages.json")
                     .query(&serde_json::json!({
                         "token":  app_key.clone().unwrap_or_else(|| "abd1semr21hv1i5j5kfkm23wf1kd4u".to_owned()),
                         "user": key,
                         "message": msg,
                         "title": project_name
                     }))
-                    .unwrap()
+                    .send()
                     .await
                     .map_err(|e| anyhow!(e))?;
             }
             Self::PushSafer { key } => {
-                surf::post("https://www.pushsafer.com/api")
+                client
+                    .post("https://www.pushsafer.com/api")
                     .query(&serde_json::json!({
                         "k": key,
                         "m": msg,
                         "t": project_name
                     }))
-                    .unwrap()
+                    .send()
                     .await
                     .map_err(|e| anyhow!(e))?;
             }

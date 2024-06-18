@@ -1,13 +1,16 @@
-use std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use nanoid::nanoid;
+use reqwest::{Body, Client};
 use rs_utils::IsFeatureEnabled;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
+use tokio::fs::File;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
     background::ApplicationJob, file_storage::FileStorageService,
@@ -99,7 +102,7 @@ impl ExporterService {
         }
         let started_at = Utc::now();
         let export_path = PathBuf::from(TEMP_DIR).join(format!("ryot-export-{}.json", nanoid!()));
-        let file = File::create(&export_path).unwrap();
+        let file = std::fs::File::create(&export_path).unwrap();
         let mut writer = JsonStreamWriter::new(file);
         writer.begin_object().unwrap();
         for export in to_export.iter() {
@@ -158,16 +161,20 @@ impl ExporterService {
                 ])),
             )
             .await;
-        surf::put(url)
+        let file = File::open(&export_path).await.unwrap();
+        let stream = FramedRead::new(file, BytesCodec::new());
+        let body = Body::wrap_stream(stream);
+        let client = Client::new();
+        client
+            .put(url)
             .header("x-amz-meta-started_at", started_at.to_rfc2822())
             .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
             .header(
                 "x-amz-meta-exported",
                 serde_json::to_string(&to_export).unwrap(),
             )
-            .body_file(&export_path)
-            .await
-            .unwrap()
+            .body(body)
+            .send()
             .await
             .unwrap();
         Ok(true)

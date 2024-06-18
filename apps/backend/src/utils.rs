@@ -9,12 +9,15 @@ use axum::{
     Extension, RequestPartsExt,
 };
 use chrono::{NaiveDate, Utc};
-use http_types::headers::HeaderName;
 use itertools::Itertools;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
+};
+use reqwest::{
+    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
+    ClientBuilder,
 };
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
@@ -22,10 +25,6 @@ use sea_orm::{
     PartialModelTrait, QueryFilter,
 };
 use serde_json::Value;
-use surf::{
-    http::headers::{ToHeaderValues, USER_AGENT},
-    Client, Config, Url,
-};
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -60,6 +59,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
+pub static JSON: HeaderValue = HeaderValue::from_static("application/json");
 
 const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 
@@ -244,17 +244,17 @@ pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
 
 pub fn get_base_http_client(
     url: &str,
-    headers: Vec<(impl Into<HeaderName>, impl ToHeaderValues)>,
-) -> Client {
-    let mut config = Config::new()
-        .add_header(USER_AGENT, USER_AGENT_STR)
-        .unwrap();
-    for (header, value) in headers.into_iter() {
-        config = config.add_header(header, value).unwrap();
+    headers: Option<Vec<(HeaderName, HeaderValue)>>,
+) -> reqwest::Client {
+    let mut req_headers = HeaderMap::new();
+    req_headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
+    for (header, value) in headers.unwrap_or_default().into_iter() {
+        req_headers.insert(header, value);
     }
-    config
-        .set_base_url(Url::parse(url).unwrap())
-        .try_into()
+    ClientBuilder::new()
+        .default_headers(req_headers)
+        .base_url(url.to_owned())
+        .build()
         .unwrap()
 }
 

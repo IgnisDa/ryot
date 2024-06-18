@@ -1,13 +1,9 @@
 # Installation
 
-!!! info
-
-    The first user you register is automatically set as admin of the instance.
-
 The docker image is `ignisda/ryot-pro`. Images are also available on the Github Container
-Registry as `ghcr.io/ignisda/ryot-pro`.
-
-To know more about the pro version, visit the [website](https://ryot.io).
+Registry as `ghcr.io/ignisda/ryot-pro`.  If you would like to run the pro version, you need
+to provide a `SERVER_PRO_KEY` environment variable. To see the features of the pro version,
+check the [main website]({{ extra.main_website_url }}).
 
 ```yaml
 services:
@@ -36,3 +32,7 @@ services:
 volumes:
   postgres_storage:
 ```
+
+!!! info
+
+    The first user you register is automatically set as admin of the instance.

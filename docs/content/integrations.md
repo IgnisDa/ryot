@@ -19,6 +19,9 @@ For each integration you want to enable, credentials for the external server
 must be saved to your profile. To do so, go to the "Settings" tab and add a
 new integration under the "Integrations" tab.
 
+You can configure the interval at which the data is fetched from the external using the
+`integration.pull_every_minutes` configuration key. Defaults to `5` (minutes).
+
 ### Audiobookshelf
 
 !!! warning
