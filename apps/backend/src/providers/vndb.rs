@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use database::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -11,8 +11,8 @@ use crate::{
     models::{
         media::{
             MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
-            MetadataSearchItem, PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics,
-            VisualNovelSpecifics,
+            MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -185,6 +185,13 @@ impl MediaProvider for VndbService {
         let item = data.results.unwrap_or_default().pop().unwrap();
         let d = self.vndb_response_to_search_response(item);
         Ok(d)
+    }
+
+    async fn get_recommendations_for_metadata(
+        &self,
+        _identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        bail!("This provider does not support getting recommendations")
     }
 
     async fn metadata_search(

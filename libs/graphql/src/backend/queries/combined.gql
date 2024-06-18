@@ -44,8 +44,14 @@ query UserCollectionsList($name: String) {
     count
     isDefault
     description
-    creatorUserId
-    creatorUsername
+    creator {
+      id
+      name
+    }
+    collaborators {
+      id
+      name
+    }
     informationTemplate {
       lot
       name
@@ -94,5 +100,11 @@ query UserCalendarEvents($input: UserCalendarEventInput!) {
     events {
       ...CalendarEventPart
     }
+  }
+}
+
+query UserRecommendations {
+  userRecommendations {
+    ...PartialMetadataPart
   }
 }

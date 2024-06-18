@@ -4314,6 +4314,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "unkey",
 ]
 
 [[package]]
@@ -5837,6 +5838,18 @@ name = "unicode_categories"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
+
+[[package]]
+name = "unkey"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89c476b0468d4afeb82fad5de7ad1febeb4528972f487742b713a68526bb657d"
+dependencies = [
+ "lazy_static",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "unreachable"

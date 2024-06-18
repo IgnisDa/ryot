@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use database::{MediaLot, MediaSource};
@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataSearchItem,
+            MetadataImageLot, MetadataSearchItem, PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults,
     },
@@ -102,6 +102,13 @@ impl MediaProvider for GoogleBooksService {
         let data: ItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let d = self.google_books_response_to_search_response(data.volume_info, data.id);
         Ok(d)
+    }
+
+    async fn get_recommendations_for_metadata(
+        &self,
+        _identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        bail!("This provider does not support getting recommendations")
     }
 
     async fn metadata_search(

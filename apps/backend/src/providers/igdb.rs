@@ -274,6 +274,7 @@ where id = {id};
                         image: g.cover.map(|c| self.get_cover_image_url(c.image_id)),
                         source: MediaSource::Igdb,
                         lot: MediaLot::VideoGame,
+                        is_recommendation: None,
                     })
                 }
             })
@@ -380,6 +381,7 @@ where id = {id};
                         source: MediaSource::Igdb,
                         lot: MediaLot::VideoGame,
                         image,
+                        is_recommendation: None,
                     },
                 )
             })
@@ -394,6 +396,7 @@ where id = {id};
                     source: MediaSource::Igdb,
                     lot: MediaLot::VideoGame,
                     image,
+                    is_recommendation: None,
                 },
             )
         }));
@@ -597,6 +600,7 @@ impl IgdbService {
                     identifier: g.id.to_string(),
                     lot: MediaLot::VideoGame,
                     source: MediaSource::Igdb,
+                    is_recommendation: None,
                 })
                 .collect(),
             provider_rating: item.rating,

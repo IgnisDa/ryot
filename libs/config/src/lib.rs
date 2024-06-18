@@ -344,6 +344,8 @@ pub struct ServerConfig {
     /// The OIDC related settings.
     #[setting(nested)]
     pub oidc: OidcConfig,
+    /// The pro key assigned to the user.
+    pub pro_key: String,
     /// The path where the config file will be written once the server boots up.
     #[setting(default = format!("tmp/{}-config.json", PROJECT_NAME))]
     pub config_dump_path: String,
@@ -470,6 +472,7 @@ impl AppConfig {
         cl.server.oidc.client_id = gt();
         cl.server.oidc.client_secret = gt();
         cl.server.oidc.issuer_url = gt();
+        cl.server.pro_key = gt();
         cl
     }
 }

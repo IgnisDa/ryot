@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use database::{MediaLot, MediaSource};
@@ -11,7 +11,7 @@ use crate::{
     models::{
         media::{
             MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataSearchItem, PodcastEpisode, PodcastSpecifics,
+            MetadataSearchItem, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -178,6 +178,13 @@ impl MediaProvider for ITunesService {
             }),
             ..Default::default()
         })
+    }
+
+    async fn get_recommendations_for_metadata(
+        &self,
+        _identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        bail!("This provider does not support getting recommendations")
     }
 
     async fn metadata_search(

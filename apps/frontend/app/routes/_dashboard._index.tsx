@@ -20,11 +20,13 @@ import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	DashboardElementLot,
+	EntityLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaLot,
 	type UserMediaFeaturesEnabledPreferences,
 	type UserPreferences,
+	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
@@ -72,6 +74,20 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const preferences = await getUserPreferences(request);
 	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
+	const getRecommendations = async () => {
+		if (
+			preferences.general.dashboard.find(
+				(de) => de.section === DashboardElementLot.Recommendations,
+			)?.hidden
+		)
+			return [];
+		const { userRecommendations } = await gqlClient.request(
+			UserRecommendationsDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		);
+		return userRecommendations;
+	};
 	const userCollectionsList = await getUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
@@ -79,10 +95,11 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	invariant(foundInProgressCollection, 'No collection found for "In Progress"');
 	const [
 		{ collectionContents: inProgressCollectionContents },
+		userRecommendations,
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
 	] = await Promise.all([
-		await gqlClient.request(
+		gqlClient.request(
 			CollectionContentsDocument,
 			{
 				input: {
@@ -93,12 +110,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			},
 			await getAuthorizationHeader(request),
 		),
-		await gqlClient.request(
+		getRecommendations(),
+		gqlClient.request(
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
 			await getAuthorizationHeader(request),
 		),
-		await gqlClient.request(
+		gqlClient.request(
 			LatestUserSummaryDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -118,6 +136,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		latestUserSummary,
 		userUpcomingCalendarEvents,
 		inProgressCollectionContents,
+		userRecommendations,
 	};
 });
 
@@ -182,6 +201,25 @@ export default function Page() {
 												/>
 											),
 										)}
+									</ApplicationGrid>
+								</Section>
+							) : null,
+						)
+						.with([DashboardElementLot.Recommendations, false], () =>
+							loaderData.userRecommendations.length > 0 ? (
+								<Section key="recommendations">
+									<Title>Recommendations</Title>
+									<ApplicationGrid>
+										{loaderData.userRecommendations.map((lm) => (
+											<MediaItemWithoutUpdateModal
+												key={lm.id}
+												reviewScale={loaderData.userPreferences.reviewScale}
+												item={{ ...lm, identifier: lm.id }}
+												lot={lm.lot}
+												entityLot={EntityLot.Media}
+												noRatingLink
+											/>
+										))}
 									</ApplicationGrid>
 								</Section>
 							) : null,

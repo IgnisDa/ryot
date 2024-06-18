@@ -86,7 +86,7 @@ const defaultFilters = {
 	minecollection: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
-	mineSortBy: MediaSortBy.LastSeen,
+	mineSortBy: MediaSortBy.LastUpdated,
 };
 
 enum Action {

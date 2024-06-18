@@ -260,6 +260,7 @@ impl TmdbService {
                     identifier: entry.id.to_string(),
                     source: MediaSource::Tmdb,
                     lot,
+                    is_recommendation: None,
                 });
             }
             if new_recs.page >= new_recs.total_pages {
@@ -504,6 +505,7 @@ impl MediaProvider for NonMediaTmdbService {
                                 _ => continue,
                             },
                             source: MediaSource::Tmdb,
+                            is_recommendation: None,
                         },
                     ));
                 }
@@ -536,6 +538,7 @@ impl MediaProvider for NonMediaTmdbService {
                                     _ => unreachable!(),
                                 },
                                 source: MediaSource::Tmdb,
+                                is_recommendation: None,
                             },
                         )
                     }));
@@ -917,6 +920,7 @@ impl MediaProvider for TmdbMovieService {
                 source: MediaSource::Tmdb,
                 lot: MediaLot::Movie,
                 image: p.poster_path.map(|p| self.base.get_image_url(p)),
+                is_recommendation: None,
             })
             .collect_vec();
         Ok((
@@ -939,6 +943,13 @@ impl MediaProvider for TmdbMovieService {
             },
             parts,
         ))
+    }
+
+    async fn get_recommendations_for_metadata(
+        &self,
+        identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        self.base.get_all_suggestions("movie", identifier).await
     }
 }
 
@@ -1276,6 +1287,13 @@ impl MediaProvider for TmdbShowService {
             },
             items: resp.to_vec(),
         })
+    }
+
+    async fn get_recommendations_for_metadata(
+        &self,
+        identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        self.base.get_all_suggestions("tv", identifier).await
     }
 }
 

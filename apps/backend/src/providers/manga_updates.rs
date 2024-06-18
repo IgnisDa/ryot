@@ -228,6 +228,7 @@ impl MediaProvider for MangaUpdatesService {
                         source: MediaSource::MangaUpdates,
                         lot: MediaLot::Manga,
                         image: None,
+                        is_recommendation: None,
                     },
                 )
             })
@@ -308,6 +309,7 @@ impl MediaProvider for MangaUpdatesService {
                     identifier: data.series_id.unwrap().to_string(),
                     source: MediaSource::MangaUpdates,
                     lot: MediaLot::Manga,
+                    is_recommendation: None,
                 });
             }
         }

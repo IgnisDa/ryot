@@ -267,6 +267,7 @@ pub enum DashboardElementLot {
     Upcoming,
     InProgress,
     Summary,
+    Recommendations,
 }
 
 #[skip_serializing_none]
@@ -277,7 +278,7 @@ pub enum DashboardElementLot {
 pub struct UserGeneralDashboardElement {
     pub section: DashboardElementLot,
     pub hidden: bool,
-    pub num_elements: Option<i32>,
+    pub num_elements: Option<u64>,
 }
 
 #[derive(
@@ -315,6 +316,11 @@ impl Default for UserGeneralPreferences {
                     section: DashboardElementLot::Summary,
                     hidden: false,
                     num_elements: None,
+                },
+                UserGeneralDashboardElement {
+                    section: DashboardElementLot::Recommendations,
+                    hidden: false,
+                    num_elements: Some(8),
                 },
             ],
             disable_yank_integrations: false,

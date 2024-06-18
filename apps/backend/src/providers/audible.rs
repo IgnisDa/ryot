@@ -307,6 +307,7 @@ impl MediaProvider for AudibleService {
                 identifier: i,
                 source: MediaSource::Audible,
                 lot: MediaLot::AudioBook,
+                is_recommendation: None,
             })
         }
         Ok((
@@ -360,6 +361,7 @@ impl MediaProvider for AudibleService {
                     identifier: sim.asin,
                     source: MediaSource::Audible,
                     lot: MediaLot::AudioBook,
+                    is_recommendation: None,
                 });
             }
         }

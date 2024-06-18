@@ -99,6 +99,7 @@ async fn main() -> Result<()> {
         &config.server.config_dump_path,
         serde_json::to_string_pretty(&config)?,
     )?;
+    verify_pro_key(&config.server.pro_key).await?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -340,6 +341,29 @@ fn init_tracing() -> Result<()> {
             .with(fmt::Layer::default().with_writer(writer).with_ansi(false)),
     )
     .expect("Unable to set global tracing subscriber");
+    Ok(())
+}
+
+#[tracing::instrument(skip(pro_key))]
+async fn verify_pro_key(pro_key: &str) -> Result<()> {
+    use unkey::{
+        models::{VerifyKeyRequest, VerifyKeyResponse, Wrapped},
+        Client,
+    };
+
+    let unkey_client = Client::new("public");
+    let verify_request = VerifyKeyRequest::new(pro_key, "api_LQTzbpPNHgPALgiNdxg8bMfVxeg");
+    match unkey_client.verify_key(verify_request).await {
+        Wrapped::Err(err) => {
+            bail!("Error verifying pro key: {}", err.message);
+        }
+        Wrapped::Ok(VerifyKeyResponse { valid, .. }) if !valid => {
+            bail!("Invalid pro key");
+        }
+        Wrapped::Ok(_) => {
+            tracing::info!("Pro key verified");
+        }
+    }
     Ok(())
 }
 

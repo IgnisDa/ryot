@@ -13,12 +13,13 @@ use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
 use cached::{DiskCache, IOCached};
-use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Timelike, Utc};
 use database::{
-    AliasedCollectionToEntity, AliasedExercise, AliasedMetadata, AliasedMetadataGroup,
-    AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen, AliasedUserToCollection,
-    AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot, MediaSource,
-    MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
+    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen,
+    AliasedUser, AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource,
+    MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason,
+    Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -43,8 +44,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -52,8 +53,8 @@ use struson::writer::{JsonStreamWriter, JsonWriter};
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
-        calendar_event, collection, collection_to_entity, exercise, genre, import_report,
-        integration, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+        calendar_event, collection, collection_to_entity, genre, import_report, integration,
+        metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
         metadata_to_metadata_group, metadata_to_person, person,
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
@@ -112,7 +113,7 @@ use crate::{
         MediaProviderLanguages,
     },
     users::{
-        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
+        DashboardElementLot, UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
         UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
     },
     utils::{
@@ -336,9 +337,9 @@ struct CollectionItem {
     count: i64,
     is_default: bool,
     description: Option<String>,
-    creator_user_id: String,
-    creator_username: String,
     information_template: Option<Vec<CollectionExtraInformation>>,
+    creator: IdAndNamedObject,
+    collaborators: Vec<IdAndNamedObject>,
 }
 
 #[derive(SimpleObject)]
@@ -897,8 +898,6 @@ impl MiscellaneousQuery {
     /// Get details about all the users in the service.
     async fn users_list(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.admin_account_guard(&user_id).await?;
         service.users_list().await
     }
 
@@ -968,6 +967,13 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_upcoming_calendar_events(user_id, input).await
+    }
+
+    /// Get media recommendations for the currently logged in user.
+    async fn user_recommendations(&self, gql_ctx: &Context<'_>) -> Result<Vec<PartialMetadata>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        service.user_recommendations(&user_id).await
     }
 
     /// Get paginated list of people.
@@ -1410,7 +1416,7 @@ type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 impl MiscellaneousService {
     async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
-            is_pro: false,
+            is_pro: true,
             author_name: AUTHOR.to_owned(),
             timezone: self.timezone.to_string(),
             oidc_enabled: self.oidc_client.is_some(),
@@ -1558,6 +1564,7 @@ impl MiscellaneousService {
                 lot: s.lot,
                 source: s.source,
                 image: s.images.first_as_url(&self.file_storage_service).await,
+                is_recommendation: None,
             })
         }
         let assets = self.metadata_assets(&meta).await.unwrap();
@@ -1568,6 +1575,53 @@ impl MiscellaneousService {
             genres,
             suggestions,
         })
+    }
+
+    async fn user_recommendations(&self, user_id: &String) -> Result<Vec<PartialMetadata>> {
+        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
+        struct Md5;
+        impl Iden for Md5 {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "MD5").unwrap();
+            }
+        }
+        let preferences = self.user_preferences(user_id).await?;
+        let limit = preferences
+            .general
+            .dashboard
+            .into_iter()
+            .find(|d| d.section == DashboardElementLot::Recommendations)
+            .unwrap()
+            .num_elements;
+        let current_hour = Utc::now().hour();
+        let rec_media = Metadata::find()
+            .filter(metadata::Column::IsRecommendation.eq(true))
+            .order_by(
+                SimpleExpr::FunctionCall(
+                    Func::cust(Md5).arg(
+                        Expr::col(metadata::Column::Title)
+                            .concat(Expr::val(user_id))
+                            .concat(Expr::val(current_hour)),
+                    ),
+                ),
+                Order::Desc,
+            )
+            .limit(limit)
+            .all(&self.db)
+            .await?;
+        let mut recs = vec![];
+        for r in rec_media {
+            recs.push(PartialMetadata {
+                id: r.id,
+                title: r.title,
+                identifier: r.identifier,
+                lot: r.lot,
+                source: r.source,
+                image: r.images.first_as_url(&self.file_storage_service).await,
+                is_recommendation: Some(true),
+            })
+        }
+        Ok(recs)
     }
 
     async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -1885,27 +1939,27 @@ impl MiscellaneousService {
         }
         let all_events = CalendarEvent::find()
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::Lot)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
                 "m_lot",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::Title)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
                 "m_title",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::Images)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::Images)),
                 "m_images",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::ShowSpecifics)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
                 "m_show_specifics",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::PodcastSpecifics)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
                 "m_podcast_specifics",
             )
             .filter(
-                Expr::col((AliasedUserToEntity::Table, user_to_entity::Column::UserId)).eq(user_id),
+                Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId)).eq(user_id),
             )
             .inner_join(Metadata)
             .join_rev(
@@ -2948,17 +3002,19 @@ impl MiscellaneousService {
                 source: ActiveValue::Set(data.source),
                 images: ActiveValue::Set(image),
                 is_partial: ActiveValue::Set(Some(true)),
+                is_recommendation: ActiveValue::Set(data.is_recommendation),
                 ..Default::default()
             };
             c.insert(&self.db).await?
         };
         let model = PartialMetadata {
             id: mode.id,
-            title: mode.title,
-            identifier: mode.identifier,
             lot: mode.lot,
-            source: mode.source,
+            title: mode.title,
             image: data.image,
+            source: mode.source,
+            identifier: mode.identifier,
+            is_recommendation: mode.is_recommendation,
         };
         Ok(model)
     }
@@ -3775,17 +3831,61 @@ impl MiscellaneousService {
         user_id: &String,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
-        let subquery = Query::select()
+        struct JsonBuildObject;
+        impl Iden for JsonBuildObject {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "JSON_BUILD_OBJECT").unwrap();
+            }
+        }
+        struct JsonAgg;
+        impl Iden for JsonAgg {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "JSON_AGG").unwrap();
+            }
+        }
+        let collaborators_subquery = Query::select()
+            .from(UserToCollection)
+            .expr(SimpleExpr::FunctionCall(
+                Func::cust(JsonAgg).arg(
+                    Func::cust(JsonBuildObject)
+                        .arg(Expr::val("id"))
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
+                        .arg(Expr::val("name"))
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
+                ),
+            ))
+            .join(
+                JoinType::InnerJoin,
+                AliasedUser::Table,
+                Expr::col((
+                    AliasedUserToCollection::Table,
+                    AliasedUserToCollection::UserId,
+                ))
+                .equals((AliasedUser::Table, AliasedUser::Id)),
+            )
+            .and_where(
+                Expr::col((
+                    AliasedUserToCollection::Table,
+                    AliasedUserToCollection::CollectionId,
+                ))
+                .equals((AliasedCollection::Table, AliasedCollection::Id)),
+            )
+            .and_where(
+                Expr::col((AliasedUser::Table, AliasedUser::Id))
+                    .not_equals((AliasedCollection::Table, AliasedCollection::UserId)),
+            )
+            .to_owned();
+        let count_subquery = Query::select()
             .expr(collection_to_entity::Column::Id.count())
             .from(CollectionToEntity)
             .and_where(
                 Expr::col((
                     AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
+                    AliasedCollectionToEntity::CollectionId,
                 ))
                 .equals((
                     AliasedUserToCollection::Table,
-                    user_to_collection::Column::CollectionId,
+                    AliasedUserToCollection::CollectionId,
                 )),
             )
             .to_owned();
@@ -3803,13 +3903,31 @@ impl MiscellaneousService {
                 "is_default",
             )
             .column(collection::Column::InformationTemplate)
-            .expr(SimpleExpr::SubQuery(
-                None,
-                Box::new(subquery.into_sub_query_statement()),
-            ))
+            .expr_as_(
+                SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
+                "count",
+            )
+            .expr_as_(
+                SimpleExpr::FunctionCall(Func::coalesce([
+                    SimpleExpr::SubQuery(
+                        None,
+                        Box::new(collaborators_subquery.into_sub_query_statement()),
+                    ),
+                    SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
+                ])),
+                "collaborators",
+            )
             .column(collection::Column::Description)
-            .column_as(user::Column::Id, "creator_user_id")
-            .column_as(user::Column::Name, "creator_username")
+            .column_as(
+                SimpleExpr::FunctionCall(
+                    Func::cust(JsonBuildObject)
+                        .arg(Expr::val("id"))
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
+                        .arg(Expr::val("name"))
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
+                ),
+                "creator",
+            )
             .order_by_desc(collection::Column::LastUpdatedOn)
             .left_join(User)
             .left_join(UserToCollection)
@@ -3852,22 +3970,22 @@ impl MiscellaneousService {
                     query.filter(
                         Condition::any()
                             .add(
-                                Expr::col((AliasedMetadata::Table, metadata::Column::Title))
+                                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title))
                                     .ilike(ilike_sql(&v)),
                             )
                             .add(
                                 Expr::col((
                                     AliasedMetadataGroup::Table,
-                                    metadata_group::Column::Title,
+                                    AliasedMetadataGroup::Title,
                                 ))
                                 .ilike(ilike_sql(&v)),
                             )
                             .add(
-                                Expr::col((AliasedPerson::Table, person::Column::Name))
+                                Expr::col((AliasedPerson::Table, AliasedPerson::Name))
                                     .ilike(ilike_sql(&v)),
                             )
                             .add(
-                                Expr::col((AliasedExercise::Table, exercise::Column::Id))
+                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
                                     .ilike(ilike_sql(&v)),
                             ),
                     )
@@ -3875,7 +3993,7 @@ impl MiscellaneousService {
                 .apply_if(filter.metadata_lot, |query, v| {
                     query.filter(
                         Condition::any()
-                            .add(Expr::col((AliasedMetadata::Table, metadata::Column::Lot)).eq(v)),
+                            .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
                     )
                 })
                 .apply_if(filter.entity_type, |query, v| {
@@ -3898,16 +4016,16 @@ impl MiscellaneousService {
                             Expr::col(collection_to_entity::Column::LastUpdatedOn)
                         }
                         CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, metadata::Column::Title)).into(),
-                            Expr::col((AliasedMetadataGroup::Table, metadata_group::Column::Title))
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
+                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
                                 .into(),
-                            Expr::col((AliasedPerson::Table, person::Column::Name)).into(),
-                            Expr::col((AliasedExercise::Table, exercise::Column::Id)).into(),
+                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
+                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
                         ])),
                         CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, metadata::Column::PublishDate))
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
                                 .into(),
-                            Expr::col((AliasedPerson::Table, person::Column::BirthDate)).into(),
+                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
                         ])),
                     },
                     sort.order.into(),
@@ -4202,6 +4320,11 @@ impl MiscellaneousService {
                             {
                                 new_name = already.name;
                             }
+                            UserToCollection::delete_many()
+                                .filter(user_to_collection::Column::CollectionId.eq(i.clone()))
+                                .exec(&self.db)
+                                .await
+                                .ok();
                             ActiveValue::Unchanged(i.clone())
                         }
                         None => ActiveValue::NotSet,
@@ -4214,16 +4337,20 @@ impl MiscellaneousService {
                     ..Default::default()
                 };
                 let inserted = col.save(&self.db).await.map_err(|_| {
-                    Error::new("There was an error creating the collection".to_owned())
+                    Error::new("There was an error creating or updating the collection".to_owned())
                 })?;
                 let id = inserted.id.unwrap();
-                user_to_collection::ActiveModel {
-                    user_id: ActiveValue::Set(user_id.to_owned()),
-                    collection_id: ActiveValue::Set(id.clone()),
+                let mut users_ids = vec![user_id.clone()];
+                users_ids.extend(input.collaborators.unwrap_or_default());
+                for collaborator_user_id in users_ids {
+                    user_to_collection::ActiveModel {
+                        user_id: ActiveValue::Set(collaborator_user_id),
+                        collection_id: ActiveValue::Set(id.clone()),
+                    }
+                    .insert(&self.db)
+                    .await
+                    .ok();
                 }
-                .insert(&self.db)
-                .await
-                .ok();
                 Ok(StringIdObject { id })
             }
         }
@@ -5881,7 +6008,7 @@ impl MiscellaneousService {
             .column_as(
                 Expr::expr(Func::count(Expr::col((
                     AliasedMetadataToGenre::Table,
-                    metadata_to_genre::Column::MetadataId,
+                    AliasedMetadataToGenre::MetadataId,
                 )))),
                 num_items,
             )
@@ -6069,6 +6196,7 @@ impl MiscellaneousService {
                 lot: m.lot,
                 source: m.source,
                 id: m.id,
+                is_recommendation: None,
             };
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
@@ -6227,6 +6355,7 @@ impl MiscellaneousService {
                 lot: m.lot,
                 source: m.source,
                 id: m.id,
+                is_recommendation: None,
             };
             contents.push(metadata);
         }
@@ -6802,13 +6931,13 @@ impl MiscellaneousService {
             format!(
                 r#"
 SELECT
-    m.id as entity_id,
-    array_agg(DISTINCT u.id) as to_notify
-FROM {entity_type} m
-JOIN collection_to_entity cte ON m.id = cte.{entity_type}_id
-JOIN collection c ON cte.collection_id = c.id AND c.name = '{}'
-JOIN "user" u ON c.user_id = u.id
-GROUP BY m.id;
+    "m"."id" as "entity_id",
+    ARRAY_AGG(DISTINCT "u"."id") as "to_notify"
+FROM "{entity_type}" "m"
+JOIN "collection_to_entity" "cte" ON "m"."id" = "cte"."{entity_type}_id"
+JOIN "collection" "c" ON "cte"."collection_id" = "c"."id" AND "c"."name" = '{}'
+JOIN "user" "u" ON "c"."user_id" = "u"."id"
+GROUP BY "m"."id";
         "#,
                 DefaultCollection::Monitoring
             )
@@ -7045,6 +7174,50 @@ GROUP BY m.id;
         Ok(())
     }
 
+    pub async fn download_recommendations_for_users(&self) -> Result<()> {
+        #[derive(Debug, FromQueryResult)]
+        struct CustomQueryResponse {
+            lot: MediaLot,
+            source: MediaSource,
+            identifier: String,
+        }
+        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            r#"
+SELECT "m"."lot", "m"."identifier", "m"."source"
+FROM (
+    SELECT "user_id", "metadata_id" FROM "user_to_entity"
+    WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
+) "sub"
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3)
+ORDER BY RANDOM() LIMIT 10;
+        "#,
+            [
+                MediaSource::GoogleBooks.into(),
+                MediaSource::Itunes.into(),
+                MediaSource::Vndb.into(),
+            ],
+        ))
+        .all(&self.db)
+        .await?;
+        let mut media_item_ids = vec![];
+        for media in media_items.into_iter() {
+            let provider = self.get_metadata_provider(media.lot, media.source).await?;
+            if let Ok(recommendations) = provider
+                .get_recommendations_for_metadata(&media.identifier)
+                .await
+            {
+                for mut rec in recommendations {
+                    rec.is_recommendation = Some(true);
+                    if let Ok(meta) = self.create_partial_metadata(rec).await {
+                        media_item_ids.push(meta.id);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     async fn test_user_notification_platforms(&self, user_id: &String) -> Result<bool> {
         let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
         for platform in user.notifications {
@@ -7117,6 +7290,10 @@ GROUP BY m.id;
         self.regenerate_user_summaries().await?;
         tracing::trace!("Removing useless data");
         self.remove_useless_data().await?;
+        // DEV: This is called after removing useless data so that recommendations are not
+        // delete right after they are downloaded.
+        tracing::trace!("Downloading recommendations for users");
+        self.download_recommendations_for_users().await?;
 
         tracing::debug!("Completed background jobs...");
         Ok(())

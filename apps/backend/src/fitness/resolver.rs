@@ -542,7 +542,7 @@ impl ExerciseService {
                 query.filter(
                     Condition::any()
                         .add(
-                            Expr::col((AliasedExercise::Table, exercise::Column::Id))
+                            Expr::col((AliasedExercise::Table, AliasedExercise::Id))
                                 .ilike(ilike_sql(&v)),
                         )
                         .add(Expr::col(exercise::Column::Identifier).ilike(slugify(v))),

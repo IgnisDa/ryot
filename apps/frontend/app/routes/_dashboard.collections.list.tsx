@@ -7,6 +7,7 @@ import {
 	Container,
 	Flex,
 	Modal,
+	MultiSelect,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -28,6 +29,7 @@ import {
 import {
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
+	UsersListDocument,
 	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -52,11 +54,16 @@ import {
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [userDetails, userCollectionsList] = await Promise.all([
+	const [userDetails, collections, { usersList }] = await Promise.all([
 		getUserDetails(request),
 		getUserCollectionsList(request),
+		gqlClient.request(
+			UsersListDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
 	]);
-	return { collections: userCollectionsList, currentUserId: userDetails.id };
+	return { collections, currentUserId: userDetails.id, usersList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -134,12 +141,17 @@ const createOrUpdateSchema = z.object({
 	name: z.string(),
 	description: z.string().optional(),
 	updateId: z.string().optional(),
+	collaborators: z
+		.string()
+		.optional()
+		.transform((v) => (v ? v.split(",") : undefined)),
 });
 
 type UpdateCollectionInput = {
 	name: string;
 	id: string;
 	isDefault: boolean;
+	collaborators: Collection["collaborators"];
 	description?: string | null;
 };
 
@@ -257,6 +269,19 @@ export default function Page() {
 									: undefined
 							}
 						/>
+						<MultiSelect
+							name="collaborators"
+							description="Add collaborators to this collection"
+							searchable
+							defaultValue={(toUpdateCollection?.collaborators || []).map(
+								(c) => c.id,
+							)}
+							data={loaderData.usersList.map((u) => ({
+								value: u.id,
+								label: u.name,
+								disabled: u.id === loaderData.currentUserId,
+							}))}
+						/>
 						<Button
 							variant="outline"
 							type="submit"
@@ -282,10 +307,16 @@ const DisplayCollection = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
-	const additionalDisplay = [`${props.collection.count} items`];
+	const additionalDisplay = [];
 
-	if (props.collection.creatorUserId !== loaderData.currentUserId)
-		additionalDisplay.push(`By ${props.collection.creatorUsername}`);
+	if (props.collection.creator.id !== loaderData.currentUserId)
+		additionalDisplay.push(`By ${props.collection.creator.name}`);
+	if (props.collection.count > 0)
+		additionalDisplay.push(`${props.collection.count} items`);
+	if (props.collection.collaborators.length > 0)
+		additionalDisplay.push(
+			`${props.collection.collaborators.length} collaborators`,
+		);
 
 	return (
 		<Flex align="center" justify="space-between" gap="md" mr="lg">
@@ -300,9 +331,11 @@ const DisplayCollection = (props: {
 							{props.collection.name.length > 20 ? "..." : ""}
 						</Title>
 					</Anchor>
-					<Text c="dimmed" size="xs">
-						({additionalDisplay.join(", ")})
-					</Text>
+					{additionalDisplay.length > 0 ? (
+						<Text c="dimmed" size="xs">
+							({additionalDisplay.join(", ")})
+						</Text>
+					) : undefined}
 				</Flex>
 				{props.collection.description ? (
 					<Text lineClamp={1}>{props.collection.description}</Text>
@@ -317,6 +350,7 @@ const DisplayCollection = (props: {
 							name: props.collection.name,
 							id: props.collection.id,
 							description: props.collection.description,
+							collaborators: props.collection.collaborators,
 							isDefault: props.collection.isDefault,
 						});
 						props.openModal();

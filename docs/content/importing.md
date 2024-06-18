@@ -6,7 +6,6 @@ starting an import. To start, click on "Imports and Exports" link under the "Set
 section in the sidebar.
 
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
-You can see the reports under "Import History" of the imports page.
 
 ## Notes
 

@@ -104,6 +104,7 @@ impl MediaProvider for ListennotesService {
                 identifier: r.id,
                 lot: MediaLot::Podcast,
                 source: MediaSource::Listennotes,
+                is_recommendation: None,
             })
             .collect();
 
