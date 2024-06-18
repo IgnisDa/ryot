@@ -331,11 +331,10 @@ impl ExerciseService {
     }
 
     async fn get_all_exercises_from_dataset(&self) -> Result<Vec<GithubExercise>> {
-        let data: Vec<GithubExercise> = surf::get(JSON_URL)
-            .send()
+        let data = reqwest::get(JSON_URL)
             .await
             .unwrap()
-            .body_json()
+            .json::<Vec<GithubExercise>>()
             .await
             .unwrap();
         Ok(data

@@ -4,19 +4,19 @@ use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
 use database::{MediaLot, MediaSource};
 use regex::Regex;
+use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
     models::{media::CommitMediaInput, StringIdObject},
     providers::google_books::GoogleBooksService,
-    utils::{get_base_http_client, ilike_sql},
+    utils::{get_base_http_client_new, ilike_sql},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -270,15 +270,19 @@ impl IntegrationService {
     where
         F: Future<Output = GqlResult<StringIdObject>>,
     {
-        let client: Client = get_base_http_client(
+        let client = get_base_http_client_new(
             &format!("{}/api/", base_url),
-            vec![(AUTHORIZATION, format!("Bearer {access_token}"))],
+            Some(vec![(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
+            )]),
         );
-        let resp: audiobookshelf_models::Response = client
+        let resp = client
             .get("me/items-in-progress")
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json::<audiobookshelf_models::Response>()
             .await
             .unwrap();
         tracing::debug!("Got response for items in progress {:?}", resp);
@@ -357,9 +361,10 @@ impl IntegrationService {
                 };
             match client
                 .get(format!("me/progress/{}", progress_id))
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<audiobookshelf_models::ItemProgress>()
+                .json::<audiobookshelf_models::ItemProgress>()
                 .await
             {
                 Ok(resp) => {
