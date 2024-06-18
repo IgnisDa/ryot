@@ -284,10 +284,10 @@ const DisplayCollection = (props: {
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [];
 
-	if (props.collection.count > 0)
-		additionalDisplay.push(`${props.collection.count} items`);
 	if (props.collection.creator.id !== loaderData.currentUserId)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
+	if (props.collection.count > 0)
+		additionalDisplay.push(`${props.collection.count} items`);
 	if (props.collection.collaborators.length > 0)
 		additionalDisplay.push(
 			`${props.collection.collaborators.length} collaborators`,
