@@ -295,9 +295,9 @@ pub struct FrontendConfig {
 #[config(rename_all = "snake_case", env_prefix = "INTEGRATION_")]
 pub struct IntegrationConfig {
     /// Sync data from [yank](/docs/guides/integrations.md) based integrations
-    /// every `n` hours.
-    #[setting(default = 2)]
-    pub pull_every: i32,
+    /// every `n` minutes.
+    #[setting(default = 5)]
+    pub pull_every_minutes: i32,
     /// The minimum progress limit after which a media is considered to be started.
     #[setting(default = 2)]
     pub minimum_progress_limit: i32,
