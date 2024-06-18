@@ -1,13 +1,13 @@
 use async_graphql::Result;
 use database::{MediaLot, MediaSource};
 use enum_meta::HashMap;
+use reqwest::{
+    header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT},
+    Client, ClientBuilder,
+};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{
-    http::headers::{ACCEPT, AUTHORIZATION, USER_AGENT},
-    Client, Config, Url,
-};
 
 use crate::{
     importer::{
@@ -16,7 +16,7 @@ use crate::{
     models::media::{
         ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
     },
-    utils::USER_AGENT_STR,
+    utils::{JSON, USER_AGENT_STR},
 };
 
 static EMBY_HEADER_VALUE: &str =
@@ -74,26 +74,30 @@ struct AuthenticateResponse {
 
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
     let uri = format!("{}/Users/AuthenticateByName", input.api_url);
-    let authenticate: AuthenticateResponse = surf::post(uri)
+    let client = Client::new();
+    let authenticate = client
+        .post(uri)
         .header(AUTHORIZATION, EMBY_HEADER_VALUE)
-        .body_json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
-        .unwrap()
+        .json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
+        .send()
         .await
         .unwrap()
-        .body_json()
+        .json::<AuthenticateResponse>()
         .await
         .unwrap();
     tracing::debug!("Authenticated with token: {}", authenticate.access_token);
 
-    let client: Client = Config::new()
-        .add_header(USER_AGENT, USER_AGENT_STR)
-        .unwrap()
-        .add_header(ACCEPT, "application/json")
-        .unwrap()
-        .add_header("X-Emby-Token", authenticate.access_token)
-        .unwrap()
-        .set_base_url(Url::parse(&input.api_url).unwrap().join("/").unwrap())
-        .try_into()
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
+    headers.insert(ACCEPT, JSON.clone());
+    headers.insert(
+        "X-Emby-Token",
+        HeaderValue::from_str(&authenticate.access_token).unwrap(),
+    );
+    let client: Client = ClientBuilder::new()
+        .base_url(input.api_url + "/")
+        .default_headers(headers)
+        .build()
         .unwrap();
     let user_id = authenticate.user.id;
     tracing::debug!("Authenticated as user id: {}", user_id);
@@ -102,13 +106,13 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
     let mut failed_items = vec![];
 
     let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
-    let library_data: ItemsResponse = client
+    let library_data = client
         .get(&format!("Users/{}/Items", user_id))
         .query(&query)
-        .unwrap()
+        .send()
         .await
         .unwrap()
-        .body_json()
+        .json::<ItemsResponse>()
         .await
         .unwrap();
 
@@ -123,11 +127,12 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 if let Some(series_id) = item.series_id {
                     let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
                     if tmdb_id.is_none() {
-                        let details: ItemResponse = client
+                        let details = client
                             .get(&format!("Items/{}", series_id))
+                            .send()
                             .await
                             .unwrap()
-                            .body_json()
+                            .json::<ItemResponse>()
                             .await
                             .unwrap();
                         let insert_id = details.provider_ids.unwrap().tmdb;

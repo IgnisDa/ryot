@@ -1,13 +1,12 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
 use database::{ImportSource, MediaLot, MediaSource};
-use http_types::mime;
 use itertools::Itertools;
+use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use surf::http::headers::CONTENT_TYPE;
 
 use crate::{
     importer::{
@@ -18,7 +17,7 @@ use crate::{
         CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
         ImportOrExportMediaItemSeen,
     },
-    utils::get_base_http_client,
+    utils::{get_base_http_client, JSON},
 };
 
 const API_URL: &str = "https://api.trakt.tv";
@@ -64,26 +63,33 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
     let client = get_base_http_client(
         &format!("{}/users/{}/", API_URL, input.username),
-        vec![
-            (CONTENT_TYPE, mime::JSON.to_string().as_str()),
-            ("trakt-api-key".into(), CLIENT_ID),
-            ("trakt-api-version".into(), API_VERSION),
-        ],
+        Some(vec![
+            (CONTENT_TYPE, JSON.clone()),
+            (
+                HeaderName::from_static("trakt-api-key"),
+                HeaderValue::from_static(CLIENT_ID),
+            ),
+            (
+                HeaderName::from_static("trakt-api-version"),
+                HeaderValue::from_static(API_VERSION),
+            ),
+        ]),
     );
-    let mut rsp = client.get("lists").await.unwrap();
-    let mut lists: Vec<ListResponse> = rsp.body_json().await.unwrap();
+    let rsp = client.get("lists").send().await.unwrap();
+    let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
 
     for list in lists.iter_mut() {
-        let mut rsp = client
+        let rsp = client
             .get(&format!("lists/{}/items", list.ids.trakt))
+            .send()
             .await
             .unwrap();
-        let items: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
+        let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
         list.items = items;
     }
     for list in ["watchlist", "favorites"] {
-        let mut rsp = client.get(list).await.unwrap();
-        let items: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
+        let rsp = client.get(list).send().await.unwrap();
+        let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
         lists.push(ListResponse {
             name: list.to_owned(),
             description: None,
@@ -123,8 +129,12 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         .collect_vec();
 
     for type_ in ["movies", "shows"] {
-        let mut rsp = client.get(format!("ratings/{}", type_)).await.unwrap();
-        let ratings: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
+        let rsp = client
+            .get(format!("ratings/{}", type_))
+            .send()
+            .await
+            .unwrap();
+        let ratings: Vec<ListItemResponse> = rsp.json().await.unwrap();
         for item in ratings.iter() {
             match process_item(item) {
                 Ok(mut d) => {
@@ -156,25 +166,26 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     let rsp = client
         .head("history")
         .query(&serde_json::json!({ "limit": 1000 }))
-        .unwrap()
+        .send()
         .await
         .unwrap();
     let total_history = rsp
-        .header("x-pagination-page-count")
+        .headers()
+        .get("x-pagination-page-count")
         .expect("pagination to be present")
-        .last()
-        .as_str()
+        .to_str()
+        .unwrap()
         .parse::<usize>()
         .unwrap();
     for page in 1..total_history + 1 {
         tracing::debug!("Fetching user history {page:?}/{total_history:?}");
-        let mut rsp = client
+        let rsp = client
             .get("history")
             .query(&serde_json::json!({ "page": page, "limit": 1000 }))
-            .unwrap()
+            .send()
             .await
             .unwrap();
-        let history: Vec<ListItemResponse> = rsp.body_json().await.unwrap();
+        let history: Vec<ListItemResponse> = rsp.json().await.unwrap();
         histories.extend(history);
     }
 

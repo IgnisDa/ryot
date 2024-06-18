@@ -2,12 +2,11 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use database::{MediaLot, MediaSource};
-use http_types::mime;
 use itertools::Itertools;
+use reqwest::Client;
 use rs_utils::convert_date_to_year;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     models::{
@@ -42,7 +41,7 @@ impl MediaProviderLanguages for GoogleBooksService {
 
 impl GoogleBooksService {
     pub async fn new(config: &config::GoogleBooksConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
+        let client = get_base_http_client(URL, None);
         Self {
             client,
             page_limit,
@@ -94,8 +93,13 @@ struct SearchResponse {
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self.client.get(identifier).await.map_err(|e| anyhow!(e))?;
-        let data: ItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let rsp = self
+            .client
+            .get(identifier)
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let data: ItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let d = self.google_books_response_to_search_response(data.volume_info, data.id);
         Ok(d)
     }
@@ -108,7 +112,7 @@ impl MediaProvider for GoogleBooksService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * self.page_limit;
-        let mut rsp = self
+        let rsp = self
             .client
             .get("")
             .query(&serde_json::json!({
@@ -120,10 +124,10 @@ impl MediaProvider for GoogleBooksService {
                 "printType": "books",
                 "startIndex": index
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .items
             .unwrap_or_default()
@@ -238,14 +242,14 @@ impl GoogleBooksService {
 
     /// Get a book's ID from its ISBN
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
-        let mut resp = self
+        let resp = self
             .client
             .get("")
             .query(&serde_json::json!({ "q": format!("isbn:{}", isbn) }))
-            .unwrap()
+            .send()
             .await
             .ok()?;
-        let search: SearchResponse = resp.body_json().await.ok()?;
+        let search: SearchResponse = resp.json().await.ok()?;
         Some(search.items?.first()?.id.clone())
     }
 }

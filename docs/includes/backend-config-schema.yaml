@@ -112,9 +112,9 @@ integration:
   minimum_progress_limit: 2
 
   # Sync data from [yank](/docs/guides/integrations.md) based integrations
-  # every `n` hours.
-  # @envvar INTEGRATION_PULL_EVERY
-  pull_every: 2
+  # every `n` minutes.
+  # @envvar INTEGRATION_PULL_EVERY_MINUTES
+  pull_every_minutes: 5
 
 # Settings related to media.
 media:

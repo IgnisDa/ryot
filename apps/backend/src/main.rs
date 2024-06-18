@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
         .map(|f| f.parse().unwrap())
         .collect_vec();
     let rate_limit_count = config.scheduler.rate_limit_num;
-    let pull_every = config.integration.pull_every;
+    let pull_every_minutes = config.integration.pull_every_minutes;
     let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
     fs::write(
@@ -264,7 +264,8 @@ async fn main() -> Result<()> {
                 WorkerBuilder::new("yank_integrations_data")
                     .stream(
                         CronStream::new_with_timezone(
-                            Schedule::from_str(&format!("0 0 */{} ? * *", pull_every)).unwrap(),
+                            Schedule::from_str(&format!("0 */{} * * * *", pull_every_minutes))
+                                .unwrap(),
                             tz,
                         )
                         .into_stream(),

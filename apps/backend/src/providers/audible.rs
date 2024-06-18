@@ -2,15 +2,14 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use database::{MediaLot, MediaSource};
-use http_types::mime;
 use itertools::Itertools;
 use paginate::Pages;
+use reqwest::Client;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
-use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
@@ -182,7 +181,7 @@ impl AudibleService {
 
     pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
         let url = Self::url_from_locale(&config.locale);
-        let client = get_base_http_client(&url, vec![(ACCEPT, mime::JSON)]);
+        let client = get_base_http_client(&url, None);
         Self {
             client,
             page_limit,
@@ -202,12 +201,14 @@ impl MediaProvider for AudibleService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
         let req_internal_page = internal_page - 1;
-        let data: Vec<AudibleAuthor> = surf::get(format!("{}/authors", AUDNEX_URL))
+        let client = Client::new();
+        let data: Vec<AudibleAuthor> = client
+            .get(format!("{}/authors", AUDNEX_URL))
             .query(&json!({ "region": self.locale, "name": query }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let data = data
@@ -242,12 +243,14 @@ impl MediaProvider for AudibleService {
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        let data: AudnexResponse = surf::get(format!("{}/authors/{}", AUDNEX_URL, identity))
+        let client = Client::new();
+        let data: AudnexResponse = client
+            .get(format!("{}/authors/{}", AUDNEX_URL, identity))
             .query(&json!({ "region": self.locale }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         Ok(MetadataPerson {
@@ -274,10 +277,10 @@ impl MediaProvider for AudibleService {
             .client
             .get(identifier)
             .query(&PrimaryQuery::default())
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let items = data
@@ -290,14 +293,14 @@ impl MediaProvider for AudibleService {
             .collect_vec();
         let mut collection_contents = vec![];
         for i in items {
-            let mut rsp = self
+            let rsp = self
                 .client
                 .get(&i)
                 .query(&PrimaryQuery::default())
-                .unwrap()
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            let data: AudibleItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
             collection_contents.push(PartialMetadataWithoutId {
                 title: data.product.title,
                 image: data.product.product_images.and_then(|i| i.image_2400),
@@ -322,14 +325,14 @@ impl MediaProvider for AudibleService {
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self
+        let rsp = self
             .client
             .get(identifier)
             .query(&PrimaryQuery::default())
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: AudibleItemResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: AudibleItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let mut groups = vec![];
         for s in data.product.clone().series.unwrap_or_default() {
             groups.push(s.asin);
@@ -344,10 +347,10 @@ impl MediaProvider for AudibleService {
                     "similarity_type": sim_type.to_string(),
                     "response_groups": "media"
                 }))
-                .unwrap()
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json()
+                .json()
                 .await
                 .map_err(|e| anyhow!(e))?;
             for sim in data.similar_products.into_iter() {
@@ -377,7 +380,7 @@ impl MediaProvider for AudibleService {
             total_results: i32,
             products: Vec<AudibleItem>,
         }
-        let mut rsp = self
+        let rsp = self
             .client
             .get("")
             .query(&SearchQuery {
@@ -387,10 +390,10 @@ impl MediaProvider for AudibleService {
                 products_sort_by: "Relevance".to_owned(),
                 primary: PrimaryQuery::default(),
             })
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: AudibleSearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: AudibleSearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .products
             .into_iter()
