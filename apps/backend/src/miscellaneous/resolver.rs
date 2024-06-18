@@ -898,7 +898,6 @@ impl MiscellaneousQuery {
     /// Get details about all the users in the service.
     async fn users_list(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.users_list().await
     }
 
