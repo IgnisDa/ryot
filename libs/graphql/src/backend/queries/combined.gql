@@ -48,6 +48,10 @@ query UserCollectionsList($name: String) {
       id
       name
     }
+    collaborators {
+      id
+      name
+    }
     informationTemplate {
       lot
       name
