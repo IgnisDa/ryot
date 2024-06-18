@@ -282,8 +282,10 @@ const DisplayCollection = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
-	const additionalDisplay = [`${props.collection.count} items`];
+	const additionalDisplay = [];
 
+	if (props.collection.count > 0)
+		additionalDisplay.push(`${props.collection.count} items`);
 	if (props.collection.creator.id !== loaderData.currentUserId)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
 	if (props.collection.collaborators.length > 0)
@@ -304,9 +306,11 @@ const DisplayCollection = (props: {
 							{props.collection.name.length > 20 ? "..." : ""}
 						</Title>
 					</Anchor>
-					<Text c="dimmed" size="xs">
-						({additionalDisplay.join(", ")})
-					</Text>
+					{additionalDisplay.length > 0 ? (
+						<Text c="dimmed" size="xs">
+							({additionalDisplay.join(", ")})
+						</Text>
+					) : undefined}
 				</Flex>
 				{props.collection.description ? (
 					<Text lineClamp={1}>{props.collection.description}</Text>
