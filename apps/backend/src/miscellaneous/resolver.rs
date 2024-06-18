@@ -1884,27 +1884,27 @@ impl MiscellaneousService {
         }
         let all_events = CalendarEvent::find()
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::Lot)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
                 "m_lot",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::Title)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
                 "m_title",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::Images)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::Images)),
                 "m_images",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::ShowSpecifics)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
                 "m_show_specifics",
             )
             .column_as(
-                Expr::col((AliasedMetadata::Table, metadata::Column::PodcastSpecifics)),
+                Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
                 "m_podcast_specifics",
             )
             .filter(
-                Expr::col((AliasedUserToEntity::Table, user_to_entity::Column::UserId)).eq(user_id),
+                Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId)).eq(user_id),
             )
             .inner_join(Metadata)
             .join_rev(
@@ -3919,7 +3919,7 @@ impl MiscellaneousService {
                             .add(
                                 Expr::col((
                                     AliasedMetadataGroup::Table,
-                                    metadata_group::Column::Title,
+                                    AliasedMetadataGroup::Title,
                                 ))
                                 .ilike(ilike_sql(&v)),
                             )
