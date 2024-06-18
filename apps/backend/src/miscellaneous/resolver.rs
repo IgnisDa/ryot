@@ -53,8 +53,8 @@ use struson::writer::{JsonStreamWriter, JsonWriter};
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
-        calendar_event, collection, collection_to_entity, exercise, genre, import_report,
-        integration, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+        calendar_event, collection, collection_to_entity, genre, import_report, integration,
+        metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
         metadata_to_metadata_group, metadata_to_person, person,
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
@@ -3822,11 +3822,11 @@ impl MiscellaneousService {
             .and_where(
                 Expr::col((
                     AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
+                    AliasedCollectionToEntity::CollectionId,
                 ))
                 .equals((
                     AliasedUserToCollection::Table,
-                    user_to_collection::Column::CollectionId,
+                    AliasedUserToCollection::CollectionId,
                 )),
             )
             .to_owned();
@@ -3860,9 +3860,9 @@ impl MiscellaneousService {
                 SimpleExpr::FunctionCall(
                     Func::cust(JsonBuildObject)
                         .arg(Expr::val("id"))
-                        .arg(Expr::col((AliasedUser::Table, user::Column::Id)))
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
                         .arg(Expr::val("name"))
-                        .arg(Expr::col((AliasedUser::Table, user::Column::Name))),
+                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
                 ),
                 "creator",
             )
@@ -3908,7 +3908,7 @@ impl MiscellaneousService {
                     query.filter(
                         Condition::any()
                             .add(
-                                Expr::col((AliasedMetadata::Table, metadata::Column::Title))
+                                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title))
                                     .ilike(ilike_sql(&v)),
                             )
                             .add(
@@ -3919,11 +3919,11 @@ impl MiscellaneousService {
                                 .ilike(ilike_sql(&v)),
                             )
                             .add(
-                                Expr::col((AliasedPerson::Table, person::Column::Name))
+                                Expr::col((AliasedPerson::Table, AliasedPerson::Name))
                                     .ilike(ilike_sql(&v)),
                             )
                             .add(
-                                Expr::col((AliasedExercise::Table, exercise::Column::Id))
+                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
                                     .ilike(ilike_sql(&v)),
                             ),
                     )
@@ -3931,7 +3931,7 @@ impl MiscellaneousService {
                 .apply_if(filter.metadata_lot, |query, v| {
                     query.filter(
                         Condition::any()
-                            .add(Expr::col((AliasedMetadata::Table, metadata::Column::Lot)).eq(v)),
+                            .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
                     )
                 })
                 .apply_if(filter.entity_type, |query, v| {
@@ -3954,16 +3954,16 @@ impl MiscellaneousService {
                             Expr::col(collection_to_entity::Column::LastUpdatedOn)
                         }
                         CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, metadata::Column::Title)).into(),
-                            Expr::col((AliasedMetadataGroup::Table, metadata_group::Column::Title))
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
+                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
                                 .into(),
-                            Expr::col((AliasedPerson::Table, person::Column::Name)).into(),
-                            Expr::col((AliasedExercise::Table, exercise::Column::Id)).into(),
+                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
+                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
                         ])),
                         CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, metadata::Column::PublishDate))
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
                                 .into(),
-                            Expr::col((AliasedPerson::Table, person::Column::BirthDate)).into(),
+                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
                         ])),
                     },
                     sort.order.into(),
@@ -5937,7 +5937,7 @@ impl MiscellaneousService {
             .column_as(
                 Expr::expr(Func::count(Expr::col((
                     AliasedMetadataToGenre::Table,
-                    metadata_to_genre::Column::MetadataId,
+                    AliasedMetadataToGenre::MetadataId,
                 )))),
                 num_items,
             )
