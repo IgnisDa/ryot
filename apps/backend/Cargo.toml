@@ -55,6 +55,7 @@ regex = "=1.10.5"
 # FIXME: Upgrade once https://github.com/seanmonstar/reqwest/pull/1620 is merged
 reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_url", features = [
     "json",
+    "stream",
 ] }
 rs-utils = { path = "../../libs/rs-utils" }
 rust_decimal = "=1.35.0"
@@ -76,6 +77,7 @@ surf = { version = "=2.3.2", features = [
     "h1-client-rustls",
 ], default-features = false }
 tokio = { version = "=1.38.0", features = ["full"] }
+tokio-util = { version = "=0.7.11", features = ["codec"] }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
