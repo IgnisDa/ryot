@@ -53,7 +53,6 @@ pub struct Model {
     pub name: String,
     #[graphql(skip)]
     pub password: Option<String>,
-    #[graphql(skip)]
     pub oidc_issuer_id: Option<String>,
     pub is_demo: Option<bool>,
     pub lot: UserLot,
