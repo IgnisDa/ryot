@@ -3780,7 +3780,7 @@ impl MiscellaneousService {
                 write!(s, "JSON_BUILD_OBJECT").unwrap();
             }
         }
-        let subquery = Query::select()
+        let count_subquery = Query::select()
             .expr(collection_to_entity::Column::Id.count())
             .from(CollectionToEntity)
             .and_where(
@@ -3808,10 +3808,10 @@ impl MiscellaneousService {
                 "is_default",
             )
             .column(collection::Column::InformationTemplate)
-            .expr(SimpleExpr::SubQuery(
-                None,
-                Box::new(subquery.into_sub_query_statement()),
-            ))
+            .expr_as_(
+                SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
+                "count"
+            )
             .column(collection::Column::Description)
             .column_as(
                 SimpleExpr::FunctionCall(
