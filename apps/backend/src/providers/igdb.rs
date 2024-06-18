@@ -5,13 +5,16 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use database::{MediaLot, MediaSource};
 use itertools::Itertools;
+use reqwest::{
+    header::{HeaderName, HeaderValue, AUTHORIZATION},
+    Client,
+};
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
-use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
@@ -25,7 +28,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, TEMP_DIR},
+    utils::{get_base_http_client_new, TEMP_DIR},
 };
 
 static URL: &str = "https://api.igdb.com/v4/";
@@ -208,12 +211,13 @@ offset: {offset};
             limit = self.page_limit,
             offset = (page.unwrap_or(1) - 1) * self.page_limit
         );
-        let mut rsp = client
+        let rsp = client
             .post("collections")
-            .body_string(req_body)
+            .body(req_body)
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let details: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = details
             .into_iter()
             .map(|d| MetadataGroupSearchItem {
@@ -247,10 +251,11 @@ where id = {id};
         );
         let details: IgdbItemResponse = client
             .post("collections")
-            .body_string(req_body)
+            .body(req_body)
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json::<Vec<_>>()
+            .json::<Vec<_>>()
             .await
             .map_err(|e| anyhow!(e))?
             .pop()
@@ -308,12 +313,13 @@ offset: {offset};
             limit = self.page_limit,
             offset = (page.unwrap_or(1) - 1) * self.page_limit
         );
-        let mut rsp = client
+        let rsp = client
             .post("companies")
-            .body_string(req_body)
+            .body(req_body)
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let details: Vec<IgdbCompany> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let details: Vec<IgdbCompany> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = details
             .into_iter()
             .map(|ic| {
@@ -349,13 +355,13 @@ where id = {id};
             fields = INVOLVED_COMPANY_FIELDS,
             id = identity
         );
-        let mut rsp = client
+        let rsp = client
             .post("involved_companies")
-            .body_string(req_body)
+            .body(req_body)
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let mut details: Vec<IgdbInvolvedCompany> =
-            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut details: Vec<IgdbInvolvedCompany> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let detail = details
             .pop()
             .map(|ic| ic.company)
@@ -423,12 +429,13 @@ where id = {id};
             field = GAME_FIELDS,
             id = identifier
         );
-        let mut rsp = client
+        let rsp = client
             .post("games")
-            .body_string(req_body)
+            .body(req_body)
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let mut details: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![c.id.to_string()],
@@ -449,14 +456,14 @@ where id = {id};
         let client = get_client(&self.config).await;
         let count_req_body =
             format!(r#"fields id; where version_parent = null; search "{query}"; limit: 500;"#);
-        let mut rsp = client
+        let rsp = client
             .post("games")
-            .body_string(count_req_body)
+            .body(count_req_body)
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
 
-        let search_count_resp: Vec<IgdbItemResponse> =
-            rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search_count_resp: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let total = search_count_resp.len().try_into().unwrap();
 
@@ -471,13 +478,14 @@ offset: {offset};
             limit = self.page_limit,
             offset = (page - 1) * self.page_limit
         );
-        let mut rsp = client
+        let rsp = client
             .post("games")
-            .body_string(req_body)
+            .body(req_body)
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
 
-        let search: Vec<IgdbItemResponse> = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let resp = search
             .into_iter()
@@ -602,23 +610,25 @@ impl IgdbService {
 }
 
 async fn get_access_token(config: &config::VideoGameConfig) -> String {
-    let mut access_res = surf::post(AUTH_URL)
-        .query(&json!({
-            "client_id": config.twitch.client_id.to_owned(),
-            "client_secret": config.twitch.client_secret.to_owned(),
-            "grant_type": "client_credentials".to_owned(),
-        }))
-        .unwrap()
-        .await
-        .unwrap();
+    let client = Client::new();
     #[derive(Deserialize, Serialize, Default, Debug)]
     struct AccessResponse {
         access_token: String,
         token_type: String,
         expires_in: u128,
     }
+    let access_res = client
+        .post(AUTH_URL)
+        .query(&json!({
+            "client_id": config.twitch.client_id.to_owned(),
+            "client_secret": config.twitch.client_secret.to_owned(),
+            "grant_type": "client_credentials".to_owned(),
+        }))
+        .send()
+        .await
+        .unwrap();
     let access = access_res
-        .body_json::<AccessResponse>()
+        .json::<AccessResponse>()
         .await
         .unwrap_or_default();
     format!("{} {}", access.token_type, access.access_token)
@@ -636,11 +646,17 @@ async fn get_client(config: &config::VideoGameConfig) -> Client {
         let data = fs::read_to_string(path).unwrap();
         serde_json::from_str(&data).unwrap()
     };
-    get_base_http_client(
+    get_base_http_client_new(
         URL,
-        vec![
-            ("Client-ID".into(), config.twitch.client_id.to_owned()),
-            (AUTHORIZATION, settings.access_token),
-        ],
+        Some(vec![
+            (
+                HeaderName::from_static("Client-ID"),
+                HeaderValue::from_str(&config.twitch.client_id).unwrap(),
+            ),
+            (
+                AUTHORIZATION,
+                HeaderValue::from_str(&settings.access_token).unwrap(),
+            ),
+        ]),
     )
 }

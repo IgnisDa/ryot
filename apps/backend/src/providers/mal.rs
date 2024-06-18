@@ -3,11 +3,14 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use database::{MediaLot, MediaSource};
 use rand::{seq::SliceRandom, thread_rng};
+use reqwest::{
+    header::{HeaderName, HeaderValue},
+    Client,
+};
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::Client;
 
 use crate::{
     models::{
@@ -18,7 +21,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::get_base_http_client_new,
 };
 
 static URL: &str = "https://api.myanimelist.net/v2/";
@@ -127,7 +130,13 @@ impl MediaProvider for MalMangaService {
 }
 
 async fn get_client_config(url: &str, client_id: &str) -> Client {
-    get_base_http_client(url, vec![("X-MAL-CLIENT-ID", client_id)])
+    get_base_http_client_new(
+        url,
+        Some(vec![(
+            HeaderName::from_static("X-MAL-CLIENT-ID"),
+            HeaderValue::from_str(client_id).unwrap(),
+        )]),
+    )
 }
 
 async fn search(
@@ -151,10 +160,10 @@ async fn search(
     let search: SearchResponse = client
         .get(media_type)
         .query(&json!({ "q": q, "limit": limit, "offset": offset, "fields": "start_date" }))
-        .unwrap()
+        .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json()
+        .json()
         .await
         .map_err(|e| anyhow!(e))?;
     let items = search
@@ -204,10 +213,10 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
     let details: ItemNode = client
         .get(format!("{}/{}", media_type, id))
         .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
-        .unwrap()
+        .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .body_json()
+        .json()
         .await
         .map_err(|e| anyhow!(e))?;
     let lot = match media_type {

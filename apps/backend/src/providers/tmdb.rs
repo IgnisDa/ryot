@@ -11,13 +11,16 @@ use chrono_tz::Tz;
 use database::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
+use reqwest::{
+    header::{HeaderValue, AUTHORIZATION},
+    Client,
+};
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use surf::{http::headers::AUTHORIZATION, Client};
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
@@ -32,7 +35,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, get_current_date, TEMP_DIR},
+    utils::{get_base_http_client_new, get_current_date, TEMP_DIR},
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";
@@ -194,12 +197,13 @@ impl TmdbService {
         identifier: &str,
         images: &mut Vec<String>,
     ) -> Result<()> {
-        let mut rsp = self
+        let rsp = self
             .client
             .get(format!("{}/{}/images", type_, identifier))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let new_images: TmdbImagesResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let new_images: TmdbImagesResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         if let Some(imgs) = new_images.posters {
             for image in imgs {
                 images.push(image.file_path);
@@ -239,10 +243,10 @@ impl TmdbService {
                 .client
                 .get(format!("{}/{}/recommendations", type_, identifier))
                 .query(&json!({ "page": page }))
-                .unwrap()
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json()
+                .json()
                 .await
                 .map_err(|e| anyhow!(e))?;
             for entry in new_recs.results.into_iter() {
@@ -274,10 +278,10 @@ impl TmdbService {
             .client
             .get(format!("{}/{}/watch/providers", type_, identifier))
             .query(&json!({ "language": self.language }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let mut watch_providers = Vec::<WatchProvider>::new();
@@ -344,10 +348,10 @@ impl TmdbService {
                 "start_date": start_date,
                 "end_date": end_date,
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json::<TmdbChangesResponse>()
+            .json::<TmdbChangesResponse>()
             .await
             .map_err(|e| anyhow!(e))?;
         Ok(!changes.changes.is_empty())
@@ -402,7 +406,7 @@ impl MediaProvider for NonMediaTmdbService {
             _ => "person",
         };
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let rsp = self
             .base
             .client
             .get(format!("search/{}", type_))
@@ -412,10 +416,10 @@ impl MediaProvider for NonMediaTmdbService {
                 "language": self.base.language,
                 "include_adult": display_nsfw,
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .results
             .into_iter()
@@ -457,10 +461,10 @@ impl MediaProvider for NonMediaTmdbService {
             .client
             .get(format!("{}/{}", type_, identity))
             .query(&json!({ "language": self.base.language }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
@@ -480,10 +484,10 @@ impl MediaProvider for NonMediaTmdbService {
                 .client
                 .get(format!("{}/{}/combined_credits", type_, identity))
                 .query(&json!({ "language": self.base.language }))
-                .unwrap()
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json()
+                .json()
                 .await
                 .map_err(|e| anyhow!(e))?;
             for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
@@ -513,10 +517,10 @@ impl MediaProvider for NonMediaTmdbService {
                         .query(
                             &json!({ "with_companies": identity, "page": i, "language": self.base.language }),
                         )
-                        .unwrap()
+                        .send()
                         .await
                         .map_err(|e| anyhow!(e))?
-                        .body_json()
+                        .json()
                         .await
                         .map_err(|e| anyhow!(e))?;
                     related.extend(cred_det.results.into_iter().map(|m| {
@@ -575,10 +579,10 @@ impl NonMediaTmdbService {
             .client
             .get(format!("find/{}", external_id))
             .query(&json!({ "language": self.base.language, "external_source": external_source }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         if !details.movie_results.is_empty() {
@@ -623,7 +627,7 @@ impl MediaProvider for TmdbMovieService {
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let rsp = self
             .base
             .client
             .get("search/movie")
@@ -633,10 +637,10 @@ impl MediaProvider for TmdbMovieService {
                 "language": self.base.language,
                 "include_adult": display_nsfw,
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let resp = search
             .results
@@ -663,7 +667,7 @@ impl MediaProvider for TmdbMovieService {
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self
+        let rsp = self
             .base
             .client
             .get(format!("movie/{}", &identifier))
@@ -671,10 +675,10 @@ impl MediaProvider for TmdbMovieService {
                 "language": self.base.language,
                 "append_to_response": "videos",
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: TmdbMediaEntry = rsp.json().await.map_err(|e| anyhow!(e))?;
         let mut videos = vec![];
         if let Some(vid) = data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
@@ -682,17 +686,17 @@ impl MediaProvider for TmdbMovieService {
                 source: MetadataVideoSource::Youtube,
             }))
         }
-        let mut rsp = self
+        let rsp = self
             .base
             .client
             .get(format!("movie/{}/credits", identifier))
             .query(&json!({
                 "language": self.base.language,
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let credits: TmdbCreditsResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let credits: TmdbCreditsResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let mut people = vec![];
         people.extend(
             credits
@@ -832,7 +836,7 @@ impl MediaProvider for TmdbMovieService {
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let rsp = self
             .base
             .client
             .get("search/collection")
@@ -842,10 +846,10 @@ impl MediaProvider for TmdbMovieService {
                 "language": self.base.language,
                 "include_adult": display_nsfw,
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .results
             .into_iter()
@@ -888,10 +892,10 @@ impl MediaProvider for TmdbMovieService {
             .client
             .get(format!("collection/{}", &identifier))
             .query(&json!({ "language": self.base.language }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
@@ -964,7 +968,7 @@ impl TmdbShowService {
 #[async_trait]
 impl MediaProvider for TmdbShowService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self
+        let rsp = self
             .base
             .client
             .get(format!("tv/{}", &identifier))
@@ -972,10 +976,10 @@ impl MediaProvider for TmdbShowService {
                 "language": self.base.language,
                 "append_to_response": "videos",
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let show_data: TmdbMediaEntry = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let show_data: TmdbMediaEntry = rsp.json().await.map_err(|e| anyhow!(e))?;
         let mut videos = vec![];
         if let Some(vid) = show_data.videos {
             videos.extend(vid.results.into_iter().map(|vid| MetadataVideo {
@@ -1016,7 +1020,7 @@ impl MediaProvider for TmdbShowService {
         }
         let mut seasons = vec![];
         for s in show_data.seasons.unwrap_or_default().iter() {
-            let mut rsp = self
+            let rsp = self
                 .base
                 .client
                 .get(format!(
@@ -1027,11 +1031,11 @@ impl MediaProvider for TmdbShowService {
                 .query(&json!({
                     "language": self.base.language,
                 }))
-                .unwrap()
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            let mut data: TmdbSeason = rsp.body_json().await.map_err(|e| anyhow!(e))?;
-            let mut rsp = self
+            let mut data: TmdbSeason = rsp.json().await.map_err(|e| anyhow!(e))?;
+            let rsp = self
                 .base
                 .client
                 .get(format!(
@@ -1042,14 +1046,14 @@ impl MediaProvider for TmdbShowService {
                 .query(&json!({
                     "language": self.base.language,
                 }))
-                .unwrap()
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?;
             #[derive(Debug, Serialize, Deserialize, Clone)]
             struct TmdbSeasonCredit {
                 cast: Vec<TmdbCredit>,
             }
-            let credits: TmdbSeasonCredit = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+            let credits: TmdbSeasonCredit = rsp.json().await.map_err(|e| anyhow!(e))?;
             for e in data.episodes.iter_mut() {
                 e.guest_stars.extend(credits.cast.clone());
             }
@@ -1236,7 +1240,7 @@ impl MediaProvider for TmdbShowService {
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let rsp = self
             .base
             .client
             .get("search/tv")
@@ -1246,10 +1250,10 @@ impl MediaProvider for TmdbShowService {
                 "language": self.base.language,
                 "include_adult": display_nsfw,
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .results
             .into_iter()
@@ -1276,8 +1280,13 @@ impl MediaProvider for TmdbShowService {
 }
 
 async fn get_client_config(url: &str, access_token: &str) -> (Client, Settings) {
-    let client: Client =
-        get_base_http_client(url, vec![(AUTHORIZATION, format!("Bearer {access_token}"))]);
+    let client: Client = get_base_http_client_new(
+        url,
+        Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
+        )]),
+    );
     let path = PathBuf::new().join(TEMP_DIR).join(FILE);
     let tmdb_settings = if !path.exists() {
         #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1288,10 +1297,10 @@ async fn get_client_config(url: &str, access_token: &str) -> (Client, Settings) 
         struct TmdbConfiguration {
             images: TmdbImageConfiguration,
         }
-        let mut rsp = client.get("configuration").await.unwrap();
-        let data_1: TmdbConfiguration = rsp.body_json().await.unwrap();
-        let mut rsp = client.get("configuration/languages").await.unwrap();
-        let data_2: Vec<TmdbLanguage> = rsp.body_json().await.unwrap();
+        let rsp = client.get("configuration").send().await.unwrap();
+        let data_1: TmdbConfiguration = rsp.json().await.unwrap();
+        let rsp = client.get("configuration/languages").send().await.unwrap();
+        let data_2: Vec<TmdbLanguage> = rsp.json().await.unwrap();
         let tmdb_settings = Settings {
             image_url: data_1.images.secure_base_url,
             languages: data_2,

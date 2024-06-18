@@ -2,11 +2,10 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use database::{MediaLot, MediaSource};
-use http_types::mime;
 use itertools::Itertools;
+use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     models::{
@@ -18,7 +17,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::get_base_http_client_new,
 };
 
 static URL: &str = "https://api.mangaupdates.com/v1/";
@@ -41,7 +40,7 @@ impl MediaProviderLanguages for MangaUpdatesService {
 
 impl MangaUpdatesService {
     pub async fn new(_config: &config::MangaUpdatesConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
+        let client = get_base_http_client_new(URL, None);
         Self { client, page_limit }
     }
 }
@@ -159,15 +158,15 @@ impl MediaProvider for MangaUpdatesService {
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
             .post("authors/search")
-            .body_json(&serde_json::json!({
+            .json(&serde_json::json!({
                 "search": query,
                 "perpage": self.page_limit,
                 "page": page.unwrap_or(1)
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let items = data
@@ -201,19 +200,20 @@ impl MediaProvider for MangaUpdatesService {
         let data: ItemAuthor = self
             .client
             .get(format!("authors/{}", identity))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let related_data: ItemPersonRelatedSeries = self
             .client
             .post(format!("authors/{}/series", identity))
-            .body_json(&serde_json::json!({ "orderby": "year" }))
-            .unwrap()
+            .json(&serde_json::json!({ "orderby": "year" }))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let related = related_data
@@ -259,9 +259,10 @@ impl MediaProvider for MangaUpdatesService {
         let data: MetadataItemRecord = self
             .client
             .get(format!("series/{}", identifier))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let people = data
@@ -295,9 +296,10 @@ impl MediaProvider for MangaUpdatesService {
             if let Ok(data) = self
                 .client
                 .get(format!("series/{}", series_id))
+                .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .body_json::<MetadataItemRecord>()
+                .json::<MetadataItemRecord>()
                 .await
             {
                 suggestions.push(PartialMetadataWithoutId {
@@ -358,15 +360,15 @@ impl MediaProvider for MangaUpdatesService {
         let search: MetadataSearchResponse<MetadataItemResponse> = self
             .client
             .post("series/search")
-            .body_json(&serde_json::json!({
+            .json(&serde_json::json!({
                 "search": query,
                 "perpage": self.page_limit,
                 "page": page
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         let items = search

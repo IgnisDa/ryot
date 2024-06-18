@@ -2,11 +2,10 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
 use database::{MediaLot, MediaSource};
-use http_types::mime;
 use itertools::Itertools;
+use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     models::{
@@ -17,7 +16,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::get_base_http_client_new,
 };
 
 static URL: &str = "https://itunes.apple.com/";
@@ -41,7 +40,7 @@ impl MediaProviderLanguages for ITunesService {
 
 impl ITunesService {
     pub async fn new(config: &config::ITunesConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
+        let client = get_base_http_client_new(URL, None);
         Self {
             client,
             language: config.locale.clone(),
@@ -85,7 +84,7 @@ struct SearchResponse {
 #[async_trait]
 impl MediaProvider for ITunesService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self
+        let rsp = self
             .client
             .get("lookup")
             .query(&serde_json::json!({
@@ -94,10 +93,10 @@ impl MediaProvider for ITunesService {
                 "entity": "podcast",
                 "lang": self.language
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let details: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let details: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let ht = details.results.unwrap()[0].clone();
         let description = ht.description.clone();
         let creators = Vec::from_iter(ht.artist_name.clone())
@@ -120,7 +119,7 @@ impl MediaProvider for ITunesService {
             .collect();
         let total_episodes = ht.track_count.unwrap();
         let details = get_search_response(ht);
-        let mut rsp = self
+        let rsp = self
             .client
             .get("lookup")
             .query(&serde_json::json!({
@@ -130,7 +129,7 @@ impl MediaProvider for ITunesService {
                 "limit": total_episodes,
                 "lang": self.language
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
         let url_images = details
@@ -141,7 +140,7 @@ impl MediaProvider for ITunesService {
                 lot: MetadataImageLot::Poster,
             })
             .collect();
-        let episodes: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let episodes: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let episodes = episodes.results.unwrap_or_default();
         let publish_date = episodes
             .last()
@@ -188,7 +187,7 @@ impl MediaProvider for ITunesService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let rsp = self
             .client
             .get("search")
             .query(&serde_json::json!({
@@ -197,10 +196,10 @@ impl MediaProvider for ITunesService {
                 "entity": "podcast",
                 "lang": self.language
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .results
             .unwrap_or_default()

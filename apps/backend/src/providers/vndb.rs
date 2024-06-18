@@ -1,12 +1,11 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use database::{MediaLot, MediaSource};
-use http_types::mime;
 use itertools::Itertools;
+use reqwest::Client;
 use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use surf::{http::headers::ACCEPT, Client};
 
 use crate::{
     models::{
@@ -18,7 +17,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    utils::get_base_http_client_new,
 };
 
 static URL: &str = "https://api.vndb.org/kana/";
@@ -47,7 +46,7 @@ impl MediaProviderLanguages for VndbService {
 
 impl VndbService {
     pub async fn new(_config: &config::VisualNovelConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, vec![(ACCEPT, mime::JSON)]);
+        let client = get_base_http_client_new(URL, None);
         Self { client, page_limit }
     }
 }
@@ -95,20 +94,22 @@ impl MediaProvider for VndbService {
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let mut rsp = self
+        let data = self
             .client
             .post("producer")
-            .body_json(&serde_json::json!({
+            .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "count": true,
                 "fields": "id,name",
                 "results": self.page_limit,
                 "page": page
             }))
-            .unwrap()
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .json::<SearchResponse>()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
         let resp = data
             .results
             .unwrap_or_default()
@@ -139,18 +140,18 @@ impl MediaProvider for VndbService {
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        let mut rsp = self
+        let rsp = self
             .client
             .post("producer")
-            .body_json(&serde_json::json!({
+            .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
                 "fields": "id,name,description"
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(MetadataPerson {
             identifier: item.id,
@@ -169,18 +170,18 @@ impl MediaProvider for VndbService {
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let mut rsp = self
+        let rsp = self
             .client
             .post("vn")
-            .body_json(&serde_json::json!({
+            .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
                 "fields": METADATA_FIELDS
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let data: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         let d = self.vndb_response_to_search_response(item);
         Ok(d)
@@ -193,20 +194,20 @@ impl MediaProvider for VndbService {
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let mut rsp = self
+        let rsp = self
             .client
             .post("vn")
-            .body_json(&serde_json::json!({
+            .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "fields": METADATA_FIELDS_SMALL,
                 "count": true,
                 "results": self.page_limit,
                 "page": page
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = search
             .results
             .unwrap_or_default()

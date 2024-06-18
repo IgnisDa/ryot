@@ -5,13 +5,16 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use database::{MediaLot, MediaSource};
 use itertools::Itertools;
+use reqwest::{
+    header::{HeaderName, HeaderValue},
+    Client,
+};
 use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
-use surf::Client;
 
 use crate::{
     models::{
@@ -22,7 +25,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, TEMP_DIR},
+    utils::{get_base_http_client_new, TEMP_DIR},
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
@@ -86,9 +89,10 @@ impl MediaProvider for ListennotesService {
         let rec_data: RecommendationResp = self
             .client
             .get(format!("podcasts/{}/recommendations", identifier))
+            .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .body_json()
+            .json()
             .await
             .map_err(|e| anyhow!(e))?;
         details.suggestions = rec_data
@@ -150,7 +154,7 @@ impl MediaProvider for ListennotesService {
             results: Vec<Podcast>,
             next_offset: Option<i32>,
         }
-        let mut rsp = self
+        let rsp = self
             .client
             .get("search")
             .query(&json!({
@@ -158,11 +162,11 @@ impl MediaProvider for ListennotesService {
                 "offset": (page - 1) * self.page_limit,
                 "type": "podcast"
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
 
-        let search: SearchResponse = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let total = search.total;
 
         let next_page = search.next_offset.map(|_| page + 1);
@@ -210,17 +214,17 @@ impl ListennotesService {
             genre_ids: Vec<i32>,
             total_episodes: usize,
         }
-        let mut rsp = self
+        let  rsp = self
             .client
             .get(format!("podcasts/{}", identifier))
             .query(&json!({
                 "sort": "oldest_first",
                 "next_episode_pub_date": next_pub_date.map(|d| d.to_string()).unwrap_or_else(|| "null".to_owned())
             }))
-            .unwrap()
+            .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let podcast_data: Podcast = rsp.body_json().await.map_err(|e| anyhow!(e))?;
+        let podcast_data: Podcast = rsp.json().await.map_err(|e| anyhow!(e))?;
         Ok(MediaDetails {
             identifier: podcast_data.id,
             title: podcast_data.title,
@@ -265,7 +269,13 @@ impl ListennotesService {
 }
 
 async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
-    let client: Client = get_base_http_client(url, vec![("X-ListenAPI-Key", api_token)]);
+    let client = get_base_http_client_new(
+        url,
+        Some(vec![(
+            HeaderName::from_static("X-ListenAPI-Key"),
+            HeaderValue::from_str(api_token).unwrap(),
+        )]),
+    );
     let path = PathBuf::new().join(TEMP_DIR).join(FILE);
     let settings = if !path.exists() {
         #[derive(Debug, Serialize, Deserialize, Default)]
@@ -278,8 +288,8 @@ async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
         struct GenreResponse {
             genres: Vec<IdAndNamedObject>,
         }
-        let mut rsp = client.get("genres").await.unwrap();
-        let data: GenreResponse = rsp.body_json().await.unwrap_or_default();
+        let rsp = client.get("genres").send().await.unwrap();
+        let data: GenreResponse = rsp.json().await.unwrap_or_default();
         let mut genres = HashMap::new();
         for genre in data.genres {
             genres.insert(genre.id, genre.name);
