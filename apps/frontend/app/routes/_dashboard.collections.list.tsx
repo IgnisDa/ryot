@@ -286,6 +286,10 @@ const DisplayCollection = (props: {
 
 	if (props.collection.creator.id !== loaderData.currentUserId)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
+	if (props.collection.collaborators.length > 0)
+		additionalDisplay.push(
+			`${props.collection.collaborators.length} collaborators`,
+		);
 
 	return (
 		<Flex align="center" justify="space-between" gap="md" mr="lg">
