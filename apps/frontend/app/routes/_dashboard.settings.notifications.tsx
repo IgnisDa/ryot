@@ -320,11 +320,11 @@ const DisplayNotification = (props: {
 		<Paper p="xs" withBorder>
 			<Flex align="center" justify="space-between">
 				<Box w="80%">
-					<Text size="xs" lineClamp={1}>
+					<Text size="sm" fw="bold">
 						{props.notification.description}
 					</Text>
 					<Text size="xs">
-						{dayjsLib(props.notification.timestamp).fromNow()}
+						Created: {dayjsLib(props.notification.timestamp).fromNow()}
 					</Text>
 				</Box>
 				<Group>
