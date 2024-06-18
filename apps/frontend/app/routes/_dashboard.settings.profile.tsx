@@ -67,6 +67,13 @@ export default function Page() {
 				<fetcher.Form ref={formRef} method="post">
 					<Stack>
 						<TextInput
+							label="Id"
+							name="ID"
+							disabled
+							description="Database generated user ID"
+							defaultValue={loaderData.userDetails.id}
+						/>
+						<TextInput
 							label="Username"
 							name="username"
 							disabled={Boolean(loaderData.userDetails.isDemo)}
