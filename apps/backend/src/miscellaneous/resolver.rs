@@ -3774,6 +3774,7 @@ impl MiscellaneousService {
         user_id: &String,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
+        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/787 is merged
         struct JsonBuildObject;
         impl Iden for JsonBuildObject {
             fn unquoted(&self, s: &mut dyn Write) {
