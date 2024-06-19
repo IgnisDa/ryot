@@ -2543,6 +2543,10 @@ impl MiscellaneousService {
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
                 if let Some(metadata_id) = ute.metadata_id.clone() {
+                    let seen_history = self.seen_history(&ute.user_id, &metadata_id).await?;
+                    if !seen_history.is_empty() {
+                        new_reasons.insert(UserToMediaReason::SeenAtLeastOnce);
+                    }
                     let metadata = self.generic_metadata(&metadata_id).await?;
                     let is_finished = self
                         .is_metadata_finished_by_user(&ute.user_id, metadata)

@@ -360,6 +360,7 @@ pub enum MetadataToMetadataRelation {
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum UserToMediaReason {
+    SeenAtLeastOnce,
     Finished,
     Reviewed,
     Collection,
