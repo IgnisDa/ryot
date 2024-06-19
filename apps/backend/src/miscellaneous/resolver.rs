@@ -7153,33 +7153,33 @@ GROUP BY m.id;
         tracing::debug!("Starting background jobs...");
 
         tracing::trace!("Invalidating invalid media import jobs");
-        self.invalidate_import_jobs().await.unwrap();
+        self.invalidate_import_jobs().await.ok();
         tracing::trace!("Removing stale entities from Monitoring collection");
         self.remove_old_entities_from_monitoring_collection()
             .await
-            .unwrap();
+            .ok();
         tracing::trace!("Checking for updates for media in Watchlist");
         self.update_watchlist_metadata_and_queue_notifications()
             .await
-            .unwrap();
+            .ok();
         tracing::trace!("Checking for updates for monitored people");
         self.update_monitored_people_and_queue_notifications()
             .await
-            .unwrap();
+            .ok();
         tracing::trace!("Checking and queuing any pending reminders");
-        self.queue_pending_reminders().await.unwrap();
+        self.queue_pending_reminders().await.ok();
         tracing::trace!("Recalculating calendar events");
-        self.recalculate_calendar_events().await.unwrap();
+        self.recalculate_calendar_events().await.ok();
         tracing::trace!("Queuing notifications for released media");
-        self.queue_notifications_for_released_media().await.unwrap();
+        self.queue_notifications_for_released_media().await.ok();
         tracing::trace!("Sending all pending notifications");
-        self.send_pending_notifications().await.unwrap();
+        self.send_pending_notifications().await.ok();
         tracing::trace!("Cleaning up user and metadata association");
-        self.cleanup_user_and_metadata_association().await?;
+        self.cleanup_user_and_metadata_association().await.ok();
         tracing::trace!("Removing old user summaries and regenerating them");
-        self.regenerate_user_summaries().await?;
+        self.regenerate_user_summaries().await.ok();
         tracing::trace!("Removing useless data");
-        self.remove_useless_data().await?;
+        self.remove_useless_data().await.ok();
 
         tracing::debug!("Completed background jobs...");
         Ok(())
