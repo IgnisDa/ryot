@@ -5815,31 +5815,14 @@ impl MiscellaneousService {
         user_id: &String,
         metadata: MetadataBaseData,
     ) -> Result<bool> {
-        // DEV: if the metadata is in the user's 'Completed' collection, it is already finished
-        let completed_collection = Collection::find()
-            .filter(collection::Column::UserId.eq(user_id))
-            .filter(collection::Column::Name.eq(DefaultCollection::Completed.to_string()))
-            .one(&self.db)
-            .await?
-            .unwrap();
-        if CollectionToEntity::find()
-            .filter(collection_to_entity::Column::CollectionId.eq(completed_collection.id))
-            .filter(collection_to_entity::Column::MetadataId.eq(&metadata.model.id))
-            .one(&self.db)
-            .await?
-            .is_some()
-        {
-            return Ok(true);
-        }
         let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
         let is_finished = if metadata.model.lot == MediaLot::Podcast
             || metadata.model.lot == MediaLot::Show
             || metadata.model.lot == MediaLot::Anime
             || metadata.model.lot == MediaLot::Manga
         {
-            // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
-            // correspond to each episode exactly once, it means the show can be removed
-            // from the "In Progress" collection.
+            // DEV: If all episodes have been seen the same number of times, the media can be
+            // considered finished.
             let all_episodes = if let Some(s) = metadata.model.show_specifics {
                 s.seasons
                     .into_iter()
@@ -5882,11 +5865,11 @@ impl MiscellaneousService {
                         String::new()
                     }
                 })
-                .take_while_inclusive(|h| h != all_episodes.first().unwrap())
                 .for_each(|ep| {
                     bag.entry(ep).and_modify(|c| *c += 1);
                 });
-            let is_complete = bag.values().all(|&e| e == 1);
+            let values = bag.values().cloned().collect_vec();
+            let is_complete = values.iter().min() == values.iter().max();
             is_complete
         } else {
             seen_history
@@ -7221,6 +7204,7 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.cleanup_user_and_metadata_association().await.ok();
         Ok(true)
     }
 }
