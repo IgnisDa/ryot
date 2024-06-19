@@ -10,8 +10,13 @@ const data = await getLandingData();
 <Layout meta={data.meta}>
   <Header data={data.headerData} />
   <main>
-    <div class="h-96">
-      <h1 class="pt-36">Features</h1>
+    <div>
+      <div class="py-36 text-center px-5">
+        <h1 class="text-5xl md:text-6xl font-bold">Features</h1>
+        <p class="mt-6 md:mt-20 text-gray-500 md:text-xl">
+          An overview of all the features Ryot Pro provides.
+        </p>
+      </div>
     </div>
     <Footer data={data.footerData} />
   </main>
