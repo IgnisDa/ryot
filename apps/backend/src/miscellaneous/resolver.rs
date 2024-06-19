@@ -5780,64 +5780,9 @@ impl MiscellaneousService {
                     || metadata.model.lot == MediaLot::Anime
                     || metadata.model.lot == MediaLot::Manga
                 {
-                    // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
-                    // correspond to each episode exactly once, it means the show can be removed
-                    // from the "In Progress" collection.
-                    let all_episodes = if let Some(s) = metadata.model.show_specifics {
-                        s.seasons
-                            .into_iter()
-                            .filter(|s| s.name != "Specials")
-                            .flat_map(|s| {
-                                s.episodes.into_iter().map(move |e| {
-                                    format!("{}-{}", s.season_number, e.episode_number)
-                                })
-                            })
-                            .collect_vec()
-                    } else if let Some(p) = metadata.model.podcast_specifics {
-                        p.episodes
-                            .into_iter()
-                            .map(|e| format!("{}", e.number))
-                            .collect_vec()
-                    } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes)
-                    {
-                        (1..e + 1).map(|e| format!("{}", e)).collect_vec()
-                    } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters)
-                    {
-                        (1..c + 1).map(|e| format!("{}", e)).collect_vec()
-                    } else {
-                        vec![]
-                    };
-                    if all_episodes.is_empty() {
-                        return Ok(());
-                    }
-                    let seen_history = self.seen_history(&seen.user_id, &seen.metadata_id).await?;
-                    let mut bag = HashMap::<String, i32>::from_iter(
-                        all_episodes.iter().cloned().map(|e| (e, 0)),
-                    );
-                    seen_history
-                        .into_iter()
-                        .map(|h| {
-                            if let Some(s) = h.show_extra_information {
-                                format!("{}-{}", s.season, s.episode)
-                            } else if let Some(p) = h.podcast_extra_information {
-                                format!("{}", p.episode)
-                            } else if let Some(a) =
-                                h.anime_extra_information.and_then(|a| a.episode)
-                            {
-                                format!("{}", a)
-                            } else if let Some(m) =
-                                h.manga_extra_information.and_then(|m| m.chapter)
-                            {
-                                format!("{}", m)
-                            } else {
-                                String::new()
-                            }
-                        })
-                        .take_while_inclusive(|h| h != all_episodes.first().unwrap())
-                        .for_each(|ep| {
-                            bag.entry(ep).and_modify(|c| *c += 1);
-                        });
-                    let is_complete = bag.values().all(|&e| e == 1);
+                    let is_complete = self
+                        .is_metadata_finished_by_user(&seen.user_id, metadata)
+                        .await?;
                     if is_complete {
                         remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
                             .await
