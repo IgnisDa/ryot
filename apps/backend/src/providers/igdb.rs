@@ -650,7 +650,7 @@ async fn get_client(config: &config::VideoGameConfig) -> Client {
         URL,
         Some(vec![
             (
-                HeaderName::from_static("Client-ID"),
+                HeaderName::from_static("client-id"),
                 HeaderValue::from_str(&config.twitch.client_id).unwrap(),
             ),
             (

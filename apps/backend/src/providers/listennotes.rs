@@ -272,7 +272,7 @@ async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
     let client = get_base_http_client(
         url,
         Some(vec![(
-            HeaderName::from_static("X-ListenAPI-Key"),
+            HeaderName::from_static("x-listenapi-key"),
             HeaderValue::from_str(api_token).unwrap(),
         )]),
     );
