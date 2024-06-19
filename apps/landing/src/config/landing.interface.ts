@@ -72,6 +72,7 @@ export interface Tier {
 
 export interface Price {
 	amount: string;
+	trial?: number;
 	period?: string;
 }
 

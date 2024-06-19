@@ -49,7 +49,8 @@
 				"title": "Monthly",
 				"price": {
 					"amount": "$5",
-					"period": "/month"
+					"period": "/month",
+					"trial": 7
 				},
 				"cta": "Get started"
 			},
@@ -57,7 +58,8 @@
 				"title": "Yearly",
 				"price": {
 					"amount": "$49",
-					"period": "/year"
+					"period": "/year",
+					"trial": 14
 				},
 				"cta": "Get started"
 			},
