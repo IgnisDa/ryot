@@ -38,9 +38,10 @@ ENV RUST_TARGET_TRIPLE_arm64="aarch64-unknown-linux-gnu"
 ENV RUST_TARGET_TRIPLE_amd64="x86_64-unknown-linux-gnu"
 ENV TARGET_CC="clang"
 ENV TARGET_AR="llvm-ar"
-ENV APP_VERSION=$APP_VERSION
 ENV CFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu"
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+ENV APP_VERSION=$APP_VERSION
+RUN test -n "$APP_VERSION"
 COPY --from=backend-planner /app/recipe.json recipe.json
 RUN rustup target add $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH")
 RUN cargo chef cook --profile $BUILD_PROFILE --target $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH") --recipe-path recipe.json
