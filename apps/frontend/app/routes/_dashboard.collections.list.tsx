@@ -317,21 +317,23 @@ const DisplayCollection = (props: {
 				) : null}
 			</Box>
 			<Flex gap="sm" style={{ flex: 0 }}>
-				<ActionIcon
-					color="blue"
-					variant="outline"
-					onClick={() => {
-						props.setToUpdateCollection({
-							name: props.collection.name,
-							id: props.collection.id,
-							description: props.collection.description,
-							isDefault: props.collection.isDefault,
-						});
-						props.openModal();
-					}}
-				>
-					<IconEdit size={18} />
-				</ActionIcon>
+				{loaderData.currentUserId === props.collection.creator.id ? (
+					<ActionIcon
+						color="blue"
+						variant="outline"
+						onClick={() => {
+							props.setToUpdateCollection({
+								name: props.collection.name,
+								id: props.collection.id,
+								description: props.collection.description,
+								isDefault: props.collection.isDefault,
+							});
+							props.openModal();
+						}}
+					>
+						<IconEdit size={18} />
+					</ActionIcon>
+				) : undefined}
 				{!props.collection.isDefault ? (
 					<fetcher.Form
 						action="?intent=delete"
