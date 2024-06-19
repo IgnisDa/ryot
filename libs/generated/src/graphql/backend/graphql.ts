@@ -796,8 +796,8 @@ export enum MediaGeneralFilter {
   Dropped = 'DROPPED',
   OnAHold = 'ON_A_HOLD',
   Rated = 'RATED',
-  Unrated = 'UNRATED',
-  Unseen = 'UNSEEN'
+  Unfinished = 'UNFINISHED',
+  Unrated = 'UNRATED'
 }
 
 export type MediaListItem = {

@@ -508,7 +508,7 @@ enum MediaGeneralFilter {
     Unrated,
     Dropped,
     OnAHold,
-    Unseen,
+    Unfinished,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2121,7 +2121,13 @@ impl MiscellaneousService {
                 MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
                 MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
                 MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
-                MediaGeneralFilter::Unseen => query.filter(seen::Column::Id.is_null()),
+                MediaGeneralFilter::Unfinished => query.filter(
+                    Expr::expr(
+                        Expr::val(UserToMediaReason::Finished.to_string())
+                            .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
+                    )
+                    .not(),
+                ),
                 s => query.filter(seen::Column::State.eq(match s {
                     MediaGeneralFilter::Dropped => SeenState::Dropped,
                     MediaGeneralFilter::OnAHold => SeenState::OnAHold,
