@@ -397,7 +397,7 @@ struct PersonDetailsGroupedByRole {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct MediaBaseData {
+struct MetadataBaseData {
     model: metadata::Model,
     creators: Vec<MetadataCreatorGroupedByRole>,
     assets: GraphqlMediaAssets,
@@ -1441,7 +1441,7 @@ impl MiscellaneousService {
         Ok(GraphqlMediaAssets { images, videos })
     }
 
-    async fn generic_metadata(&self, metadata_id: &String) -> Result<MediaBaseData> {
+    async fn generic_metadata(&self, metadata_id: &String) -> Result<MetadataBaseData> {
         let mut meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -1560,7 +1560,7 @@ impl MiscellaneousService {
             })
         }
         let assets = self.metadata_assets(&meta).await.unwrap();
-        Ok(MediaBaseData {
+        Ok(MetadataBaseData {
             model: meta,
             creators,
             assets,
@@ -1570,7 +1570,7 @@ impl MiscellaneousService {
     }
 
     async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
-        let MediaBaseData {
+        let MetadataBaseData {
             model,
             creators,
             assets,
@@ -5861,6 +5861,73 @@ impl MiscellaneousService {
             }
         };
         Ok(())
+    }
+
+    async fn is_metadata_finished_by_user(
+        &self,
+        user_id: &String,
+        metadata: MetadataBaseData,
+    ) -> Result<bool> {
+        if metadata.model.lot == MediaLot::Podcast
+            || metadata.model.lot == MediaLot::Show
+            || metadata.model.lot == MediaLot::Anime
+            || metadata.model.lot == MediaLot::Manga
+        {
+            // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
+            // correspond to each episode exactly once, it means the show can be removed
+            // from the "In Progress" collection.
+            let all_episodes = if let Some(s) = metadata.model.show_specifics {
+                s.seasons
+                    .into_iter()
+                    .filter(|s| s.name != "Specials")
+                    .flat_map(|s| {
+                        s.episodes
+                            .into_iter()
+                            .map(move |e| format!("{}-{}", s.season_number, e.episode_number))
+                    })
+                    .collect_vec()
+            } else if let Some(p) = metadata.model.podcast_specifics {
+                p.episodes
+                    .into_iter()
+                    .map(|e| format!("{}", e.number))
+                    .collect_vec()
+            } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes) {
+                (1..e + 1).map(|e| format!("{}", e)).collect_vec()
+            } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters) {
+                (1..c + 1).map(|e| format!("{}", e)).collect_vec()
+            } else {
+                vec![]
+            };
+            if all_episodes.is_empty() {
+                return Ok(true);
+            }
+            let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
+            let mut bag =
+                HashMap::<String, i32>::from_iter(all_episodes.iter().cloned().map(|e| (e, 0)));
+            seen_history
+                .into_iter()
+                .map(|h| {
+                    if let Some(s) = h.show_extra_information {
+                        format!("{}-{}", s.season, s.episode)
+                    } else if let Some(p) = h.podcast_extra_information {
+                        format!("{}", p.episode)
+                    } else if let Some(a) = h.anime_extra_information.and_then(|a| a.episode) {
+                        format!("{}", a)
+                    } else if let Some(m) = h.manga_extra_information.and_then(|m| m.chapter) {
+                        format!("{}", m)
+                    } else {
+                        String::new()
+                    }
+                })
+                .take_while_inclusive(|h| h != all_episodes.first().unwrap())
+                .for_each(|ep| {
+                    bag.entry(ep).and_modify(|c| *c += 1);
+                });
+            let is_complete = bag.values().all(|&e| e == 1);
+            Ok(is_complete)
+        } else {
+            Ok(true)
+        }
     }
 
     async fn queue_notifications_to_user_platforms(
