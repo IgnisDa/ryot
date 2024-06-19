@@ -32,11 +32,13 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM backend-chef AS backend-builder
 ARG TARGETARCH
+ARG APP_VERSION
 ARG BUILD_PROFILE=release
 ENV RUST_TARGET_TRIPLE_arm64="aarch64-unknown-linux-gnu"
 ENV RUST_TARGET_TRIPLE_amd64="x86_64-unknown-linux-gnu"
 ENV TARGET_CC="clang"
 ENV TARGET_AR="llvm-ar"
+ENV APP_VERSION=$APP_VERSION
 ENV CFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu"
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 COPY --from=backend-planner /app/recipe.json recipe.json
