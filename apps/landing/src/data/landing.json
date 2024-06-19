@@ -75,6 +75,7 @@
 		"description": "A self hosted platform for tracking various facets of your life - media, fitness and much more!",
 		"links": [
 			{ "label": "Prices", "href": "/#pricing-section" },
+			{ "label": "Features", "href": "/features" },
 			{ "label": "Contact", "href": "/#contact-section" },
 			{ "label": "Documentation", "href": "https://docs.ryot.io" },
 			{ "label": "Terms of Service", "href": "/terms" }
