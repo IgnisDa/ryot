@@ -2238,11 +2238,11 @@ export type UserToExerciseHistoryExtraInformation = {
 
 export enum UserToMediaReason {
   Collection = 'COLLECTION',
+  Finished = 'FINISHED',
   Monitoring = 'MONITORING',
   Owned = 'OWNED',
   Reminder = 'REMINDER',
   Reviewed = 'REVIEWED',
-  Seen = 'SEEN',
   Watchlist = 'WATCHLIST'
 }
 
