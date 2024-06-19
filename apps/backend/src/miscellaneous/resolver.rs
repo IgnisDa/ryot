@@ -5815,6 +5815,22 @@ impl MiscellaneousService {
         user_id: &String,
         metadata: MetadataBaseData,
     ) -> Result<bool> {
+        // DEV: if the metadata is in the user's 'Completed' collection, it is already finished
+        let completed_collection = Collection::find()
+            .filter(collection::Column::UserId.eq(user_id))
+            .filter(collection::Column::Name.eq(DefaultCollection::Completed.to_string()))
+            .one(&self.db)
+            .await?
+            .unwrap();
+        if CollectionToEntity::find()
+            .filter(collection_to_entity::Column::CollectionId.eq(completed_collection.id))
+            .filter(collection_to_entity::Column::MetadataId.eq(&metadata.model.id))
+            .one(&self.db)
+            .await?
+            .is_some()
+        {
+            return Ok(true);
+        }
         let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
         let is_finished = if metadata.model.lot == MediaLot::Podcast
             || metadata.model.lot == MediaLot::Show
