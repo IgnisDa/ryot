@@ -2243,7 +2243,7 @@ export enum UserToMediaReason {
   Owned = 'OWNED',
   Reminder = 'REMINDER',
   Reviewed = 'REVIEWED',
-  SeenAtLeastOnce = 'SEEN_AT_LEAST_ONCE',
+  Seen = 'SEEN',
   Watchlist = 'WATCHLIST'
 }
 

@@ -360,7 +360,8 @@ pub enum MetadataToMetadataRelation {
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum UserToMediaReason {
-    SeenAtLeastOnce,
+    // There is at-least one element in the seen history
+    Seen,
     Finished,
     Reviewed,
     Collection,

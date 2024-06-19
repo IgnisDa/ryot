@@ -2545,7 +2545,7 @@ impl MiscellaneousService {
                 if let Some(metadata_id) = ute.metadata_id.clone() {
                     let seen_history = self.seen_history(&ute.user_id, &metadata_id).await?;
                     if !seen_history.is_empty() {
-                        new_reasons.insert(UserToMediaReason::SeenAtLeastOnce);
+                        new_reasons.insert(UserToMediaReason::Seen);
                     }
                     let metadata = self.generic_metadata(&metadata_id).await?;
                     let is_finished = self

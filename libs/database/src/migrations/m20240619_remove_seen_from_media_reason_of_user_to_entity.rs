@@ -10,7 +10,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 UPDATE user_to_entity
-SET media_reason = array_remove(media_reason, 'seen'), needs_to_be_updated = true
+SET needs_to_be_updated = true
 WHERE 'seen' = ANY(media_reason);
 "#,
         )
