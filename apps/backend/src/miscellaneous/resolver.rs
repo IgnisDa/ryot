@@ -4809,6 +4809,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
+        tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
         self.user_created_job(&user.id).await?;
         self.calculate_user_summary(&user.id, true).await?;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
