@@ -10,14 +10,14 @@ const data = await getLandingData();
 <Layout meta={data.meta}>
   <Header data={data.headerData} />
   <main>
-    <div class="py-56 flex flex-col gap-y-32">
+    <div class="py-56 flex flex-col gap-y-20 md:gap-y-32">
       <div class="px-3 text-center">
         <h1 class="text-5xl md:text-6xl font-bold">Features</h1>
-        <p class="text-slate-500 mt-16 md:text-xl">
+        <p class="text-slate-500 mt-8 md:mt-16 md:text-xl">
           An overview of all the features Ryot Pro provides.
         </p>
       </div>
-      <div class="px-4 md:px-60 gap-y-6 flex flex-col">
+      <div class="px-4 md:px-60 gap-y-4 flex flex-col">
         <h2 class="text-2xl font-semibold md:text-4xl md:font-normal">
           Recommendations
         </h2>
@@ -35,7 +35,7 @@ const data = await getLandingData();
           />
         </div>
       </div>
-      <div class="px-4 md:px-60 gap-y-6 flex flex-col">
+      <div class="px-4 md:px-60 gap-y-4 flex flex-col">
         <h2 class="text-2xl font-semibold md:text-4xl md:font-normal">
           Collection Collaboration
         </h2>
@@ -48,7 +48,7 @@ const data = await getLandingData();
           />
           <p class="md:text-xl">
             You can add other users to your collections. This feature is useful
-            when you want to share your collection with your friends or family .
+            when you want to share your collection with your friends or family.
             They can also add or remove media from it.
           </p>
         </div>
