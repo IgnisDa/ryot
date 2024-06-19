@@ -2536,16 +2536,12 @@ impl MiscellaneousService {
                 .unwrap();
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
-                if ute.metadata_id.is_some() {
-                    // TODO: Use the `after_media_seen` to check whether the media is finished
-                    if Seen::find()
-                        .filter(seen::Column::UserId.eq(&ute.user_id))
-                        .filter(seen::Column::MetadataId.eq(ute.metadata_id.clone()))
-                        .count(&self.db)
-                        .await
-                        .unwrap()
-                        > 0
-                    {
+                if let Some(metadata_id) = ute.metadata_id.clone() {
+                    let metadata = self.generic_metadata(&metadata_id).await?;
+                    let is_finished = self
+                        .is_metadata_finished_by_user(&ute.user_id, metadata)
+                        .await?;
+                    if is_finished {
                         new_reasons.insert(UserToMediaReason::Finished);
                     }
                 } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
