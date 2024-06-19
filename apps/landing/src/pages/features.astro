@@ -21,12 +21,17 @@ const data = await getLandingData();
         <h2 class="text-2xl font-semibold md:text-4xl md:font-normal">
           Recommendations
         </h2>
-        <div class="flex items-center justify-between gap-x-6">
-          <img src="images/features/recommendations.png" class="lg:w-[600px]" />
-          <p class="text-xl">
-            A new section is added to the Dashboard where you can view
-            personalized recommendations based on your recent media consumption.
-            They are refreshed every hour.
+        <div
+          class="gap-y-3 flex flex-col items-center justify-between md:gap-x-10 md:flex-row"
+        >
+          <img
+            src="images/features/recommendations.png"
+            class="lg:w-[600px] border rounded-lg shadow-lg"
+          />
+          <p class="md:text-xl">
+            A new section called "Recommendations" is added to the Dashboard
+            where you can view personalized suggestions based on your recent
+            media consumption. They are refreshed every hour.
           </p>
         </div>
       </div>
