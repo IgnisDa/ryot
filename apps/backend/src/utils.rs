@@ -43,7 +43,10 @@ use crate::{
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(debug_assertions)]
+pub const VERSION: &str = dotenvy_macro::dotenv!("APP_VERSION");
+#[cfg(not(debug_assertions))]
+pub const VERSION: &str = env!("APP_VERSION");
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const USER_AGENT_STR: &str = const_str::concat!(
