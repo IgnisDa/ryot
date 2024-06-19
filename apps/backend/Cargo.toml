@@ -30,6 +30,7 @@ derive_more = { version = "=1.0.0-beta.6", features = [
     "add_assign",
 ], default-features = false }
 dotenvy = "=0.15.7"
+dotenvy_macro = "=0.15.7"
 enum_meta = "=0.7.0"
 flate2 = "=1.0.30"
 futures = "=0.3.30"
