@@ -1,0 +1,18 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Footer from "@/sections/Footer.astro";
+import Header from "@/sections/Header.astro";
+import { getLandingData } from "@/services/data.service";
+
+const data = await getLandingData();
+---
+
+<Layout meta={data.meta}>
+  <Header data={data.headerData} />
+  <main>
+    <div class="h-96">
+      <h1 class="pt-36">Features</h1>
+    </div>
+    <Footer data={data.footerData} />
+  </main>
+</Layout>

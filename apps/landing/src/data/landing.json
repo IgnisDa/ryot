@@ -27,6 +27,7 @@
 		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		"links": [
 			{ "label": "Prices", "href": "/#pricing-section" },
+			{ "label": "Features", "href": "/features" },
 			{ "label": "Contact", "href": "/#contact-section" },
 			{ "label": "Documentation", "href": "https://docs.ryot.io" },
 			{ "label": "Terms of Service", "href": "/terms" }
