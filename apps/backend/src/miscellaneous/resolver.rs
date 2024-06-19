@@ -5814,7 +5814,7 @@ impl MiscellaneousService {
         metadata: MetadataBaseData,
     ) -> Result<bool> {
         let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
-        let is_complete = if metadata.model.lot == MediaLot::Podcast
+        let is_finished = if metadata.model.lot == MediaLot::Podcast
             || metadata.model.lot == MediaLot::Show
             || metadata.model.lot == MediaLot::Anime
             || metadata.model.lot == MediaLot::Manga
@@ -5871,12 +5871,11 @@ impl MiscellaneousService {
             let is_complete = bag.values().all(|&e| e == 1);
             is_complete
         } else {
-            let is_complete = seen_history
+            seen_history
                 .into_iter()
-                .any(|h| h.state == SeenState::Completed);
-            is_complete
+                .any(|h| h.state == SeenState::Completed)
         };
-        Ok(is_complete)
+        Ok(is_finished)
     }
 
     async fn queue_notifications_to_user_platforms(
