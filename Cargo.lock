@@ -1601,6 +1601,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
+name = "dotenvy_macro"
+version = "0.15.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb0235d912a8c749f4e0c9f18ca253b4c28cfefc1d2518096016d6e3230b6424"
+dependencies = [
+ "dotenvy",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "dtoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4067,7 +4079,7 @@ dependencies = [
 
 [[package]]
 name = "rs-utils"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "chrono",
 ]
@@ -4251,7 +4263,7 @@ checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 
 [[package]]
 name = "ryot"
-version = "6.2.3"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4273,6 +4285,7 @@ dependencies = [
  "database",
  "derive_more 1.0.0-beta.6",
  "dotenvy",
+ "dotenvy_macro",
  "enum_meta",
  "flate2",
  "futures",
