@@ -43,6 +43,7 @@ jobs:
                   release_id: existingRelease.id,
                   tag_name: tag,
                   body: newBody
+                  draft: false,
                 });
                 console.log("Release updated to associate with new tag.");
               } else {
