@@ -1413,7 +1413,7 @@ impl MiscellaneousService {
             author_name: AUTHOR.to_owned(),
             timezone: self.timezone.to_string(),
             oidc_enabled: self.oidc_client.is_some(),
-            website_url: "https://ryot.io".to_owned(),
+            website_url: "https://ryot.io/features".to_owned(),
             page_limit: self.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
             local_auth_disabled: self.config.users.disable_local_auth,
