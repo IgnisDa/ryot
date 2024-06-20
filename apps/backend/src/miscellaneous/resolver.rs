@@ -6687,6 +6687,9 @@ impl MiscellaneousService {
                 }
             } else if let Some(ss) = &meta.show_specifics {
                 for season in ss.seasons.iter() {
+                    if season.name == SHOW_SPECIALS_SEASON_NAME {
+                        continue;
+                    }
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
                             let event = calendar_event::ActiveModel {
