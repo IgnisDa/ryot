@@ -132,3 +132,7 @@ pub trait GraphqlRepresentation {
     where
         Self: Sized;
 }
+
+pub trait TraceOk<T, E> {
+    fn trace_ok(self) -> Option<T>;
+}
