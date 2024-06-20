@@ -119,7 +119,8 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIALS_SEASON_NAME,
+        TEMP_DIR,
     },
 };
 
@@ -5832,7 +5833,7 @@ impl MiscellaneousService {
             let all_episodes = if let Some(s) = metadata.model.show_specifics {
                 s.seasons
                     .into_iter()
-                    .filter(|s| s.name != "Specials")
+                    .filter(|s| s.name != SHOW_SPECIALS_SEASON_NAME)
                     .flat_map(|s| {
                         s.episodes
                             .into_iter()
@@ -6686,6 +6687,9 @@ impl MiscellaneousService {
                 }
             } else if let Some(ss) = &meta.show_specifics {
                 for season in ss.seasons.iter() {
+                    if season.name == SHOW_SPECIALS_SEASON_NAME {
+                        continue;
+                    }
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
                             let event = calendar_event::ActiveModel {
