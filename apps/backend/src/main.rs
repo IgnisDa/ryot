@@ -31,7 +31,11 @@ use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
 use sea_orm_migration::MigratorTrait;
-use tokio::{join, net::TcpListener};
+use tokio::{
+    join,
+    net::TcpListener,
+    time::{sleep, Duration as TokioDuration},
+};
 use tower::buffer::BufferLayer;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
@@ -85,6 +89,11 @@ async fn main() -> Result<()> {
     tracing::info!("Running version: {}", VERSION);
 
     let config = Arc::new(config::load_app_config()?);
+    if config.server.sleep_before_startup_seconds > 0 {
+        let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
+        tracing::info!("Sleeping for {:?} before starting up...", duration);
+        sleep(duration).await;
+    }
     let cors_origins = config
         .server
         .cors_origins
