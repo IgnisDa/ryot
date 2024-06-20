@@ -3,6 +3,7 @@ import { parseWithZod } from "@conform-to/zod";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
+	Alert,
 	Anchor,
 	Button,
 	Divider,
@@ -211,6 +212,12 @@ export default function Page() {
 			m="auto"
 			w={{ base: "80%", sm: "60%", md: "50%", lg: "40%", xl: "30%" }}
 		>
+			{loaderData.localAuthDisabled && !loaderData.oidcEnabled ? (
+				<Alert title="Authentication disabled" color="red">
+					Both local authentication and OpenID Connect are disabled. Please
+					contact the administrator.
+				</Alert>
+			) : null}
 			{!loaderData.localAuthDisabled ? (
 				<Form
 					method="post"

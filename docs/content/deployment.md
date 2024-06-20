@@ -13,7 +13,7 @@ is a non-exhaustive set of guides to deploy Ryot to alternative platforms.
   "New Variable" and then "Add Reference". Click on "Add".
 5. Go to the "Settings" tab and then click on "Generate Domain".
 6. Optionally, you can set the [health-check](https://docs.railway.app/deploy/healthchecks)
-  path to `/backend/config`.
+  path to `/health`.
 
 ## Dokku
 

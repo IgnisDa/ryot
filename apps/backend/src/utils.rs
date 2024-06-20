@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use async_graphql::{Error, Result};
@@ -40,6 +40,7 @@ use crate::{
     jwt,
     miscellaneous::resolver::MiscellaneousService,
     models::{ChangeCollectionToEntityInput, StoredUrl},
+    traits::TraceOk,
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -429,4 +430,13 @@ where
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
+}
+
+impl<T, E: Debug> TraceOk<T, E> for Result<T, E> {
+    fn trace_ok(self) -> Option<T> {
+        if let Err(err) = &self {
+            tracing::debug!("Error: {:?}", err);
+        };
+        self.ok()
+    }
 }

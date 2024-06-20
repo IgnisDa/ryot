@@ -12,7 +12,7 @@ import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
 import { CurrentWorkoutKey } from "~/lib/generals";
-import type { loader as resourcesLoader } from "~/routes/api.fitness.exercises.$id";
+import type { LoaderReturnData as ExerciseLoaderReturnData } from "~/routes/api.fitness.exercises.$id";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
@@ -83,7 +83,7 @@ export const getExerciseDetails = async (exerciseId: string) => {
 			id: exerciseId,
 		}),
 	);
-	const json: Awaited<ReturnType<typeof resourcesLoader>> = await resp.json();
+	const json: ExerciseLoaderReturnData = await resp.json();
 	return json;
 };
 

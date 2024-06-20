@@ -148,14 +148,6 @@ export type CollectionExtraInformation = {
   required?: Maybe<Scalars['Boolean']['output']>;
 };
 
-export type CollectionExtraInformationInput = {
-  defaultValue?: InputMaybe<Scalars['String']['input']>;
-  description: Scalars['String']['input'];
-  lot: CollectionExtraInformationLot;
-  name: Scalars['String']['input'];
-  required?: InputMaybe<Scalars['Boolean']['input']>;
-};
-
 export enum CollectionExtraInformationLot {
   Date = 'DATE',
   DateTime = 'DATE_TIME',
@@ -228,7 +220,6 @@ export type CreateIntegrationInput = {
 
 export type CreateOrUpdateCollectionInput = {
   description?: InputMaybe<Scalars['String']['input']>;
-  informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;
 };
@@ -796,8 +787,8 @@ export enum MediaGeneralFilter {
   Dropped = 'DROPPED',
   OnAHold = 'ON_A_HOLD',
   Rated = 'RATED',
-  Unrated = 'UNRATED',
-  Unseen = 'UNSEEN'
+  Unfinished = 'UNFINISHED',
+  Unrated = 'UNRATED'
 }
 
 export type MediaListItem = {
@@ -2238,6 +2229,7 @@ export type UserToExerciseHistoryExtraInformation = {
 
 export enum UserToMediaReason {
   Collection = 'COLLECTION',
+  Finished = 'FINISHED',
   Monitoring = 'MONITORING',
   Owned = 'OWNED',
   Reminder = 'REMINDER',

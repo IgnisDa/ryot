@@ -226,6 +226,7 @@ pub mod media {
         pub name: String,
         pub description: Option<String>,
         pub update_id: Option<String>,
+        #[graphql(skip_input)]
         pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 

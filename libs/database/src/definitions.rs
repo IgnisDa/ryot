@@ -360,7 +360,10 @@ pub enum MetadataToMetadataRelation {
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum UserToMediaReason {
+    // There is at-least one element in the seen history
     Seen,
+    // User has watched this media completely (most applies to shows, podcasts etc.)
+    Finished,
     Reviewed,
     Collection,
     Reminder,

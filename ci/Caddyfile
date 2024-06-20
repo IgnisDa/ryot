@@ -11,5 +11,13 @@
 	handle_path /backend* {
 		reverse_proxy localhost:5000
 	}
+	handle /health {
+		header Content-Type text/plain
+		templates
+		respond <<TXT
+			{{ httpInclude "/backend/config" }}
+			{{ httpInclude "/auth" }}
+		TXT
+	}
 	reverse_proxy localhost:3000
 }
