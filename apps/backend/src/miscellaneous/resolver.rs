@@ -6625,6 +6625,8 @@ impl MiscellaneousService {
                                 if publish_date != cal_event.date {
                                     need_to_delete = true;
                                 }
+                            } else {
+                                need_to_delete = true;
                             }
                         } else {
                             need_to_delete = true;
