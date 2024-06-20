@@ -51,7 +51,10 @@ pub struct Model {
 
 #[async_trait]
 impl GraphqlRepresentation for Model {
-    async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
+    async fn graphql_representation(
+        self,
+        file_storage_service: &Arc<FileStorageService>,
+    ) -> Result<Self> {
         let mut converted_exercise = self.clone();
         let mut images = vec![];
         for image in self.attributes.internal_images.iter() {
@@ -78,7 +81,10 @@ pub struct ExerciseListItem {
 
 #[async_trait]
 impl GraphqlRepresentation for ExerciseListItem {
-    async fn graphql_repr(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
+    async fn graphql_representation(
+        self,
+        file_storage_service: &Arc<FileStorageService>,
+    ) -> Result<Self> {
         let mut converted_exercise = self.clone();
         if let Some(img) = self.attributes.internal_images.first() {
             converted_exercise.image =

@@ -125,7 +125,7 @@ pub trait AuthProvider {
 
 #[async_trait]
 pub trait GraphqlRepresentation {
-    async fn graphql_repr(
+    async fn graphql_representation(
         self,
         file_storage_service: &Arc<FileStorageService>,
     ) -> GraphqlResult<Self>
