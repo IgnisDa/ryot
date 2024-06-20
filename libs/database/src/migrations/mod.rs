@@ -24,14 +24,17 @@ mod m20240607_change_boolean_column_names;
 mod m20240607_change_user_primary_key;
 mod m20240607_create_integration;
 mod m20240608_add_created_on_column_to_collection_to_entity;
+mod m20240619_remove_seen_from_media_reason_of_user_to_entity;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
+pub use m20230417_create_user::User as AliasedUser;
 pub use m20230419_create_seen::Seen as AliasedSeen;
 pub use m20230501_create_metadata_group::MetadataGroup as AliasedMetadataGroup;
 pub use m20230502_create_genre::{
     Genre as AliasedGenre, MetadataToGenre as AliasedMetadataToGenre,
 };
+pub use m20230504_create_collection::Collection as AliasedCollection;
 pub use m20230505_create_review::Review as AliasedReview;
 pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
@@ -67,6 +70,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240607_change_user_primary_key::Migration),
             Box::new(m20240607_create_integration::Migration),
             Box::new(m20240608_add_created_on_column_to_collection_to_entity::Migration),
+            Box::new(m20240619_remove_seen_from_media_reason_of_user_to_entity::Migration),
         ]
     }
 }

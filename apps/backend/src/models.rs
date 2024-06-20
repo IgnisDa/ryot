@@ -153,7 +153,18 @@ pub struct ChangeCollectionToEntityInput {
     pub information: Option<HashMap<String, String>>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Schematic)]
+#[derive(
+    Debug,
+    SimpleObject,
+    Serialize,
+    Deserialize,
+    Default,
+    Clone,
+    PartialEq,
+    Eq,
+    Schematic,
+    FromJsonQueryResult,
+)]
 #[serde(rename_all = "snake_case")]
 pub struct IdAndNamedObject {
     pub id: String,
@@ -215,6 +226,7 @@ pub mod media {
         pub name: String,
         pub description: Option<String>,
         pub update_id: Option<String>,
+        #[graphql(skip_input)]
         pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 

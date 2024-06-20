@@ -497,7 +497,7 @@ export const BaseDisplayItem = (props: {
 
 	const reasons = props.mediaReason?.filter((r) =>
 		[
-			UserToMediaReason.Seen,
+			UserToMediaReason.Finished,
 			UserToMediaReason.Watchlist,
 			UserToMediaReason.Owned,
 		].includes(r),
@@ -554,7 +554,7 @@ export const BaseDisplayItem = (props: {
 						{reasons
 							.map((r) =>
 								match(r)
-									.with(UserToMediaReason.Seen, () => (
+									.with(UserToMediaReason.Finished, () => (
 										<IconRosetteDiscountCheck />
 									))
 									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)

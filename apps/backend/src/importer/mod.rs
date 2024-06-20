@@ -29,7 +29,7 @@ use crate::{
         },
         BackgroundJob, ChangeCollectionToEntityInput, StringIdObject,
     },
-    traits::AuthProvider,
+    traits::{AuthProvider, TraceOk},
     users::{UserPreferences, UserReviewScale},
     utils::partial_user_by_id,
 };
@@ -626,7 +626,7 @@ impl ImporterService {
         self.media_service
             .deploy_background_job(&user_id, BackgroundJob::CalculateSummary)
             .await
-            .ok();
+            .trace_ok();
         Ok(())
     }
 

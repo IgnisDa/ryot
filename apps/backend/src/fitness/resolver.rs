@@ -358,7 +358,7 @@ impl ExerciseService {
         let maybe_exercise = Exercise::find_by_id(exercise_id).one(&self.db).await?;
         match maybe_exercise {
             None => Err(Error::new("Exercise with the given ID could not be found.")),
-            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await?),
+            Some(e) => Ok(e.graphql_representation(&self.file_storage_service).await?),
         }
     }
 
@@ -375,7 +375,7 @@ impl ExerciseService {
             None => Err(Error::new(
                 "Workout with the given ID could not be found for this user.",
             )),
-            Some(e) => Ok(e.graphql_repr(&self.file_storage_service).await?),
+            Some(e) => Ok(e.graphql_representation(&self.file_storage_service).await?),
         }
     }
 
@@ -542,7 +542,7 @@ impl ExerciseService {
                 query.filter(
                     Condition::any()
                         .add(
-                            Expr::col((AliasedExercise::Table, exercise::Column::Id))
+                            Expr::col((AliasedExercise::Table, AliasedExercise::Id))
                                 .ilike(ilike_sql(&v)),
                         )
                         .add(Expr::col(exercise::Column::Identifier).ilike(slugify(v))),
@@ -570,7 +570,9 @@ impl ExerciseService {
             .fetch_page((input.search.page.unwrap() - 1).try_into().unwrap())
             .await?
         {
-            let gql_repr = ex.graphql_repr(&self.file_storage_service).await?;
+            let gql_repr = ex
+                .graphql_representation(&self.file_storage_service)
+                .await?;
             items.push(gql_repr);
         }
         let next_page =

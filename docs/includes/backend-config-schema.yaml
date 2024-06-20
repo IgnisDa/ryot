@@ -194,6 +194,10 @@ server:
   # @envvar SERVER_PROGRESS_UPDATE_THRESHOLD
   progress_update_threshold: 2
 
+  # Number of seconds to sleep before starting the server.
+  # @envvar SERVER_SLEEP_BEFORE_STARTUP_SECONDS
+  sleep_before_startup_seconds: 0
+
   # The mailer related settings.
   smtp:
     # @envvar SERVER_SMTP_MAILBOX

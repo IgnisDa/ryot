@@ -4,8 +4,7 @@ You can specify configuration options via environment variables or via files (lo
 `config/ryot.json`, `config/ryot.toml`, `config/ryot.yaml`). They should be present in `/home/ryot/config/ryot.<ext>`.
 
 Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
-([example](https://app.ryot.io/backend/config)). This can also be treated as a [health
-endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
+([example](https://app.ryot.io/backend/config)).
 
 !!! info
 
@@ -23,6 +22,11 @@ endpoint](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-e
 | `database.url` / `DATABASE_URL`                                         | The Postgres database connection string.                                                                               |
 | `video_games.twitch.client_id` / `VIDEO_GAMES_TWITCH_CLIENT_ID`         | The client ID issued by Twitch. **Required** to enable video games tracking. [More information](guides/video-games.md) |
 | `video_games.twitch.client_secret` / `VIDEO_GAMES_TWITCH_CLIENT_SECRET` | The client secret issued by Twitch. **Required** to enable video games tracking.                                       |
+
+## Health endpoint
+
+The `/health` endpoint can be used for checking service healthiness. More information
+[here](https://learn.microsoft.com/en-us/azure/architecture/patterns/health-endpoint-monitoring).
 
 ## All parameters
 
