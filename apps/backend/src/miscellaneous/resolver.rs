@@ -110,7 +110,7 @@ use crate::{
     },
     traits::{
         AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, MediaProvider,
-        MediaProviderLanguages,
+        MediaProviderLanguages, TraceOk,
     },
     users::{
         UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
@@ -2413,7 +2413,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, &user_id, false).await.ok();
+            self.progress_update(seen, &user_id, false).await.trace_ok();
         }
         Ok(true)
     }
@@ -4388,7 +4388,7 @@ impl MiscellaneousService {
                     "This seen item does not belong to this user".to_owned(),
                 ));
             }
-            si.delete(&self.db).await.ok();
+            si.delete(&self.db).await.trace_ok();
             if progress < dec!(100) {
                 self.remove_entity_from_collection(
                     user_id,
@@ -4469,7 +4469,7 @@ impl MiscellaneousService {
                 for user_id in users_to_notify.iter() {
                     self.queue_media_state_changed_notification_for_user(user_id, &notification)
                         .await
-                        .ok();
+                        .trace_ok();
                 }
             }
         }
@@ -5588,7 +5588,9 @@ impl MiscellaneousService {
             }
         }
         for pu in progress_updates.into_iter() {
-            self.integration_progress_update(pu, user_id).await.ok();
+            self.integration_progress_update(pu, user_id)
+                .await
+                .trace_ok();
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
@@ -5951,7 +5953,7 @@ impl MiscellaneousService {
         if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
             self.queue_notifications_to_user_platforms(user_id, msg)
                 .await
-                .ok();
+                .trace_ok();
         } else {
             tracing::debug!("User id = {user_id} has disabled notifications for {change}");
         }
@@ -6855,7 +6857,7 @@ impl MiscellaneousService {
                 for user_id in users_to_notify.iter() {
                     self.queue_media_state_changed_notification_for_user(user_id, &notification)
                         .await
-                        .ok();
+                        .trace_ok();
                 }
             }
         }
@@ -7166,33 +7168,37 @@ GROUP BY m.id;
         tracing::debug!("Starting background jobs...");
 
         tracing::trace!("Invalidating invalid media import jobs");
-        self.invalidate_import_jobs().await.ok();
+        self.invalidate_import_jobs().await.trace_ok();
         tracing::trace!("Removing stale entities from Monitoring collection");
         self.remove_old_entities_from_monitoring_collection()
             .await
-            .ok();
+            .trace_ok();
         tracing::trace!("Checking for updates for media in Watchlist");
         self.update_watchlist_metadata_and_queue_notifications()
             .await
-            .ok();
+            .trace_ok();
         tracing::trace!("Checking for updates for monitored people");
         self.update_monitored_people_and_queue_notifications()
             .await
-            .ok();
+            .trace_ok();
         tracing::trace!("Checking and queuing any pending reminders");
-        self.queue_pending_reminders().await.ok();
+        self.queue_pending_reminders().await.trace_ok();
         tracing::trace!("Recalculating calendar events");
-        self.recalculate_calendar_events().await.ok();
+        self.recalculate_calendar_events().await.trace_ok();
         tracing::trace!("Queuing notifications for released media");
-        self.queue_notifications_for_released_media().await.ok();
+        self.queue_notifications_for_released_media()
+            .await
+            .trace_ok();
         tracing::trace!("Sending all pending notifications");
-        self.send_pending_notifications().await.ok();
+        self.send_pending_notifications().await.trace_ok();
         tracing::trace!("Cleaning up user and metadata association");
-        self.cleanup_user_and_metadata_association().await.ok();
+        self.cleanup_user_and_metadata_association()
+            .await
+            .trace_ok();
         tracing::trace!("Removing old user summaries and regenerating them");
-        self.regenerate_user_summaries().await.ok();
+        self.regenerate_user_summaries().await.trace_ok();
         tracing::trace!("Removing useless data");
-        self.remove_useless_data().await.ok();
+        self.remove_useless_data().await.trace_ok();
 
         tracing::debug!("Completed background jobs...");
         Ok(())

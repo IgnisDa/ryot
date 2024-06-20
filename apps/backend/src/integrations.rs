@@ -16,6 +16,7 @@ use crate::{
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
     models::{media::CommitMediaInput, StringIdObject},
     providers::google_books::GoogleBooksService,
+    traits::TraceOk,
     utils::{get_base_http_client, ilike_sql},
 };
 
@@ -330,7 +331,7 @@ impl IntegrationService {
                                 ..Default::default()
                             })
                             .await
-                            .ok();
+                            .trace_ok();
                             match itunes_podcast_episode_by_name(&pe.title, &itunes_id, &self.db)
                                 .await
                             {

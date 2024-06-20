@@ -23,6 +23,7 @@ use crate::{
         StringIdObject,
     },
     providers::google_books::GoogleBooksService,
+    traits::TraceOk,
     utils::get_base_http_client,
 };
 
@@ -134,7 +135,7 @@ where
                                     ..Default::default()
                                 })
                                 .await
-                                .ok();
+                                .trace_ok();
                                 if let Ok(Some(pe)) =
                                     itunes_podcast_episode_by_name(&episode.title, &itunes_id, db)
                                         .await
