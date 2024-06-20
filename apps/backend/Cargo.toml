@@ -1,6 +1,6 @@
 [package]
 name = "ryot"
-version = "6.2.3"
+version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/IgnisDa/ryot"
 license = "GPL-3.0"
@@ -12,7 +12,7 @@ argon2 = "=0.6.0-pre.0"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.6"
 async-trait = "=0.1.80"
-aws-sdk-s3 = { version = "=1.36.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.37.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 cached = { version = "=0.51.4", features = ["disk_store"] }
@@ -30,6 +30,7 @@ derive_more = { version = "=1.0.0-beta.6", features = [
     "add_assign",
 ], default-features = false }
 dotenvy = "=0.15.7"
+dotenvy_macro = "=0.15.7"
 enum_meta = "=0.7.0"
 flate2 = "=1.0.30"
 futures = "=0.3.30"

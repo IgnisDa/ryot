@@ -366,6 +366,9 @@ pub struct ServerConfig {
     /// Disable all background jobs.
     #[setting(default = false)]
     pub disable_background_jobs: bool,
+    /// Number of seconds to sleep before starting the server.
+    #[setting(default = 0)]
+    pub sleep_before_startup_seconds: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

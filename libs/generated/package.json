@@ -2,10 +2,10 @@
 	"name": "@ryot/generated",
 	"dependencies": {
 		"@graphql-typed-document-node/core": "3.2.0",
-		"graphql": "16.8.1"
+		"graphql": "16.8.2"
 	},
 	"devDependencies": {
 		"@graphql-codegen/cli": "5.0.2",
-		"@graphql-codegen/client-preset": "4.2.6"
+		"@graphql-codegen/client-preset": "4.3.0"
 	}
 }

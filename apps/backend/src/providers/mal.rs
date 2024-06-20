@@ -133,7 +133,7 @@ async fn get_client_config(url: &str, client_id: &str) -> Client {
     get_base_http_client(
         url,
         Some(vec![(
-            HeaderName::from_static("X-MAL-CLIENT-ID"),
+            HeaderName::from_static("x-mal-client-id"),
             HeaderValue::from_str(client_id).unwrap(),
         )]),
     )

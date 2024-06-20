@@ -375,6 +375,7 @@ export default function Page() {
 											]}
 											onChange={(v) => setP("collection", v)}
 											clearable
+											searchable
 										/>
 									) : null}
 								</Stack>

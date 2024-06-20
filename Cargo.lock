@@ -431,9 +431,9 @@ dependencies = [
 
 [[package]]
 name = "aws-runtime"
-version = "1.2.3"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36978815abdd7297662bf906adff132941a02ecf425bc78fac7d90653ce87560"
+checksum = "9a4a5e448145999d7de17bf44a886900ecb834953408dae8aaf90465ce91c1dd"
 dependencies = [
  "aws-credential-types",
  "aws-sigv4",
@@ -455,9 +455,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-s3"
-version = "1.36.0"
+version = "1.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99e06a6cd8592e486f29c8af427c4083286cee4ea0e4ae46a164a24d07ee19d5"
+checksum = "955365fd032cc94608c7e0f4aea36a9825399d6a1bf7b96f56cf157414b04c40"
 dependencies = [
  "ahash 0.8.11",
  "aws-credential-types",
@@ -1599,6 +1599,18 @@ name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
+
+[[package]]
+name = "dotenvy_macro"
+version = "0.15.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb0235d912a8c749f4e0c9f18ca253b4c28cfefc1d2518096016d6e3230b6424"
+dependencies = [
+ "dotenvy",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "dtoa"
@@ -4067,7 +4079,7 @@ dependencies = [
 
 [[package]]
 name = "rs-utils"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "chrono",
 ]
@@ -4251,7 +4263,7 @@ checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 
 [[package]]
 name = "ryot"
-version = "6.2.3"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
@@ -4273,6 +4285,7 @@ dependencies = [
  "database",
  "derive_more 1.0.0-beta.6",
  "dotenvy",
+ "dotenvy_macro",
  "enum_meta",
  "flate2",
  "futures",

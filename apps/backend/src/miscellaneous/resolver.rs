@@ -110,7 +110,7 @@ use crate::{
     },
     traits::{
         AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, MediaProvider,
-        MediaProviderLanguages,
+        MediaProviderLanguages, TraceOk,
     },
     users::{
         DashboardElementLot, UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
@@ -397,7 +397,7 @@ struct PersonDetailsGroupedByRole {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct MediaBaseData {
+struct MetadataBaseData {
     model: metadata::Model,
     creators: Vec<MetadataCreatorGroupedByRole>,
     assets: GraphqlMediaAssets,
@@ -508,7 +508,7 @@ enum MediaGeneralFilter {
     Unrated,
     Dropped,
     OnAHold,
-    Unseen,
+    Unfinished,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1448,7 +1448,7 @@ impl MiscellaneousService {
         Ok(GraphqlMediaAssets { images, videos })
     }
 
-    async fn generic_metadata(&self, metadata_id: &String) -> Result<MediaBaseData> {
+    async fn generic_metadata(&self, metadata_id: &String) -> Result<MetadataBaseData> {
         let mut meta = match Metadata::find_by_id(metadata_id)
             .one(&self.db)
             .await
@@ -1568,7 +1568,7 @@ impl MiscellaneousService {
             })
         }
         let assets = self.metadata_assets(&meta).await.unwrap();
-        Ok(MediaBaseData {
+        Ok(MetadataBaseData {
             model: meta,
             creators,
             assets,
@@ -1625,7 +1625,7 @@ impl MiscellaneousService {
     }
 
     async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
-        let MediaBaseData {
+        let MetadataBaseData {
             model,
             creators,
             assets,
@@ -2176,7 +2176,13 @@ impl MiscellaneousService {
                 MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
                 MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
                 MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
-                MediaGeneralFilter::Unseen => query.filter(seen::Column::Id.is_null()),
+                MediaGeneralFilter::Unfinished => query.filter(
+                    Expr::expr(
+                        Expr::val(UserToMediaReason::Finished.to_string())
+                            .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
+                    )
+                    .not(),
+                ),
                 s => query.filter(seen::Column::State.eq(match s {
                     MediaGeneralFilter::Dropped => SeenState::Dropped,
                     MediaGeneralFilter::OnAHold => SeenState::OnAHold,
@@ -2462,7 +2468,7 @@ impl MiscellaneousService {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            self.progress_update(seen, &user_id, false).await.ok();
+            self.progress_update(seen, &user_id, false).await.trace_ok();
         }
         Ok(true)
     }
@@ -2591,16 +2597,17 @@ impl MiscellaneousService {
                 .unwrap();
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
-                if ute.metadata_id.is_some() {
-                    if Seen::find()
-                        .filter(seen::Column::UserId.eq(&ute.user_id))
-                        .filter(seen::Column::MetadataId.eq(ute.metadata_id.clone()))
-                        .count(&self.db)
-                        .await
-                        .unwrap()
-                        > 0
-                    {
+                if let Some(metadata_id) = ute.metadata_id.clone() {
+                    let seen_history = self.seen_history(&ute.user_id, &metadata_id).await?;
+                    if !seen_history.is_empty() {
                         new_reasons.insert(UserToMediaReason::Seen);
+                    }
+                    let metadata = self.generic_metadata(&metadata_id).await?;
+                    let is_finished = self
+                        .is_metadata_finished_by_user(&ute.user_id, metadata)
+                        .await?;
+                    if is_finished {
+                        new_reasons.insert(UserToMediaReason::Finished);
                     }
                 } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
                 } else {
@@ -3831,6 +3838,7 @@ impl MiscellaneousService {
         user_id: &String,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
+        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/787 is merged
         struct JsonBuildObject;
         impl Iden for JsonBuildObject {
             fn unquoted(&self, s: &mut dyn Write) {
@@ -4446,7 +4454,7 @@ impl MiscellaneousService {
                     "This seen item does not belong to this user".to_owned(),
                 ));
             }
-            si.delete(&self.db).await.ok();
+            si.delete(&self.db).await.trace_ok();
             if progress < dec!(100) {
                 self.remove_entity_from_collection(
                     user_id,
@@ -4527,7 +4535,7 @@ impl MiscellaneousService {
                 for user_id in users_to_notify.iter() {
                     self.queue_media_state_changed_notification_for_user(user_id, &notification)
                         .await
-                        .ok();
+                        .trace_ok();
                 }
             }
         }
@@ -4578,7 +4586,7 @@ impl MiscellaneousService {
 
         ls.calculated_from_beginning = calculate_from_beginning;
 
-        tracing::debug!("Calculating numbers summary for user {:?}", ls);
+        tracing::debug!("Calculating numbers summary for user: {:?}", ls);
 
         let metadata_num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id.to_owned()))
@@ -4587,7 +4595,7 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number of metadata reviews for user {:?}",
+            "Calculated number of metadata reviews for user: {:?}",
             metadata_num_reviews
         );
 
@@ -4598,7 +4606,7 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number of person reviews for user {:?}",
+            "Calculated number of person reviews for user: {:?}",
             person_num_reviews
         );
 
@@ -4608,7 +4616,7 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number measurements for user {:?}",
+            "Calculated number measurements for user: {:?}",
             num_measurements
         );
 
@@ -4617,7 +4625,7 @@ impl MiscellaneousService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!("Calculated number workouts for user {:?}", num_workouts);
+        tracing::debug!("Calculated number workouts for user: {:?}", num_workouts);
 
         let num_metadata_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
@@ -4626,7 +4634,7 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number metadata interacted with for user {:?}",
+            "Calculated number metadata interacted with for user: {:?}",
             num_metadata_interacted_with
         );
 
@@ -4637,7 +4645,7 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number people interacted with for user {:?}",
+            "Calculated number people interacted with for user: {:?}",
             num_people_interacted_with
         );
 
@@ -4648,7 +4656,7 @@ impl MiscellaneousService {
             .await?;
 
         tracing::debug!(
-            "Calculated number exercises interacted with for user {:?}",
+            "Calculated number exercises interacted with for user: {:?}",
             num_exercises_interacted_with
         );
 
@@ -4669,7 +4677,7 @@ impl MiscellaneousService {
             .unwrap();
 
         tracing::debug!(
-            "Calculated total workout time for user {:?}",
+            "Calculated total workout time for user: {:?}",
             total_workout_time
         );
 
@@ -4683,7 +4691,7 @@ impl MiscellaneousService {
         ls.fitness.workouts.weight = total_workout_weight;
         ls.fitness.workouts.duration = total_workout_time;
 
-        tracing::debug!("Calculated numbers summary for user {:?}", ls);
+        tracing::debug!("Calculated numbers summary for user: {:?}", ls);
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -4826,8 +4834,8 @@ impl MiscellaneousService {
             summary: ActiveValue::Set(Some(ls)),
             ..Default::default()
         };
-        let obj = user_model.update(&self.db).await.unwrap();
-        tracing::debug!("Calculated summary for user {:?}", obj.name);
+        let usr = user_model.update(&self.db).await.unwrap();
+        tracing::debug!("Calculated summary for user: {:?}", usr.name);
         Ok(())
     }
 
@@ -4874,6 +4882,7 @@ impl MiscellaneousService {
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
+        tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
         self.user_created_job(&user.id).await?;
         self.calculate_user_summary(&user.id, true).await?;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
@@ -5645,7 +5654,9 @@ impl MiscellaneousService {
             }
         }
         for pu in progress_updates.into_iter() {
-            self.integration_progress_update(pu, user_id).await.ok();
+            self.integration_progress_update(pu, user_id)
+                .await
+                .trace_ok();
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
@@ -5843,64 +5854,9 @@ impl MiscellaneousService {
                     || metadata.model.lot == MediaLot::Anime
                     || metadata.model.lot == MediaLot::Manga
                 {
-                    // If the last `n` seen elements (`n` = number of episodes, excluding Specials)
-                    // correspond to each episode exactly once, it means the show can be removed
-                    // from the "In Progress" collection.
-                    let all_episodes = if let Some(s) = metadata.model.show_specifics {
-                        s.seasons
-                            .into_iter()
-                            .filter(|s| s.name != "Specials")
-                            .flat_map(|s| {
-                                s.episodes.into_iter().map(move |e| {
-                                    format!("{}-{}", s.season_number, e.episode_number)
-                                })
-                            })
-                            .collect_vec()
-                    } else if let Some(p) = metadata.model.podcast_specifics {
-                        p.episodes
-                            .into_iter()
-                            .map(|e| format!("{}", e.number))
-                            .collect_vec()
-                    } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes)
-                    {
-                        (1..e + 1).map(|e| format!("{}", e)).collect_vec()
-                    } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters)
-                    {
-                        (1..c + 1).map(|e| format!("{}", e)).collect_vec()
-                    } else {
-                        vec![]
-                    };
-                    if all_episodes.is_empty() {
-                        return Ok(());
-                    }
-                    let seen_history = self.seen_history(&seen.user_id, &seen.metadata_id).await?;
-                    let mut bag = HashMap::<String, i32>::from_iter(
-                        all_episodes.iter().cloned().map(|e| (e, 0)),
-                    );
-                    seen_history
-                        .into_iter()
-                        .map(|h| {
-                            if let Some(s) = h.show_extra_information {
-                                format!("{}-{}", s.season, s.episode)
-                            } else if let Some(p) = h.podcast_extra_information {
-                                format!("{}", p.episode)
-                            } else if let Some(a) =
-                                h.anime_extra_information.and_then(|a| a.episode)
-                            {
-                                format!("{}", a)
-                            } else if let Some(m) =
-                                h.manga_extra_information.and_then(|m| m.chapter)
-                            {
-                                format!("{}", m)
-                            } else {
-                                String::new()
-                            }
-                        })
-                        .take_while_inclusive(|h| h != all_episodes.first().unwrap())
-                        .for_each(|ep| {
-                            bag.entry(ep).and_modify(|c| *c += 1);
-                        });
-                    let is_complete = bag.values().all(|&e| e == 1);
+                    let is_complete = self
+                        .is_metadata_finished_by_user(&seen.user_id, metadata)
+                        .await?;
                     if is_complete {
                         remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
                             .await
@@ -5924,6 +5880,75 @@ impl MiscellaneousService {
             }
         };
         Ok(())
+    }
+
+    async fn is_metadata_finished_by_user(
+        &self,
+        user_id: &String,
+        metadata: MetadataBaseData,
+    ) -> Result<bool> {
+        let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
+        let is_finished = if metadata.model.lot == MediaLot::Podcast
+            || metadata.model.lot == MediaLot::Show
+            || metadata.model.lot == MediaLot::Anime
+            || metadata.model.lot == MediaLot::Manga
+        {
+            // DEV: If all episodes have been seen the same number of times, the media can be
+            // considered finished.
+            let all_episodes = if let Some(s) = metadata.model.show_specifics {
+                s.seasons
+                    .into_iter()
+                    .filter(|s| s.name != "Specials")
+                    .flat_map(|s| {
+                        s.episodes
+                            .into_iter()
+                            .map(move |e| format!("{}-{}", s.season_number, e.episode_number))
+                    })
+                    .collect_vec()
+            } else if let Some(p) = metadata.model.podcast_specifics {
+                p.episodes
+                    .into_iter()
+                    .map(|e| format!("{}", e.number))
+                    .collect_vec()
+            } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes) {
+                (1..e + 1).map(|e| format!("{}", e)).collect_vec()
+            } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters) {
+                (1..c + 1).map(|e| format!("{}", e)).collect_vec()
+            } else {
+                vec![]
+            };
+            if all_episodes.is_empty() {
+                return Ok(true);
+            }
+            let mut bag =
+                HashMap::<String, i32>::from_iter(all_episodes.iter().cloned().map(|e| (e, 0)));
+            seen_history
+                .into_iter()
+                .map(|h| {
+                    if let Some(s) = h.show_extra_information {
+                        format!("{}-{}", s.season, s.episode)
+                    } else if let Some(p) = h.podcast_extra_information {
+                        format!("{}", p.episode)
+                    } else if let Some(a) = h.anime_extra_information.and_then(|a| a.episode) {
+                        format!("{}", a)
+                    } else if let Some(m) = h.manga_extra_information.and_then(|m| m.chapter) {
+                        format!("{}", m)
+                    } else {
+                        String::new()
+                    }
+                })
+                .for_each(|ep| {
+                    bag.entry(ep).and_modify(|c| *c += 1);
+                });
+            let values = bag.values().cloned().collect_vec();
+            let is_complete = values.iter().min() == values.iter().max();
+            is_complete
+        } else {
+            seen_history
+                .into_iter()
+                .any(|h| h.state == SeenState::Completed)
+        };
+        Ok(is_finished)
     }
 
     async fn queue_notifications_to_user_platforms(
@@ -5994,7 +6019,7 @@ impl MiscellaneousService {
         if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
             self.queue_notifications_to_user_platforms(user_id, msg)
                 .await
-                .ok();
+                .trace_ok();
         } else {
             tracing::debug!("User id = {user_id} has disabled notifications for {change}");
         }
@@ -6662,35 +6687,27 @@ impl MiscellaneousService {
             tracing::trace!("Processing metadata id = {:#?}", meta.id);
             let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
             for cal_event in calendar_events {
-                let mut need_to_delete = false;
+                let mut need_to_delete = true;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
                         if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
                             if let Some(publish_date) = ep.publish_date {
-                                if publish_date != cal_event.date {
-                                    need_to_delete = true;
+                                if publish_date == cal_event.date {
+                                    need_to_delete = false;
                                 }
                             }
-                        } else {
-                            need_to_delete = true;
                         }
-                    } else {
-                        need_to_delete = true;
                     }
                 } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
                     if let Some(podcast_info) = &meta.podcast_specifics {
                         if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                            if ep.publish_date != cal_event.date {
-                                need_to_delete = true;
+                            if ep.publish_date == cal_event.date {
+                                need_to_delete = false;
                             }
-                        } else {
-                            need_to_delete = true;
                         }
-                    } else {
-                        need_to_delete = true;
                     }
-                } else if cal_event.date != meta.publish_date.unwrap() {
-                    need_to_delete = true;
+                } else if cal_event.date == meta.publish_date.unwrap() {
+                    need_to_delete = false;
                 };
 
                 if need_to_delete {
@@ -6908,7 +6925,7 @@ impl MiscellaneousService {
                 for user_id in users_to_notify.iter() {
                     self.queue_media_state_changed_notification_for_user(user_id, &notification)
                         .await
-                        .ok();
+                        .trace_ok();
                 }
             }
         }
@@ -7263,37 +7280,41 @@ ORDER BY RANDOM() LIMIT 10;
         tracing::debug!("Starting background jobs...");
 
         tracing::trace!("Invalidating invalid media import jobs");
-        self.invalidate_import_jobs().await.unwrap();
+        self.invalidate_import_jobs().await.trace_ok();
         tracing::trace!("Removing stale entities from Monitoring collection");
         self.remove_old_entities_from_monitoring_collection()
             .await
-            .unwrap();
+            .trace_ok();
         tracing::trace!("Checking for updates for media in Watchlist");
         self.update_watchlist_metadata_and_queue_notifications()
             .await
-            .unwrap();
+            .trace_ok();
         tracing::trace!("Checking for updates for monitored people");
         self.update_monitored_people_and_queue_notifications()
             .await
-            .unwrap();
+            .trace_ok();
         tracing::trace!("Checking and queuing any pending reminders");
-        self.queue_pending_reminders().await.unwrap();
+        self.queue_pending_reminders().await.trace_ok();
         tracing::trace!("Recalculating calendar events");
-        self.recalculate_calendar_events().await.unwrap();
+        self.recalculate_calendar_events().await.trace_ok();
         tracing::trace!("Queuing notifications for released media");
-        self.queue_notifications_for_released_media().await.unwrap();
+        self.queue_notifications_for_released_media()
+            .await
+            .trace_ok();
         tracing::trace!("Sending all pending notifications");
-        self.send_pending_notifications().await.unwrap();
+        self.send_pending_notifications().await.trace_ok();
         tracing::trace!("Cleaning up user and metadata association");
-        self.cleanup_user_and_metadata_association().await?;
+        self.cleanup_user_and_metadata_association()
+            .await
+            .trace_ok();
         tracing::trace!("Removing old user summaries and regenerating them");
-        self.regenerate_user_summaries().await?;
+        self.regenerate_user_summaries().await.trace_ok();
         tracing::trace!("Removing useless data");
-        self.remove_useless_data().await?;
+        self.remove_useless_data().await.trace_ok();
         // DEV: This is called after removing useless data so that recommendations are not
         // delete right after they are downloaded.
         tracing::trace!("Downloading recommendations for users");
-        self.download_recommendations_for_users().await?;
+        self.download_recommendations_for_users().await.trace_ok();
 
         tracing::debug!("Completed background jobs...");
         Ok(())

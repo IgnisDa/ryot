@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use async_graphql::{Error, Result};
@@ -40,10 +40,14 @@ use crate::{
     jwt,
     miscellaneous::resolver::MiscellaneousService,
     models::{ChangeCollectionToEntityInput, StoredUrl},
+    traits::TraceOk,
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(debug_assertions)]
+pub const VERSION: &str = dotenvy_macro::dotenv!("APP_VERSION");
+#[cfg(not(debug_assertions))]
+pub const VERSION: &str = env!("APP_VERSION");
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const USER_AGENT_STR: &str = const_str::concat!(
@@ -426,4 +430,13 @@ where
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
+}
+
+impl<T, E: Debug> TraceOk<T, E> for Result<T, E> {
+    fn trace_ok(self) -> Option<T> {
+        if let Err(err) = &self {
+            tracing::debug!("Error: {:?}", err);
+        };
+        self.ok()
+    }
 }
