@@ -431,9 +431,9 @@ dependencies = [
 
 [[package]]
 name = "aws-runtime"
-version = "1.2.3"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36978815abdd7297662bf906adff132941a02ecf425bc78fac7d90653ce87560"
+checksum = "9a4a5e448145999d7de17bf44a886900ecb834953408dae8aaf90465ce91c1dd"
 dependencies = [
  "aws-credential-types",
  "aws-sigv4",
@@ -455,9 +455,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-s3"
-version = "1.36.0"
+version = "1.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99e06a6cd8592e486f29c8af427c4083286cee4ea0e4ae46a164a24d07ee19d5"
+checksum = "955365fd032cc94608c7e0f4aea36a9825399d6a1bf7b96f56cf157414b04c40"
 dependencies = [
  "ahash 0.8.11",
  "aws-credential-types",
