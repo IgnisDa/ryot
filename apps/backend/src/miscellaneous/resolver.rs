@@ -6617,37 +6617,27 @@ impl MiscellaneousService {
             tracing::trace!("Processing metadata id = {:#?}", meta.id);
             let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
             for cal_event in calendar_events {
-                let mut need_to_delete = false;
+                let mut need_to_delete = true;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
                         if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
                             if let Some(publish_date) = ep.publish_date {
-                                if publish_date != cal_event.date {
-                                    need_to_delete = true;
+                                if publish_date == cal_event.date {
+                                    need_to_delete = false;
                                 }
-                            } else {
-                                need_to_delete = true;
                             }
-                        } else {
-                            need_to_delete = true;
                         }
-                    } else {
-                        need_to_delete = true;
                     }
                 } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
                     if let Some(podcast_info) = &meta.podcast_specifics {
                         if let Some(ep) = podcast_info.get_episode(podcast.episode) {
-                            if ep.publish_date != cal_event.date {
-                                need_to_delete = true;
+                            if ep.publish_date == cal_event.date {
+                                need_to_delete = false;
                             }
-                        } else {
-                            need_to_delete = true;
                         }
-                    } else {
-                        need_to_delete = true;
                     }
-                } else if cal_event.date != meta.publish_date.unwrap() {
-                    need_to_delete = true;
+                } else if cal_event.date == meta.publish_date.unwrap() {
+                    need_to_delete = false;
                 };
 
                 if need_to_delete {
@@ -7210,7 +7200,7 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        self.cleanup_user_and_metadata_association().await.ok();
+        self.recalculate_calendar_events().await.ok();
         Ok(true)
     }
 }
