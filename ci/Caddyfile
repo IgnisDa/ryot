@@ -16,7 +16,7 @@
 		templates
 		respond <<TXT
 			{{ httpInclude "/backend/config" }}
-			{{ httpInclude "/auth" }}
+			{{ httpInclude "/actions" }}
 		TXT
 	}
 	reverse_proxy localhost:3000
