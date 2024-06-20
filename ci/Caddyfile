@@ -15,10 +15,9 @@
 		header Content-Type text/plain
 		templates
 		respond <<TXT
-			{{ httpInclude "/" }}
 			{{ httpInclude "/backend/config" }}
 			{{ httpInclude "/auth" }}
-			TXT
+		TXT
 	}
 	reverse_proxy localhost:3000
 }
