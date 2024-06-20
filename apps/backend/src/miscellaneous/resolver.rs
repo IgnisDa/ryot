@@ -7200,7 +7200,6 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
-        self.recalculate_calendar_events().await.ok();
         Ok(true)
     }
 }
