@@ -486,7 +486,7 @@ const Footer = () => {
 			<Flex gap={80} justify="center">
 				{!loaderData.coreDetails.isPro ? (
 					<Anchor href={loaderData.coreDetails.websiteUrl} target="_blank">
-						<Text c="lime" fw="bold">
+						<Text c="red" fw="bold">
 							Ryot Pro
 						</Text>
 					</Anchor>
@@ -496,7 +496,7 @@ const Footer = () => {
 						{loaderData.coreDetails.authorName}
 					</Text>
 				</Anchor>
-				<Text c="pink" fw="bold" visibleFrom="md">
+				<Text c="grape" fw="bold" visibleFrom="md">
 					{loaderData.coreDetails.timezone}
 				</Text>
 				<Anchor href={loaderData.coreDetails.repositoryLink} target="_blank">
