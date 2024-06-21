@@ -233,6 +233,7 @@ export default function Page() {
 				onClose={createOrUpdateModalClose}
 				withCloseButton={false}
 				centered
+				size="lg"
 			>
 				<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 			</Modal>
@@ -359,6 +360,7 @@ const CreateOrUpdateModal = (props: {
 							? props.toUpdateCollection.description
 							: undefined
 					}
+					autosize
 				/>
 				<Button
 					variant="outline"
