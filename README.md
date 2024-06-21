@@ -21,6 +21,7 @@
 </div>
 
 <p align="center">
+    <a href="https://ryot.io/features" target="_blank">Pro features</a> •
     <a href="https://docs.ryot.io" target="_blank">Installation</a> •
     <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
     <a href="https://app.ryot.io" target="_blank">Hosted version</a>
@@ -35,6 +36,12 @@ hosted tracker you will ever need!
 
 If you were using `v5.*` of Ryot, please read the
 [migration guide](https://docs.ryot.io/migration#from-v5-to-v6) for instructions.
+
+## Pro version
+
+Ryot is available in two versions - community and pro. The pro version has additional
+features like recommendations, supercharged collections etc. Learn more about the pro
+version [here](https://ryot.io/features).
 
 ## 💻 Demo
 
