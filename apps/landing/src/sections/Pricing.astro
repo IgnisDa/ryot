@@ -42,9 +42,11 @@ const { data } = Astro.props;
           <footer class="flex justify-center">
             <Action
               as="a"
+              target="_blank"
+              rel="noopener noreferrer"
               class="bg-primary text-white w-72"
               type="button"
-              href="#"
+              href={data.discord}
             >
               {tier.cta}
             </Action>
