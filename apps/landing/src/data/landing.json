@@ -29,8 +29,7 @@
 			{ "label": "Prices", "href": "/#pricing-section" },
 			{ "label": "Features", "href": "/features" },
 			{ "label": "Contact", "href": "/#contact-section" },
-			{ "label": "Documentation", "href": "https://docs.ryot.io" },
-			{ "label": "Terms of Service", "href": "/terms" }
+			{ "label": "Documentation", "href": "https://docs.ryot.io" }
 		]
 	},
 	"heroData": {
