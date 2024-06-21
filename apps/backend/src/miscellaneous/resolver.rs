@@ -119,7 +119,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIALS_SEASON_NAME,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES,
         TEMP_DIR,
     },
 };
@@ -5833,7 +5833,7 @@ impl MiscellaneousService {
             let all_episodes = if let Some(s) = metadata.model.show_specifics {
                 s.seasons
                     .into_iter()
-                    .filter(|s| s.name != SHOW_SPECIALS_SEASON_NAME)
+                    .filter(|s| !SHOW_SPECIAL_SEASON_NAMES.contains(&s.name.as_str()))
                     .flat_map(|s| {
                         s.episodes
                             .into_iter()
@@ -6623,10 +6623,13 @@ impl MiscellaneousService {
                 let mut need_to_delete = true;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
-                        if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
-                            if let Some(publish_date) = ep.publish_date {
-                                if publish_date == cal_event.date {
-                                    need_to_delete = false;
+                        if let Some((season, ep)) = show_info.get_episode(show.season, show.episode)
+                        {
+                            if !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
+                                if let Some(publish_date) = ep.publish_date {
+                                    if publish_date == cal_event.date {
+                                        need_to_delete = false;
+                                    }
                                 }
                             }
                         }
@@ -6687,7 +6690,7 @@ impl MiscellaneousService {
                 }
             } else if let Some(ss) = &meta.show_specifics {
                 for season in ss.seasons.iter() {
-                    if season.name == SHOW_SPECIALS_SEASON_NAME {
+                    if SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
                         continue;
                     }
                     for episode in season.episodes.iter() {
