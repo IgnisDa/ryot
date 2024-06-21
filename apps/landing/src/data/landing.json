@@ -27,6 +27,7 @@
 		"logoPath": "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		"links": [
 			{ "label": "Prices", "href": "/#pricing-section" },
+			{ "label": "Features", "href": "/features" },
 			{ "label": "Contact", "href": "/#contact-section" },
 			{ "label": "Documentation", "href": "https://docs.ryot.io" },
 			{ "label": "Terms of Service", "href": "/terms" }
@@ -43,12 +44,14 @@
 	},
 	"pricingData": {
 		"title": "Ryot Pro Pricing",
+		"discord": "https://discord.gg/D9XTg2a7R8",
 		"tiers": [
 			{
 				"title": "Monthly",
 				"price": {
 					"amount": "$5",
-					"period": "/month"
+					"period": "/month",
+					"trial": 7
 				},
 				"cta": "Get started"
 			},
@@ -56,7 +59,8 @@
 				"title": "Yearly",
 				"price": {
 					"amount": "$49",
-					"period": "/year"
+					"period": "/year",
+					"trial": 14
 				},
 				"cta": "Get started"
 			},
@@ -74,6 +78,7 @@
 		"description": "A self hosted platform for tracking various facets of your life - media, fitness and much more!",
 		"links": [
 			{ "label": "Prices", "href": "/#pricing-section" },
+			{ "label": "Features", "href": "/features" },
 			{ "label": "Contact", "href": "/#contact-section" },
 			{ "label": "Documentation", "href": "https://docs.ryot.io" },
 			{ "label": "Terms of Service", "href": "/terms" }

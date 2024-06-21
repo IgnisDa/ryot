@@ -233,40 +233,9 @@ export default function Page() {
 				onClose={createOrUpdateModalClose}
 				withCloseButton={false}
 				centered
+				size="lg"
 			>
-				<Box component={Form} method="post" action="?intent=createOrUpdate">
-					<Stack>
-						<Title order={3}>
-							{toUpdateCollection ? "Update" : "Create"} collection
-						</Title>
-						<TextInput
-							label="Name"
-							required
-							name="name"
-							defaultValue={
-								toUpdateCollection ? toUpdateCollection.name : undefined
-							}
-							readOnly={toUpdateCollection?.isDefault}
-						/>
-						<Textarea
-							label="Description"
-							name="description"
-							defaultValue={
-								toUpdateCollection?.description
-									? toUpdateCollection.description
-									: undefined
-							}
-						/>
-						<Button
-							variant="outline"
-							type="submit"
-							name={toUpdateCollection ? "updateId" : undefined}
-							value={toUpdateCollection ? toUpdateCollection.id : undefined}
-						>
-							{toUpdateCollection ? "Update" : "Create"}
-						</Button>
-					</Stack>
-				</Box>
+				<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 			</Modal>
 		</>
 	);
@@ -362,5 +331,48 @@ const DisplayCollection = (props: {
 				) : null}
 			</Flex>
 		</Flex>
+	);
+};
+
+const CreateOrUpdateModal = (props: {
+	toUpdateCollection: UpdateCollectionInput | undefined;
+}) => {
+	return (
+		<Box component={Form} method="post" action="?intent=createOrUpdate">
+			<Stack>
+				<Title order={3}>
+					{props.toUpdateCollection ? "Update" : "Create"} collection
+				</Title>
+				<TextInput
+					label="Name"
+					required
+					name="name"
+					defaultValue={
+						props.toUpdateCollection ? props.toUpdateCollection.name : undefined
+					}
+					readOnly={props.toUpdateCollection?.isDefault}
+				/>
+				<Textarea
+					label="Description"
+					name="description"
+					defaultValue={
+						props.toUpdateCollection?.description
+							? props.toUpdateCollection.description
+							: undefined
+					}
+					autosize
+				/>
+				<Button
+					variant="outline"
+					type="submit"
+					name={props.toUpdateCollection ? "updateId" : undefined}
+					value={
+						props.toUpdateCollection ? props.toUpdateCollection.id : undefined
+					}
+				>
+					{props.toUpdateCollection ? "Update" : "Create"}
+				</Button>
+			</Stack>
+		</Box>
 	);
 };
