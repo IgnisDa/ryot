@@ -3,7 +3,7 @@
 Images are also available on the Github Container Registry as `ghcr.io/ignisda/ryot-pro`.
 If you would like to run the pro version, you need to provide a `SERVER_PRO_KEY`
 environment variable. To see the features of the pro version, check the [main website]({{
-extra.main_website_url }}).
+extra.main_website_url }}/features).
 
 ```yaml
 services:

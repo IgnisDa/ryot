@@ -119,7 +119,8 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, TEMP_DIR,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIALS_SEASON_NAME,
+        TEMP_DIR,
     },
 };
 
@@ -1420,9 +1421,9 @@ impl MiscellaneousService {
             author_name: AUTHOR.to_owned(),
             timezone: self.timezone.to_string(),
             oidc_enabled: self.oidc_client.is_some(),
-            website_url: "https://ryot.io".to_owned(),
             page_limit: self.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
+            website_url: "https://ryot.io/features".to_owned(),
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
@@ -5898,7 +5899,7 @@ impl MiscellaneousService {
             let all_episodes = if let Some(s) = metadata.model.show_specifics {
                 s.seasons
                     .into_iter()
-                    .filter(|s| s.name != "Specials")
+                    .filter(|s| s.name != SHOW_SPECIALS_SEASON_NAME)
                     .flat_map(|s| {
                         s.episodes
                             .into_iter()
@@ -6754,6 +6755,9 @@ impl MiscellaneousService {
                 }
             } else if let Some(ss) = &meta.show_specifics {
                 for season in ss.seasons.iter() {
+                    if season.name == SHOW_SPECIALS_SEASON_NAME {
+                        continue;
+                    }
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
                             let event = calendar_event::ActiveModel {

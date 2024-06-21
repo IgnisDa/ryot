@@ -320,7 +320,7 @@ const DisplayNotification = (props: {
 		<Paper p="xs" withBorder>
 			<Flex align="center" justify="space-between">
 				<Box w="80%">
-					<Text size="sm" fw="bold">
+					<Text size="sm" fw="bold" truncate>
 						{props.notification.description}
 					</Text>
 					<Text size="xs">

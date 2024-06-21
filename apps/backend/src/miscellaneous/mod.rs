@@ -60,17 +60,7 @@ meta! {
     InProgress, (None, "Media items that I am currently watching.");
     Completed, (None, "Media items that I have completed.");
     Custom, (None, "Items that I have created manually.");
-    Monitoring, (Some(
-        vec![
-            CollectionExtraInformation {
-                name: "Days".to_string(),
-                description: "How many days do you want to monitor for?".to_string(),
-                lot: CollectionExtraInformationLot::Number,
-                default_value: Some("30".to_string()),
-                required: None,
-            },
-        ]
-    ), "Items that I am keeping an eye on.");
+    Monitoring, (None, "Items that I am keeping an eye on.");
     Owned, (Some(
         vec![
             CollectionExtraInformation {

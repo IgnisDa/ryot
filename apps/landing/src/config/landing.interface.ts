@@ -61,6 +61,7 @@ export interface Brand {
 
 export interface PricingData {
 	title: string;
+	discord: string;
 	tiers: Tier[];
 }
 
@@ -72,6 +73,7 @@ export interface Tier {
 
 export interface Price {
 	amount: string;
+	trial?: number;
 	period?: string;
 }
 

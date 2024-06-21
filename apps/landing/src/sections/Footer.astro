@@ -4,7 +4,7 @@ import Icon from "@/components/Icon.astro";
 import type { FooterData, Icon as IconType } from "@/config/landing.interface";
 
 interface Props {
-	data: FooterData;
+  data: FooterData;
 }
 
 const { data } = Astro.props;
@@ -19,12 +19,12 @@ const { data } = Astro.props;
     </Action>
   </section>
   <section>
-    <p class="md:text-lg">
+    <p class="px-2 md:text-lg">
       {data.description}
     </p>
   </section>
   <section
-    class="flex flex-row flex-wrap justify-center gap-x-3 px-4 md:px-0 md:text-xl"
+    class="flex flex-row flex-wrap justify-center gap-x-3 px-4 md:px-0 md:text-xl md:gap-x-5"
   >
     {
       data.links.map((link) => (
@@ -34,7 +34,9 @@ const { data } = Astro.props;
       ))
     }
   </section>
-  <section class="mb-5 flex flex-row flex-wrap justify-center gap-x-3">
+  <section
+    class="mb-5 flex flex-row flex-wrap justify-center gap-x-3 md:gap-x-10"
+  >
     {
       data.socials.map((social) => (
         <Action as="a" type="icon" href={social.href} title={social.icon}>

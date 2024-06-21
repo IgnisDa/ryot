@@ -21,8 +21,13 @@ const { data } = Astro.props;
     {
       data.tiers.map((tier) => (
         <Card>
-          <header class="flex flex-col justify-center gap-y-3">
+          <header class="flex items-center justify-center gap-x-5">
             <h3 class="text-4xl text-center font-semibold">{tier.title}</h3>
+            {tier.price.trial && (
+              <span class="text-sm underline">
+                {tier.price.trial} days trial
+              </span>
+            )}
           </header>
           <section class="flex justify-center">
             <h4 class="text-6xl font-semibold">
@@ -37,9 +42,11 @@ const { data } = Astro.props;
           <footer class="flex justify-center">
             <Action
               as="a"
+              target="_blank"
+              rel="noopener noreferrer"
               class="bg-primary text-white w-72"
               type="button"
-              href="#"
+              href={data.discord}
             >
               {tier.cta}
             </Action>
@@ -47,5 +54,11 @@ const { data } = Astro.props;
         </Card>
       ))
     }
+  </div>
+  <div class="text-center">
+    <p>
+      Once you have paid, the Pro Key will be sent to your email. For support,
+      please use the email/form below.
+    </p>
   </div>
 </section>

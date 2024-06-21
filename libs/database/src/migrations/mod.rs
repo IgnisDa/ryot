@@ -27,6 +27,7 @@ mod m20240608_add_created_on_column_to_collection_to_entity;
 mod m20240614_00_add_is_recommendation_column_to_metadata;
 mod m20240614_01_add_new_section_to_dashboard;
 mod m20240619_remove_seen_from_media_reason_of_user_to_entity;
+mod m20240620_delete_invalid_calendar_events;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -75,6 +76,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240614_00_add_is_recommendation_column_to_metadata::Migration),
             Box::new(m20240614_01_add_new_section_to_dashboard::Migration),
             Box::new(m20240619_remove_seen_from_media_reason_of_user_to_entity::Migration),
+            Box::new(m20240620_delete_invalid_calendar_events::Migration),
         ]
     }
 }

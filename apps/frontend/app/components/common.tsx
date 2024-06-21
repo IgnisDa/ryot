@@ -20,7 +20,7 @@ import {
 } from "@mantine/core";
 import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
-import { Form } from "@remix-run/react";
+import { Form, useNavigation } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
 	type EntityLot,
@@ -30,7 +30,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { formatDateToNaiveDate, groupBy, snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { Fragment, type ReactNode, useRef } from "react";
+import { Fragment, type ReactNode, useEffect, useRef } from "react";
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
@@ -148,6 +148,7 @@ export const AddEntityToCollectionModal = (props: {
 	entityLot: EntityLot;
 	collections: Array<Collection>;
 }) => {
+	const transition = useNavigation();
 	const selectData = Object.entries(
 		groupBy(props.collections, (c) =>
 			c.creator.id === props.userId ? "You" : c.creator.name,
@@ -162,6 +163,11 @@ export const AddEntityToCollectionModal = (props: {
 	const [selectedCollection, setSelectedCollection] =
 		useState<Collection | null>(null);
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
+	useEffect(() => {
+		if (transition.state !== "submitting") {
+			props.onClose();
+		}
+	}, [transition.state]);
 
 	return (
 		<Modal
@@ -170,11 +176,7 @@ export const AddEntityToCollectionModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form
-				action="/actions?intent=addEntityToCollection"
-				method="post"
-				onSubmit={() => props.onClose()}
-			>
+			<Form action="/actions?intent=addEntityToCollection" method="post">
 				<input readOnly hidden name="entityId" value={props.entityId} />
 				<input readOnly hidden name="entityLot" value={props.entityLot} />
 				<HiddenLocationInput />

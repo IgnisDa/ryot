@@ -35,7 +35,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, get_current_date, TEMP_DIR},
+    utils::{get_base_http_client, get_current_date, SHOW_SPECIALS_SEASON_NAME, TEMP_DIR},
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";
@@ -1130,7 +1130,7 @@ impl MediaProvider for TmdbShowService {
             .sum();
         let seasons_without_specials = seasons
             .iter()
-            .filter(|s| s.name != "Specials")
+            .filter(|s| s.name != SHOW_SPECIALS_SEASON_NAME)
             .collect_vec();
         let total_seasons = seasons_without_specials.len();
         let total_episodes = seasons_without_specials

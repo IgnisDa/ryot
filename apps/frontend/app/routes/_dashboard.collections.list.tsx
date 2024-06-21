@@ -1,13 +1,19 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Flex,
+	Group,
+	Input,
 	Modal,
 	MultiSelect,
+	Paper,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -16,7 +22,7 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useListState } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -27,15 +33,19 @@ import {
 	useNavigation,
 } from "@remix-run/react";
 import {
+	type CollectionExtraInformation,
+	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
-	UsersListDocument,
 	type UserCollectionsListQuery,
+	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/ts-utils";
 import {
 	IconAssembly,
 	IconEdit,
 	IconPlus,
+	IconTrash,
 	IconTrashFilled,
 	IconUserCog,
 } from "@tabler/icons-react";
@@ -43,6 +53,7 @@ import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
@@ -145,6 +156,17 @@ const createOrUpdateSchema = z.object({
 		.string()
 		.optional()
 		.transform((v) => (v ? v.split(",") : undefined)),
+	informationTemplate: z
+		.array(
+			z.object({
+				name: z.string(),
+				description: z.string(),
+				lot: z.nativeEnum(CollectionExtraInformationLot),
+				defaultValue: z.string().optional(),
+				required: zx.CheckboxAsString.optional(),
+			}),
+		)
+		.optional(),
 });
 
 type UpdateCollectionInput = {
@@ -153,6 +175,7 @@ type UpdateCollectionInput = {
 	isDefault: boolean;
 	collaborators: Collection["collaborators"];
 	description?: string | null;
+	informationTemplate?: CollectionExtraInformation[] | null;
 };
 
 export default function Page() {
@@ -245,53 +268,9 @@ export default function Page() {
 				onClose={createOrUpdateModalClose}
 				withCloseButton={false}
 				centered
+				size="lg"
 			>
-				<Box component={Form} method="post" action="?intent=createOrUpdate">
-					<Stack>
-						<Title order={3}>
-							{toUpdateCollection ? "Update" : "Create"} collection
-						</Title>
-						<TextInput
-							label="Name"
-							required
-							name="name"
-							defaultValue={
-								toUpdateCollection ? toUpdateCollection.name : undefined
-							}
-							readOnly={toUpdateCollection?.isDefault}
-						/>
-						<Textarea
-							label="Description"
-							name="description"
-							defaultValue={
-								toUpdateCollection?.description
-									? toUpdateCollection.description
-									: undefined
-							}
-						/>
-						<MultiSelect
-							name="collaborators"
-							description="Add collaborators to this collection"
-							searchable
-							defaultValue={(toUpdateCollection?.collaborators || []).map(
-								(c) => c.id,
-							)}
-							data={loaderData.usersList.map((u) => ({
-								value: u.id,
-								label: u.name,
-								disabled: u.id === loaderData.currentUserId,
-							}))}
-						/>
-						<Button
-							variant="outline"
-							type="submit"
-							name={toUpdateCollection ? "updateId" : undefined}
-							value={toUpdateCollection ? toUpdateCollection.id : undefined}
-						>
-							{toUpdateCollection ? "Update" : "Create"}
-						</Button>
-					</Stack>
-				</Box>
+				<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 			</Modal>
 		</>
 	);
@@ -353,6 +332,7 @@ const DisplayCollection = (props: {
 								description: props.collection.description,
 								collaborators: props.collection.collaborators,
 								isDefault: props.collection.isDefault,
+								informationTemplate: props.collection.informationTemplate,
 							});
 							props.openModal();
 						}}
@@ -388,5 +368,145 @@ const DisplayCollection = (props: {
 				) : null}
 			</Flex>
 		</Flex>
+	);
+};
+
+const CreateOrUpdateModal = (props: {
+	toUpdateCollection: UpdateCollectionInput | undefined;
+}) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [parent] = useAutoAnimate();
+	const [informationTemplate, setInformationTemplate] =
+		useListState<CollectionExtraInformation>(
+			props.toUpdateCollection?.informationTemplate || [],
+		);
+
+	return (
+		<Box component={Form} method="post" action="?intent=createOrUpdate">
+			<Stack>
+				<Title order={3}>
+					{props.toUpdateCollection ? "Update" : "Create"} collection
+				</Title>
+				<TextInput
+					label="Name"
+					required
+					name="name"
+					defaultValue={
+						props.toUpdateCollection ? props.toUpdateCollection.name : undefined
+					}
+					readOnly={props.toUpdateCollection?.isDefault}
+				/>
+				<Textarea
+					label="Description"
+					name="description"
+					defaultValue={
+						props.toUpdateCollection?.description
+							? props.toUpdateCollection.description
+							: undefined
+					}
+					autosize
+				/>
+				<MultiSelect
+					name="collaborators"
+					description="Add collaborators to this collection"
+					searchable
+					defaultValue={(props.toUpdateCollection?.collaborators || []).map(
+						(c) => c.id,
+					)}
+					data={loaderData.usersList.map((u) => ({
+						value: u.id,
+						label: u.name,
+						disabled: u.id === loaderData.currentUserId,
+					}))}
+				/>
+				<Input.Wrapper
+					labelProps={{ w: "100%" }}
+					label={
+						<Group wrap="nowrap" justify="space-between">
+							<Input.Label size="xs">Information template</Input.Label>
+							<Anchor
+								size="xs"
+								onClick={() =>
+									setInformationTemplate.append({
+										name: "",
+										description: "",
+										lot: CollectionExtraInformationLot.String,
+									})
+								}
+							>
+								Add field
+							</Anchor>
+						</Group>
+					}
+					description="Associate extra information when adding an entity to this collection"
+				>
+					<Stack gap="xs" mt="xs" ref={parent}>
+						{informationTemplate.map((field, index) => (
+							<Paper withBorder key={index.toString()} p="xs">
+								<TextInput
+									label="Name"
+									required
+									name={`informationTemplate[${index}].name`}
+									size="xs"
+									defaultValue={field.name}
+								/>
+								<Textarea
+									label="Description"
+									required
+									name={`informationTemplate[${index}].description`}
+									size="xs"
+									defaultValue={field.description}
+								/>
+								<Group wrap="nowrap">
+									<Select
+										label="Input type"
+										required
+										name={`informationTemplate[${index}].lot`}
+										data={Object.values(CollectionExtraInformationLot).map(
+											(lot) => ({ value: lot, label: changeCase(lot) }),
+										)}
+										size="xs"
+										defaultValue={field.lot}
+									/>
+									<TextInput
+										label="Default value"
+										name={`informationTemplate[${index}].defaultValue`}
+										size="xs"
+										defaultValue={field.defaultValue || undefined}
+									/>
+								</Group>
+								<Group mt="xs" justify="space-around">
+									<Checkbox
+										label="Required"
+										name={`informationTemplate[${index}].required`}
+										size="sm"
+										defaultChecked={field.required || undefined}
+									/>
+									<Button
+										size="xs"
+										variant="subtle"
+										color="red"
+										leftSection={<IconTrash />}
+										onClick={() => setInformationTemplate.remove(index)}
+									>
+										Remove field
+									</Button>
+								</Group>
+							</Paper>
+						))}
+					</Stack>
+				</Input.Wrapper>
+				<Button
+					variant="outline"
+					type="submit"
+					name={props.toUpdateCollection ? "updateId" : undefined}
+					value={
+						props.toUpdateCollection ? props.toUpdateCollection.id : undefined
+					}
+				>
+					{props.toUpdateCollection ? "Update" : "Create"}
+				</Button>
+			</Stack>
+		</Box>
 	);
 };
