@@ -1283,12 +1283,12 @@ const ExerciseDisplay = (props: {
 													}
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
-															draft.exercises[props.exerciseIdx].sets[
-																idx
-															].confirmed = newConfirmed;
-															draft.exercises[props.exerciseIdx].sets[
-																idx
-															].confirmedAt = dayjsLib().toISOString();
+															const currentExercise =
+																draft.exercises[props.exerciseIdx];
+															currentExercise.sets[idx].confirmed =
+																newConfirmed;
+															currentExercise.sets[idx].confirmedAt =
+																dayjsLib().toISOString();
 														}),
 													);
 												}}
