@@ -1102,7 +1102,10 @@ impl MiscellaneousMutation {
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_metadata(user_id, input).await
+        service
+            .create_custom_metadata(user_id, input)
+            .await
+            .map(|m| StringIdObject { id: m.id })
     }
 
     /// Deploy job to update progress of media items in bulk.
@@ -1158,7 +1161,10 @@ impl MiscellaneousMutation {
         input: CommitMediaInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.commit_metadata(input).await
+        service
+            .commit_metadata(input)
+            .await
+            .map(|m| StringIdObject { id: m.id })
     }
 
     /// Fetches details about a person and creates a person item in the database.
@@ -3020,7 +3026,7 @@ impl MiscellaneousService {
         &self,
         details: MediaDetails,
         is_partial: Option<bool>,
-    ) -> Result<StringIdObject> {
+    ) -> Result<metadata::Model> {
         let mut images = vec![];
         images.extend(details.url_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::Url(i.image),
@@ -3072,13 +3078,13 @@ impl MiscellaneousService {
             &metadata.id,
             metadata.lot,
             metadata.source,
-            details.genres,
-            details.suggestions,
-            details.group_identifiers,
-            details.people,
+            details.genres.clone(),
+            details.suggestions.clone(),
+            details.group_identifiers.clone(),
+            details.people.clone(),
         )
         .await?;
-        Ok(StringIdObject { id: metadata.id })
+        Ok(metadata)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -3614,14 +3620,13 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
         if let Some(m) = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
             .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
             .one(&self.db)
             .await?
-            .map(|m| StringIdObject { id: m.id })
         {
             if input.force_update.unwrap_or_default() {
                 tracing::debug!("Forcing update of metadata with id {}", m.id);
@@ -3632,8 +3637,8 @@ impl MiscellaneousService {
             let details = self
                 .details_from_provider(input.lot, input.source, &input.identifier)
                 .await?;
-            let media_id = self.commit_metadata_internal(details, None).await?;
-            Ok(media_id)
+            let media = self.commit_metadata_internal(details, None).await?;
+            Ok(media)
         }
     }
 
@@ -4914,7 +4919,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: CreateCustomMetadataInput,
-    ) -> Result<StringIdObject> {
+    ) -> Result<metadata::Model> {
         let identifier = nanoid!(10);
         let images = input
             .images
@@ -5712,7 +5717,7 @@ impl MiscellaneousService {
         } else {
             pu.progress
         };
-        let StringIdObject { id } = self
+        let metadata::Model { id, .. } = self
             .commit_metadata(CommitMediaInput {
                 lot: pu.lot,
                 source: pu.source,

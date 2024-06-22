@@ -14,9 +14,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     entities::{metadata, prelude::Metadata},
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
-    models::{media::CommitMediaInput, StringIdObject},
+    models::media::CommitMediaInput,
     providers::google_books::GoogleBooksService,
-    traits::TraceOk,
     utils::{get_base_http_client, ilike_sql},
 };
 
@@ -269,7 +268,7 @@ impl IntegrationService {
         commit_metadata: impl Fn(CommitMediaInput) -> F,
     ) -> Result<Vec<IntegrationMedia>>
     where
-        F: Future<Output = GqlResult<StringIdObject>>,
+        F: Future<Output = GqlResult<metadata::Model>>,
     {
         let client = get_base_http_client(
             &format!("{}/api/", base_url),
@@ -324,18 +323,16 @@ impl IntegrationService {
                         Some(pe) => {
                             let lot = MediaLot::Podcast;
                             let source = MediaSource::Itunes;
-                            commit_metadata(CommitMediaInput {
+                            let podcast = commit_metadata(CommitMediaInput {
                                 identifier: itunes_id.clone(),
                                 lot,
                                 source,
                                 ..Default::default()
                             })
                             .await
-                            .trace_ok();
-                            match itunes_podcast_episode_by_name(&pe.title, &itunes_id, &self.db)
-                                .await
-                            {
-                                Ok(Some(episode)) => (
+                            .unwrap();
+                            match itunes_podcast_episode_by_name(&pe.title, podcast) {
+                                Some(episode) => (
                                     format!("{}/{}", item.id, pe.id),
                                     itunes_id,
                                     lot,

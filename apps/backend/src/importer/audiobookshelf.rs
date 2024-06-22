@@ -8,22 +8,18 @@ use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
 };
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
+    entities::metadata,
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
-    models::{
-        media::{
-            CommitMediaInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
-            ImportOrExportMediaItemSeen,
-        },
-        StringIdObject,
+    models::media::{
+        CommitMediaInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
+        ImportOrExportMediaItemSeen,
     },
     providers::google_books::GoogleBooksService,
-    traits::TraceOk,
     utils::get_base_http_client,
 };
 
@@ -42,11 +38,10 @@ pub struct ListResponse {
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
     isbn_service: &GoogleBooksService,
-    db: &DatabaseConnection,
     commit_metadata: impl Fn(CommitMediaInput) -> F,
 ) -> Result<ImportResult>
 where
-    F: Future<Output = Result<StringIdObject>>,
+    F: Future<Output = Result<metadata::Model>>,
 {
     let mut media = vec![];
     let mut failed_items = vec![];
@@ -85,81 +80,78 @@ where
             let metadata = item.media.clone().unwrap().metadata;
             let title = metadata.title.clone();
             tracing::trace!("Importing item {:?} ({}/{})", title, idx + 1, len);
-            let (identifier, lot, source, episodes) = if Some("epub".to_string())
-                == item.media.as_ref().unwrap().ebook_format
-            {
-                match &metadata.isbn {
-                    Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
-                        Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks, None),
+            let (identifier, lot, source, episodes) =
+                if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
+                    match &metadata.isbn {
+                        Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
+                            Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks, None),
+                            _ => {
+                                failed_items.push(ImportFailedItem {
+                                    error: Some("No Google Books ID found".to_string()),
+                                    identifier: title,
+                                    lot: None,
+                                    step: ImportFailStep::InputTransformation,
+                                });
+                                continue;
+                            }
+                        },
                         _ => {
                             failed_items.push(ImportFailedItem {
-                                error: Some("No Google Books ID found".to_string()),
+                                error: Some("No ISBN found".to_string()),
                                 identifier: title,
                                 lot: None,
                                 step: ImportFailStep::InputTransformation,
                             });
                             continue;
                         }
-                    },
-                    _ => {
-                        failed_items.push(ImportFailedItem {
-                            error: Some("No ISBN found".to_string()),
-                            identifier: title,
-                            lot: None,
-                            step: ImportFailStep::InputTransformation,
-                        });
-                        continue;
                     }
-                }
-            } else if let Some(asin) = metadata.asin.clone() {
-                (asin, MediaLot::AudioBook, MediaSource::Audible, None)
-            } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                let item_details = get_item_details(&client, &item.id, None).await?;
-                match item_details.media.and_then(|m| m.episodes) {
-                    Some(episodes) => {
-                        let lot = MediaLot::Podcast;
-                        let source = MediaSource::Itunes;
-                        let mut to_return = vec![];
-                        for episode in episodes {
-                            tracing::trace!("Importing episode {:?}", episode.title);
-                            let episode_details =
-                                get_item_details(&client, &item.id, Some(episode.id.unwrap()))
-                                    .await?;
-                            if let Some(true) =
-                                episode_details.user_media_progress.map(|u| u.is_finished)
-                            {
-                                commit_metadata(CommitMediaInput {
-                                    identifier: itunes_id.clone(),
-                                    lot,
-                                    source,
-                                    ..Default::default()
-                                })
-                                .await
-                                .trace_ok();
-                                if let Ok(Some(pe)) =
-                                    itunes_podcast_episode_by_name(&episode.title, &itunes_id, db)
-                                        .await
+                } else if let Some(asin) = metadata.asin.clone() {
+                    (asin, MediaLot::AudioBook, MediaSource::Audible, None)
+                } else if let Some(itunes_id) = metadata.itunes_id.clone() {
+                    let item_details = get_item_details(&client, &item.id, None).await?;
+                    match item_details.media.and_then(|m| m.episodes) {
+                        Some(episodes) => {
+                            let lot = MediaLot::Podcast;
+                            let source = MediaSource::Itunes;
+                            let mut to_return = vec![];
+                            for episode in episodes {
+                                tracing::trace!("Importing episode {:?}", episode.title);
+                                let episode_details =
+                                    get_item_details(&client, &item.id, Some(episode.id.unwrap()))
+                                        .await?;
+                                if let Some(true) =
+                                    episode_details.user_media_progress.map(|u| u.is_finished)
                                 {
-                                    to_return.push(pe);
+                                    let podcast = commit_metadata(CommitMediaInput {
+                                        identifier: itunes_id.clone(),
+                                        lot,
+                                        source,
+                                        ..Default::default()
+                                    })
+                                    .await?;
+                                    if let Some(pe) =
+                                        itunes_podcast_episode_by_name(&episode.title, podcast)
+                                    {
+                                        to_return.push(pe);
+                                    }
                                 }
                             }
+                            (itunes_id, lot, source, Some(to_return))
                         }
-                        (itunes_id, lot, source, Some(to_return))
+                        _ => {
+                            failed_items.push(ImportFailedItem {
+                                error: Some("No episodes found for podcast".to_string()),
+                                identifier: title,
+                                lot: Some(MediaLot::Podcast),
+                                step: ImportFailStep::ItemDetailsFromSource,
+                            });
+                            continue;
+                        }
                     }
-                    _ => {
-                        failed_items.push(ImportFailedItem {
-                            error: Some("No episodes found for podcast".to_string()),
-                            identifier: title,
-                            lot: Some(MediaLot::Podcast),
-                            step: ImportFailStep::ItemDetailsFromSource,
-                        });
-                        continue;
-                    }
-                }
-            } else {
-                tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
-                continue;
-            };
+                } else {
+                    tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
+                    continue;
+                };
             let mut seen_history = vec![];
             if let Some(podcasts) = episodes {
                 for episode in podcasts {
