@@ -1112,15 +1112,15 @@ impl MediaProvider for TmdbShowService {
             .filter(|c| POSSIBLE_ROLES.contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
-        let total_runtime = seasons
-            .iter()
-            .flat_map(|s| s.episodes.iter())
-            .map(|e| e.runtime.unwrap_or_default())
-            .sum();
         let seasons_without_specials = seasons
             .iter()
             .filter(|s| !SHOW_SPECIAL_SEASON_NAMES.contains(&s.name.as_str()))
             .collect_vec();
+        let total_runtime = seasons_without_specials
+            .iter()
+            .flat_map(|s| s.episodes.iter())
+            .map(|e| e.runtime.unwrap_or_default())
+            .sum();
         let total_seasons = seasons_without_specials.len();
         let total_episodes = seasons_without_specials
             .iter()
