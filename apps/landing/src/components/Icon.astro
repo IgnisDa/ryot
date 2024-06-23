@@ -2,6 +2,7 @@
 import type { Icon } from "@/config/landing.interface";
 import GithubIcon from "@/icons/socials/GithubIcon.astro";
 import TwitterIcon from "@/icons/socials/TwitterIcon.astro";
+import DiscordIcon from "@/icons/socials/DiscordIcon.astro";
 
 interface Props {
 	icon: Icon;
@@ -10,7 +11,7 @@ interface Props {
 
 const { icon, class: className } = Astro.props;
 
-const icons = [GithubIcon, TwitterIcon];
+const icons = [GithubIcon, TwitterIcon, DiscordIcon];
 
 const figures: Record<string, (_props: Record<string, unknown>) => unknown> =
 	{};

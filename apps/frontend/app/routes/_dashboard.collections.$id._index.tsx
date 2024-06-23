@@ -88,28 +88,33 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		{ input: { collectionId: id, take: 0 } },
 		await getAuthorizationHeader(request),
 	);
-	const { collectionContents: contents } = await gqlClient.request(
-		CollectionContentsDocument,
-		{
-			input: {
-				collectionId: id,
-				filter: {
-					entityType: query.entityLot,
-					metadataLot: query.metadataLot,
-				},
-				sort: { by: query.sortBy, order: query.orderBy },
-				search: {
-					page: query.page,
-					query: query.query,
-				},
-			},
-		},
-		await getAuthorizationHeader(request),
-	);
-	const [coreDetails, userPreferences, userDetails] = await Promise.all([
+	const [
+		coreDetails,
+		userPreferences,
+		userDetails,
+		{ collectionContents: contents },
+	] = await Promise.all([
 		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
+		gqlClient.request(
+			CollectionContentsDocument,
+			{
+				input: {
+					collectionId: id,
+					filter: {
+						entityType: query.entityLot,
+						metadataLot: query.metadataLot,
+					},
+					sort: { by: query.sortBy, order: query.orderBy },
+					search: {
+						page: query.page,
+						query: query.query,
+					},
+				},
+			},
+			await getAuthorizationHeader(request),
+		),
 	]);
 	return {
 		id,
