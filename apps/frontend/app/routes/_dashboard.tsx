@@ -20,14 +20,7 @@ import {
 } from "@mantine/core";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	NavLink,
-	Outlet,
-	type ShouldRevalidateFunction,
-	useLoaderData,
-} from "@remix-run/react";
+import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import { UserLot } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import {
@@ -163,18 +156,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		settingsLinks,
 		shouldHaveUmami,
 		currentColorScheme,
-		userPreferences: {
-			media: userPreferences.featuresEnabled.media,
-			fitness: userPreferences.featuresEnabled.fitness,
-			disableNavigationAnimation:
-				userPreferences.general.disableNavigationAnimation,
-			collectionsEnabled: userPreferences.featuresEnabled.others.collections,
-			calendarEnabled: userPreferences.featuresEnabled.others.calendar,
-		},
+		userPreferences,
 	};
 });
-
-export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -230,7 +214,7 @@ export default function Layout() {
 							toggle={toggle}
 							setOpened={() => {}}
 						/>
-						{loaderData.userPreferences.media.enabled ? (
+						{loaderData.userPreferences.featuresEnabled.media.enabled ? (
 							<LinksGroup
 								label="Media"
 								icon={IconDeviceSpeaker}
@@ -246,7 +230,7 @@ export default function Layout() {
 								}
 							/>
 						) : undefined}
-						{loaderData.userPreferences.fitness.enabled ? (
+						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
 								icon={IconStretching}
@@ -262,7 +246,7 @@ export default function Layout() {
 								links={loaderData.fitnessLinks}
 							/>
 						) : undefined}
-						{loaderData.userPreferences.calendarEnabled ? (
+						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
 								label="Calendar"
 								icon={IconCalendar}
@@ -272,7 +256,7 @@ export default function Layout() {
 								setOpened={() => {}}
 							/>
 						) : null}
-						{loaderData.userPreferences.collectionsEnabled ? (
+						{loaderData.userPreferences.featuresEnabled.others.collections ? (
 							<LinksGroup
 								label="Collections"
 								icon={IconArchive}
@@ -376,7 +360,7 @@ export default function Layout() {
 							pb={40}
 							mih="90%"
 							ref={
-								loaderData.userPreferences.disableNavigationAnimation
+								loaderData.userPreferences.general.disableNavigationAnimation
 									? undefined
 									: parent
 							}

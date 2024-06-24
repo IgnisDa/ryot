@@ -84,7 +84,8 @@
 		],
 		"socials": [
 			{ "icon": "TwitterIcon", "href": "https://x.com/IgnisDa" },
-			{ "icon": "GithubIcon", "href": "https://github.com/IgnisDa/ryot" }
+			{ "icon": "GithubIcon", "href": "https://github.com/IgnisDa/ryot" },
+			{ "icon": "DiscordIcon", "href": "https://discord.gg/D9XTg2a7R8" }
 		]
 	}
 }

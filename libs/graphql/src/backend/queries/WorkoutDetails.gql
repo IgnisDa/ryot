@@ -30,6 +30,7 @@ query WorkoutDetails($workoutId: String!) {
             ...WorkoutSetStatisticPart
           }
           lot
+          note
           personalBests
           confirmedAt
         }

@@ -203,12 +203,13 @@ impl UserWorkoutInput {
                     totals.weight = Some(we * Decimal::from_usize(*re).unwrap());
                 }
                 let mut value = WorkoutSetRecord {
-                    statistic: set.statistic.clone(),
-                    lot: set.lot,
-                    confirmed_at: set.confirmed_at,
                     totals,
-                    personal_bests: vec![],
+                    lot: set.lot,
                     actual_rest_time,
+                    note: set.note.clone(),
+                    personal_bests: vec![],
+                    confirmed_at: set.confirmed_at,
+                    statistic: set.statistic.clone(),
                 };
                 value.statistic.one_rm = value.calculate_one_rm();
                 value.statistic.pace = value.calculate_pace();

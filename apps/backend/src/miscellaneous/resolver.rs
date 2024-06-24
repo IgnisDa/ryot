@@ -68,7 +68,7 @@ use crate::{
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
-    integrations::{IntegrationMedia, IntegrationService},
+    integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -119,7 +119,7 @@ use crate::{
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIALS_SEASON_NAME,
+        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES,
         TEMP_DIR,
     },
 };
@@ -153,6 +153,7 @@ struct CreateCustomMetadataInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateIntegrationInput {
     source: IntegrationSource,
+    sync_to_owned_collection: Option<bool>,
     source_specifics: Option<IntegrationSourceSpecifics>,
 }
 
@@ -1109,7 +1110,10 @@ impl MiscellaneousMutation {
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_metadata(user_id, input).await
+        service
+            .create_custom_metadata(user_id, input)
+            .await
+            .map(|m| StringIdObject { id: m.id })
     }
 
     /// Deploy job to update progress of media items in bulk.
@@ -1165,7 +1169,10 @@ impl MiscellaneousMutation {
         input: CommitMediaInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.commit_metadata(input).await
+        service
+            .commit_metadata(input)
+            .await
+            .map(|m| StringIdObject { id: m.id })
     }
 
     /// Fetches details about a person and creates a person item in the database.
@@ -3077,7 +3084,7 @@ impl MiscellaneousService {
         &self,
         details: MediaDetails,
         is_partial: Option<bool>,
-    ) -> Result<StringIdObject> {
+    ) -> Result<metadata::Model> {
         let mut images = vec![];
         images.extend(details.url_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::Url(i.image),
@@ -3129,13 +3136,13 @@ impl MiscellaneousService {
             &metadata.id,
             metadata.lot,
             metadata.source,
-            details.genres,
-            details.suggestions,
-            details.group_identifiers,
-            details.people,
+            details.genres.clone(),
+            details.suggestions.clone(),
+            details.group_identifiers.clone(),
+            details.people.clone(),
         )
         .await?;
-        Ok(StringIdObject { id: metadata.id })
+        Ok(metadata)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -3671,14 +3678,13 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<StringIdObject> {
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
         if let Some(m) = Metadata::find()
             .filter(metadata::Column::Lot.eq(input.lot))
             .filter(metadata::Column::Source.eq(input.source))
             .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
             .one(&self.db)
             .await?
-            .map(|m| StringIdObject { id: m.id })
         {
             if input.force_update.unwrap_or_default() {
                 tracing::debug!("Forcing update of metadata with id {}", m.id);
@@ -3689,8 +3695,8 @@ impl MiscellaneousService {
             let details = self
                 .details_from_provider(input.lot, input.source, &input.identifier)
                 .await?;
-            let media_id = self.commit_metadata_internal(details, None).await?;
-            Ok(media_id)
+            let media = self.commit_metadata_internal(details, None).await?;
+            Ok(media)
         }
     }
 
@@ -4980,7 +4986,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: CreateCustomMetadataInput,
-    ) -> Result<StringIdObject> {
+    ) -> Result<metadata::Model> {
         let identifier = nanoid!(10);
         let images = input
             .images
@@ -5467,6 +5473,7 @@ impl MiscellaneousService {
             lot: ActiveValue::Set(lot),
             user_id: ActiveValue::Set(user_id),
             source: ActiveValue::Set(input.source),
+            sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
             source_specifics: ActiveValue::Set(input.source_specifics),
             ..Default::default()
         };
@@ -5633,6 +5640,7 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut progress_updates = vec![];
+        let mut collection_updates = vec![];
         let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
             let response = match integration.source {
@@ -5642,6 +5650,7 @@ impl MiscellaneousService {
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
                             &specifics.audiobookshelf_token.unwrap(),
+                            integration.sync_to_owned_collection,
                             &self.get_isbn_service().await.unwrap(),
                             |input| self.commit_metadata(input),
                         )
@@ -5649,15 +5658,37 @@ impl MiscellaneousService {
                 }
                 _ => continue,
             };
-            if let Ok(data) = response {
-                progress_updates.extend(data);
+            if let Ok((seen_progress, collection_progress)) = response {
+                progress_updates.extend(seen_progress);
+                collection_updates.extend(collection_progress);
                 to_update_integrations.push(integration.id);
             }
         }
-        for pu in progress_updates.into_iter() {
-            self.integration_progress_update(pu, user_id)
+        for progress_update in progress_updates.into_iter() {
+            self.integration_progress_update(progress_update, user_id)
                 .await
                 .trace_ok();
+        }
+        for col_update in collection_updates.into_iter() {
+            let metadata::Model { id, .. } = self
+                .commit_metadata(CommitMediaInput {
+                    lot: col_update.lot,
+                    source: col_update.source,
+                    identifier: col_update.identifier.clone(),
+                    force_update: None,
+                })
+                .await?;
+            self.add_entity_to_collection(
+                user_id,
+                ChangeCollectionToEntityInput {
+                    creator_user_id: user_id.to_owned(),
+                    collection_name: col_update.collection,
+                    metadata_id: Some(id.clone()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .trace_ok();
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
@@ -5763,7 +5794,7 @@ impl MiscellaneousService {
     #[tracing::instrument(skip(self))]
     async fn integration_progress_update(
         &self,
-        pu: IntegrationMedia,
+        pu: IntegrationMediaSeen,
         user_id: &String,
     ) -> Result<()> {
         let maximum_limit =
@@ -5778,7 +5809,7 @@ impl MiscellaneousService {
         } else {
             pu.progress
         };
-        let StringIdObject { id } = self
+        let metadata::Model { id, .. } = self
             .commit_metadata(CommitMediaInput {
                 lot: pu.lot,
                 source: pu.source,
@@ -5899,7 +5930,7 @@ impl MiscellaneousService {
             let all_episodes = if let Some(s) = metadata.model.show_specifics {
                 s.seasons
                     .into_iter()
-                    .filter(|s| s.name != SHOW_SPECIALS_SEASON_NAME)
+                    .filter(|s| !SHOW_SPECIAL_SEASON_NAMES.contains(&s.name.as_str()))
                     .flat_map(|s| {
                         s.episodes
                             .into_iter()
@@ -6691,10 +6722,13 @@ impl MiscellaneousService {
                 let mut need_to_delete = true;
                 if let Some(show) = cal_event.metadata_show_extra_information {
                     if let Some(show_info) = &meta.show_specifics {
-                        if let Some((_, ep)) = show_info.get_episode(show.season, show.episode) {
-                            if let Some(publish_date) = ep.publish_date {
-                                if publish_date == cal_event.date {
-                                    need_to_delete = false;
+                        if let Some((season, ep)) = show_info.get_episode(show.season, show.episode)
+                        {
+                            if !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
+                                if let Some(publish_date) = ep.publish_date {
+                                    if publish_date == cal_event.date {
+                                        need_to_delete = false;
+                                    }
                                 }
                             }
                         }
@@ -6755,7 +6789,7 @@ impl MiscellaneousService {
                 }
             } else if let Some(ss) = &meta.show_specifics {
                 for season in ss.seasons.iter() {
-                    if season.name == SHOW_SPECIALS_SEASON_NAME {
+                    if SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
                         continue;
                     }
                     for episode in season.episodes.iter() {
@@ -7195,7 +7229,34 @@ GROUP BY "m"."id";
         Ok(())
     }
 
-    pub async fn download_recommendations_for_users(&self) -> Result<()> {
+    pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
+        tracing::debug!("Updating old recommendations to not be recommendations anymore");
+        let mut metadata_stream = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .filter(metadata::Column::IsRecommendation.eq(true))
+            .into_tuple::<String>()
+            .stream(&self.db)
+            .await?;
+        let mut recommendations_to_update = vec![];
+        while let Some(meta) = metadata_stream.try_next().await? {
+            let num_ute = UserToEntity::find()
+                .filter(user_to_entity::Column::MetadataId.eq(&meta))
+                .count(&self.db)
+                .await?;
+            if num_ute > 0 {
+                recommendations_to_update.push(meta);
+            }
+        }
+        Metadata::update_many()
+            .filter(metadata::Column::Id.is_in(recommendations_to_update))
+            .set(metadata::ActiveModel {
+                is_recommendation: ActiveValue::Set(None),
+                ..Default::default()
+            })
+            .exec(&self.db)
+            .await?;
+        tracing::debug!("Downloading new recommendations for users");
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
             lot: MediaLot,
@@ -7318,7 +7379,9 @@ ORDER BY RANDOM() LIMIT 10;
         // DEV: This is called after removing useless data so that recommendations are not
         // delete right after they are downloaded.
         tracing::trace!("Downloading recommendations for users");
-        self.download_recommendations_for_users().await.trace_ok();
+        self.update_claimed_recommendations_and_download_new_ones()
+            .await
+            .trace_ok();
 
         tracing::debug!("Completed background jobs...");
         Ok(())

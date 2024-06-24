@@ -19,6 +19,7 @@ export type ExerciseSet = {
 	lot: SetLot;
 	confirmed: boolean;
 	confirmedAt?: string | null;
+	note?: boolean | string | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -97,6 +98,7 @@ export const duplicateOldWorkout = async (
 		const sets = ex.sets.map((s) => ({
 			confirmed: false,
 			lot: s.lot,
+			note: s.note,
 			statistic: {
 				...s.statistic,
 				duration: s.statistic.duration
@@ -196,7 +198,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
 			if (set.confirmed) {
+				const note = typeof set.note === "string" ? set.note : undefined;
 				sets.push({
+					note,
 					lot: set.lot,
 					confirmedAt: set.confirmedAt
 						? new Date(set.confirmedAt).toISOString()

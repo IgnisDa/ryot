@@ -19,6 +19,7 @@ pub struct Model {
     pub user_id: String,
     pub lot: IntegrationLot,
     pub source: IntegrationSource,
+    pub sync_to_owned_collection: Option<bool>,
     #[graphql(skip_input)]
     pub created_on: DateTimeUtc,
     #[graphql(skip_input)]

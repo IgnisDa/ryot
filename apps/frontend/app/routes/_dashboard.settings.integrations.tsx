@@ -4,6 +4,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	CopyButton,
 	Flex,
@@ -46,6 +47,7 @@ import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
@@ -120,6 +122,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 
 const createSchema = z.object({
 	source: z.nativeEnum(IntegrationSource),
+	syncToOwnedCollection: zx.CheckboxAsString.optional(),
 	sourceSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
@@ -248,6 +251,9 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
 							</Text>
 						) : undefined}
+						{props.integration.syncToOwnedCollection ? (
+							<Text size="xs">Being synced to "Owned" collection</Text>
+						) : undefined}
 					</Box>
 					<Group>
 						{props.integration.id ? (
@@ -293,6 +299,8 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 		</Paper>
 	);
 };
+
+const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 
 const CreateIntegrationModal = (props: {
 	createModalOpened: boolean;
@@ -348,6 +356,14 @@ const CreateIntegrationModal = (props: {
 							</>
 						))
 						.otherwise(() => undefined)}
+					{source && YANK_INTEGRATIONS.includes(source) ? (
+						<Checkbox
+							label="Sync to Owned collection"
+							name="syncToOwnedCollection"
+							description={`Checking this will also sync items in your library to the "Owned" collection`}
+							styles={{ body: { display: "flex", alignItems: "center" } }}
+						/>
+					) : undefined}
 					<Button type="submit">Submit</Button>
 				</Stack>
 			</Form>

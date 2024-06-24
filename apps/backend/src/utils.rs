@@ -63,7 +63,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
-pub const SHOW_SPECIALS_SEASON_NAME: &str = "Specials";
+pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub static JSON: HeaderValue = HeaderValue::from_static("application/json");
 
 const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
@@ -352,7 +352,8 @@ pub async fn add_entity_to_collection(
             information: ActiveValue::Set(information),
             ..Default::default()
         };
-        if created_collection.insert(db).await.is_ok() {
+        if let Ok(created) = created_collection.insert(db).await {
+            tracing::debug!("Created collection to entity: {:?}", created);
             associate_user_with_entity(
                 user_id,
                 input.metadata_id,

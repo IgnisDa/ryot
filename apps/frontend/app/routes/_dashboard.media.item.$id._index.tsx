@@ -439,13 +439,13 @@ const showSpecificsSchema = z.array(
 
 const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
-// DEV: I wanted to use fetcher in some place but since this is being rendered
-// conditionally (or inside a menu), the form ref is null.
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
 
+	const [tab, setTab] = useState<string | null>(
+		loaderData.query.defaultTab || "overview",
+	);
 	const [
 		progressModalOpened,
 		{ open: progressModalOpen, close: progressModalClose },
@@ -738,10 +738,7 @@ export default function Page() {
 							</>
 						)}
 					</UserMetadataDetailsSuspenseLoader>
-					<Tabs
-						variant="outline"
-						defaultValue={loaderData.query.defaultTab || "overview"}
-					>
+					<Tabs variant="outline" value={tab} onChange={(t) => setTab(t)}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab
 								value="overview"

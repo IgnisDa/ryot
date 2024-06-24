@@ -13,15 +13,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
-    models::{media::CommitMediaInput, StringIdObject},
+    miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name, DefaultCollection},
+    models::media::CommitMediaInput,
     providers::google_books::GoogleBooksService,
-    traits::TraceOk,
     utils::{get_base_http_client, ilike_sql},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IntegrationMedia {
+pub struct IntegrationMediaSeen {
     pub identifier: String,
     pub lot: MediaLot,
     #[serde(default)]
@@ -36,6 +35,14 @@ pub struct IntegrationMedia {
     pub provider_watched_on: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IntegrationMediaCollection {
+    pub identifier: String,
+    pub lot: MediaLot,
+    pub source: MediaSource,
+    pub collection: String,
+}
+
 #[derive(Debug)]
 pub struct IntegrationService {
     db: DatabaseConnection,
@@ -46,7 +53,7 @@ impl IntegrationService {
         Self { db: db.clone() }
     }
 
-    pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+    pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
         mod models {
             use super::*;
 
@@ -113,7 +120,7 @@ impl IntegrationService {
             "Movie" => MediaLot::Movie,
             _ => bail!("Only movies and shows supported"),
         };
-        Ok(IntegrationMedia {
+        Ok(IntegrationMediaSeen {
             identifier,
             lot,
             source: MediaSource::Tmdb,
@@ -129,7 +136,7 @@ impl IntegrationService {
         &self,
         payload: &str,
         plex_user: Option<String>,
-    ) -> Result<IntegrationMedia> {
+    ) -> Result<IntegrationMediaSeen> {
         mod models {
             use super::*;
 
@@ -239,7 +246,7 @@ impl IntegrationService {
             },
         };
 
-        Ok(IntegrationMedia {
+        Ok(IntegrationMediaSeen {
             identifier,
             lot,
             source: MediaSource::Tmdb,
@@ -251,8 +258,8 @@ impl IntegrationService {
         })
     }
 
-    pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMedia> {
-        let mut payload = match serde_json::from_str::<IntegrationMedia>(payload) {
+    pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
+        let mut payload = match serde_json::from_str::<IntegrationMediaSeen>(payload) {
             Result::Ok(val) => val,
             Result::Err(err) => bail!(err),
         };
@@ -265,11 +272,12 @@ impl IntegrationService {
         &self,
         base_url: &str,
         access_token: &str,
+        synced_to_owned_collection: Option<bool>,
         isbn_service: &GoogleBooksService,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> Result<Vec<IntegrationMedia>>
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
     where
-        F: Future<Output = GqlResult<StringIdObject>>,
+        F: Future<Output = GqlResult<metadata::Model>>,
     {
         let client = get_base_http_client(
             &format!("{}/api/", base_url),
@@ -324,18 +332,16 @@ impl IntegrationService {
                         Some(pe) => {
                             let lot = MediaLot::Podcast;
                             let source = MediaSource::Itunes;
-                            commit_metadata(CommitMediaInput {
+                            let podcast = commit_metadata(CommitMediaInput {
                                 identifier: itunes_id.clone(),
                                 lot,
                                 source,
                                 ..Default::default()
                             })
                             .await
-                            .trace_ok();
-                            match itunes_podcast_episode_by_name(&pe.title, &itunes_id, &self.db)
-                                .await
-                            {
-                                Ok(Some(episode)) => (
+                            .unwrap();
+                            match itunes_podcast_episode_by_name(&pe.title, podcast) {
+                                Some(episode) => (
                                     format!("{}/{}", item.id, pe.id),
                                     itunes_id,
                                     lot,
@@ -375,7 +381,7 @@ impl IntegrationService {
                     } else {
                         resp.progress
                     };
-                    media_items.push(IntegrationMedia {
+                    media_items.push(IntegrationMediaSeen {
                         lot,
                         source,
                         identifier,
@@ -391,6 +397,52 @@ impl IntegrationService {
                 }
             };
         }
-        Ok(media_items)
+        let mut collection_updates = vec![];
+        if let Some(true) = synced_to_owned_collection {
+            let libraries_resp = client
+                .get("libraries")
+                .send()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .json::<audiobookshelf_models::LibrariesListResponse>()
+                .await
+                .unwrap();
+            for library in libraries_resp.libraries {
+                let items = client
+                    .get(&format!("libraries/{}/items", library.id))
+                    .send()
+                    .await
+                    .map_err(|e| anyhow!(e))?
+                    .json::<audiobookshelf_models::ListResponse>()
+                    .await
+                    .unwrap();
+                for item in items.results.into_iter() {
+                    let metadata = item.media.clone().unwrap().metadata;
+                    let (identifier, lot, source) =
+                        if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
+                            match &metadata.isbn {
+                                Some(isbn) => match isbn_service.id_from_isbn(isbn).await {
+                                    Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks),
+                                    _ => continue,
+                                },
+                                _ => continue,
+                            }
+                        } else if let Some(asin) = metadata.asin.clone() {
+                            (asin, MediaLot::AudioBook, MediaSource::Audible)
+                        } else if let Some(itunes_id) = metadata.itunes_id.clone() {
+                            (itunes_id, MediaLot::Podcast, MediaSource::Itunes)
+                        } else {
+                            continue;
+                        };
+                    collection_updates.push(IntegrationMediaCollection {
+                        identifier,
+                        lot,
+                        source,
+                        collection: DefaultCollection::Owned.to_string(),
+                    });
+                }
+            }
+        }
+        Ok((media_items, collection_updates))
     }
 }

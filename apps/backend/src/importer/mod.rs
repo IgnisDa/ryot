@@ -27,7 +27,7 @@ use crate::{
             ImportOrExportMediaItem, ImportOrExportPersonItem, PostReviewInput,
             ProgressUpdateInput,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, StringIdObject,
+        BackgroundJob, ChangeCollectionToEntityInput,
     },
     traits::{AuthProvider, TraceOk},
     users::{UserPreferences, UserReviewScale},
@@ -287,7 +287,6 @@ impl ImporterService {
             ImportSource::Audiobookshelf => audiobookshelf::import(
                 input.url_and_key.unwrap(),
                 &self.media_service.get_isbn_service().await.unwrap(),
-                &self.media_service.db,
                 |input| self.media_service.commit_metadata(input),
             )
             .await
@@ -335,16 +334,14 @@ impl ImporterService {
             let identifier = item.internal_identifier.clone().unwrap();
             let data = match identifier {
                 ImportOrExportItemIdentifier::NeedsDetails(identifier) => {
-                    let resp = self
-                        .media_service
+                    self.media_service
                         .commit_metadata(CommitMediaInput {
                             identifier,
                             lot: item.lot,
                             source: item.source,
                             force_update: Some(true),
                         })
-                        .await;
-                    resp.map(|r| StringIdObject { id: r.id })
+                        .await
                 }
                 ImportOrExportItemIdentifier::AlreadyFilled(a) => {
                     self.media_service
