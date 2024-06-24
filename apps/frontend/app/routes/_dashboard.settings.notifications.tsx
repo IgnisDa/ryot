@@ -116,6 +116,7 @@ const deleteSchema = z.object({ notificationId: zx.NumAsString });
 
 const createSchema = z.object({
 	lot: z.nativeEnum(UserNotificationSettingKind),
+	chatId: z.string().optional(),
 	baseUrl: z.string().optional(),
 	apiToken: z.string().optional(),
 	authHeader: z.string().optional(),
@@ -273,6 +274,16 @@ export default function Page() {
 											.with(UserNotificationSettingKind.PushSafer, () => (
 												<>
 													<TextInput label="Key" required name="apiToken" />
+												</>
+											))
+											.with(UserNotificationSettingKind.Telegram, () => (
+												<>
+													<TextInput
+														label="Bot Token"
+														required
+														name="apiToken"
+													/>
+													<TextInput label="Chat ID" required name="chatId" />
 												</>
 											))
 											.with(UserNotificationSettingKind.Email, () => (
