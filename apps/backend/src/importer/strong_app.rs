@@ -87,6 +87,7 @@ pub async fn import(
                 weight,
                 ..Default::default()
             },
+            note: None,
             lot: SetLot::Normal,
             confirmed_at: None,
         });

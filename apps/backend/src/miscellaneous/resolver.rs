@@ -68,7 +68,7 @@ use crate::{
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
-    integrations::{IntegrationMedia, IntegrationService},
+    integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
     miscellaneous::{CustomService, DefaultCollection},
     models::{
@@ -5572,6 +5572,7 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         let mut progress_updates = vec![];
+        let mut collection_updates = vec![];
         let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
             let response = match integration.source {
@@ -5588,15 +5589,37 @@ impl MiscellaneousService {
                 }
                 _ => continue,
             };
-            if let Ok(data) = response {
-                progress_updates.extend(data);
+            if let Ok((seen_progress, collection_progress)) = response {
+                progress_updates.extend(seen_progress);
+                collection_updates.extend(collection_progress);
                 to_update_integrations.push(integration.id);
             }
         }
-        for pu in progress_updates.into_iter() {
-            self.integration_progress_update(pu, user_id)
+        for progress_update in progress_updates.into_iter() {
+            self.integration_progress_update(progress_update, user_id)
                 .await
                 .trace_ok();
+        }
+        for col_update in collection_updates.into_iter() {
+            let metadata::Model { id, .. } = self
+                .commit_metadata(CommitMediaInput {
+                    lot: col_update.lot,
+                    source: col_update.source,
+                    identifier: col_update.identifier.clone(),
+                    force_update: None,
+                })
+                .await?;
+            self.add_entity_to_collection(
+                user_id,
+                ChangeCollectionToEntityInput {
+                    creator_user_id: user_id.to_owned(),
+                    collection_name: col_update.collection,
+                    metadata_id: Some(id.clone()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .trace_ok();
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
@@ -5702,7 +5725,7 @@ impl MiscellaneousService {
     #[tracing::instrument(skip(self))]
     async fn integration_progress_update(
         &self,
-        pu: IntegrationMedia,
+        pu: IntegrationMediaSeen,
         user_id: &String,
     ) -> Result<()> {
         let maximum_limit =

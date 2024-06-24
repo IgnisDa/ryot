@@ -84,7 +84,7 @@ import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
@@ -1071,235 +1071,242 @@ const ExerciseDisplay = (props: {
 							<Box w="10%" />
 						</Flex>
 						{props.exercise.sets.map((s, idx) => (
-							<Flex
-								key={`${props.exercise.identifier}-${idx}`}
-								justify="space-between"
-								align="center"
-								py={4}
-							>
-								<Menu>
-									<Menu.Target>
-										<UnstyledButton w="5%">
-											<Text mt={2} fw="bold" c={getSetColor(s.lot)} ta="center">
-												{match(s.lot)
-													.with(SetLot.Normal, () => idx + 1)
-													.otherwise(() => s.lot.at(0))}
-											</Text>
-										</UnstyledButton>
-									</Menu.Target>
-									<Menu.Dropdown>
-										<Menu.Label>Set type</Menu.Label>
-										{Object.values(SetLot).map((lot) => (
+							<Fragment key={`${props.exercise.identifier}-${idx}`}>
+								<Flex justify="space-between" align="center" py={4}>
+									<Menu>
+										<Menu.Target>
+											<UnstyledButton w="5%">
+												<Text
+													mt={2}
+													fw="bold"
+													c={getSetColor(s.lot)}
+													ta="center"
+												>
+													{match(s.lot)
+														.with(SetLot.Normal, () => idx + 1)
+														.otherwise(() => s.lot.at(0))}
+												</Text>
+											</UnstyledButton>
+										</Menu.Target>
+										<Menu.Dropdown>
+											<Menu.Label>Set type</Menu.Label>
+											{Object.values(SetLot).map((lot) => (
+												<Menu.Item
+													key={lot}
+													disabled={s.lot === lot}
+													fz="xs"
+													leftSection={
+														<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
+															{lot.at(0)}
+														</Text>
+													}
+													onClick={() => {
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																draft.exercises[props.exerciseIdx].sets[
+																	idx
+																].lot = lot;
+															}),
+														);
+													}}
+												>
+													{startCase(snakeCase(lot))}
+												</Menu.Item>
+											))}
+											<Menu.Divider />
+											<Menu.Label>Actions</Menu.Label>
 											<Menu.Item
-												key={lot}
-												disabled={s.lot === lot}
+												color="red"
 												fz="xs"
-												leftSection={
-													<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
-														{lot.at(0)}
-													</Text>
-												}
+												leftSection={<IconTrash size={14} />}
 												onClick={() => {
+													const yes = match(s.confirmed)
+														.with(true, () => {
+															return confirm(
+																"Are you sure you want to delete this set?",
+															);
+														})
+														.with(false, () => true)
+														.exhaustive();
+													if (yes)
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																draft.exercises[props.exerciseIdx].sets.splice(
+																	idx,
+																	1,
+																);
+															}),
+														);
+												}}
+											>
+												Delete
+											</Menu.Item>
+										</Menu.Dropdown>
+									</Menu>
+									<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
+										{props.exercise.alreadyDoneSets[idx] ? (
+											<Box
+												onClick={() => {
+													if (props.exercise.sets[idx].confirmed) return;
+													const convertStringValuesToNumbers = (
+														obj: Record<string, unknown>,
+													) => {
+														const newObject = { ...obj };
+														for (const key in newObject)
+															if (
+																typeof newObject[key] === "string" &&
+																!Number.isNaN(newObject[key])
+															)
+																newObject[key] = Number.parseFloat(
+																	newObject[key] as string,
+																);
+														return newObject;
+													};
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
-															draft.exercises[props.exerciseIdx].sets[idx].lot =
-																lot;
+															if (draft) {
+																draft.exercises[props.exerciseIdx].sets[
+																	idx
+																].statistic = convertStringValuesToNumbers(
+																	props.exercise.alreadyDoneSets[idx].statistic,
+																);
+															}
 														}),
 													);
 												}}
+												style={
+													!props.exercise.sets[idx].confirmed
+														? { cursor: "pointer" }
+														: undefined
+												}
 											>
-												{startCase(snakeCase(lot))}
-											</Menu.Item>
-										))}
-										<Menu.Divider />
-										<Menu.Label>Actions</Menu.Label>
-										<Menu.Item
-											color="red"
-											fz="xs"
-											leftSection={<IconTrash size={14} />}
-											onClick={() => {
-												const yes = match(s.confirmed)
-													.with(true, () => {
-														return confirm(
-															"Are you sure you want to delete this set?",
-														);
-													})
-													.with(false, () => true)
-													.exhaustive();
-												if (yes)
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															draft.exercises[props.exerciseIdx].sets.splice(
-																idx,
-																1,
-															);
-														}),
-													);
+												<DisplayExerciseStats
+													statistic={
+														props.exercise.alreadyDoneSets[idx].statistic
+													}
+													lot={props.exercise.lot}
+													hideExtras
+													centerText
+													unit={loaderData.userPreferences.unitSystem}
+												/>
+											</Box>
+										) : (
+											"—"
+										)}
+									</Box>
+									{durationCol ? (
+										<StatInput
+											exerciseIdx={props.exerciseIdx}
+											setIdx={idx}
+											stat="duration"
+											inputStep={0.1}
+										/>
+									) : null}
+									{distanceCol ? (
+										<StatInput
+											exerciseIdx={props.exerciseIdx}
+											setIdx={idx}
+											stat="distance"
+											inputStep={0.01}
+										/>
+									) : null}
+									{weightCol ? (
+										<StatInput
+											exerciseIdx={props.exerciseIdx}
+											setIdx={idx}
+											stat="weight"
+										/>
+									) : null}
+									{repsCol ? (
+										<StatInput
+											exerciseIdx={props.exerciseIdx}
+											setIdx={idx}
+											stat="reps"
+										/>
+									) : null}
+									<Group w="10%" justify="center">
+										<Transition
+											mounted
+											transition={{
+												in: {},
+												out: {},
+												transitionProperty: "all",
 											}}
+											duration={200}
+											timingFunction="ease-in-out"
 										>
-											Delete
-										</Menu.Item>
-									</Menu.Dropdown>
-								</Menu>
-								<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
-									{props.exercise.alreadyDoneSets[idx] ? (
-										<Box
-											onClick={() => {
-												if (props.exercise.sets[idx].confirmed) return;
-												const convertStringValuesToNumbers = (
-													obj: Record<string, unknown>,
-												) => {
-													const newObject = { ...obj };
-													for (const key in newObject)
+											{(style) => (
+												<ActionIcon
+													variant={s.confirmed ? "filled" : "outline"}
+													style={style}
+													disabled={
+														!match(props.exercise.lot)
+															.with(
+																ExerciseLot.DistanceAndDuration,
+																() =>
+																	typeof s.statistic.distance === "number" &&
+																	typeof s.statistic.duration === "number",
+															)
+															.with(
+																ExerciseLot.Duration,
+																() => typeof s.statistic.duration === "number",
+															)
+															.with(
+																ExerciseLot.Reps,
+																() => typeof s.statistic.reps === "number",
+															)
+															.with(
+																ExerciseLot.RepsAndWeight,
+																() =>
+																	typeof s.statistic.reps === "number" &&
+																	typeof s.statistic.weight === "number",
+															)
+															.exhaustive()
+													}
+													color="green"
+													onClick={() => {
+														playCheckSound();
+														const newConfirmed = !s.confirmed;
 														if (
-															typeof newObject[key] === "string" &&
-															!Number.isNaN(newObject[key])
+															!newConfirmed &&
+															currentTimer?.triggeredBy?.exerciseIdentifier ===
+																props.exercise.identifier &&
+															currentTimer?.triggeredBy?.setIdx === idx
 														)
-															newObject[key] = Number.parseFloat(
-																newObject[key] as string,
-															);
-													return newObject;
-												};
-												setCurrentWorkout(
-													produce(currentWorkout, (draft) => {
-														if (draft) {
-															draft.exercises[props.exerciseIdx].sets[
-																idx
-															].statistic = convertStringValuesToNumbers(
-																props.exercise.alreadyDoneSets[idx].statistic,
+															props.stopTimer();
+														if (
+															props.exercise.restTimer?.enabled &&
+															newConfirmed &&
+															s.lot !== SetLot.WarmUp
+														) {
+															props.startTimer(
+																props.exercise.restTimer.duration,
+																{
+																	exerciseIdentifier: props.exercise.identifier,
+																	setIdx: idx,
+																},
 															);
 														}
-													}),
-												);
-											}}
-											style={
-												!props.exercise.sets[idx].confirmed
-													? { cursor: "pointer" }
-													: undefined
-											}
-										>
-											<DisplayExerciseStats
-												statistic={
-													props.exercise.alreadyDoneSets[idx].statistic
-												}
-												lot={props.exercise.lot}
-												hideExtras
-												centerText
-												unit={loaderData.userPreferences.unitSystem}
-											/>
-										</Box>
-									) : (
-										"—"
-									)}
-								</Box>
-								{durationCol ? (
-									<StatInput
-										exerciseIdx={props.exerciseIdx}
-										setIdx={idx}
-										stat="duration"
-										inputStep={0.1}
-									/>
-								) : null}
-								{distanceCol ? (
-									<StatInput
-										exerciseIdx={props.exerciseIdx}
-										setIdx={idx}
-										stat="distance"
-										inputStep={0.01}
-									/>
-								) : null}
-								{weightCol ? (
-									<StatInput
-										exerciseIdx={props.exerciseIdx}
-										setIdx={idx}
-										stat="weight"
-									/>
-								) : null}
-								{repsCol ? (
-									<StatInput
-										exerciseIdx={props.exerciseIdx}
-										setIdx={idx}
-										stat="reps"
-									/>
-								) : null}
-								<Group w="10%" justify="center">
-									<Transition
-										mounted
-										transition={{ in: {}, out: {}, transitionProperty: "all" }}
-										duration={200}
-										timingFunction="ease-in-out"
-									>
-										{(style) => (
-											<ActionIcon
-												variant={s.confirmed ? "filled" : "outline"}
-												style={style}
-												disabled={
-													!match(props.exercise.lot)
-														.with(
-															ExerciseLot.DistanceAndDuration,
-															() =>
-																typeof s.statistic.distance === "number" &&
-																typeof s.statistic.duration === "number",
-														)
-														.with(
-															ExerciseLot.Duration,
-															() => typeof s.statistic.duration === "number",
-														)
-														.with(
-															ExerciseLot.Reps,
-															() => typeof s.statistic.reps === "number",
-														)
-														.with(
-															ExerciseLot.RepsAndWeight,
-															() =>
-																typeof s.statistic.reps === "number" &&
-																typeof s.statistic.weight === "number",
-														)
-														.exhaustive()
-												}
-												color="green"
-												onClick={() => {
-													playCheckSound();
-													const newConfirmed = !s.confirmed;
-													if (
-														!newConfirmed &&
-														currentTimer?.triggeredBy?.exerciseIdentifier ===
-															props.exercise.identifier &&
-														currentTimer?.triggeredBy?.setIdx === idx
-													)
-														props.stopTimer();
-													if (
-														props.exercise.restTimer?.enabled &&
-														newConfirmed &&
-														s.lot !== SetLot.WarmUp
-													) {
-														props.startTimer(
-															props.exercise.restTimer.duration,
-															{
-																exerciseIdentifier: props.exercise.identifier,
-																setIdx: idx,
-															},
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																const currentExercise =
+																	draft.exercises[props.exerciseIdx];
+																currentExercise.sets[idx].confirmed =
+																	newConfirmed;
+																currentExercise.sets[idx].confirmedAt =
+																	dayjsLib().toISOString();
+															}),
 														);
-													}
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															const currentExercise =
-																draft.exercises[props.exerciseIdx];
-															currentExercise.sets[idx].confirmed =
-																newConfirmed;
-															currentExercise.sets[idx].confirmedAt =
-																dayjsLib().toISOString();
-														}),
-													);
-												}}
-												data-statistics={JSON.stringify(s.statistic)}
-											>
-												<IconCheck />
-											</ActionIcon>
-										)}
-									</Transition>
-								</Group>
-							</Flex>
+													}}
+													data-statistics={JSON.stringify(s.statistic)}
+												>
+													<IconCheck />
+												</ActionIcon>
+											)}
+										</Transition>
+									</Group>
+								</Flex>
+							</Fragment>
 						))}
 					</Box>
 					<Button

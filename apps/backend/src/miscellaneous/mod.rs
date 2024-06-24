@@ -156,6 +156,16 @@ pub mod audiobookshelf_models {
     pub struct Response {
         pub library_items: Vec<Item>,
     }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct LibrariesListResponse {
+        pub libraries: Vec<Item>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct ListResponse {
+        pub results: Vec<Item>,
+    }
 }
 
 pub fn itunes_podcast_episode_by_name(name: &str, podcast: metadata::Model) -> Option<i32> {

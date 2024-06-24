@@ -8,7 +8,6 @@ use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
@@ -24,16 +23,6 @@ use crate::{
 };
 
 use super::DeployUrlAndKeyImportInput;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LibrariesListResponse {
-    pub libraries: Vec<audiobookshelf_models::Item>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ListResponse {
-    pub results: Vec<audiobookshelf_models::Item>,
-}
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
@@ -57,7 +46,7 @@ where
         .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .json::<LibrariesListResponse>()
+        .json::<audiobookshelf_models::LibrariesListResponse>()
         .await
         .unwrap();
     for library in libraries_resp.libraries {
@@ -72,7 +61,7 @@ where
             .send()
             .await
             .map_err(|e| anyhow!(e))?
-            .json::<ListResponse>()
+            .json::<audiobookshelf_models::ListResponse>()
             .await
             .unwrap();
         let len = finished_items.results.len();

@@ -352,7 +352,8 @@ pub async fn add_entity_to_collection(
             information: ActiveValue::Set(information),
             ..Default::default()
         };
-        if created_collection.insert(db).await.is_ok() {
+        if let Ok(created) = created_collection.insert(db).await {
+            tracing::debug!("Created collection to entity: {:?}", created);
             associate_user_with_entity(
                 user_id,
                 input.metadata_id,

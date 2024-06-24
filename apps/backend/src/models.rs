@@ -1652,6 +1652,7 @@ pub mod fitness {
         #[serde(default)]
         pub totals: WorkoutSetTotals,
         pub actual_rest_time: Option<i64>,
+        pub note: Option<String>,
     }
 
     impl WorkoutSetRecord {
@@ -1878,8 +1879,9 @@ pub mod fitness {
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct UserWorkoutSetRecord {
-        pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
+        pub note: Option<String>,
+        pub statistic: WorkoutSetStatistic,
         pub confirmed_at: Option<DateTimeUtc>,
     }
 

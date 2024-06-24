@@ -20,7 +20,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IntegrationMedia {
+pub struct IntegrationMediaSeen {
     pub identifier: String,
     pub lot: MediaLot,
     #[serde(default)]
@@ -35,6 +35,14 @@ pub struct IntegrationMedia {
     pub provider_watched_on: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IntegrationMediaCollection {
+    pub identifier: String,
+    pub lot: MediaLot,
+    pub source: MediaSource,
+    pub collection: String,
+}
+
 #[derive(Debug)]
 pub struct IntegrationService {
     db: DatabaseConnection,
@@ -45,7 +53,7 @@ impl IntegrationService {
         Self { db: db.clone() }
     }
 
-    pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMedia> {
+    pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
         mod models {
             use super::*;
 
@@ -112,7 +120,7 @@ impl IntegrationService {
             "Movie" => MediaLot::Movie,
             _ => bail!("Only movies and shows supported"),
         };
-        Ok(IntegrationMedia {
+        Ok(IntegrationMediaSeen {
             identifier,
             lot,
             source: MediaSource::Tmdb,
@@ -128,7 +136,7 @@ impl IntegrationService {
         &self,
         payload: &str,
         plex_user: Option<String>,
-    ) -> Result<IntegrationMedia> {
+    ) -> Result<IntegrationMediaSeen> {
         mod models {
             use super::*;
 
@@ -238,7 +246,7 @@ impl IntegrationService {
             },
         };
 
-        Ok(IntegrationMedia {
+        Ok(IntegrationMediaSeen {
             identifier,
             lot,
             source: MediaSource::Tmdb,
@@ -250,8 +258,8 @@ impl IntegrationService {
         })
     }
 
-    pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMedia> {
-        let mut payload = match serde_json::from_str::<IntegrationMedia>(payload) {
+    pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
+        let mut payload = match serde_json::from_str::<IntegrationMediaSeen>(payload) {
             Result::Ok(val) => val,
             Result::Err(err) => bail!(err),
         };
@@ -266,7 +274,7 @@ impl IntegrationService {
         access_token: &str,
         isbn_service: &GoogleBooksService,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> Result<Vec<IntegrationMedia>>
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {
@@ -372,7 +380,7 @@ impl IntegrationService {
                     } else {
                         resp.progress
                     };
-                    media_items.push(IntegrationMedia {
+                    media_items.push(IntegrationMediaSeen {
                         lot,
                         source,
                         identifier,
@@ -388,6 +396,6 @@ impl IntegrationService {
                 }
             };
         }
-        Ok(media_items)
+        Ok((media_items, vec![]))
     }
 }

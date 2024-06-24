@@ -886,8 +886,9 @@ impl ExerciseService {
                         .sets
                         .into_iter()
                         .map(|s| UserWorkoutSetRecord {
-                            statistic: s.statistic,
                             lot: s.lot,
+                            note: s.note,
+                            statistic: s.statistic,
                             confirmed_at: s.confirmed_at,
                         })
                         .collect(),

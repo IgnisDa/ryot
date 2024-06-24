@@ -2261,6 +2261,7 @@ export type UserWorkoutInput = {
 export type UserWorkoutSetRecord = {
   confirmedAt?: InputMaybe<Scalars['DateTime']['input']>;
   lot: SetLot;
+  note?: InputMaybe<Scalars['String']['input']>;
   statistic: SetStatisticInput;
 };
 
@@ -2358,6 +2359,7 @@ export type WorkoutSetRecord = {
   actualRestTime?: Maybe<Scalars['Int']['output']>;
   confirmedAt?: Maybe<Scalars['DateTime']['output']>;
   lot: SetLot;
+  note?: Maybe<Scalars['String']['output']>;
   personalBests: Array<WorkoutSetPersonalBest>;
   statistic: WorkoutSetStatistic;
   totals: WorkoutSetTotals;
