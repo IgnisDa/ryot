@@ -172,6 +172,7 @@ struct CreateUserNotificationPlatformInput {
     #[graphql(secret)]
     auth_header: Option<String>,
     priority: Option<i32>,
+    chat_id: Option<String>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -5383,6 +5384,9 @@ impl MiscellaneousService {
                 UserNotificationSetting::Email { email } => {
                     format!("Email: {}", email)
                 }
+                UserNotificationSetting::Telegram { chat_id, .. } => {
+                    format!("Telegram Chat ID: {}", chat_id)
+                }
             };
             all_notifications.push(GraphqlUserNotificationPlatform {
                 id: n.id,
@@ -5471,6 +5475,10 @@ impl MiscellaneousService {
                 },
                 UserNotificationSettingKind::Email => UserNotificationSetting::Email {
                     email: input.api_token.unwrap(),
+                },
+                UserNotificationSettingKind::Telegram => UserNotificationSetting::Telegram {
+                    bot_token: input.api_token.unwrap(),
+                    chat_id: input.chat_id.unwrap(),
                 },
             },
         };

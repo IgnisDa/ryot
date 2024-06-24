@@ -161,6 +161,21 @@ impl UserNotificationSetting {
                     .unwrap();
                 mailer.send(&email).map_err(|e| anyhow!(e))?;
             }
+            Self::Telegram { bot_token, chat_id } => {
+                client
+                    .post(format!(
+                        "https://api.telegram.org/bot{}/sendMessage",
+                        bot_token
+                    ))
+                    .json(&serde_json::json!({
+                        "chat_id": chat_id,
+                        "text": msg,
+                        "parse_mode": "Markdown"
+                    }))
+                    .send()
+                    .await
+                    .map_err(|e| anyhow!(e))?;
+            }
         }
         Ok(())
     }
