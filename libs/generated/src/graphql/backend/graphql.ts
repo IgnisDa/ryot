@@ -238,6 +238,7 @@ export type CreateUserNotificationPlatformInput = {
   apiToken?: InputMaybe<Scalars['String']['input']>;
   authHeader?: InputMaybe<Scalars['String']['input']>;
   baseUrl?: InputMaybe<Scalars['String']['input']>;
+  chatId?: InputMaybe<Scalars['String']['input']>;
   lot: UserNotificationSettingKind;
   priority?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -2161,7 +2162,8 @@ export enum UserNotificationSettingKind {
   Ntfy = 'NTFY',
   PushBullet = 'PUSH_BULLET',
   PushOver = 'PUSH_OVER',
-  PushSafer = 'PUSH_SAFER'
+  PushSafer = 'PUSH_SAFER',
+  Telegram = 'TELEGRAM'
 }
 
 export type UserNotificationsPreferences = {
