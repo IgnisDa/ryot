@@ -13,12 +13,9 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
+import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import {
-	Link,
-	unstable_defineClientLoader,
-	useLoaderData,
-} from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -26,7 +23,6 @@ import {
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaLot,
-	UserCollectionsListDocument,
 	type UserMediaFeaturesEnabledPreferences,
 	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
@@ -40,7 +36,6 @@ import {
 	IconServer,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
-import Cookies from "js-cookie";
 import { Fragment, type ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -50,15 +45,18 @@ import {
 	NewUserGuideAlert,
 } from "~/components/media";
 import {
-	clientGqlService,
 	CurrentWorkoutKey,
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
-	queryClient,
-	USER_PREFERENCES_COOKIE_NAME,
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
+import {
+	getAuthorizationHeader,
+	getUserCollectionsList,
+	getUserPreferences,
+	gqlClient,
+} from "~/lib/utilities.server";
 
 const cookieName = CurrentWorkoutKey;
 
@@ -70,53 +68,45 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 	return t;
 };
 
-export const clientLoader = unstable_defineClientLoader(async ({ request }) => {
-	const preferences = JSON.parse(
-		Cookies.get(USER_PREFERENCES_COOKIE_NAME) || "",
-	) as UserPreferences;
+export const loader = unstable_defineLoader(async ({ request }) => {
+	const preferences = await getUserPreferences(request);
+	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
-	const { userCollectionsList } = await queryClient.ensureQueryData({
-		queryKey: [UserCollectionsListDocument],
-		queryFn: () => clientGqlService.request(UserCollectionsListDocument, {}),
-	});
+	const userCollectionsList = await getUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
 	invariant(foundInProgressCollection, 'No collection found for "In Progress"');
-	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const [
+		{ collectionContents: inProgressCollectionContents },
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
-		{ collectionContents: inProgressCollectionContents },
 	] = await Promise.all([
-		queryClient.ensureQueryData({
-			queryKey: [UserUpcomingCalendarEventsDocument],
-			queryFn: () =>
-				clientGqlService.request(UserUpcomingCalendarEventsDocument, {
-					input: { nextMedia: takeUpcoming },
-				}),
-		}),
-		queryClient.ensureQueryData({
-			queryKey: [LatestUserSummaryDocument],
-			queryFn: () =>
-				clientGqlService.request(LatestUserSummaryDocument, undefined),
-		}),
-		queryClient.ensureQueryData({
-			queryKey: [CollectionContentsDocument],
-			queryFn: () =>
-				clientGqlService.request(CollectionContentsDocument, {
-					input: {
-						collectionId: foundInProgressCollection.id,
-						take: takeInProgress,
-						sort: { order: GraphqlSortOrder.Desc },
-					},
-				}),
-		}),
+		await gqlClient.request(
+			CollectionContentsDocument,
+			{
+				input: {
+					collectionId: foundInProgressCollection.id,
+					take: takeInProgress,
+					sort: { order: GraphqlSortOrder.Desc },
+				},
+			},
+			await getAuthorizationHeader(request),
+		),
+		await gqlClient.request(
+			UserUpcomingCalendarEventsDocument,
+			{ input: { nextMedia: takeUpcoming } },
+			await getAuthorizationHeader(request),
+		),
+		await gqlClient.request(
+			LatestUserSummaryDocument,
+			undefined,
+			await getAuthorizationHeader(request),
+		),
 	]);
 	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return {
-		inProgressCollectionContents,
 		workoutInProgress,
 		userPreferences: {
 			reviewScale: preferences.general.reviewScale,
@@ -127,15 +117,16 @@ export const clientLoader = unstable_defineClientLoader(async ({ request }) => {
 		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
+		inProgressCollectionContents,
 	};
 });
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof clientLoader>) => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof clientLoader>();
+	const loaderData = useLoaderData<typeof loader>();
 	const theme = useMantineTheme();
 
 	return (
@@ -520,7 +511,7 @@ export default function Page() {
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
 	const numDaysLeft = dayjsLib(um.date).diff(today, "day");
-	const loaderData = useLoaderData<typeof clientLoader>();
+	const loaderData = useLoaderData<typeof loader>();
 
 	return (
 		<MediaItemWithoutUpdateModal
