@@ -15,7 +15,11 @@ import {
 } from "@mantine/core";
 import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import { Link, useLoaderData } from "@remix-run/react";
+import {
+	Link,
+	unstable_defineClientLoader,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
@@ -36,6 +40,7 @@ import {
 	IconServer,
 } from "@tabler/icons-react";
 import { parse } from "cookie";
+import Cookies from "js-cookie";
 import { Fragment, type ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -45,10 +50,12 @@ import {
 	NewUserGuideAlert,
 } from "~/components/media";
 import {
+	clientGqlService,
 	CurrentWorkoutKey,
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
+	USER_PREFERENCES_COOKIE_NAME,
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import {
@@ -70,63 +77,68 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const preferences = await getUserPreferences(request);
-	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
 	const userCollectionsList = await getUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
 	invariant(foundInProgressCollection, 'No collection found for "In Progress"');
-	const [
-		{ collectionContents: inProgressCollectionContents },
-		{ userUpcomingCalendarEvents },
-		{ latestUserSummary },
-	] = await Promise.all([
-		await gqlClient.request(
-			CollectionContentsDocument,
-			{
-				input: {
-					collectionId: foundInProgressCollection.id,
-					take: takeInProgress,
-					sort: { order: GraphqlSortOrder.Desc },
+	const [{ collectionContents: inProgressCollectionContents }] =
+		await Promise.all([
+			gqlClient.request(
+				CollectionContentsDocument,
+				{
+					input: {
+						collectionId: foundInProgressCollection.id,
+						take: takeInProgress,
+						sort: { order: GraphqlSortOrder.Desc },
+					},
 				},
-			},
-			await getAuthorizationHeader(request),
-		),
-		await gqlClient.request(
-			UserUpcomingCalendarEventsDocument,
-			{ input: { nextMedia: takeUpcoming } },
-			await getAuthorizationHeader(request),
-		),
-		await gqlClient.request(
-			LatestUserSummaryDocument,
-			undefined,
-			await getAuthorizationHeader(request),
-		),
-	]);
+				await getAuthorizationHeader(request),
+			),
+		]);
 	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
-	return {
-		workoutInProgress,
-		userPreferences: {
-			reviewScale: preferences.general.reviewScale,
-			dashboard: preferences.general.dashboard,
-			media: preferences.featuresEnabled.media,
-			fitness: preferences.featuresEnabled.fitness,
-			unitSystem: preferences.fitness.exercises.unitSystem,
-		},
-		latestUserSummary,
-		userUpcomingCalendarEvents,
-		inProgressCollectionContents,
-	};
+	return { inProgressCollectionContents, workoutInProgress };
 });
+
+export const clientLoader = unstable_defineClientLoader(
+	async ({ serverLoader }) => {
+		const data = await serverLoader<typeof loader>();
+		const preferences = JSON.parse(
+			Cookies.get(USER_PREFERENCES_COOKIE_NAME) || "",
+		) as UserPreferences;
+		const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
+		const [{ userUpcomingCalendarEvents }, { latestUserSummary }] =
+			await Promise.all([
+				clientGqlService.request(UserUpcomingCalendarEventsDocument, {
+					input: { nextMedia: takeUpcoming },
+				}),
+				clientGqlService.request(LatestUserSummaryDocument, undefined),
+			]);
+		return {
+			...data,
+			userPreferences: {
+				reviewScale: preferences.general.reviewScale,
+				dashboard: preferences.general.dashboard,
+				media: preferences.featuresEnabled.media,
+				fitness: preferences.featuresEnabled.fitness,
+				unitSystem: preferences.fitness.exercises.unitSystem,
+			},
+			latestUserSummary,
+			userUpcomingCalendarEvents,
+		};
+	},
+);
+
+clientLoader.hydrate = true;
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof clientLoader>();
 	const theme = useMantineTheme();
 
 	return (
@@ -143,14 +155,14 @@ export default function Page() {
 						</Text>
 					</Alert>
 				) : null}
-				{loaderData.latestUserSummary.media.metadataOverall.interactedWith ===
+				{loaderData.latestUserSummary?.media.metadataOverall.interactedWith ===
 				0 ? (
 					<NewUserGuideAlert />
 				) : null}
-				{loaderData.userPreferences.dashboard.map((de) =>
+				{loaderData.userPreferences?.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
-							loaderData.userUpcomingCalendarEvents.length > 0 ? (
+							loaderData.userUpcomingCalendarEvents?.length > 0 ? (
 								<Section key="upcoming">
 									<Title>Upcoming</Title>
 									<ApplicationGrid>
@@ -219,7 +231,7 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
+										media={loaderData.userPreferences?.media}
 										lot={MediaLot.Show}
 										data={[
 											{
@@ -511,7 +523,7 @@ export default function Page() {
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
 	const numDaysLeft = dayjsLib(um.date).diff(today, "day");
-	const loaderData = useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof clientLoader>();
 
 	return (
 		<MediaItemWithoutUpdateModal
