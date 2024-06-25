@@ -9,6 +9,7 @@ import {
 	Flex,
 	Group,
 	Modal,
+	NumberInput,
 	Paper,
 	Select,
 	Stack,
@@ -118,8 +119,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 	});
 });
 
+const MINIMUM_PROGRESS = "2";
+const MAXIMUM_PROGRESS = "95";
+
 const createSchema = z.object({
 	source: z.nativeEnum(IntegrationSource),
+	minimumProgress: z.string().default(MINIMUM_PROGRESS),
+	maximumProgress: z.string().default(MAXIMUM_PROGRESS),
 	sourceSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
@@ -324,6 +330,30 @@ const CreateIntegrationModal = (props: {
 						}))}
 						onChange={(e) => setSource(e as IntegrationSource)}
 					/>
+					{source ? (
+						<Group wrap="nowrap">
+							<NumberInput
+								size="xs"
+								label="Minimum progress"
+								description="Progress will not be synced below this value"
+								required
+								name="minimumProgress"
+								defaultValue={MINIMUM_PROGRESS}
+								min={0}
+								max={100}
+							/>
+							<NumberInput
+								size="xs"
+								label="Maximum progress"
+								description="After this value, progress will be marked as completed"
+								required
+								name="maximumProgress"
+								defaultValue={MAXIMUM_PROGRESS}
+								min={0}
+								max={100}
+							/>
+						</Group>
+					) : undefined}
 					{match(source)
 						.with(IntegrationSource.Audiobookshelf, () => (
 							<>
