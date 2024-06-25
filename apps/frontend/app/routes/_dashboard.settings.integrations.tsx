@@ -56,6 +56,8 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
+const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
+
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
 		gqlClient.request(
@@ -256,7 +258,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 						) : undefined}
 					</Box>
 					<Group>
-						{props.integration.id ? (
+						{!YANK_INTEGRATIONS.includes(props.integration.source) ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
