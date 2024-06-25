@@ -1,23 +1,17 @@
 # Integrations
 
-Integrations can be used to continuously update your media progress. They can
-be of two types:
+Integrations can be used to continuously update your media progress. They can be of two
+types:
 
-- _Yank_: Progress data is downloaded from an externally running server at a
-  periodic interval.
+- _Yank_: Progress data is downloaded from an externally running server at a periodic
+  interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
-
-!!! info
-
-    An item is marked as started when it has more than _2%_ progress and marked as
-    completed when it has more than _95%_ progress. This can be changed via the
-    `integration.{minimum,maximum}*` configuration keys.
 
 ## Yank integrations
 
-For each integration you want to enable, credentials for the external server
-must be saved to your profile. To do so, go to the "Settings" tab and add a
-new integration under the "Integrations" tab.
+For each integration you want to enable, credentials for the external server must be saved
+to your profile. To do so, go to the "Settings" tab and add a new integration under the
+"Integrations" tab.
 
 You can configure the interval at which the data is fetched from the external using the
 `integration.pull_every_minutes` configuration key. Defaults to `5` (minutes).

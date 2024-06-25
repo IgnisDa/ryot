@@ -99,14 +99,6 @@ frontend:
 
 # Settings related to external integrations.
 integration:
-  # The maximum progress limit after which a media is considered to be completed.
-  # @envvar INTEGRATION_MAXIMUM_PROGRESS_LIMIT
-  maximum_progress_limit: 95
-
-  # The minimum progress limit after which a media is considered to be started.
-  # @envvar INTEGRATION_MINIMUM_PROGRESS_LIMIT
-  minimum_progress_limit: 2
-
   # Sync data from [yank](/docs/guides/integrations.md) based integrations
   # every `n` minutes.
   # @envvar INTEGRATION_PULL_EVERY_MINUTES

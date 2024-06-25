@@ -295,12 +295,6 @@ pub struct IntegrationConfig {
     /// every `n` minutes.
     #[setting(default = 5)]
     pub pull_every_minutes: i32,
-    /// The minimum progress limit after which a media is considered to be started.
-    #[setting(default = 2)]
-    pub minimum_progress_limit: i32,
-    /// The maximum progress limit after which a media is considered to be completed.
-    #[setting(default = 95)]
-    pub maximum_progress_limit: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

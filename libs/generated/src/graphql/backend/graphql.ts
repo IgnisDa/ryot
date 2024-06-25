@@ -214,6 +214,8 @@ export type CreateCustomMetadataInput = {
 };
 
 export type CreateIntegrationInput = {
+  maximumProgress: Scalars['Decimal']['input'];
+  minimumProgress: Scalars['Decimal']['input'];
   source: IntegrationSource;
   sourceSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
 };
@@ -700,6 +702,8 @@ export type Integration = {
   id: Scalars['String']['output'];
   lastTriggeredOn?: Maybe<Scalars['DateTime']['output']>;
   lot: IntegrationLot;
+  maximumProgress: Scalars['Decimal']['output'];
+  minimumProgress: Scalars['Decimal']['output'];
   source: IntegrationSource;
   sourceSpecifics?: Maybe<IntegrationSourceSpecifics>;
 };
