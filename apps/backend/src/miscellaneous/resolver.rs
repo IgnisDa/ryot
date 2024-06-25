@@ -5404,6 +5404,11 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateIntegrationInput,
     ) -> Result<StringIdObject> {
+        if input.minimum_progress > input.maximum_progress {
+            return Err(Error::new(
+                "Minimum progress cannot be greater than maximum progress",
+            ));
+        }
         let lot = match input.source {
             IntegrationSource::Audiobookshelf => IntegrationLot::Yank,
             _ => IntegrationLot::Sink,
