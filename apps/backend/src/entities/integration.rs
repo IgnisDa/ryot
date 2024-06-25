@@ -15,6 +15,8 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     #[graphql(skip_input)]
     pub id: String,
+    pub minimum_progress: Decimal,
+    pub maximum_progress: Decimal,
     #[graphql(skip)]
     pub user_id: String,
     pub lot: IntegrationLot,

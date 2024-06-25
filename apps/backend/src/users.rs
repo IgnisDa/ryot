@@ -378,6 +378,10 @@ pub enum UserNotificationSetting {
     Email {
         email: String,
     },
+    Telegram {
+        bot_token: String,
+        chat_id: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]

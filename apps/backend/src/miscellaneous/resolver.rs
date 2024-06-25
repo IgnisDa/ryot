@@ -35,7 +35,7 @@ use openidconnect::{
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
 use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
@@ -155,6 +155,8 @@ struct CreateIntegrationInput {
     source: IntegrationSource,
     sync_to_owned_collection: Option<bool>,
     source_specifics: Option<IntegrationSourceSpecifics>,
+    minimum_progress: Decimal,
+    maximum_progress: Decimal,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -173,6 +175,7 @@ struct CreateUserNotificationPlatformInput {
     #[graphql(secret)]
     auth_header: Option<String>,
     priority: Option<i32>,
+    chat_id: Option<String>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -5450,6 +5453,9 @@ impl MiscellaneousService {
                 UserNotificationSetting::Email { email } => {
                     format!("Email: {}", email)
                 }
+                UserNotificationSetting::Telegram { chat_id, .. } => {
+                    format!("Telegram Chat ID: {}", chat_id)
+                }
             };
             all_notifications.push(GraphqlUserNotificationPlatform {
                 id: n.id,
@@ -5465,6 +5471,11 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateIntegrationInput,
     ) -> Result<StringIdObject> {
+        if input.minimum_progress > input.maximum_progress {
+            return Err(Error::new(
+                "Minimum progress cannot be greater than maximum progress",
+            ));
+        }
         let lot = match input.source {
             IntegrationSource::Audiobookshelf => IntegrationLot::Yank,
             _ => IntegrationLot::Sink,
@@ -5475,6 +5486,8 @@ impl MiscellaneousService {
             source: ActiveValue::Set(input.source),
             sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
             source_specifics: ActiveValue::Set(input.source_specifics),
+            minimum_progress: ActiveValue::Set(input.minimum_progress),
+            maximum_progress: ActiveValue::Set(input.maximum_progress),
             ..Default::default()
         };
         let integration = to_insert.insert(&self.db).await?;
@@ -5539,6 +5552,10 @@ impl MiscellaneousService {
                 },
                 UserNotificationSettingKind::Email => UserNotificationSetting::Email {
                     email: input.api_token.unwrap(),
+                },
+                UserNotificationSettingKind::Telegram => UserNotificationSetting::Telegram {
+                    bot_token: input.api_token.unwrap(),
+                    chat_id: input.chat_id.unwrap(),
                 },
             },
         };
@@ -5659,15 +5676,17 @@ impl MiscellaneousService {
                 _ => continue,
             };
             if let Ok((seen_progress, collection_progress)) = response {
-                progress_updates.extend(seen_progress);
                 collection_updates.extend(collection_progress);
-                to_update_integrations.push(integration.id);
+                to_update_integrations.push(integration.id.clone());
+                progress_updates.push((integration, seen_progress));
             }
         }
-        for progress_update in progress_updates.into_iter() {
-            self.integration_progress_update(progress_update, user_id)
-                .await
-                .trace_ok();
+        for (integration, progress_updates) in progress_updates.into_iter() {
+            for pu in progress_updates.into_iter() {
+                self.integration_progress_update(&integration, pu, user_id)
+                    .await
+                    .trace_ok();
+            }
         }
         for col_update in collection_updates.into_iter() {
             let metadata::Model { id, .. } = self
@@ -5780,7 +5799,7 @@ impl MiscellaneousService {
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(pu, &integration.user_id)
+                self.integration_progress_update(&integration, pu, &integration.user_id)
                     .await?;
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
@@ -5794,17 +5813,14 @@ impl MiscellaneousService {
     #[tracing::instrument(skip(self))]
     async fn integration_progress_update(
         &self,
+        integration: &integration::Model,
         pu: IntegrationMediaSeen,
         user_id: &String,
     ) -> Result<()> {
-        let maximum_limit =
-            Decimal::from_i32(self.config.integration.maximum_progress_limit).unwrap();
-        let minimum_limit =
-            Decimal::from_i32(self.config.integration.minimum_progress_limit).unwrap();
-        if pu.progress < minimum_limit {
+        if pu.progress < integration.minimum_progress {
             return Ok(());
         }
-        let progress = if pu.progress > maximum_limit {
+        let progress = if pu.progress > integration.maximum_progress {
             dec!(100)
         } else {
             pu.progress

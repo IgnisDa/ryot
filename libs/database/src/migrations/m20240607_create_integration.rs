@@ -16,6 +16,8 @@ pub enum Integration {
     SourceSpecifics,
     UserId,
     SyncToOwnedCollection,
+    MinimumProgress,
+    MaximumProgress,
 }
 
 #[async_trait::async_trait]
@@ -43,6 +45,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Integration::SourceSpecifics).json_binary())
                     .col(ColumnDef::new(Integration::UserId).text().not_null())
                     .col(ColumnDef::new(Integration::SyncToOwnedCollection).boolean())
+                    .col(
+                        ColumnDef::new(Integration::MinimumProgress)
+                            .decimal()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Integration::MaximumProgress)
+                            .decimal()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("integration_to_user_foreign_key")

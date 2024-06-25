@@ -222,6 +222,8 @@ export type CreateCustomMetadataInput = {
 };
 
 export type CreateIntegrationInput = {
+  maximumProgress: Scalars['Decimal']['input'];
+  minimumProgress: Scalars['Decimal']['input'];
   source: IntegrationSource;
   sourceSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
   syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
@@ -249,6 +251,7 @@ export type CreateUserNotificationPlatformInput = {
   apiToken?: InputMaybe<Scalars['String']['input']>;
   authHeader?: InputMaybe<Scalars['String']['input']>;
   baseUrl?: InputMaybe<Scalars['String']['input']>;
+  chatId?: InputMaybe<Scalars['String']['input']>;
   lot: UserNotificationSettingKind;
   priority?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -711,6 +714,8 @@ export type Integration = {
   id: Scalars['String']['output'];
   lastTriggeredOn?: Maybe<Scalars['DateTime']['output']>;
   lot: IntegrationLot;
+  maximumProgress: Scalars['Decimal']['output'];
+  minimumProgress: Scalars['Decimal']['output'];
   source: IntegrationSource;
   sourceSpecifics?: Maybe<IntegrationSourceSpecifics>;
   syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
@@ -2176,7 +2181,8 @@ export enum UserNotificationSettingKind {
   Ntfy = 'NTFY',
   PushBullet = 'PUSH_BULLET',
   PushOver = 'PUSH_OVER',
-  PushSafer = 'PUSH_SAFER'
+  PushSafer = 'PUSH_SAFER',
+  Telegram = 'TELEGRAM'
 }
 
 export type UserNotificationsPreferences = {

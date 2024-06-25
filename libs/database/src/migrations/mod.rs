@@ -27,6 +27,7 @@ mod m20240608_add_created_on_column_to_collection_to_entity;
 mod m20240614_00_add_is_recommendation_column_to_metadata;
 mod m20240614_01_add_new_section_to_dashboard;
 mod m20240619_remove_seen_from_media_reason_of_user_to_entity;
+mod m20240620_add_minimum_and_maximum_progress_columns_to_integration;
 mod m20240620_delete_invalid_calendar_events;
 mod m20240621_add_sync_to_owned_collection_to_integration;
 
@@ -79,6 +80,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240619_remove_seen_from_media_reason_of_user_to_entity::Migration),
             Box::new(m20240620_delete_invalid_calendar_events::Migration),
             Box::new(m20240621_add_sync_to_owned_collection_to_integration::Migration),
+            Box::new(m20240620_add_minimum_and_maximum_progress_columns_to_integration::Migration),
         ]
     }
 }
