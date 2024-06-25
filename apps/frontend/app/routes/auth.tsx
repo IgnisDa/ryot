@@ -11,6 +11,7 @@ import {
 	Stack,
 	TextInput,
 } from "@mantine/core";
+import { serialize } from "cookie";
 import {
 	redirect,
 	unstable_defineAction,
@@ -20,6 +21,7 @@ import {
 	Form,
 	Link,
 	type MetaArgs_SingleFetch,
+	unstable_defineClientAction,
 	useLoaderData,
 	useSearchParams,
 } from "@remix-run/react";
@@ -39,7 +41,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
+import { RAW_AUTH_COOKIE, redirectToQueryParam } from "~/lib/generals";
 import {
 	authCookie,
 	combineHeaders,
@@ -147,6 +149,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 					headers: combineHeaders(
 						{
 							"set-cookie": await authCookie.serialize(
+								loginUser.apiKey,
+								options,
+							),
+						},
+						{
+							"set-cookie": serialize(
+								RAW_AUTH_COOKIE,
 								loginUser.apiKey,
 								options,
 							),
