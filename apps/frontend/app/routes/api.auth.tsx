@@ -6,10 +6,11 @@ import {
 	LoginUserDocument,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { serialize } from "cookie";
 import { z } from "zod";
 import { zx } from "zodix";
+import { AUTH_COOKIE_NAME } from "~/lib/generals";
 import {
-	authCookie,
 	combineHeaders,
 	getCookiesForApplication,
 	gqlClient,
@@ -38,7 +39,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		const options = { maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60 };
 		return redirect($path("/"), {
 			headers: combineHeaders(
-				{ "set-cookie": await authCookie.serialize(loginUser.apiKey, options) },
+				{
+					"set-cookie": serialize(AUTH_COOKIE_NAME, loginUser.apiKey, options),
+				},
 				cookies,
 			),
 		});

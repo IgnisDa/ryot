@@ -20,12 +20,13 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { parse, serialize } from "cookie";
 import { GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
+import { AUTH_COOKIE_NAME, redirectToQueryParam } from "~/lib/generals";
 
 const isProduction = process.env.NODE_ENV === "production";
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
@@ -34,9 +35,12 @@ export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
 	headers: { Connection: "keep-alive" },
 });
 
+export const getCookieValue = (request: Request, cookieName: string) => {
+	return parse(request.headers.get("cookie") || "")[cookieName];
+};
+
 const getAuthorizationCookie = async (request: Request) => {
-	const cookie = await authCookie.parse(request.headers.get("cookie") || "");
-	return cookie;
+	return getCookieValue(request, AUTH_COOKIE_NAME);
 };
 
 export const getAuthorizationHeader = async (
@@ -240,8 +244,6 @@ const commonCookieOptions = {
 	secure: isProduction ? !serverVariables.FRONTEND_INSECURE_COOKIES : false,
 } satisfies CookieOptions;
 
-export const authCookie = createCookie("Auth", commonCookieOptions);
-
 export const userPreferencesCookie = createCookie(
 	"UserPreferences",
 	commonCookieOptions,
@@ -353,11 +355,7 @@ export const getCookiesForApplication = async (token: string) => {
 
 export const getLogoutCookies = async () => {
 	return combineHeaders(
-		{
-			"set-cookie": await authCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
+		{ "set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }) },
 		{
 			"set-cookie": await coreDetailsCookie.serialize("", {
 				expires: new Date(0),

@@ -33,15 +33,15 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
+import { serialize } from "cookie";
 import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
+import { AUTH_COOKIE_NAME, redirectToQueryParam } from "~/lib/generals";
 import {
-	authCookie,
 	combineHeaders,
 	createToastHeaders,
 	getCookiesForApplication,
@@ -146,7 +146,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 				return redirect(redirectUrl, {
 					headers: combineHeaders(
 						{
-							"set-cookie": await authCookie.serialize(
+							"set-cookie": serialize(
+								AUTH_COOKIE_NAME,
 								loginUser.apiKey,
 								options,
 							),

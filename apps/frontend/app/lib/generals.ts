@@ -202,3 +202,5 @@ export { dayjs as dayjsLib };
 export const redirectToQueryParam = "redirectTo";
 
 export const queryClient = new QueryClient();
+
+export const AUTH_COOKIE_NAME = "Auth";
