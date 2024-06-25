@@ -2679,6 +2679,11 @@ impl MiscellaneousService {
                 ));
             } else {
                 for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
+                    if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
+                        && SHOW_SPECIAL_SEASON_NAMES.contains(&s2.name.as_str())
+                    {
+                        continue;
+                    }
                     if s1.episodes.len() != s2.episodes.len() {
                         notifications.push((
                             format!(
