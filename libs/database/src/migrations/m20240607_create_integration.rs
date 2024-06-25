@@ -15,6 +15,8 @@ pub enum Integration {
     LastTriggeredOn,
     SourceSpecifics,
     UserId,
+    MinimumProgress,
+    MaximumProgress,
 }
 
 #[async_trait::async_trait]
@@ -41,6 +43,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Integration::LastTriggeredOn).timestamp_with_time_zone())
                     .col(ColumnDef::new(Integration::SourceSpecifics).json_binary())
                     .col(ColumnDef::new(Integration::UserId).text().not_null())
+                    .col(
+                        ColumnDef::new(Integration::MinimumProgress)
+                            .decimal()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Integration::MaximumProgress)
+                            .decimal()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("integration_to_user_foreign_key")
