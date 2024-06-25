@@ -5598,15 +5598,17 @@ impl MiscellaneousService {
                 _ => continue,
             };
             if let Ok((seen_progress, collection_progress)) = response {
-                progress_updates.extend(seen_progress);
                 collection_updates.extend(collection_progress);
-                to_update_integrations.push(integration.id);
+                to_update_integrations.push(integration.id.clone());
+                progress_updates.push((integration, seen_progress));
             }
         }
-        for progress_update in progress_updates.into_iter() {
-            self.integration_progress_update(progress_update, user_id)
-                .await
-                .trace_ok();
+        for (integration, progress_updates) in progress_updates.into_iter() {
+            for pu in progress_updates.into_iter() {
+                self.integration_progress_update(&integration, pu, user_id)
+                    .await
+                    .trace_ok();
+            }
         }
         for col_update in collection_updates.into_iter() {
             let metadata::Model { id, .. } = self
@@ -5719,7 +5721,7 @@ impl MiscellaneousService {
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(pu, &integration.user_id)
+                self.integration_progress_update(&integration, pu, &integration.user_id)
                     .await?;
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
@@ -5733,6 +5735,7 @@ impl MiscellaneousService {
     #[tracing::instrument(skip(self))]
     async fn integration_progress_update(
         &self,
+        integration: &integration::Model,
         pu: IntegrationMediaSeen,
         user_id: &String,
     ) -> Result<()> {
