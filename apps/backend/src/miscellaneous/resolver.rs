@@ -35,7 +35,7 @@ use openidconnect::{
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
 use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
@@ -154,6 +154,8 @@ struct CreateCustomMetadataInput {
 struct CreateIntegrationInput {
     source: IntegrationSource,
     source_specifics: Option<IntegrationSourceSpecifics>,
+    minimum_progress: Decimal,
+    maximum_progress: Decimal,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -5411,6 +5413,8 @@ impl MiscellaneousService {
             user_id: ActiveValue::Set(user_id),
             source: ActiveValue::Set(input.source),
             source_specifics: ActiveValue::Set(input.source_specifics),
+            minimum_progress: ActiveValue::Set(input.minimum_progress),
+            maximum_progress: ActiveValue::Set(input.maximum_progress),
             ..Default::default()
         };
         let integration = to_insert.insert(&self.db).await?;
@@ -5739,14 +5743,10 @@ impl MiscellaneousService {
         pu: IntegrationMediaSeen,
         user_id: &String,
     ) -> Result<()> {
-        let maximum_limit =
-            Decimal::from_i32(self.config.integration.maximum_progress_limit).unwrap();
-        let minimum_limit =
-            Decimal::from_i32(self.config.integration.minimum_progress_limit).unwrap();
-        if pu.progress < minimum_limit {
+        if pu.progress < integration.minimum_progress {
             return Ok(());
         }
-        let progress = if pu.progress > maximum_limit {
+        let progress = if pu.progress > integration.maximum_progress {
             dec!(100)
         } else {
             pu.progress
