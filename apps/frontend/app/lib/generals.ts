@@ -20,15 +20,11 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { GraphQLClient } from "graphql-request";
-import Cookies from "js-cookie";
 import { match } from "ts-pattern";
 
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
-
-export { dayjs as dayjsLib };
 
 export const CurrentWorkoutKey = "CurrentWorkout";
 export const LOGO_IMAGE_URL =
@@ -201,17 +197,8 @@ export const getMetadataIcon = (lot: MediaLot) => {
 		.exhaustive();
 };
 
+export { dayjs as dayjsLib };
+
 export const redirectToQueryParam = "redirectTo";
-
-export const RAW_AUTH_COOKIE = "RawAuthCookie";
-
-const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-
-export const gqlClientSide = new GraphQLClient(`${baseUrl}/backend/graphql`, {
-	headers: () => {
-		const data = Cookies.get(RAW_AUTH_COOKIE);
-		return { authorization: data ? `Bearer ${data}` : "" };
-	},
-});
 
 export const queryClient = new QueryClient();

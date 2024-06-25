@@ -20,13 +20,12 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { serialize } from "cookie";
 import { GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import { zx } from "zodix";
-import { RAW_AUTH_COOKIE, redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/generals";
 
 const isProduction = process.env.NODE_ENV === "production";
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
@@ -374,7 +373,6 @@ export const getLogoutCookies = async () => {
 				expires: new Date(0),
 			}),
 		},
-		{ "set-cookie": serialize(RAW_AUTH_COOKIE, "", { expires: new Date(0) }) },
 	);
 };
 
