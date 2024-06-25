@@ -15,6 +15,7 @@ import {
 	IconHeadphones,
 	IconMicrophone,
 } from "@tabler/icons-react";
+import { QueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
@@ -212,3 +213,5 @@ export const gqlClientSide = new GraphQLClient(`${baseUrl}/backend/graphql`, {
 		return { authorization: data ? `Bearer ${data}` : "" };
 	},
 });
+
+export const queryClient = new QueryClient();

@@ -24,11 +24,11 @@ import {
 	useLoaderData,
 	useNavigation,
 } from "@remix-run/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import "mantine-datatable/styles.layer.css";
 import { MountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
-import { LOGO_IMAGE_URL } from "~/lib/generals";
+import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";
 import {
 	colorSchemeCookie,
 	combineHeaders,
@@ -102,8 +102,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		{ headers: combineHeaders(toastHeaders) },
 	);
 });
-
-const queryClient = new QueryClient();
 
 const DefaultHeadTags = () => {
 	return (
