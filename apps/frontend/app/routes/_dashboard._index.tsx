@@ -13,7 +13,6 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	Link,
@@ -27,6 +26,7 @@ import {
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaLot,
+	UserCollectionsListDocument,
 	type UserMediaFeaturesEnabledPreferences,
 	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
@@ -55,15 +55,10 @@ import {
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
+	queryClient,
 	USER_PREFERENCES_COOKIE_NAME,
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import {
-	getAuthorizationHeader,
-	getUserCollectionsList,
-	getUserPreferences,
-	gqlClient,
-} from "~/lib/utilities.server";
 
 const cookieName = CurrentWorkoutKey;
 
@@ -75,65 +70,67 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 	return t;
 };
 
-export const loader = unstable_defineLoader(async ({ request }) => {
-	const preferences = await getUserPreferences(request);
+export const clientLoader = unstable_defineClientLoader(async ({ request }) => {
+	const preferences = JSON.parse(
+		Cookies.get(USER_PREFERENCES_COOKIE_NAME) || "",
+	) as UserPreferences;
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
-	const userCollectionsList = await getUserCollectionsList(request);
+	const { userCollectionsList } = await queryClient.ensureQueryData({
+		queryKey: [UserCollectionsListDocument],
+		queryFn: () => clientGqlService.request(UserCollectionsListDocument, {}),
+	});
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
 	invariant(foundInProgressCollection, 'No collection found for "In Progress"');
-	const [{ collectionContents: inProgressCollectionContents }] =
-		await Promise.all([
-			gqlClient.request(
-				CollectionContentsDocument,
-				{
+	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
+	const [
+		{ userUpcomingCalendarEvents },
+		{ latestUserSummary },
+		{ collectionContents: inProgressCollectionContents },
+	] = await Promise.all([
+		queryClient.ensureQueryData({
+			queryKey: [UserUpcomingCalendarEventsDocument],
+			queryFn: () =>
+				clientGqlService.request(UserUpcomingCalendarEventsDocument, {
+					input: { nextMedia: takeUpcoming },
+				}),
+		}),
+		queryClient.ensureQueryData({
+			queryKey: [LatestUserSummaryDocument],
+			queryFn: () =>
+				clientGqlService.request(LatestUserSummaryDocument, undefined),
+		}),
+		queryClient.ensureQueryData({
+			queryKey: [CollectionContentsDocument],
+			queryFn: () =>
+				clientGqlService.request(CollectionContentsDocument, {
 					input: {
 						collectionId: foundInProgressCollection.id,
 						take: takeInProgress,
 						sort: { order: GraphqlSortOrder.Desc },
 					},
-				},
-				await getAuthorizationHeader(request),
-			),
-		]);
+				}),
+		}),
+	]);
 	const cookies = request.headers.get("cookie");
 	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
-	return { inProgressCollectionContents, workoutInProgress };
+	return {
+		inProgressCollectionContents,
+		workoutInProgress,
+		userPreferences: {
+			reviewScale: preferences.general.reviewScale,
+			dashboard: preferences.general.dashboard,
+			media: preferences.featuresEnabled.media,
+			fitness: preferences.featuresEnabled.fitness,
+			unitSystem: preferences.fitness.exercises.unitSystem,
+		},
+		latestUserSummary,
+		userUpcomingCalendarEvents,
+	};
 });
 
-export const clientLoader = unstable_defineClientLoader(
-	async ({ serverLoader }) => {
-		const data = await serverLoader<typeof loader>();
-		const preferences = JSON.parse(
-			Cookies.get(USER_PREFERENCES_COOKIE_NAME) || "",
-		) as UserPreferences;
-		const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
-		const [{ userUpcomingCalendarEvents }, { latestUserSummary }] =
-			await Promise.all([
-				clientGqlService.request(UserUpcomingCalendarEventsDocument, {
-					input: { nextMedia: takeUpcoming },
-				}),
-				clientGqlService.request(LatestUserSummaryDocument, undefined),
-			]);
-		return {
-			...data,
-			userPreferences: {
-				reviewScale: preferences.general.reviewScale,
-				dashboard: preferences.general.dashboard,
-				media: preferences.featuresEnabled.media,
-				fitness: preferences.featuresEnabled.fitness,
-				unitSystem: preferences.fitness.exercises.unitSystem,
-			},
-			latestUserSummary,
-			userUpcomingCalendarEvents,
-		};
-	},
-);
-
-clientLoader.hydrate = true;
-
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs_SingleFetch<typeof clientLoader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
@@ -155,14 +152,14 @@ export default function Page() {
 						</Text>
 					</Alert>
 				) : null}
-				{loaderData.latestUserSummary?.media.metadataOverall.interactedWith ===
+				{loaderData.latestUserSummary.media.metadataOverall.interactedWith ===
 				0 ? (
 					<NewUserGuideAlert />
 				) : null}
-				{loaderData.userPreferences?.dashboard.map((de) =>
+				{loaderData.userPreferences.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
-							loaderData.userUpcomingCalendarEvents?.length > 0 ? (
+							loaderData.userUpcomingCalendarEvents.length > 0 ? (
 								<Section key="upcoming">
 									<Title>Upcoming</Title>
 									<ApplicationGrid>
@@ -231,7 +228,7 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences?.media}
+										media={loaderData.userPreferences.media}
 										lot={MediaLot.Show}
 										data={[
 											{
