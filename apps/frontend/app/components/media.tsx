@@ -470,7 +470,7 @@ export const BaseDisplayItem = (props: {
 	href?: string;
 	highlightRightText?: string;
 	children?: ReactNode;
-	nameRight?: JSX.Element;
+	nameRight?: ReactNode;
 	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
@@ -503,7 +503,7 @@ export const BaseDisplayItem = (props: {
 		].includes(r),
 	);
 
-	const themeIconSurround = (idx: number, icon?: JSX.Element) => (
+	const themeIconSurround = (idx: number, icon?: ReactNode) => (
 		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
 			{icon}
 		</ThemeIcon>
@@ -615,7 +615,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noBottomRight?: boolean;
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
-	nameRight?: JSX.Element;
+	nameRight?: ReactNode;
 	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const navigate = useNavigate();
