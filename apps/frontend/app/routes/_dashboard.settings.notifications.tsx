@@ -45,14 +45,14 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getCoreDetails,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreDetails, { userNotificationPlatforms }] = await Promise.all([
 		getCoreDetails(request),
-		gqlClient.request(
+		serverGqlService.request(
 			UserNotificationPlatformsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -73,7 +73,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				CreateUserNotificationPlatformDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -82,7 +82,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeleteUserNotificationPlatformDocument,
 				submission,
 				await getAuthorizationHeader(request),
@@ -95,7 +95,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		test: async () => {
-			const { testUserNotificationPlatforms } = await gqlClient.request(
+			const { testUserNotificationPlatforms } = await serverGqlService.request(
 				TestUserNotificationPlatformsDocument,
 				undefined,
 				await getAuthorizationHeader(request),

@@ -47,7 +47,7 @@ import {
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	getIsAuthenticated,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 	redirectWithToast,
 } from "~/lib/utilities.server";
@@ -68,7 +68,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		});
 	const [enabledFeatures, { coreDetails }] = await Promise.all([
 		getCoreEnabledFeatures(),
-		gqlClient.request(CoreDetailsDocument),
+		serverGqlService.request(CoreDetailsDocument),
 	]);
 	return {
 		intent: query.intent || "login",
@@ -101,14 +101,17 @@ export const action = unstable_defineAction(async ({ request }) => {
 							"Invalid form data",
 					}),
 				});
-			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
-				input: {
-					password: {
-						password: submission.value.password,
-						username: submission.value.username,
+			const { registerUser } = await serverGqlService.request(
+				RegisterUserDocument,
+				{
+					input: {
+						password: {
+							password: submission.value.password,
+							username: submission.value.username,
+						},
 					},
 				},
-			});
+			);
 			if (registerUser.__typename === "RegisterError") {
 				const message = match(registerUser.error)
 					.with(RegisterErrorVariant.Disabled, () => "Registration is disabled")
@@ -129,7 +132,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		login: async () => {
 			const submission = processSubmission(formData, loginSchema);
-			const { loginUser } = await gqlClient.request(LoginUserDocument, {
+			const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 				input: {
 					password: {
 						password: submission.password,
@@ -172,7 +175,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		getOauthRedirectUrl: async () => {
-			const { getOidcRedirectUrl } = await gqlClient.request(
+			const { getOidcRedirectUrl } = await serverGqlService.request(
 				GetOidcRedirectUrlDocument,
 			);
 			return redirect(getOidcRedirectUrl);

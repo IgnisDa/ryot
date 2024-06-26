@@ -55,7 +55,7 @@ import {
 	getAuthorizationHeader,
 	getCoreDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export type SearchParams = {
@@ -103,7 +103,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						.default(defaultFilters.orderBy),
 				}),
 			);
-			const { peopleList } = await gqlClient.request(
+			const { peopleList } = await serverGqlService.request(
 				PeopleListDocument,
 				{
 					input: {
@@ -124,7 +124,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					isAnilistStudio: zx.BoolAsString.optional(),
 				}),
 			);
-			const { peopleSearch } = await gqlClient.request(
+			const { peopleSearch } = await serverGqlService.request(
 				PeopleSearchDocument,
 				{
 					input: {

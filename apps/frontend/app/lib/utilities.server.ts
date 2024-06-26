@@ -34,7 +34,7 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
+export const serverGqlService = new GraphQLClient(`${API_URL}/graphql`, {
 	headers: { Connection: "keep-alive" },
 });
 
@@ -61,7 +61,7 @@ export const getIsAuthenticated = async (request: Request) => {
 	const cookie = await getAuthorizationCookie(request);
 	if (!cookie) return [false, null] as const;
 	try {
-		const { userDetails } = await gqlClient.request(
+		const { userDetails } = await serverGqlService.request(
 			UserDetailsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -153,7 +153,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 };
 
 export const getUserCollectionsList = async (request: Request) => {
-	const { userCollectionsList } = await gqlClient.request(
+	const { userCollectionsList } = await serverGqlService.request(
 		UserCollectionsListDocument,
 		{},
 		await getAuthorizationHeader(request),
@@ -167,7 +167,7 @@ export const uploadFileAndGetKey = async (
 	contentType: string,
 	body: ArrayBuffer | Buffer,
 ) => {
-	const { presignedPutS3Url } = await gqlClient.request(
+	const { presignedPutS3Url } = await serverGqlService.request(
 		PresignedPutS3UrlDocument,
 		{ input: { fileName, prefix } },
 	);
@@ -180,7 +180,7 @@ export const uploadFileAndGetKey = async (
 };
 
 export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await gqlClient.request(
+	const { getPresignedS3Url } = await serverGqlService.request(
 		GetPresignedS3UrlDocument,
 		{ key },
 	);
@@ -230,7 +230,7 @@ export const s3FileUploader = (prefix: string) =>
 	}, unstable_createMemoryUploadHandler());
 
 export const getCoreEnabledFeatures = async () => {
-	const { coreEnabledFeatures } = await gqlClient.request(
+	const { coreEnabledFeatures } = await serverGqlService.request(
 		CoreEnabledFeaturesDocument,
 	);
 	return coreEnabledFeatures;
@@ -306,13 +306,13 @@ export async function getToast(request: Request) {
 export const getCookiesForApplication = async (token: string) => {
 	const [{ coreDetails }, { userPreferences }, { userDetails }] =
 		await Promise.all([
-			gqlClient.request(CoreDetailsDocument),
-			gqlClient.request(
+			serverGqlService.request(CoreDetailsDocument),
+			serverGqlService.request(
 				UserPreferencesDocument,
 				undefined,
 				await getAuthorizationHeader(undefined, token),
 			),
-			gqlClient.request(
+			serverGqlService.request(
 				UserDetailsDocument,
 				undefined,
 				await getAuthorizationHeader(undefined, token),

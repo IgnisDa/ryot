@@ -43,7 +43,7 @@ import {
 	getAuthorizationHeader,
 	getCoreDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export type SearchParams = {
@@ -72,7 +72,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	]);
 	const [list, search] = await match(action)
 		.with(Action.List, async () => {
-			const { metadataGroupsList } = await gqlClient.request(
+			const { metadataGroupsList } = await serverGqlService.request(
 				MetadataGroupsListDocument,
 				{ input: { page, query } },
 				await getAuthorizationHeader(request),
@@ -88,7 +88,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			);
 			const lot = SEARCH_SOURCES_ALLOWED[urlParse.source];
 			invariant(lot, "Invalid lot");
-			const { metadataGroupSearch } = await gqlClient.request(
+			const { metadataGroupSearch } = await serverGqlService.request(
 				MetadataGroupSearchDocument,
 				{ input: { lot, source: urlParse.source, search: { page, query } } },
 				await getAuthorizationHeader(request),

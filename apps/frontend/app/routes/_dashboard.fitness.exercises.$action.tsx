@@ -45,7 +45,7 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getCoreEnabledFeatures,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 	s3FileUploader,
 } from "~/lib/utilities.server";
@@ -66,7 +66,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {
 			invariant(query.name, "Exercise name is required");
-			const { exerciseDetails } = await gqlClient.request(
+			const { exerciseDetails } = await serverGqlService.request(
 				ExerciseDetailsDocument,
 				{ exerciseId: query.name },
 			);
@@ -111,7 +111,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	try {
 		return await namedAction(request, {
 			[Action.Create]: async () => {
-				const { createCustomExercise } = await gqlClient.request(
+				const { createCustomExercise } = await serverGqlService.request(
 					CreateCustomExerciseDocument,
 					{ input },
 					await getAuthorizationHeader(request),
@@ -122,7 +122,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			},
 			[Action.Update]: async () => {
 				invariant(submission.oldName, "Old name is required");
-				await gqlClient.request(
+				await serverGqlService.request(
 					EditCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },
 					await getAuthorizationHeader(request),

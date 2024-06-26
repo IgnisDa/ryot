@@ -5,14 +5,17 @@ import {
 	UserExerciseDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import invariant from "tiny-invariant";
-import { getAuthorizationHeader, gqlClient } from "~/lib/utilities.server";
+import {
+	getAuthorizationHeader,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 async function fetchExerciseDetails(params: Params<string>, request: Request) {
 	const exerciseId = params.id;
 	invariant(exerciseId, "No exercise ID provided");
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
-		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
-		gqlClient.request(
+		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+		serverGqlService.request(
 			UserExerciseDetailsDocument,
 			{ input: { exerciseId, takeHistory: 1 } },
 			await getAuthorizationHeader(request),

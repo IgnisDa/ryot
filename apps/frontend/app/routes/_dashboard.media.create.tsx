@@ -33,7 +33,7 @@ import { z } from "zod";
 import {
 	getAuthorizationHeader,
 	getCoreEnabledFeatures,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 	s3FileUploader,
 } from "~/lib/utilities.server";
@@ -63,7 +63,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
 	input.creators = input.creators?.split(", ");
-	const { createCustomMetadata } = await gqlClient.request(
+	const { createCustomMetadata } = await serverGqlService.request(
 		CreateCustomMetadataDocument,
 		{ input },
 		await getAuthorizationHeader(request),

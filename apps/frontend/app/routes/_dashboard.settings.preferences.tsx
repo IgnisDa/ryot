@@ -56,7 +56,7 @@ import {
 	getCookiesForApplication,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
@@ -102,7 +102,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		});
 	}
 	for (const input of submission) {
-		await gqlClient.request(
+		await serverGqlService.request(
 			UpdateUserPreferenceDocument,
 			{ input },
 			await getAuthorizationHeader(request),

@@ -52,7 +52,7 @@ import { dayjsLib } from "~/lib/generals";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 } from "~/lib/utilities.server";
 
@@ -60,7 +60,7 @@ const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
-		gqlClient.request(
+		serverGqlService.request(
 			UserIntegrationsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -78,7 +78,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeleteUserIntegrationDocument,
 				submission,
 				await getAuthorizationHeader(request),
@@ -95,7 +95,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				CreateUserIntegrationDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -111,7 +111,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 		generateAuthToken: async () => {
-			const { generateAuthToken } = await gqlClient.request(
+			const { generateAuthToken } = await serverGqlService.request(
 				GenerateAuthTokenDocument,
 				undefined,
 				await getAuthorizationHeader(request),

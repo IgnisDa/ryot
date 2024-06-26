@@ -127,7 +127,7 @@ import {
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 	redirectWithToast,
 } from "~/lib/utilities.server";
 import {
@@ -160,10 +160,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	] = await Promise.all([
 		getUserPreferences(request),
 		getUserDetails(request),
-		gqlClient.request(MetadataMainDetailsDocument, { metadataId }),
+		serverGqlService.request(MetadataMainDetailsDocument, { metadataId }),
 		getUserCollectionsList(request),
 	]);
-	const mediaAdditionalDetails = gqlClient.request(
+	const mediaAdditionalDetails = serverGqlService.request(
 		MetadataAdditionalDetailsDocument,
 		{ metadataId },
 	);
@@ -196,7 +196,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		individualProgressUpdate: async () => {
 			const submission = processSubmission(formData, bulkUpdateSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -210,7 +210,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deleteSeenItem: async () => {
 			const submission = processSubmission(formData, seenIdSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeleteSeenItemDocument,
 				submission,
 				await getAuthorizationHeader(request),
@@ -224,7 +224,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployUpdateMetadataJob: async () => {
 			const submission = processSubmission(formData, metadataIdSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeployUpdateMetadataJobDocument,
 				submission,
 				await getAuthorizationHeader(request),
@@ -238,7 +238,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		mergeMetadata: async () => {
 			const submission = processSubmission(formData, mergeMetadataSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				MergeMetadataDocument,
 				submission,
 				await getAuthorizationHeader(request),
@@ -250,7 +250,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
-			await gqlClient.request(
+			await serverGqlService.request(
 				EditSeenItemDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -362,7 +362,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
-			const { deployBulkProgressUpdate } = await gqlClient.request(
+			const { deployBulkProgressUpdate } = await serverGqlService.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: updates },
 				await getAuthorizationHeader(request),

@@ -47,7 +47,7 @@ import {
 	getAuthorizationHeader,
 	getUserCollectionsList,
 	getUserDetails,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 } from "~/lib/utilities.server";
 
@@ -69,7 +69,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			try {
-				await gqlClient.request(
+				await serverGqlService.request(
 					CreateOrUpdateCollectionDocument,
 					{ input: submission },
 					await getAuthorizationHeader(request),
@@ -107,7 +107,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 			let wasSuccessful = true;
 			try {
-				await gqlClient.request(
+				await serverGqlService.request(
 					DeleteCollectionDocument,
 					submission,
 					await getAuthorizationHeader(request),

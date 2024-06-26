@@ -100,7 +100,7 @@ import {
 	getCoreDetails,
 	getCoreEnabledFeatures,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 	redirectWithToast,
 } from "~/lib/utilities.server";
 import {
@@ -150,7 +150,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		createWorkout: async () => {
 			const workout = JSON.parse(formData.get("workout") as string);
-			const { createUserWorkout } = await gqlClient.request(
+			const { createUserWorkout } = await serverGqlService.request(
 				CreateUserWorkoutDocument,
 				workout,
 				await getAuthorizationHeader(request),

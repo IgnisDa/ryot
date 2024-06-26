@@ -23,7 +23,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
-import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
+import { getCoreDetails, serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -36,7 +36,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [coreDetails, { genresList }] = await Promise.all([
 		getCoreDetails(request),
-		gqlClient.request(GenresListDocument, {
+		serverGqlService.request(GenresListDocument, {
 			input: { page: query.page, query: query.query },
 		}),
 	]);

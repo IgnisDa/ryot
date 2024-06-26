@@ -32,14 +32,14 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getCoreDetails,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreDetails, { usersList }] = await Promise.all([
 		getCoreDetails(request),
-		gqlClient.request(
+		serverGqlService.request(
 			UsersListDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -57,7 +57,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			const { deleteUser } = await gqlClient.request(
+			const { deleteUser } = await serverGqlService.request(
 				DeleteUserDocument,
 				submission,
 				await getAuthorizationHeader(request),
@@ -73,7 +73,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		register: async () => {
 			const submission = processSubmission(formData, registerFormSchema);
-			const { registerUser } = await gqlClient.request(
+			const { registerUser } = await serverGqlService.request(
 				RegisterUserDocument,
 				{ input: { password: submission } },
 				await getAuthorizationHeader(request),

@@ -57,7 +57,7 @@ import {
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 	processSubmission,
 } from "~/lib/utilities.server";
 
@@ -80,8 +80,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	] = await Promise.all([
 		getUserPreferences(request),
 		getUserDetails(request),
-		gqlClient.request(PersonDetailsDocument, { personId }),
-		gqlClient.request(
+		serverGqlService.request(PersonDetailsDocument, { personId }),
+		serverGqlService.request(
 			UserPersonDetailsDocument,
 			{ personId },
 			await getAuthorizationHeader(request),
@@ -111,7 +111,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		deployUpdatePersonJob: async () => {
 			const submission = processSubmission(formData, personIdSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeployUpdatePersonJobDocument,
 				submission,
 				await getAuthorizationHeader(request),
