@@ -12,3 +12,6 @@ projects:
 vcs:
   manager: "git"
   defaultBranch: "main"
+
+experiments:
+  actionPipelineV2: true
