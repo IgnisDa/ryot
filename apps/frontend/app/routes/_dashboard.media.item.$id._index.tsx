@@ -1143,18 +1143,20 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
-							{loaderData.userMetadataDetails.seenBy > 0 ||
-							loaderData.userMetadataDetails.history.length > 0 ||
+							{loaderData.userMetadataDetails.seenByAllCount > 0 ||
+							loaderData.userMetadataDetails.seenByUserCount > 0 ||
 							loaderData.userMetadataDetails.unitsConsumed ? (
 								<Stack h={MEDIA_DETAILS_HEIGHT}>
 									<Box>
 										<Text fz={{ base: "sm", md: "md" }}>
-											Seen by all users {loaderData.userMetadataDetails.seenBy}{" "}
-											time
-											{loaderData.userMetadataDetails.seenBy > 1 ? "s" : ""} and{" "}
-											{loaderData.userMetadataDetails.history.length} time
+											Seen by all users{" "}
+											{loaderData.userMetadataDetails.seenByAllCount} time
+											{loaderData.userMetadataDetails.seenByAllCount > 1
+												? "s"
+												: ""}{" "}
+											and {loaderData.userMetadataDetails.seenByUserCount} time
 											{loaderData.userMetadataDetails &&
-											loaderData.userMetadataDetails.history.length > 1
+											loaderData.userMetadataDetails.seenByUserCount > 1
 												? "s"
 												: ""}{" "}
 											by you.
