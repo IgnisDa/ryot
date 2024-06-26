@@ -1,5 +1,5 @@
-query UserMetadataDetails($metadataId: String!) {
-  userMetadataDetails(metadataId: $metadataId) {
+query UserMetadataDetails($input: UserMetadataDetailsInput!) {
+  userMetadataDetails(input: $input) {
     collections {
       ...CollectionPart
     }
