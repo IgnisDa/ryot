@@ -173,8 +173,8 @@ impl MediaProvider for ITunesService {
             creators,
             genres,
             podcast_specifics: Some(PodcastSpecifics {
+                total_episodes: episodes.len(),
                 episodes,
-                total_episodes,
             }),
             ..Default::default()
         })
