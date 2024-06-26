@@ -1182,55 +1182,55 @@ export default function Page() {
 								{userMetadataDetails.seenBy > 0 ||
 								userMetadataDetails.history.length > 0 ||
 								userMetadataDetails.unitsConsumed ? (
-									<MediaScrollArea>
-										<Stack>
-											<Box>
+									<Stack h={{ base: "45vh", "2xl": "55vh" }}>
+										<Box>
+											<Text fz={{ base: "sm", md: "md" }}>
+												Seen by all users {userMetadataDetails.seenBy} time
+												{userMetadataDetails.seenBy > 1 ? "s" : ""} and{" "}
+												{userMetadataDetails.history.length} time
+												{userMetadataDetails &&
+												userMetadataDetails.history.length > 1
+													? "s"
+													: ""}{" "}
+												by you.
+											</Text>
+											{userMetadataDetails.unitsConsumed ? (
 												<Text fz={{ base: "sm", md: "md" }}>
-													Seen by all users {userMetadataDetails.seenBy} time
-													{userMetadataDetails.seenBy > 1 ? "s" : ""} and{" "}
-													{userMetadataDetails.history.length} time
-													{userMetadataDetails &&
-													userMetadataDetails.history.length > 1
-														? "s"
-														: ""}{" "}
-													by you.
+													Consumed{" "}
+													{match(loaderData.mediaMainDetails.lot)
+														.with(
+															MediaLot.AudioBook,
+															MediaLot.Movie,
+															MediaLot.Show,
+															MediaLot.Podcast,
+															MediaLot.VisualNovel,
+															() =>
+																humanizeDuration(
+																	(userMetadataDetails.unitsConsumed || 0) *
+																		1000 *
+																		60,
+																),
+														)
+														.otherwise(
+															(v) =>
+																`${userMetadataDetails.unitsConsumed} ${match(v)
+																	.with(MediaLot.VideoGame, () => "")
+																	.with(MediaLot.Book, () => "pages")
+																	.with(MediaLot.Anime, () => "episodes")
+																	.with(MediaLot.Manga, () => "chapters")
+																	.exhaustive()}`,
+														)}
+													.
 												</Text>
-												{userMetadataDetails.unitsConsumed ? (
-													<Text fz={{ base: "sm", md: "md" }}>
-														Consumed{" "}
-														{match(loaderData.mediaMainDetails.lot)
-															.with(
-																MediaLot.AudioBook,
-																MediaLot.Movie,
-																MediaLot.Show,
-																MediaLot.Podcast,
-																MediaLot.VisualNovel,
-																() =>
-																	humanizeDuration(
-																		(userMetadataDetails.unitsConsumed || 0) *
-																			1000 *
-																			60,
-																	),
-															)
-															.otherwise(
-																(v) =>
-																	`${userMetadataDetails.unitsConsumed} ${match(
-																		v,
-																	)
-																		.with(MediaLot.VideoGame, () => "")
-																		.with(MediaLot.Book, () => "pages")
-																		.with(MediaLot.Anime, () => "episodes")
-																		.with(MediaLot.Manga, () => "chapters")
-																		.exhaustive()}`,
-															)}
-														.
-													</Text>
-												) : null}
-											</Box>
-											{userMetadataDetails.history.map((h) => (
+											) : null}
+										</Box>
+										<Virtuoso
+											style={{ height: "100%" }}
+											data={userMetadataDetails.history}
+											itemContent={(_, history) => (
 												<SeenItem
-													history={h}
-													key={h.id}
+													history={history}
+													key={history.id}
 													showSpecifics={
 														metadataAdditionalDetails?.showSpecifics
 													}
@@ -1238,9 +1238,9 @@ export default function Page() {
 														metadataAdditionalDetails?.podcastSpecifics
 													}
 												/>
-											))}
-										</Stack>
-									</MediaScrollArea>
+											)}
+										/>
+									</Stack>
 								) : (
 									<Text>No history</Text>
 								)}
@@ -2055,6 +2055,7 @@ const SeenItem = (props: {
 	return (
 		<>
 			<Flex
+				my="sm"
 				key={props.history.id}
 				gap={{ base: "xs", md: "lg", xl: "xl" }}
 				data-seen-id={props.history.id}
