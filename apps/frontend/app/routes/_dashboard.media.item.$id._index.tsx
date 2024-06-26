@@ -43,6 +43,7 @@ import {
 	Form,
 	Link,
 	type MetaArgs_SingleFetch,
+	useActionData,
 	useLoaderData,
 } from "@remix-run/react";
 import {
@@ -463,8 +464,14 @@ const useUserMetadataDetails = (
 	seenPage: number,
 ) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const actionData = useActionData<typeof action>();
 	const { data } = useQuery({
-		queryKey: ["userMetadataDetails", loaderData.metadataId, seenPage],
+		queryKey: [
+			"userMetadataDetails",
+			loaderData.metadataId,
+			seenPage,
+			actionData,
+		],
 		queryFn: async () => {
 			const { userMetadataDetails } = await clientGqlService.request(
 				UserMetadataDetailsDocument,
@@ -1267,8 +1274,8 @@ export default function Page() {
 											key={podcastEpisode.id}
 											episode={podcastEpisode}
 											index={podcastEpisodeIdx}
-											history={userMetadataDetails.history}
 											setData={setUpdateProgressModalData}
+											podcastProgress={userMetadataDetails.podcastProgress}
 										/>
 									)}
 								/>
@@ -2227,13 +2234,11 @@ const DisplayShowEpisode = (props: {
 const DisplayPodcastEpisode = (props: {
 	index: number;
 	episode: PodcastEpisode;
-	history: AllUserHistory;
 	setData: (data: UpdateProgress) => void;
+	podcastProgress: UserMetadataDetailsQuery["userMetadataDetails"]["podcastProgress"];
 }) => {
 	const numTimesEpisodeSeen =
-		props.history.filter(
-			(h) => h.podcastExtraInformation?.episode === props.episode.number,
-		).length || 0;
+		props.podcastProgress?.[props.index]?.timesSeen || 0;
 
 	return (
 		<Box my={props.index !== 0 ? "md" : undefined}>
