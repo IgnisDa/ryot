@@ -1839,7 +1839,7 @@ impl MiscellaneousService {
                 history.len(),
                 self.config.frontend.page_size.try_into().unwrap(),
             );
-            let selected_page = pages.with_offset(select);
+            let selected_page = pages.with_offset(select - 1);
             history[selected_page.start..selected_page.end + 1].to_vec()
         } else {
             history

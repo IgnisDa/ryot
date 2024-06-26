@@ -169,7 +169,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		getUserCollectionsList(request),
 		serverGqlService.request(
 			UserMetadataDetailsDocument,
-			{ input: { metadataId, seenPage: 0 } },
+			{ input: { metadataId, seenPage: 1 } },
 			await getAuthorizationHeader(request),
 		),
 	]);
@@ -460,9 +460,8 @@ const useMetadataAdditionalDetails = () => {
 
 const useUserMetadataDetails = (
 	initialData: UserMetadataDetailsQuery["userMetadataDetails"],
-	page: number,
+	seenPage: number,
 ) => {
-	const seenPage = page - 1;
 	const loaderData = useLoaderData<typeof loader>();
 	const { data } = useQuery({
 		queryKey: ["userMetadataDetails", loaderData.metadataId, seenPage],
