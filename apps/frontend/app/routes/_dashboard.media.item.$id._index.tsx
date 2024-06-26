@@ -42,6 +42,7 @@ import {
 	Form,
 	Link,
 	type MetaArgs_SingleFetch,
+	useActionData,
 	useLoaderData,
 } from "@remix-run/react";
 import {
@@ -89,6 +90,7 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, Suspense, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
@@ -111,7 +113,13 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
+import {
+	Verb,
+	clientGqlService,
+	dayjsLib,
+	getVerb,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -144,7 +152,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataId = params.id;
 	invariant(metadataId, "No ID provided");
-	const headers = await getAuthorizationHeader(request);
 	const [
 		userPreferences,
 		userDetails,
@@ -159,11 +166,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const mediaAdditionalDetails = gqlClient.request(
 		MetadataAdditionalDetailsDocument,
 		{ metadataId },
-	);
-	const userMediaDetails = gqlClient.request(
-		UserMetadataDetailsDocument,
-		{ metadataId },
-		headers,
 	);
 	return {
 		query,
@@ -181,7 +183,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		metadataId,
 		mediaMainDetails,
 		mediaAdditionalDetails,
-		userMediaDetails,
 		collections,
 	};
 });
@@ -189,9 +190,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.mediaMainDetails.title} | Ryot` }];
 };
-
-const sleepForASecond = () =>
-	new Promise((resolve) => setTimeout(resolve, 1000));
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
@@ -203,7 +201,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			await sleepForASecond();
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -370,7 +367,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 				{ input: updates },
 				await getAuthorizationHeader(request),
 			);
-			await sleepForASecond();
 			const headers = {
 				headers: await createToastHeaders({
 					type: !deployBulkProgressUpdate ? "error" : "success",
@@ -439,10 +435,27 @@ const showSpecificsSchema = z.array(
 
 const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
+const useUserMetadataDetails = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const actionData = useActionData<typeof action>();
+	const { data } = useQuery({
+		queryKey: ["userMetadataDetails", loaderData, actionData],
+		queryFn: async () => {
+			const { userMetadataDetails } = await clientGqlService.request(
+				UserMetadataDetailsDocument,
+				{ metadataId: loaderData.metadataId },
+			);
+			return userMetadataDetails;
+		},
+	});
+	return data;
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
 
+	const userMetadataDetails = useUserMetadataDetails();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -554,23 +567,19 @@ export default function Page() {
 						) : null}
 						<Title id="media-title">{loaderData.mediaMainDetails.title}</Title>
 					</Box>
-					<UserMetadataDetailsSuspenseLoader>
-						{(userMetadataDetails) =>
-							userMetadataDetails.collections.length > 0 ? (
-								<Group>
-									{userMetadataDetails.collections.map((col) => (
-										<DisplayCollection
-											key={col.id}
-											col={col}
-											userId={col.userId}
-											entityId={loaderData.metadataId.toString()}
-											entityLot={EntityLot.Media}
-										/>
-									))}
-								</Group>
-							) : null
-						}
-					</UserMetadataDetailsSuspenseLoader>
+					{userMetadataDetails && userMetadataDetails.collections.length > 0 ? (
+						<Group>
+							{userMetadataDetails.collections.map((col) => (
+								<DisplayCollection
+									key={col.id}
+									col={col}
+									userId={col.userId}
+									entityId={loaderData.metadataId.toString()}
+									entityLot={EntityLot.Media}
+								/>
+							))}
+						</Group>
+					) : null}
 					{loaderData.mediaMainDetails.isPartial ? (
 						<MediaIsPartial mediaType="media" />
 					) : null}
@@ -619,125 +628,123 @@ export default function Page() {
 							</Text>
 						)}
 					</MediaAdditionalDetailsSuspenseLoader>
-					<UserMetadataDetailsSuspenseLoader>
-						{(userMetadataDetails) => (
-							<>
-								{loaderData.mediaMainDetails.providerRating ||
-								userMetadataDetails.averageRating ? (
-									<Group>
-										{loaderData.mediaMainDetails.providerRating ? (
-											<Paper
-												p={4}
-												display="flex"
-												style={{
-													flexDirection: "column",
-													alignItems: "center",
-													gap: 6,
-												}}
-											>
-												<Image
-													alt="Logo"
-													h={24}
-													w={24}
-													src={`/provider-logos/${match(
-														loaderData.mediaMainDetails.source,
+					{userMetadataDetails ? (
+						<>
+							{loaderData.mediaMainDetails.providerRating ||
+							userMetadataDetails.averageRating ? (
+								<Group>
+									{loaderData.mediaMainDetails.providerRating ? (
+										<Paper
+											p={4}
+											display="flex"
+											style={{
+												flexDirection: "column",
+												alignItems: "center",
+												gap: 6,
+											}}
+										>
+											<Image
+												alt="Logo"
+												h={24}
+												w={24}
+												src={`/provider-logos/${match(
+													loaderData.mediaMainDetails.source,
+												)
+													.with(MediaSource.Anilist, () => "anilist.svg")
+													.with(MediaSource.Audible, () => "audible.svg")
+													.with(
+														MediaSource.GoogleBooks,
+														() => "google-books.svg",
 													)
-														.with(MediaSource.Anilist, () => "anilist.svg")
-														.with(MediaSource.Audible, () => "audible.svg")
-														.with(
-															MediaSource.GoogleBooks,
-															() => "google-books.svg",
-														)
-														.with(MediaSource.Igdb, () => "igdb.svg")
-														.with(MediaSource.Itunes, () => "itunes.svg")
-														.with(
-															MediaSource.Listennotes,
-															() => "listennotes.webp",
-														)
-														.with(MediaSource.Mal, () => "mal.svg")
-														.with(
-															MediaSource.MangaUpdates,
-															() => "manga-updates.svg",
-														)
-														.with(
-															MediaSource.Openlibrary,
-															() => "openlibrary.svg",
-														)
-														.with(MediaSource.Tmdb, () => "tmdb.svg")
-														.with(MediaSource.Vndb, () => "vndb.ico")
-														.with(MediaSource.Custom, () => undefined)
-														.exhaustive()}`}
-												/>
-												<Text fz="sm">
-													{Number(
-														loaderData.mediaMainDetails.providerRating,
-													).toFixed(1)}
-													{match(loaderData.mediaMainDetails.source)
-														.with(
-															MediaSource.Anilist,
-															MediaSource.Igdb,
-															MediaSource.Listennotes,
-															MediaSource.Tmdb,
-															MediaSource.Vndb,
-															() => "%",
-														)
-														.with(
-															MediaSource.Audible,
-															MediaSource.GoogleBooks,
-															() => "/5",
-														)
-														.with(
-															MediaSource.Mal,
-															MediaSource.MangaUpdates,
-															() => "/10",
-														)
-														.with(
-															MediaSource.Custom,
-															MediaSource.Itunes,
-															MediaSource.Openlibrary,
-															() => undefined,
-														)
-														.exhaustive()}
-												</Text>
-											</Paper>
-										) : null}
-										{userMetadataDetails.averageRating ? (
-											<Paper
-												p={4}
-												display="flex"
-												style={{
-													flexDirection: "column",
-													alignItems: "center",
-													gap: 6,
-												}}
-											>
-												<IconStarFilled
-													size={22}
-													style={{ color: "#EBE600FF" }}
-												/>
-												<Text fz="sm">
-													{Number(userMetadataDetails.averageRating).toFixed(1)}
-													{loaderData.userPreferences.reviewScale ===
-													UserReviewScale.OutOfFive
-														? undefined
-														: "%"}
-												</Text>
-											</Paper>
-										) : null}
-									</Group>
-								) : null}
-								{userMetadataDetails?.inProgress ? (
-									<Alert icon={<IconAlertCircle />} variant="outline">
-										You are currently{" "}
-										{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
-										ing this (
-										{Number(userMetadataDetails.inProgress.progress).toFixed(2)}
-										%)
-									</Alert>
-								) : null}
-							</>
-						)}
-					</UserMetadataDetailsSuspenseLoader>
+													.with(MediaSource.Igdb, () => "igdb.svg")
+													.with(MediaSource.Itunes, () => "itunes.svg")
+													.with(
+														MediaSource.Listennotes,
+														() => "listennotes.webp",
+													)
+													.with(MediaSource.Mal, () => "mal.svg")
+													.with(
+														MediaSource.MangaUpdates,
+														() => "manga-updates.svg",
+													)
+													.with(
+														MediaSource.Openlibrary,
+														() => "openlibrary.svg",
+													)
+													.with(MediaSource.Tmdb, () => "tmdb.svg")
+													.with(MediaSource.Vndb, () => "vndb.ico")
+													.with(MediaSource.Custom, () => undefined)
+													.exhaustive()}`}
+											/>
+											<Text fz="sm">
+												{Number(
+													loaderData.mediaMainDetails.providerRating,
+												).toFixed(1)}
+												{match(loaderData.mediaMainDetails.source)
+													.with(
+														MediaSource.Anilist,
+														MediaSource.Igdb,
+														MediaSource.Listennotes,
+														MediaSource.Tmdb,
+														MediaSource.Vndb,
+														() => "%",
+													)
+													.with(
+														MediaSource.Audible,
+														MediaSource.GoogleBooks,
+														() => "/5",
+													)
+													.with(
+														MediaSource.Mal,
+														MediaSource.MangaUpdates,
+														() => "/10",
+													)
+													.with(
+														MediaSource.Custom,
+														MediaSource.Itunes,
+														MediaSource.Openlibrary,
+														() => undefined,
+													)
+													.exhaustive()}
+											</Text>
+										</Paper>
+									) : null}
+									{userMetadataDetails.averageRating ? (
+										<Paper
+											p={4}
+											display="flex"
+											style={{
+												flexDirection: "column",
+												alignItems: "center",
+												gap: 6,
+											}}
+										>
+											<IconStarFilled
+												size={22}
+												style={{ color: "#EBE600FF" }}
+											/>
+											<Text fz="sm">
+												{Number(userMetadataDetails.averageRating).toFixed(1)}
+												{loaderData.userPreferences.reviewScale ===
+												UserReviewScale.OutOfFive
+													? undefined
+													: "%"}
+											</Text>
+										</Paper>
+									) : null}
+								</Group>
+							) : null}
+							{userMetadataDetails?.inProgress ? (
+								<Alert icon={<IconAlertCircle />} variant="outline">
+									You are currently{" "}
+									{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
+									ing this (
+									{Number(userMetadataDetails.inProgress.progress).toFixed(2)}
+									%)
+								</Alert>
+							) : null}
+						</>
+					) : undefined}
 					<Tabs variant="outline" value={tab} onChange={(t) => setTab(t)}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab
@@ -892,478 +899,450 @@ export default function Page() {
 						</Tabs.Panel>
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
-								<UserMetadataDetailsSuspenseLoader>
-									{(userMetadataDetails) => (
-										<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-											<MediaAdditionalDetailsSuspenseLoader>
-												{(mediaAdditionalDetails) => (
+								{userMetadataDetails ? (
+									<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+										<MediaAdditionalDetailsSuspenseLoader>
+											{(mediaAdditionalDetails) => (
+												<>
+													{userMetadataDetails.inProgress ? (
+														<IndividualProgressModal
+															title={loaderData.mediaMainDetails.title}
+															progress={Number(
+																userMetadataDetails.inProgress.progress,
+															)}
+															inProgress={userMetadataDetails.inProgress}
+															metadataId={loaderData.metadataId}
+															onClose={progressModalClose}
+															opened={progressModalOpened}
+															lot={loaderData.mediaMainDetails.lot}
+															total={
+																mediaAdditionalDetails.audioBookSpecifics
+																	?.runtime ||
+																mediaAdditionalDetails.bookSpecifics?.pages ||
+																mediaAdditionalDetails.movieSpecifics
+																	?.runtime ||
+																mediaAdditionalDetails.mangaSpecifics
+																	?.chapters ||
+																mediaAdditionalDetails.animeSpecifics
+																	?.episodes ||
+																mediaAdditionalDetails.visualNovelSpecifics
+																	?.length
+															}
+														/>
+													) : null}
+												</>
+											)}
+										</MediaAdditionalDetailsSuspenseLoader>
+										<Menu shadow="md">
+											<Menu.Target>
+												<Button variant="outline">Update progress</Button>
+											</Menu.Target>
+											<Menu.Dropdown>
+												{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
 													<>
-														{userMetadataDetails.inProgress ? (
-															<IndividualProgressModal
-																title={loaderData.mediaMainDetails.title}
-																progress={Number(
-																	userMetadataDetails.inProgress.progress,
-																)}
-																inProgress={userMetadataDetails.inProgress}
-																metadataId={loaderData.metadataId}
-																onClose={progressModalClose}
-																opened={progressModalOpened}
-																lot={loaderData.mediaMainDetails.lot}
-																total={
-																	mediaAdditionalDetails.audioBookSpecifics
-																		?.runtime ||
-																	mediaAdditionalDetails.bookSpecifics?.pages ||
-																	mediaAdditionalDetails.movieSpecifics
-																		?.runtime ||
-																	mediaAdditionalDetails.mangaSpecifics
-																		?.chapters ||
-																	mediaAdditionalDetails.animeSpecifics
-																		?.episodes ||
-																	mediaAdditionalDetails.visualNovelSpecifics
-																		?.length
-																}
-															/>
-														) : null}
-													</>
-												)}
-											</MediaAdditionalDetailsSuspenseLoader>
-											<Menu shadow="md">
-												<Menu.Target>
-													<Button variant="outline">Update progress</Button>
-												</Menu.Target>
-												<Menu.Dropdown>
-													{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
-														<>
-															<Menu.Label>Shows</Menu.Label>
-															{userMetadataDetails.nextEntry ? (
-																<>
-																	<Menu.Item
-																		onClick={() => {
-																			setUpdateProgressModalData({
-																				showSeasonNumber:
-																					loaderData.mediaMainDetails.lot ===
-																					MediaLot.Show
-																						? userMetadataDetails.nextEntry
-																								?.season
-																						: undefined,
-																				showEpisodeNumber:
-																					loaderData.mediaMainDetails.lot ===
-																					MediaLot.Show
-																						? userMetadataDetails.nextEntry
-																								?.episode
-																						: undefined,
-																			});
-																		}}
-																	>
-																		Mark{" "}
-																		{`S${userMetadataDetails.nextEntry?.season}-E${userMetadataDetails.nextEntry?.episode}`}{" "}
-																		as seen
-																	</Menu.Item>
-																	<PutOnHoldBtn />
-																</>
-															) : null}
-															{userMetadataDetails &&
-															userMetadataDetails.history.length !== 0 ? (
-																<DropBtn />
-															) : (
-																<Menu.Item disabled>
-																	No history. Update from the seasons tab.
-																</Menu.Item>
-															)}
-														</>
-													) : null}
-													{loaderData.mediaMainDetails.lot ===
-													MediaLot.Podcast ? (
-														<>
-															<Menu.Label>Podcasts</Menu.Label>
-															{userMetadataDetails.nextEntry ? (
-																<>
-																	<Menu.Item
-																		onClick={() => {
-																			setUpdateProgressModalData({
-																				podcastEpisodeNumber:
-																					loaderData.mediaMainDetails.lot ===
-																					MediaLot.Podcast
-																						? userMetadataDetails.nextEntry
-																								?.episode
-																						: undefined,
-																			});
-																		}}
-																	>
-																		Mark EP-
-																		{userMetadataDetails.nextEntry?.episode} as
-																		listened
-																	</Menu.Item>
-																	<PutOnHoldBtn />
-																</>
-															) : null}
-															{userMetadataDetails &&
-															userMetadataDetails.history.length !== 0 ? (
-																<DropBtn />
-															) : (
-																<Menu.Item disabled>
-																	No history. Update from the episodes tab.
-																</Menu.Item>
-															)}
-														</>
-													) : null}
-													{userMetadataDetails?.inProgress ? (
-														<>
-															<Menu.Label>In progress</Menu.Label>
-															<Menu.Item onClick={progressModalOpen}>
-																Set progress
-															</Menu.Item>
-															{loaderData.mediaMainDetails.lot !==
-																MediaLot.Show &&
-															loaderData.mediaMainDetails.lot !==
-																MediaLot.Podcast ? (
-																<StateChangeButtons />
-															) : null}
-															<Form
-																action="?intent=individualProgressUpdate"
-																method="post"
-																replace
-																onSubmit={() => {
-																	events.updateProgress(
-																		loaderData.mediaMainDetails.title,
-																	);
-																}}
-															>
-																<input
-																	hidden
-																	name="progress"
-																	defaultValue={100}
-																/>
-																<input
-																	hidden
-																	name="date"
-																	defaultValue={formatDateToNaiveDate(
-																		new Date(),
-																	)}
-																/>
+														<Menu.Label>Shows</Menu.Label>
+														{userMetadataDetails.nextEntry ? (
+															<>
 																<Menu.Item
-																	type="submit"
-																	name="metadataId"
-																	value={loaderData.metadataId}
+																	onClick={() => {
+																		setUpdateProgressModalData({
+																			showSeasonNumber:
+																				loaderData.mediaMainDetails.lot ===
+																				MediaLot.Show
+																					? userMetadataDetails.nextEntry
+																							?.season
+																					: undefined,
+																			showEpisodeNumber:
+																				loaderData.mediaMainDetails.lot ===
+																				MediaLot.Show
+																					? userMetadataDetails.nextEntry
+																							?.episode
+																					: undefined,
+																		});
+																	}}
 																>
-																	I finished it
+																	Mark{" "}
+																	{`S${userMetadataDetails.nextEntry?.season}-E${userMetadataDetails.nextEntry?.episode}`}{" "}
+																	as seen
 																</Menu.Item>
-															</Form>
-														</>
-													) : loaderData.mediaMainDetails.lot !==
+																<PutOnHoldBtn />
+															</>
+														) : null}
+														{userMetadataDetails &&
+														userMetadataDetails.history.length !== 0 ? (
+															<DropBtn />
+														) : (
+															<Menu.Item disabled>
+																No history. Update from the seasons tab.
+															</Menu.Item>
+														)}
+													</>
+												) : null}
+												{loaderData.mediaMainDetails.lot ===
+												MediaLot.Podcast ? (
+													<>
+														<Menu.Label>Podcasts</Menu.Label>
+														{userMetadataDetails.nextEntry ? (
+															<>
+																<Menu.Item
+																	onClick={() => {
+																		setUpdateProgressModalData({
+																			podcastEpisodeNumber:
+																				loaderData.mediaMainDetails.lot ===
+																				MediaLot.Podcast
+																					? userMetadataDetails.nextEntry
+																							?.episode
+																					: undefined,
+																		});
+																	}}
+																>
+																	Mark EP-
+																	{userMetadataDetails.nextEntry?.episode} as
+																	listened
+																</Menu.Item>
+																<PutOnHoldBtn />
+															</>
+														) : null}
+														{userMetadataDetails &&
+														userMetadataDetails.history.length !== 0 ? (
+															<DropBtn />
+														) : (
+															<Menu.Item disabled>
+																No history. Update from the episodes tab.
+															</Menu.Item>
+														)}
+													</>
+												) : null}
+												{userMetadataDetails?.inProgress ? (
+													<>
+														<Menu.Label>In progress</Menu.Label>
+														<Menu.Item onClick={progressModalOpen}>
+															Set progress
+														</Menu.Item>
+														{loaderData.mediaMainDetails.lot !==
 															MediaLot.Show &&
 														loaderData.mediaMainDetails.lot !==
 															MediaLot.Podcast ? (
-														<>
-															<Menu.Label>Not in progress</Menu.Label>
-															<Form
-																action="?intent=individualProgressUpdate"
-																method="post"
-																replace
-																onSubmit={() => {
-																	events.updateProgress(
-																		loaderData.mediaMainDetails.title,
-																	);
-																}}
-															>
-																<input
-																	hidden
-																	name="progress"
-																	defaultValue={0}
-																/>
-																{![MediaLot.Anime, MediaLot.Manga].includes(
-																	loaderData.mediaMainDetails.lot,
-																) ? (
-																	<Menu.Item
-																		type="submit"
-																		name="metadataId"
-																		value={loaderData.metadataId}
-																	>
-																		I'm{" "}
-																		{getVerb(
-																			Verb.Read,
-																			loaderData.mediaMainDetails.lot,
-																		)}
-																		ing it
-																	</Menu.Item>
-																) : null}
-															</Form>
-															<Menu.Item
-																onClick={() => {
-																	setUpdateProgressModalData({});
-																}}
-															>
-																Add to{" "}
-																{getVerb(
-																	Verb.Read,
-																	loaderData.mediaMainDetails.lot,
-																)}{" "}
-																history
-															</Menu.Item>
-														</>
-													) : null}
-												</Menu.Dropdown>
-											</Menu>
-											{!loaderData.userPreferences.disableReviews ? (
-												<Button
-													variant="outline"
-													w="100%"
-													onClick={() => {
-														setPostReviewModalData({
-															showSeasonNumber:
-																userMetadataDetails?.nextEntry?.season ??
-																undefined,
-															showEpisodeNumber:
-																loaderData.mediaMainDetails.lot ===
-																MediaLot.Show
-																	? userMetadataDetails?.nextEntry?.episode ??
-																		undefined
-																	: null,
-															podcastEpisodeNumber:
-																loaderData.mediaMainDetails.lot ===
-																MediaLot.Podcast
-																	? userMetadataDetails?.nextEntry?.episode ??
-																		undefined
-																	: null,
-														});
-													}}
-												>
-													Post a review
-												</Button>
-											) : null}
-											<>
-												<Button variant="outline" onClick={collectionModalOpen}>
-													Add to collection
-												</Button>
-												<AddEntityToCollectionModal
-													userId={loaderData.userDetails.id}
-													onClose={collectionModalClose}
-													opened={collectionModalOpened}
-													entityId={loaderData.metadataId.toString()}
-													entityLot={EntityLot.Media}
-													collections={loaderData.collections}
-												/>
-											</>
-											<Menu shadow="md">
-												<Menu.Target>
-													<Button variant="outline">More actions</Button>
-												</Menu.Target>
-												<Menu.Dropdown>
-													<UserMetadataDetailsSuspenseLoader>
-														{(userMetadataDetails) => (
-															<ToggleMediaMonitorMenuItem
-																userId={loaderData.userDetails.id}
-																inCollections={userMetadataDetails.collections.map(
-																	(c) => c.name,
-																)}
-																formValue={loaderData.metadataId}
-																entityLot={EntityLot.Media}
-															/>
-														)}
-													</UserMetadataDetailsSuspenseLoader>
-													{loaderData.mediaMainDetails.source !==
-													MediaSource.Custom ? (
+															<StateChangeButtons />
+														) : null}
 														<Form
-															action="?intent=deployUpdateMetadataJob"
+															action="?intent=individualProgressUpdate"
 															method="post"
 															replace
+															onSubmit={() => {
+																events.updateProgress(
+																	loaderData.mediaMainDetails.title,
+																);
+															}}
 														>
+															<input
+																hidden
+																name="progress"
+																defaultValue={100}
+															/>
+															<input
+																hidden
+																name="date"
+																defaultValue={formatDateToNaiveDate(new Date())}
+															/>
 															<Menu.Item
 																type="submit"
 																name="metadataId"
 																value={loaderData.metadataId}
 															>
-																Update metadata
+																I finished it
 															</Menu.Item>
 														</Form>
-													) : null}
-													<Menu.Item onClick={mergeMetadataModalOpen}>
-														Merge media
-													</Menu.Item>
-												</Menu.Dropdown>
-											</Menu>
-										</SimpleGrid>
-									)}
-								</UserMetadataDetailsSuspenseLoader>
+													</>
+												) : loaderData.mediaMainDetails.lot !== MediaLot.Show &&
+													loaderData.mediaMainDetails.lot !==
+														MediaLot.Podcast ? (
+													<>
+														<Menu.Label>Not in progress</Menu.Label>
+														<Form
+															action="?intent=individualProgressUpdate"
+															method="post"
+															replace
+															onSubmit={() => {
+																events.updateProgress(
+																	loaderData.mediaMainDetails.title,
+																);
+															}}
+														>
+															<input hidden name="progress" defaultValue={0} />
+															{![MediaLot.Anime, MediaLot.Manga].includes(
+																loaderData.mediaMainDetails.lot,
+															) ? (
+																<Menu.Item
+																	type="submit"
+																	name="metadataId"
+																	value={loaderData.metadataId}
+																>
+																	I'm{" "}
+																	{getVerb(
+																		Verb.Read,
+																		loaderData.mediaMainDetails.lot,
+																	)}
+																	ing it
+																</Menu.Item>
+															) : null}
+														</Form>
+														<Menu.Item
+															onClick={() => {
+																setUpdateProgressModalData({});
+															}}
+														>
+															Add to{" "}
+															{getVerb(
+																Verb.Read,
+																loaderData.mediaMainDetails.lot,
+															)}{" "}
+															history
+														</Menu.Item>
+													</>
+												) : null}
+											</Menu.Dropdown>
+										</Menu>
+										{!loaderData.userPreferences.disableReviews ? (
+											<Button
+												variant="outline"
+												w="100%"
+												onClick={() => {
+													setPostReviewModalData({
+														showSeasonNumber:
+															userMetadataDetails?.nextEntry?.season ??
+															undefined,
+														showEpisodeNumber:
+															loaderData.mediaMainDetails.lot === MediaLot.Show
+																? userMetadataDetails?.nextEntry?.episode ??
+																	undefined
+																: null,
+														podcastEpisodeNumber:
+															loaderData.mediaMainDetails.lot ===
+															MediaLot.Podcast
+																? userMetadataDetails?.nextEntry?.episode ??
+																	undefined
+																: null,
+													});
+												}}
+											>
+												Post a review
+											</Button>
+										) : null}
+										<>
+											<Button variant="outline" onClick={collectionModalOpen}>
+												Add to collection
+											</Button>
+											<AddEntityToCollectionModal
+												userId={loaderData.userDetails.id}
+												onClose={collectionModalClose}
+												opened={collectionModalOpened}
+												entityId={loaderData.metadataId.toString()}
+												entityLot={EntityLot.Media}
+												collections={loaderData.collections}
+											/>
+										</>
+										<Menu shadow="md">
+											<Menu.Target>
+												<Button variant="outline">More actions</Button>
+											</Menu.Target>
+											<Menu.Dropdown>
+												{userMetadataDetails ? (
+													<ToggleMediaMonitorMenuItem
+														userId={loaderData.userDetails.id}
+														inCollections={userMetadataDetails.collections.map(
+															(c) => c.name,
+														)}
+														formValue={loaderData.metadataId}
+														entityLot={EntityLot.Media}
+													/>
+												) : undefined}
+												{loaderData.mediaMainDetails.source !==
+												MediaSource.Custom ? (
+													<Form
+														action="?intent=deployUpdateMetadataJob"
+														method="post"
+														replace
+													>
+														<Menu.Item
+															type="submit"
+															name="metadataId"
+															value={loaderData.metadataId}
+														>
+															Update metadata
+														</Menu.Item>
+													</Form>
+												) : null}
+												<Menu.Item onClick={mergeMetadataModalOpen}>
+													Merge media
+												</Menu.Item>
+											</Menu.Dropdown>
+										</Menu>
+									</SimpleGrid>
+								) : undefined}
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<MediaAdditionalDetailsSuspenseLoader>
-							{(metadataDetails) => (
-								<UserMetadataDetailsSuspenseLoader>
-									{(userMetadataDetails) => (
-										<>
-											<Tabs.Panel value="history">
-												{userMetadataDetails.seenBy > 0 ||
-												userMetadataDetails.history.length > 0 ||
-												userMetadataDetails.unitsConsumed ? (
-													<MediaScrollArea>
-														<Stack>
-															<Box>
-																<Text fz={{ base: "sm", md: "md" }}>
-																	Seen by all users {userMetadataDetails.seenBy}{" "}
-																	time
-																	{userMetadataDetails.seenBy > 1 ? "s" : ""}{" "}
-																	and {userMetadataDetails.history.length} time
-																	{userMetadataDetails &&
-																	userMetadataDetails.history.length > 1
-																		? "s"
-																		: ""}{" "}
-																	by you.
-																</Text>
-																{userMetadataDetails.unitsConsumed ? (
-																	<Text fz={{ base: "sm", md: "md" }}>
-																		Consumed{" "}
-																		{match(loaderData.mediaMainDetails.lot)
-																			.with(
-																				MediaLot.AudioBook,
-																				MediaLot.Movie,
-																				MediaLot.Show,
-																				MediaLot.Podcast,
-																				MediaLot.VisualNovel,
-																				() =>
-																					humanizeDuration(
-																						(userMetadataDetails.unitsConsumed ||
-																							0) *
-																							1000 *
-																							60,
-																					),
-																			)
-																			.otherwise(
-																				(v) =>
-																					`${
-																						userMetadataDetails.unitsConsumed
-																					} ${match(v)
-																						.with(MediaLot.VideoGame, () => "")
-																						.with(MediaLot.Book, () => "pages")
-																						.with(
-																							MediaLot.Anime,
-																							() => "episodes",
-																						)
-																						.with(
-																							MediaLot.Manga,
-																							() => "chapters",
-																						)
-																						.exhaustive()}`,
-																			)}
-																		.
-																	</Text>
-																) : null}
-															</Box>
-															{userMetadataDetails.history.map((h) => (
-																<SeenItem
-																	history={h}
-																	key={h.id}
-																	showSpecifics={metadataDetails.showSpecifics}
-																	podcastSpecifics={
-																		metadataDetails.podcastSpecifics
-																	}
-																/>
-															))}
-														</Stack>
-													</MediaScrollArea>
-												) : (
-													<Text>No history</Text>
-												)}
-											</Tabs.Panel>
-										</>
-									)}
-								</UserMetadataDetailsSuspenseLoader>
-							)}
+							{(metadataDetails) =>
+								userMetadataDetails ? (
+									<Tabs.Panel value="history">
+										{userMetadataDetails.seenBy > 0 ||
+										userMetadataDetails.history.length > 0 ||
+										userMetadataDetails.unitsConsumed ? (
+											<MediaScrollArea>
+												<Stack>
+													<Box>
+														<Text fz={{ base: "sm", md: "md" }}>
+															Seen by all users {userMetadataDetails.seenBy}{" "}
+															time
+															{userMetadataDetails.seenBy > 1 ? "s" : ""} and{" "}
+															{userMetadataDetails.history.length} time
+															{userMetadataDetails &&
+															userMetadataDetails.history.length > 1
+																? "s"
+																: ""}{" "}
+															by you.
+														</Text>
+														{userMetadataDetails.unitsConsumed ? (
+															<Text fz={{ base: "sm", md: "md" }}>
+																Consumed{" "}
+																{match(loaderData.mediaMainDetails.lot)
+																	.with(
+																		MediaLot.AudioBook,
+																		MediaLot.Movie,
+																		MediaLot.Show,
+																		MediaLot.Podcast,
+																		MediaLot.VisualNovel,
+																		() =>
+																			humanizeDuration(
+																				(userMetadataDetails.unitsConsumed ||
+																					0) *
+																					1000 *
+																					60,
+																			),
+																	)
+																	.otherwise(
+																		(v) =>
+																			`${
+																				userMetadataDetails.unitsConsumed
+																			} ${match(v)
+																				.with(MediaLot.VideoGame, () => "")
+																				.with(MediaLot.Book, () => "pages")
+																				.with(MediaLot.Anime, () => "episodes")
+																				.with(MediaLot.Manga, () => "chapters")
+																				.exhaustive()}`,
+																	)}
+																.
+															</Text>
+														) : null}
+													</Box>
+													{userMetadataDetails.history.map((h) => (
+														<SeenItem
+															history={h}
+															key={h.id}
+															showSpecifics={metadataDetails.showSpecifics}
+															podcastSpecifics={
+																metadataDetails.podcastSpecifics
+															}
+														/>
+													))}
+												</Stack>
+											</MediaScrollArea>
+										) : (
+											<Text>No history</Text>
+										)}
+									</Tabs.Panel>
+								) : undefined
+							}
 						</MediaAdditionalDetailsSuspenseLoader>
-						<UserMetadataDetailsSuspenseLoader>
-							{(userMetadataDetails) => (
-								<MediaAdditionalDetailsSuspenseLoader>
-									{(mediaAdditionalDetails) => (
-										<>
-											{mediaAdditionalDetails.showSpecifics ? (
-												<Tabs.Panel value="showSeasons">
-													<MediaScrollArea>
-														<Accordion
-															// do not show the chevron at all
-															chevron={<Box />}
-															variant="contained"
-															defaultValue={loaderData.query.showSeasonNumber?.toString()}
-														>
-															{mediaAdditionalDetails.showSpecifics.seasons.map(
-																(s) => (
-																	<DisplayShowSeason
-																		key={s.id}
-																		history={userMetadataDetails.history}
-																		season={s}
-																		setData={setUpdateProgressModalData}
-																	/>
-																),
-															)}
-														</Accordion>
-													</MediaScrollArea>
-												</Tabs.Panel>
-											) : null}
-										</>
-									)}
-								</MediaAdditionalDetailsSuspenseLoader>
-							)}
-						</UserMetadataDetailsSuspenseLoader>
-						<UserMetadataDetailsSuspenseLoader>
-							{(userMetadataDetails) => (
-								<MediaAdditionalDetailsSuspenseLoader>
-									{(mediaAdditionalDetails) => (
-										<>
-											{mediaAdditionalDetails.podcastSpecifics ? (
-												<Tabs.Panel value="podcastEpisodes">
-													<MediaScrollArea>
-														<Stack mx="md">
-															{mediaAdditionalDetails.podcastSpecifics.episodes.map(
-																(e, podcastEpisodeIdx) => (
-																	<DisplayPodcastEpisode
-																		key={e.id}
-																		episode={e}
-																		idx={podcastEpisodeIdx}
-																		history={userMetadataDetails.history}
-																		setData={setUpdateProgressModalData}
-																	/>
-																),
-															)}
-														</Stack>
-													</MediaScrollArea>
-												</Tabs.Panel>
-											) : null}
-										</>
-									)}
-								</MediaAdditionalDetailsSuspenseLoader>
-							)}
-						</UserMetadataDetailsSuspenseLoader>
-						<UserMetadataDetailsSuspenseLoader>
-							{(userMetadataDetails) => (
-								<>
-									{!loaderData.userPreferences.disableReviews ? (
-										<Tabs.Panel value="reviews">
-											{userMetadataDetails.reviews.length > 0 ? (
+						{userMetadataDetails ? (
+							<MediaAdditionalDetailsSuspenseLoader>
+								{(mediaAdditionalDetails) => (
+									<>
+										{mediaAdditionalDetails.showSpecifics ? (
+											<Tabs.Panel value="showSeasons">
 												<MediaScrollArea>
-													<Stack>
-														{userMetadataDetails.reviews.map((r) => (
-															<ReviewItemDisplay
-																entityType="metadata"
-																review={r}
-																key={r.id}
-																metadataId={loaderData.metadataId}
-																reviewScale={
-																	loaderData.userPreferences.reviewScale
-																}
-																user={loaderData.userDetails}
-																title={loaderData.mediaMainDetails.title}
-																lot={loaderData.mediaMainDetails.lot}
-															/>
-														))}
+													<Accordion
+														// do not show the chevron at all
+														chevron={<Box />}
+														variant="contained"
+														defaultValue={loaderData.query.showSeasonNumber?.toString()}
+													>
+														{mediaAdditionalDetails.showSpecifics.seasons.map(
+															(s) => (
+																<DisplayShowSeason
+																	key={s.id}
+																	history={userMetadataDetails.history}
+																	season={s}
+																	setData={setUpdateProgressModalData}
+																/>
+															),
+														)}
+													</Accordion>
+												</MediaScrollArea>
+											</Tabs.Panel>
+										) : null}
+									</>
+								)}
+							</MediaAdditionalDetailsSuspenseLoader>
+						) : undefined}
+						{userMetadataDetails ? (
+							<MediaAdditionalDetailsSuspenseLoader>
+								{(mediaAdditionalDetails) => (
+									<>
+										{mediaAdditionalDetails.podcastSpecifics ? (
+											<Tabs.Panel value="podcastEpisodes">
+												<MediaScrollArea>
+													<Stack mx="md">
+														{mediaAdditionalDetails.podcastSpecifics.episodes.map(
+															(e, podcastEpisodeIdx) => (
+																<DisplayPodcastEpisode
+																	key={e.id}
+																	episode={e}
+																	idx={podcastEpisodeIdx}
+																	history={userMetadataDetails.history}
+																	setData={setUpdateProgressModalData}
+																/>
+															),
+														)}
 													</Stack>
 												</MediaScrollArea>
-											) : (
-												<Text>No reviews</Text>
-											)}
-										</Tabs.Panel>
-									) : null}
-								</>
-							)}
-						</UserMetadataDetailsSuspenseLoader>
+											</Tabs.Panel>
+										) : null}
+									</>
+								)}
+							</MediaAdditionalDetailsSuspenseLoader>
+						) : undefined}
+						{userMetadataDetails ? (
+							<>
+								{!loaderData.userPreferences.disableReviews ? (
+									<Tabs.Panel value="reviews">
+										{userMetadataDetails.reviews.length > 0 ? (
+											<MediaScrollArea>
+												<Stack>
+													{userMetadataDetails.reviews.map((r) => (
+														<ReviewItemDisplay
+															entityType="metadata"
+															review={r}
+															key={r.id}
+															metadataId={loaderData.metadataId}
+															reviewScale={
+																loaderData.userPreferences.reviewScale
+															}
+															user={loaderData.userDetails}
+															title={loaderData.mediaMainDetails.title}
+															lot={loaderData.mediaMainDetails.lot}
+														/>
+													))}
+												</Stack>
+											</MediaScrollArea>
+										) : (
+											<Text>No reviews</Text>
+										)}
+									</Tabs.Panel>
+								) : null}
+							</>
+						) : undefined}
 						<Tabs.Panel value="suggestions">
 							{loaderData.mediaMainDetails.suggestions.length > 0 ? (
 								<MediaScrollArea>
@@ -1459,19 +1438,6 @@ export default function Page() {
 		</>
 	);
 }
-
-const UserMetadataDetailsSuspenseLoader = (props: {
-	children: (arg: UserMetadataDetailsQuery["userMetadataDetails"]) => ReactNode;
-}) => {
-	const loaderData = useLoaderData<typeof loader>();
-	return (
-		<Suspense fallback={<FallbackForDefer />}>
-			<Await resolve={loaderData.userMediaDetails}>
-				{({ userMetadataDetails }) => props.children(userMetadataDetails)}
-			</Await>
-		</Suspense>
-	);
-};
 
 const MediaAdditionalDetailsSuspenseLoader = (props: {
 	children: (
