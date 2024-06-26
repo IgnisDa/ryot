@@ -99,6 +99,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
 } from "~/components/common";
 import {
@@ -1182,7 +1183,7 @@ export default function Page() {
 								{userMetadataDetails.seenBy > 0 ||
 								userMetadataDetails.history.length > 0 ||
 								userMetadataDetails.unitsConsumed ? (
-									<Stack h={{ base: "45vh", "2xl": "55vh" }}>
+									<Stack h={MEDIA_DETAILS_HEIGHT}>
 										<Box>
 											<Text fz={{ base: "sm", md: "md" }}>
 												Seen by all users {userMetadataDetails.seenBy} time
@@ -1271,10 +1272,7 @@ export default function Page() {
 						) : undefined}
 						{userMetadataDetails &&
 						metadataAdditionalDetails?.podcastSpecifics ? (
-							<Tabs.Panel
-								value="podcastEpisodes"
-								h={{ base: "45vh", "2xl": "55vh" }}
-							>
+							<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
 								<Virtuoso
 									style={{ height: "100%" }}
 									data={metadataAdditionalDetails.podcastSpecifics.episodes}

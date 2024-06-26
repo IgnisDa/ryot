@@ -70,7 +70,7 @@ import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
-import { HiddenLocationInput } from "~/components/common";
+import { MEDIA_DETAILS_HEIGHT, HiddenLocationInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import events from "~/lib/events";
 import {
@@ -143,7 +143,7 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 
 export const MediaScrollArea = (props: { children: ReactNode }) => {
 	return (
-		<ScrollArea.Autosize mah={{ base: "45vh", "2xl": "55vh" }}>
+		<ScrollArea.Autosize mah={MEDIA_DETAILS_HEIGHT}>
 			{props.children}
 		</ScrollArea.Autosize>
 	);
