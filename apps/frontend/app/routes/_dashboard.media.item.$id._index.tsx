@@ -209,7 +209,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Progress updated successfully",
@@ -223,7 +223,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Record deleted successfully",
@@ -237,7 +237,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				submission,
 				await getAuthorizationHeader(request),
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Metadata update job deployed successfully",
@@ -263,7 +263,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				{ input: submission },
 				await getAuthorizationHeader(request),
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Adjusted seen item successfully",
@@ -385,7 +385,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 			};
 			if (submission[redirectToQueryParam])
 				return redirect(submission[redirectToQueryParam], headers);
-			return Response.json({ status: "success", submission } as const, headers);
+			return Response.json(
+				{ status: "success", tt: new Date() } as const,
+				headers,
+			);
 		},
 	});
 });
