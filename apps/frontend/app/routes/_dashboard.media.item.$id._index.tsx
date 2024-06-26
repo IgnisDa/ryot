@@ -1,4 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
+import { Virtuoso } from "react-virtuoso";
 import {
 	Accordion,
 	ActionIcon,
@@ -1270,22 +1271,23 @@ export default function Page() {
 						) : undefined}
 						{userMetadataDetails &&
 						metadataAdditionalDetails?.podcastSpecifics ? (
-							<Tabs.Panel value="podcastEpisodes">
-								<MediaScrollArea>
-									<Stack mx="md">
-										{metadataAdditionalDetails.podcastSpecifics.episodes.map(
-											(e, podcastEpisodeIdx) => (
-												<DisplayPodcastEpisode
-													key={e.id}
-													episode={e}
-													idx={podcastEpisodeIdx}
-													history={userMetadataDetails.history}
-													setData={setUpdateProgressModalData}
-												/>
-											),
-										)}
-									</Stack>
-								</MediaScrollArea>
+							<Tabs.Panel
+								value="podcastEpisodes"
+								h={{ base: "45vh", "2xl": "55vh" }}
+							>
+								<Virtuoso
+									style={{ height: "100%" }}
+									data={metadataAdditionalDetails.podcastSpecifics.episodes}
+									itemContent={(podcastEpisodeIdx, podcastEpisode) => (
+										<DisplayPodcastEpisode
+											key={podcastEpisode.id}
+											episode={podcastEpisode}
+											index={podcastEpisodeIdx}
+											history={userMetadataDetails.history}
+											setData={setUpdateProgressModalData}
+										/>
+									)}
+								/>
 							</Tabs.Panel>
 						) : undefined}
 						{userMetadataDetails ? (
@@ -2255,8 +2257,8 @@ const DisplayShowEpisode = (props: {
 };
 
 const DisplayPodcastEpisode = (props: {
+	index: number;
 	episode: PodcastEpisode;
-	idx: number;
 	history: AllUserHistory;
 	setData: (data: UpdateProgress) => void;
 }) => {
@@ -2266,8 +2268,8 @@ const DisplayPodcastEpisode = (props: {
 		).length || 0;
 
 	return (
-		<Fragment>
-			{props.idx !== 0 ? <Divider /> : null}
+		<Box my={props.index !== 0 ? "md" : undefined}>
+			{props.index !== 0 ? <Divider mb="md" /> : null}
 			<AccordionLabel
 				{...props.episode}
 				name={props.episode.title}
@@ -2285,6 +2287,6 @@ const DisplayPodcastEpisode = (props: {
 					{numTimesEpisodeSeen > 0 ? "Re-listen this" : "Mark as listened"}
 				</Button>
 			</AccordionLabel>
-		</Fragment>
+		</Box>
 	);
 };
