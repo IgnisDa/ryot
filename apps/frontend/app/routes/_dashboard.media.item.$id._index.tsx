@@ -450,7 +450,7 @@ const useUserMetadataDetails = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const { data } = useQuery({
-		queryKey: ["userMetadataDetails", loaderData, actionData],
+		queryKey: [UserMetadataDetailsDocument, loaderData, actionData],
 		queryFn: async () => {
 			const { userMetadataDetails } = await clientGqlService.request(
 				UserMetadataDetailsDocument,
