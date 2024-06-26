@@ -45,6 +45,7 @@
 		"react": "18.3.1",
 		"react-confirm": "0.3.0-7",
 		"react-dom": "18.3.1",
+		"react-virtuoso": "4.7.11",
 		"react-webcam": "7.2.0",
 		"recharts": "2.12.7",
 		"remix-utils": "7.6.0",

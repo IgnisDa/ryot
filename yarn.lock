@@ -4298,6 +4298,7 @@ __metadata:
     react: "npm:18.3.1"
     react-confirm: "npm:0.3.0-7"
     react-dom: "npm:18.3.1"
+    react-virtuoso: "npm:4.7.11"
     react-webcam: "npm:7.2.0"
     recharts: "npm:2.12.7"
     remix-utils: "npm:7.6.0"
@@ -12891,6 +12892,16 @@ __metadata:
     react: ">=16.6.0"
     react-dom: ">=16.6.0"
   checksum: 10/ca32d3fd2168c976c5d90a317f25d5f5cd723608b415fb3b9006f9d793c8965c619562d0884503a3e44e4b06efbca4fdd1520f30e58ca3e00a0890e637d55419
+  languageName: node
+  linkType: hard
+
+"react-virtuoso@npm:4.7.11":
+  version: 4.7.11
+  resolution: "react-virtuoso@npm:4.7.11"
+  peerDependencies:
+    react: ">=16 || >=17 || >= 18"
+    react-dom: ">=16 || >=17 || >= 18"
+  checksum: 10/5f6188063a280f3f60d2586d69ade83ed45ac2afc929964c11574257c4f6a8732a4812657f976e1b5a7298ea3faf37edffd50e10b933f8891e955b2dd168643c
   languageName: node
   linkType: hard
 
