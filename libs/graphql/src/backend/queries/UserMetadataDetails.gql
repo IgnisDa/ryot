@@ -21,5 +21,17 @@ query UserMetadataDetails($input: UserMetadataDetailsInput!) {
       episode
       chapter
     }
+    showProgress {
+      timesSeen
+      seasonNumber
+      episodes {
+        episodeNumber
+        timesSeen
+      }
+    }
+    podcastProgress {
+      episodeNumber
+      timesSeen
+    }
   }
 }
