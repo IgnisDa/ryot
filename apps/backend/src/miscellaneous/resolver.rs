@@ -598,7 +598,9 @@ struct UserMetadataDetails {
     /// The next episode/chapter of this media.
     next_entry: Option<UserMediaNextEntry>,
     /// The number of users who have seen this media.
-    seen_by: i32,
+    seen_by_all_count: usize,
+    /// The number of times this user has seen this media.
+    seen_by_user_count: usize,
     /// The average rating of this media in this service.
     average_rating: Option<Decimal>,
     /// The number of units of this media that were consumed.
@@ -1815,7 +1817,7 @@ impl MiscellaneousService {
             .await?
             .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
             .unwrap();
-        let seen_by: i32 = seen_by.try_into().unwrap();
+        let seen_by: usize = seen_by.try_into().unwrap();
         let user_to_meta =
             get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
                 .await;
@@ -1831,6 +1833,7 @@ impl MiscellaneousService {
                 Some(sum / Decimal::from(total_rating.iter().len()))
             }
         };
+        let seen_by_user_count = history.len();
         let history = if let Some(select) = seen_page {
             let pages = Pages::new(
                 history.len(),
@@ -1847,7 +1850,8 @@ impl MiscellaneousService {
             history,
             in_progress,
             next_entry: next_episode,
-            seen_by,
+            seen_by_all_count: seen_by,
+            seen_by_user_count,
             average_rating,
             units_consumed,
         })

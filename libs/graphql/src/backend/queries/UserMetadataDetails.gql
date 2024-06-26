@@ -14,7 +14,8 @@ query UserMetadataDetails($input: UserMetadataDetailsInput!) {
     reviews {
       ...ReviewItemPart
     }
-    seenBy
+    seenByAllCount
+    seenByUserCount
     nextEntry {
       season
       episode
