@@ -1,8 +1,10 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	type CreateUserWorkoutMutationVariables,
+	ExerciseDetailsDocument,
 	type ExerciseLot,
 	SetLot,
+	UserExerciseDetailsDocument,
 	type UserWorkoutSetRecord,
 	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
@@ -11,8 +13,7 @@ import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
-import { CurrentWorkoutKey } from "~/lib/generals";
-import type { LoaderReturnData as ExerciseLoaderReturnData } from "~/routes/api.fitness.exercises.$id";
+import { clientGqlService, CurrentWorkoutKey } from "~/lib/generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
@@ -78,12 +79,16 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 };
 
 export const getExerciseDetails = async (exerciseId: string) => {
-	const resp = await fetch(
-		$path("/api/fitness/exercises/:id", {
-			id: exerciseId,
+	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
+		clientGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+		clientGqlService.request(UserExerciseDetailsDocument, {
+			input: { exerciseId, takeHistory: 1 },
 		}),
-	);
-	const json: ExerciseLoaderReturnData = await resp.json();
+	]);
+	const json = {
+		details: { images: exerciseDetails.attributes.images },
+		history: userExerciseDetails.history,
+	};
 	return json;
 };
 
