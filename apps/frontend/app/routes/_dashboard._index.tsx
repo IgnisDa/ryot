@@ -82,7 +82,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
 	] = await Promise.all([
-		await serverGqlService.request(
+		serverGqlService.request(
 			CollectionContentsDocument,
 			{
 				input: {
@@ -93,12 +93,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			},
 			await getAuthorizationHeader(request),
 		),
-		await serverGqlService.request(
+		serverGqlService.request(
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
 			await getAuthorizationHeader(request),
 		),
-		await serverGqlService.request(
+		serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
 			await getAuthorizationHeader(request),
