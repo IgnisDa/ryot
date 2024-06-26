@@ -4356,7 +4356,7 @@ __metadata:
   dependencies:
     "@biomejs/biome": "npm:1.8.1"
     tsconfig-moon: "npm:1.3.0"
-    typescript: "npm:5.5.0-dev.20240603"
+    typescript: "npm:5.5.2"
   languageName: unknown
   linkType: soft
 
@@ -14847,23 +14847,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:5.5.0-dev.20240603":
-  version: 5.5.0-dev.20240603
-  resolution: "typescript@npm:5.5.0-dev.20240603"
+"typescript@npm:5.5.2":
+  version: 5.5.2
+  resolution: "typescript@npm:5.5.2"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/4999556771f2582f96109f5f57050f9c6b0d2c608483b113c51fcbc4ce29498b90676016607babc2dc302f7d754e77408714fe8dd2d802be133b4433fce1059e
+  checksum: 10/9118b20f248e76b0dbff8737fef65dfa89d02668d4e633d2c5ceac99033a0ca5e8a1c1a53bc94da68e8f67677a88f318663dde859c9e9a09c1e116415daec2ba
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A5.5.0-dev.20240603#optional!builtin<compat/typescript>":
-  version: 5.5.0-dev.20240603
-  resolution: "typescript@patch:typescript@npm%3A5.5.0-dev.20240603#optional!builtin<compat/typescript>::version=5.5.0-dev.20240603&hash=5adc0c"
+"typescript@patch:typescript@npm%3A5.5.2#optional!builtin<compat/typescript>":
+  version: 5.5.2
+  resolution: "typescript@patch:typescript@npm%3A5.5.2#optional!builtin<compat/typescript>::version=5.5.2&hash=5adc0c"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/2749b55ebb1bcf203f53f0e5ec981f64e9db46651cb4e119a1e453b4c627fcc4742e0fe75ce78df14968d31618ff56b6e2a82960ef2288d4e478ecb0bd777bce
+  checksum: 10/28b3de2ddaf63a7620e7ddbe5d377af71ce93ecc558c41bf0e3d88661d8e6e7aa6c7739164fef98055f69819e41faca49252938ef3633a3dff2734cca6a9042e
   languageName: node
   linkType: hard
 

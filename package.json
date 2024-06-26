@@ -8,6 +8,6 @@
 	"devDependencies": {
 		"@biomejs/biome": "1.8.1",
 		"tsconfig-moon": "1.3.0",
-		"typescript": "5.5.0-dev.20240603"
+		"typescript": "5.5.2"
 	}
 }
