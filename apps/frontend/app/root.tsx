@@ -25,6 +25,7 @@ import {
 	useNavigation,
 } from "@remix-run/react";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import "mantine-datatable/styles.layer.css";
 import { MountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
@@ -154,6 +155,7 @@ export default function App() {
 						<ScrollRestoration />
 						<Scripts />
 					</MantineProvider>
+					<ReactQueryDevtools />
 				</QueryClientProvider>
 			</body>
 		</html>
