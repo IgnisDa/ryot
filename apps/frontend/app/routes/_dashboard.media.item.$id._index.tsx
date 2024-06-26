@@ -431,7 +431,7 @@ const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 const useMetadataAdditionalDetails = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const { data } = useQuery({
-		queryKey: [MetadataAdditionalDetailsDocument],
+		queryKey: [MetadataAdditionalDetailsDocument, loaderData.metadataId],
 		queryFn: async () => {
 			const { metadataDetails } = await clientGqlService.request(
 				MetadataAdditionalDetailsDocument,
