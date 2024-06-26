@@ -29,5 +29,22 @@ query MetadataMainDetails($metadataId: String!) {
         source
       }
     }
+    creators {
+      name
+      items {
+        id
+        name
+        image
+        character
+      }
+    }
+    suggestions {
+      ...PartialMetadataPart
+    }
+    watchProviders {
+      name
+      image
+      languages
+    }
   }
 }

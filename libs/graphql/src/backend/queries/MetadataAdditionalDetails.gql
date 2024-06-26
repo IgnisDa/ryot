@@ -1,23 +1,5 @@
 query MetadataAdditionalDetails($metadataId: String!) {
   metadataDetails(metadataId: $metadataId) {
-    lot
-    creators {
-      name
-      items {
-        id
-        name
-        image
-        character
-      }
-    }
-    suggestions {
-      ...PartialMetadataPart
-    }
-    watchProviders {
-      name
-      image
-      languages
-    }
     animeSpecifics {
       episodes
     }

@@ -842,53 +842,49 @@ export default function Page() {
 									) : null}
 									{loaderData.userPreferences.peopleEnabled ? (
 										<Stack>
-											<MediaAdditionalDetailsSuspenseLoader>
-												{(mediaAdditionalDetails) =>
-													mediaAdditionalDetails.creators.map((c) => (
-														<Box key={c.name}>
-															<Text fw="bold">{c.name}</Text>
-															<ScrollArea
-																mt="xs"
-																w={{
-																	base: 380,
-																	xs: 440,
-																	sm: 480,
-																	md: 520,
-																	lg: 580,
-																}}
-															>
-																<Flex gap="md">
-																	{c.items.map((creator) => (
-																		<Box key={`${creator.id}-${creator.name}`}>
-																			{creator.id ? (
-																				<Anchor
-																					component={Link}
-																					data-creator-id={creator.id}
-																					to={$path("/media/people/item/:id", {
-																						id: creator.id,
-																					})}
-																				>
-																					<MetadataCreator
-																						name={creator.name}
-																						image={creator.image}
-																						character={creator.character}
-																					/>
-																				</Anchor>
-																			) : (
-																				<MetadataCreator
-																					name={creator.name}
-																					image={creator.image}
-																					character={creator.character}
-																				/>
-																			)}
-																		</Box>
-																	))}
-																</Flex>
-															</ScrollArea>
-														</Box>
-													))
-												}
-											</MediaAdditionalDetailsSuspenseLoader>
+											{loaderData.mediaMainDetails.creators.map((c) => (
+												<Box key={c.name}>
+													<Text fw="bold">{c.name}</Text>
+													<ScrollArea
+														mt="xs"
+														w={{
+															base: 380,
+															xs: 440,
+															sm: 480,
+															md: 520,
+															lg: 580,
+														}}
+													>
+														<Flex gap="md">
+															{c.items.map((creator) => (
+																<Box key={`${creator.id}-${creator.name}`}>
+																	{creator.id ? (
+																		<Anchor
+																			component={Link}
+																			data-creator-id={creator.id}
+																			to={$path("/media/people/item/:id", {
+																				id: creator.id,
+																			})}
+																		>
+																			<MetadataCreator
+																				name={creator.name}
+																				image={creator.image}
+																				character={creator.character}
+																			/>
+																		</Anchor>
+																	) : (
+																		<MetadataCreator
+																			name={creator.name}
+																			image={creator.image}
+																			character={creator.character}
+																		/>
+																	)}
+																</Box>
+															))}
+														</Flex>
+													</ScrollArea>
+												</Box>
+											))}
 										</Stack>
 									) : null}
 								</Stack>
@@ -1369,24 +1365,20 @@ export default function Page() {
 							)}
 						</UserMetadataDetailsSuspenseLoader>
 						<Tabs.Panel value="suggestions">
-							<MediaAdditionalDetailsSuspenseLoader>
-								{(mediaAdditionalDetails) =>
-									mediaAdditionalDetails.suggestions.length > 0 ? (
-										<MediaScrollArea>
-											<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-												{mediaAdditionalDetails.suggestions.map((sug) => (
-													<PartialMetadataDisplay
-														key={sug.identifier}
-														media={sug}
-													/>
-												))}
-											</SimpleGrid>
-										</MediaScrollArea>
-									) : (
-										<Text>No suggestions</Text>
-									)
-								}
-							</MediaAdditionalDetailsSuspenseLoader>
+							{loaderData.mediaMainDetails.suggestions.length > 0 ? (
+								<MediaScrollArea>
+									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+										{loaderData.mediaMainDetails.suggestions.map((sug) => (
+											<PartialMetadataDisplay
+												key={sug.identifier}
+												media={sug}
+											/>
+										))}
+									</SimpleGrid>
+								</MediaScrollArea>
+							) : (
+								<Text>No suggestions</Text>
+							)}
 						</Tabs.Panel>
 						{!loaderData.userPreferences.videosDisabled ? (
 							<Tabs.Panel value="videos">
@@ -1422,48 +1414,43 @@ export default function Page() {
 						) : null}
 						{!loaderData.userPreferences.watchProvidersDisabled ? (
 							<Tabs.Panel value="watchProviders">
-								<MediaAdditionalDetailsSuspenseLoader>
-									{(mediaAdditionalDetails) =>
-										mediaAdditionalDetails.watchProviders.length > 0 ? (
-											<MediaScrollArea>
-												<Stack gap="sm">
-													<Text>
-														JustWatch makes it easy to find out where you can
-														legally watch your favorite movies & TV shows
-														online. Visit{" "}
-														<Anchor href={JUSTWATCH_URL}>JustWatch</Anchor> for
-														more information.
-													</Text>
-													<Text>
-														The following is a list of all available watch
-														providers for this media along with the countries
-														they are available in.
-													</Text>
-													{mediaAdditionalDetails.watchProviders.map(
-														(provider) => (
-															<Flex key={provider.name} align="center" gap="md">
-																<Image
-																	src={provider.image}
-																	h={80}
-																	w={80}
-																	radius="md"
-																/>
-																<Text lineClamp={3}>
-																	{provider.name}:{" "}
-																	<Text size="xs" span>
-																		{provider.languages.join(", ")}
-																	</Text>
-																</Text>
-															</Flex>
-														),
-													)}
-												</Stack>
-											</MediaScrollArea>
-										) : (
-											<Text>No watch providers</Text>
-										)
-									}
-								</MediaAdditionalDetailsSuspenseLoader>
+								{loaderData.mediaMainDetails.watchProviders.length > 0 ? (
+									<MediaScrollArea>
+										<Stack gap="sm">
+											<Text>
+												JustWatch makes it easy to find out where you can
+												legally watch your favorite movies & TV shows online.
+												Visit <Anchor href={JUSTWATCH_URL}>JustWatch</Anchor>{" "}
+												for more information.
+											</Text>
+											<Text>
+												The following is a list of all available watch providers
+												for this media along with the countries they are
+												available in.
+											</Text>
+											{loaderData.mediaMainDetails.watchProviders.map(
+												(provider) => (
+													<Flex key={provider.name} align="center" gap="md">
+														<Image
+															src={provider.image}
+															h={80}
+															w={80}
+															radius="md"
+														/>
+														<Text lineClamp={3}>
+															{provider.name}:{" "}
+															<Text size="xs" span>
+																{provider.languages.join(", ")}
+															</Text>
+														</Text>
+													</Flex>
+												),
+											)}
+										</Stack>
+									</MediaScrollArea>
+								) : (
+									<Text>No watch providers</Text>
+								)}
 							</Tabs.Panel>
 						) : null}
 					</Tabs>
