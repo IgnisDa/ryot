@@ -9,6 +9,7 @@ import {
 	Avatar,
 	Box,
 	Button,
+	Center,
 	Checkbox,
 	Container,
 	Divider,
@@ -19,6 +20,7 @@ import {
 	Menu,
 	Modal,
 	NumberInput,
+	Pagination,
 	Paper,
 	ScrollArea,
 	Select,
@@ -128,6 +130,7 @@ import {
 	getUserPreferences,
 	serverGqlService,
 	redirectWithToast,
+	getCoreDetails,
 } from "~/lib/utilities.server";
 import {
 	MetadataSpecificsSchema,
@@ -152,24 +155,27 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const metadataId = params.id;
 	invariant(metadataId, "No ID provided");
 	const [
+		coreDetails,
 		userPreferences,
 		userDetails,
 		{ metadataDetails: mediaMainDetails },
 		collections,
 		{ userMetadataDetails },
 	] = await Promise.all([
+		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		serverGqlService.request(MetadataMainDetailsDocument, { metadataId }),
 		getUserCollectionsList(request),
 		serverGqlService.request(
 			UserMetadataDetailsDocument,
-			{ input: { metadataId } },
+			{ input: { metadataId, seenPage: 0 } },
 			await getAuthorizationHeader(request),
 		),
 	]);
 	return {
 		query,
+		coreDetails: { pageLimit: coreDetails.pageLimit },
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
 			videosDisabled: userPreferences.general.disableVideos,
@@ -439,7 +445,7 @@ const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 const useMetadataAdditionalDetails = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const { data } = useQuery({
-		queryKey: [MetadataAdditionalDetailsDocument, loaderData.metadataId],
+		queryKey: ["metadataAdditionalDetails", loaderData.metadataId],
 		queryFn: async () => {
 			const { metadataDetails } = await clientGqlService.request(
 				MetadataAdditionalDetailsDocument,
@@ -452,10 +458,35 @@ const useMetadataAdditionalDetails = () => {
 	return data;
 };
 
+const useUserMetadataDetails = (
+	initialData: UserMetadataDetailsQuery["userMetadataDetails"],
+	page: number,
+) => {
+	const seenPage = page - 1;
+	const loaderData = useLoaderData<typeof loader>();
+	const { data } = useQuery({
+		queryKey: ["userMetadataDetails", loaderData.metadataId, seenPage],
+		queryFn: async () => {
+			const { userMetadataDetails } = await clientGqlService.request(
+				UserMetadataDetailsDocument,
+				{ input: { metadataId: loaderData.metadataId, seenPage } },
+			);
+			return userMetadataDetails;
+		},
+		initialData,
+	});
+	return data;
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
 	const metadataAdditionalDetails = useMetadataAdditionalDetails();
+	const [activeSeenPage, setActiveSeenPage] = useState(1);
+	const userMetadataDetails = useUserMetadataDetails(
+		loaderData.userMetadataDetails,
+		activeSeenPage,
+	);
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -519,6 +550,9 @@ export default function Page() {
 		);
 	};
 
+	const totalSeenPages =
+		userMetadataDetails.seenByUserCount / loaderData.coreDetails.pageLimit;
+
 	return (
 		<>
 			<MergeMetadataModal
@@ -567,9 +601,9 @@ export default function Page() {
 						) : null}
 						<Title id="media-title">{loaderData.mediaMainDetails.title}</Title>
 					</Box>
-					{loaderData.userMetadataDetails.collections.length > 0 ? (
+					{userMetadataDetails.collections.length > 0 ? (
 						<Group>
-							{loaderData.userMetadataDetails.collections.map((col) => (
+							{userMetadataDetails.collections.map((col) => (
 								<DisplayCollection
 									key={col.id}
 									col={col}
@@ -623,7 +657,7 @@ export default function Page() {
 							.join(" • ")}
 					</Text>
 					{loaderData.mediaMainDetails.providerRating ||
-					loaderData.userMetadataDetails.averageRating ? (
+					userMetadataDetails.averageRating ? (
 						<Group>
 							{loaderData.mediaMainDetails.providerRating ? (
 								<Paper
@@ -689,7 +723,7 @@ export default function Page() {
 									</Text>
 								</Paper>
 							) : null}
-							{loaderData.userMetadataDetails.averageRating ? (
+							{userMetadataDetails.averageRating ? (
 								<Paper
 									p={4}
 									display="flex"
@@ -701,9 +735,7 @@ export default function Page() {
 								>
 									<IconStarFilled size={22} style={{ color: "#EBE600FF" }} />
 									<Text fz="sm">
-										{Number(
-											loaderData.userMetadataDetails.averageRating,
-										).toFixed(1)}
+										{Number(userMetadataDetails.averageRating).toFixed(1)}
 										{loaderData.userPreferences.reviewScale ===
 										UserReviewScale.OutOfFive
 											? undefined
@@ -713,14 +745,12 @@ export default function Page() {
 							) : null}
 						</Group>
 					) : null}
-					{loaderData.userMetadataDetails?.inProgress ? (
+					{userMetadataDetails?.inProgress ? (
 						<Alert icon={<IconAlertCircle />} variant="outline">
 							You are currently{" "}
 							{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
 							ing this (
-							{Number(
-								loaderData.userMetadataDetails.inProgress.progress,
-							).toFixed(2)}
+							{Number(userMetadataDetails.inProgress.progress).toFixed(2)}
 							%)
 						</Alert>
 					) : null}
@@ -879,13 +909,11 @@ export default function Page() {
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-									{loaderData.userMetadataDetails.inProgress ? (
+									{userMetadataDetails.inProgress ? (
 										<IndividualProgressModal
 											title={loaderData.mediaMainDetails.title}
-											progress={Number(
-												loaderData.userMetadataDetails.inProgress.progress,
-											)}
-											inProgress={loaderData.userMetadataDetails.inProgress}
+											progress={Number(userMetadataDetails.inProgress.progress)}
+											inProgress={userMetadataDetails.inProgress}
 											metadataId={loaderData.metadataId}
 											onClose={progressModalClose}
 											opened={progressModalOpened}
@@ -909,7 +937,7 @@ export default function Page() {
 											{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
 												<>
 													<Menu.Label>Shows</Menu.Label>
-													{loaderData.userMetadataDetails.nextEntry ? (
+													{userMetadataDetails.nextEntry ? (
 														<>
 															<Menu.Item
 																onClick={() => {
@@ -917,27 +945,24 @@ export default function Page() {
 																		showSeasonNumber:
 																			loaderData.mediaMainDetails.lot ===
 																			MediaLot.Show
-																				? loaderData.userMetadataDetails
-																						.nextEntry?.season
+																				? userMetadataDetails.nextEntry?.season
 																				: undefined,
 																		showEpisodeNumber:
 																			loaderData.mediaMainDetails.lot ===
 																			MediaLot.Show
-																				? loaderData.userMetadataDetails
-																						.nextEntry?.episode
+																				? userMetadataDetails.nextEntry?.episode
 																				: undefined,
 																	});
 																}}
 															>
 																Mark{" "}
-																{`S${loaderData.userMetadataDetails.nextEntry?.season}-E${loaderData.userMetadataDetails.nextEntry?.episode}`}{" "}
+																{`S${userMetadataDetails.nextEntry?.season}-E${userMetadataDetails.nextEntry?.episode}`}{" "}
 																as seen
 															</Menu.Item>
 															<PutOnHoldBtn />
 														</>
 													) : null}
-													{loaderData.userMetadataDetails.history.length !==
-													0 ? (
+													{userMetadataDetails.history.length !== 0 ? (
 														<DropBtn />
 													) : (
 														<Menu.Item disabled>
@@ -949,7 +974,7 @@ export default function Page() {
 											{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
 												<>
 													<Menu.Label>Podcasts</Menu.Label>
-													{loaderData.userMetadataDetails.nextEntry ? (
+													{userMetadataDetails.nextEntry ? (
 														<>
 															<Menu.Item
 																onClick={() => {
@@ -957,24 +982,19 @@ export default function Page() {
 																		podcastEpisodeNumber:
 																			loaderData.mediaMainDetails.lot ===
 																			MediaLot.Podcast
-																				? loaderData.userMetadataDetails
-																						.nextEntry?.episode
+																				? userMetadataDetails.nextEntry?.episode
 																				: undefined,
 																	});
 																}}
 															>
 																Mark EP-
-																{
-																	loaderData.userMetadataDetails.nextEntry
-																		?.episode
-																}{" "}
-																as listened
+																{userMetadataDetails.nextEntry?.episode} as
+																listened
 															</Menu.Item>
 															<PutOnHoldBtn />
 														</>
 													) : null}
-													{loaderData.userMetadataDetails.history.length !==
-													0 ? (
+													{userMetadataDetails.history.length !== 0 ? (
 														<DropBtn />
 													) : (
 														<Menu.Item disabled>
@@ -983,7 +1003,7 @@ export default function Page() {
 													)}
 												</>
 											) : null}
-											{loaderData.userMetadataDetails?.inProgress ? (
+											{userMetadataDetails?.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
 													<Menu.Item onClick={progressModalOpen}>
@@ -1074,17 +1094,16 @@ export default function Page() {
 											onClick={() => {
 												setPostReviewModalData({
 													showSeasonNumber:
-														loaderData.userMetadataDetails?.nextEntry?.season ??
-														undefined,
+														userMetadataDetails?.nextEntry?.season ?? undefined,
 													showEpisodeNumber:
 														loaderData.mediaMainDetails.lot === MediaLot.Show
-															? loaderData.userMetadataDetails?.nextEntry
-																	?.episode ?? undefined
+															? userMetadataDetails?.nextEntry?.episode ??
+																undefined
 															: null,
 													podcastEpisodeNumber:
 														loaderData.mediaMainDetails.lot === MediaLot.Podcast
-															? loaderData.userMetadataDetails?.nextEntry
-																	?.episode ?? undefined
+															? userMetadataDetails?.nextEntry?.episode ??
+																undefined
 															: null,
 												});
 											}}
@@ -1112,7 +1131,7 @@ export default function Page() {
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
 												userId={loaderData.userDetails.id}
-												inCollections={loaderData.userMetadataDetails.collections.map(
+												inCollections={userMetadataDetails.collections.map(
 													(c) => c.name,
 												)}
 												formValue={loaderData.metadataId}
@@ -1143,61 +1162,54 @@ export default function Page() {
 							</MediaScrollArea>
 						</Tabs.Panel>
 						<Tabs.Panel value="history">
-							{loaderData.userMetadataDetails.seenByAllCount > 0 ||
-							loaderData.userMetadataDetails.seenByUserCount > 0 ||
-							loaderData.userMetadataDetails.unitsConsumed ? (
-								<Stack h={MEDIA_DETAILS_HEIGHT}>
-									<Box>
-										<Text fz={{ base: "sm", md: "md" }}>
-											Seen by all users{" "}
-											{loaderData.userMetadataDetails.seenByAllCount} time
-											{loaderData.userMetadataDetails.seenByAllCount > 1
-												? "s"
-												: ""}{" "}
-											and {loaderData.userMetadataDetails.seenByUserCount} time
-											{loaderData.userMetadataDetails &&
-											loaderData.userMetadataDetails.seenByUserCount > 1
-												? "s"
-												: ""}{" "}
-											by you.
-										</Text>
-										{loaderData.userMetadataDetails.unitsConsumed ? (
+							{userMetadataDetails.seenByAllCount > 0 ||
+							userMetadataDetails.seenByUserCount > 0 ||
+							userMetadataDetails.unitsConsumed ? (
+								<MediaScrollArea>
+									<Stack>
+										<Box>
 											<Text fz={{ base: "sm", md: "md" }}>
-												Consumed{" "}
-												{match(loaderData.mediaMainDetails.lot)
-													.with(
-														MediaLot.AudioBook,
-														MediaLot.Movie,
-														MediaLot.Show,
-														MediaLot.Podcast,
-														MediaLot.VisualNovel,
-														() =>
-															humanizeDuration(
-																(loaderData.userMetadataDetails.unitsConsumed ||
-																	0) *
-																	1000 *
-																	60,
-															),
-													)
-													.otherwise(
-														(v) =>
-															`${loaderData.userMetadataDetails.unitsConsumed} ${match(
-																v,
-															)
-																.with(MediaLot.VideoGame, () => "")
-																.with(MediaLot.Book, () => "pages")
-																.with(MediaLot.Anime, () => "episodes")
-																.with(MediaLot.Manga, () => "chapters")
-																.exhaustive()}`,
-													)}
-												.
+												Seen by all users {userMetadataDetails.seenByAllCount}{" "}
+												time
+												{userMetadataDetails.seenByAllCount > 1 ? "s" : ""} and{" "}
+												{userMetadataDetails.seenByUserCount} time
+												{userMetadataDetails &&
+												userMetadataDetails.seenByUserCount > 1
+													? "s"
+													: ""}{" "}
+												by you.
 											</Text>
-										) : null}
-									</Box>
-									<Virtuoso
-										style={{ height: "100%" }}
-										data={loaderData.userMetadataDetails.history}
-										itemContent={(_, history) => (
+											{userMetadataDetails.unitsConsumed ? (
+												<Text fz={{ base: "sm", md: "md" }}>
+													Consumed{" "}
+													{match(loaderData.mediaMainDetails.lot)
+														.with(
+															MediaLot.AudioBook,
+															MediaLot.Movie,
+															MediaLot.Show,
+															MediaLot.Podcast,
+															MediaLot.VisualNovel,
+															() =>
+																humanizeDuration(
+																	(userMetadataDetails.unitsConsumed || 0) *
+																		1000 *
+																		60,
+																),
+														)
+														.otherwise(
+															(v) =>
+																`${userMetadataDetails.unitsConsumed} ${match(v)
+																	.with(MediaLot.VideoGame, () => "")
+																	.with(MediaLot.Book, () => "pages")
+																	.with(MediaLot.Anime, () => "episodes")
+																	.with(MediaLot.Manga, () => "chapters")
+																	.exhaustive()}`,
+														)}
+													.
+												</Text>
+											) : null}
+										</Box>
+										{userMetadataDetails.history.map((history) => (
 											<SeenItem
 												history={history}
 												key={history.id}
@@ -1206,9 +1218,20 @@ export default function Page() {
 													metadataAdditionalDetails?.podcastSpecifics
 												}
 											/>
-										)}
-									/>
-								</Stack>
+										))}
+										{totalSeenPages > 1 ? (
+											<Center>
+												<Pagination
+													total={totalSeenPages}
+													value={activeSeenPage}
+													onChange={setActiveSeenPage}
+													color="grape"
+													size="xs"
+												/>
+											</Center>
+										) : undefined}
+									</Stack>
+								</MediaScrollArea>
 							) : (
 								<Text>No history</Text>
 							)}
@@ -1225,7 +1248,7 @@ export default function Page() {
 										(s) => (
 											<DisplayShowSeason
 												key={s.id}
-												history={loaderData.userMetadataDetails.history}
+												history={userMetadataDetails.history}
 												season={s}
 												setData={setUpdateProgressModalData}
 											/>
@@ -1244,7 +1267,7 @@ export default function Page() {
 											key={podcastEpisode.id}
 											episode={podcastEpisode}
 											index={podcastEpisodeIdx}
-											history={loaderData.userMetadataDetails.history}
+											history={userMetadataDetails.history}
 											setData={setUpdateProgressModalData}
 										/>
 									)}
@@ -1253,10 +1276,10 @@ export default function Page() {
 						) : undefined}
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
-								{loaderData.userMetadataDetails.reviews.length > 0 ? (
+								{userMetadataDetails.reviews.length > 0 ? (
 									<MediaScrollArea>
 										<Stack>
-											{loaderData.userMetadataDetails.reviews.map((r) => (
+											{userMetadataDetails.reviews.map((r) => (
 												<ReviewItemDisplay
 													entityType="metadata"
 													review={r}
@@ -2010,7 +2033,6 @@ const SeenItem = (props: {
 	return (
 		<>
 			<Flex
-				my="sm"
 				key={props.history.id}
 				gap={{ base: "xs", md: "lg", xl: "xl" }}
 				data-seen-id={props.history.id}
