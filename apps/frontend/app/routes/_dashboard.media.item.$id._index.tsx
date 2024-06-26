@@ -1244,12 +1244,13 @@ export default function Page() {
 									defaultValue={loaderData.query.showSeasonNumber?.toString()}
 								>
 									{metadataAdditionalDetails?.showSpecifics?.seasons.map(
-										(s) => (
+										(season, seasonIdx) => (
 											<DisplayShowSeason
-												key={s.id}
-												history={userMetadataDetails.history}
-												season={s}
+												key={season.id}
+												season={season}
+												seasonIdx={seasonIdx}
 												setData={setUpdateProgressModalData}
+												showProgress={userMetadataDetails.showProgress}
 											/>
 										),
 									)}
@@ -2125,20 +2126,11 @@ const SeenItem = (props: {
 
 const DisplayShowSeason = (props: {
 	season: ShowSeason;
-	history: AllUserHistory;
 	setData: (data: UpdateProgress) => void;
+	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
+	seasonIdx: number;
 }) => {
-	const isSeen =
-		props.season.episodes.length > 0 &&
-		props.season.episodes.every((e) =>
-			props.history.some(
-				(h) =>
-					h.progress === "100" &&
-					h.showExtraInformation &&
-					h.showExtraInformation.episode === e.episodeNumber &&
-					h.showExtraInformation.season === props.season.seasonNumber,
-			),
-		);
+	const isSeen = (props.showProgress?.[props.seasonIdx]?.timesSeen || 0) > 0;
 
 	return (
 		<Accordion.Item value={props.season.seasonNumber.toString()}>
@@ -2172,13 +2164,15 @@ const DisplayShowSeason = (props: {
 			</Accordion.Control>
 			<Accordion.Panel>
 				{props.season.episodes.length > 0 ? (
-					props.season.episodes.map((e) => (
+					props.season.episodes.map((episode, episodeIdx) => (
 						<DisplayShowEpisode
-							key={e.id}
-							episode={e}
-							seasonNumber={props.season.seasonNumber}
-							history={props.history}
+							key={episode.id}
+							episode={episode}
 							setData={props.setData}
+							episodeIdx={episodeIdx}
+							seasonIdx={props.seasonIdx}
+							seasonProgress={props.showProgress}
+							seasonNumber={props.season.seasonNumber}
 						/>
 					))
 				) : (
@@ -2190,19 +2184,16 @@ const DisplayShowSeason = (props: {
 };
 
 const DisplayShowEpisode = (props: {
-	episode: ShowEpisode;
-	history: AllUserHistory;
+	seasonIdx: number;
+	episodeIdx: number;
 	seasonNumber: number;
+	episode: ShowEpisode;
+	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 	setData: (data: UpdateProgress) => void;
 }) => {
 	const numTimesEpisodeSeen =
-		props.history.filter(
-			(h) =>
-				h.progress === "100" &&
-				h.showExtraInformation &&
-				h.showExtraInformation.episode === props.episode.episodeNumber &&
-				h.showExtraInformation.season === props.seasonNumber,
-		).length || 0;
+		props.seasonProgress?.[props.seasonIdx]?.episodes[props.episodeIdx]
+			.timesSeen || 0;
 
 	return (
 		<Fragment>
