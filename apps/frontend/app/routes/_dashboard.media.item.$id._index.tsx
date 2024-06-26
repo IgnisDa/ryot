@@ -22,7 +22,6 @@ import {
 	ScrollArea,
 	Select,
 	SimpleGrid,
-	Skeleton,
 	Slider,
 	Stack,
 	Tabs,
@@ -38,7 +37,6 @@ import {
 	unstable_defineLoader,
 } from "@remix-run/node";
 import {
-	Await,
 	Form,
 	Link,
 	type MetaArgs_SingleFetch,
@@ -92,7 +90,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
-import { Fragment, type ReactNode, Suspense, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -163,10 +161,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		serverGqlService.request(MetadataMainDetailsDocument, { metadataId }),
 		getUserCollectionsList(request),
 	]);
-	const mediaAdditionalDetails = serverGqlService.request(
-		MetadataAdditionalDetailsDocument,
-		{ metadataId },
-	);
 	return {
 		query,
 		userPreferences: {
@@ -182,7 +176,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		userDetails,
 		metadataId,
 		mediaMainDetails,
-		mediaAdditionalDetails,
 		collections,
 	};
 });
@@ -435,6 +428,22 @@ const showSpecificsSchema = z.array(
 
 const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
+const useMetadataAdditionalDetails = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const { data } = useQuery({
+		queryKey: [MetadataAdditionalDetailsDocument],
+		queryFn: async () => {
+			const { metadataDetails } = await clientGqlService.request(
+				MetadataAdditionalDetailsDocument,
+				{ metadataId: loaderData.metadataId },
+			);
+			return metadataDetails;
+		},
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+	return data;
+};
+
 const useUserMetadataDetails = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
@@ -454,7 +463,7 @@ const useUserMetadataDetails = () => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
-
+	const metadataAdditionalDetails = useMetadataAdditionalDetails();
 	const userMetadataDetails = useUserMetadataDetails();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
@@ -583,51 +592,45 @@ export default function Page() {
 					{loaderData.mediaMainDetails.isPartial ? (
 						<MediaIsPartial mediaType="media" />
 					) : null}
-					<MediaAdditionalDetailsSuspenseLoader>
-						{(mediaAdditionalDetails) => (
-							<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-								{[
-									loaderData.mediaMainDetails.publishDate
-										? dayjsLib(loaderData.mediaMainDetails.publishDate).format(
-												"LL",
-											)
-										: loaderData.mediaMainDetails.publishYear,
-									loaderData.mediaMainDetails.originalLanguage,
-									loaderData.mediaMainDetails.productionStatus,
-									mediaAdditionalDetails.bookSpecifics?.pages &&
-										`${mediaAdditionalDetails.bookSpecifics.pages} pages`,
-									mediaAdditionalDetails.podcastSpecifics?.totalEpisodes &&
-										`${mediaAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
-									mediaAdditionalDetails.animeSpecifics?.episodes &&
-										`${mediaAdditionalDetails.animeSpecifics.episodes} episodes`,
-									mediaAdditionalDetails.mangaSpecifics?.chapters &&
-										`${mediaAdditionalDetails.mangaSpecifics.chapters} chapters`,
-									mediaAdditionalDetails.mangaSpecifics?.volumes &&
-										`${mediaAdditionalDetails.mangaSpecifics.volumes} volumes`,
-									mediaAdditionalDetails.movieSpecifics?.runtime &&
-										humanizeDuration(
-											mediaAdditionalDetails.movieSpecifics.runtime * 1000 * 60,
-										),
-									mediaAdditionalDetails.showSpecifics?.totalSeasons &&
-										`${mediaAdditionalDetails.showSpecifics.totalSeasons} seasons`,
-									mediaAdditionalDetails.showSpecifics?.totalEpisodes &&
-										`${mediaAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
-									mediaAdditionalDetails.showSpecifics?.runtime &&
-										humanizeDuration(
-											mediaAdditionalDetails.showSpecifics.runtime * 1000 * 60,
-										),
-									mediaAdditionalDetails.audioBookSpecifics?.runtime &&
-										humanizeDuration(
-											mediaAdditionalDetails.audioBookSpecifics.runtime *
-												1000 *
-												60,
-										),
-								]
-									.filter(Boolean)
-									.join(" • ")}
-							</Text>
-						)}
-					</MediaAdditionalDetailsSuspenseLoader>
+					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+						{[
+							loaderData.mediaMainDetails.publishDate
+								? dayjsLib(loaderData.mediaMainDetails.publishDate).format("LL")
+								: loaderData.mediaMainDetails.publishYear,
+							loaderData.mediaMainDetails.originalLanguage,
+							loaderData.mediaMainDetails.productionStatus,
+							metadataAdditionalDetails?.bookSpecifics?.pages &&
+								`${metadataAdditionalDetails.bookSpecifics.pages} pages`,
+							metadataAdditionalDetails?.podcastSpecifics?.totalEpisodes &&
+								`${metadataAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
+							metadataAdditionalDetails?.animeSpecifics?.episodes &&
+								`${metadataAdditionalDetails.animeSpecifics.episodes} episodes`,
+							metadataAdditionalDetails?.mangaSpecifics?.chapters &&
+								`${metadataAdditionalDetails.mangaSpecifics.chapters} chapters`,
+							metadataAdditionalDetails?.mangaSpecifics?.volumes &&
+								`${metadataAdditionalDetails.mangaSpecifics.volumes} volumes`,
+							metadataAdditionalDetails?.movieSpecifics?.runtime &&
+								humanizeDuration(
+									metadataAdditionalDetails.movieSpecifics.runtime * 1000 * 60,
+								),
+							metadataAdditionalDetails?.showSpecifics?.totalSeasons &&
+								`${metadataAdditionalDetails.showSpecifics.totalSeasons} seasons`,
+							metadataAdditionalDetails?.showSpecifics?.totalEpisodes &&
+								`${metadataAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
+							metadataAdditionalDetails?.showSpecifics?.runtime &&
+								humanizeDuration(
+									metadataAdditionalDetails.showSpecifics.runtime * 1000 * 60,
+								),
+							metadataAdditionalDetails?.audioBookSpecifics?.runtime &&
+								humanizeDuration(
+									metadataAdditionalDetails.audioBookSpecifics.runtime *
+										1000 *
+										60,
+								),
+						]
+							.filter(Boolean)
+							.join(" • ")}
+					</Text>
 					{userMetadataDetails ? (
 						<>
 							{loaderData.mediaMainDetails.providerRating ||
@@ -901,38 +904,29 @@ export default function Page() {
 							<MediaScrollArea>
 								{userMetadataDetails ? (
 									<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-										<MediaAdditionalDetailsSuspenseLoader>
-											{(mediaAdditionalDetails) => (
-												<>
-													{userMetadataDetails.inProgress ? (
-														<IndividualProgressModal
-															title={loaderData.mediaMainDetails.title}
-															progress={Number(
-																userMetadataDetails.inProgress.progress,
-															)}
-															inProgress={userMetadataDetails.inProgress}
-															metadataId={loaderData.metadataId}
-															onClose={progressModalClose}
-															opened={progressModalOpened}
-															lot={loaderData.mediaMainDetails.lot}
-															total={
-																mediaAdditionalDetails.audioBookSpecifics
-																	?.runtime ||
-																mediaAdditionalDetails.bookSpecifics?.pages ||
-																mediaAdditionalDetails.movieSpecifics
-																	?.runtime ||
-																mediaAdditionalDetails.mangaSpecifics
-																	?.chapters ||
-																mediaAdditionalDetails.animeSpecifics
-																	?.episodes ||
-																mediaAdditionalDetails.visualNovelSpecifics
-																	?.length
-															}
-														/>
-													) : null}
-												</>
-											)}
-										</MediaAdditionalDetailsSuspenseLoader>
+										{userMetadataDetails.inProgress ? (
+											<IndividualProgressModal
+												title={loaderData.mediaMainDetails.title}
+												progress={Number(
+													userMetadataDetails.inProgress.progress,
+												)}
+												inProgress={userMetadataDetails.inProgress}
+												metadataId={loaderData.metadataId}
+												onClose={progressModalClose}
+												opened={progressModalOpened}
+												lot={loaderData.mediaMainDetails.lot}
+												total={
+													metadataAdditionalDetails?.audioBookSpecifics
+														?.runtime ||
+													metadataAdditionalDetails?.bookSpecifics?.pages ||
+													metadataAdditionalDetails?.movieSpecifics?.runtime ||
+													metadataAdditionalDetails?.mangaSpecifics?.chapters ||
+													metadataAdditionalDetails?.animeSpecifics?.episodes ||
+													metadataAdditionalDetails?.visualNovelSpecifics
+														?.length
+												}
+											/>
+										) : null}
 										<Menu shadow="md">
 											<Menu.Target>
 												<Button variant="outline">Update progress</Button>
@@ -1182,136 +1176,117 @@ export default function Page() {
 								) : undefined}
 							</MediaScrollArea>
 						</Tabs.Panel>
-						<MediaAdditionalDetailsSuspenseLoader>
-							{(metadataDetails) =>
-								userMetadataDetails ? (
-									<Tabs.Panel value="history">
-										{userMetadataDetails.seenBy > 0 ||
-										userMetadataDetails.history.length > 0 ||
-										userMetadataDetails.unitsConsumed ? (
-											<MediaScrollArea>
-												<Stack>
-													<Box>
-														<Text fz={{ base: "sm", md: "md" }}>
-															Seen by all users {userMetadataDetails.seenBy}{" "}
-															time
-															{userMetadataDetails.seenBy > 1 ? "s" : ""} and{" "}
-															{userMetadataDetails.history.length} time
-															{userMetadataDetails &&
-															userMetadataDetails.history.length > 1
-																? "s"
-																: ""}{" "}
-															by you.
-														</Text>
-														{userMetadataDetails.unitsConsumed ? (
-															<Text fz={{ base: "sm", md: "md" }}>
-																Consumed{" "}
-																{match(loaderData.mediaMainDetails.lot)
-																	.with(
-																		MediaLot.AudioBook,
-																		MediaLot.Movie,
-																		MediaLot.Show,
-																		MediaLot.Podcast,
-																		MediaLot.VisualNovel,
-																		() =>
-																			humanizeDuration(
-																				(userMetadataDetails.unitsConsumed ||
-																					0) *
-																					1000 *
-																					60,
-																			),
-																	)
-																	.otherwise(
-																		(v) =>
-																			`${
-																				userMetadataDetails.unitsConsumed
-																			} ${match(v)
-																				.with(MediaLot.VideoGame, () => "")
-																				.with(MediaLot.Book, () => "pages")
-																				.with(MediaLot.Anime, () => "episodes")
-																				.with(MediaLot.Manga, () => "chapters")
-																				.exhaustive()}`,
-																	)}
-																.
-															</Text>
-														) : null}
-													</Box>
-													{userMetadataDetails.history.map((h) => (
-														<SeenItem
-															history={h}
-															key={h.id}
-															showSpecifics={metadataDetails.showSpecifics}
-															podcastSpecifics={
-																metadataDetails.podcastSpecifics
-															}
-														/>
-													))}
-												</Stack>
-											</MediaScrollArea>
-										) : (
-											<Text>No history</Text>
-										)}
-									</Tabs.Panel>
-								) : undefined
-							}
-						</MediaAdditionalDetailsSuspenseLoader>
 						{userMetadataDetails ? (
-							<MediaAdditionalDetailsSuspenseLoader>
-								{(mediaAdditionalDetails) => (
-									<>
-										{mediaAdditionalDetails.showSpecifics ? (
-											<Tabs.Panel value="showSeasons">
-												<MediaScrollArea>
-													<Accordion
-														// do not show the chevron at all
-														chevron={<Box />}
-														variant="contained"
-														defaultValue={loaderData.query.showSeasonNumber?.toString()}
-													>
-														{mediaAdditionalDetails.showSpecifics.seasons.map(
-															(s) => (
-																<DisplayShowSeason
-																	key={s.id}
-																	history={userMetadataDetails.history}
-																	season={s}
-																	setData={setUpdateProgressModalData}
-																/>
-															),
-														)}
-													</Accordion>
-												</MediaScrollArea>
-											</Tabs.Panel>
-										) : null}
-									</>
+							<Tabs.Panel value="history">
+								{userMetadataDetails.seenBy > 0 ||
+								userMetadataDetails.history.length > 0 ||
+								userMetadataDetails.unitsConsumed ? (
+									<MediaScrollArea>
+										<Stack>
+											<Box>
+												<Text fz={{ base: "sm", md: "md" }}>
+													Seen by all users {userMetadataDetails.seenBy} time
+													{userMetadataDetails.seenBy > 1 ? "s" : ""} and{" "}
+													{userMetadataDetails.history.length} time
+													{userMetadataDetails &&
+													userMetadataDetails.history.length > 1
+														? "s"
+														: ""}{" "}
+													by you.
+												</Text>
+												{userMetadataDetails.unitsConsumed ? (
+													<Text fz={{ base: "sm", md: "md" }}>
+														Consumed{" "}
+														{match(loaderData.mediaMainDetails.lot)
+															.with(
+																MediaLot.AudioBook,
+																MediaLot.Movie,
+																MediaLot.Show,
+																MediaLot.Podcast,
+																MediaLot.VisualNovel,
+																() =>
+																	humanizeDuration(
+																		(userMetadataDetails.unitsConsumed || 0) *
+																			1000 *
+																			60,
+																	),
+															)
+															.otherwise(
+																(v) =>
+																	`${userMetadataDetails.unitsConsumed} ${match(
+																		v,
+																	)
+																		.with(MediaLot.VideoGame, () => "")
+																		.with(MediaLot.Book, () => "pages")
+																		.with(MediaLot.Anime, () => "episodes")
+																		.with(MediaLot.Manga, () => "chapters")
+																		.exhaustive()}`,
+															)}
+														.
+													</Text>
+												) : null}
+											</Box>
+											{userMetadataDetails.history.map((h) => (
+												<SeenItem
+													history={h}
+													key={h.id}
+													showSpecifics={
+														metadataAdditionalDetails?.showSpecifics
+													}
+													podcastSpecifics={
+														metadataAdditionalDetails?.podcastSpecifics
+													}
+												/>
+											))}
+										</Stack>
+									</MediaScrollArea>
+								) : (
+									<Text>No history</Text>
 								)}
-							</MediaAdditionalDetailsSuspenseLoader>
+							</Tabs.Panel>
 						) : undefined}
 						{userMetadataDetails ? (
-							<MediaAdditionalDetailsSuspenseLoader>
-								{(mediaAdditionalDetails) => (
-									<>
-										{mediaAdditionalDetails.podcastSpecifics ? (
-											<Tabs.Panel value="podcastEpisodes">
-												<MediaScrollArea>
-													<Stack mx="md">
-														{mediaAdditionalDetails.podcastSpecifics.episodes.map(
-															(e, podcastEpisodeIdx) => (
-																<DisplayPodcastEpisode
-																	key={e.id}
-																	episode={e}
-																	idx={podcastEpisodeIdx}
-																	history={userMetadataDetails.history}
-																	setData={setUpdateProgressModalData}
-																/>
-															),
-														)}
-													</Stack>
-												</MediaScrollArea>
-											</Tabs.Panel>
-										) : null}
-									</>
-								)}
-							</MediaAdditionalDetailsSuspenseLoader>
+							<Tabs.Panel value="showSeasons">
+								<MediaScrollArea>
+									<Accordion
+										// do not show the chevron at all
+										chevron={<Box />}
+										variant="contained"
+										defaultValue={loaderData.query.showSeasonNumber?.toString()}
+									>
+										{metadataAdditionalDetails?.showSpecifics?.seasons.map(
+											(s) => (
+												<DisplayShowSeason
+													key={s.id}
+													history={userMetadataDetails.history}
+													season={s}
+													setData={setUpdateProgressModalData}
+												/>
+											),
+										)}
+									</Accordion>
+								</MediaScrollArea>
+							</Tabs.Panel>
+						) : undefined}
+						{userMetadataDetails &&
+						metadataAdditionalDetails?.podcastSpecifics ? (
+							<Tabs.Panel value="podcastEpisodes">
+								<MediaScrollArea>
+									<Stack mx="md">
+										{metadataAdditionalDetails.podcastSpecifics.episodes.map(
+											(e, podcastEpisodeIdx) => (
+												<DisplayPodcastEpisode
+													key={e.id}
+													episode={e}
+													idx={podcastEpisodeIdx}
+													history={userMetadataDetails.history}
+													setData={setUpdateProgressModalData}
+												/>
+											),
+										)}
+									</Stack>
+								</MediaScrollArea>
+							</Tabs.Panel>
 						) : undefined}
 						{userMetadataDetails ? (
 							<>
@@ -1439,21 +1414,6 @@ export default function Page() {
 	);
 }
 
-const MediaAdditionalDetailsSuspenseLoader = (props: {
-	children: (
-		arg: MetadataAdditionalDetailsQuery["metadataDetails"],
-	) => ReactNode;
-}) => {
-	const loaderData = useLoaderData<typeof loader>();
-	return (
-		<Suspense fallback={<FallbackForDefer />}>
-			<Await resolve={loaderData.mediaAdditionalDetails}>
-				{({ metadataDetails }) => props.children(metadataDetails)}
-			</Await>
-		</Suspense>
-	);
-};
-
 type UpdateProgress = {
 	onlySeason?: boolean;
 	completeShow?: boolean;
@@ -1475,6 +1435,7 @@ const ProgressUpdateModal = (props: {
 	data?: UpdateProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const metadataAdditionalDetails = useMetadataAdditionalDetails();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
@@ -1579,108 +1540,100 @@ const ProgressUpdateModal = (props: {
 							) : null}
 						</>
 					) : null}
-					<MediaAdditionalDetailsSuspenseLoader>
-						{(mediaAdditionalDetails) => (
-							<>
-								{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
-									<>
-										<input
-											hidden
-											name="showSpecifics"
-											defaultValue={JSON.stringify(
-												mediaAdditionalDetails.showSpecifics?.seasons.map(
-													(s) => ({
-														seasonNumber: s.seasonNumber,
-														episodes: s.episodes.map((e) => e.episodeNumber),
-													}),
-												),
-											)}
-										/>
-										{props.data?.onlySeason || props.data?.completeShow ? (
-											<Alert color="yellow" icon={<IconAlertCircle />}>
-												{props.data.onlySeason
-													? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
-													: props.data.completeShow
-														? "This will mark all episodes for this show as seen"
-														: null}
-											</Alert>
-										) : null}
-										{!props.data?.completeShow ? (
-											<Select
-												label="Season"
-												data={mediaAdditionalDetails.showSpecifics?.seasons.map(
-													(s) => ({
-														label: `${s.seasonNumber}. ${s.name.toString()}`,
-														value: s.seasonNumber.toString(),
-													}),
-												)}
-												defaultValue={props.data?.showSeasonNumber?.toString()}
-											/>
-										) : null}
-										{props.data?.onlySeason ? (
-											<Checkbox
-												label="Mark all seasons before this as seen"
-												name="showAllSeasonsBefore"
-											/>
-										) : null}
-										{!props.data?.onlySeason &&
-										typeof props.data?.showSeasonNumber !== "undefined" ? (
-											<Select
-												label="Episode"
-												data={
-													mediaAdditionalDetails.showSpecifics?.seasons
-														.find(
-															(s) =>
-																s.seasonNumber ===
-																Number(props.data?.showSeasonNumber),
-														)
-														?.episodes.map((e) => ({
-															label: `${e.episodeNumber}. ${e.name.toString()}`,
-															value: e.episodeNumber.toString(),
-														})) || []
-												}
-												defaultValue={props.data.showEpisodeNumber?.toString()}
-											/>
-										) : null}
-									</>
-								) : null}
-								{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
-									<>
-										<input
-											hidden
-											name="podcastSpecifics"
-											defaultValue={JSON.stringify(
-												mediaAdditionalDetails.podcastSpecifics?.episodes.map(
-													(e) => ({
-														episodeNumber: e.number,
-													}),
-												),
-											)}
-										/>
-										{props.data?.completePodcast ? (
-											<Alert color="yellow" icon={<IconAlertCircle />}>
-												This will mark all episodes for this podcast as seen
-											</Alert>
-										) : (
-											<>
-												<Title order={6}>Select episode</Title>
-												<Autocomplete
-													label="Episode"
-													data={mediaAdditionalDetails.podcastSpecifics?.episodes.map(
-														(se) => ({
-															label: se.title.toString(),
-															value: se.number.toString(),
-														}),
-													)}
-													defaultValue={props.data?.podcastEpisodeNumber?.toString()}
-												/>
-											</>
+					{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
+						<>
+							<input
+								hidden
+								name="showSpecifics"
+								defaultValue={JSON.stringify(
+									metadataAdditionalDetails?.showSpecifics?.seasons.map(
+										(s) => ({
+											seasonNumber: s.seasonNumber,
+											episodes: s.episodes.map((e) => e.episodeNumber),
+										}),
+									),
+								)}
+							/>
+							{props.data?.onlySeason || props.data?.completeShow ? (
+								<Alert color="yellow" icon={<IconAlertCircle />}>
+									{props.data.onlySeason
+										? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
+										: props.data.completeShow
+											? "This will mark all episodes for this show as seen"
+											: null}
+								</Alert>
+							) : null}
+							{!props.data?.completeShow ? (
+								<Select
+									label="Season"
+									data={metadataAdditionalDetails?.showSpecifics?.seasons.map(
+										(s) => ({
+											label: `${s.seasonNumber}. ${s.name.toString()}`,
+											value: s.seasonNumber.toString(),
+										}),
+									)}
+									defaultValue={props.data?.showSeasonNumber?.toString()}
+								/>
+							) : null}
+							{props.data?.onlySeason ? (
+								<Checkbox
+									label="Mark all seasons before this as seen"
+									name="showAllSeasonsBefore"
+								/>
+							) : null}
+							{!props.data?.onlySeason &&
+							typeof props.data?.showSeasonNumber !== "undefined" ? (
+								<Select
+									label="Episode"
+									data={
+										metadataAdditionalDetails?.showSpecifics?.seasons
+											.find(
+												(s) =>
+													s.seasonNumber ===
+													Number(props.data?.showSeasonNumber),
+											)
+											?.episodes.map((e) => ({
+												label: `${e.episodeNumber}. ${e.name.toString()}`,
+												value: e.episodeNumber.toString(),
+											})) || []
+									}
+									defaultValue={props.data.showEpisodeNumber?.toString()}
+								/>
+							) : null}
+						</>
+					) : null}
+					{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
+						<>
+							<input
+								hidden
+								name="podcastSpecifics"
+								defaultValue={JSON.stringify(
+									metadataAdditionalDetails?.podcastSpecifics?.episodes.map(
+										(e) => ({ episodeNumber: e.number }),
+									),
+								)}
+							/>
+							{props.data?.completePodcast ? (
+								<Alert color="yellow" icon={<IconAlertCircle />}>
+									This will mark all episodes for this podcast as seen
+								</Alert>
+							) : (
+								<>
+									<Title order={6}>Select episode</Title>
+									<Autocomplete
+										label="Episode"
+										data={metadataAdditionalDetails?.podcastSpecifics?.episodes.map(
+											(se) => ({
+												label: se.title.toString(),
+												value: se.number.toString(),
+											}),
 										)}
-									</>
-								) : null}
-							</>
-						)}
-					</MediaAdditionalDetailsSuspenseLoader>
+										defaultValue={props.data?.podcastEpisodeNumber?.toString()}
+									/>
+								</>
+							)}
+						</>
+					) : null}
 					<Select
 						label={`When did you ${getVerb(
 							Verb.Read,
@@ -2190,12 +2143,6 @@ const SeenItem = (props: {
 		</>
 	);
 };
-
-const FallbackForDefer = () => (
-	<>
-		<Skeleton height={16} />
-	</>
-);
 
 const DisplayShowSeason = (props: {
 	season: ShowSeason;
