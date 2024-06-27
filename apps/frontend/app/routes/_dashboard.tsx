@@ -645,6 +645,7 @@ const ProgressUpdateModal = () => {
 							{!mediaProgress.toUpdate?.completeShow ? (
 								<Select
 									label="Season"
+									required
 									data={mediaProgress.form.metadataDetails.showSpecifics?.seasons.map(
 										(s) => ({
 											label: `${s.seasonNumber}. ${s.name.toString()}`,
@@ -672,6 +673,7 @@ const ProgressUpdateModal = () => {
 								"undefined" ? (
 								<Select
 									label="Episode"
+									required
 									data={
 										mediaProgress.form.metadataDetails.showSpecifics?.seasons
 											.find(
