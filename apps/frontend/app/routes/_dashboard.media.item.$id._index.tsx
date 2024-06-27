@@ -100,7 +100,7 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
+import { Verb, dayjsLib, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { type TSetMediaProgress, useMediaProgress } from "~/lib/media";
 import {
@@ -124,7 +124,6 @@ const searchParamsSchema = z
 	.object({
 		defaultTab: z.string().optional(),
 		openReviewModal: zx.BoolAsString.optional(),
-		[redirectToQueryParam]: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
@@ -297,7 +296,6 @@ export default function Page() {
 	const [_, setUpdateProgressModalData] = useMediaProgress({
 		metadataDetails: loaderData.metadataDetails,
 		watchProviders: loaderData.userPreferences.watchProviders,
-		redirectToQueryParam: loaderData.query[redirectToQueryParam],
 	});
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
