@@ -652,6 +652,13 @@ const ProgressUpdateModal = () => {
 										}),
 									)}
 									defaultValue={mediaProgress.toUpdate?.showSeasonNumber?.toString()}
+									onChange={(v) => {
+										setMediaProgress(
+											produce(mediaProgress, (draft) => {
+												draft.toUpdate.showSeasonNumber = Number(v);
+											}),
+										);
+									}}
 								/>
 							) : null}
 							{mediaProgress.toUpdate?.onlySeason ? (
@@ -678,6 +685,13 @@ const ProgressUpdateModal = () => {
 											})) || []
 									}
 									defaultValue={mediaProgress.toUpdate.showEpisodeNumber?.toString()}
+									onChange={(v) => {
+										setMediaProgress(
+											produce(mediaProgress, (draft) => {
+												draft.toUpdate.showEpisodeNumber = Number(v);
+											}),
+										);
+									}}
 								/>
 							) : null}
 						</>
