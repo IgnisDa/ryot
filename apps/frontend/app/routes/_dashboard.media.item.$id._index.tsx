@@ -1409,8 +1409,8 @@ const ProgressUpdateModal = (props: {
 					["metadataLot", loaderData.metadataDetails.lot.toString()],
 				].map(([k, v]) => (
 					<Fragment key={k}>
-						{typeof v !== "undefined" ? (
-							<input hidden name={k} defaultValue={v?.toString()} key={k} />
+						{v && typeof v !== "undefined" ? (
+							<input hidden name={k} defaultValue={v.toString()} />
 						) : null}
 					</Fragment>
 				))}
