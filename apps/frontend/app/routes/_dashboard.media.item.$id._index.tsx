@@ -111,7 +111,6 @@ import { useGetMantineColor } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
@@ -141,14 +140,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const metadataId = params.id;
 	invariant(metadataId, "No ID provided");
 	const [
-		coreDetails,
 		userPreferences,
 		userDetails,
 		{ metadataDetails },
 		collections,
 		{ userMetadataDetails },
 	] = await Promise.all([
-		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
 		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
@@ -161,7 +158,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	]);
 	return {
 		query,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
 		userPreferences: {
 			reviewScale: userPreferences.general.reviewScale,
 			videosDisabled: userPreferences.general.disableVideos,
@@ -1220,7 +1216,6 @@ export default function Page() {
 						{loaderData.metadataDetails.podcastSpecifics ? (
 							<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
 								<Virtuoso
-									style={{ height: "100%" }}
 									data={loaderData.metadataDetails.podcastSpecifics.episodes}
 									itemContent={(podcastEpisodeIdx, podcastEpisode) => (
 										<DisplayPodcastEpisode
