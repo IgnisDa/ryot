@@ -6,7 +6,6 @@ import {
 	Avatar,
 	Box,
 	Button,
-	Checkbox,
 	Container,
 	Divider,
 	Flex,
@@ -27,7 +26,7 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { DateInput, DatePickerInput } from "@mantine/dates";
+import { DateInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import {
 	redirect,
@@ -82,7 +81,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
-import { Fragment, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -107,7 +106,7 @@ import {
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import type { UpdateProgressData, UpdateProgressFormData } from "~/lib/media";
+import { type TSetMediaProgress, useMediaProgress } from "~/lib/media";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -127,7 +126,6 @@ const JUST_WATCH_URL = "https://www.justwatch.com";
 const searchParamsSchema = z
 	.object({
 		defaultTab: z.string().optional(),
-		openProgressModal: zx.BoolAsString.optional(),
 		openReviewModal: zx.BoolAsString.optional(),
 		[redirectToQueryParam]: z.string().optional(),
 	})
@@ -445,9 +443,11 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
-	const [updateProgressModalData, setUpdateProgressModalData] = useState<
-		UpdateProgressData | undefined
-	>(loaderData.query.openProgressModal ? {} : undefined);
+	const [_, setUpdateProgressModalData] = useMediaProgress({
+		metadataDetails: loaderData.metadataDetails,
+		watchProviders: loaderData.userPreferences.watchProviders,
+		redirectToQueryParam: loaderData.query[redirectToQueryParam],
+	});
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(loaderData.query.openReviewModal ? {} : undefined);
@@ -492,7 +492,6 @@ export default function Page() {
 			</>
 		);
 	};
-	const closeProgressUpdateModal = () => setUpdateProgressModalData(undefined);
 
 	return (
 		<>
@@ -501,22 +500,6 @@ export default function Page() {
 				opened={mergeMetadataModalOpened}
 				metadataId={loaderData.metadataId}
 			/>
-			<Modal
-				onClose={closeProgressUpdateModal}
-				opened={updateProgressModalData !== undefined}
-				withCloseButton={false}
-				centered
-			>
-				<ProgressUpdateModal
-					data={updateProgressModalData}
-					onClose={closeProgressUpdateModal}
-					formData={{
-						metadataDetails: loaderData.metadataDetails,
-						watchProviders: loaderData.userPreferences.watchProviders,
-						redirectToQueryParam: loaderData.query[redirectToQueryParam],
-					}}
-				/>
-			</Modal>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -1199,17 +1182,16 @@ export default function Page() {
 										groupContent={(index) => (
 											<DisplayShowSeason
 												seasonIdx={index}
-												setData={setUpdateProgressModalData}
 												showProgress={
 													loaderData.userMetadataDetails.showProgress
 												}
+												updateProgressModalData={setUpdateProgressModalData}
 											/>
 										)}
 										itemContent={(index, groupIndex) => (
 											<DisplayShowEpisode
 												overallIdx={index}
 												seasonIdx={groupIndex}
-												setData={setUpdateProgressModalData}
 												seasonProgress={
 													loaderData.userMetadataDetails.showProgress
 												}
@@ -1219,6 +1201,7 @@ export default function Page() {
 														groupIndex
 													].seasonNumber
 												}
+												updateProgressModalData={setUpdateProgressModalData}
 											/>
 										)}
 									/>
@@ -1234,10 +1217,10 @@ export default function Page() {
 											key={podcastEpisode.id}
 											episode={podcastEpisode}
 											index={podcastEpisodeIdx}
-											setData={setUpdateProgressModalData}
 											podcastProgress={
 												loaderData.userMetadataDetails.podcastProgress
 											}
+											updateProgressModalData={setUpdateProgressModalData}
 										/>
 									)}
 								/>
@@ -1362,256 +1345,6 @@ export default function Page() {
 		</>
 	);
 }
-
-const WATCH_TIMES = [
-	"Just Right Now",
-	"I don't remember",
-	"Custom Date",
-] as const;
-
-const ProgressUpdateModal = (props: {
-	onClose: () => void;
-	formData: UpdateProgressFormData;
-	data?: UpdateProgressData;
-}) => {
-	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
-		new Date(),
-	);
-	const [watchTime, setWatchTime] =
-		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
-	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
-		string | undefined
-	>(undefined);
-	const [mangaChapterNumber, setMangaChapterNumber] = useState<
-		string | undefined
-	>(undefined);
-	const [mangaVolumeNumber, setMangaVolumeNumber] = useState<
-		string | undefined
-	>(undefined);
-
-	if (!props.data) return <></>;
-	return (
-		<Form
-			method="post"
-			action="?intent=progressUpdate"
-			replace
-			onSubmit={() => {
-				props.onClose();
-				events.updateProgress(props.formData.metadataDetails.title);
-			}}
-		>
-			{[
-				...Object.entries(props.data),
-				["metadataId", props.formData.metadataDetails.id],
-				["metadataLot", props.formData.metadataDetails.lot],
-			].map(([k, v]) => (
-				<Fragment key={k}>
-					{v && typeof v !== "undefined" ? (
-						<input hidden name={k} defaultValue={v.toString()} />
-					) : null}
-				</Fragment>
-			))}
-			{props.formData.redirectToQueryParam ? (
-				<input
-					hidden
-					name={redirectToQueryParam}
-					defaultValue={props.formData.redirectToQueryParam}
-				/>
-			) : null}
-			<Stack>
-				{props.formData.metadataDetails.lot === MediaLot.Anime ? (
-					<>
-						<NumberInput
-							label="Episode"
-							name="animeEpisodeNumber"
-							description="Leaving this empty will mark the whole anime as watched"
-							hideControls
-							value={animeEpisodeNumber}
-							onChange={(e) => setAnimeEpisodeNumber(e.toString())}
-						/>
-						{animeEpisodeNumber ? (
-							<Checkbox
-								label="Mark all episodes before this as watched"
-								name="animeAllEpisodesBefore"
-							/>
-						) : null}
-					</>
-				) : null}
-				{props.formData.metadataDetails.lot === MediaLot.Manga ? (
-					<>
-						<Box>
-							<Text c="dimmed" size="sm">
-								Leaving the following empty will mark the whole manga as watched
-							</Text>
-							<Group wrap="nowrap">
-								<NumberInput
-									label="Chapter"
-									name="mangaChapterNumber"
-									hideControls
-									value={mangaChapterNumber}
-									onChange={(e) => setMangaChapterNumber(e.toString())}
-								/>
-								<Text ta="center" fw="bold" mt="sm">
-									OR
-								</Text>
-								<NumberInput
-									label="Volume"
-									name="mangaVolumeNumber"
-									hideControls
-									value={mangaVolumeNumber}
-									onChange={(e) => setMangaVolumeNumber(e.toString())}
-								/>
-							</Group>
-						</Box>
-						{mangaChapterNumber ? (
-							<Checkbox
-								label="Mark all chapters before this as watched"
-								name="mangaAllChaptersBefore"
-							/>
-						) : null}
-					</>
-				) : null}
-				{props.formData.metadataDetails.lot === MediaLot.Show ? (
-					<>
-						<input
-							hidden
-							name="showSpecifics"
-							defaultValue={JSON.stringify(
-								props.formData.metadataDetails.showSpecifics?.seasons.map(
-									(s) => ({
-										seasonNumber: s.seasonNumber,
-										episodes: s.episodes.map((e) => e.episodeNumber),
-									}),
-								),
-							)}
-						/>
-						{props.data?.onlySeason || props.data?.completeShow ? (
-							<Alert color="yellow" icon={<IconAlertCircle />}>
-								{props.data.onlySeason
-									? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
-									: props.data.completeShow
-										? "This will mark all episodes for this show as seen"
-										: null}
-							</Alert>
-						) : null}
-						{!props.data?.completeShow ? (
-							<Select
-								label="Season"
-								data={props.formData.metadataDetails.showSpecifics?.seasons.map(
-									(s) => ({
-										label: `${s.seasonNumber}. ${s.name.toString()}`,
-										value: s.seasonNumber.toString(),
-									}),
-								)}
-								defaultValue={props.data?.showSeasonNumber?.toString()}
-							/>
-						) : null}
-						{props.data?.onlySeason ? (
-							<Checkbox
-								label="Mark all seasons before this as seen"
-								name="showAllSeasonsBefore"
-							/>
-						) : null}
-						{!props.data?.onlySeason &&
-						typeof props.data?.showSeasonNumber !== "undefined" ? (
-							<Select
-								label="Episode"
-								data={
-									props.formData.metadataDetails.showSpecifics?.seasons
-										.find(
-											(s) =>
-												s.seasonNumber === Number(props.data?.showSeasonNumber),
-										)
-										?.episodes.map((e) => ({
-											label: `${e.episodeNumber}. ${e.name.toString()}`,
-											value: e.episodeNumber.toString(),
-										})) || []
-								}
-								defaultValue={props.data.showEpisodeNumber?.toString()}
-							/>
-						) : null}
-					</>
-				) : null}
-				{props.formData.metadataDetails.lot === MediaLot.Podcast ? (
-					<>
-						<input
-							hidden
-							name="podcastSpecifics"
-							defaultValue={JSON.stringify(
-								props.formData.metadataDetails.podcastSpecifics?.episodes.map(
-									(e) => ({ episodeNumber: e.number }),
-								),
-							)}
-						/>
-						{props.data?.completePodcast ? (
-							<Alert color="yellow" icon={<IconAlertCircle />}>
-								This will mark all episodes for this podcast as seen
-							</Alert>
-						) : (
-							<>
-								<Title order={6}>Select episode</Title>
-								<Select
-									required
-									label="Episode"
-									data={props.formData.metadataDetails.podcastSpecifics?.episodes.map(
-										(se) => ({
-											label: se.title.toString(),
-											value: se.number.toString(),
-										}),
-									)}
-									defaultValue={props.data?.podcastEpisodeNumber?.toString()}
-									searchable
-									limit={10}
-								/>
-							</>
-						)}
-					</>
-				) : null}
-				<Select
-					label={`When did you ${getVerb(
-						Verb.Read,
-						props.formData.metadataDetails.lot,
-					)} it?`}
-					data={WATCH_TIMES}
-					value={watchTime}
-					onChange={(v) => {
-						setWatchTime(v as typeof watchTime);
-						match(v)
-							.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
-							.with(WATCH_TIMES[1], () => setSelectedDate(null))
-							.with(WATCH_TIMES[2], () => setSelectedDate(null));
-					}}
-				/>
-				{watchTime === WATCH_TIMES[2] ? (
-					<DatePickerInput
-						label="Enter exact date"
-						dropdownType="modal"
-						maxDate={new Date()}
-						onChange={setSelectedDate}
-						clearable
-					/>
-				) : null}
-				<Select
-					label={`Where did you ${getVerb(
-						Verb.Read,
-						props.formData.metadataDetails.lot,
-					)} it?`}
-					data={props.formData.watchProviders}
-					name="providerWatchedOn"
-				/>
-				<Button
-					variant="outline"
-					disabled={selectedDate === undefined}
-					type="submit"
-					name="date"
-					value={selectedDate ? formatDateToNaiveDate(selectedDate) : undefined}
-				>
-					Submit
-				</Button>
-			</Stack>
-		</Form>
-	);
-};
 
 type AllUserHistory =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
@@ -2075,7 +1808,7 @@ const SeenItem = (props: { history: History }) => {
 
 const DisplayShowSeason = (props: {
 	seasonIdx: number;
-	setData: (data: UpdateProgressData) => void;
+	updateProgressModalData: TSetMediaProgress;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -2102,7 +1835,7 @@ const DisplayShowSeason = (props: {
 							variant={isSeen ? "default" : "outline"}
 							color="blue"
 							onClick={() => {
-								props.setData({
+								props.updateProgressModalData({
 									showSeasonNumber: season.seasonNumber,
 									onlySeason: true,
 								});
@@ -2121,7 +1854,7 @@ const DisplayShowEpisode = (props: {
 	seasonIdx: number;
 	overallIdx: number;
 	seasonNumber: number;
-	setData: (data: UpdateProgressData) => void;
+	updateProgressModalData: TSetMediaProgress;
 	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -2151,7 +1884,7 @@ const DisplayShowEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					color="blue"
 					onClick={() => {
-						props.setData({
+						props.updateProgressModalData({
 							showSeasonNumber: props.seasonNumber,
 							showEpisodeNumber: episode.episodeNumber,
 						});
@@ -2167,7 +1900,7 @@ const DisplayShowEpisode = (props: {
 const DisplayPodcastEpisode = (props: {
 	index: number;
 	episode: PodcastEpisode;
-	setData: (data: UpdateProgressData) => void;
+	updateProgressModalData: TSetMediaProgress;
 	podcastProgress: UserMetadataDetailsQuery["userMetadataDetails"]["podcastProgress"];
 }) => {
 	const numTimesEpisodeSeen =
@@ -2187,7 +1920,9 @@ const DisplayPodcastEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					color="blue"
 					onClick={() => {
-						props.setData({ podcastEpisodeNumber: props.episode.number });
+						props.updateProgressModalData({
+							podcastEpisodeNumber: props.episode.number,
+						});
 					}}
 				>
 					{numTimesEpisodeSeen > 0 ? "Re-listen this" : "Mark as listened"}
