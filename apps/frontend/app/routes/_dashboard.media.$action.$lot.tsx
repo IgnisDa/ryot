@@ -33,7 +33,6 @@ import {
 	MediaLot,
 	MediaSortBy,
 	MediaSource,
-	MetadataDetailsDocument,
 	MetadataListDocument,
 	MetadataSearchDocument,
 	type UserReviewScale,
@@ -68,15 +67,12 @@ import {
 	commitMedia,
 } from "~/components/media";
 import events from "~/lib/events";
-import {
-	Verb,
-	clientGqlService,
-	getLot,
-	getVerb,
-	queryClient,
-} from "~/lib/generals";
+import { Verb, getLot, getVerb } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
-import { useMediaProgress } from "~/lib/media";
+import {
+	getMetadataDetailsWithReactQuery,
+	useMediaProgress,
+} from "~/lib/media";
 import {
 	getAuthorizationHeader,
 	getCoreDetails,
@@ -606,16 +602,7 @@ const MediaSearchItem = (props: {
 					size="compact-md"
 					onClick={async (e) => {
 						const id = await basicCommit(e);
-						const metadataDetails = await queryClient.ensureQueryData({
-							queryKey: ["metadataDetails", id],
-							queryFn: async () => {
-								const { metadataDetails } = await clientGqlService.request(
-									MetadataDetailsDocument,
-									{ metadataId: id },
-								);
-								return metadataDetails;
-							},
-						});
+						const metadataDetails = await getMetadataDetailsWithReactQuery(id);
 						setMediaProgress(
 							{},
 							{

@@ -1,6 +1,10 @@
-import type { MetadataDetailsQuery } from "@ryot/generated/graphql/backend/graphql";
+import {
+	MetadataDetailsDocument,
+	type MetadataDetailsQuery,
+} from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import invariant from "tiny-invariant";
+import { clientGqlService, queryClient } from "./generals";
 
 export type UpdateProgressFormData = {
 	watchProviders: string[];
@@ -42,3 +46,16 @@ export const useMediaProgress = (form?: UpdateProgressFormData) => {
 };
 
 export type TSetMediaProgress = ReturnType<typeof useMediaProgress>[1];
+
+export const getMetadataDetailsWithReactQuery = async (id: string) => {
+	return await queryClient.ensureQueryData({
+		queryKey: ["metadataDetails", id],
+		queryFn: async () => {
+			const { metadataDetails } = await clientGqlService.request(
+				MetadataDetailsDocument,
+				{ metadataId: id },
+			);
+			return metadataDetails;
+		},
+	});
+};
