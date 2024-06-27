@@ -47,7 +47,7 @@ import {
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -69,8 +69,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	] = await Promise.all([
 		getUserPreferences(request),
 		getUserDetails(request),
-		gqlClient.request(MetadataGroupDetailsDocument, { metadataGroupId }),
-		gqlClient.request(
+		serverGqlService.request(MetadataGroupDetailsDocument, { metadataGroupId }),
+		serverGqlService.request(
 			UserMetadataGroupDetailsDocument,
 			{ metadataGroupId },
 			await getAuthorizationHeader(request),

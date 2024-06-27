@@ -57,7 +57,7 @@ import {
 	getCoreDetails,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const defaultFiltersValue = {
@@ -83,7 +83,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const id = params.id;
 	invariant(id, "No ID provided");
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const { collectionContents: info } = await gqlClient.request(
+	const { collectionContents: info } = await serverGqlService.request(
 		CollectionContentsDocument,
 		{ input: { collectionId: id, take: 0 } },
 		await getAuthorizationHeader(request),
@@ -97,7 +97,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
-		gqlClient.request(
+		serverGqlService.request(
 			CollectionContentsDocument,
 			{
 				input: {

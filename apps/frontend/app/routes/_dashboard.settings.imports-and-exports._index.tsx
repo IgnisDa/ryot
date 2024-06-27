@@ -56,7 +56,7 @@ import {
 	getAuthorizationHeader,
 	getCoreDetails,
 	getCoreEnabledFeatures,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import {
 	processSubmission,
@@ -68,12 +68,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		await Promise.all([
 			getCoreDetails(request),
 			getCoreEnabledFeatures(),
-			gqlClient.request(
+			serverGqlService.request(
 				ImportReportsDocument,
 				undefined,
 				await getAuthorizationHeader(request),
 			),
-			gqlClient.request(
+			serverGqlService.request(
 				UserExportsDocument,
 				undefined,
 				await getAuthorizationHeader(request),
@@ -137,7 +137,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
 				}))
 				.exhaustive();
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
 				await getAuthorizationHeader(request),
@@ -154,7 +154,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployExport: async () => {
 			const toExport = processSubmission(formData, deployExportForm);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeployExportJobDocument,
 				toExport,
 				await getAuthorizationHeader(request),

@@ -61,7 +61,7 @@ import {
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
 
@@ -85,8 +85,8 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	] = await Promise.all([
 		getUserDetails(request),
 		getUserPreferences(request),
-		gqlClient.request(ExerciseDetailsDocument, { exerciseId }),
-		gqlClient.request(
+		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+		serverGqlService.request(
 			UserExerciseDetailsDocument,
 			{ input: { exerciseId } },
 			await getAuthorizationHeader(request),

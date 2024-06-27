@@ -585,6 +585,19 @@ struct UserMetadataGroupDetails {
 }
 
 #[derive(SimpleObject)]
+struct UserMetadataDetailsEpisodeProgress {
+    episode_number: i32,
+    times_seen: usize,
+}
+
+#[derive(SimpleObject)]
+struct UserMetadataDetailsShowSeasonProgress {
+    season_number: i32,
+    times_seen: usize,
+    episodes: Vec<UserMetadataDetailsEpisodeProgress>,
+}
+
+#[derive(SimpleObject)]
 struct UserMetadataDetails {
     /// The collections in which this media is present.
     collections: Vec<collection::Model>,
@@ -597,11 +610,17 @@ struct UserMetadataDetails {
     /// The next episode/chapter of this media.
     next_entry: Option<UserMediaNextEntry>,
     /// The number of users who have seen this media.
-    seen_by: i32,
+    seen_by_all_count: usize,
+    /// The number of times this user has seen this media.
+    seen_by_user_count: usize,
     /// The average rating of this media in this service.
     average_rating: Option<Decimal>,
     /// The number of units of this media that were consumed.
     units_consumed: Option<i32>,
+    /// The seen progress of this media if it is a show.
+    show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
+    /// The seen progress of this media if it is a podcast.
+    podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
 }
 
 #[derive(SimpleObject, Debug, Clone)]
@@ -1803,12 +1822,11 @@ impl MiscellaneousService {
             .await?
             .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
             .unwrap();
-        let seen_by: i32 = seen_by.try_into().unwrap();
+        let seen_by: usize = seen_by.try_into().unwrap();
         let user_to_meta =
             get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
                 .await;
         let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
-
         let average_rating = if reviews.is_empty() {
             None
         } else {
@@ -1820,15 +1838,69 @@ impl MiscellaneousService {
                 Some(sum / Decimal::from(total_rating.iter().len()))
             }
         };
+        let seen_by_user_count = history.len();
+        let show_progress = if let Some(show_specifics) = media_details.show_specifics {
+            let mut seasons = vec![];
+            for season in show_specifics.seasons {
+                let mut episodes = vec![];
+                for episode in season.episodes {
+                    let seen = history
+                        .iter()
+                        .filter(|h| {
+                            h.show_extra_information.as_ref().map_or(false, |s| {
+                                s.season == season.season_number
+                                    && s.episode == episode.episode_number
+                            })
+                        })
+                        .collect_vec();
+                    episodes.push(UserMetadataDetailsEpisodeProgress {
+                        episode_number: episode.episode_number,
+                        times_seen: seen.len(),
+                    })
+                }
+                let times_season_seen = episodes.iter().map(|e| e.times_seen).min().unwrap();
+                seasons.push(UserMetadataDetailsShowSeasonProgress {
+                    episodes,
+                    times_seen: times_season_seen,
+                    season_number: season.season_number,
+                })
+            }
+            Some(seasons)
+        } else {
+            None
+        };
+        let podcast_progress = if let Some(podcast_specifics) = media_details.podcast_specifics {
+            let mut episodes = vec![];
+            for episode in podcast_specifics.episodes {
+                let seen = history
+                    .iter()
+                    .filter(|h| {
+                        h.podcast_extra_information
+                            .as_ref()
+                            .map_or(false, |s| s.episode == episode.number)
+                    })
+                    .collect_vec();
+                episodes.push(UserMetadataDetailsEpisodeProgress {
+                    episode_number: episode.number,
+                    times_seen: seen.len(),
+                })
+            }
+            Some(episodes)
+        } else {
+            None
+        };
         Ok(UserMetadataDetails {
             collections,
             reviews,
             history,
             in_progress,
             next_entry: next_episode,
-            seen_by,
+            seen_by_all_count: seen_by,
+            seen_by_user_count,
             average_rating,
             units_consumed,
+            show_progress,
+            podcast_progress,
         })
     }
 
@@ -2681,6 +2753,11 @@ impl MiscellaneousService {
                 ));
             } else {
                 for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
+                    if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
+                        && SHOW_SPECIAL_SEASON_NAMES.contains(&s2.name.as_str())
+                    {
+                        continue;
+                    }
                     if s1.episodes.len() != s2.episodes.len() {
                         notifications.push((
                             format!(

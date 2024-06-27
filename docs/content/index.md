@@ -21,7 +21,6 @@ services:
     image: ignisda/ryot:latest # or ghcr.io/ignisda/ryot:latest
     environment:
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
-      # - FRONTEND_INSECURE_COOKIES=true # if running on HTTP
     ports:
       - "8000:8000"
     pull_policy: always

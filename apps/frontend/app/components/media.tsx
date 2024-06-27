@@ -70,7 +70,7 @@ import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
-import { HiddenLocationInput } from "~/components/common";
+import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import events from "~/lib/events";
 import {
@@ -143,7 +143,7 @@ export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 
 export const MediaScrollArea = (props: { children: ReactNode }) => {
 	return (
-		<ScrollArea.Autosize mah={{ base: "45vh", "2xl": "55vh" }}>
+		<ScrollArea.Autosize mah={MEDIA_DETAILS_HEIGHT}>
 			{props.children}
 		</ScrollArea.Autosize>
 	);
@@ -470,7 +470,7 @@ export const BaseDisplayItem = (props: {
 	href?: string;
 	highlightRightText?: string;
 	children?: ReactNode;
-	nameRight?: JSX.Element;
+	nameRight?: ReactNode;
 	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const colorScheme = useComputedColorScheme("dark");
@@ -503,7 +503,7 @@ export const BaseDisplayItem = (props: {
 		].includes(r),
 	);
 
-	const themeIconSurround = (idx: number, icon?: JSX.Element) => (
+	const themeIconSurround = (idx: number, icon?: ReactNode) => (
 		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
 			{icon}
 		</ThemeIcon>
@@ -615,7 +615,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 	noBottomRight?: boolean;
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
-	nameRight?: JSX.Element;
+	nameRight?: ReactNode;
 	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
 	const navigate = useNavigate();

@@ -77,10 +77,6 @@ file_storage:
 
 # Settings related to frontend storage.
 frontend:
-  # Whether the cookies set are insecure.
-  # @envvar FRONTEND_INSECURE_COOKIES
-  insecure_cookies: false
-
   # The number of items to display in a list view.
   # @envvar FRONTEND_PAGE_SIZE
   page_size: 20

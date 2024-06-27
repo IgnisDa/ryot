@@ -138,6 +138,8 @@ export const MediaDetailsLayout = (props: {
 	);
 };
 
+export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
+
 type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 
 export const AddEntityToCollectionModal = (props: {

@@ -55,8 +55,8 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserPreferences,
-	gqlClient,
 	processSubmission,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 enum TimeSpan {
@@ -89,7 +89,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		.exhaustive();
 	const [userPreferences, { userMeasurementsList }] = await Promise.all([
 		getUserPreferences(request),
-		gqlClient.request(
+		serverGqlService.request(
 			UserMeasurementsListDocument,
 			{
 				input: {
@@ -121,7 +121,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				if (!isEmpty(value) && name !== redirectToQueryParam)
 					set(input, name, value);
 			}
-			await gqlClient.request(
+			await serverGqlService.request(
 				CreateUserMeasurementDocument,
 				{ input },
 				await getAuthorizationHeader(request),
@@ -141,7 +141,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeleteUserMeasurementDocument,
 				submission,
 				await getAuthorizationHeader(request),
