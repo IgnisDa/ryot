@@ -491,6 +491,7 @@ export default function Page() {
 			</>
 		);
 	};
+	const closeProgressUpdateModal = () => setUpdateProgressModalData(undefined);
 
 	return (
 		<>
@@ -499,11 +500,17 @@ export default function Page() {
 				opened={mergeMetadataModalOpened}
 				metadataId={loaderData.metadataId}
 			/>
-			<ProgressUpdateModal
-				onClose={() => setUpdateProgressModalData(undefined)}
+			<Modal
+				onClose={closeProgressUpdateModal}
 				opened={updateProgressModalData !== undefined}
-				data={updateProgressModalData}
-			/>
+				withCloseButton={false}
+				centered
+			>
+				<ProgressUpdateModal
+					data={updateProgressModalData}
+					onClose={closeProgressUpdateModal}
+				/>
+			</Modal>
 			<PostReviewModal
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
@@ -1366,7 +1373,6 @@ const WATCH_TIMES = [
 ] as const;
 
 const ProgressUpdateModal = (props: {
-	opened: boolean;
 	onClose: () => void;
 	data?: UpdateProgress;
 }) => {
@@ -1388,236 +1394,223 @@ const ProgressUpdateModal = (props: {
 
 	if (!props.data) return <></>;
 	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
+		<Form
+			method="post"
+			action="?intent=progressUpdate"
+			replace
+			onSubmit={() => {
+				props.onClose();
+				events.updateProgress(loaderData.metadataDetails.title);
+			}}
 		>
-			<Form
-				method="post"
-				action="?intent=progressUpdate"
-				replace
-				onSubmit={() => {
-					props.onClose();
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
-			>
-				{[
-					...Object.entries(props.data),
-					["metadataId", loaderData.metadataId.toString()],
-					["metadataLot", loaderData.metadataDetails.lot.toString()],
-				].map(([k, v]) => (
-					<Fragment key={k}>
-						{v && typeof v !== "undefined" ? (
-							<input hidden name={k} defaultValue={v.toString()} />
+			{[
+				...Object.entries(props.data),
+				["metadataId", loaderData.metadataId.toString()],
+				["metadataLot", loaderData.metadataDetails.lot.toString()],
+			].map(([k, v]) => (
+				<Fragment key={k}>
+					{v && typeof v !== "undefined" ? (
+						<input hidden name={k} defaultValue={v.toString()} />
+					) : null}
+				</Fragment>
+			))}
+			{loaderData.query[redirectToQueryParam] ? (
+				<input
+					hidden
+					name={redirectToQueryParam}
+					defaultValue={loaderData.query[redirectToQueryParam]}
+				/>
+			) : null}
+			<Stack>
+				{loaderData.metadataDetails.lot === MediaLot.Anime ? (
+					<>
+						<NumberInput
+							label="Episode"
+							name="animeEpisodeNumber"
+							description="Leaving this empty will mark the whole anime as watched"
+							hideControls
+							value={animeEpisodeNumber}
+							onChange={(e) => setAnimeEpisodeNumber(e.toString())}
+						/>
+						{animeEpisodeNumber ? (
+							<Checkbox
+								label="Mark all episodes before this as watched"
+								name="animeAllEpisodesBefore"
+							/>
 						) : null}
-					</Fragment>
-				))}
-				{loaderData.query[redirectToQueryParam] ? (
-					<input
-						hidden
-						name={redirectToQueryParam}
-						defaultValue={loaderData.query[redirectToQueryParam]}
-					/>
+					</>
 				) : null}
-				<Stack>
-					{loaderData.metadataDetails.lot === MediaLot.Anime ? (
-						<>
-							<NumberInput
-								label="Episode"
-								name="animeEpisodeNumber"
-								description="Leaving this empty will mark the whole anime as watched"
-								hideControls
-								value={animeEpisodeNumber}
-								onChange={(e) => setAnimeEpisodeNumber(e.toString())}
-							/>
-							{animeEpisodeNumber ? (
-								<Checkbox
-									label="Mark all episodes before this as watched"
-									name="animeAllEpisodesBefore"
+				{loaderData.metadataDetails.lot === MediaLot.Manga ? (
+					<>
+						<Box>
+							<Text c="dimmed" size="sm">
+								Leaving the following empty will mark the whole manga as watched
+							</Text>
+							<Group wrap="nowrap">
+								<NumberInput
+									label="Chapter"
+									name="mangaChapterNumber"
+									hideControls
+									value={mangaChapterNumber}
+									onChange={(e) => setMangaChapterNumber(e.toString())}
 								/>
-							) : null}
-						</>
-					) : null}
-					{loaderData.metadataDetails.lot === MediaLot.Manga ? (
-						<>
-							<Box>
-								<Text c="dimmed" size="sm">
-									Leaving the following empty will mark the whole manga as
-									watched
+								<Text ta="center" fw="bold" mt="sm">
+									OR
 								</Text>
-								<Group wrap="nowrap">
-									<NumberInput
-										label="Chapter"
-										name="mangaChapterNumber"
-										hideControls
-										value={mangaChapterNumber}
-										onChange={(e) => setMangaChapterNumber(e.toString())}
-									/>
-									<Text ta="center" fw="bold" mt="sm">
-										OR
-									</Text>
-									<NumberInput
-										label="Volume"
-										name="mangaVolumeNumber"
-										hideControls
-										value={mangaVolumeNumber}
-										onChange={(e) => setMangaVolumeNumber(e.toString())}
-									/>
-								</Group>
-							</Box>
-							{mangaChapterNumber ? (
-								<Checkbox
-									label="Mark all chapters before this as watched"
-									name="mangaAllChaptersBefore"
+								<NumberInput
+									label="Volume"
+									name="mangaVolumeNumber"
+									hideControls
+									value={mangaVolumeNumber}
+									onChange={(e) => setMangaVolumeNumber(e.toString())}
 								/>
-							) : null}
-						</>
-					) : null}
-					{loaderData.metadataDetails.lot === MediaLot.Show ? (
-						<>
-							<input
-								hidden
-								name="showSpecifics"
-								defaultValue={JSON.stringify(
-									loaderData.metadataDetails.showSpecifics?.seasons.map(
-										(s) => ({
-											seasonNumber: s.seasonNumber,
-											episodes: s.episodes.map((e) => e.episodeNumber),
-										}),
-									),
-								)}
+							</Group>
+						</Box>
+						{mangaChapterNumber ? (
+							<Checkbox
+								label="Mark all chapters before this as watched"
+								name="mangaAllChaptersBefore"
 							/>
-							{props.data?.onlySeason || props.data?.completeShow ? (
-								<Alert color="yellow" icon={<IconAlertCircle />}>
-									{props.data.onlySeason
-										? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
-										: props.data.completeShow
-											? "This will mark all episodes for this show as seen"
-											: null}
-								</Alert>
-							) : null}
-							{!props.data?.completeShow ? (
+						) : null}
+					</>
+				) : null}
+				{loaderData.metadataDetails.lot === MediaLot.Show ? (
+					<>
+						<input
+							hidden
+							name="showSpecifics"
+							defaultValue={JSON.stringify(
+								loaderData.metadataDetails.showSpecifics?.seasons.map((s) => ({
+									seasonNumber: s.seasonNumber,
+									episodes: s.episodes.map((e) => e.episodeNumber),
+								})),
+							)}
+						/>
+						{props.data?.onlySeason || props.data?.completeShow ? (
+							<Alert color="yellow" icon={<IconAlertCircle />}>
+								{props.data.onlySeason
+									? `This will mark all episodes of season ${props.data.showSeasonNumber} as seen`
+									: props.data.completeShow
+										? "This will mark all episodes for this show as seen"
+										: null}
+							</Alert>
+						) : null}
+						{!props.data?.completeShow ? (
+							<Select
+								label="Season"
+								data={loaderData.metadataDetails.showSpecifics?.seasons.map(
+									(s) => ({
+										label: `${s.seasonNumber}. ${s.name.toString()}`,
+										value: s.seasonNumber.toString(),
+									}),
+								)}
+								defaultValue={props.data?.showSeasonNumber?.toString()}
+							/>
+						) : null}
+						{props.data?.onlySeason ? (
+							<Checkbox
+								label="Mark all seasons before this as seen"
+								name="showAllSeasonsBefore"
+							/>
+						) : null}
+						{!props.data?.onlySeason &&
+						typeof props.data?.showSeasonNumber !== "undefined" ? (
+							<Select
+								label="Episode"
+								data={
+									loaderData.metadataDetails.showSpecifics?.seasons
+										.find(
+											(s) =>
+												s.seasonNumber === Number(props.data?.showSeasonNumber),
+										)
+										?.episodes.map((e) => ({
+											label: `${e.episodeNumber}. ${e.name.toString()}`,
+											value: e.episodeNumber.toString(),
+										})) || []
+								}
+								defaultValue={props.data.showEpisodeNumber?.toString()}
+							/>
+						) : null}
+					</>
+				) : null}
+				{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
+					<>
+						<input
+							hidden
+							name="podcastSpecifics"
+							defaultValue={JSON.stringify(
+								loaderData.metadataDetails.podcastSpecifics?.episodes.map(
+									(e) => ({ episodeNumber: e.number }),
+								),
+							)}
+						/>
+						{props.data?.completePodcast ? (
+							<Alert color="yellow" icon={<IconAlertCircle />}>
+								This will mark all episodes for this podcast as seen
+							</Alert>
+						) : (
+							<>
+								<Title order={6}>Select episode</Title>
 								<Select
-									label="Season"
-									data={loaderData.metadataDetails.showSpecifics?.seasons.map(
-										(s) => ({
-											label: `${s.seasonNumber}. ${s.name.toString()}`,
-											value: s.seasonNumber.toString(),
+									required
+									label="Episode"
+									data={loaderData.metadataDetails.podcastSpecifics?.episodes.map(
+										(se) => ({
+											label: se.title.toString(),
+											value: se.number.toString(),
 										}),
 									)}
-									defaultValue={props.data?.showSeasonNumber?.toString()}
+									defaultValue={props.data?.podcastEpisodeNumber?.toString()}
+									searchable
+									limit={10}
 								/>
-							) : null}
-							{props.data?.onlySeason ? (
-								<Checkbox
-									label="Mark all seasons before this as seen"
-									name="showAllSeasonsBefore"
-								/>
-							) : null}
-							{!props.data?.onlySeason &&
-							typeof props.data?.showSeasonNumber !== "undefined" ? (
-								<Select
-									label="Episode"
-									data={
-										loaderData.metadataDetails.showSpecifics?.seasons
-											.find(
-												(s) =>
-													s.seasonNumber ===
-													Number(props.data?.showSeasonNumber),
-											)
-											?.episodes.map((e) => ({
-												label: `${e.episodeNumber}. ${e.name.toString()}`,
-												value: e.episodeNumber.toString(),
-											})) || []
-									}
-									defaultValue={props.data.showEpisodeNumber?.toString()}
-								/>
-							) : null}
-						</>
-					) : null}
-					{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
-						<>
-							<input
-								hidden
-								name="podcastSpecifics"
-								defaultValue={JSON.stringify(
-									loaderData.metadataDetails.podcastSpecifics?.episodes.map(
-										(e) => ({ episodeNumber: e.number }),
-									),
-								)}
-							/>
-							{props.data?.completePodcast ? (
-								<Alert color="yellow" icon={<IconAlertCircle />}>
-									This will mark all episodes for this podcast as seen
-								</Alert>
-							) : (
-								<>
-									<Title order={6}>Select episode</Title>
-									<Select
-										required
-										label="Episode"
-										data={loaderData.metadataDetails.podcastSpecifics?.episodes.map(
-											(se) => ({
-												label: se.title.toString(),
-												value: se.number.toString(),
-											}),
-										)}
-										defaultValue={props.data?.podcastEpisodeNumber?.toString()}
-										searchable
-										limit={10}
-									/>
-								</>
-							)}
-						</>
-					) : null}
-					<Select
-						label={`When did you ${getVerb(
-							Verb.Read,
-							loaderData.metadataDetails.lot,
-						)} it?`}
-						data={WATCH_TIMES}
-						value={watchTime}
-						onChange={(v) => {
-							setWatchTime(v as typeof watchTime);
-							match(v)
-								.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
-								.with(WATCH_TIMES[1], () => setSelectedDate(null))
-								.with(WATCH_TIMES[2], () => setSelectedDate(null));
-						}}
+							</>
+						)}
+					</>
+				) : null}
+				<Select
+					label={`When did you ${getVerb(
+						Verb.Read,
+						loaderData.metadataDetails.lot,
+					)} it?`}
+					data={WATCH_TIMES}
+					value={watchTime}
+					onChange={(v) => {
+						setWatchTime(v as typeof watchTime);
+						match(v)
+							.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
+							.with(WATCH_TIMES[1], () => setSelectedDate(null))
+							.with(WATCH_TIMES[2], () => setSelectedDate(null));
+					}}
+				/>
+				{watchTime === WATCH_TIMES[2] ? (
+					<DatePickerInput
+						label="Enter exact date"
+						dropdownType="modal"
+						maxDate={new Date()}
+						onChange={setSelectedDate}
+						clearable
 					/>
-					{watchTime === WATCH_TIMES[2] ? (
-						<DatePickerInput
-							label="Enter exact date"
-							dropdownType="modal"
-							maxDate={new Date()}
-							onChange={setSelectedDate}
-							clearable
-						/>
-					) : null}
-					<Select
-						label={`Where did you ${getVerb(
-							Verb.Read,
-							loaderData.metadataDetails.lot,
-						)} it?`}
-						data={loaderData.userPreferences.watchProviders}
-						name="providerWatchedOn"
-					/>
-					<Button
-						variant="outline"
-						disabled={selectedDate === undefined}
-						type="submit"
-						name="date"
-						value={
-							selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
-						}
-					>
-						Submit
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
+				) : null}
+				<Select
+					label={`Where did you ${getVerb(
+						Verb.Read,
+						loaderData.metadataDetails.lot,
+					)} it?`}
+					data={loaderData.userPreferences.watchProviders}
+					name="providerWatchedOn"
+				/>
+				<Button
+					variant="outline"
+					disabled={selectedDate === undefined}
+					type="submit"
+					name="date"
+					value={selectedDate ? formatDateToNaiveDate(selectedDate) : undefined}
+				>
+					Submit
+				</Button>
+			</Stack>
+		</Form>
 	);
 };
 
