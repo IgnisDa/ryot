@@ -84,7 +84,6 @@ import {
 	IconVideo,
 	IconX,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, useState } from "react";
 import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
@@ -109,13 +108,7 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import events from "~/lib/events";
-import {
-	Verb,
-	clientGqlService,
-	dayjsLib,
-	getVerb,
-	redirectToQueryParam,
-} from "~/lib/generals";
+import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -156,6 +149,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		{ metadataDetails: mediaMainDetails },
 		collections,
 		{ userMetadataDetails },
+		{ metadataDetails: metadataAdditionalDetails },
 	] = await Promise.all([
 		getCoreDetails(request),
 		getUserPreferences(request),
@@ -167,6 +161,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			{ metadataId },
 			await getAuthorizationHeader(request),
 		),
+		serverGqlService.request(MetadataAdditionalDetailsDocument, { metadataId }),
 	]);
 	return {
 		query,
@@ -184,6 +179,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		userDetails,
 		metadataId,
 		mediaMainDetails,
+		metadataAdditionalDetails,
 		collections,
 		userMetadataDetails,
 	};
@@ -440,26 +436,9 @@ const showSpecificsSchema = z.array(
 
 const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
-const useMetadataAdditionalDetails = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const { data } = useQuery({
-		queryKey: ["metadataAdditionalDetails", loaderData.metadataId],
-		queryFn: async () => {
-			const { metadataDetails } = await clientGqlService.request(
-				MetadataAdditionalDetailsDocument,
-				{ metadataId: loaderData.metadataId },
-			);
-			return metadataDetails;
-		},
-		staleTime: Number.POSITIVE_INFINITY,
-	});
-	return data;
-};
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
-	const metadataAdditionalDetails = useMetadataAdditionalDetails();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -594,31 +573,40 @@ export default function Page() {
 								: loaderData.mediaMainDetails.publishYear,
 							loaderData.mediaMainDetails.originalLanguage,
 							loaderData.mediaMainDetails.productionStatus,
-							metadataAdditionalDetails?.bookSpecifics?.pages &&
-								`${metadataAdditionalDetails.bookSpecifics.pages} pages`,
-							metadataAdditionalDetails?.podcastSpecifics?.totalEpisodes &&
-								`${metadataAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
-							metadataAdditionalDetails?.animeSpecifics?.episodes &&
-								`${metadataAdditionalDetails.animeSpecifics.episodes} episodes`,
-							metadataAdditionalDetails?.mangaSpecifics?.chapters &&
-								`${metadataAdditionalDetails.mangaSpecifics.chapters} chapters`,
-							metadataAdditionalDetails?.mangaSpecifics?.volumes &&
-								`${metadataAdditionalDetails.mangaSpecifics.volumes} volumes`,
-							metadataAdditionalDetails?.movieSpecifics?.runtime &&
+							loaderData.metadataAdditionalDetails.bookSpecifics?.pages &&
+								`${loaderData.metadataAdditionalDetails.bookSpecifics.pages} pages`,
+							loaderData.metadataAdditionalDetails.podcastSpecifics
+								?.totalEpisodes &&
+								`${loaderData.metadataAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
+							loaderData.metadataAdditionalDetails.animeSpecifics?.episodes &&
+								`${loaderData.metadataAdditionalDetails.animeSpecifics.episodes} episodes`,
+							loaderData.metadataAdditionalDetails.mangaSpecifics?.chapters &&
+								`${loaderData.metadataAdditionalDetails.mangaSpecifics.chapters} chapters`,
+							loaderData.metadataAdditionalDetails.mangaSpecifics?.volumes &&
+								`${loaderData.metadataAdditionalDetails.mangaSpecifics.volumes} volumes`,
+							loaderData.metadataAdditionalDetails.movieSpecifics?.runtime &&
 								humanizeDuration(
-									metadataAdditionalDetails.movieSpecifics.runtime * 1000 * 60,
+									loaderData.metadataAdditionalDetails.movieSpecifics.runtime *
+										1000 *
+										60,
 								),
-							metadataAdditionalDetails?.showSpecifics?.totalSeasons &&
-								`${metadataAdditionalDetails.showSpecifics.totalSeasons} seasons`,
-							metadataAdditionalDetails?.showSpecifics?.totalEpisodes &&
-								`${metadataAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
-							metadataAdditionalDetails?.showSpecifics?.runtime &&
+							loaderData.metadataAdditionalDetails.showSpecifics
+								?.totalSeasons &&
+								`${loaderData.metadataAdditionalDetails.showSpecifics.totalSeasons} seasons`,
+							loaderData.metadataAdditionalDetails.showSpecifics
+								?.totalEpisodes &&
+								`${loaderData.metadataAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
+							loaderData.metadataAdditionalDetails.showSpecifics?.runtime &&
 								humanizeDuration(
-									metadataAdditionalDetails.showSpecifics.runtime * 1000 * 60,
+									loaderData.metadataAdditionalDetails.showSpecifics.runtime *
+										1000 *
+										60,
 								),
-							metadataAdditionalDetails?.audioBookSpecifics?.runtime &&
+							loaderData.metadataAdditionalDetails.audioBookSpecifics
+								?.runtime &&
 								humanizeDuration(
-									metadataAdditionalDetails.audioBookSpecifics.runtime *
+									loaderData.metadataAdditionalDetails.audioBookSpecifics
+										.runtime *
 										1000 *
 										60,
 								),
@@ -895,13 +883,18 @@ export default function Page() {
 											opened={progressModalOpened}
 											lot={loaderData.mediaMainDetails.lot}
 											total={
-												metadataAdditionalDetails?.audioBookSpecifics
+												loaderData.metadataAdditionalDetails.audioBookSpecifics
 													?.runtime ||
-												metadataAdditionalDetails?.bookSpecifics?.pages ||
-												metadataAdditionalDetails?.movieSpecifics?.runtime ||
-												metadataAdditionalDetails?.mangaSpecifics?.chapters ||
-												metadataAdditionalDetails?.animeSpecifics?.episodes ||
-												metadataAdditionalDetails?.visualNovelSpecifics?.length
+												loaderData.metadataAdditionalDetails.bookSpecifics
+													?.pages ||
+												loaderData.metadataAdditionalDetails.movieSpecifics
+													?.runtime ||
+												loaderData.metadataAdditionalDetails.mangaSpecifics
+													?.chapters ||
+												loaderData.metadataAdditionalDetails.animeSpecifics
+													?.episodes ||
+												loaderData.metadataAdditionalDetails
+													.visualNovelSpecifics?.length
 											}
 										/>
 									) : null}
@@ -1204,9 +1197,11 @@ export default function Page() {
 											<SeenItem
 												history={history}
 												key={history.id}
-												showSpecifics={metadataAdditionalDetails?.showSpecifics}
+												showSpecifics={
+													loaderData.metadataAdditionalDetails.showSpecifics
+												}
 												podcastSpecifics={
-													metadataAdditionalDetails?.podcastSpecifics
+													loaderData.metadataAdditionalDetails.podcastSpecifics
 												}
 											/>
 										)}
@@ -1217,11 +1212,11 @@ export default function Page() {
 							)}
 						</Tabs.Panel>
 						<Tabs.Panel value="showSeasons">
-							{metadataAdditionalDetails?.showSpecifics &&
+							{loaderData.metadataAdditionalDetails.showSpecifics &&
 							loaderData.userMetadataDetails.showProgress ? (
 								<Box h={MEDIA_DETAILS_HEIGHT}>
 									<GroupedVirtuoso
-										groupCounts={metadataAdditionalDetails.showSpecifics.seasons.map(
+										groupCounts={loaderData.metadataAdditionalDetails.showSpecifics.seasons.map(
 											(season) => season.episodes.length,
 										)}
 										groupContent={(index) => (
@@ -1243,9 +1238,8 @@ export default function Page() {
 												}
 												seasonNumber={
 													// biome-ignore lint/style/noNonNullAssertion: typescript error
-													metadataAdditionalDetails.showSpecifics!.seasons[
-														groupIndex
-													].seasonNumber
+													loaderData.metadataAdditionalDetails.showSpecifics!
+														.seasons[groupIndex].seasonNumber
 												}
 											/>
 										)}
@@ -1253,11 +1247,14 @@ export default function Page() {
 								</Box>
 							) : undefined}
 						</Tabs.Panel>
-						{metadataAdditionalDetails?.podcastSpecifics ? (
+						{loaderData.metadataAdditionalDetails.podcastSpecifics ? (
 							<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
 								<Virtuoso
 									style={{ height: "100%" }}
-									data={metadataAdditionalDetails.podcastSpecifics.episodes}
+									data={
+										loaderData.metadataAdditionalDetails.podcastSpecifics
+											.episodes
+									}
 									itemContent={(podcastEpisodeIdx, podcastEpisode) => (
 										<DisplayPodcastEpisode
 											key={podcastEpisode.id}
@@ -1413,7 +1410,6 @@ const ProgressUpdateModal = (props: {
 	data?: UpdateProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const metadataAdditionalDetails = useMetadataAdditionalDetails();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
@@ -1524,7 +1520,7 @@ const ProgressUpdateModal = (props: {
 								hidden
 								name="showSpecifics"
 								defaultValue={JSON.stringify(
-									metadataAdditionalDetails?.showSpecifics?.seasons.map(
+									loaderData.metadataAdditionalDetails.showSpecifics?.seasons.map(
 										(s) => ({
 											seasonNumber: s.seasonNumber,
 											episodes: s.episodes.map((e) => e.episodeNumber),
@@ -1544,7 +1540,7 @@ const ProgressUpdateModal = (props: {
 							{!props.data?.completeShow ? (
 								<Select
 									label="Season"
-									data={metadataAdditionalDetails?.showSpecifics?.seasons.map(
+									data={loaderData.metadataAdditionalDetails.showSpecifics?.seasons.map(
 										(s) => ({
 											label: `${s.seasonNumber}. ${s.name.toString()}`,
 											value: s.seasonNumber.toString(),
@@ -1564,7 +1560,7 @@ const ProgressUpdateModal = (props: {
 								<Select
 									label="Episode"
 									data={
-										metadataAdditionalDetails?.showSpecifics?.seasons
+										loaderData.metadataAdditionalDetails.showSpecifics?.seasons
 											.find(
 												(s) =>
 													s.seasonNumber ===
@@ -1586,7 +1582,7 @@ const ProgressUpdateModal = (props: {
 								hidden
 								name="podcastSpecifics"
 								defaultValue={JSON.stringify(
-									metadataAdditionalDetails?.podcastSpecifics?.episodes.map(
+									loaderData.metadataAdditionalDetails.podcastSpecifics?.episodes.map(
 										(e) => ({ episodeNumber: e.number }),
 									),
 								)}
@@ -1600,7 +1596,7 @@ const ProgressUpdateModal = (props: {
 									<Title order={6}>Select episode</Title>
 									<Autocomplete
 										label="Episode"
-										data={metadataAdditionalDetails?.podcastSpecifics?.episodes.map(
+										data={loaderData.metadataAdditionalDetails.podcastSpecifics?.episodes.map(
 											(se) => ({
 												label: se.title.toString(),
 												value: se.number.toString(),
@@ -2133,9 +2129,11 @@ const DisplayShowSeason = (props: {
 	setData: (data: UpdateProgress) => void;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
-	const metadataAdditionalDetails = useMetadataAdditionalDetails();
+	const loaderData = useLoaderData<typeof loader>();
 	const season =
-		metadataAdditionalDetails?.showSpecifics?.seasons[props.seasonIdx];
+		loaderData.metadataAdditionalDetails.showSpecifics?.seasons[
+			props.seasonIdx
+		];
 	const isSeen = (props.showProgress?.[props.seasonIdx]?.timesSeen || 0) > 0;
 
 	invariant(season, "Season not found");
@@ -2179,9 +2177,9 @@ const DisplayShowEpisode = (props: {
 	setData: (data: UpdateProgress) => void;
 	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
-	const metadataAdditionalDetails = useMetadataAdditionalDetails();
+	const loaderData = useLoaderData<typeof loader>();
 	const flattenedEpisodes =
-		metadataAdditionalDetails?.showSpecifics?.seasons.flatMap(
+		loaderData.metadataAdditionalDetails.showSpecifics?.seasons.flatMap(
 			(season) => season.episodes,
 		) || [];
 	const episode = flattenedEpisodes[props.overallIdx];
