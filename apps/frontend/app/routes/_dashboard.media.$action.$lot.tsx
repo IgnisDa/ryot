@@ -607,7 +607,7 @@ const MediaSearchItem = (props: {
 					onClick={async (e) => {
 						const id = await basicCommit(e);
 						const metadataDetails = await queryClient.ensureQueryData({
-							queryKey: ["metadataId", id],
+							queryKey: ["metadataDetails", id],
 							queryFn: async () => {
 								const { metadataDetails } = await clientGqlService.request(
 									MetadataDetailsDocument,
