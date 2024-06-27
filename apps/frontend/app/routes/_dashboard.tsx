@@ -52,13 +52,7 @@ import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
-import {
-	LOGO_IMAGE_URL,
-	Verb,
-	getLot,
-	getVerb,
-	redirectToQueryParam,
-} from "~/lib/generals";
+import { LOGO_IMAGE_URL, Verb, getLot, getVerb } from "~/lib/generals";
 import { useMediaProgress, useRawMediaProgress } from "~/lib/media";
 import {
 	redirectIfNotAuthenticatedOrUpdated,
@@ -569,15 +563,7 @@ const ProgressUpdateModal = () => {
 						) : null}
 					</Fragment>
 				))}
-				{mediaProgress.form.redirectToQueryParam ? (
-					<input
-						hidden
-						name={redirectToQueryParam}
-						defaultValue={mediaProgress.form.redirectToQueryParam}
-					/>
-				) : (
-					<HiddenLocationInput />
-				)}
+				<HiddenLocationInput />
 				<Stack>
 					{mediaProgress.form.metadataDetails.lot === MediaLot.Anime ? (
 						<>
@@ -723,6 +709,11 @@ const ProgressUpdateModal = () => {
 												value: se.number.toString(),
 											}),
 										)}
+										name={
+											mediaProgress.toUpdate.podcastEpisodeNumber
+												? undefined
+												: "podcastEpisodeNumber"
+										}
 										defaultValue={mediaProgress.toUpdate?.podcastEpisodeNumber?.toString()}
 										searchable
 										limit={10}

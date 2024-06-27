@@ -4,7 +4,6 @@ import invariant from "tiny-invariant";
 
 export type UpdateProgressFormData = {
 	watchProviders: string[];
-	redirectToQueryParam?: string;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 };
 
