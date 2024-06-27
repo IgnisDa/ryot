@@ -3,7 +3,6 @@ import {
 	ActionIcon,
 	Alert,
 	Anchor,
-	Autocomplete,
 	Avatar,
 	Box,
 	Button,
@@ -1556,7 +1555,8 @@ const ProgressUpdateModal = (props: {
 							) : (
 								<>
 									<Title order={6}>Select episode</Title>
-									<Autocomplete
+									<Select
+										required
 										label="Episode"
 										data={loaderData.metadataDetails.podcastSpecifics?.episodes.map(
 											(se) => ({
@@ -1565,6 +1565,8 @@ const ProgressUpdateModal = (props: {
 											}),
 										)}
 										defaultValue={props.data?.podcastEpisodeNumber?.toString()}
+										searchable
+										limit={10}
 									/>
 								</>
 							)}
