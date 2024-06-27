@@ -1,5 +1,51 @@
-query MetadataAdditionalDetails($metadataId: String!) {
+query MetadataDetails($metadataId: String!) {
   metadataDetails(metadataId: $metadataId) {
+    title
+    lot
+    source
+    isNsfw
+    isPartial
+    sourceUrl
+    identifier
+    description
+    publishYear
+    publishDate
+    providerRating
+    productionStatus
+    originalLanguage
+    genres {
+      id
+      name
+    }
+    group {
+      id
+      name
+      part
+    }
+    assets {
+      images
+      videos {
+        videoId
+        source
+      }
+    }
+    creators {
+      name
+      items {
+        id
+        name
+        image
+        character
+      }
+    }
+    suggestions {
+      ...PartialMetadataPart
+    }
+    watchProviders {
+      name
+      image
+      languages
+    }
     animeSpecifics {
       episodes
     }
