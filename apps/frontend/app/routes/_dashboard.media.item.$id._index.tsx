@@ -7,7 +7,6 @@ import {
 	Avatar,
 	Box,
 	Button,
-	Center,
 	Checkbox,
 	Container,
 	Divider,
@@ -18,7 +17,6 @@ import {
 	Menu,
 	Modal,
 	NumberInput,
-	Pagination,
 	Paper,
 	ScrollArea,
 	Select,
@@ -462,7 +460,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const getMantineColor = useGetMantineColor();
 	const metadataAdditionalDetails = useMetadataAdditionalDetails();
-	const [activeSeenPage, setActiveSeenPage] = useState(1);
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -525,10 +522,6 @@ export default function Page() {
 			</>
 		);
 	};
-
-	const totalSeenPages =
-		loaderData.userMetadataDetails.seenByUserCount /
-		loaderData.coreDetails.pageLimit;
 
 	return (
 		<>
@@ -1157,57 +1150,57 @@ export default function Page() {
 							{loaderData.userMetadataDetails.seenByAllCount > 0 ||
 							loaderData.userMetadataDetails.seenByUserCount > 0 ||
 							loaderData.userMetadataDetails.unitsConsumed ? (
-								<MediaScrollArea>
-									<Stack>
-										<Box>
+								<Stack h={MEDIA_DETAILS_HEIGHT}>
+									<Box>
+										<Text fz={{ base: "sm", md: "md" }}>
+											Seen by all users{" "}
+											{loaderData.userMetadataDetails.seenByAllCount} time
+											{loaderData.userMetadataDetails.seenByAllCount > 1
+												? "s"
+												: ""}{" "}
+											and {loaderData.userMetadataDetails.seenByUserCount} time
+											{loaderData.userMetadataDetails &&
+											loaderData.userMetadataDetails.seenByUserCount > 1
+												? "s"
+												: ""}{" "}
+											by you.
+										</Text>
+										{loaderData.userMetadataDetails.unitsConsumed ? (
 											<Text fz={{ base: "sm", md: "md" }}>
-												Seen by all users{" "}
-												{loaderData.userMetadataDetails.seenByAllCount} time
-												{loaderData.userMetadataDetails.seenByAllCount > 1
-													? "s"
-													: ""}{" "}
-												and {loaderData.userMetadataDetails.seenByUserCount}{" "}
-												time
-												{loaderData.userMetadataDetails &&
-												loaderData.userMetadataDetails.seenByUserCount > 1
-													? "s"
-													: ""}{" "}
-												by you.
+												Consumed{" "}
+												{match(loaderData.mediaMainDetails.lot)
+													.with(
+														MediaLot.AudioBook,
+														MediaLot.Movie,
+														MediaLot.Show,
+														MediaLot.Podcast,
+														MediaLot.VisualNovel,
+														() =>
+															humanizeDuration(
+																(loaderData.userMetadataDetails.unitsConsumed ||
+																	0) *
+																	1000 *
+																	60,
+															),
+													)
+													.otherwise(
+														(v) =>
+															`${loaderData.userMetadataDetails.unitsConsumed} ${match(
+																v,
+															)
+																.with(MediaLot.VideoGame, () => "")
+																.with(MediaLot.Book, () => "pages")
+																.with(MediaLot.Anime, () => "episodes")
+																.with(MediaLot.Manga, () => "chapters")
+																.exhaustive()}`,
+													)}
+												.
 											</Text>
-											{loaderData.userMetadataDetails.unitsConsumed ? (
-												<Text fz={{ base: "sm", md: "md" }}>
-													Consumed{" "}
-													{match(loaderData.mediaMainDetails.lot)
-														.with(
-															MediaLot.AudioBook,
-															MediaLot.Movie,
-															MediaLot.Show,
-															MediaLot.Podcast,
-															MediaLot.VisualNovel,
-															() =>
-																humanizeDuration(
-																	(loaderData.userMetadataDetails
-																		.unitsConsumed || 0) *
-																		1000 *
-																		60,
-																),
-														)
-														.otherwise(
-															(v) =>
-																`${loaderData.userMetadataDetails.unitsConsumed} ${match(
-																	v,
-																)
-																	.with(MediaLot.VideoGame, () => "")
-																	.with(MediaLot.Book, () => "pages")
-																	.with(MediaLot.Anime, () => "episodes")
-																	.with(MediaLot.Manga, () => "chapters")
-																	.exhaustive()}`,
-														)}
-													.
-												</Text>
-											) : null}
-										</Box>
-										{loaderData.userMetadataDetails.history.map((history) => (
+										) : null}
+									</Box>
+									<Virtuoso
+										data={loaderData.userMetadataDetails.history}
+										itemContent={(_, history) => (
 											<SeenItem
 												history={history}
 												key={history.id}
@@ -1216,20 +1209,9 @@ export default function Page() {
 													metadataAdditionalDetails?.podcastSpecifics
 												}
 											/>
-										))}
-										{totalSeenPages > 1 ? (
-											<Center>
-												<Pagination
-													total={totalSeenPages}
-													value={activeSeenPage}
-													onChange={setActiveSeenPage}
-													color="grape"
-													size="xs"
-												/>
-											</Center>
-										) : undefined}
-									</Stack>
-								</MediaScrollArea>
+										)}
+									/>
+								</Stack>
 							) : (
 								<Text>No history</Text>
 							)}
@@ -2054,6 +2036,7 @@ const SeenItem = (props: {
 	return (
 		<>
 			<Flex
+				my="sm"
 				key={props.history.id}
 				gap={{ base: "xs", md: "lg", xl: "xl" }}
 				data-seen-id={props.history.id}
