@@ -1909,14 +1909,15 @@ const MergeMetadataModal = (props: {
 
 const DisplaySeasonOrEpisodeDetails = (props: {
 	name: string;
+	children: ReactNode;
+	runtime?: number | null;
+	overview?: string | null;
+	displayIndicator: number;
 	id?: number | string | null;
 	numEpisodes?: number | null;
 	posterImages: Array<string>;
-	overview?: string | null;
-	children: ReactNode;
-	displayIndicator: number;
-	runtime?: number | null;
 	publishDate?: string | null;
+	isEpisode?: boolean;
 }) => {
 	const display = [
 		props.runtime
@@ -1956,12 +1957,14 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 						position="bottom-end"
 						size={16}
 						color="red"
+						zIndex={props.isEpisode ? "auto" : undefined}
 					>
 						<Avatar
 							src={props.posterImages[0]}
 							radius="xl"
 							size="lg"
 							imageProps={{ loading: "lazy" }}
+							style={props.isEpisode ? { zIndex: -1 } : {}}
 						/>
 					</Indicator>
 					<Box visibleFrom="md" ml="sm">
@@ -2143,9 +2146,9 @@ const SeenItem = (props: {
 };
 
 const DisplayShowSeason = (props: {
+	seasonIdx: number;
 	setData: (data: UpdateProgress) => void;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
-	seasonIdx: number;
 }) => {
 	const metadataAdditionalDetails = useMetadataAdditionalDetails();
 	const season =
@@ -2155,7 +2158,7 @@ const DisplayShowSeason = (props: {
 	invariant(season, "Season not found");
 
 	return (
-		<Box my="xs">
+		<Paper my="xs" py="sm">
 			<DisplaySeasonOrEpisodeDetails
 				{...season}
 				name={`${season.seasonNumber}. ${season.name}`}
@@ -2182,16 +2185,16 @@ const DisplayShowSeason = (props: {
 					) : null}
 				</>
 			</DisplaySeasonOrEpisodeDetails>
-		</Box>
+		</Paper>
 	);
 };
 
 const DisplayShowEpisode = (props: {
-	overallIdx: number;
 	seasonIdx: number;
+	overallIdx: number;
 	seasonNumber: number;
-	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 	setData: (data: UpdateProgress) => void;
+	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const metadataAdditionalDetails = useMetadataAdditionalDetails();
 	const flattenedEpisodes =
@@ -2214,6 +2217,7 @@ const DisplayShowEpisode = (props: {
 				name={`${episode.episodeNumber}. ${episode.name}`}
 				publishDate={episode.publishDate}
 				displayIndicator={numTimesEpisodeSeen}
+				isEpisode
 			>
 				<Button
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
