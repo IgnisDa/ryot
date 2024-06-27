@@ -28,11 +28,7 @@ import {
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	Link,
@@ -108,6 +104,7 @@ import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { type TSetMediaProgress, useMediaProgress } from "~/lib/media";
 import {
+	MetadataIdSchema,
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserCollectionsList,
@@ -210,7 +207,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		deployUpdateMetadataJob: async () => {
-			const submission = processSubmission(formData, metadataIdSchema);
+			const submission = processSubmission(formData, MetadataIdSchema);
 			await serverGqlService.request(
 				DeployUpdateMetadataJobDocument,
 				submission,
@@ -249,130 +246,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
-		progressUpdate: async () => {
-			const submission = processSubmission(formData, progressUpdateSchema);
-			const variables = {
-				metadataId: submission.metadataId,
-				progress: "100",
-				date: submission.date,
-				showSeasonNumber: submission.showSeasonNumber,
-				showEpisodeNumber: submission.showEpisodeNumber,
-				podcastEpisodeNumber: submission.podcastEpisodeNumber,
-				animeEpisodeNumber: submission.animeEpisodeNumber,
-				mangaChapterNumber: submission.mangaChapterNumber,
-				mangaVolumeNumber: submission.mangaVolumeNumber,
-				providerWatchedOn: submission.providerWatchedOn,
-			};
-			let needsFinalUpdate = true;
-			const updates = [];
-			const showSpecifics = showSpecificsSchema.parse(
-				JSON.parse(submission.showSpecifics || "[]"),
-			);
-			const podcastSpecifics = podcastSpecificsSchema.parse(
-				JSON.parse(submission.podcastSpecifics || "[]"),
-			);
-			if (submission.metadataLot === MediaLot.Anime) {
-				if (submission.animeEpisodeNumber) {
-					if (submission.animeAllEpisodesBefore) {
-						for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
-							updates.push({
-								...variables,
-								animeEpisodeNumber: i,
-							});
-						}
-						needsFinalUpdate = false;
-					}
-				}
-			}
-			if (submission.metadataLot === MediaLot.Manga) {
-				if (submission.mangaChapterNumber) {
-					if (submission.mangaAllChaptersBefore) {
-						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
-							updates.push({
-								...variables,
-								mangaChapterNumber: i,
-							});
-						}
-						needsFinalUpdate = false;
-					}
-				}
-			}
-			if (submission.metadataLot === MediaLot.Show) {
-				if (submission.completeShow) {
-					for (const season of showSpecifics) {
-						for (const episode of season.episodes) {
-							updates.push({
-								...variables,
-								showSeasonNumber: season.seasonNumber,
-								showEpisodeNumber: episode,
-							});
-						}
-					}
-					needsFinalUpdate = false;
-				}
-				if (submission.onlySeason) {
-					const selectedSeason = showSpecifics.find(
-						(s) => s.seasonNumber === submission.showSeasonNumber,
-					);
-					invariant(selectedSeason, "No season selected");
-					needsFinalUpdate = false;
-					if (submission.showAllSeasonsBefore) {
-						for (const season of showSpecifics) {
-							if (season.seasonNumber > selectedSeason.seasonNumber) break;
-							for (const episode of season.episodes || []) {
-								updates.push({
-									...variables,
-									showSeasonNumber: season.seasonNumber,
-									showEpisodeNumber: episode,
-								});
-							}
-						}
-					} else {
-						for (const episode of selectedSeason.episodes || []) {
-							updates.push({
-								...variables,
-								showEpisodeNumber: episode,
-							});
-						}
-					}
-				}
-			}
-			if (submission.metadataLot === MediaLot.Podcast) {
-				if (submission.completePodcast) {
-					for (const episode of podcastSpecifics) {
-						updates.push({
-							...variables,
-							podcastEpisodeNumber: episode.episodeNumber,
-						});
-					}
-					needsFinalUpdate = false;
-				}
-			}
-			if (needsFinalUpdate) updates.push(variables);
-			const { deployBulkProgressUpdate } = await serverGqlService.request(
-				DeployBulkProgressUpdateDocument,
-				{ input: updates },
-				await getAuthorizationHeader(request),
-			);
-			const headers = {
-				headers: await createToastHeaders({
-					type: !deployBulkProgressUpdate ? "error" : "success",
-					message: !deployBulkProgressUpdate
-						? "Progress was not updated"
-						: "Progress updated successfully",
-				}),
-			};
-			if (submission[redirectToQueryParam])
-				return redirect(submission[redirectToQueryParam], headers);
-			return Response.json(
-				{ status: "success", tt: new Date() } as const,
-				headers,
-			);
-		},
 	});
 });
-
-const metadataIdSchema = z.object({ metadataId: z.string() });
 
 const bulkUpdateSchema = z
 	.object({
@@ -382,7 +257,7 @@ const bulkUpdateSchema = z
 		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema)
-	.merge(metadataIdSchema);
+	.merge(MetadataIdSchema);
 
 const seenIdSchema = z.object({ seenId: z.string() });
 
@@ -400,30 +275,6 @@ const editSeenItem = z.object({
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 });
-
-const progressUpdateSchema = z
-	.object({
-		metadataLot: z.nativeEnum(MediaLot),
-		date: z.string().optional(),
-		[redirectToQueryParam]: z.string().optional(),
-		showSpecifics: z.string().optional(),
-		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
-		podcastSpecifics: z.string().optional(),
-		onlySeason: zx.BoolAsString.optional(),
-		completeShow: zx.BoolAsString.optional(),
-		completePodcast: zx.BoolAsString.optional(),
-		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
-		providerWatchedOn: z.string().optional(),
-	})
-	.merge(metadataIdSchema)
-	.merge(MetadataSpecificsSchema);
-
-const showSpecificsSchema = z.array(
-	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),
-);
-
-const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();

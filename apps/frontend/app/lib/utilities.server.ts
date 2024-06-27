@@ -129,6 +129,8 @@ const emptyNumberString = z
 	.transform((v) => (!v ? undefined : Number.parseInt(v)))
 	.nullable();
 
+export const MetadataIdSchema = z.object({ metadataId: z.string() });
+
 export const MetadataSpecificsSchema = z.object({
 	showSeasonNumber: emptyNumberString,
 	showEpisodeNumber: emptyNumberString,

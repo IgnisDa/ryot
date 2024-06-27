@@ -12,6 +12,7 @@ import {
 	CreateReviewCommentDocument,
 	DeleteReviewDocument,
 	DeleteS3ObjectDocument,
+	DeployBulkProgressUpdateDocument,
 	EntityLot,
 	MediaLot,
 	MediaSource,
@@ -26,6 +27,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
+	MetadataIdSchema,
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
@@ -209,6 +211,123 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				);
 			}
 		})
+		.with("progressUpdate", async () => {
+			const submission = processSubmission(formData, progressUpdateSchema);
+			const variables = {
+				metadataId: submission.metadataId,
+				progress: "100",
+				date: submission.date,
+				showSeasonNumber: submission.showSeasonNumber,
+				showEpisodeNumber: submission.showEpisodeNumber,
+				podcastEpisodeNumber: submission.podcastEpisodeNumber,
+				animeEpisodeNumber: submission.animeEpisodeNumber,
+				mangaChapterNumber: submission.mangaChapterNumber,
+				mangaVolumeNumber: submission.mangaVolumeNumber,
+				providerWatchedOn: submission.providerWatchedOn,
+			};
+			let needsFinalUpdate = true;
+			const updates = [];
+			const showSpecifics = showSpecificsSchema.parse(
+				JSON.parse(submission.showSpecifics || "[]"),
+			);
+			const podcastSpecifics = podcastSpecificsSchema.parse(
+				JSON.parse(submission.podcastSpecifics || "[]"),
+			);
+			if (submission.metadataLot === MediaLot.Anime) {
+				if (submission.animeEpisodeNumber) {
+					if (submission.animeAllEpisodesBefore) {
+						for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
+							updates.push({
+								...variables,
+								animeEpisodeNumber: i,
+							});
+						}
+						needsFinalUpdate = false;
+					}
+				}
+			}
+			if (submission.metadataLot === MediaLot.Manga) {
+				if (submission.mangaChapterNumber) {
+					if (submission.mangaAllChaptersBefore) {
+						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
+							updates.push({
+								...variables,
+								mangaChapterNumber: i,
+							});
+						}
+						needsFinalUpdate = false;
+					}
+				}
+			}
+			if (submission.metadataLot === MediaLot.Show) {
+				if (submission.completeShow) {
+					for (const season of showSpecifics) {
+						for (const episode of season.episodes) {
+							updates.push({
+								...variables,
+								showSeasonNumber: season.seasonNumber,
+								showEpisodeNumber: episode,
+							});
+						}
+					}
+					needsFinalUpdate = false;
+				}
+				if (submission.onlySeason) {
+					const selectedSeason = showSpecifics.find(
+						(s) => s.seasonNumber === submission.showSeasonNumber,
+					);
+					invariant(selectedSeason, "No season selected");
+					needsFinalUpdate = false;
+					if (submission.showAllSeasonsBefore) {
+						for (const season of showSpecifics) {
+							if (season.seasonNumber > selectedSeason.seasonNumber) break;
+							for (const episode of season.episodes || []) {
+								updates.push({
+									...variables,
+									showSeasonNumber: season.seasonNumber,
+									showEpisodeNumber: episode,
+								});
+							}
+						}
+					} else {
+						for (const episode of selectedSeason.episodes || []) {
+							updates.push({
+								...variables,
+								showEpisodeNumber: episode,
+							});
+						}
+					}
+				}
+			}
+			if (submission.metadataLot === MediaLot.Podcast) {
+				if (submission.completePodcast) {
+					for (const episode of podcastSpecifics) {
+						updates.push({
+							...variables,
+							podcastEpisodeNumber: episode.episodeNumber,
+						});
+					}
+					needsFinalUpdate = false;
+				}
+			}
+			if (needsFinalUpdate) updates.push(variables);
+			const { deployBulkProgressUpdate } = await serverGqlService.request(
+				DeployBulkProgressUpdateDocument,
+				{ input: updates },
+				await getAuthorizationHeader(request),
+			);
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await createToastHeaders({
+					type: !deployBulkProgressUpdate ? "error" : "success",
+					message: !deployBulkProgressUpdate
+						? "Progress was not updated"
+						: "Progress updated successfully",
+				}),
+			);
+			redirectTo = submission[redirectToQueryParam];
+			returnData = { status: "success", tt: new Date() };
+		})
 		.run();
 	if (redirectTo) {
 		response.headers.append("Location", redirectTo.toString());
@@ -289,3 +408,27 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 		},
 	] as const;
 };
+
+const progressUpdateSchema = z
+	.object({
+		metadataLot: z.nativeEnum(MediaLot),
+		date: z.string().optional(),
+		[redirectToQueryParam]: z.string().optional(),
+		showSpecifics: z.string().optional(),
+		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
+		podcastSpecifics: z.string().optional(),
+		onlySeason: zx.BoolAsString.optional(),
+		completeShow: zx.BoolAsString.optional(),
+		completePodcast: zx.BoolAsString.optional(),
+		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
+		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
+		providerWatchedOn: z.string().optional(),
+	})
+	.merge(MetadataIdSchema)
+	.merge(MetadataSpecificsSchema);
+
+const showSpecificsSchema = z.array(
+	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),
+);
+
+const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));

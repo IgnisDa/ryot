@@ -49,7 +49,7 @@ import { produce } from "immer";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
-import { joinURL } from "ufo";
+import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import {
@@ -551,7 +551,7 @@ const ProgressUpdateModal = () => {
 		>
 			<Form
 				method="post"
-				action="?intent=progressUpdate"
+				action={withQuery($path("/actions"), { intent: "progressUpdate" })}
 				replace
 				onSubmit={() => {
 					closeProgressUpdateModal();
@@ -575,7 +575,9 @@ const ProgressUpdateModal = () => {
 						name={redirectToQueryParam}
 						defaultValue={mediaProgress.form.redirectToQueryParam}
 					/>
-				) : null}
+				) : (
+					<HiddenLocationInput />
+				)}
 				<Stack>
 					{mediaProgress.form.metadataDetails.lot === MediaLot.Anime ? (
 						<>
