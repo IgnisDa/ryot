@@ -50,7 +50,6 @@ import {
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataDetailsDocument,
-	type MetadataDetailsQuery,
 	MetadataVideoSource,
 	type PodcastEpisode,
 	SeenState,
@@ -108,6 +107,7 @@ import {
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, redirectToQueryParam } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
+import type { UpdateProgressData, UpdateProgressFormData } from "~/lib/media";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -1362,21 +1362,6 @@ export default function Page() {
 		</>
 	);
 }
-
-type UpdateProgressData = {
-	onlySeason?: boolean;
-	completeShow?: boolean;
-	completePodcast?: boolean;
-	showSeasonNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	podcastEpisodeNumber?: number | null;
-};
-
-type UpdateProgressFormData = {
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
-	watchProviders: string[];
-	redirectToQueryParam?: string;
-};
 
 const WATCH_TIMES = [
 	"Just Right Now",
