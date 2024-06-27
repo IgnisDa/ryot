@@ -33,6 +33,7 @@ import {
 	MediaLot,
 	MediaSortBy,
 	MediaSource,
+	MetadataDetailsDocument,
 	MetadataListDocument,
 	MetadataSearchDocument,
 	type UserReviewScale,
@@ -67,8 +68,15 @@ import {
 	commitMedia,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, getLot, getVerb, redirectToQueryParam } from "~/lib/generals";
+import {
+	Verb,
+	clientGqlService,
+	getLot,
+	getVerb,
+	queryClient,
+} from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
+import { useMediaProgress } from "~/lib/media";
 import {
 	getAuthorizationHeader,
 	getCoreDetails,
@@ -83,7 +91,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	minecollection: undefined,
+	mineCollection: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastSeen,
@@ -208,7 +216,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		url: withoutHost(url.href),
 		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
+		userPreferences: {
+			reviewScale: userPreferences.general.reviewScale,
+			watchProviders: userPreferences.general.watchProviders,
+		},
 	};
 });
 
@@ -236,7 +247,7 @@ export default function Page() {
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collection !== defaultFilters.minecollection;
+		loaderData.mediaList?.url.collection !== defaultFilters.mineCollection;
 
 	return (
 		<Container>
@@ -515,6 +526,7 @@ const MediaSearchItem = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
+	const [_, setMediaProgress] = useMediaProgress();
 	const basicCommit = async (e: React.MouseEvent) => {
 		if (props.maybeItemId) return props.maybeItemId;
 		e.preventDefault();
@@ -535,9 +547,6 @@ const MediaSearchItem = (props: {
 		},
 	] = useDisclosure(false);
 	const [appItemId, setAppItemId] = useState(props.maybeItemId);
-
-	const isShowOrPodcast =
-		props.lot === MediaLot.Show || props.lot === MediaLot.Podcast;
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -597,23 +606,26 @@ const MediaSearchItem = (props: {
 					size="compact-md"
 					onClick={async (e) => {
 						const id = await basicCommit(e);
-						return navigate(
-							$path(
-								"/media/item/:id",
-								{ id },
-								!isShowOrPodcast
-									? {
-											defaultTab: "actions",
-											[redirectToQueryParam]: loaderData.url,
-										}
-									: { defaultTab: "showSeasons" },
-							),
+						const metadataDetails = await queryClient.ensureQueryData({
+							queryKey: ["metadataId", id],
+							queryFn: async () => {
+								const { metadataDetails } = await clientGqlService.request(
+									MetadataDetailsDocument,
+									{ metadataId: id },
+								);
+								return metadataDetails;
+							},
+						});
+						setMediaProgress(
+							{},
+							{
+								metadataDetails,
+								watchProviders: loaderData.userPreferences.watchProviders,
+							},
 						);
 					}}
 				>
-					{!isShowOrPodcast
-						? `Mark as ${getVerb(Verb.Read, props.lot)}`
-						: "Show details"}
+					Mark as {getVerb(Verb.Read, props.lot)}
 				</Button>
 				<Button
 					mt="xs"
@@ -626,7 +638,7 @@ const MediaSearchItem = (props: {
 						const form = new FormData();
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
-						form.append("creatorUserId", loaderData.userId.toString());
+						form.append("creatorUserId", loaderData.userId);
 						form.append("collectionName", "Watchlist");
 						await fetch(
 							$path("/actions", { intent: "addEntityToCollection" }),
