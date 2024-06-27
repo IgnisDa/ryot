@@ -34,7 +34,6 @@ use openidconnect::{
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
-use paginate::Pages;
 use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -679,13 +678,6 @@ struct UserCalendarEventInput {
     month: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
-struct UserMetadataDetailsInput {
-    metadata_id: String,
-    /// The number of seen items to select. If not provided, all seen items are selected.
-    seen_page: Option<usize>,
-}
-
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 enum UserUpcomingCalendarEventInput {
     /// The number of media to select
@@ -960,11 +952,11 @@ impl MiscellaneousQuery {
     async fn user_metadata_details(
         &self,
         gql_ctx: &Context<'_>,
-        input: UserMetadataDetailsInput,
+        metadata_id: String,
     ) -> Result<UserMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_metadata_details(user_id, input).await
+        service.user_metadata_details(user_id, metadata_id).await
     }
 
     /// Get details that can be displayed to a user for a creator.
@@ -1722,12 +1714,8 @@ impl MiscellaneousService {
     async fn user_metadata_details(
         &self,
         user_id: String,
-        input: UserMetadataDetailsInput,
+        metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        let UserMetadataDetailsInput {
-            metadata_id,
-            seen_page,
-        } = input;
         let media_details = self.metadata_details(&metadata_id).await?;
         let collections = entity_in_collections(
             &self.db,
@@ -1900,16 +1888,6 @@ impl MiscellaneousService {
             Some(episodes)
         } else {
             None
-        };
-        let history = if let Some(select) = seen_page {
-            let pages = Pages::new(
-                history.len(),
-                self.config.frontend.page_size.try_into().unwrap(),
-            );
-            let selected_page = pages.with_offset(select - 1);
-            history[selected_page.start..selected_page.end + 1].to_vec()
-        } else {
-            history
         };
         Ok(UserMetadataDetails {
             collections,
