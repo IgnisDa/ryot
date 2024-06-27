@@ -50,9 +50,7 @@ import {
 	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
-	MetadataAdditionalDetailsDocument,
-	type MetadataAdditionalDetailsQuery,
-	MetadataMainDetailsDocument,
+	MetadataDetailsDocument,
 	MetadataVideoSource,
 	type PodcastEpisode,
 	SeenState,
@@ -146,22 +144,20 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		coreDetails,
 		userPreferences,
 		userDetails,
-		{ metadataDetails: mediaMainDetails },
+		{ metadataDetails },
 		collections,
 		{ userMetadataDetails },
-		{ metadataDetails: metadataAdditionalDetails },
 	] = await Promise.all([
 		getCoreDetails(request),
 		getUserPreferences(request),
 		getUserDetails(request),
-		serverGqlService.request(MetadataMainDetailsDocument, { metadataId }),
+		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
 		getUserCollectionsList(request),
 		serverGqlService.request(
 			UserMetadataDetailsDocument,
 			{ metadataId },
 			await getAuthorizationHeader(request),
 		),
-		serverGqlService.request(MetadataAdditionalDetailsDocument, { metadataId }),
 	]);
 	return {
 		query,
@@ -178,15 +174,14 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		},
 		userDetails,
 		metadataId,
-		mediaMainDetails,
-		metadataAdditionalDetails,
+		metadataDetails,
 		collections,
 		userMetadataDetails,
 	};
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: `${data?.mediaMainDetails.title} | Ryot` }];
+	return [{ title: `${data?.metadataDetails.title} | Ryot` }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -468,7 +463,7 @@ export default function Page() {
 				method="post"
 				replace
 				onSubmit={() => {
-					events.updateProgress(loaderData.mediaMainDetails.title);
+					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
@@ -484,7 +479,7 @@ export default function Page() {
 				method="post"
 				replace
 				onSubmit={() => {
-					events.updateProgress(loaderData.mediaMainDetails.title);
+					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
@@ -521,34 +516,34 @@ export default function Page() {
 				entityType="metadata"
 				objectId={loaderData.metadataId.toString()}
 				reviewScale={loaderData.userPreferences.reviewScale}
-				title={loaderData.mediaMainDetails.title}
-				lot={loaderData.mediaMainDetails.lot}
+				title={loaderData.metadataDetails.title}
+				lot={loaderData.metadataDetails.lot}
 			/>
 			<Container>
 				<MediaDetailsLayout
-					images={loaderData.mediaMainDetails.assets.images}
+					images={loaderData.metadataDetails.assets.images}
 					externalLink={{
-						source: loaderData.mediaMainDetails.source,
-						lot: loaderData.mediaMainDetails.lot,
-						href: loaderData.mediaMainDetails.sourceUrl,
+						source: loaderData.metadataDetails.source,
+						lot: loaderData.metadataDetails.lot,
+						href: loaderData.metadataDetails.sourceUrl,
 					}}
 				>
 					<Box>
 						{loaderData.userPreferences.groupsEnabled &&
-						loaderData.mediaMainDetails.group ? (
+						loaderData.metadataDetails.group ? (
 							<Link
 								to={$path("/media/groups/item/:id", {
-									id: loaderData.mediaMainDetails.group.id,
+									id: loaderData.metadataDetails.group.id,
 								})}
 								style={{ color: "unset" }}
 							>
 								<Text c="dimmed" fs="italic">
-									{loaderData.mediaMainDetails.group.name} #
-									{loaderData.mediaMainDetails.group.part}
+									{loaderData.metadataDetails.group.name} #
+									{loaderData.metadataDetails.group.part}
 								</Text>
 							</Link>
 						) : null}
-						<Title id="media-title">{loaderData.mediaMainDetails.title}</Title>
+						<Title id="media-title">{loaderData.metadataDetails.title}</Title>
 					</Box>
 					{loaderData.userMetadataDetails.collections.length > 0 ? (
 						<Group>
@@ -563,50 +558,41 @@ export default function Page() {
 							))}
 						</Group>
 					) : null}
-					{loaderData.mediaMainDetails.isPartial ? (
+					{loaderData.metadataDetails.isPartial ? (
 						<MediaIsPartial mediaType="media" />
 					) : null}
 					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 						{[
-							loaderData.mediaMainDetails.publishDate
-								? dayjsLib(loaderData.mediaMainDetails.publishDate).format("LL")
-								: loaderData.mediaMainDetails.publishYear,
-							loaderData.mediaMainDetails.originalLanguage,
-							loaderData.mediaMainDetails.productionStatus,
-							loaderData.metadataAdditionalDetails.bookSpecifics?.pages &&
-								`${loaderData.metadataAdditionalDetails.bookSpecifics.pages} pages`,
-							loaderData.metadataAdditionalDetails.podcastSpecifics
-								?.totalEpisodes &&
-								`${loaderData.metadataAdditionalDetails.podcastSpecifics.totalEpisodes} episodes`,
-							loaderData.metadataAdditionalDetails.animeSpecifics?.episodes &&
-								`${loaderData.metadataAdditionalDetails.animeSpecifics.episodes} episodes`,
-							loaderData.metadataAdditionalDetails.mangaSpecifics?.chapters &&
-								`${loaderData.metadataAdditionalDetails.mangaSpecifics.chapters} chapters`,
-							loaderData.metadataAdditionalDetails.mangaSpecifics?.volumes &&
-								`${loaderData.metadataAdditionalDetails.mangaSpecifics.volumes} volumes`,
-							loaderData.metadataAdditionalDetails.movieSpecifics?.runtime &&
+							loaderData.metadataDetails.publishDate
+								? dayjsLib(loaderData.metadataDetails.publishDate).format("LL")
+								: loaderData.metadataDetails.publishYear,
+							loaderData.metadataDetails.originalLanguage,
+							loaderData.metadataDetails.productionStatus,
+							loaderData.metadataDetails.bookSpecifics?.pages &&
+								`${loaderData.metadataDetails.bookSpecifics.pages} pages`,
+							loaderData.metadataDetails.podcastSpecifics?.totalEpisodes &&
+								`${loaderData.metadataDetails.podcastSpecifics.totalEpisodes} episodes`,
+							loaderData.metadataDetails.animeSpecifics?.episodes &&
+								`${loaderData.metadataDetails.animeSpecifics.episodes} episodes`,
+							loaderData.metadataDetails.mangaSpecifics?.chapters &&
+								`${loaderData.metadataDetails.mangaSpecifics.chapters} chapters`,
+							loaderData.metadataDetails.mangaSpecifics?.volumes &&
+								`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
+							loaderData.metadataDetails.movieSpecifics?.runtime &&
 								humanizeDuration(
-									loaderData.metadataAdditionalDetails.movieSpecifics.runtime *
-										1000 *
-										60,
+									loaderData.metadataDetails.movieSpecifics.runtime * 1000 * 60,
 								),
-							loaderData.metadataAdditionalDetails.showSpecifics
-								?.totalSeasons &&
-								`${loaderData.metadataAdditionalDetails.showSpecifics.totalSeasons} seasons`,
-							loaderData.metadataAdditionalDetails.showSpecifics
-								?.totalEpisodes &&
-								`${loaderData.metadataAdditionalDetails.showSpecifics.totalEpisodes} episodes`,
-							loaderData.metadataAdditionalDetails.showSpecifics?.runtime &&
+							loaderData.metadataDetails.showSpecifics?.totalSeasons &&
+								`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
+							loaderData.metadataDetails.showSpecifics?.totalEpisodes &&
+								`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
+							loaderData.metadataDetails.showSpecifics?.runtime &&
 								humanizeDuration(
-									loaderData.metadataAdditionalDetails.showSpecifics.runtime *
-										1000 *
-										60,
+									loaderData.metadataDetails.showSpecifics.runtime * 1000 * 60,
 								),
-							loaderData.metadataAdditionalDetails.audioBookSpecifics
-								?.runtime &&
+							loaderData.metadataDetails.audioBookSpecifics?.runtime &&
 								humanizeDuration(
-									loaderData.metadataAdditionalDetails.audioBookSpecifics
-										.runtime *
+									loaderData.metadataDetails.audioBookSpecifics.runtime *
 										1000 *
 										60,
 								),
@@ -614,10 +600,10 @@ export default function Page() {
 							.filter(Boolean)
 							.join(" • ")}
 					</Text>
-					{loaderData.mediaMainDetails.providerRating ||
+					{loaderData.metadataDetails.providerRating ||
 					loaderData.userMetadataDetails.averageRating ? (
 						<Group>
-							{loaderData.mediaMainDetails.providerRating ? (
+							{loaderData.metadataDetails.providerRating ? (
 								<Paper
 									p={4}
 									display="flex"
@@ -632,7 +618,7 @@ export default function Page() {
 										h={24}
 										w={24}
 										src={`/provider-logos/${match(
-											loaderData.mediaMainDetails.source,
+											loaderData.metadataDetails.source,
 										)
 											.with(MediaSource.Anilist, () => "anilist.svg")
 											.with(MediaSource.Audible, () => "audible.svg")
@@ -649,10 +635,10 @@ export default function Page() {
 											.exhaustive()}`}
 									/>
 									<Text fz="sm">
-										{Number(loaderData.mediaMainDetails.providerRating).toFixed(
+										{Number(loaderData.metadataDetails.providerRating).toFixed(
 											1,
 										)}
-										{match(loaderData.mediaMainDetails.source)
+										{match(loaderData.metadataDetails.source)
 											.with(
 												MediaSource.Anilist,
 												MediaSource.Igdb,
@@ -708,7 +694,7 @@ export default function Page() {
 					{loaderData.userMetadataDetails?.inProgress ? (
 						<Alert icon={<IconAlertCircle />} variant="outline">
 							You are currently{" "}
-							{getVerb(Verb.Read, loaderData.mediaMainDetails.lot)}
+							{getVerb(Verb.Read, loaderData.metadataDetails.lot)}
 							ing this (
 							{Number(
 								loaderData.userMetadataDetails.inProgress.progress,
@@ -733,7 +719,7 @@ export default function Page() {
 							>
 								History
 							</Tabs.Tab>
-							{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
+							{loaderData.metadataDetails.lot === MediaLot.Show ? (
 								<Tabs.Tab
 									value="showSeasons"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -741,7 +727,7 @@ export default function Page() {
 									Seasons
 								</Tabs.Tab>
 							) : null}
-							{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
+							{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
 								<Tabs.Tab
 									value="podcastEpisodes"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -764,7 +750,7 @@ export default function Page() {
 								Suggestions
 							</Tabs.Tab>
 							{!loaderData.userPreferences.videosDisabled &&
-							(loaderData.mediaMainDetails.assets.videos.length || 0) > 0 ? (
+							(loaderData.metadataDetails.assets.videos.length || 0) > 0 ? (
 								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
 								</Tabs.Tab>
@@ -786,7 +772,7 @@ export default function Page() {
 										spacing={{ base: "md", lg: "xs" }}
 									>
 										{loaderData.userPreferences.genresEnabled
-											? loaderData.mediaMainDetails.genres
+											? loaderData.metadataDetails.genres
 													.slice(0, 12)
 													.map((g) => (
 														<Group key={g.id} wrap="nowrap">
@@ -810,17 +796,17 @@ export default function Page() {
 													))
 											: null}
 									</SimpleGrid>
-									{loaderData.mediaMainDetails.description ? (
+									{loaderData.metadataDetails.description ? (
 										<div
 											// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
 											dangerouslySetInnerHTML={{
-												__html: loaderData.mediaMainDetails.description,
+												__html: loaderData.metadataDetails.description,
 											}}
 										/>
 									) : null}
 									{loaderData.userPreferences.peopleEnabled ? (
 										<Stack>
-											{loaderData.mediaMainDetails.creators.map((c) => (
+											{loaderData.metadataDetails.creators.map((c) => (
 												<Box key={c.name}>
 													<Text fw="bold">{c.name}</Text>
 													<ScrollArea
@@ -873,7 +859,7 @@ export default function Page() {
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{loaderData.userMetadataDetails.inProgress ? (
 										<IndividualProgressModal
-											title={loaderData.mediaMainDetails.title}
+											title={loaderData.metadataDetails.title}
 											progress={Number(
 												loaderData.userMetadataDetails.inProgress.progress,
 											)}
@@ -881,20 +867,15 @@ export default function Page() {
 											metadataId={loaderData.metadataId}
 											onClose={progressModalClose}
 											opened={progressModalOpened}
-											lot={loaderData.mediaMainDetails.lot}
+											lot={loaderData.metadataDetails.lot}
 											total={
-												loaderData.metadataAdditionalDetails.audioBookSpecifics
+												loaderData.metadataDetails.audioBookSpecifics
 													?.runtime ||
-												loaderData.metadataAdditionalDetails.bookSpecifics
-													?.pages ||
-												loaderData.metadataAdditionalDetails.movieSpecifics
-													?.runtime ||
-												loaderData.metadataAdditionalDetails.mangaSpecifics
-													?.chapters ||
-												loaderData.metadataAdditionalDetails.animeSpecifics
-													?.episodes ||
-												loaderData.metadataAdditionalDetails
-													.visualNovelSpecifics?.length
+												loaderData.metadataDetails.bookSpecifics?.pages ||
+												loaderData.metadataDetails.movieSpecifics?.runtime ||
+												loaderData.metadataDetails.mangaSpecifics?.chapters ||
+												loaderData.metadataDetails.animeSpecifics?.episodes ||
+												loaderData.metadataDetails.visualNovelSpecifics?.length
 											}
 										/>
 									) : null}
@@ -903,7 +884,7 @@ export default function Page() {
 											<Button variant="outline">Update progress</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
-											{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
+											{loaderData.metadataDetails.lot === MediaLot.Show ? (
 												<>
 													<Menu.Label>Shows</Menu.Label>
 													{loaderData.userMetadataDetails.nextEntry ? (
@@ -912,13 +893,13 @@ export default function Page() {
 																onClick={() => {
 																	setUpdateProgressModalData({
 																		showSeasonNumber:
-																			loaderData.mediaMainDetails.lot ===
+																			loaderData.metadataDetails.lot ===
 																			MediaLot.Show
 																				? loaderData.userMetadataDetails
 																						.nextEntry?.season
 																				: undefined,
 																		showEpisodeNumber:
-																			loaderData.mediaMainDetails.lot ===
+																			loaderData.metadataDetails.lot ===
 																			MediaLot.Show
 																				? loaderData.userMetadataDetails
 																						.nextEntry?.episode
@@ -943,7 +924,7 @@ export default function Page() {
 													)}
 												</>
 											) : null}
-											{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
+											{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
 												<>
 													<Menu.Label>Podcasts</Menu.Label>
 													{loaderData.userMetadataDetails.nextEntry ? (
@@ -952,7 +933,7 @@ export default function Page() {
 																onClick={() => {
 																	setUpdateProgressModalData({
 																		podcastEpisodeNumber:
-																			loaderData.mediaMainDetails.lot ===
+																			loaderData.metadataDetails.lot ===
 																			MediaLot.Podcast
 																				? loaderData.userMetadataDetails
 																						.nextEntry?.episode
@@ -986,8 +967,8 @@ export default function Page() {
 													<Menu.Item onClick={progressModalOpen}>
 														Set progress
 													</Menu.Item>
-													{loaderData.mediaMainDetails.lot !== MediaLot.Show &&
-													loaderData.mediaMainDetails.lot !==
+													{loaderData.metadataDetails.lot !== MediaLot.Show &&
+													loaderData.metadataDetails.lot !==
 														MediaLot.Podcast ? (
 														<StateChangeButtons />
 													) : null}
@@ -997,7 +978,7 @@ export default function Page() {
 														replace
 														onSubmit={() => {
 															events.updateProgress(
-																loaderData.mediaMainDetails.title,
+																loaderData.metadataDetails.title,
 															);
 														}}
 													>
@@ -1016,8 +997,8 @@ export default function Page() {
 														</Menu.Item>
 													</Form>
 												</>
-											) : loaderData.mediaMainDetails.lot !== MediaLot.Show &&
-												loaderData.mediaMainDetails.lot !== MediaLot.Podcast ? (
+											) : loaderData.metadataDetails.lot !== MediaLot.Show &&
+												loaderData.metadataDetails.lot !== MediaLot.Podcast ? (
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
 													<Form
@@ -1026,13 +1007,13 @@ export default function Page() {
 														replace
 														onSubmit={() => {
 															events.updateProgress(
-																loaderData.mediaMainDetails.title,
+																loaderData.metadataDetails.title,
 															);
 														}}
 													>
 														<input hidden name="progress" defaultValue={0} />
 														{![MediaLot.Anime, MediaLot.Manga].includes(
-															loaderData.mediaMainDetails.lot,
+															loaderData.metadataDetails.lot,
 														) ? (
 															<Menu.Item
 																type="submit"
@@ -1042,7 +1023,7 @@ export default function Page() {
 																I'm{" "}
 																{getVerb(
 																	Verb.Read,
-																	loaderData.mediaMainDetails.lot,
+																	loaderData.metadataDetails.lot,
 																)}
 																ing it
 															</Menu.Item>
@@ -1054,10 +1035,7 @@ export default function Page() {
 														}}
 													>
 														Add to{" "}
-														{getVerb(
-															Verb.Read,
-															loaderData.mediaMainDetails.lot,
-														)}{" "}
+														{getVerb(Verb.Read, loaderData.metadataDetails.lot)}{" "}
 														history
 													</Menu.Item>
 												</>
@@ -1074,12 +1052,12 @@ export default function Page() {
 														loaderData.userMetadataDetails?.nextEntry?.season ??
 														undefined,
 													showEpisodeNumber:
-														loaderData.mediaMainDetails.lot === MediaLot.Show
+														loaderData.metadataDetails.lot === MediaLot.Show
 															? loaderData.userMetadataDetails?.nextEntry
 																	?.episode ?? undefined
 															: null,
 													podcastEpisodeNumber:
-														loaderData.mediaMainDetails.lot === MediaLot.Podcast
+														loaderData.metadataDetails.lot === MediaLot.Podcast
 															? loaderData.userMetadataDetails?.nextEntry
 																	?.episode ?? undefined
 															: null,
@@ -1115,7 +1093,7 @@ export default function Page() {
 												formValue={loaderData.metadataId}
 												entityLot={EntityLot.Media}
 											/>
-											{loaderData.mediaMainDetails.source !==
+											{loaderData.metadataDetails.source !==
 											MediaSource.Custom ? (
 												<Form
 													action="?intent=deployUpdateMetadataJob"
@@ -1161,7 +1139,7 @@ export default function Page() {
 										{loaderData.userMetadataDetails.unitsConsumed ? (
 											<Text fz={{ base: "sm", md: "md" }}>
 												Consumed{" "}
-												{match(loaderData.mediaMainDetails.lot)
+												{match(loaderData.metadataDetails.lot)
 													.with(
 														MediaLot.AudioBook,
 														MediaLot.Movie,
@@ -1194,16 +1172,7 @@ export default function Page() {
 									<Virtuoso
 										data={loaderData.userMetadataDetails.history}
 										itemContent={(_, history) => (
-											<SeenItem
-												history={history}
-												key={history.id}
-												showSpecifics={
-													loaderData.metadataAdditionalDetails.showSpecifics
-												}
-												podcastSpecifics={
-													loaderData.metadataAdditionalDetails.podcastSpecifics
-												}
-											/>
+											<SeenItem history={history} key={history.id} />
 										)}
 									/>
 								</Stack>
@@ -1212,11 +1181,11 @@ export default function Page() {
 							)}
 						</Tabs.Panel>
 						<Tabs.Panel value="showSeasons">
-							{loaderData.metadataAdditionalDetails.showSpecifics &&
+							{loaderData.metadataDetails.showSpecifics &&
 							loaderData.userMetadataDetails.showProgress ? (
 								<Box h={MEDIA_DETAILS_HEIGHT}>
 									<GroupedVirtuoso
-										groupCounts={loaderData.metadataAdditionalDetails.showSpecifics.seasons.map(
+										groupCounts={loaderData.metadataDetails.showSpecifics.seasons.map(
 											(season) => season.episodes.length,
 										)}
 										groupContent={(index) => (
@@ -1238,8 +1207,9 @@ export default function Page() {
 												}
 												seasonNumber={
 													// biome-ignore lint/style/noNonNullAssertion: typescript error
-													loaderData.metadataAdditionalDetails.showSpecifics!
-														.seasons[groupIndex].seasonNumber
+													loaderData.metadataDetails.showSpecifics!.seasons[
+														groupIndex
+													].seasonNumber
 												}
 											/>
 										)}
@@ -1247,14 +1217,11 @@ export default function Page() {
 								</Box>
 							) : undefined}
 						</Tabs.Panel>
-						{loaderData.metadataAdditionalDetails.podcastSpecifics ? (
+						{loaderData.metadataDetails.podcastSpecifics ? (
 							<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
 								<Virtuoso
 									style={{ height: "100%" }}
-									data={
-										loaderData.metadataAdditionalDetails.podcastSpecifics
-											.episodes
-									}
+									data={loaderData.metadataDetails.podcastSpecifics.episodes}
 									itemContent={(podcastEpisodeIdx, podcastEpisode) => (
 										<DisplayPodcastEpisode
 											key={podcastEpisode.id}
@@ -1282,8 +1249,8 @@ export default function Page() {
 													metadataId={loaderData.metadataId}
 													reviewScale={loaderData.userPreferences.reviewScale}
 													user={loaderData.userDetails}
-													title={loaderData.mediaMainDetails.title}
-													lot={loaderData.mediaMainDetails.lot}
+													title={loaderData.metadataDetails.title}
+													lot={loaderData.metadataDetails.lot}
 												/>
 											))}
 										</Stack>
@@ -1294,10 +1261,10 @@ export default function Page() {
 							</Tabs.Panel>
 						) : null}
 						<Tabs.Panel value="suggestions">
-							{loaderData.mediaMainDetails.suggestions.length > 0 ? (
+							{loaderData.metadataDetails.suggestions.length > 0 ? (
 								<MediaScrollArea>
 									<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-										{loaderData.mediaMainDetails.suggestions.map((sug) => (
+										{loaderData.metadataDetails.suggestions.map((sug) => (
 											<PartialMetadataDisplay
 												key={sug.identifier}
 												media={sug}
@@ -1313,7 +1280,7 @@ export default function Page() {
 							<Tabs.Panel value="videos">
 								<MediaScrollArea>
 									<Stack>
-										{loaderData.mediaMainDetails.assets.videos.map((v) => (
+										{loaderData.metadataDetails.assets.videos.map((v) => (
 											<Box key={v.videoId}>
 												<iframe
 													width="100%"
@@ -1343,7 +1310,7 @@ export default function Page() {
 						) : null}
 						{!loaderData.userPreferences.watchProvidersDisabled ? (
 							<Tabs.Panel value="watchProviders">
-								{loaderData.mediaMainDetails.watchProviders.length > 0 ? (
+								{loaderData.metadataDetails.watchProviders.length > 0 ? (
 									<MediaScrollArea>
 										<Stack gap="sm">
 											<Text>
@@ -1357,7 +1324,7 @@ export default function Page() {
 												for this media along with the countries they are
 												available in.
 											</Text>
-											{loaderData.mediaMainDetails.watchProviders.map(
+											{loaderData.metadataDetails.watchProviders.map(
 												(provider) => (
 													<Flex key={provider.name} align="center" gap="md">
 														<Image
@@ -1439,13 +1406,13 @@ const ProgressUpdateModal = (props: {
 				replace
 				onSubmit={() => {
 					props.onClose();
-					events.updateProgress(loaderData.mediaMainDetails.title);
+					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
 				{[
 					...Object.entries(props.data),
 					["metadataId", loaderData.metadataId.toString()],
-					["metadataLot", loaderData.mediaMainDetails.lot.toString()],
+					["metadataLot", loaderData.metadataDetails.lot.toString()],
 				].map(([k, v]) => (
 					<Fragment key={k}>
 						{typeof v !== "undefined" ? (
@@ -1461,7 +1428,7 @@ const ProgressUpdateModal = (props: {
 					/>
 				) : null}
 				<Stack>
-					{loaderData.mediaMainDetails.lot === MediaLot.Anime ? (
+					{loaderData.metadataDetails.lot === MediaLot.Anime ? (
 						<>
 							<NumberInput
 								label="Episode"
@@ -1479,7 +1446,7 @@ const ProgressUpdateModal = (props: {
 							) : null}
 						</>
 					) : null}
-					{loaderData.mediaMainDetails.lot === MediaLot.Manga ? (
+					{loaderData.metadataDetails.lot === MediaLot.Manga ? (
 						<>
 							<Box>
 								<Text c="dimmed" size="sm">
@@ -1514,13 +1481,13 @@ const ProgressUpdateModal = (props: {
 							) : null}
 						</>
 					) : null}
-					{loaderData.mediaMainDetails.lot === MediaLot.Show ? (
+					{loaderData.metadataDetails.lot === MediaLot.Show ? (
 						<>
 							<input
 								hidden
 								name="showSpecifics"
 								defaultValue={JSON.stringify(
-									loaderData.metadataAdditionalDetails.showSpecifics?.seasons.map(
+									loaderData.metadataDetails.showSpecifics?.seasons.map(
 										(s) => ({
 											seasonNumber: s.seasonNumber,
 											episodes: s.episodes.map((e) => e.episodeNumber),
@@ -1540,7 +1507,7 @@ const ProgressUpdateModal = (props: {
 							{!props.data?.completeShow ? (
 								<Select
 									label="Season"
-									data={loaderData.metadataAdditionalDetails.showSpecifics?.seasons.map(
+									data={loaderData.metadataDetails.showSpecifics?.seasons.map(
 										(s) => ({
 											label: `${s.seasonNumber}. ${s.name.toString()}`,
 											value: s.seasonNumber.toString(),
@@ -1560,7 +1527,7 @@ const ProgressUpdateModal = (props: {
 								<Select
 									label="Episode"
 									data={
-										loaderData.metadataAdditionalDetails.showSpecifics?.seasons
+										loaderData.metadataDetails.showSpecifics?.seasons
 											.find(
 												(s) =>
 													s.seasonNumber ===
@@ -1576,13 +1543,13 @@ const ProgressUpdateModal = (props: {
 							) : null}
 						</>
 					) : null}
-					{loaderData.mediaMainDetails.lot === MediaLot.Podcast ? (
+					{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
 						<>
 							<input
 								hidden
 								name="podcastSpecifics"
 								defaultValue={JSON.stringify(
-									loaderData.metadataAdditionalDetails.podcastSpecifics?.episodes.map(
+									loaderData.metadataDetails.podcastSpecifics?.episodes.map(
 										(e) => ({ episodeNumber: e.number }),
 									),
 								)}
@@ -1596,7 +1563,7 @@ const ProgressUpdateModal = (props: {
 									<Title order={6}>Select episode</Title>
 									<Autocomplete
 										label="Episode"
-										data={loaderData.metadataAdditionalDetails.podcastSpecifics?.episodes.map(
+										data={loaderData.metadataDetails.podcastSpecifics?.episodes.map(
 											(se) => ({
 												label: se.title.toString(),
 												value: se.number.toString(),
@@ -1611,7 +1578,7 @@ const ProgressUpdateModal = (props: {
 					<Select
 						label={`When did you ${getVerb(
 							Verb.Read,
-							loaderData.mediaMainDetails.lot,
+							loaderData.metadataDetails.lot,
 						)} it?`}
 						data={WATCH_TIMES}
 						value={watchTime}
@@ -1635,7 +1602,7 @@ const ProgressUpdateModal = (props: {
 					<Select
 						label={`Where did you ${getVerb(
 							Verb.Read,
-							loaderData.mediaMainDetails.lot,
+							loaderData.metadataDetails.lot,
 						)} it?`}
 						data={loaderData.userPreferences.watchProviders}
 						name="providerWatchedOn"
@@ -1761,7 +1728,7 @@ const IndividualProgressModal = (props: {
 						data={loaderData.userPreferences.watchProviders}
 						label={`Where did you ${getVerb(
 							Verb.Read,
-							loaderData.mediaMainDetails.lot,
+							loaderData.metadataDetails.lot,
 						)} it?`}
 						name="providerWatchedOn"
 						defaultValue={props.inProgress.providerWatchedOn}
@@ -1970,19 +1937,12 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
-type ShowSpecifics =
-	MetadataAdditionalDetailsQuery["metadataDetails"]["showSpecifics"];
-type PodcastSpecifics =
-	MetadataAdditionalDetailsQuery["metadataDetails"]["podcastSpecifics"];
 
-const SeenItem = (props: {
-	history: History;
-	showSpecifics?: ShowSpecifics;
-	podcastSpecifics?: PodcastSpecifics;
-}) => {
+const SeenItem = (props: { history: History }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
-		? props.showSpecifics?.seasons
+		? loaderData.metadataDetails.showSpecifics?.seasons
 				.find(
 					(s) => s.seasonNumber === props.history.showExtraInformation?.season,
 				)
@@ -1995,7 +1955,7 @@ const SeenItem = (props: {
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
 	const podcastExtraInformation = props.history.podcastExtraInformation
-		? props.podcastSpecifics?.episodes.find(
+		? loaderData.metadataDetails.podcastSpecifics?.episodes.find(
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
 			)
 		: null;
@@ -2131,9 +2091,7 @@ const DisplayShowSeason = (props: {
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const season =
-		loaderData.metadataAdditionalDetails.showSpecifics?.seasons[
-			props.seasonIdx
-		];
+		loaderData.metadataDetails.showSpecifics?.seasons[props.seasonIdx];
 	const isSeen = (props.showProgress?.[props.seasonIdx]?.timesSeen || 0) > 0;
 
 	invariant(season, "Season not found");
@@ -2179,7 +2137,7 @@ const DisplayShowEpisode = (props: {
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const flattenedEpisodes =
-		loaderData.metadataAdditionalDetails.showSpecifics?.seasons.flatMap(
+		loaderData.metadataDetails.showSpecifics?.seasons.flatMap(
 			(season) => season.episodes,
 		) || [];
 	const episode = flattenedEpisodes[props.overallIdx];
