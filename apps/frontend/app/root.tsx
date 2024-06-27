@@ -24,11 +24,12 @@ import {
 	useLoaderData,
 	useNavigation,
 } from "@remix-run/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import "mantine-datatable/styles.layer.css";
 import { MountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
-import { LOGO_IMAGE_URL } from "~/lib/generals";
+import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";
 import {
 	colorSchemeCookie,
 	combineHeaders,
@@ -103,8 +104,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	);
 });
 
-const queryClient = new QueryClient();
-
 const DefaultHeadTags = () => {
 	return (
 		<>
@@ -156,6 +155,7 @@ export default function App() {
 						<ScrollRestoration />
 						<Scripts />
 					</MantineProvider>
+					<ReactQueryDevtools />
 				</QueryClientProvider>
 			</body>
 		</html>

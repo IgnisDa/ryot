@@ -75,7 +75,7 @@ import {
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export type SearchParams = {
@@ -121,7 +121,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		getUserDetails(request),
 		getCoreDetails(request),
 		getUserPreferences(request),
-		gqlClient.request(
+		serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -152,7 +152,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					.default(defaultFilters.mineGeneralFilter),
 				collection: z.string().optional(),
 			});
-			const { metadataList } = await gqlClient.request(
+			const { metadataList } = await serverGqlService.request(
 				MetadataListDocument,
 				{
 					input: {
@@ -174,7 +174,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { metadataSearch } = await gqlClient.request(
+			const { metadataSearch } = await serverGqlService.request(
 				MetadataSearchDocument,
 				{
 					input: {

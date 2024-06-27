@@ -1,7 +1,6 @@
 import { parseWithZod } from "@conform-to/zod";
 import { $path } from "@ignisda/remix-routes";
 import {
-	type CookieOptions,
 	createCookie,
 	createCookieSessionStorage,
 	redirect,
@@ -20,23 +19,31 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { type CookieSerializeOptions, parse, serialize } from "cookie";
 import { GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
-import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
+import {
+	AUTH_COOKIE_NAME,
+	CORE_DETAILS_COOKIE_NAME,
+	USER_DETAILS_COOKIE_NAME,
+	USER_PREFERENCES_COOKIE_NAME,
+	redirectToQueryParam,
+} from "~/lib/generals";
 
-const isProduction = process.env.NODE_ENV === "production";
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-export const gqlClient = new GraphQLClient(`${API_URL}/graphql`, {
+export const serverGqlService = new GraphQLClient(`${API_URL}/graphql`, {
 	headers: { Connection: "keep-alive" },
 });
 
+export const getCookieValue = (request: Request, cookieName: string) => {
+	return parse(request.headers.get("cookie") || "")[cookieName];
+};
+
 const getAuthorizationCookie = async (request: Request) => {
-	const cookie = await authCookie.parse(request.headers.get("cookie") || "");
-	return cookie;
+	return getCookieValue(request, AUTH_COOKIE_NAME);
 };
 
 export const getAuthorizationHeader = async (
@@ -54,7 +61,7 @@ export const getIsAuthenticated = async (request: Request) => {
 	const cookie = await getAuthorizationCookie(request);
 	if (!cookie) return [false, null] as const;
 	try {
-		const { userDetails } = await gqlClient.request(
+		const { userDetails } = await serverGqlService.request(
 			UserDetailsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -91,7 +98,6 @@ const expectedServerVariables = z.object({
 	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
 	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
-	FRONTEND_INSECURE_COOKIES: zx.BoolAsString.optional(),
 });
 
 /**
@@ -147,7 +153,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 };
 
 export const getUserCollectionsList = async (request: Request) => {
-	const { userCollectionsList } = await gqlClient.request(
+	const { userCollectionsList } = await serverGqlService.request(
 		UserCollectionsListDocument,
 		{},
 		await getAuthorizationHeader(request),
@@ -161,7 +167,7 @@ export const uploadFileAndGetKey = async (
 	contentType: string,
 	body: ArrayBuffer | Buffer,
 ) => {
-	const { presignedPutS3Url } = await gqlClient.request(
+	const { presignedPutS3Url } = await serverGqlService.request(
 		PresignedPutS3UrlDocument,
 		{ input: { fileName, prefix } },
 	);
@@ -174,7 +180,7 @@ export const uploadFileAndGetKey = async (
 };
 
 export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await gqlClient.request(
+	const { getPresignedS3Url } = await serverGqlService.request(
 		GetPresignedS3UrlDocument,
 		{ key },
 	);
@@ -224,7 +230,7 @@ export const s3FileUploader = (prefix: string) =>
 	}, unstable_createMemoryUploadHandler());
 
 export const getCoreEnabledFeatures = async () => {
-	const { coreEnabledFeatures } = await gqlClient.request(
+	const { coreEnabledFeatures } = await serverGqlService.request(
 		CoreEnabledFeaturesDocument,
 	);
 	return coreEnabledFeatures;
@@ -232,33 +238,14 @@ export const getCoreEnabledFeatures = async () => {
 
 export const serverVariables = expectedServerVariables.parse(process.env);
 
-const commonCookieOptions = {
-	sameSite: "lax",
-	path: "/",
-	httpOnly: true,
-	secrets: (process.env.SESSION_SECRET || "").split(","),
-	secure: isProduction ? !serverVariables.FRONTEND_INSECURE_COOKIES : false,
-} satisfies CookieOptions;
-
-export const authCookie = createCookie("Auth", commonCookieOptions);
-
-export const userPreferencesCookie = createCookie(
-	"UserPreferences",
-	commonCookieOptions,
-);
-
-export const coreDetailsCookie = createCookie(
-	"CoreDetails",
-	commonCookieOptions,
-);
-
-export const userDetailsCookie = createCookie(
-	"UserDetails",
-	commonCookieOptions,
-);
-
 export const toastSessionStorage = createCookieSessionStorage({
-	cookie: { ...commonCookieOptions, name: "Toast" },
+	cookie: {
+		sameSite: "lax",
+		path: "/",
+		httpOnly: true,
+		secrets: (process.env.SESSION_SECRET || "").split(","),
+		name: "Toast",
+	},
 });
 
 export const colorSchemeCookie = createCookie("ColorScheme", {
@@ -319,57 +306,60 @@ export async function getToast(request: Request) {
 export const getCookiesForApplication = async (token: string) => {
 	const [{ coreDetails }, { userPreferences }, { userDetails }] =
 		await Promise.all([
-			gqlClient.request(CoreDetailsDocument),
-			gqlClient.request(
+			serverGqlService.request(CoreDetailsDocument),
+			serverGqlService.request(
 				UserPreferencesDocument,
 				undefined,
 				await getAuthorizationHeader(undefined, token),
 			),
-			gqlClient.request(
+			serverGqlService.request(
 				UserDetailsDocument,
 				undefined,
 				await getAuthorizationHeader(undefined, token),
 			),
 		]);
-	const cookieMaxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
+	const maxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
+	const options = { maxAge, path: "/" } satisfies CookieSerializeOptions;
 	return combineHeaders(
 		{
-			"set-cookie": await coreDetailsCookie.serialize(coreDetails, {
-				maxAge: cookieMaxAge,
-			}),
+			"set-cookie": serialize(
+				CORE_DETAILS_COOKIE_NAME,
+				JSON.stringify(coreDetails),
+				options,
+			),
 		},
 		{
-			"set-cookie": await userPreferencesCookie.serialize(userPreferences, {
-				maxAge: cookieMaxAge,
-			}),
+			"set-cookie": serialize(
+				USER_PREFERENCES_COOKIE_NAME,
+				JSON.stringify(userPreferences),
+				options,
+			),
 		},
 		{
-			"set-cookie": await userDetailsCookie.serialize(userDetails, {
-				maxAge: cookieMaxAge,
-			}),
+			"set-cookie": serialize(
+				USER_DETAILS_COOKIE_NAME,
+				JSON.stringify(userDetails),
+				options,
+			),
 		},
 	);
 };
 
 export const getLogoutCookies = async () => {
 	return combineHeaders(
+		{ "set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }) },
 		{
-			"set-cookie": await authCookie.serialize("", {
+			"set-cookie": serialize(CORE_DETAILS_COOKIE_NAME, "", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"set-cookie": await coreDetailsCookie.serialize("", {
+			"set-cookie": serialize(USER_PREFERENCES_COOKIE_NAME, "", {
 				expires: new Date(0),
 			}),
 		},
 		{
-			"set-cookie": await userPreferencesCookie.serialize("", {
-				expires: new Date(0),
-			}),
-		},
-		{
-			"set-cookie": await userDetailsCookie.serialize("", {
+			"set-cookie": serialize(USER_DETAILS_COOKIE_NAME, "", {
 				expires: new Date(0),
 			}),
 		},
@@ -377,26 +367,20 @@ export const getLogoutCookies = async () => {
 };
 
 export const getCoreDetails = async (request: Request) => {
-	const details = await coreDetailsCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return details as CoreDetails;
+	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
+	return JSON.parse(details) as CoreDetails;
 };
 
 export const getUserPreferences = async (request: Request) => {
 	await redirectIfNotAuthenticatedOrUpdated(request);
-	const preferences = await userPreferencesCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return preferences as UserPreferences;
+	const preferences = getCookieValue(request, USER_PREFERENCES_COOKIE_NAME);
+	return JSON.parse(preferences) as UserPreferences;
 };
 
 export const getUserDetails = async (request: Request) => {
 	await redirectIfNotAuthenticatedOrUpdated(request);
-	const details = await userDetailsCookie.parse(
-		request.headers.get("cookie") || "",
-	);
-	return details as ApplicationUser;
+	const details = getCookieValue(request, USER_DETAILS_COOKIE_NAME);
+	return JSON.parse(details) as ApplicationUser;
 };
 
 export const extendResponseHeaders = (

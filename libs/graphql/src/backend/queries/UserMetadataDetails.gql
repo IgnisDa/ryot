@@ -14,11 +14,24 @@ query UserMetadataDetails($metadataId: String!) {
     reviews {
       ...ReviewItemPart
     }
-    seenBy
+    seenByAllCount
+    seenByUserCount
     nextEntry {
       season
       episode
       chapter
+    }
+    showProgress {
+      timesSeen
+      seasonNumber
+      episodes {
+        episodeNumber
+        timesSeen
+      }
+    }
+    podcastProgress {
+      episodeNumber
+      timesSeen
     }
   }
 }

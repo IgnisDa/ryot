@@ -66,7 +66,7 @@ schematic = { workspace = true }
 scraper = "=0.19.0"
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
-sea-query = "=0.31.0-rc.7"
+sea-query = "=0.31.0-rc.8"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { version = "=3.8.1", features = ["chrono_0_4"] }

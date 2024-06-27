@@ -30,7 +30,7 @@ import { useSearchParam } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	getCoreDetails,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -44,7 +44,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const date = dayjsLib(query.date);
 	const [coreDetails, { userCalendarEvents }] = await Promise.all([
 		getCoreDetails(request),
-		gqlClient.request(
+		serverGqlService.request(
 			UserCalendarEventsDocument,
 			{ input: { month: date.month() + 1, year: date.year() } },
 			await getAuthorizationHeader(request),

@@ -15,15 +15,20 @@ import {
 	IconHeadphones,
 	IconMicrophone,
 } from "@tabler/icons-react";
+import { QueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { GraphQLClient } from "graphql-request";
+import Cookies from "js-cookie";
 import { match } from "ts-pattern";
 
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
+
+export { dayjs as dayjsLib };
 
 export const CurrentWorkoutKey = "CurrentWorkout";
 export const LOGO_IMAGE_URL =
@@ -196,6 +201,23 @@ export const getMetadataIcon = (lot: MediaLot) => {
 		.exhaustive();
 };
 
-export { dayjs as dayjsLib };
-
 export const redirectToQueryParam = "redirectTo";
+
+export const queryClient = new QueryClient();
+
+export const AUTH_COOKIE_NAME = "Auth";
+export const USER_PREFERENCES_COOKIE_NAME = "UserPreferences";
+export const CORE_DETAILS_COOKIE_NAME = "CoreDetails";
+export const USER_DETAILS_COOKIE_NAME = "UserDetails";
+
+const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+export const clientGqlService = new GraphQLClient(
+	`${baseUrl}/backend/graphql`,
+	{
+		headers: () => {
+			const data = Cookies.get(AUTH_COOKIE_NAME);
+			return { authorization: data ? `Bearer ${data}` : "" };
+		},
+	},
+);

@@ -57,7 +57,7 @@ import {
 	getAuthorizationHeader,
 	getUserCollectionsList,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const cookieName = CurrentWorkoutKey;
@@ -81,7 +81,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			)?.hidden
 		)
 			return [];
-		const { userRecommendations } = await gqlClient.request(
+		const { userRecommendations } = await serverGqlService.request(
 			UserRecommendationsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -99,7 +99,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
 	] = await Promise.all([
-		gqlClient.request(
+		await serverGqlService.request(
 			CollectionContentsDocument,
 			{
 				input: {
@@ -111,12 +111,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			await getAuthorizationHeader(request),
 		),
 		getRecommendations(),
-		gqlClient.request(
+		await serverGqlService.request(
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
 			await getAuthorizationHeader(request),
 		),
-		gqlClient.request(
+		await serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
 			await getAuthorizationHeader(request),

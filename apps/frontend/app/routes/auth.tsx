@@ -33,23 +33,23 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
+import { serialize } from "cookie";
 import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
+import { AUTH_COOKIE_NAME, redirectToQueryParam } from "~/lib/generals";
 import {
-	authCookie,
 	combineHeaders,
 	createToastHeaders,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	getIsAuthenticated,
-	gqlClient,
 	processSubmission,
 	redirectWithToast,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -68,7 +68,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		});
 	const [enabledFeatures, { coreDetails }] = await Promise.all([
 		getCoreEnabledFeatures(),
-		gqlClient.request(CoreDetailsDocument),
+		serverGqlService.request(CoreDetailsDocument),
 	]);
 	return {
 		intent: query.intent || "login",
@@ -101,14 +101,17 @@ export const action = unstable_defineAction(async ({ request }) => {
 							"Invalid form data",
 					}),
 				});
-			const { registerUser } = await gqlClient.request(RegisterUserDocument, {
-				input: {
-					password: {
-						password: submission.value.password,
-						username: submission.value.username,
+			const { registerUser } = await serverGqlService.request(
+				RegisterUserDocument,
+				{
+					input: {
+						password: {
+							password: submission.value.password,
+							username: submission.value.username,
+						},
 					},
 				},
-			});
+			);
 			if (registerUser.__typename === "RegisterError") {
 				const message = match(registerUser.error)
 					.with(RegisterErrorVariant.Disabled, () => "Registration is disabled")
@@ -129,7 +132,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		login: async () => {
 			const submission = processSubmission(formData, loginSchema);
-			const { loginUser } = await gqlClient.request(LoginUserDocument, {
+			const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 				input: {
 					password: {
 						password: submission.password,
@@ -146,7 +149,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 				return redirect(redirectUrl, {
 					headers: combineHeaders(
 						{
-							"set-cookie": await authCookie.serialize(
+							"set-cookie": serialize(
+								AUTH_COOKIE_NAME,
 								loginUser.apiKey,
 								options,
 							),
@@ -171,7 +175,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		getOauthRedirectUrl: async () => {
-			const { getOidcRedirectUrl } = await gqlClient.request(
+			const { getOidcRedirectUrl } = await serverGqlService.request(
 				GetOidcRedirectUrlDocument,
 			);
 			return redirect(getOidcRedirectUrl);

@@ -54,13 +54,15 @@ import { dayjsLib } from "~/lib/generals";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	gqlClient,
 	processSubmission,
+	serverGqlService,
 } from "~/lib/utilities.server";
+
+const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
-		gqlClient.request(
+		serverGqlService.request(
 			UserIntegrationsDocument,
 			undefined,
 			await getAuthorizationHeader(request),
@@ -78,7 +80,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeleteUserIntegrationDocument,
 				submission,
 				await getAuthorizationHeader(request),
@@ -95,7 +97,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				CreateUserIntegrationDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -111,7 +113,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 		generateAuthToken: async () => {
-			const { generateAuthToken } = await gqlClient.request(
+			const { generateAuthToken } = await serverGqlService.request(
 				GenerateAuthTokenDocument,
 				undefined,
 				await getAuthorizationHeader(request),
@@ -262,7 +264,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 						) : undefined}
 					</Box>
 					<Group>
-						{props.integration.id ? (
+						{!YANK_INTEGRATIONS.includes(props.integration.source) ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
@@ -305,8 +307,6 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 		</Paper>
 	);
 };
-
-const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 
 const CreateIntegrationModal = (props: {
 	createModalOpened: boolean;

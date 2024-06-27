@@ -43,7 +43,7 @@ import {
 	getAuthorizationHeader,
 	getCoreDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { getDefaultWorkout } from "~/lib/workout";
 
@@ -60,7 +60,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		[
 			getUserPreferences(request),
 			getCoreDetails(request),
-			gqlClient.request(
+			serverGqlService.request(
 				UserWorkoutListDocument,
 				{
 					input: { page: query.page, query: query.query },

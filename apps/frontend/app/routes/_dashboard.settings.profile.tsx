@@ -20,7 +20,7 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserDetails,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
 
@@ -36,7 +36,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.formData();
 	const submission = processSubmission(formData, updateProfileFormSchema);
-	await gqlClient.request(
+	await serverGqlService.request(
 		UpdateUserDocument,
 		{ input: submission },
 		await getAuthorizationHeader(request),

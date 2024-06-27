@@ -47,15 +47,16 @@ import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { AUTH_COOKIE_NAME } from "~/lib/generals";
 import {
-	authCookie,
 	combineHeaders,
 	createToastHeaders,
 	getAuthorizationHeader,
+	getCookieValue,
 	getCookiesForApplication,
 	getUserDetails,
 	getUserPreferences,
-	gqlClient,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
@@ -101,13 +102,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 		});
 	}
 	for (const input of submission) {
-		await gqlClient.request(
+		await serverGqlService.request(
 			UpdateUserPreferenceDocument,
 			{ input },
 			await getAuthorizationHeader(request),
 		);
 	}
-	const token = await authCookie.parse(request.headers.get("cookie"));
+	const token = getCookieValue(request, AUTH_COOKIE_NAME);
 	const applicationHeaders = await getCookiesForApplication(token);
 	const toastHeaders = await createToastHeaders({
 		message: "Preferences updated",

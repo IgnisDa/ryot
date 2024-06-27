@@ -19,7 +19,7 @@ import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
 import { useSearchParam } from "~/lib/hooks";
-import { getCoreDetails, gqlClient } from "~/lib/utilities.server";
+import { getCoreDetails, serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -33,7 +33,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	invariant(genreId, "No ID provided");
 	const [coreDetails, { genreDetails }] = await Promise.all([
 		getCoreDetails(request),
-		gqlClient.request(GenreDetailsDocument, {
+		serverGqlService.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },
 		}),
 	]);

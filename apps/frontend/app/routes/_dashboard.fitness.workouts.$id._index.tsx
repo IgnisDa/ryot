@@ -69,9 +69,9 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserPreferences,
-	gqlClient,
 	processSubmission,
 	redirectWithToast,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
 
@@ -80,7 +80,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	invariant(workoutId, "No ID provided");
 	const [userPreferences, { workoutDetails }] = await Promise.all([
 		getUserPreferences(request),
-		gqlClient.request(
+		serverGqlService.request(
 			WorkoutDetailsDocument,
 			{ workoutId },
 			await getAuthorizationHeader(request),
@@ -88,11 +88,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	]);
 	let repeatedWorkout = null;
 	if (workoutDetails.repeatedFrom) {
-		const { workoutDetails: repeatedWorkoutData } = await gqlClient.request(
-			WorkoutDetailsDocument,
-			{ workoutId: workoutDetails.repeatedFrom },
-			await getAuthorizationHeader(request),
-		);
+		const { workoutDetails: repeatedWorkoutData } =
+			await serverGqlService.request(
+				WorkoutDetailsDocument,
+				{ workoutId: workoutDetails.repeatedFrom },
+				await getAuthorizationHeader(request),
+			);
 		repeatedWorkout = {
 			id: workoutDetails.repeatedFrom,
 			name: repeatedWorkoutData.name,
@@ -118,7 +119,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		edit: async () => {
 			const submission = processSubmission(formData, editWorkoutSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				EditUserWorkoutDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -132,7 +133,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				DeleteUserWorkoutDocument,
 				submission,
 				await getAuthorizationHeader(request),

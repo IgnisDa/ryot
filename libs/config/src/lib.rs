@@ -280,9 +280,6 @@ pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.
     #[setting(default = "https://app.ryot.io")]
     pub url: String,
-    /// Whether the cookies set are insecure.
-    #[setting(default = false)]
-    pub insecure_cookies: bool,
     /// The number of items to display in a list view.
     #[setting(default = 20)]
     pub page_size: i32,

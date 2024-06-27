@@ -32,9 +32,9 @@ import {
 	extendResponseHeaders,
 	getAuthorizationHeader,
 	getLogoutCookies,
-	gqlClient,
 	processSubmission,
 	s3FileUploader,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = async () => redirect($path("/"));
@@ -50,7 +50,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 	await match(intent)
 		.with("commitMedia", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMetadata } = await gqlClient.request(
+			const { commitMetadata } = await serverGqlService.request(
 				CommitMetadataDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -65,7 +65,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
-			const { deleteS3Object } = await gqlClient.request(
+			const { deleteS3Object } = await serverGqlService.request(
 				DeleteS3ObjectDocument,
 				{ key },
 			);
@@ -73,7 +73,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("commitPerson", async () => {
 			const submission = processSubmission(formData, commitPersonSchema);
-			const { commitPerson } = await gqlClient.request(
+			const { commitPerson } = await serverGqlService.request(
 				CommitPersonDocument,
 				{
 					input: {
@@ -92,7 +92,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("commitMetadataGroup", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMetadataGroup } = await gqlClient.request(
+			const { commitMetadataGroup } = await serverGqlService.request(
 				CommitMetadataGroupDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -118,7 +118,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
-			await gqlClient.request(
+			await serverGqlService.request(
 				CreateReviewCommentDocument,
 				{ input: submission },
 				await getAuthorizationHeader(request),
@@ -142,7 +142,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const addTo = [submission.collectionName];
 			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
 			for (const co of addTo) {
-				await gqlClient.request(
+				await serverGqlService.request(
 					AddEntityToCollectionDocument,
 					{
 						input: {
@@ -166,7 +166,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		.with("removeEntityFromCollection", async () => {
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
-			await gqlClient.request(
+			await serverGqlService.request(
 				RemoveEntityFromCollectionDocument,
 				{
 					input: {
@@ -182,7 +182,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const submission = processSubmission(formData, reviewSchema);
 			if (submission.shouldDelete) {
 				invariant(submission.reviewId, "No reviewId provided");
-				await gqlClient.request(
+				await serverGqlService.request(
 					DeleteReviewDocument,
 					{ reviewId: submission.reviewId },
 					await getAuthorizationHeader(request),
@@ -195,7 +195,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					}),
 				);
 			} else {
-				await gqlClient.request(
+				await serverGqlService.request(
 					PostReviewDocument,
 					{ input: submission },
 					await getAuthorizationHeader(request),
