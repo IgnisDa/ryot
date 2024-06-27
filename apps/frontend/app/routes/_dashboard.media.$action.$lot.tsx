@@ -604,7 +604,6 @@ const MediaSearchItem = (props: {
 								!isShowOrPodcast
 									? {
 											defaultTab: "actions",
-											openProgressModal: true,
 											[redirectToQueryParam]: loaderData.url,
 										}
 									: { defaultTab: "showSeasons" },
