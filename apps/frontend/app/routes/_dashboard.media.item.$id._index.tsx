@@ -1961,6 +1961,7 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 					>
 						<Avatar
 							src={props.posterImages[0]}
+							name={props.name}
 							radius="xl"
 							size="lg"
 							imageProps={{ loading: "lazy" }}
@@ -1984,6 +1985,7 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 					c="dimmed"
 					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
 					dangerouslySetInnerHTML={{ __html: props.overview }}
+					lineClamp={5}
 				/>
 			) : null}
 		</Stack>
