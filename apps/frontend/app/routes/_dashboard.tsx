@@ -514,32 +514,17 @@ const Footer = () => {
 	);
 };
 
-const ProgressUpdateModal = () => {
-	const [mediaProgress, setMediaProgress] = useRawMediaProgress();
-	const closeProgressUpdateModal = () => setMediaProgress(null);
-
-	return (
-		<Modal
-			onClose={closeProgressUpdateModal}
-			opened={mediaProgress !== null}
-			withCloseButton={false}
-			centered
-		>
-			{mediaProgress ? (
-				<ProgressUpdateForm onClose={closeProgressUpdateModal} />
-			) : undefined}
-		</Modal>
-	);
-};
-
 const WATCH_TIMES = [
 	"Just Right Now",
 	"I don't remember",
 	"Custom Date",
 ] as const;
 
-const ProgressUpdateForm = (props: { onClose: () => void }) => {
-	const [mediaProgress, _] = useMediaProgress();
+const ProgressUpdateModal = () => {
+	const [_, setMediaProgress] = useRawMediaProgress();
+	const closeProgressUpdateModal = () => setMediaProgress(null);
+
+	const [mediaProgress] = useMediaProgress();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
@@ -558,226 +543,237 @@ const ProgressUpdateForm = (props: { onClose: () => void }) => {
 	if (!mediaProgress) return null;
 
 	return (
-		<Form
-			method="post"
-			action="?intent=progressUpdate"
-			replace
-			onSubmit={() => {
-				props.onClose();
-				events.updateProgress(mediaProgress.form.metadataDetails.title);
-			}}
+		<Modal
+			onClose={closeProgressUpdateModal}
+			opened={mediaProgress !== null}
+			withCloseButton={false}
+			centered
 		>
-			{[
-				...Object.entries(mediaProgress.toUpdate),
-				["metadataId", mediaProgress.form.metadataDetails.id],
-				["metadataLot", mediaProgress.form.metadataDetails.lot],
-			].map(([k, v]) => (
-				<Fragment key={k}>
-					{v && typeof v !== "undefined" ? (
-						<input hidden name={k} defaultValue={v.toString()} />
-					) : null}
-				</Fragment>
-			))}
-			{mediaProgress.form.redirectToQueryParam ? (
-				<input
-					hidden
-					name={redirectToQueryParam}
-					defaultValue={mediaProgress.form.redirectToQueryParam}
-				/>
-			) : null}
-			<Stack>
-				{mediaProgress.form.metadataDetails.lot === MediaLot.Anime ? (
-					<>
-						<NumberInput
-							label="Episode"
-							name="animeEpisodeNumber"
-							description="Leaving this empty will mark the whole anime as watched"
-							hideControls
-							value={animeEpisodeNumber}
-							onChange={(e) => setAnimeEpisodeNumber(e.toString())}
-						/>
-						{animeEpisodeNumber ? (
-							<Checkbox
-								label="Mark all episodes before this as watched"
-								name="animeAllEpisodesBefore"
-							/>
+			<Form
+				method="post"
+				action="?intent=progressUpdate"
+				replace
+				onSubmit={() => {
+					closeProgressUpdateModal();
+					events.updateProgress(mediaProgress.form.metadataDetails.title);
+				}}
+			>
+				{[
+					...Object.entries(mediaProgress.toUpdate),
+					["metadataId", mediaProgress.form.metadataDetails.id],
+					["metadataLot", mediaProgress.form.metadataDetails.lot],
+				].map(([k, v]) => (
+					<Fragment key={k}>
+						{v && typeof v !== "undefined" ? (
+							<input hidden name={k} defaultValue={v.toString()} />
 						) : null}
-					</>
-				) : null}
-				{mediaProgress.form.metadataDetails.lot === MediaLot.Manga ? (
-					<>
-						<Box>
-							<Text c="dimmed" size="sm">
-								Leaving the following empty will mark the whole manga as watched
-							</Text>
-							<Group wrap="nowrap">
-								<NumberInput
-									label="Chapter"
-									name="mangaChapterNumber"
-									hideControls
-									value={mangaChapterNumber}
-									onChange={(e) => setMangaChapterNumber(e.toString())}
-								/>
-								<Text ta="center" fw="bold" mt="sm">
-									OR
-								</Text>
-								<NumberInput
-									label="Volume"
-									name="mangaVolumeNumber"
-									hideControls
-									value={mangaVolumeNumber}
-									onChange={(e) => setMangaVolumeNumber(e.toString())}
-								/>
-							</Group>
-						</Box>
-						{mangaChapterNumber ? (
-							<Checkbox
-								label="Mark all chapters before this as watched"
-								name="mangaAllChaptersBefore"
-							/>
-						) : null}
-					</>
-				) : null}
-				{mediaProgress.form.metadataDetails.lot === MediaLot.Show ? (
-					<>
-						<input
-							hidden
-							name="showSpecifics"
-							defaultValue={JSON.stringify(
-								mediaProgress.form.metadataDetails.showSpecifics?.seasons.map(
-									(s) => ({
-										seasonNumber: s.seasonNumber,
-										episodes: s.episodes.map((e) => e.episodeNumber),
-									}),
-								),
-							)}
-						/>
-						{mediaProgress.toUpdate?.onlySeason ||
-						mediaProgress.toUpdate?.completeShow ? (
-							<Alert color="yellow" icon={<IconAlertCircle />}>
-								{mediaProgress.toUpdate.onlySeason
-									? `This will mark all episodes of season ${mediaProgress.toUpdate.showSeasonNumber} as seen`
-									: mediaProgress.toUpdate.completeShow
-										? "This will mark all episodes for this show as seen"
-										: null}
-							</Alert>
-						) : null}
-						{!mediaProgress.toUpdate?.completeShow ? (
-							<Select
-								label="Season"
-								data={mediaProgress.form.metadataDetails.showSpecifics?.seasons.map(
-									(s) => ({
-										label: `${s.seasonNumber}. ${s.name.toString()}`,
-										value: s.seasonNumber.toString(),
-									}),
-								)}
-								defaultValue={mediaProgress.toUpdate?.showSeasonNumber?.toString()}
-							/>
-						) : null}
-						{mediaProgress.toUpdate?.onlySeason ? (
-							<Checkbox
-								label="Mark all seasons before this as seen"
-								name="showAllSeasonsBefore"
-							/>
-						) : null}
-						{!mediaProgress.toUpdate?.onlySeason &&
-						typeof mediaProgress.toUpdate?.showSeasonNumber !== "undefined" ? (
-							<Select
-								label="Episode"
-								data={
-									mediaProgress.form.metadataDetails.showSpecifics?.seasons
-										.find(
-											(s) =>
-												s.seasonNumber ===
-												Number(mediaProgress.toUpdate?.showSeasonNumber),
-										)
-										?.episodes.map((e) => ({
-											label: `${e.episodeNumber}. ${e.name.toString()}`,
-											value: e.episodeNumber.toString(),
-										})) || []
-								}
-								defaultValue={mediaProgress.toUpdate.showEpisodeNumber?.toString()}
-							/>
-						) : null}
-					</>
-				) : null}
-				{mediaProgress.form.metadataDetails.lot === MediaLot.Podcast ? (
-					<>
-						<input
-							hidden
-							name="podcastSpecifics"
-							defaultValue={JSON.stringify(
-								mediaProgress.form.metadataDetails.podcastSpecifics?.episodes.map(
-									(e) => ({ episodeNumber: e.number }),
-								),
-							)}
-						/>
-						{mediaProgress.toUpdate?.completePodcast ? (
-							<Alert color="yellow" icon={<IconAlertCircle />}>
-								This will mark all episodes for this podcast as seen
-							</Alert>
-						) : (
-							<>
-								<Title order={6}>Select episode</Title>
-								<Select
-									required
-									label="Episode"
-									data={mediaProgress.form.metadataDetails.podcastSpecifics?.episodes.map(
-										(se) => ({
-											label: se.title.toString(),
-											value: se.number.toString(),
-										}),
-									)}
-									defaultValue={mediaProgress.toUpdate?.podcastEpisodeNumber?.toString()}
-									searchable
-									limit={10}
-								/>
-							</>
-						)}
-					</>
-				) : null}
-				<Select
-					label={`When did you ${getVerb(
-						Verb.Read,
-						mediaProgress.form.metadataDetails.lot,
-					)} it?`}
-					data={WATCH_TIMES}
-					value={watchTime}
-					onChange={(v) => {
-						setWatchTime(v as typeof watchTime);
-						match(v)
-							.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
-							.with(WATCH_TIMES[1], () => setSelectedDate(null))
-							.with(WATCH_TIMES[2], () => setSelectedDate(null));
-					}}
-				/>
-				{watchTime === WATCH_TIMES[2] ? (
-					<DatePickerInput
-						label="Enter exact date"
-						dropdownType="modal"
-						maxDate={new Date()}
-						onChange={setSelectedDate}
-						clearable
+					</Fragment>
+				))}
+				{mediaProgress.form.redirectToQueryParam ? (
+					<input
+						hidden
+						name={redirectToQueryParam}
+						defaultValue={mediaProgress.form.redirectToQueryParam}
 					/>
 				) : null}
-				<Select
-					label={`Where did you ${getVerb(
-						Verb.Read,
-						mediaProgress.form.metadataDetails.lot,
-					)} it?`}
-					data={mediaProgress.form.watchProviders}
-					name="providerWatchedOn"
-				/>
-				<Button
-					variant="outline"
-					disabled={selectedDate === undefined}
-					type="submit"
-					name="date"
-					value={selectedDate ? formatDateToNaiveDate(selectedDate) : undefined}
-				>
-					Submit
-				</Button>
-			</Stack>
-		</Form>
+				<Stack>
+					{mediaProgress.form.metadataDetails.lot === MediaLot.Anime ? (
+						<>
+							<NumberInput
+								label="Episode"
+								name="animeEpisodeNumber"
+								description="Leaving this empty will mark the whole anime as watched"
+								hideControls
+								value={animeEpisodeNumber}
+								onChange={(e) => setAnimeEpisodeNumber(e.toString())}
+							/>
+							{animeEpisodeNumber ? (
+								<Checkbox
+									label="Mark all episodes before this as watched"
+									name="animeAllEpisodesBefore"
+								/>
+							) : null}
+						</>
+					) : null}
+					{mediaProgress.form.metadataDetails.lot === MediaLot.Manga ? (
+						<>
+							<Box>
+								<Text c="dimmed" size="sm">
+									Leaving the following empty will mark the whole manga as
+									watched
+								</Text>
+								<Group wrap="nowrap">
+									<NumberInput
+										label="Chapter"
+										name="mangaChapterNumber"
+										hideControls
+										value={mangaChapterNumber}
+										onChange={(e) => setMangaChapterNumber(e.toString())}
+									/>
+									<Text ta="center" fw="bold" mt="sm">
+										OR
+									</Text>
+									<NumberInput
+										label="Volume"
+										name="mangaVolumeNumber"
+										hideControls
+										value={mangaVolumeNumber}
+										onChange={(e) => setMangaVolumeNumber(e.toString())}
+									/>
+								</Group>
+							</Box>
+							{mangaChapterNumber ? (
+								<Checkbox
+									label="Mark all chapters before this as watched"
+									name="mangaAllChaptersBefore"
+								/>
+							) : null}
+						</>
+					) : null}
+					{mediaProgress.form.metadataDetails.lot === MediaLot.Show ? (
+						<>
+							<input
+								hidden
+								name="showSpecifics"
+								defaultValue={JSON.stringify(
+									mediaProgress.form.metadataDetails.showSpecifics?.seasons.map(
+										(s) => ({
+											seasonNumber: s.seasonNumber,
+											episodes: s.episodes.map((e) => e.episodeNumber),
+										}),
+									),
+								)}
+							/>
+							{mediaProgress.toUpdate?.onlySeason ||
+							mediaProgress.toUpdate?.completeShow ? (
+								<Alert color="yellow" icon={<IconAlertCircle />}>
+									{mediaProgress.toUpdate.onlySeason
+										? `This will mark all episodes of season ${mediaProgress.toUpdate.showSeasonNumber} as seen`
+										: mediaProgress.toUpdate.completeShow
+											? "This will mark all episodes for this show as seen"
+											: null}
+								</Alert>
+							) : null}
+							{!mediaProgress.toUpdate?.completeShow ? (
+								<Select
+									label="Season"
+									data={mediaProgress.form.metadataDetails.showSpecifics?.seasons.map(
+										(s) => ({
+											label: `${s.seasonNumber}. ${s.name.toString()}`,
+											value: s.seasonNumber.toString(),
+										}),
+									)}
+									defaultValue={mediaProgress.toUpdate?.showSeasonNumber?.toString()}
+								/>
+							) : null}
+							{mediaProgress.toUpdate?.onlySeason ? (
+								<Checkbox
+									label="Mark all seasons before this as seen"
+									name="showAllSeasonsBefore"
+								/>
+							) : null}
+							{!mediaProgress.toUpdate?.onlySeason &&
+							typeof mediaProgress.toUpdate?.showSeasonNumber !==
+								"undefined" ? (
+								<Select
+									label="Episode"
+									data={
+										mediaProgress.form.metadataDetails.showSpecifics?.seasons
+											.find(
+												(s) =>
+													s.seasonNumber ===
+													Number(mediaProgress.toUpdate?.showSeasonNumber),
+											)
+											?.episodes.map((e) => ({
+												label: `${e.episodeNumber}. ${e.name.toString()}`,
+												value: e.episodeNumber.toString(),
+											})) || []
+									}
+									defaultValue={mediaProgress.toUpdate.showEpisodeNumber?.toString()}
+								/>
+							) : null}
+						</>
+					) : null}
+					{mediaProgress.form.metadataDetails.lot === MediaLot.Podcast ? (
+						<>
+							<input
+								hidden
+								name="podcastSpecifics"
+								defaultValue={JSON.stringify(
+									mediaProgress.form.metadataDetails.podcastSpecifics?.episodes.map(
+										(e) => ({ episodeNumber: e.number }),
+									),
+								)}
+							/>
+							{mediaProgress.toUpdate?.completePodcast ? (
+								<Alert color="yellow" icon={<IconAlertCircle />}>
+									This will mark all episodes for this podcast as seen
+								</Alert>
+							) : (
+								<>
+									<Title order={6}>Select episode</Title>
+									<Select
+										required
+										label="Episode"
+										data={mediaProgress.form.metadataDetails.podcastSpecifics?.episodes.map(
+											(se) => ({
+												label: se.title.toString(),
+												value: se.number.toString(),
+											}),
+										)}
+										defaultValue={mediaProgress.toUpdate?.podcastEpisodeNumber?.toString()}
+										searchable
+										limit={10}
+									/>
+								</>
+							)}
+						</>
+					) : null}
+					<Select
+						label={`When did you ${getVerb(
+							Verb.Read,
+							mediaProgress.form.metadataDetails.lot,
+						)} it?`}
+						data={WATCH_TIMES}
+						value={watchTime}
+						onChange={(v) => {
+							setWatchTime(v as typeof watchTime);
+							match(v)
+								.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
+								.with(WATCH_TIMES[1], () => setSelectedDate(null))
+								.with(WATCH_TIMES[2], () => setSelectedDate(null));
+						}}
+					/>
+					{watchTime === WATCH_TIMES[2] ? (
+						<DatePickerInput
+							label="Enter exact date"
+							dropdownType="modal"
+							maxDate={new Date()}
+							onChange={setSelectedDate}
+							clearable
+						/>
+					) : null}
+					<Select
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							mediaProgress.form.metadataDetails.lot,
+						)} it?`}
+						data={mediaProgress.form.watchProviders}
+						name="providerWatchedOn"
+					/>
+					<Button
+						variant="outline"
+						disabled={selectedDate === undefined}
+						type="submit"
+						name="date"
+						value={
+							selectedDate ? formatDateToNaiveDate(selectedDate) : undefined
+						}
+					>
+						Submit
+					</Button>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };
