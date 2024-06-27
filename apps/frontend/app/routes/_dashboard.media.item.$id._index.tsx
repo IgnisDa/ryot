@@ -1,5 +1,4 @@
 import { $path } from "@ignisda/remix-routes";
-import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
 import {
 	ActionIcon,
 	Alert,
@@ -91,6 +90,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, useState } from "react";
+import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -123,12 +123,12 @@ import { useGetMantineColor } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
+	getCoreDetails,
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-	serverGqlService,
 	redirectWithToast,
-	getCoreDetails,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import {
 	MetadataSpecificsSchema,

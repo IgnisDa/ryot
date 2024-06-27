@@ -100,8 +100,8 @@ import {
 	getCoreDetails,
 	getCoreEnabledFeatures,
 	getUserPreferences,
-	serverGqlService,
 	redirectWithToast,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import {
 	type Exercise,

@@ -57,8 +57,8 @@ import {
 	getUserCollectionsList,
 	getUserDetails,
 	getUserPreferences,
-	serverGqlService,
 	processSubmission,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({

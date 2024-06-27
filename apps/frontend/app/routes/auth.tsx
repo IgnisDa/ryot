@@ -47,9 +47,9 @@ import {
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	getIsAuthenticated,
-	serverGqlService,
 	processSubmission,
 	redirectWithToast,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({

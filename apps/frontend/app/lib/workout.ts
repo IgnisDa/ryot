@@ -13,7 +13,7 @@ import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
-import { clientGqlService, CurrentWorkoutKey } from "~/lib/generals";
+import { CurrentWorkoutKey, clientGqlService } from "~/lib/generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;

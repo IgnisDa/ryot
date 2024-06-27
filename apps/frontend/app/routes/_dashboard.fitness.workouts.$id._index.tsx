@@ -69,9 +69,9 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserPreferences,
-	serverGqlService,
 	processSubmission,
 	redirectWithToast,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
 

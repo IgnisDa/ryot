@@ -27,9 +27,9 @@ import { type ZodTypeAny, type output, z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CORE_DETAILS_COOKIE_NAME,
-	redirectToQueryParam,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
+	redirectToQueryParam,
 } from "~/lib/generals";
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";

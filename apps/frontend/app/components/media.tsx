@@ -70,7 +70,7 @@ import { type ReactNode, useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
-import { MEDIA_DETAILS_HEIGHT, HiddenLocationInput } from "~/components/common";
+import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import events from "~/lib/events";
 import {
