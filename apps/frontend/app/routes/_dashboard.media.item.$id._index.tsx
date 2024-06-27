@@ -1,7 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
-import { Virtuoso } from "react-virtuoso";
+import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
 import {
-	Accordion,
 	ActionIcon,
 	Alert,
 	Anchor,
@@ -61,8 +60,6 @@ import {
 	MetadataVideoSource,
 	type PodcastEpisode,
 	SeenState,
-	type ShowEpisode,
-	type ShowSeason,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -138,7 +135,7 @@ import {
 	processSubmission,
 } from "~/lib/utilities.server";
 
-const JUSTWATCH_URL = "https://www.justwatch.com";
+const JUST_WATCH_URL = "https://www.justwatch.com";
 
 const searchParamsSchema = z
 	.object({
@@ -1246,26 +1243,37 @@ export default function Page() {
 							)}
 						</Tabs.Panel>
 						<Tabs.Panel value="showSeasons">
-							<MediaScrollArea>
-								<Accordion
-									// do not show the chevron at all
-									chevron={<Box />}
-									variant="contained"
-									defaultValue={loaderData.query.showSeasonNumber?.toString()}
-								>
-									{metadataAdditionalDetails?.showSpecifics?.seasons.map(
-										(season, seasonIdx) => (
+							{metadataAdditionalDetails?.showSpecifics &&
+							userMetadataDetails.showProgress ? (
+								<Box h={MEDIA_DETAILS_HEIGHT}>
+									<GroupedVirtuoso
+										groupCounts={metadataAdditionalDetails.showSpecifics.seasons.map(
+											(season) => season.episodes.length,
+										)}
+										groupContent={(index) => (
 											<DisplayShowSeason
-												key={season.id}
-												season={season}
-												seasonIdx={seasonIdx}
+												seasonIdx={index}
 												setData={setUpdateProgressModalData}
 												showProgress={userMetadataDetails.showProgress}
 											/>
-										),
-									)}
-								</Accordion>
-							</MediaScrollArea>
+										)}
+										itemContent={(index, groupIndex) => (
+											<DisplayShowEpisode
+												overallIdx={index}
+												seasonIdx={groupIndex}
+												setData={setUpdateProgressModalData}
+												seasonProgress={userMetadataDetails.showProgress}
+												seasonNumber={
+													// biome-ignore lint/style/noNonNullAssertion: typescript error
+													metadataAdditionalDetails.showSpecifics!.seasons[
+														groupIndex
+													].seasonNumber
+												}
+											/>
+										)}
+									/>
+								</Box>
+							) : undefined}
 						</Tabs.Panel>
 						{metadataAdditionalDetails?.podcastSpecifics ? (
 							<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
@@ -1364,7 +1372,7 @@ export default function Page() {
 											<Text>
 												JustWatch makes it easy to find out where you can
 												legally watch your favorite movies & TV shows online.
-												Visit <Anchor href={JUSTWATCH_URL}>JustWatch</Anchor>{" "}
+												Visit <Anchor href={JUST_WATCH_URL}>JustWatch</Anchor>{" "}
 												for more information.
 											</Text>
 											<Text>
@@ -1760,8 +1768,8 @@ const IndividualProgressModal = (props: {
 								<NumberInput
 									defaultValue={((props.total || 1) * (value || 1)) / 100}
 									onChange={(v) => {
-										const newVal = (Number(v) / (props.total || 1)) * 100;
-										setValue(newVal);
+										const value = (Number(v) / (props.total || 1)) * 100;
+										setValue(value);
 									}}
 									max={props.total}
 									min={0}
@@ -1899,7 +1907,7 @@ const MergeMetadataModal = (props: {
 	);
 };
 
-const AccordionLabel = (props: {
+const DisplaySeasonOrEpisodeDetails = (props: {
 	name: string;
 	id?: number | string | null;
 	numEpisodes?: number | null;
@@ -2135,102 +2143,92 @@ const SeenItem = (props: {
 };
 
 const DisplayShowSeason = (props: {
-	season: ShowSeason;
 	setData: (data: UpdateProgress) => void;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 	seasonIdx: number;
 }) => {
+	const metadataAdditionalDetails = useMetadataAdditionalDetails();
+	const season =
+		metadataAdditionalDetails?.showSpecifics?.seasons[props.seasonIdx];
 	const isSeen = (props.showProgress?.[props.seasonIdx]?.timesSeen || 0) > 0;
 
+	invariant(season, "Season not found");
+
 	return (
-		<Accordion.Item value={props.season.seasonNumber.toString()}>
-			<Accordion.Control>
-				<AccordionLabel
-					{...props.season}
-					name={`${props.season.seasonNumber}. ${props.season.name}`}
-					numEpisodes={props.season.episodes.length}
-					displayIndicator={isSeen ? 1 : 0}
-					runtime={props.season.episodes
-						.map((e) => e.runtime || 0)
-						.reduce((i, a) => i + a, 0)}
-				>
-					<>
-						{props.season.episodes.length > 0 ? (
-							<Button
-								variant={isSeen ? "default" : "outline"}
-								color="blue"
-								onClick={() => {
-									props.setData({
-										showSeasonNumber: props.season.seasonNumber,
-										onlySeason: true,
-									});
-								}}
-							>
-								{isSeen ? "Rewatch this" : "Mark as seen"}
-							</Button>
-						) : null}
-					</>
-				</AccordionLabel>
-			</Accordion.Control>
-			<Accordion.Panel>
-				{props.season.episodes.length > 0 ? (
-					props.season.episodes.map((episode, episodeIdx) => (
-						<DisplayShowEpisode
-							key={episode.id}
-							episode={episode}
-							setData={props.setData}
-							episodeIdx={episodeIdx}
-							seasonIdx={props.seasonIdx}
-							seasonProgress={props.showProgress}
-							seasonNumber={props.season.seasonNumber}
-						/>
-					))
-				) : (
-					<Text>No episodes in this season</Text>
-				)}
-			</Accordion.Panel>
-		</Accordion.Item>
+		<Box my="xs">
+			<DisplaySeasonOrEpisodeDetails
+				{...season}
+				name={`${season.seasonNumber}. ${season.name}`}
+				numEpisodes={season.episodes.length}
+				displayIndicator={isSeen ? 1 : 0}
+				runtime={season.episodes
+					.map((e) => e.runtime || 0)
+					.reduce((i, a) => i + a, 0)}
+			>
+				<>
+					{season.episodes.length > 0 ? (
+						<Button
+							variant={isSeen ? "default" : "outline"}
+							color="blue"
+							onClick={() => {
+								props.setData({
+									showSeasonNumber: season.seasonNumber,
+									onlySeason: true,
+								});
+							}}
+						>
+							{isSeen ? "Rewatch this" : "Mark as seen"}
+						</Button>
+					) : null}
+				</>
+			</DisplaySeasonOrEpisodeDetails>
+		</Box>
 	);
 };
 
 const DisplayShowEpisode = (props: {
+	overallIdx: number;
 	seasonIdx: number;
-	episodeIdx: number;
 	seasonNumber: number;
-	episode: ShowEpisode;
 	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 	setData: (data: UpdateProgress) => void;
 }) => {
-	const numTimesEpisodeSeen =
-		props.seasonProgress?.[props.seasonIdx]?.episodes[props.episodeIdx]
-			.timesSeen || 0;
+	const metadataAdditionalDetails = useMetadataAdditionalDetails();
+	const flattenedEpisodes =
+		metadataAdditionalDetails?.showSpecifics?.seasons.flatMap(
+			(season) => season.episodes,
+		) || [];
+	const episode = flattenedEpisodes[props.overallIdx];
+	const flattenedProgress =
+		props.seasonProgress?.flatMap((season) => season.episodes) || [];
+	const episodeProgress = flattenedProgress[props.overallIdx];
+	const numTimesEpisodeSeen = episodeProgress?.timesSeen || 0;
+
+	invariant(episode, "Episode not found");
 
 	return (
-		<Fragment>
-			<Divider />
-			<Box my="xs" ml="md">
-				<AccordionLabel
-					{...props.episode}
-					key={props.episode.episodeNumber}
-					name={`${props.episode.episodeNumber}. ${props.episode.name}`}
-					publishDate={props.episode.publishDate}
-					displayIndicator={numTimesEpisodeSeen}
+		<Box my="lg" ml="md">
+			<DisplaySeasonOrEpisodeDetails
+				{...episode}
+				key={episode.episodeNumber}
+				name={`${episode.episodeNumber}. ${episode.name}`}
+				publishDate={episode.publishDate}
+				displayIndicator={numTimesEpisodeSeen}
+			>
+				<Button
+					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
+					color="blue"
+					onClick={() => {
+						props.setData({
+							showSeasonNumber: props.seasonNumber,
+							showEpisodeNumber: episode.episodeNumber,
+						});
+					}}
 				>
-					<Button
-						variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
-						color="blue"
-						onClick={() => {
-							props.setData({
-								showSeasonNumber: props.seasonNumber,
-								showEpisodeNumber: props.episode.episodeNumber,
-							});
-						}}
-					>
-						{numTimesEpisodeSeen > 0 ? "Rewatch this" : "Mark as seen"}
-					</Button>
-				</AccordionLabel>
-			</Box>
-		</Fragment>
+					{numTimesEpisodeSeen > 0 ? "Rewatch this" : "Mark as seen"}
+				</Button>
+			</DisplaySeasonOrEpisodeDetails>
+		</Box>
 	);
 };
 
@@ -2246,7 +2244,7 @@ const DisplayPodcastEpisode = (props: {
 	return (
 		<Box my={props.index !== 0 ? "md" : undefined}>
 			{props.index !== 0 ? <Divider mb="md" /> : null}
-			<AccordionLabel
+			<DisplaySeasonOrEpisodeDetails
 				{...props.episode}
 				name={props.episode.title}
 				posterImages={[props.episode.thumbnail || ""]}
@@ -2262,7 +2260,7 @@ const DisplayPodcastEpisode = (props: {
 				>
 					{numTimesEpisodeSeen > 0 ? "Re-listen this" : "Mark as listened"}
 				</Button>
-			</AccordionLabel>
+			</DisplaySeasonOrEpisodeDetails>
 		</Box>
 	);
 };
