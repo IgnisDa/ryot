@@ -50,6 +50,7 @@ import {
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataDetailsDocument,
+	type MetadataDetailsQuery,
 	MetadataVideoSource,
 	type PodcastEpisode,
 	SeenState,
@@ -445,7 +446,7 @@ export default function Page() {
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
 	const [updateProgressModalData, setUpdateProgressModalData] = useState<
-		UpdateProgress | undefined
+		UpdateProgressData | undefined
 	>(loaderData.query.openProgressModal ? {} : undefined);
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
@@ -509,6 +510,11 @@ export default function Page() {
 				<ProgressUpdateModal
 					data={updateProgressModalData}
 					onClose={closeProgressUpdateModal}
+					formData={{
+						metadataDetails: loaderData.metadataDetails,
+						watchProviders: loaderData.userPreferences.watchProviders,
+						redirectToQueryParam: loaderData.query[redirectToQueryParam],
+					}}
 				/>
 			</Modal>
 			<PostReviewModal
@@ -1357,13 +1363,19 @@ export default function Page() {
 	);
 }
 
-type UpdateProgress = {
+type UpdateProgressData = {
 	onlySeason?: boolean;
 	completeShow?: boolean;
 	completePodcast?: boolean;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
+};
+
+type UpdateProgressFormData = {
+	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	watchProviders: string[];
+	redirectToQueryParam?: string;
 };
 
 const WATCH_TIMES = [
@@ -1374,9 +1386,9 @@ const WATCH_TIMES = [
 
 const ProgressUpdateModal = (props: {
 	onClose: () => void;
-	data?: UpdateProgress;
+	formData: UpdateProgressFormData;
+	data?: UpdateProgressData;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
@@ -1400,13 +1412,13 @@ const ProgressUpdateModal = (props: {
 			replace
 			onSubmit={() => {
 				props.onClose();
-				events.updateProgress(loaderData.metadataDetails.title);
+				events.updateProgress(props.formData.metadataDetails.title);
 			}}
 		>
 			{[
 				...Object.entries(props.data),
-				["metadataId", loaderData.metadataId.toString()],
-				["metadataLot", loaderData.metadataDetails.lot.toString()],
+				["metadataId", props.formData.metadataDetails.id],
+				["metadataLot", props.formData.metadataDetails.lot],
 			].map(([k, v]) => (
 				<Fragment key={k}>
 					{v && typeof v !== "undefined" ? (
@@ -1414,15 +1426,15 @@ const ProgressUpdateModal = (props: {
 					) : null}
 				</Fragment>
 			))}
-			{loaderData.query[redirectToQueryParam] ? (
+			{props.formData.redirectToQueryParam ? (
 				<input
 					hidden
 					name={redirectToQueryParam}
-					defaultValue={loaderData.query[redirectToQueryParam]}
+					defaultValue={props.formData.redirectToQueryParam}
 				/>
 			) : null}
 			<Stack>
-				{loaderData.metadataDetails.lot === MediaLot.Anime ? (
+				{props.formData.metadataDetails.lot === MediaLot.Anime ? (
 					<>
 						<NumberInput
 							label="Episode"
@@ -1440,7 +1452,7 @@ const ProgressUpdateModal = (props: {
 						) : null}
 					</>
 				) : null}
-				{loaderData.metadataDetails.lot === MediaLot.Manga ? (
+				{props.formData.metadataDetails.lot === MediaLot.Manga ? (
 					<>
 						<Box>
 							<Text c="dimmed" size="sm">
@@ -1474,16 +1486,18 @@ const ProgressUpdateModal = (props: {
 						) : null}
 					</>
 				) : null}
-				{loaderData.metadataDetails.lot === MediaLot.Show ? (
+				{props.formData.metadataDetails.lot === MediaLot.Show ? (
 					<>
 						<input
 							hidden
 							name="showSpecifics"
 							defaultValue={JSON.stringify(
-								loaderData.metadataDetails.showSpecifics?.seasons.map((s) => ({
-									seasonNumber: s.seasonNumber,
-									episodes: s.episodes.map((e) => e.episodeNumber),
-								})),
+								props.formData.metadataDetails.showSpecifics?.seasons.map(
+									(s) => ({
+										seasonNumber: s.seasonNumber,
+										episodes: s.episodes.map((e) => e.episodeNumber),
+									}),
+								),
 							)}
 						/>
 						{props.data?.onlySeason || props.data?.completeShow ? (
@@ -1498,7 +1512,7 @@ const ProgressUpdateModal = (props: {
 						{!props.data?.completeShow ? (
 							<Select
 								label="Season"
-								data={loaderData.metadataDetails.showSpecifics?.seasons.map(
+								data={props.formData.metadataDetails.showSpecifics?.seasons.map(
 									(s) => ({
 										label: `${s.seasonNumber}. ${s.name.toString()}`,
 										value: s.seasonNumber.toString(),
@@ -1518,7 +1532,7 @@ const ProgressUpdateModal = (props: {
 							<Select
 								label="Episode"
 								data={
-									loaderData.metadataDetails.showSpecifics?.seasons
+									props.formData.metadataDetails.showSpecifics?.seasons
 										.find(
 											(s) =>
 												s.seasonNumber === Number(props.data?.showSeasonNumber),
@@ -1533,13 +1547,13 @@ const ProgressUpdateModal = (props: {
 						) : null}
 					</>
 				) : null}
-				{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
+				{props.formData.metadataDetails.lot === MediaLot.Podcast ? (
 					<>
 						<input
 							hidden
 							name="podcastSpecifics"
 							defaultValue={JSON.stringify(
-								loaderData.metadataDetails.podcastSpecifics?.episodes.map(
+								props.formData.metadataDetails.podcastSpecifics?.episodes.map(
 									(e) => ({ episodeNumber: e.number }),
 								),
 							)}
@@ -1554,7 +1568,7 @@ const ProgressUpdateModal = (props: {
 								<Select
 									required
 									label="Episode"
-									data={loaderData.metadataDetails.podcastSpecifics?.episodes.map(
+									data={props.formData.metadataDetails.podcastSpecifics?.episodes.map(
 										(se) => ({
 											label: se.title.toString(),
 											value: se.number.toString(),
@@ -1571,7 +1585,7 @@ const ProgressUpdateModal = (props: {
 				<Select
 					label={`When did you ${getVerb(
 						Verb.Read,
-						loaderData.metadataDetails.lot,
+						props.formData.metadataDetails.lot,
 					)} it?`}
 					data={WATCH_TIMES}
 					value={watchTime}
@@ -1595,9 +1609,9 @@ const ProgressUpdateModal = (props: {
 				<Select
 					label={`Where did you ${getVerb(
 						Verb.Read,
-						loaderData.metadataDetails.lot,
+						props.formData.metadataDetails.lot,
 					)} it?`}
-					data={loaderData.userPreferences.watchProviders}
+					data={props.formData.watchProviders}
 					name="providerWatchedOn"
 				/>
 				<Button
@@ -2076,7 +2090,7 @@ const SeenItem = (props: { history: History }) => {
 
 const DisplayShowSeason = (props: {
 	seasonIdx: number;
-	setData: (data: UpdateProgress) => void;
+	setData: (data: UpdateProgressData) => void;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -2122,7 +2136,7 @@ const DisplayShowEpisode = (props: {
 	seasonIdx: number;
 	overallIdx: number;
 	seasonNumber: number;
-	setData: (data: UpdateProgress) => void;
+	setData: (data: UpdateProgressData) => void;
 	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -2168,7 +2182,7 @@ const DisplayShowEpisode = (props: {
 const DisplayPodcastEpisode = (props: {
 	index: number;
 	episode: PodcastEpisode;
-	setData: (data: UpdateProgress) => void;
+	setData: (data: UpdateProgressData) => void;
 	podcastProgress: UserMetadataDetailsQuery["userMetadataDetails"]["podcastProgress"];
 }) => {
 	const numTimesEpisodeSeen =
