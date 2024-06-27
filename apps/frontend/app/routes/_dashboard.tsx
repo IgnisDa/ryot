@@ -709,12 +709,14 @@ const ProgressUpdateModal = () => {
 												value: se.number.toString(),
 											}),
 										)}
-										name={
-											mediaProgress.toUpdate.podcastEpisodeNumber
-												? undefined
-												: "podcastEpisodeNumber"
-										}
 										defaultValue={mediaProgress.toUpdate?.podcastEpisodeNumber?.toString()}
+										onChange={(v) => {
+											setMediaProgress(
+												produce(mediaProgress, (draft) => {
+													draft.toUpdate.podcastEpisodeNumber = Number(v);
+												}),
+											);
+										}}
 										searchable
 										limit={10}
 									/>
