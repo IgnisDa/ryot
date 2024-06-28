@@ -2471,6 +2471,7 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
+        tracing::debug!("Progress update = {:?}", seen);
         let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache.cache_set(cache, ()).unwrap();
