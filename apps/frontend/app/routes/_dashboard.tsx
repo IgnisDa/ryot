@@ -335,8 +335,8 @@ export default function Layout() {
 								method="post"
 								action="/actions?intent=logout"
 								style={{ display: "flex" }}
-								onSubmit={() => {
-									queryClient.removeQueries({
+								onSubmit={async () => {
+									await queryClient.invalidateQueries({
 										queryKey: [USER_PREFERENCES_QUERY_KEY],
 									});
 								}}
@@ -577,8 +577,8 @@ const MetadataProgressUpdateModal = () => {
 					["metadataLot", metadataDetails.lot],
 				].map(([k, v]) => (
 					<Fragment key={k}>
-						{v && typeof v !== "undefined" ? (
-							<input hidden name={k} defaultValue={v.toString()} />
+						{typeof v !== "undefined" ? (
+							<input hidden name={k} defaultValue={v?.toString()} />
 						) : null}
 					</Fragment>
 				))}

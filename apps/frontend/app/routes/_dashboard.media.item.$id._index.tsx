@@ -101,7 +101,7 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getVerb } from "~/lib/generals";
+import { Verb, dayjsLib, getVerb, queryClient } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
@@ -914,6 +914,14 @@ export default function Page() {
 													action="?intent=deployUpdateMetadataJob"
 													method="post"
 													replace
+													onSubmit={async () => {
+														await queryClient.invalidateQueries({
+															queryKey: [
+																"metadataDetails",
+																loaderData.metadataId,
+															],
+														});
+													}}
 												>
 													<Menu.Item
 														type="submit"

@@ -7,7 +7,6 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery, skipToken } from "@tanstack/react-query";
-import { experimental_createPersister } from "@tanstack/react-query-persist-client";
 import { useAtom } from "jotai";
 import Cookies from "js-cookie";
 import {
@@ -64,11 +63,6 @@ export function getWorkoutStarter() {
 	return fn;
 }
 
-const createPersister = () =>
-	experimental_createPersister({
-		storage: typeof window !== "undefined" ? window.localStorage : undefined,
-	});
-
 export const useMetadataDetails = (metadataId?: string | null) => {
 	return useQuery({
 		queryKey: ["metadataDetails", metadataId],
@@ -78,7 +72,6 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 						.request(MetadataDetailsDocument, { metadataId })
 						.then((data) => data.metadataDetails)
 			: skipToken,
-		persister: createPersister(),
 		staleTime: 1000 * 60 * 60 * 20,
 	});
 };
@@ -92,7 +85,6 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 						.request(UserMetadataDetailsDocument, { metadataId })
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
-		persister: createPersister(),
 	});
 };
 
@@ -105,7 +97,6 @@ export const useUserPreferences = () => {
 			clientGqlService
 				.request(UserPreferencesDocument)
 				.then((data) => data.userPreferences),
-		persister: createPersister(),
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 };
