@@ -1,18 +1,14 @@
 import {
 	MetadataDetailsDocument,
-	type MetadataDetailsQuery,
+	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { experimental_createPersister } from "@tanstack/react-query-persist-client";
 import { atom, useAtom } from "jotai";
-import invariant from "tiny-invariant";
-import { clientGqlService, queryClient } from "./generals";
-
-export type UpdateProgressGeneralData = {
-	watchProviders: string[];
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
-};
+import { clientGqlService } from "./generals";
 
 export type UpdateProgressData = {
+	metadataId: string;
 	onlySeason?: boolean;
 	completeShow?: boolean;
 	completePodcast?: boolean;
@@ -21,43 +17,41 @@ export type UpdateProgressData = {
 	podcastEpisodeNumber?: number | null;
 };
 
-const metadataProgressUpdateAtom = atom<{
-	toUpdate: UpdateProgressData;
-	form: UpdateProgressGeneralData;
-} | null>(null);
+const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
-export const useRawMetadataProgress = () => useAtom(metadataProgressUpdateAtom);
+export const useMetadataProgressUpdate = () =>
+	useAtom(metadataProgressUpdateAtom);
 
-export const useMetadataProgress = (form?: UpdateProgressGeneralData) => {
-	const [metadataProgress, setMediaProgress] = useAtom(
-		metadataProgressUpdateAtom,
-	);
-	const updateProgress = (
-		toUpdate: UpdateProgressData,
-		newForm?: UpdateProgressGeneralData,
-	) => {
-		const toUpdateForm = newForm ?? form;
-		invariant(
-			toUpdateForm,
-			"form must be provided to useMetadataProgress before calling updateProgress",
-		);
-		setMediaProgress({ toUpdate, form: toUpdateForm });
-	};
-	return [metadataProgress, updateProgress] as const;
+const createPersister = () =>
+	experimental_createPersister({
+		storage: typeof window !== "undefined" ? window.localStorage : undefined,
+	});
+
+export const useMetadataDetails = (id?: string | null) => {
+	return useQuery({
+		queryKey: ["metadataDetails", id],
+		queryFn: id
+			? async () => {
+					const { metadataDetails } = await clientGqlService.request(
+						MetadataDetailsDocument,
+						{ metadataId: id },
+					);
+					return metadataDetails;
+				}
+			: skipToken,
+		persister: createPersister(),
+	});
 };
 
-export type TSetMetadataProgress = ReturnType<typeof useMetadataProgress>[1];
-
-export const getMetadataDetailsWithReactQuery = async (id: string) => {
-	return await queryClient.ensureQueryData({
-		queryKey: ["metadataDetails", id],
+export const useUserPreferences = () => {
+	return useQuery({
+		queryKey: ["userPreferences"],
 		queryFn: async () => {
-			const { metadataDetails } = await clientGqlService.request(
-				MetadataDetailsDocument,
-				{ metadataId: id },
+			const { userPreferences } = await clientGqlService.request(
+				UserPreferencesDocument,
 			);
-			return metadataDetails;
+			return userPreferences;
 		},
-		persister: experimental_createPersister({ storage: window.localStorage }),
+		persister: createPersister(),
 	});
 };

@@ -103,7 +103,7 @@ import {
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import { type TSetMetadataProgress, useMetadataProgress } from "~/lib/media";
+import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	MetadataIdSchema,
 	createToastHeaders,
@@ -270,10 +270,7 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
-	const [_, setUpdateProgressModalData] = useMetadataProgress({
-		metadataDetails: loaderData.metadataDetails,
-		watchProviders: loaderData.userPreferences.watchProviders,
-	});
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [postReviewModalData, setPostReviewModalData] = useState<
 		PostReview | undefined
 	>(loaderData.query.openReviewModal ? {} : undefined);
@@ -699,7 +696,8 @@ export default function Page() {
 														<>
 															<Menu.Item
 																onClick={() => {
-																	setUpdateProgressModalData({
+																	setMetadataToUpdate({
+																		metadataId: loaderData.metadataId,
 																		showSeasonNumber:
 																			loaderData.metadataDetails.lot ===
 																			MediaLot.Show
@@ -739,7 +737,8 @@ export default function Page() {
 														<>
 															<Menu.Item
 																onClick={() => {
-																	setUpdateProgressModalData({
+																	setMetadataToUpdate({
+																		metadataId: loaderData.metadataId,
 																		podcastEpisodeNumber:
 																			loaderData.metadataDetails.lot ===
 																			MediaLot.Podcast
@@ -845,7 +844,9 @@ export default function Page() {
 													</Form>
 													<Menu.Item
 														onClick={() => {
-															setUpdateProgressModalData({});
+															setMetadataToUpdate({
+																metadataId: loaderData.metadataId,
+															});
 														}}
 													>
 														Add to{" "}
@@ -1008,9 +1009,6 @@ export default function Page() {
 												showProgress={
 													loaderData.userMetadataDetails.showProgress
 												}
-												updateMetadataProgressModalData={
-													setUpdateProgressModalData
-												}
 											/>
 										)}
 										itemContent={(index, groupIndex) => (
@@ -1025,9 +1023,6 @@ export default function Page() {
 													loaderData.metadataDetails.showSpecifics!.seasons[
 														groupIndex
 													].seasonNumber
-												}
-												updateMetadataProgressModalData={
-													setUpdateProgressModalData
 												}
 											/>
 										)}
@@ -1046,9 +1041,6 @@ export default function Page() {
 											index={podcastEpisodeIdx}
 											podcastProgress={
 												loaderData.userMetadataDetails.podcastProgress
-											}
-											updateMetadataProgressModalData={
-												setUpdateProgressModalData
 											}
 										/>
 									)}
@@ -1647,10 +1639,10 @@ const SeenItem = (props: { history: History }) => {
 
 const DisplayShowSeason = (props: {
 	seasonIdx: number;
-	updateMetadataProgressModalData: TSetMetadataProgress;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const season =
 		loaderData.metadataDetails.showSpecifics?.seasons[props.seasonIdx];
 	const numTimesSeen = props.showProgress?.[props.seasonIdx]?.timesSeen || 0;
@@ -1675,7 +1667,8 @@ const DisplayShowSeason = (props: {
 							variant={isSeen ? "default" : "outline"}
 							color="blue"
 							onClick={() => {
-								props.updateMetadataProgressModalData({
+								setMetadataToUpdate({
+									metadataId: loaderData.metadataId,
 									showSeasonNumber: season.seasonNumber,
 									onlySeason: true,
 								});
@@ -1694,10 +1687,10 @@ const DisplayShowEpisode = (props: {
 	seasonIdx: number;
 	overallIdx: number;
 	seasonNumber: number;
-	updateMetadataProgressModalData: TSetMetadataProgress;
 	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const flattenedEpisodes =
 		loaderData.metadataDetails.showSpecifics?.seasons.flatMap(
 			(season) => season.episodes,
@@ -1724,7 +1717,8 @@ const DisplayShowEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					color="blue"
 					onClick={() => {
-						props.updateMetadataProgressModalData({
+						setMetadataToUpdate({
+							metadataId: loaderData.metadataId,
 							showSeasonNumber: props.seasonNumber,
 							showEpisodeNumber: episode.episodeNumber,
 						});
@@ -1740,9 +1734,10 @@ const DisplayShowEpisode = (props: {
 const DisplayPodcastEpisode = (props: {
 	index: number;
 	episode: PodcastEpisode;
-	updateMetadataProgressModalData: TSetMetadataProgress;
 	podcastProgress: UserMetadataDetailsQuery["userMetadataDetails"]["podcastProgress"];
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen =
 		props.podcastProgress?.[props.index]?.timesSeen || 0;
 
@@ -1760,7 +1755,8 @@ const DisplayPodcastEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					color="blue"
 					onClick={() => {
-						props.updateMetadataProgressModalData({
+						setMetadataToUpdate({
+							metadataId: loaderData.metadataId,
 							podcastEpisodeNumber: props.episode.number,
 						});
 					}}

@@ -69,10 +69,7 @@ import {
 import events from "~/lib/events";
 import { Verb, getLot, getVerb } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
-import {
-	getMetadataDetailsWithReactQuery,
-	useMetadataProgress,
-} from "~/lib/media";
+import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	getAuthorizationHeader,
 	getCoreDetails,
@@ -522,7 +519,7 @@ const MediaSearchItem = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
-	const [_, setMetadataProgress] = useMetadataProgress();
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const basicCommit = async (e: React.MouseEvent) => {
 		if (props.maybeItemId) return props.maybeItemId;
 		e.preventDefault();
@@ -601,15 +598,8 @@ const MediaSearchItem = (props: {
 					w="100%"
 					size="compact-md"
 					onClick={async (e) => {
-						const id = await basicCommit(e);
-						const metadataDetails = await getMetadataDetailsWithReactQuery(id);
-						setMetadataProgress(
-							{},
-							{
-								metadataDetails,
-								watchProviders: loaderData.userPreferences.watchProviders,
-							},
-						);
+						const metadataId = await basicCommit(e);
+						setMetadataToUpdate({ metadataId });
 					}}
 				>
 					Mark as {getVerb(Verb.Read, props.lot)}

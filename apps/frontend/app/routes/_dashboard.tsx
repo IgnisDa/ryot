@@ -53,7 +53,11 @@ import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import { LOGO_IMAGE_URL, Verb, getLot, getVerb } from "~/lib/generals";
-import { useMetadataProgress, useRawMetadataProgress } from "~/lib/media";
+import {
+	useMetadataDetails,
+	useMetadataProgressUpdate,
+	useUserPreferences,
+} from "~/lib/media";
 import {
 	redirectIfNotAuthenticatedOrUpdated,
 	serverVariables,
@@ -515,10 +519,14 @@ const WATCH_TIMES = [
 ] as const;
 
 const MetadataProgressUpdateModal = () => {
-	const [_, setMetadataProgress] = useRawMetadataProgress();
-	const closeMetadataProgressUpdateModal = () => setMetadataProgress(null);
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 
-	const [mediaProgress] = useMetadataProgress();
+	const { data: metadataDetails } = useMetadataDetails(
+		metadataToUpdate?.metadataId,
+	);
+	const { data: userPreferences } = useUserPreferences();
+
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
@@ -534,12 +542,12 @@ const MetadataProgressUpdateModal = () => {
 		string | undefined
 	>(undefined);
 
-	if (!mediaProgress) return null;
+	if (!metadataDetails || !metadataToUpdate || !userPreferences) return null;
 
 	return (
 		<Modal
 			onClose={closeMetadataProgressUpdateModal}
-			opened={mediaProgress !== null}
+			opened={metadataToUpdate !== null}
 			withCloseButton={false}
 			centered
 		>
@@ -549,13 +557,13 @@ const MetadataProgressUpdateModal = () => {
 				replace
 				onSubmit={() => {
 					closeMetadataProgressUpdateModal();
-					events.updateProgress(mediaProgress.form.metadataDetails.title);
+					events.updateProgress(metadataDetails.title);
 				}}
 			>
 				{[
-					...Object.entries(mediaProgress.toUpdate),
-					["metadataId", mediaProgress.form.metadataDetails.id],
-					["metadataLot", mediaProgress.form.metadataDetails.lot],
+					...Object.entries(metadataToUpdate),
+					["metadataId", metadataDetails.id],
+					["metadataLot", metadataDetails.lot],
 				].map(([k, v]) => (
 					<Fragment key={k}>
 						{v && typeof v !== "undefined" ? (
@@ -565,7 +573,7 @@ const MetadataProgressUpdateModal = () => {
 				))}
 				<HiddenLocationInput />
 				<Stack>
-					{mediaProgress.form.metadataDetails.lot === MediaLot.Anime ? (
+					{metadataDetails.lot === MediaLot.Anime ? (
 						<>
 							<NumberInput
 								label="Episode"
@@ -583,7 +591,7 @@ const MetadataProgressUpdateModal = () => {
 							) : null}
 						</>
 					) : null}
-					{mediaProgress.form.metadataDetails.lot === MediaLot.Manga ? (
+					{metadataDetails.lot === MediaLot.Manga ? (
 						<>
 							<Box>
 								<Text c="dimmed" size="sm">
@@ -618,79 +626,73 @@ const MetadataProgressUpdateModal = () => {
 							) : null}
 						</>
 					) : null}
-					{mediaProgress.form.metadataDetails.lot === MediaLot.Show ? (
+					{metadataDetails.lot === MediaLot.Show ? (
 						<>
 							<input
 								hidden
 								name="showSpecifics"
 								defaultValue={JSON.stringify(
-									mediaProgress.form.metadataDetails.showSpecifics?.seasons.map(
-										(s) => ({
-											seasonNumber: s.seasonNumber,
-											episodes: s.episodes.map((e) => e.episodeNumber),
-										}),
-									),
+									metadataDetails.showSpecifics?.seasons.map((s) => ({
+										seasonNumber: s.seasonNumber,
+										episodes: s.episodes.map((e) => e.episodeNumber),
+									})),
 								)}
 							/>
-							{mediaProgress.toUpdate?.onlySeason ||
-							mediaProgress.toUpdate?.completeShow ? (
+							{metadataToUpdate.onlySeason || metadataToUpdate.completeShow ? (
 								<Alert color="yellow" icon={<IconAlertCircle />}>
-									{mediaProgress.toUpdate.onlySeason
-										? `This will mark all episodes of season ${mediaProgress.toUpdate.showSeasonNumber} as seen`
-										: mediaProgress.toUpdate.completeShow
+									{metadataToUpdate.onlySeason
+										? `This will mark all episodes of season ${metadataToUpdate.showSeasonNumber} as seen`
+										: metadataToUpdate.completeShow
 											? "This will mark all episodes for this show as seen"
 											: null}
 								</Alert>
 							) : null}
-							{!mediaProgress.toUpdate?.completeShow ? (
+							{!metadataToUpdate.completeShow ? (
 								<Select
 									label="Season"
 									required
-									data={mediaProgress.form.metadataDetails.showSpecifics?.seasons.map(
-										(s) => ({
-											label: `${s.seasonNumber}. ${s.name.toString()}`,
-											value: s.seasonNumber.toString(),
-										}),
-									)}
-									defaultValue={mediaProgress.toUpdate?.showSeasonNumber?.toString()}
+									data={metadataDetails.showSpecifics?.seasons.map((s) => ({
+										label: `${s.seasonNumber}. ${s.name.toString()}`,
+										value: s.seasonNumber.toString(),
+									}))}
+									defaultValue={metadataToUpdate.showSeasonNumber?.toString()}
 									onChange={(v) => {
-										setMetadataProgress(
-											produce(mediaProgress, (draft) => {
-												draft.toUpdate.showSeasonNumber = Number(v);
+										setMetadataToUpdate(
+											produce(metadataToUpdate, (draft) => {
+												draft.showSeasonNumber = Number(v);
 											}),
 										);
 									}}
 								/>
 							) : null}
-							{mediaProgress.toUpdate?.onlySeason ? (
+							{metadataToUpdate?.onlySeason ? (
 								<Checkbox
 									label="Mark all seasons before this as seen"
 									name="showAllSeasonsBefore"
 								/>
 							) : null}
-							{!mediaProgress.toUpdate?.onlySeason &&
-							typeof mediaProgress.toUpdate?.showSeasonNumber !==
-								"undefined" ? (
+							{!metadataToUpdate.onlySeason &&
+							typeof metadataToUpdate.showSeasonNumber !== "undefined" ? (
 								<Select
 									label="Episode"
 									required
 									data={
-										mediaProgress.form.metadataDetails.showSpecifics?.seasons
+										metadataDetails.showSpecifics?.seasons
 											.find(
 												(s) =>
 													s.seasonNumber ===
-													Number(mediaProgress.toUpdate?.showSeasonNumber),
+													Number(metadataToUpdate.showSeasonNumber),
 											)
 											?.episodes.map((e) => ({
 												label: `${e.episodeNumber}. ${e.name.toString()}`,
 												value: e.episodeNumber.toString(),
 											})) || []
 									}
-									defaultValue={mediaProgress.toUpdate.showEpisodeNumber?.toString()}
+									defaultValue={metadataToUpdate.showEpisodeNumber?.toString()}
 									onChange={(v) => {
-										setMetadataProgress(
-											produce(mediaProgress, (draft) => {
-												draft.toUpdate.showEpisodeNumber = Number(v);
+										setMetadataToUpdate(
+											produce(metadataToUpdate, (draft) => {
+												draft.showEpisodeNumber = Number(v);
 											}),
 										);
 									}}
@@ -698,18 +700,18 @@ const MetadataProgressUpdateModal = () => {
 							) : null}
 						</>
 					) : null}
-					{mediaProgress.form.metadataDetails.lot === MediaLot.Podcast ? (
+					{metadataDetails.lot === MediaLot.Podcast ? (
 						<>
 							<input
 								hidden
 								name="podcastSpecifics"
 								defaultValue={JSON.stringify(
-									mediaProgress.form.metadataDetails.podcastSpecifics?.episodes.map(
-										(e) => ({ episodeNumber: e.number }),
-									),
+									metadataDetails.podcastSpecifics?.episodes.map((e) => ({
+										episodeNumber: e.number,
+									})),
 								)}
 							/>
-							{mediaProgress.toUpdate?.completePodcast ? (
+							{metadataToUpdate.completePodcast ? (
 								<Alert color="yellow" icon={<IconAlertCircle />}>
 									This will mark all episodes for this podcast as seen
 								</Alert>
@@ -719,17 +721,17 @@ const MetadataProgressUpdateModal = () => {
 									<Select
 										required
 										label="Episode"
-										data={mediaProgress.form.metadataDetails.podcastSpecifics?.episodes.map(
+										data={metadataDetails.podcastSpecifics?.episodes.map(
 											(se) => ({
 												label: se.title.toString(),
 												value: se.number.toString(),
 											}),
 										)}
-										defaultValue={mediaProgress.toUpdate?.podcastEpisodeNumber?.toString()}
+										defaultValue={metadataToUpdate.podcastEpisodeNumber?.toString()}
 										onChange={(v) => {
-											setMetadataProgress(
-												produce(mediaProgress, (draft) => {
-													draft.toUpdate.podcastEpisodeNumber = Number(v);
+											setMetadataToUpdate(
+												produce(metadataToUpdate, (draft) => {
+													draft.podcastEpisodeNumber = Number(v);
 												}),
 											);
 										}}
@@ -743,7 +745,7 @@ const MetadataProgressUpdateModal = () => {
 					<Select
 						label={`When did you ${getVerb(
 							Verb.Read,
-							mediaProgress.form.metadataDetails.lot,
+							metadataDetails.lot,
 						)} it?`}
 						data={WATCH_TIMES}
 						value={watchTime}
@@ -767,9 +769,9 @@ const MetadataProgressUpdateModal = () => {
 					<Select
 						label={`Where did you ${getVerb(
 							Verb.Read,
-							mediaProgress.form.metadataDetails.lot,
+							metadataDetails.lot,
 						)} it?`}
-						data={mediaProgress.form.watchProviders}
+						data={userPreferences.general.watchProviders}
 						name="providerWatchedOn"
 					/>
 					<Button
