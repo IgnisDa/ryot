@@ -681,7 +681,7 @@ export default function Page() {
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{loaderData.userMetadataDetails.inProgress ? (
-										<IndividualMetadataProgressUpdateModal
+										<InProgressMetadataSeenUpdateModal
 											inProgress={loaderData.userMetadataDetails.inProgress}
 											onClose={progressModalClose}
 											opened={progressModalOpened}
@@ -1178,7 +1178,7 @@ export default function Page() {
 type UserSeenHistory =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
 
-const IndividualMetadataProgressUpdateModal = (props: {
+const InProgressMetadataSeenUpdateModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	inProgress: UserSeenHistory[number];
