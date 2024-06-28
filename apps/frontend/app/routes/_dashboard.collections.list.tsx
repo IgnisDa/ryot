@@ -279,7 +279,7 @@ const DisplayCollection = (props: {
 						<Text c="dimmed" size="xs">
 							({additionalDisplay.join(", ")})
 						</Text>
-					) : undefined}
+					) : null}
 				</Flex>
 				{props.collection.description ? (
 					<Text lineClamp={1}>{props.collection.description}</Text>
@@ -302,7 +302,7 @@ const DisplayCollection = (props: {
 					>
 						<IconEdit size={18} />
 					</ActionIcon>
-				) : undefined}
+				) : null}
 				{!props.collection.isDefault ? (
 					<fetcher.Form
 						action="?intent=delete"

@@ -244,7 +244,7 @@ export default function Layout() {
 									)
 								}
 							/>
-						) : undefined}
+						) : null}
 						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
@@ -260,7 +260,7 @@ export default function Layout() {
 								}
 								links={loaderData.fitnessLinks}
 							/>
-						) : undefined}
+						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
 								label="Calendar"
@@ -469,10 +469,10 @@ function LinksGroup({
 									: "none",
 							}}
 						/>
-					) : undefined}
+					) : null}
 				</Group>
 			</UnstyledButton>
-			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : undefined}
+			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
 		</>
 	);
 }

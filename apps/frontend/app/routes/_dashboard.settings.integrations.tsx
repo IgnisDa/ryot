@@ -255,7 +255,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 								Triggered:{" "}
 								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
 							</Text>
-						) : undefined}
+						) : null}
 					</Box>
 					<Group>
 						{!YANK_INTEGRATIONS.includes(props.integration.source) ? (
@@ -355,7 +355,7 @@ const CreateIntegrationModal = (props: {
 								max={100}
 							/>
 						</Group>
-					) : undefined}
+					) : null}
 					{match(source)
 						.with(IntegrationSource.Audiobookshelf, () => (
 							<>

@@ -1033,7 +1033,7 @@ export default function Page() {
 										)}
 									/>
 								</Box>
-							) : undefined}
+							) : null}
 						</Tabs.Panel>
 						{loaderData.metadataDetails.podcastSpecifics ? (
 							<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
@@ -1054,7 +1054,7 @@ export default function Page() {
 									)}
 								/>
 							</Tabs.Panel>
-						) : undefined}
+						) : null}
 						{!loaderData.userPreferences.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								{loaderData.userMetadataDetails.reviews.length > 0 ? (
