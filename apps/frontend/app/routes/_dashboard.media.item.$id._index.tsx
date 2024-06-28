@@ -705,15 +705,6 @@ export default function Page() {
 											inProgress={loaderData.userMetadataDetails.inProgress}
 											onClose={progressModalClose}
 											opened={progressModalOpened}
-											total={
-												loaderData.metadataDetails.audioBookSpecifics
-													?.runtime ||
-												loaderData.metadataDetails.bookSpecifics?.pages ||
-												loaderData.metadataDetails.movieSpecifics?.runtime ||
-												loaderData.metadataDetails.mangaSpecifics?.chapters ||
-												loaderData.metadataDetails.animeSpecifics?.episodes ||
-												loaderData.metadataDetails.visualNovelSpecifics?.length
-											}
 										/>
 									) : null}
 									<Menu shadow="md">
@@ -1206,11 +1197,17 @@ const IndividualMetadataProgressUpdateModal = (props: {
 	onClose: () => void;
 	progress: number;
 	inProgress: UserSeenHistory[number];
-	total?: number | null;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [value, setValue] = useState<number | undefined>(props.progress);
 
+	const total =
+		loaderData.metadataDetails.audioBookSpecifics?.runtime ||
+		loaderData.metadataDetails.bookSpecifics?.pages ||
+		loaderData.metadataDetails.movieSpecifics?.runtime ||
+		loaderData.metadataDetails.mangaSpecifics?.chapters ||
+		loaderData.metadataDetails.animeSpecifics?.episodes ||
+		loaderData.metadataDetails.visualNovelSpecifics?.length;
 	const [updateIcon, text] = match(loaderData.metadataDetails.lot)
 		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
 		.with(MediaLot.Anime, () => [
@@ -1277,19 +1274,19 @@ const IndividualMetadataProgressUpdateModal = (props: {
 							rightSection={<IconPercentage size={16} />}
 						/>
 					</Group>
-					{props.total ? (
+					{total ? (
 						<>
 							<Text ta="center" fw="bold">
 								OR
 							</Text>
 							<Flex align="center" gap="xs">
 								<NumberInput
-									defaultValue={((props.total || 1) * (value || 1)) / 100}
+									defaultValue={((total || 1) * (value || 1)) / 100}
 									onChange={(v) => {
-										const value = (Number(v) / (props.total || 1)) * 100;
+										const value = (Number(v) / (total || 1)) * 100;
 										setValue(value);
 									}}
-									max={props.total}
+									max={total}
 									min={0}
 									step={1}
 									hideControls
