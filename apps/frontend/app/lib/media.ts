@@ -7,7 +7,7 @@ import { atom, useAtom } from "jotai";
 import invariant from "tiny-invariant";
 import { clientGqlService, queryClient } from "./generals";
 
-export type UpdateProgressFormData = {
+export type UpdateProgressGeneralData = {
 	watchProviders: string[];
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 };
@@ -23,18 +23,18 @@ export type UpdateProgressData = {
 
 const metadataProgressUpdateAtom = atom<{
 	toUpdate: UpdateProgressData;
-	form: UpdateProgressFormData;
+	form: UpdateProgressGeneralData;
 } | null>(null);
 
 export const useRawMetadataProgress = () => useAtom(metadataProgressUpdateAtom);
 
-export const useMetadataProgress = (form?: UpdateProgressFormData) => {
+export const useMetadataProgress = (form?: UpdateProgressGeneralData) => {
 	const [metadataProgress, setMediaProgress] = useAtom(
 		metadataProgressUpdateAtom,
 	);
 	const updateProgress = (
 		toUpdate: UpdateProgressData,
-		newForm?: UpdateProgressFormData,
+		newForm?: UpdateProgressGeneralData,
 	) => {
 		const toUpdateForm = newForm ?? form;
 		invariant(
