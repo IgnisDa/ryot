@@ -344,6 +344,7 @@ export const getCookiesForApplication = async (token: string) => {
 				options,
 			),
 		},
+		{ "set-cookie": serialize(AUTH_COOKIE_NAME, token, options) },
 	);
 };
 
