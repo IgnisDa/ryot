@@ -1,9 +1,19 @@
 import { $path } from "@ignisda/remix-routes";
 import { useMantineTheme } from "@mantine/core";
 import { useNavigate, useSearchParams } from "@remix-run/react";
+import {
+	MetadataDetailsDocument,
+	UserPreferencesDocument,
+} from "@ryot/generated/graphql/backend/graphql";
+import { useQuery, skipToken } from "@tanstack/react-query";
+import { experimental_createPersister } from "@tanstack/react-query-persist-client";
 import { useAtom } from "jotai";
 import Cookies from "js-cookie";
-import { CurrentWorkoutKey, getStringAsciiValue } from "~/lib/generals";
+import {
+	clientGqlService,
+	CurrentWorkoutKey,
+	getStringAsciiValue,
+} from "~/lib/generals";
 import { type InProgressWorkout, currentWorkoutAtom } from "~/lib/workout";
 
 export function useGetMantineColor() {
@@ -52,3 +62,37 @@ export function getWorkoutStarter() {
 	};
 	return fn;
 }
+
+const createPersister = () =>
+	experimental_createPersister({
+		storage: typeof window !== "undefined" ? window.localStorage : undefined,
+	});
+
+export const useMetadataDetails = (id?: string | null) => {
+	return useQuery({
+		queryKey: ["metadataDetails", id],
+		queryFn: id
+			? async () => {
+					const { metadataDetails } = await clientGqlService.request(
+						MetadataDetailsDocument,
+						{ metadataId: id },
+					);
+					return metadataDetails;
+				}
+			: skipToken,
+		persister: createPersister(),
+	});
+};
+
+export const useUserPreferences = () => {
+	return useQuery({
+		queryKey: ["userPreferences"],
+		queryFn: async () => {
+			const { userPreferences } = await clientGqlService.request(
+				UserPreferencesDocument,
+			);
+			return userPreferences;
+		},
+		persister: createPersister(),
+	});
+};

@@ -53,11 +53,8 @@ import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import { LOGO_IMAGE_URL, Verb, getLot, getVerb } from "~/lib/generals";
-import {
-	useMetadataDetails,
-	useMetadataProgressUpdate,
-	useUserPreferences,
-} from "~/lib/media";
+import { useMetadataDetails, useUserPreferences } from "~/lib/hooks";
+import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	redirectIfNotAuthenticatedOrUpdated,
 	serverVariables,
