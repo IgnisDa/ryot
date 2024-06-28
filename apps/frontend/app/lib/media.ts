@@ -21,15 +21,17 @@ export type UpdateProgressData = {
 	podcastEpisodeNumber?: number | null;
 };
 
-const mediaProgressUpdateAtom = atom<{
+const metadataProgressUpdateAtom = atom<{
 	toUpdate: UpdateProgressData;
 	form: UpdateProgressFormData;
 } | null>(null);
 
-export const useRawMediaProgress = () => useAtom(mediaProgressUpdateAtom);
+export const useRawMetadataProgress = () => useAtom(metadataProgressUpdateAtom);
 
-export const useMediaProgress = (form?: UpdateProgressFormData) => {
-	const [mediaProgress, setMediaProgress] = useAtom(mediaProgressUpdateAtom);
+export const useMetadataProgress = (form?: UpdateProgressFormData) => {
+	const [metadataProgress, setMediaProgress] = useAtom(
+		metadataProgressUpdateAtom,
+	);
 	const updateProgress = (
 		toUpdate: UpdateProgressData,
 		newForm?: UpdateProgressFormData,
@@ -37,14 +39,14 @@ export const useMediaProgress = (form?: UpdateProgressFormData) => {
 		const toUpdateForm = newForm ?? form;
 		invariant(
 			toUpdateForm,
-			"form must be provided to useMediaProgress or updateProgress",
+			"form must be provided to useMetadataProgress before calling updateProgress",
 		);
 		setMediaProgress({ toUpdate, form: toUpdateForm });
 	};
-	return [mediaProgress, updateProgress] as const;
+	return [metadataProgress, updateProgress] as const;
 };
 
-export type TSetMediaProgress = ReturnType<typeof useMediaProgress>[1];
+export type TSetMetadataProgress = ReturnType<typeof useMetadataProgress>[1];
 
 export const getMetadataDetailsWithReactQuery = async (id: string) => {
 	return await queryClient.ensureQueryData({

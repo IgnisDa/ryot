@@ -102,7 +102,7 @@ import {
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import { type TSetMediaProgress, useMediaProgress } from "~/lib/media";
+import { type TSetMetadataProgress, useMetadataProgress } from "~/lib/media";
 import {
 	MetadataIdSchema,
 	createToastHeaders,
@@ -293,7 +293,7 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
-	const [_, setUpdateProgressModalData] = useMediaProgress({
+	const [_, setUpdateProgressModalData] = useMetadataProgress({
 		metadataDetails: loaderData.metadataDetails,
 		watchProviders: loaderData.userPreferences.watchProviders,
 	});
@@ -1034,7 +1034,9 @@ export default function Page() {
 												showProgress={
 													loaderData.userMetadataDetails.showProgress
 												}
-												updateProgressModalData={setUpdateProgressModalData}
+												updateMetadataProgressModalData={
+													setUpdateProgressModalData
+												}
 											/>
 										)}
 										itemContent={(index, groupIndex) => (
@@ -1050,7 +1052,9 @@ export default function Page() {
 														groupIndex
 													].seasonNumber
 												}
-												updateProgressModalData={setUpdateProgressModalData}
+												updateMetadataProgressModalData={
+													setUpdateProgressModalData
+												}
 											/>
 										)}
 									/>
@@ -1069,7 +1073,9 @@ export default function Page() {
 											podcastProgress={
 												loaderData.userMetadataDetails.podcastProgress
 											}
-											updateProgressModalData={setUpdateProgressModalData}
+											updateMetadataProgressModalData={
+												setUpdateProgressModalData
+											}
 										/>
 									)}
 								/>
@@ -1657,7 +1663,7 @@ const SeenItem = (props: { history: History }) => {
 
 const DisplayShowSeason = (props: {
 	seasonIdx: number;
-	updateProgressModalData: TSetMediaProgress;
+	updateMetadataProgressModalData: TSetMetadataProgress;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -1685,7 +1691,7 @@ const DisplayShowSeason = (props: {
 							variant={isSeen ? "default" : "outline"}
 							color="blue"
 							onClick={() => {
-								props.updateProgressModalData({
+								props.updateMetadataProgressModalData({
 									showSeasonNumber: season.seasonNumber,
 									onlySeason: true,
 								});
@@ -1704,7 +1710,7 @@ const DisplayShowEpisode = (props: {
 	seasonIdx: number;
 	overallIdx: number;
 	seasonNumber: number;
-	updateProgressModalData: TSetMediaProgress;
+	updateMetadataProgressModalData: TSetMetadataProgress;
 	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -1734,7 +1740,7 @@ const DisplayShowEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					color="blue"
 					onClick={() => {
-						props.updateProgressModalData({
+						props.updateMetadataProgressModalData({
 							showSeasonNumber: props.seasonNumber,
 							showEpisodeNumber: episode.episodeNumber,
 						});
@@ -1750,7 +1756,7 @@ const DisplayShowEpisode = (props: {
 const DisplayPodcastEpisode = (props: {
 	index: number;
 	episode: PodcastEpisode;
-	updateProgressModalData: TSetMediaProgress;
+	updateMetadataProgressModalData: TSetMetadataProgress;
 	podcastProgress: UserMetadataDetailsQuery["userMetadataDetails"]["podcastProgress"];
 }) => {
 	const numTimesEpisodeSeen =
@@ -1770,7 +1776,7 @@ const DisplayPodcastEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					color="blue"
 					onClick={() => {
-						props.updateProgressModalData({
+						props.updateMetadataProgressModalData({
 							podcastEpisodeNumber: props.episode.number,
 						});
 					}}

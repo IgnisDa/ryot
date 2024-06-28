@@ -53,7 +53,7 @@ import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import { LOGO_IMAGE_URL, Verb, getLot, getVerb } from "~/lib/generals";
-import { useMediaProgress, useRawMediaProgress } from "~/lib/media";
+import { useMetadataProgress, useRawMetadataProgress } from "~/lib/media";
 import {
 	redirectIfNotAuthenticatedOrUpdated,
 	serverVariables,
@@ -201,7 +201,7 @@ export default function Layout() {
 
 	return (
 		<>
-			<ProgressUpdateModal />
+			<MetadataProgressUpdateModal />
 			<AppShell
 				w="100%"
 				padding={0}
@@ -514,11 +514,11 @@ const WATCH_TIMES = [
 	"Custom Date",
 ] as const;
 
-const ProgressUpdateModal = () => {
-	const [_, setMediaProgress] = useRawMediaProgress();
-	const closeProgressUpdateModal = () => setMediaProgress(null);
+const MetadataProgressUpdateModal = () => {
+	const [_, setMetadataProgress] = useRawMetadataProgress();
+	const closeMetadataProgressUpdateModal = () => setMetadataProgress(null);
 
-	const [mediaProgress] = useMediaProgress();
+	const [mediaProgress] = useMetadataProgress();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
@@ -538,7 +538,7 @@ const ProgressUpdateModal = () => {
 
 	return (
 		<Modal
-			onClose={closeProgressUpdateModal}
+			onClose={closeMetadataProgressUpdateModal}
 			opened={mediaProgress !== null}
 			withCloseButton={false}
 			centered
@@ -548,7 +548,7 @@ const ProgressUpdateModal = () => {
 				action={withQuery($path("/actions"), { intent: "progressUpdate" })}
 				replace
 				onSubmit={() => {
-					closeProgressUpdateModal();
+					closeMetadataProgressUpdateModal();
 					events.updateProgress(mediaProgress.form.metadataDetails.title);
 				}}
 			>
@@ -654,7 +654,7 @@ const ProgressUpdateModal = () => {
 									)}
 									defaultValue={mediaProgress.toUpdate?.showSeasonNumber?.toString()}
 									onChange={(v) => {
-										setMediaProgress(
+										setMetadataProgress(
 											produce(mediaProgress, (draft) => {
 												draft.toUpdate.showSeasonNumber = Number(v);
 											}),
@@ -688,7 +688,7 @@ const ProgressUpdateModal = () => {
 									}
 									defaultValue={mediaProgress.toUpdate.showEpisodeNumber?.toString()}
 									onChange={(v) => {
-										setMediaProgress(
+										setMetadataProgress(
 											produce(mediaProgress, (draft) => {
 												draft.toUpdate.showEpisodeNumber = Number(v);
 											}),
@@ -727,7 +727,7 @@ const ProgressUpdateModal = () => {
 										)}
 										defaultValue={mediaProgress.toUpdate?.podcastEpisodeNumber?.toString()}
 										onChange={(v) => {
-											setMediaProgress(
+											setMetadataProgress(
 												produce(mediaProgress, (draft) => {
 													draft.toUpdate.podcastEpisodeNumber = Number(v);
 												}),

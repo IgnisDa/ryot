@@ -71,7 +71,7 @@ import { Verb, getLot, getVerb } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import {
 	getMetadataDetailsWithReactQuery,
-	useMediaProgress,
+	useMetadataProgress,
 } from "~/lib/media";
 import {
 	getAuthorizationHeader,
@@ -522,7 +522,7 @@ const MediaSearchItem = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
-	const [_, setMediaProgress] = useMediaProgress();
+	const [_, setMetadataProgress] = useMetadataProgress();
 	const basicCommit = async (e: React.MouseEvent) => {
 		if (props.maybeItemId) return props.maybeItemId;
 		e.preventDefault();
@@ -603,7 +603,7 @@ const MediaSearchItem = (props: {
 					onClick={async (e) => {
 						const id = await basicCommit(e);
 						const metadataDetails = await getMetadataDetailsWithReactQuery(id);
-						setMediaProgress(
+						setMetadataProgress(
 							{},
 							{
 								metadataDetails,
