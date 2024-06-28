@@ -1858,7 +1858,11 @@ impl MiscellaneousService {
                         times_seen: seen.len(),
                     })
                 }
-                let times_season_seen = episodes.iter().map(|e| e.times_seen).min().unwrap();
+                let times_season_seen = episodes
+                    .iter()
+                    .map(|e| e.times_seen)
+                    .min()
+                    .unwrap_or_default();
                 seasons.push(UserMetadataDetailsShowSeasonProgress {
                     episodes,
                     times_seen: times_season_seen,
