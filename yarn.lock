@@ -4208,6 +4208,7 @@ __metadata:
     "@tabler/icons-react": "npm:3.7.0"
     "@tanstack/react-query": "npm:5.48.0"
     "@tanstack/react-query-devtools": "npm:5.48.0"
+    "@tanstack/react-query-persist-client": "npm:5.48.0"
     "@types/cookie": "npm:0.6.0"
     "@types/crypto-js": "npm:4.2.2"
     "@types/howler": "npm:2.2.11"
@@ -4364,6 +4365,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tanstack/query-persist-client-core@npm:5.48.0":
+  version: 5.48.0
+  resolution: "@tanstack/query-persist-client-core@npm:5.48.0"
+  dependencies:
+    "@tanstack/query-core": "npm:5.48.0"
+  checksum: 10/e434068331c8dc0e0795f61a602e406719d6754fa9bcdf974d1a3cc6df06ae47bf331af9f62d9741afe9a486be553f819131bd57784776c04c1396e80c070cf2
+  languageName: node
+  linkType: hard
+
 "@tanstack/react-query-devtools@npm:5.48.0":
   version: 5.48.0
   resolution: "@tanstack/react-query-devtools@npm:5.48.0"
@@ -4373,6 +4383,18 @@ __metadata:
     "@tanstack/react-query": ^5.48.0
     react: ^18 || ^19
   checksum: 10/47cb24bf5709eceba81178795323c1bc3ee11f4d9e29f6a3ae0732e08ac9f9fc51b5f29d2b28d8459080227ca8d84bbd1d0f94ae01ae25b8f20fc58e1280b6ef
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-query-persist-client@npm:5.48.0":
+  version: 5.48.0
+  resolution: "@tanstack/react-query-persist-client@npm:5.48.0"
+  dependencies:
+    "@tanstack/query-persist-client-core": "npm:5.48.0"
+  peerDependencies:
+    "@tanstack/react-query": ^5.48.0
+    react: ^18 || ^19
+  checksum: 10/87b72325549c9fd02aeb9152bea54465414cb371ad5830d513d5ee4b7c8cc21c09a28ce1fe2a618ce0da1e92dbff6e89ba14d10802cbe7f803047ede8b4364f1
   languageName: node
   linkType: hard
 
