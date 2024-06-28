@@ -5,6 +5,7 @@ import {
 import { atom, useAtom } from "jotai";
 import invariant from "tiny-invariant";
 import { clientGqlService, queryClient } from "./generals";
+import { experimental_createPersister } from "@tanstack/react-query-persist-client";
 
 export type UpdateProgressFormData = {
 	watchProviders: string[];
@@ -57,5 +58,6 @@ export const getMetadataDetailsWithReactQuery = async (id: string) => {
 			);
 			return metadataDetails;
 		},
+		persister: experimental_createPersister({ storage: window.localStorage }),
 	});
 };
