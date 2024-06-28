@@ -82,6 +82,7 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 				}
 			: skipToken,
 		persister: createPersister(),
+		staleTime: 1000 * 60 * 60 * 20,
 	});
 };
 
@@ -101,9 +102,11 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 	});
 };
 
+export const USER_PREFERENCES_QUERY_KEY = "userPreferences";
+
 export const useUserPreferences = () => {
 	return useQuery({
-		queryKey: ["userPreferences"],
+		queryKey: [USER_PREFERENCES_QUERY_KEY],
 		queryFn: async () => {
 			const { userPreferences } = await clientGqlService.request(
 				UserPreferencesDocument,
@@ -111,5 +114,6 @@ export const useUserPreferences = () => {
 			return userPreferences;
 		},
 		persister: createPersister(),
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 };
