@@ -698,16 +698,13 @@ export default function Page() {
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{loaderData.userMetadataDetails.inProgress ? (
-										<IndividualProgressModal
-											title={loaderData.metadataDetails.title}
+										<IndividualMetadataProgressUpdateModal
 											progress={Number(
 												loaderData.userMetadataDetails.inProgress.progress,
 											)}
 											inProgress={loaderData.userMetadataDetails.inProgress}
-											metadataId={loaderData.metadataId}
 											onClose={progressModalClose}
 											opened={progressModalOpened}
-											lot={loaderData.metadataDetails.lot}
 											total={
 												loaderData.metadataDetails.audioBookSpecifics
 													?.runtime ||
@@ -1201,23 +1198,20 @@ export default function Page() {
 	);
 }
 
-type AllUserHistory =
+type UserSeenHistory =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
 
-const IndividualProgressModal = (props: {
-	title: string;
+const IndividualMetadataProgressUpdateModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	metadataId: string;
 	progress: number;
-	inProgress: AllUserHistory[number];
+	inProgress: UserSeenHistory[number];
 	total?: number | null;
-	lot: MediaLot;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [value, setValue] = useState<number | undefined>(props.progress);
 
-	const [updateIcon, text] = match(props.lot)
+	const [updateIcon, text] = match(loaderData.metadataDetails.lot)
 		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
 		.with(MediaLot.Anime, () => [
 			<IconDeviceTv size={24} key="element" />,
@@ -1246,10 +1240,14 @@ const IndividualProgressModal = (props: {
 				method="post"
 				replace
 				onSubmit={() => {
-					events.updateProgress(props.title);
+					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
-				<input hidden name="metadataId" defaultValue={props.metadataId} />
+				<input
+					hidden
+					name="metadataId"
+					defaultValue={loaderData.metadataDetails.id}
+				/>
 				<input hidden name="progress" value={value} readOnly />
 				<input
 					hidden
