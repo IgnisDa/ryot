@@ -52,8 +52,18 @@ import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
-import { LOGO_IMAGE_URL, Verb, getLot, getVerb } from "~/lib/generals";
-import { useMetadataDetails, useUserPreferences } from "~/lib/hooks";
+import {
+	LOGO_IMAGE_URL,
+	Verb,
+	getLot,
+	getVerb,
+	queryClient,
+} from "~/lib/generals";
+import {
+	useMetadataDetails,
+	USER_PREFERENCES_QUERY_KEY,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	redirectIfNotAuthenticatedOrUpdated,
@@ -325,6 +335,11 @@ export default function Layout() {
 								method="post"
 								action="/actions?intent=logout"
 								style={{ display: "flex" }}
+								onSubmit={() => {
+									queryClient.removeQueries({
+										queryKey: [USER_PREFERENCES_QUERY_KEY],
+									});
+								}}
 							>
 								<UnstyledButton
 									mx="auto"
