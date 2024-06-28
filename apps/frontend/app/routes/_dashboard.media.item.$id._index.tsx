@@ -699,9 +699,6 @@ export default function Page() {
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 									{loaderData.userMetadataDetails.inProgress ? (
 										<IndividualMetadataProgressUpdateModal
-											progress={Number(
-												loaderData.userMetadataDetails.inProgress.progress,
-											)}
 											inProgress={loaderData.userMetadataDetails.inProgress}
 											onClose={progressModalClose}
 											opened={progressModalOpened}
@@ -1195,12 +1192,9 @@ type UserSeenHistory =
 const IndividualMetadataProgressUpdateModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	progress: number;
 	inProgress: UserSeenHistory[number];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [value, setValue] = useState<number | undefined>(props.progress);
-
 	const total =
 		loaderData.metadataDetails.audioBookSpecifics?.runtime ||
 		loaderData.metadataDetails.bookSpecifics?.pages ||
@@ -1208,6 +1202,9 @@ const IndividualMetadataProgressUpdateModal = (props: {
 		loaderData.metadataDetails.mangaSpecifics?.chapters ||
 		loaderData.metadataDetails.animeSpecifics?.episodes ||
 		loaderData.metadataDetails.visualNovelSpecifics?.length;
+	const progress = Number(props.inProgress.progress);
+	const [value, setValue] = useState<number | undefined>(progress);
+
 	const [updateIcon, text] = match(loaderData.metadataDetails.lot)
 		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
 		.with(MediaLot.Anime, () => [
