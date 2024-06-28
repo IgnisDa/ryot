@@ -26,9 +26,7 @@ const mediaProgressUpdateAtom = atom<{
 	form: UpdateProgressFormData;
 } | null>(null);
 
-export const useRawMediaProgress = () => {
-	return useAtom(mediaProgressUpdateAtom);
-};
+export const useRawMediaProgress = () => useAtom(mediaProgressUpdateAtom);
 
 export const useMediaProgress = (form?: UpdateProgressFormData) => {
 	const [mediaProgress, setMediaProgress] = useAtom(mediaProgressUpdateAtom);
