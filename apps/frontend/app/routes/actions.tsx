@@ -18,6 +18,7 @@ import {
 	MediaSource,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
+	SeenState,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty, omitBy } from "@ryot/ts-utils";
@@ -326,7 +327,21 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				}),
 			);
 			redirectTo = submission[redirectToQueryParam];
-			returnData = { status: "success", tt: new Date() };
+		})
+		.with("individualProgressUpdate", async () => {
+			const submission = processSubmission(formData, bulkUpdateSchema);
+			await serverGqlService.request(
+				DeployBulkProgressUpdateDocument,
+				{ input: submission },
+				await getAuthorizationHeader(request),
+			);
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await createToastHeaders({
+					message: "Progress updated successfully",
+					type: "success",
+				}),
+			);
 		})
 		.run();
 	if (redirectTo) {
@@ -432,3 +447,13 @@ const showSpecificsSchema = z.array(
 );
 
 const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
+
+const bulkUpdateSchema = z
+	.object({
+		progress: z.string().optional(),
+		date: z.string().optional(),
+		changeState: z.nativeEnum(SeenState).optional(),
+		providerWatchedOn: z.string().optional(),
+	})
+	.merge(MetadataSpecificsSchema)
+	.merge(MetadataIdSchema);

@@ -37,7 +37,6 @@ import {
 } from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
-	DeployBulkProgressUpdateDocument,
 	DeployUpdateMetadataJobDocument,
 	EditSeenItemDocument,
 	EntityLot,
@@ -82,10 +81,12 @@ import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
 	AddEntityToCollectionModal,
+	HiddenLocationInput,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
 } from "~/components/common";
@@ -177,20 +178,6 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
-		individualProgressUpdate: async () => {
-			const submission = processSubmission(formData, bulkUpdateSchema);
-			await serverGqlService.request(
-				DeployBulkProgressUpdateDocument,
-				{ input: submission },
-				await getAuthorizationHeader(request),
-			);
-			return Response.json({ status: "success", tt: new Date() } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Progress updated successfully",
-				}),
-			});
-		},
 		deleteSeenItem: async () => {
 			const submission = processSubmission(formData, seenIdSchema);
 			await serverGqlService.request(
@@ -248,16 +235,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 	});
 });
 
-const bulkUpdateSchema = z
-	.object({
-		progress: z.string().optional(),
-		date: z.string().optional(),
-		changeState: z.nativeEnum(SeenState).optional(),
-		providerWatchedOn: z.string().optional(),
-	})
-	.merge(MetadataSpecificsSchema)
-	.merge(MetadataIdSchema);
-
 const seenIdSchema = z.object({ seenId: z.string() });
 
 const mergeMetadataSchema = z.object({
@@ -304,13 +281,16 @@ export default function Page() {
 	const PutOnHoldBtn = () => {
 		return (
 			<Form
-				action="?intent=individualProgressUpdate"
+				action={withQuery($path("/actions"), {
+					intent: "individualProgressUpdate",
+				})}
 				method="post"
 				replace
 				onSubmit={() => {
 					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
+				<HiddenLocationInput />
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
@@ -320,13 +300,16 @@ export default function Page() {
 	const DropBtn = () => {
 		return (
 			<Form
-				action="?intent=individualProgressUpdate"
+				action={withQuery($path("/actions"), {
+					intent: "individualProgressUpdate",
+				})}
 				method="post"
 				replace
 				onSubmit={() => {
 					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
+				<HiddenLocationInput />
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
@@ -798,7 +781,9 @@ export default function Page() {
 														<StateChangeButtons />
 													) : null}
 													<Form
-														action="?intent=individualProgressUpdate"
+														action={withQuery($path("/actions"), {
+															intent: "individualProgressUpdate",
+														})}
 														method="post"
 														replace
 														onSubmit={() => {
@@ -807,6 +792,7 @@ export default function Page() {
 															);
 														}}
 													>
+														<HiddenLocationInput />
 														<input hidden name="progress" defaultValue={100} />
 														<input
 															hidden
@@ -827,7 +813,9 @@ export default function Page() {
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
 													<Form
-														action="?intent=individualProgressUpdate"
+														action={withQuery($path("/actions"), {
+															intent: "individualProgressUpdate",
+														})}
 														method="post"
 														replace
 														onSubmit={() => {
@@ -836,6 +824,7 @@ export default function Page() {
 															);
 														}}
 													>
+														<HiddenLocationInput />
 														<input hidden name="progress" defaultValue={0} />
 														{![MediaLot.Anime, MediaLot.Manga].includes(
 															loaderData.metadataDetails.lot,
@@ -1230,13 +1219,16 @@ const IndividualMetadataProgressUpdateModal = (props: {
 			size="sm"
 		>
 			<Form
-				action="?intent=individualProgressUpdate"
+				action={withQuery($path("/actions"), {
+					intent: "individualProgressUpdate",
+				})}
 				method="post"
 				replace
 				onSubmit={() => {
 					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
+				<HiddenLocationInput />
 				<input
 					hidden
 					name="metadataId"
