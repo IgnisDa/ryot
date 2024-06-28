@@ -3,6 +3,7 @@ import { useMantineTheme } from "@mantine/core";
 import { useNavigate, useSearchParams } from "@remix-run/react";
 import {
 	MetadataDetailsDocument,
+	UserMetadataDetailsDocument,
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery, skipToken } from "@tanstack/react-query";
@@ -68,16 +69,32 @@ const createPersister = () =>
 		storage: typeof window !== "undefined" ? window.localStorage : undefined,
 	});
 
-export const useMetadataDetails = (id?: string | null) => {
+export const useMetadataDetails = (metadataId?: string | null) => {
 	return useQuery({
-		queryKey: ["metadataDetails", id],
-		queryFn: id
+		queryKey: ["metadataDetails", metadataId],
+		queryFn: metadataId
 			? async () => {
 					const { metadataDetails } = await clientGqlService.request(
 						MetadataDetailsDocument,
-						{ metadataId: id },
+						{ metadataId },
 					);
 					return metadataDetails;
+				}
+			: skipToken,
+		persister: createPersister(),
+	});
+};
+
+export const useUserMetadataDetails = (metadataId?: string | null) => {
+	return useQuery({
+		queryKey: ["userMetadataDetails", metadataId],
+		queryFn: metadataId
+			? async () => {
+					const { userMetadataDetails } = await clientGqlService.request(
+						UserMetadataDetailsDocument,
+						{ metadataId },
+					);
+					return userMetadataDetails;
 				}
 			: skipToken,
 		persister: createPersister(),
