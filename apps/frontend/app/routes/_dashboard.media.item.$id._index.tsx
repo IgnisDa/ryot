@@ -1663,7 +1663,8 @@ const DisplayShowSeason = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const season =
 		loaderData.metadataDetails.showSpecifics?.seasons[props.seasonIdx];
-	const isSeen = (props.showProgress?.[props.seasonIdx]?.timesSeen || 0) > 0;
+	const numTimesSeen = props.showProgress?.[props.seasonIdx]?.timesSeen || 0;
+	const isSeen = numTimesSeen > 0;
 
 	invariant(season, "Season not found");
 
@@ -1673,7 +1674,7 @@ const DisplayShowSeason = (props: {
 				{...season}
 				name={`${season.seasonNumber}. ${season.name}`}
 				numEpisodes={season.episodes.length}
-				displayIndicator={isSeen ? 1 : 0}
+				displayIndicator={numTimesSeen}
 				runtime={season.episodes
 					.map((e) => e.runtime || 0)
 					.reduce((i, a) => i + a, 0)}
