@@ -73,13 +73,10 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 	return useQuery({
 		queryKey: ["metadataDetails", metadataId],
 		queryFn: metadataId
-			? async () => {
-					const { metadataDetails } = await clientGqlService.request(
-						MetadataDetailsDocument,
-						{ metadataId },
-					);
-					return metadataDetails;
-				}
+			? () =>
+					clientGqlService
+						.request(MetadataDetailsDocument, { metadataId })
+						.then((data) => data.metadataDetails)
 			: skipToken,
 		persister: createPersister(),
 		staleTime: 1000 * 60 * 60 * 20,
@@ -90,13 +87,10 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 	return useQuery({
 		queryKey: ["userMetadataDetails", metadataId],
 		queryFn: metadataId
-			? async () => {
-					const { userMetadataDetails } = await clientGqlService.request(
-						UserMetadataDetailsDocument,
-						{ metadataId },
-					);
-					return userMetadataDetails;
-				}
+			? () =>
+					clientGqlService
+						.request(UserMetadataDetailsDocument, { metadataId })
+						.then((data) => data.userMetadataDetails)
 			: skipToken,
 		persister: createPersister(),
 	});
@@ -107,12 +101,10 @@ export const USER_PREFERENCES_QUERY_KEY = "userPreferences";
 export const useUserPreferences = () => {
 	return useQuery({
 		queryKey: [USER_PREFERENCES_QUERY_KEY],
-		queryFn: async () => {
-			const { userPreferences } = await clientGqlService.request(
-				UserPreferencesDocument,
-			);
-			return userPreferences;
-		},
+		queryFn: () =>
+			clientGqlService
+				.request(UserPreferencesDocument)
+				.then((data) => data.userPreferences),
 		persister: createPersister(),
 		staleTime: Number.POSITIVE_INFINITY,
 	});
