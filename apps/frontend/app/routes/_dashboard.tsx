@@ -559,7 +559,6 @@ const MetadataProgressUpdateModal = () => {
 			>
 				{[
 					...Object.entries(metadataToUpdate),
-					["metadataId", metadataDetails.id],
 					["metadataLot", metadataDetails.lot],
 				].map(([k, v]) => (
 					<Fragment key={k}>
