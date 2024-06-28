@@ -770,6 +770,7 @@ const MetadataProgressUpdateModal = () => {
 					/>
 					{watchTime === WATCH_TIMES[2] ? (
 						<DatePickerInput
+							required
 							label="Enter exact date"
 							dropdownType="modal"
 							maxDate={new Date()}
