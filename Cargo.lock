@@ -1706,6 +1706,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "educe"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d7bc049e1bd8cdeb31b68bbd586a9464ecf9f3944af3958a7a9d0f8b9799417"
+dependencies = [
+ "enum-ordinalize",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
 name = "ego-tree"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4286,6 +4298,7 @@ dependencies = [
  "derive_more 1.0.0-beta.6",
  "dotenvy",
  "dotenvy_macro",
+ "educe 0.6.0",
  "enum_meta",
  "flate2",
  "futures",
@@ -4517,7 +4530,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f62d5f33113186ad8b0f47c3522e40f9c31cdbc3056a8d7ad402e7498fc29789"
 dependencies = [
  "chrono",
- "educe",
+ "educe 0.5.11",
  "inherent",
  "ordered-float 3.9.2",
  "rust_decimal",
