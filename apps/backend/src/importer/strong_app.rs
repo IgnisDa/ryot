@@ -60,7 +60,7 @@ pub async fn import(
         .deserialize::<Entry>()
         .map(|r| r.unwrap())
         .collect_vec();
-    // DEV: without this, the last workout does not get appended
+    // DEV: Without this, the last workout does not get appended
     entries_reader.push(Entry {
         date: "invalid".to_string(),
         set_order: 0,

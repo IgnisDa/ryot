@@ -1491,7 +1491,7 @@ pub mod fitness {
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
         pub calories: Option<Decimal>,
-        // DEV: the only custom data type we allow is decimal
+        // DEV: The only custom data type we allow is decimal
         pub custom: Option<HashMap<String, Decimal>>,
     }
 
