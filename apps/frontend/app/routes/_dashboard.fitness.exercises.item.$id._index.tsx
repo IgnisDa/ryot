@@ -56,11 +56,10 @@ import { AddEntityToCollectionModal } from "~/components/common";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib, getSetColor } from "~/lib/generals";
+import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	getUserCollectionsList,
-	getUserDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
@@ -76,35 +75,22 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const exerciseId = params.id;
 	invariant(typeof exerciseId === "string", "id must be a string");
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [
-		userDetails,
-		userPreferences,
-		{ exerciseDetails },
-		{ userExerciseDetails },
-		collections,
-	] = await Promise.all([
-		getUserDetails(request),
-		getUserPreferences(request),
-		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-		serverGqlService.request(
-			UserExerciseDetailsDocument,
-			{ input: { exerciseId } },
-			await getAuthorizationHeader(request),
-		),
-		getUserCollectionsList(request),
-	]);
-	const canCurrentUserUpdate =
-		exerciseDetails.source === ExerciseSource.Custom &&
-		userDetails.id === exerciseDetails.createdByUserId;
+	const [{ exerciseDetails }, { userExerciseDetails }, collections] =
+		await Promise.all([
+			serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+			serverGqlService.request(
+				UserExerciseDetailsDocument,
+				{ input: { exerciseId } },
+				await getAuthorizationHeader(request),
+			),
+			getUserCollectionsList(request),
+		]);
 	return {
-		userId: userDetails.id,
 		query,
 		exerciseDetails,
 		userExerciseDetails,
-		unitSystem: userPreferences.fitness.exercises.unitSystem,
 		exerciseId,
 		collections,
-		canCurrentUserUpdate,
 	};
 });
 
@@ -114,6 +100,12 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const userDetails = useUserDetails();
+	const canCurrentUserUpdate =
+		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
+		userDetails.id === loaderData.exerciseDetails.createdByUserId;
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
@@ -124,7 +116,7 @@ export default function Page() {
 	return (
 		<>
 			<AddEntityToCollectionModal
-				userId={loaderData.userId}
+				userId={userDetails.id}
 				onClose={collectionModalClose}
 				opened={collectionModalOpened}
 				entityId={loaderData.exerciseDetails.id}
@@ -300,7 +292,7 @@ export default function Page() {
 													<DisplayExerciseStats
 														lot={loaderData.exerciseDetails.lot}
 														statistic={s.statistic}
-														unit={loaderData.unitSystem}
+														unit={unitSystem}
 													/>
 												</Flex>
 											))}
@@ -321,7 +313,7 @@ export default function Page() {
 											<DisplayLifetimeStatistic
 												stat="weight"
 												val={displayWeightWithUnit(
-													loaderData.unitSystem,
+													unitSystem,
 													loaderData.userExerciseDetails.details
 														.exerciseExtraInformation.lifetimeStats.weight,
 												)}
@@ -329,7 +321,7 @@ export default function Page() {
 											<DisplayLifetimeStatistic
 												stat="distance"
 												val={displayDistanceWithUnit(
-													loaderData.unitSystem,
+													unitSystem,
 													loaderData.userExerciseDetails.details
 														.exerciseExtraInformation.lifetimeStats.distance,
 												)}
@@ -390,13 +382,13 @@ export default function Page() {
 																			)
 																			.with(WorkoutSetPersonalBest.Volume, () =>
 																				displayWeightWithUnit(
-																					loaderData.unitSystem,
+																					unitSystem,
 																					s.data.statistic.volume,
 																				),
 																			)
 																			.with(WorkoutSetPersonalBest.Weight, () =>
 																				displayWeightWithUnit(
-																					loaderData.unitSystem,
+																					unitSystem,
 																					s.data.statistic.weight,
 																				),
 																			)
@@ -440,7 +432,7 @@ export default function Page() {
 									<Button variant="outline" onClick={collectionModalOpen}>
 										Add to collection
 									</Button>
-									{loaderData.canCurrentUserUpdate ? (
+									{canCurrentUserUpdate ? (
 										<Button
 											variant="outline"
 											component={Link}

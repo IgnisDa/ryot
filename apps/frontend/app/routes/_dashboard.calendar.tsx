@@ -29,7 +29,6 @@ import { dayjsLib } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -42,19 +41,14 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const date = dayjsLib(query.date);
-	const [coreDetails, { userCalendarEvents }] = await Promise.all([
-		getCoreDetails(request),
+	const [{ userCalendarEvents }] = await Promise.all([
 		serverGqlService.request(
 			UserCalendarEventsDocument,
 			{ input: { month: date.month() + 1, year: date.year() } },
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return {
-		query,
-		coreDetails,
-		calendarEvents: userCalendarEvents,
-	};
+	return { query, calendarEvents: userCalendarEvents };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {

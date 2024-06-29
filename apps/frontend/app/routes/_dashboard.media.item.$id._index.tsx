@@ -102,15 +102,17 @@ import {
 } from "~/components/media";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, queryClient } from "~/lib/generals";
-import { useGetMantineColor } from "~/lib/hooks";
+import {
+	useGetMantineColor,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	MetadataIdSchema,
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserCollectionsList,
-	getUserDetails,
-	getUserPreferences,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -134,36 +136,18 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataId = params.id;
 	invariant(metadataId, "No ID provided");
-	const [
-		userPreferences,
-		userDetails,
-		{ metadataDetails },
-		collections,
-		{ userMetadataDetails },
-	] = await Promise.all([
-		getUserPreferences(request),
-		getUserDetails(request),
-		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
-		getUserCollectionsList(request),
-		serverGqlService.request(
-			UserMetadataDetailsDocument,
-			{ metadataId },
-			await getAuthorizationHeader(request),
-		),
-	]);
+	const [{ metadataDetails }, collections, { userMetadataDetails }] =
+		await Promise.all([
+			serverGqlService.request(MetadataDetailsDocument, { metadataId }),
+			getUserCollectionsList(request),
+			serverGqlService.request(
+				UserMetadataDetailsDocument,
+				{ metadataId },
+				await getAuthorizationHeader(request),
+			),
+		]);
 	return {
 		query,
-		userPreferences: {
-			reviewScale: userPreferences.general.reviewScale,
-			videosDisabled: userPreferences.general.disableVideos,
-			watchProvidersDisabled: userPreferences.general.disableWatchProviders,
-			peopleEnabled: userPreferences.featuresEnabled.media.people,
-			groupsEnabled: userPreferences.featuresEnabled.media.groups,
-			genresEnabled: userPreferences.featuresEnabled.media.genres,
-			watchProviders: userPreferences.general.watchProviders,
-			disableReviews: userPreferences.general.disableReviews,
-		},
-		userDetails,
 		metadataId,
 		metadataDetails,
 		collections,
@@ -254,6 +238,8 @@ const editSeenItem = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
 	const getMantineColor = useGetMantineColor();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
@@ -335,7 +321,7 @@ export default function Page() {
 				data={postReviewModalData}
 				entityType="metadata"
 				objectId={loaderData.metadataId.toString()}
-				reviewScale={loaderData.userPreferences.reviewScale}
+				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.metadataDetails.title}
 				lot={loaderData.metadataDetails.lot}
 			/>
@@ -349,7 +335,7 @@ export default function Page() {
 					}}
 				>
 					<Box>
-						{loaderData.userPreferences.groupsEnabled &&
+						{userPreferences.featuresEnabled.media.groups &&
 						loaderData.metadataDetails.group ? (
 							<Link
 								to={$path("/media/groups/item/:id", {
@@ -502,7 +488,7 @@ export default function Page() {
 										{Number(
 											loaderData.userMetadataDetails.averageRating,
 										).toFixed(1)}
-										{loaderData.userPreferences.reviewScale ===
+										{userPreferences.general.reviewScale ===
 										UserReviewScale.OutOfFive
 											? undefined
 											: "%"}
@@ -555,7 +541,7 @@ export default function Page() {
 									Episodes
 								</Tabs.Tab>
 							) : null}
-							{!loaderData.userPreferences.disableReviews ? (
+							{!userPreferences.general.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -569,13 +555,13 @@ export default function Page() {
 							>
 								Suggestions
 							</Tabs.Tab>
-							{!loaderData.userPreferences.videosDisabled &&
+							{!userPreferences.general.disableVideos &&
 							(loaderData.metadataDetails.assets.videos.length || 0) > 0 ? (
 								<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 									Videos
 								</Tabs.Tab>
 							) : null}
-							{!loaderData.userPreferences.watchProvidersDisabled ? (
+							{!userPreferences.general.disableWatchProviders ? (
 								<Tabs.Tab
 									value="watchProviders"
 									leftSection={<IconMovie size={16} />}
@@ -591,7 +577,7 @@ export default function Page() {
 										cols={{ base: 3, xl: 4 }}
 										spacing={{ base: "md", lg: "xs" }}
 									>
-										{loaderData.userPreferences.genresEnabled
+										{userPreferences.featuresEnabled.media.genres
 											? loaderData.metadataDetails.genres
 													.slice(0, 12)
 													.map((g) => (
@@ -624,7 +610,7 @@ export default function Page() {
 											}}
 										/>
 									) : null}
-									{loaderData.userPreferences.peopleEnabled ? (
+									{userPreferences.featuresEnabled.media.people ? (
 										<Stack>
 											{loaderData.metadataDetails.creators.map((c) => (
 												<Box key={c.name}>
@@ -857,7 +843,7 @@ export default function Page() {
 											) : null}
 										</Menu.Dropdown>
 									</Menu>
-									{!loaderData.userPreferences.disableReviews ? (
+									{!userPreferences.general.disableReviews ? (
 										<Button
 											variant="outline"
 											w="100%"
@@ -887,7 +873,7 @@ export default function Page() {
 											Add to collection
 										</Button>
 										<AddEntityToCollectionModal
-											userId={loaderData.userDetails.id}
+											userId={userDetails.id}
 											onClose={collectionModalClose}
 											opened={collectionModalOpened}
 											entityId={loaderData.metadataId.toString()}
@@ -901,7 +887,7 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
-												userId={loaderData.userDetails.id}
+												userId={userDetails.id}
 												inCollections={loaderData.userMetadataDetails.collections.map(
 													(c) => c.name,
 												)}
@@ -1055,7 +1041,7 @@ export default function Page() {
 								/>
 							</Tabs.Panel>
 						) : null}
-						{!loaderData.userPreferences.disableReviews ? (
+						{!userPreferences.general.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								{loaderData.userMetadataDetails.reviews.length > 0 ? (
 									<MediaScrollArea>
@@ -1066,8 +1052,8 @@ export default function Page() {
 													review={r}
 													key={r.id}
 													metadataId={loaderData.metadataId}
-													reviewScale={loaderData.userPreferences.reviewScale}
-													user={loaderData.userDetails}
+													reviewScale={userPreferences.general.reviewScale}
+													user={userDetails}
 													title={loaderData.metadataDetails.title}
 													lot={loaderData.metadataDetails.lot}
 												/>
@@ -1095,7 +1081,7 @@ export default function Page() {
 								<Text>No suggestions</Text>
 							)}
 						</Tabs.Panel>
-						{!loaderData.userPreferences.videosDisabled ? (
+						{!userPreferences.general.disableVideos ? (
 							<Tabs.Panel value="videos">
 								<MediaScrollArea>
 									<Stack>
@@ -1127,7 +1113,7 @@ export default function Page() {
 								</MediaScrollArea>
 							</Tabs.Panel>
 						) : null}
-						{!loaderData.userPreferences.watchProvidersDisabled ? (
+						{!userPreferences.general.disableWatchProviders ? (
 							<Tabs.Panel value="watchProviders">
 								{loaderData.metadataDetails.watchProviders.length > 0 ? (
 									<MediaScrollArea>
@@ -1184,6 +1170,7 @@ const InProgressMetadataSeenUpdateModal = (props: {
 	inProgress: UserSeenHistory[number];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const total =
 		loaderData.metadataDetails.audioBookSpecifics?.runtime ||
 		loaderData.metadataDetails.bookSpecifics?.pages ||
@@ -1286,7 +1273,7 @@ const InProgressMetadataSeenUpdateModal = (props: {
 						</>
 					) : null}
 					<Select
-						data={loaderData.userPreferences.watchProviders}
+						data={userPreferences.general.watchProviders}
 						label={`Where did you ${getVerb(
 							Verb.Read,
 							loaderData.metadataDetails.lot,

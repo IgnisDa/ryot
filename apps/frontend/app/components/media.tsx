@@ -47,6 +47,7 @@ import {
 	type MediaSource,
 	type PartialMetadata,
 	type ReviewItem,
+	type User,
 	UserReviewScale,
 	UserToMediaReason,
 	Visibility,
@@ -79,7 +80,6 @@ import {
 	redirectToQueryParam,
 } from "~/lib/generals";
 import { useGetMantineColor } from "~/lib/hooks";
-import type { ApplicationUser } from "~/lib/utilities.server";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
@@ -152,7 +152,7 @@ export const MediaScrollArea = (props: { children: ReactNode }) => {
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	entityType: EntityType;
-	user: ApplicationUser;
+	user: User;
 	reviewScale: UserReviewScale;
 	title: string;
 	metadataId?: string;

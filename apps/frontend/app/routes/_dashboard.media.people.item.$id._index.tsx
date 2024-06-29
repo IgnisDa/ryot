@@ -51,12 +51,11 @@ import {
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
+import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserCollectionsList,
-	getUserDetails,
-	getUserPreferences,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -71,35 +70,17 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const personId = params.id;
 	invariant(personId, "No ID provided");
-	const [
-		userPreferences,
-		userDetails,
-		{ personDetails },
-		{ userPersonDetails },
-		collections,
-	] = await Promise.all([
-		getUserPreferences(request),
-		getUserDetails(request),
-		serverGqlService.request(PersonDetailsDocument, { personId }),
-		serverGqlService.request(
-			UserPersonDetailsDocument,
-			{ personId },
-			await getAuthorizationHeader(request),
-		),
-		getUserCollectionsList(request),
-	]);
-	return {
-		query,
-		personId,
-		userPreferences: {
-			reviewScale: userPreferences.general.reviewScale,
-			disableReviews: userPreferences.general.disableReviews,
-		},
-		userDetails,
-		collections,
-		userPersonDetails,
-		personDetails,
-	};
+	const [{ personDetails }, { userPersonDetails }, collections] =
+		await Promise.all([
+			serverGqlService.request(PersonDetailsDocument, { personId }),
+			serverGqlService.request(
+				UserPersonDetailsDocument,
+				{ personId },
+				await getAuthorizationHeader(request),
+			),
+			getUserCollectionsList(request),
+		]);
+	return { query, personId, collections, userPersonDetails, personDetails };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -130,6 +111,8 @@ const personIdSchema = z.object({ personId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
@@ -146,7 +129,7 @@ export default function Page() {
 				data={postReviewModalData}
 				entityType="person"
 				objectId={loaderData.personId.toString()}
-				reviewScale={loaderData.userPreferences.reviewScale}
+				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.personDetails.details.name}
 			/>
 			<Container>
@@ -217,7 +200,7 @@ export default function Page() {
 									Overview
 								</Tabs.Tab>
 							) : null}
-							{!loaderData.userPreferences.disableReviews ? (
+							{!userPreferences.general.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -308,7 +291,7 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
-												userId={loaderData.userDetails.id}
+												userId={userDetails.id}
 												inCollections={loaderData.userPersonDetails.collections.map(
 													(c) => c.name,
 												)}
@@ -331,7 +314,7 @@ export default function Page() {
 										</Menu.Dropdown>
 									</Menu>
 									<AddEntityToCollectionModal
-										userId={loaderData.userDetails.id}
+										userId={userDetails.id}
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.personId.toString()}
@@ -341,7 +324,7 @@ export default function Page() {
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						{!loaderData.userPreferences.disableReviews ? (
+						{!userPreferences.general.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
 									{loaderData.userPersonDetails.reviews.length > 0 ? (
@@ -352,8 +335,8 @@ export default function Page() {
 													key={r.id}
 													personId={loaderData.personId}
 													title={loaderData.personDetails.details.name}
-													user={loaderData.userDetails}
-													reviewScale={loaderData.userPreferences.reviewScale}
+													user={userDetails}
+													reviewScale={userPreferences.general.reviewScale}
 													entityType="person"
 												/>
 											))}

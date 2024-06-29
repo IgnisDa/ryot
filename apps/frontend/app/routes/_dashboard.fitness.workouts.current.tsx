@@ -94,12 +94,11 @@ import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import events from "~/lib/events";
 import { CurrentWorkoutKey, dayjsLib, getSetColor } from "~/lib/generals";
+import { useUserPreferences } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	getCoreEnabledFeatures,
-	getUserPreferences,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -123,20 +122,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			type: "error",
 			message: "No workout in progress",
 		});
-	const [coreDetails, userPreferences, coreEnabledFeatures] = await Promise.all(
-		[
-			getCoreDetails(request),
-			getUserPreferences(request),
-			getCoreEnabledFeatures(),
-		],
-	);
+	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
 	return {
-		coreDetails,
-		userPreferences: {
-			unitSystem: userPreferences.fitness.exercises.unitSystem,
-			isMeasurementEnabled:
-				userPreferences.featuresEnabled.fitness.measurements,
-		},
 		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
 	};
 });
@@ -178,7 +165,8 @@ const deleteUploadedAsset = (key: string) => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
 	const [time, setTime] = useState(0);
@@ -300,7 +288,7 @@ export default function Page() {
 									<StatDisplay
 										name="Weight"
 										value={`${displayWeightWithUnit(
-											loaderData.userPreferences.unitSystem,
+											unitSystem,
 											sum(
 												currentWorkout.exercises
 													.flatMap((e) => e.sets)
@@ -439,7 +427,7 @@ export default function Page() {
 									/>
 								))}
 								<Group justify="center">
-									{loaderData.userPreferences.isMeasurementEnabled ? (
+									{userPreferences.featuresEnabled.fitness.measurements ? (
 										<Button
 											component={Link}
 											variant="subtle"
@@ -665,6 +653,8 @@ const ExerciseDisplay = (props: {
 	stopTimer: () => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
 	const [currentTimer] = useAtom(timerAtom);
@@ -1046,7 +1036,7 @@ const ExerciseDisplay = (props: {
 							{distanceCol ? (
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									DISTANCE (
-									{match(loaderData.userPreferences.unitSystem)
+									{match(unitSystem)
 										.with(UserUnitSystem.Metric, () => "KM")
 										.with(UserUnitSystem.Imperial, () => "MI")
 										.exhaustive()}
@@ -1056,7 +1046,7 @@ const ExerciseDisplay = (props: {
 							{weightCol ? (
 								<Text size="xs" style={{ flex: 1 }} ta="center">
 									WEIGHT (
-									{match(loaderData.userPreferences.unitSystem)
+									{match(unitSystem)
 										.with(UserUnitSystem.Metric, () => "KG")
 										.with(UserUnitSystem.Imperial, () => "LB")
 										.exhaustive()}
@@ -1187,7 +1177,7 @@ const ExerciseDisplay = (props: {
 													lot={props.exercise.lot}
 													hideExtras
 													centerText
-													unit={loaderData.userPreferences.unitSystem}
+													unit={unitSystem}
 												/>
 											</Box>
 										) : (

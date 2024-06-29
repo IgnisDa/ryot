@@ -38,11 +38,13 @@ import {
 	MediaItemWithoutUpdateModal,
 } from "~/components/media";
 import { redirectToQueryParam } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import {
+	useCoreDetails,
+	useSearchParam,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -66,10 +68,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
 	});
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(request),
-		getUserPreferences(request),
-	]);
 	const [list, search] = await match(action)
 		.with(Action.List, async () => {
 			const { metadataGroupsList } = await serverGqlService.request(
@@ -99,15 +97,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			] as const;
 		})
 		.exhaustive();
-	return {
-		action,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
-		query,
-		page,
-		list,
-		search,
-	};
+	return { action, query, page, list, search };
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -116,6 +106,7 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useSearchParam();
 	const navigate = useNavigate();
 
@@ -196,7 +187,7 @@ export default function Page() {
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.list.list.details.total /
-												loaderData.coreDetails.pageLimit,
+												coreDetails.pageLimit,
 										)}
 									/>
 								</Center>
@@ -236,7 +227,7 @@ export default function Page() {
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.search.search.details.total /
-												loaderData.coreDetails.pageLimit,
+												coreDetails.pageLimit,
 										)}
 									/>
 								</Center>
@@ -255,6 +246,7 @@ const GroupSearchItem = (props: {
 	item: Item;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
 	const [isLoading, setIsLoading] = useState(false);
 
@@ -263,7 +255,7 @@ const GroupSearchItem = (props: {
 			item={props.item}
 			noRatingLink
 			noHref
-			reviewScale={loaderData.userPreferences.reviewScale}
+			reviewScale={userPreferences.general.reviewScale}
 			imageOverlayForLoadingIndicator={isLoading}
 			onClick={async (_) => {
 				if (loaderData.search) {

@@ -50,11 +50,13 @@ import {
 	MediaItemWithoutUpdateModal,
 } from "~/components/media";
 import { redirectToQueryParam } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import {
+	useCoreDetails,
+	useSearchParam,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -84,10 +86,6 @@ const SEARCH_SOURCES_ALLOWED = [
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const action = params.action as Action;
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(request),
-		getUserPreferences(request),
-	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
@@ -141,15 +139,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			return [undefined, { search: peopleSearch, url: urlParse }] as const;
 		})
 		.exhaustive();
-	return {
-		action,
-		query,
-		page,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
-		peopleList,
-		peopleSearch,
-	};
+	return { action, query, page, peopleList, peopleSearch };
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -158,6 +148,7 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
 	const [
@@ -322,7 +313,7 @@ export default function Page() {
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.peopleList.list.details.total /
-												loaderData.coreDetails.pageLimit,
+												coreDetails.pageLimit,
 										)}
 									/>
 								</Center>
@@ -361,7 +352,7 @@ export default function Page() {
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.peopleSearch.search.details.total /
-												loaderData.coreDetails.pageLimit,
+												coreDetails.pageLimit,
 										)}
 									/>
 								</Center>
@@ -380,6 +371,7 @@ const PersonSearchItem = (props: {
 	item: Item;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
 	const [isLoading, setIsLoading] = useState(false);
 
@@ -388,7 +380,7 @@ const PersonSearchItem = (props: {
 			item={props.item}
 			noRatingLink
 			noHref
-			reviewScale={loaderData.userPreferences.reviewScale}
+			reviewScale={userPreferences.general.reviewScale}
 			imageOverlayForLoadingIndicator={isLoading}
 			onClick={async (_) => {
 				if (loaderData.peopleSearch) {

@@ -29,7 +29,11 @@ import { DatePickerInput } from "@mantine/dates";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
-import { MediaLot, UserLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	type CoreDetails,
+	MediaLot,
+	UserLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -52,19 +56,28 @@ import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
-import { LOGO_IMAGE_URL, Verb, getLot, getVerb } from "~/lib/generals";
-import { useMetadataDetails } from "~/lib/hooks";
+import {
+	CORE_DETAILS_COOKIE_NAME,
+	LOGO_IMAGE_URL,
+	Verb,
+	getLot,
+	getVerb,
+} from "~/lib/generals";
+import { useMetadataDetails, useUserPreferences } from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
+	getCookieValue,
+	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
 	serverVariables,
 } from "~/lib/utilities.server";
-import {
-	colorSchemeCookie,
-	getCoreDetails,
-	getUserPreferences,
-} from "~/lib/utilities.server";
+import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
+
+const getCoreDetails = async (request: Request) => {
+	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
+	return JSON.parse(details) as CoreDetails;
+};
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
@@ -516,7 +529,7 @@ const WATCH_TIMES = [
 ] as const;
 
 const MetadataProgressUpdateModal = () => {
-	const { userPreferences } = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 

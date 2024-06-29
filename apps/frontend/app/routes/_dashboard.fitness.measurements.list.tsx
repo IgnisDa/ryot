@@ -50,11 +50,10 @@ import { z } from "zod";
 import { zx } from "zodix";
 import events from "~/lib/events";
 import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import { useSearchParam, useUserPreferences } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserPreferences,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -87,8 +86,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		.with(TimeSpan.Last365Days, () => [now, now.subtract(365, "days")])
 		.with(TimeSpan.AllTime, () => [null, null])
 		.exhaustive();
-	const [userPreferences, { userMeasurementsList }] = await Promise.all([
-		getUserPreferences(request),
+	const [{ userMeasurementsList }] = await Promise.all([
 		serverGqlService.request(
 			UserMeasurementsListDocument,
 			{
@@ -100,11 +98,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return {
-		query,
-		userPreferences: { fitness: userPreferences.fitness },
-		userMeasurementsList,
-	};
+	return { query, userMeasurementsList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -160,6 +154,7 @@ const deleteSchema = z.object({ timestamp: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const formattedData = loaderData.userMeasurementsList.map((m) => {
 		const customStats = Object.fromEntries(
 			Object.entries(m.stats.custom || {})
@@ -214,15 +209,12 @@ export default function Page() {
 						/>
 						<TextInput label="Name" name="name" />
 						<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-							{Object.keys(
-								loaderData.userPreferences.fitness.measurements.inbuilt,
-							)
+							{Object.keys(userPreferences.fitness.measurements.inbuilt)
 								.filter((n) => n !== "custom")
 								.filter(
 									(n) =>
 										// biome-ignore lint/suspicious/noExplicitAny: required
-										(loaderData.userPreferences as any).fitness.measurements
-											.inbuilt[n],
+										(userPreferences as any).fitness.measurements.inbuilt[n],
 								)
 								.map((v) => (
 									<NumberInput
@@ -232,15 +224,13 @@ export default function Page() {
 										name={`stats.${v}`}
 									/>
 								))}
-							{loaderData.userPreferences.fitness.measurements.custom.map(
-								({ name }) => (
-									<NumberInput
-										key={name}
-										label={changeCase(snakeCase(name))}
-										name={`stats.custom.${name}`}
-									/>
-								),
-							)}
+							{userPreferences.fitness.measurements.custom.map(({ name }) => (
+								<NumberInput
+									key={name}
+									label={changeCase(snakeCase(name))}
+									name={`stats.custom.${name}`}
+								/>
+							))}
 						</SimpleGrid>
 						<Textarea label="Comment" name="comment" />
 						<Button type="submit">Submit</Button>
@@ -278,17 +268,16 @@ export default function Page() {
 							<MultiSelect
 								label="Statistics to display"
 								data={[
-									...Object.keys(
-										loaderData.userPreferences.fitness.measurements.inbuilt,
-									)
+									...Object.keys(userPreferences.fitness.measurements.inbuilt)
 										.filter(
 											(n) =>
 												// biome-ignore lint/suspicious/noExplicitAny: required
-												(loaderData.userPreferences as any).fitness.measurements
-													.inbuilt[n],
+												(userPreferences as any).fitness.measurements.inbuilt[
+													n
+												],
 										)
 										.map((v) => ({ name: v, value: v })),
-									...loaderData.userPreferences.fitness.measurements.custom.map(
+									...userPreferences.fitness.measurements.custom.map(
 										({ name }) => ({ name, value: `custom.${name}` }),
 									),
 								].map((v) => ({
@@ -332,13 +321,13 @@ export default function Page() {
 								},
 								...([
 									...Object.entries(
-										loaderData.userPreferences.fitness.measurements.inbuilt,
+										userPreferences.fitness.measurements.inbuilt,
 									)
 										.map(([name, enabled]) =>
 											enabled ? `stats.${name}` : null,
 										)
 										.filter(Boolean),
-									...loaderData.userPreferences.fitness.measurements.custom.map(
+									...userPreferences.fitness.measurements.custom.map(
 										(c) => `stats.custom.${c.name}`,
 									),
 								].map((w) => ({

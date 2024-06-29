@@ -31,21 +31,19 @@ import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [coreDetails, { usersList }] = await Promise.all([
-		getCoreDetails(request),
+	const [{ usersList }] = await Promise.all([
 		serverGqlService.request(
 			UsersListDocument,
 			undefined,
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return { coreDetails, usersList };
+	return { usersList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {

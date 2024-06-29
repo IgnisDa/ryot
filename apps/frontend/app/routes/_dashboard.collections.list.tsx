@@ -42,21 +42,20 @@ import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
+import { useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getUserCollectionsList,
-	getUserDetails,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [userDetails, userCollectionsList] = await Promise.all([
-		getUserDetails(request),
+	const [userCollectionsList] = await Promise.all([
 		getUserCollectionsList(request),
 	]);
-	return { collections: userCollectionsList, currentUserId: userDetails.id };
+	return { collections: userCollectionsList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -248,12 +247,12 @@ const DisplayCollection = (props: {
 	setToUpdateCollection: (c: UpdateCollectionInput) => void;
 	openModal: () => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [];
 
-	if (props.collection.creator.id !== loaderData.currentUserId)
+	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
 	if (props.collection.count > 0)
 		additionalDisplay.push(`${props.collection.count} items`);
@@ -286,7 +285,7 @@ const DisplayCollection = (props: {
 				) : null}
 			</Box>
 			<Flex gap="sm" style={{ flex: 0 }}>
-				{loaderData.currentUserId === props.collection.creator.id ? (
+				{userDetails.id === props.collection.creator.id ? (
 					<ActionIcon
 						color="blue"
 						variant="outline"

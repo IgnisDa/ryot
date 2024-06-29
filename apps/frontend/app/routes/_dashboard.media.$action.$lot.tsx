@@ -68,14 +68,16 @@ import {
 } from "~/components/media";
 import events from "~/lib/events";
 import { Verb, getLot, getVerb } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import {
+	useCoreDetails,
+	useSearchParam,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
-	getUserDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -112,16 +114,7 @@ const metadataMapping = {
 };
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const [
-		userDetails,
-		coreDetails,
-		userPreferences,
-		{ latestUserSummary },
-		userCollectionsList,
-	] = await Promise.all([
-		getUserDetails(request),
-		getCoreDetails(request),
-		getUserPreferences(request),
+	const [{ latestUserSummary }, userCollectionsList] = await Promise.all([
 		serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
@@ -204,15 +197,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		numPage,
 		mediaList,
 		mediaSearch,
-		userId: userDetails.id,
 		collections: userCollectionsList,
 		url: withoutHost(url.href),
-		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
-		userPreferences: {
-			reviewScale: userPreferences.general.reviewScale,
-			watchProviders: userPreferences.general.watchProviders,
-		},
 	};
 });
 
@@ -228,6 +215,8 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useSearchParam();
 	const [
 		filtersModalOpened,
@@ -407,7 +396,7 @@ export default function Page() {
 											href={$path("/media/item/:id", {
 												id: lm.data.identifier,
 											})}
-											reviewScale={loaderData.userPreferences.reviewScale}
+											reviewScale={userPreferences.general.reviewScale}
 										/>
 									))}
 								</ApplicationGrid>
@@ -423,7 +412,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaList.list.details.total /
-											loaderData.coreDetails.pageLimit,
+											coreDetails.pageLimit,
 									)}
 								/>
 							</Center>
@@ -477,7 +466,7 @@ export default function Page() {
 												loaderData.mediaSearch?.url.source ||
 												MediaSource.Anilist
 											}
-											reviewScale={loaderData.userPreferences.reviewScale}
+											reviewScale={userPreferences.general.reviewScale}
 										/>
 									))}
 								</ApplicationGrid>
@@ -493,7 +482,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaSearch.search.details.total /
-											loaderData.coreDetails.pageLimit,
+											coreDetails.pageLimit,
 									)}
 								/>
 							</Center>
@@ -517,6 +506,7 @@ const MediaSearchItem = (props: {
 }) => {
 	const navigate = useNavigate();
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
@@ -581,7 +571,7 @@ const MediaSearchItem = (props: {
 					</Menu>
 					{appItemId ? (
 						<AddEntityToCollectionModal
-							userId={loaderData.userId}
+							userId={userDetails.id}
 							opened={isAddMediaToCollectionModalOpened}
 							onClose={closeIsAddMediaToCollectionModalOpened}
 							entityId={appItemId.toString()}
@@ -615,7 +605,7 @@ const MediaSearchItem = (props: {
 						const form = new FormData();
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Media);
-						form.append("creatorUserId", loaderData.userId);
+						form.append("creatorUserId", userDetails.id);
 						form.append("collectionName", "Watchlist");
 						await fetch(
 							$path("/actions", { intent: "addEntityToCollection" }),

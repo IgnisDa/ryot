@@ -50,7 +50,7 @@ import {
 	getLot,
 	getMetadataIcon,
 } from "~/lib/generals";
-import { useGetMantineColor } from "~/lib/hooks";
+import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	getUserCollectionsList,
@@ -127,6 +127,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const theme = useMantineTheme();
 
 	return (
@@ -147,7 +148,7 @@ export default function Page() {
 				0 ? (
 					<NewUserGuideAlert />
 				) : null}
-				{loaderData.userPreferences.dashboard.map((de) =>
+				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (

@@ -51,10 +51,10 @@ import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import events from "~/lib/events";
 import { dayjsLib } from "~/lib/generals";
+import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	getCoreEnabledFeatures,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -64,9 +64,8 @@ import {
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [coreDetails, coreEnabledFeatures, { importReports }, { userExports }] =
+	const [coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
-			getCoreDetails(request),
 			getCoreEnabledFeatures(),
 			serverGqlService.request(
 				ImportReportsDocument,
@@ -79,12 +78,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 				await getAuthorizationHeader(request),
 			),
 		]);
-	return {
-		coreEnabledFeatures,
-		importReports,
-		userExports,
-		coreDetails: { docsLink: coreDetails.docsLink },
-	};
+	return { coreEnabledFeatures, importReports, userExports };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -212,6 +206,7 @@ const deployExportForm = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const fetcher = useFetcher<typeof action>();
@@ -242,7 +237,7 @@ export default function Page() {
 									<Anchor
 										size="xs"
 										href={withFragment(
-											`${loaderData.coreDetails.docsLink}/importing.html`,
+											`${coreDetails.docsLink}/importing.html`,
 											match(deployImportSource)
 												.with(ImportSource.Goodreads, () => "goodreads")
 												.with(ImportSource.Mal, () => "myanimelist")
@@ -501,7 +496,7 @@ export default function Page() {
 								<Group>
 									<Anchor
 										size="xs"
-										href={`${loaderData.coreDetails.docsLink}/guides/exporting.html`}
+										href={`${coreDetails.docsLink}/guides/exporting.html`}
 										target="_blank"
 									>
 										Docs

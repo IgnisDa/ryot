@@ -42,11 +42,10 @@ import {
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
+import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	getUserCollectionsList,
-	getUserDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -60,30 +59,20 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataGroupId = params.id;
 	invariant(metadataGroupId, "No ID provided");
-	const [
-		userPreferences,
-		userDetails,
-		{ metadataGroupDetails },
-		{ userMetadataGroupDetails },
-		collections,
-	] = await Promise.all([
-		getUserPreferences(request),
-		getUserDetails(request),
-		serverGqlService.request(MetadataGroupDetailsDocument, { metadataGroupId }),
-		serverGqlService.request(
-			UserMetadataGroupDetailsDocument,
-			{ metadataGroupId },
-			await getAuthorizationHeader(request),
-		),
-		getUserCollectionsList(request),
-	]);
+	const [{ metadataGroupDetails }, { userMetadataGroupDetails }, collections] =
+		await Promise.all([
+			serverGqlService.request(MetadataGroupDetailsDocument, {
+				metadataGroupId,
+			}),
+			serverGqlService.request(
+				UserMetadataGroupDetailsDocument,
+				{ metadataGroupId },
+				await getAuthorizationHeader(request),
+			),
+			getUserCollectionsList(request),
+		]);
 	return {
 		query,
-		userPreferences: {
-			reviewScale: userPreferences.general.reviewScale,
-			disableReviews: userPreferences.general.disableReviews,
-		},
-		userDetails,
 		collections,
 		metadataGroupId,
 		metadataGroupDetails,
@@ -97,6 +86,8 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
@@ -113,7 +104,7 @@ export default function Page() {
 				data={postReviewModalData}
 				entityType="metadataGroup"
 				objectId={loaderData.metadataGroupId.toString()}
-				reviewScale={loaderData.userPreferences.reviewScale}
+				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
 			/>
 			<Container>
@@ -157,7 +148,7 @@ export default function Page() {
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
-							{!loaderData.userPreferences.disableReviews ? (
+							{!userPreferences.general.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -194,7 +185,7 @@ export default function Page() {
 										Add to collection
 									</Button>
 									<AddEntityToCollectionModal
-										userId={loaderData.userDetails.id}
+										userId={userDetails.id}
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.metadataGroupId.toString()}
@@ -207,7 +198,7 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
-												userId={loaderData.userDetails.id}
+												userId={userDetails.id}
 												inCollections={loaderData.userMetadataGroupDetails.collections.map(
 													(c) => c.name,
 												)}
@@ -219,7 +210,7 @@ export default function Page() {
 								</SimpleGrid>
 							</MediaScrollArea>
 						</Tabs.Panel>
-						{!loaderData.userPreferences.disableReviews ? (
+						{!userPreferences.general.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								<MediaScrollArea>
 									{loaderData.userMetadataGroupDetails.reviews.length > 0 ? (
@@ -229,8 +220,8 @@ export default function Page() {
 													review={r}
 													key={r.id}
 													metadataGroupId={loaderData.metadataGroupId}
-													reviewScale={loaderData.userPreferences.reviewScale}
-													user={loaderData.userDetails}
+													reviewScale={userPreferences.general.reviewScale}
+													user={userDetails}
 													title={loaderData.metadataGroupDetails.details.title}
 													entityType="metadataGroup"
 												/>

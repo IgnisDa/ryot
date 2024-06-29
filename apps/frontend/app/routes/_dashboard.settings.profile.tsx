@@ -6,30 +6,21 @@ import {
 	TextInput,
 	Title,
 } from "@mantine/core";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	type MetaArgs_SingleFetch,
-	useFetcher,
-	useLoaderData,
-} from "@remix-run/react";
+import { unstable_defineAction } from "@remix-run/node";
+import { type MetaArgs_SingleFetch, useFetcher } from "@remix-run/react";
 import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useRef } from "react";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
+import { useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserDetails,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
-	const [userDetails] = await Promise.all([getUserDetails(request)]);
-	return { userDetails };
-});
-
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs_SingleFetch) => {
 	return [{ title: "Profile Settings | Ryot" }];
 };
 
@@ -56,7 +47,7 @@ const updateProfileFormSchema = z.object({
 });
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const fetcher = useFetcher<typeof action>();
 	const formRef = useRef<HTMLFormElement>(null);
 
@@ -69,29 +60,28 @@ export default function Page() {
 						<TextInput
 							readOnly
 							description="Database generated user ID"
-							defaultValue={loaderData.userDetails.id}
+							defaultValue={userDetails.id}
 						/>
 						<TextInput
 							label="Username"
 							name="username"
-							disabled={Boolean(loaderData.userDetails.isDemo)}
+							disabled={Boolean(userDetails.isDemo)}
 							description={
-								loaderData.userDetails.isDemo &&
+								userDetails.isDemo &&
 								"Username can not be changed for the demo user"
 							}
-							defaultValue={loaderData.userDetails.name}
+							defaultValue={userDetails.name}
 						/>
 						<PasswordInput
 							label="Password"
 							name="password"
 							disabled={
-								Boolean(loaderData.userDetails.isDemo) ||
-								Boolean(loaderData.userDetails.oidcIssuerId)
+								Boolean(userDetails.isDemo) || Boolean(userDetails.oidcIssuerId)
 							}
 							description={
-								loaderData.userDetails.oidcIssuerId
+								userDetails.oidcIssuerId
 									? "Not applicable since this user was created via OIDC"
-									: loaderData.userDetails.isDemo
+									: userDetails.isDemo
 										? "Password can not be changed for the demo user"
 										: undefined
 							}

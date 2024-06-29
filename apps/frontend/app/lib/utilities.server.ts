@@ -8,13 +8,11 @@ import {
 	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
-	type CoreDetails,
 	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
-	type UserLot,
 	type UserPreferences,
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -114,15 +112,6 @@ export function combineHeaders(
 	}
 	return combined;
 }
-
-export type ApplicationUser = {
-	__typename: "User";
-	id: string;
-	name: string;
-	lot: UserLot;
-	oidcIssuerId?: string;
-	isDemo: boolean;
-};
 
 const emptyNumberString = z
 	.any()
@@ -230,6 +219,12 @@ export const s3FileUploader = (prefix: string) =>
 		}
 		return undefined;
 	}, unstable_createMemoryUploadHandler());
+
+export const getUserPreferences = async (request: Request) => {
+	await redirectIfNotAuthenticatedOrUpdated(request);
+	const preferences = getCookieValue(request, USER_PREFERENCES_COOKIE_NAME);
+	return JSON.parse(preferences) as UserPreferences;
+};
 
 export const getCoreEnabledFeatures = async () => {
 	const { coreEnabledFeatures } = await serverGqlService.request(
@@ -367,23 +362,6 @@ export const getLogoutCookies = async () => {
 			}),
 		},
 	);
-};
-
-export const getCoreDetails = async (request: Request) => {
-	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
-	return JSON.parse(details) as CoreDetails;
-};
-
-export const getUserPreferences = async (request: Request) => {
-	await redirectIfNotAuthenticatedOrUpdated(request);
-	const preferences = getCookieValue(request, USER_PREFERENCES_COOKIE_NAME);
-	return JSON.parse(preferences) as UserPreferences;
-};
-
-export const getUserDetails = async (request: Request) => {
-	await redirectIfNotAuthenticatedOrUpdated(request);
-	const details = getCookieValue(request, USER_DETAILS_COOKIE_NAME);
-	return JSON.parse(details) as ApplicationUser;
 };
 
 export const extendResponseHeaders = (

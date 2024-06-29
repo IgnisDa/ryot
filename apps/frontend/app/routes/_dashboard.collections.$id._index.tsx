@@ -51,12 +51,14 @@ import {
 	ReviewItemDisplay,
 } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import {
+	useCoreDetails,
+	useSearchParam,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
-	getUserDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -88,15 +90,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		{ input: { collectionId: id, take: 0 } },
 		await getAuthorizationHeader(request),
 	);
-	const [
-		coreDetails,
-		userPreferences,
-		userDetails,
-		{ collectionContents: contents },
-	] = await Promise.all([
-		getCoreDetails(request),
-		getUserPreferences(request),
-		getUserDetails(request),
+	const [{ collectionContents: contents }] = await Promise.all([
 		serverGqlService.request(
 			CollectionContentsDocument,
 			{
@@ -116,18 +110,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			await getAuthorizationHeader(request),
 		),
 	]);
-	return {
-		id,
-		query,
-		info,
-		contents: contents.results,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
-		userPreferences: {
-			reviewScale: userPreferences.general.reviewScale,
-			disableReviews: userPreferences.general.disableReviews,
-		},
-		userDetails,
-	};
+	return { id, query, info, contents: contents.results };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -136,6 +119,9 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const coreDetails = useCoreDetails();
+	const userDetails = useUserDetails();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
 	const [
@@ -154,7 +140,7 @@ export default function Page() {
 				data={postReviewModalData}
 				entityType="collection"
 				objectId={loaderData.id}
-				reviewScale={loaderData.userPreferences.reviewScale}
+				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.info.details.name}
 			/>
 			<Container>
@@ -179,7 +165,7 @@ export default function Page() {
 							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 								Actions
 							</Tabs.Tab>
-							{!loaderData.userPreferences.disableReviews ? (
+							{!userPreferences.general.disableReviews ? (
 								<Tabs.Tab
 									value="reviews"
 									leftSection={<IconMessageCircle2 size={16} />}
@@ -299,7 +285,7 @@ export default function Page() {
 												}}
 												lot={lm.metadataLot}
 												entityLot={lm.entityLot}
-												reviewScale={loaderData.userPreferences.reviewScale}
+												reviewScale={userPreferences.general.reviewScale}
 											/>
 										))}
 									</ApplicationGrid>
@@ -314,7 +300,7 @@ export default function Page() {
 											onChange={(v) => setP("page", v.toString())}
 											total={Math.ceil(
 												loaderData.contents.details.total /
-													loaderData.coreDetails.pageLimit,
+													coreDetails.pageLimit,
 											)}
 										/>
 									</Center>
@@ -334,7 +320,7 @@ export default function Page() {
 								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
-						{!loaderData.userPreferences.disableReviews ? (
+						{!userPreferences.general.disableReviews ? (
 							<Tabs.Panel value="reviews">
 								{loaderData.info.reviews.length > 0 ? (
 									<Stack>
@@ -344,8 +330,8 @@ export default function Page() {
 												review={r}
 												key={r.id}
 												collectionId={loaderData.id}
-												reviewScale={loaderData.userPreferences.reviewScale}
-												user={loaderData.userDetails}
+												reviewScale={userPreferences.general.reviewScale}
+												user={userDetails}
 												entityType="collection"
 											/>
 										))}

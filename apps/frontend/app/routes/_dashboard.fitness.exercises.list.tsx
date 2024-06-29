@@ -54,13 +54,10 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { dayjsLib } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import { useCoreDetails, useSearchParam } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
 	getUserCollectionsList,
-	getUserDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
@@ -97,51 +94,34 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [
-		coreDetails,
-		userPreferences,
-		userDetails,
-		{ exerciseParameters },
-		{ exercisesList },
-		userCollectionsList,
-	] = await Promise.all([
-		getCoreDetails(request),
-		getUserPreferences(request),
-		getUserDetails(request),
-		serverGqlService.request(ExerciseParametersDocument, {}),
-		serverGqlService.request(
-			ExercisesListDocument,
-			{
-				input: {
-					search: {
-						page: query.page,
-						query: query.query,
+	const [{ exerciseParameters }, { exercisesList }, userCollectionsList] =
+		await Promise.all([
+			serverGqlService.request(ExerciseParametersDocument, {}),
+			serverGqlService.request(
+				ExercisesListDocument,
+				{
+					input: {
+						search: {
+							page: query.page,
+							query: query.query,
+						},
+						filter: {
+							equipment: query.equipment,
+							force: query.force,
+							level: query.level,
+							mechanic: query.mechanic,
+							muscle: query.muscle,
+							type: query.type,
+							collection: query.collection,
+						},
+						sortBy: query.sortBy,
 					},
-					filter: {
-						equipment: query.equipment,
-						force: query.force,
-						level: query.level,
-						mechanic: query.mechanic,
-						muscle: query.muscle,
-						type: query.type,
-						collection: query.collection,
-					},
-					sortBy: query.sortBy,
 				},
-			},
-			await getAuthorizationHeader(request),
-		),
-		getUserCollectionsList(request),
-	]);
-	return {
-		coreDetails: { pageLimit: coreDetails.pageLimit },
-		userCollectionsList,
-		userPreferences,
-		userDetails,
-		query,
-		exerciseParameters,
-		exercisesList,
-	};
+				await getAuthorizationHeader(request),
+			),
+			getUserCollectionsList(request),
+		]);
+	return { userCollectionsList, query, exerciseParameters, exercisesList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -150,6 +130,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
 	const [selectedExercises, setSelectedExercises] = useListState<{
@@ -389,7 +370,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.exercisesList.details.total /
-											loaderData.coreDetails.pageLimit,
+											coreDetails.pageLimit,
 									)}
 								/>
 							</Center>

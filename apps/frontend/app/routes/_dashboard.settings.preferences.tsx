@@ -48,14 +48,13 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { AUTH_COOKIE_NAME } from "~/lib/generals";
+import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	combineHeaders,
 	createToastHeaders,
 	getAuthorizationHeader,
 	getCookieValue,
 	getCookiesForApplication,
-	getUserDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
@@ -66,15 +65,7 @@ const searchSchema = z.object({
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchSchema);
-	const [userPreferences, userDetails] = await Promise.all([
-		getUserPreferences(request),
-		getUserDetails(request),
-	]);
-	return {
-		query,
-		userDetails: { isDemo: userDetails.isDemo },
-		userPreferences,
-	};
+	return { query };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -122,8 +113,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
 	const [dashboardElements, setDashboardElements] = useState(
-		loaderData.userPreferences.general.dashboard,
+		userPreferences.general.dashboard,
 	);
 	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
 		[string, string]
@@ -172,7 +165,7 @@ export default function Page() {
 								color="red"
 								variant="outline"
 								onClick={async (e) => {
-									if (!loaderData.userDetails.isDemo) {
+									if (!userDetails.isDemo) {
 										if (
 											!confirm(
 												"This will reset all your preferences to default. Are you sure you want to continue?",
@@ -196,7 +189,7 @@ export default function Page() {
 						</Tooltip>
 					</Form>
 				</Group>
-				{loaderData.userDetails.isDemo ? (
+				{userDetails.isDemo ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						{notificationContent.message}
 					</Alert>
@@ -218,7 +211,7 @@ export default function Page() {
 						<Text mb="md">The different sections on the dashboard.</Text>
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
-								if (!loaderData.userDetails.isDemo) {
+								if (!userDetails.isDemo) {
 									const newOrder = reorder(dashboardElements, {
 										from: source.index,
 										to: destination?.index || 0,
@@ -252,24 +245,24 @@ export default function Page() {
 								<Fragment key={facet}>
 									<Title order={4}>{startCase(facet)}</Title>
 									<SimpleGrid cols={2}>
-										{Object.entries(
-											loaderData.userPreferences.featuresEnabled[facet],
-										).map(([name, isEnabled]) => (
-											<Switch
-												key={name}
-												size="xs"
-												label={changeCase(snakeCase(name))}
-												defaultChecked={isEnabled}
-												disabled={!!loaderData.userDetails.isDemo}
-												onChange={(ev) => {
-													const lot = snakeCase(name);
-													appendPref(
-														`features_enabled.${facet}.${lot}`,
-														String(ev.currentTarget.checked),
-													);
-												}}
-											/>
-										))}
+										{Object.entries(userPreferences.featuresEnabled[facet]).map(
+											([name, isEnabled]) => (
+												<Switch
+													key={name}
+													size="xs"
+													label={changeCase(snakeCase(name))}
+													defaultChecked={isEnabled}
+													disabled={!!userDetails.isDemo}
+													onChange={(ev) => {
+														const lot = snakeCase(name);
+														appendPref(
+															`features_enabled.${facet}.${lot}`,
+															String(ev.currentTarget.checked),
+														);
+													}}
+												/>
+											),
+										)}
 									</SimpleGrid>
 								</Fragment>
 							))}
@@ -280,8 +273,8 @@ export default function Page() {
 							<TagsInput
 								label="Watch providers"
 								placeholder="Enter more providers"
-								defaultValue={loaderData.userPreferences.general.watchProviders}
-								disabled={!!loaderData.userDetails.isDemo}
+								defaultValue={userPreferences.general.watchProviders}
+								disabled={!!userDetails.isDemo}
 								onChange={(val) => {
 									appendPref("general.watch_providers", JSON.stringify(val));
 								}}
@@ -320,8 +313,8 @@ export default function Page() {
 												() => 'Do not display the "Watch On" tab',
 											)
 											.exhaustive()}
-										defaultChecked={loaderData.userPreferences.general[name]}
-										disabled={!!loaderData.userDetails.isDemo}
+										defaultChecked={userPreferences.general[name]}
+										disabled={!!userDetails.isDemo}
 										onChange={(ev) => {
 											appendPref(
 												`general.${snakeCase(name)}`,
@@ -337,8 +330,8 @@ export default function Page() {
 										label: startCase(snakeCase(c)),
 										value: c,
 									}))}
-									defaultValue={loaderData.userPreferences.general.reviewScale}
-									disabled={!!loaderData.userDetails.isDemo}
+									defaultValue={userPreferences.general.reviewScale}
+									disabled={!!userDetails.isDemo}
 									onChange={(val) => {
 										if (val) appendPref("general.review_scale", val);
 									}}
@@ -351,10 +344,8 @@ export default function Page() {
 							<Switch
 								size="xs"
 								label="Whether notifications will be sent"
-								defaultChecked={
-									loaderData.userPreferences.notifications.enabled
-								}
-								disabled={!!loaderData.userDetails.isDemo}
+								defaultChecked={userPreferences.notifications.enabled}
+								disabled={!!userDetails.isDemo}
 								onChange={(ev) => {
 									appendPref(
 										"notifications.enabled",
@@ -417,16 +408,16 @@ export default function Page() {
 												() => "New media is associated with a person",
 											)
 											.exhaustive()}
-										defaultChecked={loaderData.userPreferences.notifications.toSend.includes(
+										defaultChecked={userPreferences.notifications.toSend.includes(
 											name,
 										)}
 										disabled={
-											!!loaderData.userDetails.isDemo ||
-											!loaderData.userPreferences.notifications.enabled
+											!!userDetails.isDemo ||
+											!userPreferences.notifications.enabled
 										}
 										onChange={() => {
 											const alreadyToSend = new Set(
-												loaderData.userPreferences.notifications.toSend,
+												userPreferences.notifications.toSend,
 											);
 											const alreadyHas = alreadyToSend.has(name);
 											if (!alreadyHas) alreadyToSend.add(name);
@@ -452,10 +443,8 @@ export default function Page() {
 								<NumberInput
 									size="xs"
 									label="Number of elements in exercise history"
-									defaultValue={
-										loaderData.userPreferences.fitness.exercises.saveHistory
-									}
-									disabled={!!loaderData.userDetails.isDemo}
+									defaultValue={userPreferences.fitness.exercises.saveHistory}
+									disabled={!!userDetails.isDemo}
 									onChange={(num) => {
 										if (num)
 											appendPref("fitness.exercises.save_history", String(num));
@@ -468,8 +457,8 @@ export default function Page() {
 										value: c.toLowerCase(),
 										label: startCase(c.toLowerCase()),
 									}))}
-									defaultValue={loaderData.userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!!loaderData.userDetails.isDemo}
+									defaultValue={userPreferences.fitness.exercises.unitSystem.toLowerCase()}
+									disabled={!!userDetails.isDemo}
 									onChange={(val) => {
 										if (val) appendPref("fitness.exercises.unit_system", val);
 									}}
@@ -497,14 +486,14 @@ export default function Page() {
 							<Text>The default measurements you want to keep track of.</Text>
 							<SimpleGrid cols={2}>
 								{Object.entries(
-									loaderData.userPreferences.fitness.measurements.inbuilt,
+									userPreferences.fitness.measurements.inbuilt,
 								).map(([name, isEnabled]) => (
 									<Switch
 										size="xs"
 										key={name}
 										label={changeCase(snakeCase(name))}
 										defaultChecked={isEnabled}
-										disabled={!!loaderData.userDetails.isDemo}
+										disabled={!!userDetails.isDemo}
 										onChange={(ev) => {
 											appendPref(
 												`fitness.measurements.inbuilt.${snakeCase(name)}`,
@@ -518,11 +507,11 @@ export default function Page() {
 								label="The custom metrics you want to keep track of"
 								description="The name of the attribute along with the data type. Only decimal data type is supported."
 								defaultValue={JSON.stringify(
-									loaderData.userPreferences.fitness.measurements.custom,
+									userPreferences.fitness.measurements.custom,
 									null,
 									4,
 								)}
-								disabled={!!loaderData.userDetails.isDemo}
+								disabled={!!userDetails.isDemo}
 								autosize
 								formatOnBlur
 								onChange={(v) => {
@@ -542,13 +531,12 @@ const EditDashboardElement = (props: {
 	index: number;
 	appendPref: (property: string, value: string) => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const focusedElementIndex =
-		loaderData.userPreferences.general.dashboard.findIndex(
-			(de) => de.section === props.lot,
-		);
-	const focusedElement =
-		loaderData.userPreferences.general.dashboard[focusedElementIndex];
+	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
+	const focusedElementIndex = userPreferences.general.dashboard.findIndex(
+		(de) => de.section === props.lot,
+	);
+	const focusedElement = userPreferences.general.dashboard[focusedElementIndex];
 
 	return (
 		<Draggable index={props.index} draggableId={props.lot}>
@@ -582,11 +570,11 @@ const EditDashboardElement = (props: {
 							label="Hidden"
 							labelPosition="left"
 							defaultChecked={focusedElement.hidden}
-							disabled={!!loaderData.userDetails.isDemo}
+							disabled={!!userDetails.isDemo}
 							onChange={(ev) => {
 								const newValue = ev.currentTarget.checked;
 								const newDashboardData = Array.from(
-									loaderData.userPreferences.general.dashboard,
+									userPreferences.general.dashboard,
 								);
 								newDashboardData[focusedElementIndex].hidden = newValue;
 								props.appendPref(
@@ -602,11 +590,11 @@ const EditDashboardElement = (props: {
 								label="Number of elements"
 								size="xs"
 								defaultValue={focusedElement.numElements}
-								disabled={!!loaderData.userDetails.isDemo}
+								disabled={!!userDetails.isDemo}
 								onChange={(num) => {
 									if (typeof num === "number") {
 										const newDashboardData = Array.from(
-											loaderData.userPreferences.general.dashboard,
+											userPreferences.general.dashboard,
 										);
 										newDashboardData[focusedElementIndex].numElements = num;
 										props.appendPref(
