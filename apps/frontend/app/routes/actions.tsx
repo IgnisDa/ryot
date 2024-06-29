@@ -116,7 +116,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			redirectTo = $path("/auth");
 			response.headers = extendResponseHeaders(
 				response.headers,
-				await getLogoutCookies(),
+				getLogoutCookies(),
 			);
 		})
 		.with("createReviewComment", async () => {

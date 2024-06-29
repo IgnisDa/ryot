@@ -74,17 +74,11 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 
-const getCoreDetails = async (request: Request) => {
-	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
-	return JSON.parse(details) as CoreDetails;
-};
-
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userPreferences, coreDetails] = await Promise.all([
-		getUserPreferences(request),
-		getCoreDetails(request),
-	]);
+	const [userPreferences] = await Promise.all([getUserPreferences(request)]);
+	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
+	const coreDetails = JSON.parse(details) as CoreDetails;
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})

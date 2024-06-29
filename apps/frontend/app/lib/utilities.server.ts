@@ -41,7 +41,7 @@ export const getCookieValue = (request: Request, cookieName: string) => {
 	return parse(request.headers.get("cookie") || "")[cookieName];
 };
 
-const getAuthorizationCookie = async (request: Request) => {
+const getAuthorizationCookie = (request: Request) => {
 	return getCookieValue(request, AUTH_COOKIE_NAME);
 };
 
@@ -56,15 +56,15 @@ export const getAuthorizationHeader = async (
 	return { Authorization: `Bearer ${cookie}` };
 };
 
-export const getIsAuthenticated = async (request: Request) => {
-	const cookie = await getAuthorizationCookie(request);
+export const getIsAuthenticated = (request: Request) => {
+	const cookie = getAuthorizationCookie(request);
 	if (!cookie) return [false, null] as const;
 	const value = getCookieValue(request, USER_DETAILS_COOKIE_NAME);
 	return [true, JSON.parse(value) as User] as const;
 };
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
-	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
+	const [isAuthenticated, userDetails] = getIsAuthenticated(request);
 	const nextUrl = withoutHost(request.url);
 	if (!isAuthenticated) {
 		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
@@ -74,7 +74,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 					type: "error",
 					message: "You must be logged in to view this page",
 				}),
-				await getLogoutCookies(),
+				getLogoutCookies(),
 			),
 		});
 	}
@@ -336,7 +336,7 @@ export const getCookiesForApplication = async (token: string) => {
 	);
 };
 
-export const getLogoutCookies = async () => {
+export const getLogoutCookies = () => {
 	return combineHeaders(
 		{ "set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }) },
 		{
