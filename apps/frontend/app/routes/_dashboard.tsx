@@ -885,7 +885,7 @@ const MetadataInProgressUpdateForm = ({
 			method="post"
 			replace
 			onSubmit={() => {
-				// DEV: Progress takes time to update, so we deploy a "job" to update the progress
+				// DEV: Progress takes time to update, so we deploy a "job" to refetch it
 				setTimeout(refetchUserMetadataDetails, 2000);
 				events.updateProgress(metadataDetails.title);
 				closeMetadataProgressUpdateModal();
