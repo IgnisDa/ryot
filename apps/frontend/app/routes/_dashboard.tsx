@@ -52,18 +52,8 @@ import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
-import {
-	LOGO_IMAGE_URL,
-	Verb,
-	getLot,
-	getVerb,
-	queryClient,
-} from "~/lib/generals";
-import {
-	useMetadataDetails,
-	USER_PREFERENCES_QUERY_KEY,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { LOGO_IMAGE_URL, Verb, getLot, getVerb } from "~/lib/generals";
+import { useMetadataDetails } from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	redirectIfNotAuthenticatedOrUpdated,
@@ -335,11 +325,6 @@ export default function Layout() {
 								method="post"
 								action="/actions?intent=logout"
 								style={{ display: "flex" }}
-								onSubmit={async () => {
-									await queryClient.invalidateQueries({
-										queryKey: [USER_PREFERENCES_QUERY_KEY],
-									});
-								}}
 							>
 								<UnstyledButton
 									mx="auto"
@@ -531,13 +516,13 @@ const WATCH_TIMES = [
 ] as const;
 
 const MetadataProgressUpdateModal = () => {
+	const { userPreferences } = useLoaderData<typeof loader>();
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 
 	const { data: metadataDetails } = useMetadataDetails(
 		metadataToUpdate?.metadataId,
 	);
-	const { data: userPreferences } = useUserPreferences();
 
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
@@ -554,7 +539,7 @@ const MetadataProgressUpdateModal = () => {
 		string | undefined
 	>(undefined);
 
-	if (!metadataDetails || !metadataToUpdate || !userPreferences) return null;
+	if (!metadataDetails || !metadataToUpdate) return null;
 
 	return (
 		<Modal

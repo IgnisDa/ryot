@@ -47,8 +47,7 @@ import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { AUTH_COOKIE_NAME, queryClient } from "~/lib/generals";
-import { USER_PREFERENCES_QUERY_KEY } from "~/lib/hooks";
+import { AUTH_COOKIE_NAME } from "~/lib/generals";
 import {
 	combineHeaders,
 	createToastHeaders,
@@ -143,16 +142,7 @@ export default function Page() {
 		<Container size="xs">
 			{toUpdatePreferences.length > 0 ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<Form
-						method="post"
-						action={`?defaultTab=${defaultTab}`}
-						replace
-						onSubmit={async () => {
-							await queryClient.invalidateQueries({
-								queryKey: [USER_PREFERENCES_QUERY_KEY],
-							});
-						}}
-					>
+					<Form method="post" action={`?defaultTab=${defaultTab}`} replace>
 						{toUpdatePreferences.map((pref) => (
 							<input
 								key={pref[0]}

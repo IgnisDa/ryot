@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams } from "@remix-run/react";
 import {
 	MetadataDetailsDocument,
 	UserMetadataDetailsDocument,
-	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { useAtom } from "jotai";
@@ -85,18 +84,5 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 						.request(UserMetadataDetailsDocument, { metadataId })
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
-	});
-};
-
-export const USER_PREFERENCES_QUERY_KEY = "userPreferences";
-
-export const useUserPreferences = () => {
-	return useQuery({
-		queryKey: [USER_PREFERENCES_QUERY_KEY],
-		queryFn: () =>
-			clientGqlService
-				.request(UserPreferencesDocument)
-				.then((data) => data.userPreferences),
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 };
