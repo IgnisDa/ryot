@@ -41,7 +41,7 @@ export const getCookieValue = (request: Request, cookieName: string) => {
 	return parse(request.headers.get("cookie") || "")[cookieName];
 };
 
-const getAuthorizationCookie = (request: Request) => {
+export const getAuthorizationCookie = (request: Request) => {
 	return getCookieValue(request, AUTH_COOKIE_NAME);
 };
 

@@ -12,13 +12,12 @@ import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useRef } from "react";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { AUTH_COOKIE_NAME } from "~/lib/generals";
 import { useUserDetails } from "~/lib/hooks";
 import {
 	combineHeaders,
 	createToastHeaders,
+	getAuthorizationCookie,
 	getAuthorizationHeader,
-	getCookieValue,
 	getCookiesForApplication,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -36,7 +35,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		{ input: submission },
 		getAuthorizationHeader(request),
 	);
-	const token = getCookieValue(request, AUTH_COOKIE_NAME);
+	const token = getAuthorizationCookie(request);
 	const applicationHeaders = await getCookiesForApplication(token);
 	const toastHeaders = await createToastHeaders({
 		message: "Profile updated. Please login again for changes to take effect.",

@@ -47,13 +47,12 @@ import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { AUTH_COOKIE_NAME } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	combineHeaders,
 	createToastHeaders,
+	getAuthorizationCookie,
 	getAuthorizationHeader,
-	getCookieValue,
 	getCookiesForApplication,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -99,7 +98,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			getAuthorizationHeader(request),
 		);
 	}
-	const token = getCookieValue(request, AUTH_COOKIE_NAME);
+	const token = getAuthorizationCookie(request);
 	const applicationHeaders = await getCookiesForApplication(token);
 	const toastHeaders = await createToastHeaders({
 		message: "Preferences updated",
