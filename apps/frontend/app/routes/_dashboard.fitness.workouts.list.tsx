@@ -65,7 +65,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			{
 				input: { page: query.page, query: query.query },
 			},
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, userWorkoutList };

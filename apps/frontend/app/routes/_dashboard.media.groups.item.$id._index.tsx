@@ -67,7 +67,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			serverGqlService.request(
 				UserMetadataGroupDetailsDocument,
 				{ metadataGroupId },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			),
 			getUserCollectionsList(request),
 		]);

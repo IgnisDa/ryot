@@ -30,7 +30,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	await serverGqlService.request(
 		UpdateUserDocument,
 		{ input: submission },
-		await getAuthorizationHeader(request),
+		getAuthorizationHeader(request),
 	);
 	return Response.json({ status: "success", submission } as const, {
 		headers: await createToastHeaders({

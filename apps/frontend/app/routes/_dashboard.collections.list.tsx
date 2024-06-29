@@ -71,7 +71,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				await serverGqlService.request(
 					CreateOrUpdateCollectionDocument,
 					{ input: submission },
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 				return Response.json(
 					{},
@@ -109,7 +109,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				await serverGqlService.request(
 					DeleteCollectionDocument,
 					submission,
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 			} catch {
 				wasSuccessful = false;

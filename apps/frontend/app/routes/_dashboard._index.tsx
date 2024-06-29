@@ -91,17 +91,17 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					sort: { order: GraphqlSortOrder.Desc },
 				},
 			},
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 		serverGqlService.request(
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 		serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	const cookies = request.headers.get("cookie");

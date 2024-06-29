@@ -76,7 +76,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			serverGqlService.request(
 				UserPersonDetailsDocument,
 				{ personId },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			),
 			getUserCollectionsList(request),
 		]);
@@ -95,7 +95,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeployUpdatePersonJobDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({

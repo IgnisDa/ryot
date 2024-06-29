@@ -73,7 +73,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const { metadataGroupsList } = await serverGqlService.request(
 				MetadataGroupsListDocument,
 				{ input: { page, query } },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [{ list: metadataGroupsList, url: {} }, undefined] as const;
 		})
@@ -89,7 +89,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const { metadataGroupSearch } = await serverGqlService.request(
 				MetadataGroupSearchDocument,
 				{ input: { lot, source: urlParse.source, search: { page, query } } },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [
 				undefined,

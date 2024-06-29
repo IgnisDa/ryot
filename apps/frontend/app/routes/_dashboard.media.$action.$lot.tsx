@@ -118,7 +118,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 		getUserCollectionsList(request),
 	]);
@@ -159,7 +159,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						},
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
@@ -177,7 +177,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						source: urlParse.source,
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [
 				undefined,

@@ -85,7 +85,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		serverGqlService.request(
 			WorkoutDetailsDocument,
 			{ workoutId },
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	let repeatedWorkout = null;
@@ -94,7 +94,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			await serverGqlService.request(
 				WorkoutDetailsDocument,
 				{ workoutId: workoutDetails.repeatedFrom },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 		repeatedWorkout = {
 			id: workoutDetails.repeatedFrom,
@@ -117,7 +117,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				EditUserWorkoutDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -131,7 +131,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeleteUserWorkoutDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return redirectWithToast($path("/fitness/workouts/list"), {
 				type: "success",

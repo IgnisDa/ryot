@@ -45,7 +45,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		serverGqlService.request(
 			UserCalendarEventsDocument,
 			{ input: { month: date.month() + 1, year: date.year() } },
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, calendarEvents: userCalendarEvents };

@@ -70,12 +70,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			serverGqlService.request(
 				ImportReportsDocument,
 				undefined,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			),
 			serverGqlService.request(
 				UserExportsDocument,
 				undefined,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			),
 		]);
 	return { coreEnabledFeatures, importReports, userExports };
@@ -134,7 +134,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -151,7 +151,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeployExportJobDocument,
 				toExport,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,

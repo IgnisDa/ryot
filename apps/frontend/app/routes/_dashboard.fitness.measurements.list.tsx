@@ -95,7 +95,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					endTime: endTime?.toISOString(),
 				},
 			},
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, userMeasurementsList };
@@ -118,7 +118,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				CreateUserMeasurementDocument,
 				{ input },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			const toastHeaders = {
 				headers: await createToastHeaders({
@@ -138,7 +138,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeleteUserMeasurementDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({

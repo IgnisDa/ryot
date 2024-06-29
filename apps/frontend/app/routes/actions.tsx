@@ -56,7 +56,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const { commitMetadata } = await serverGqlService.request(
 				CommitMetadataDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			returnData = { commitMedia: commitMetadata };
 		})
@@ -89,7 +89,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 						},
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			returnData = { commitPerson };
 		})
@@ -98,7 +98,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const { commitMetadataGroup } = await serverGqlService.request(
 				CommitMetadataGroupDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			returnData = { commitMetadataGroup };
 		})
@@ -124,7 +124,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			await serverGqlService.request(
 				CreateReviewCommentDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			response.headers = extendResponseHeaders(
 				response.headers,
@@ -155,7 +155,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 							information: omitBy(submission.information || {}, isEmpty),
 						},
 					},
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 			}
 			response.headers = extendResponseHeaders(
@@ -178,7 +178,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 						creatorUserId: submission.creatorUserId,
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 		})
 		.with("performReviewAction", async () => {
@@ -188,7 +188,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				await serverGqlService.request(
 					DeleteReviewDocument,
 					{ reviewId: submission.reviewId },
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 				response.headers = extendResponseHeaders(
 					response.headers,
@@ -201,7 +201,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				await serverGqlService.request(
 					PostReviewDocument,
 					{ input: submission },
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 				response.headers = extendResponseHeaders(
 					response.headers,
@@ -315,7 +315,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const { deployBulkProgressUpdate } = await serverGqlService.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: updates },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			response.headers = extendResponseHeaders(
 				response.headers,
@@ -333,7 +333,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			await serverGqlService.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			response.headers = extendResponseHeaders(
 				response.headers,

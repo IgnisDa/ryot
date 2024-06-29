@@ -40,7 +40,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		serverGqlService.request(
 			UsersListDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	return { usersList };
@@ -58,7 +58,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { deleteUser } = await serverGqlService.request(
 				DeleteUserDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -74,7 +74,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { registerUser } = await serverGqlService.request(
 				RegisterUserDocument,
 				{ input: { password: submission } },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			const success = registerUser.__typename === "StringIdObject";
 			return Response.json({ status: "success", submission } as const, {

@@ -109,7 +109,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [{ list: peopleList, url: urlParse }, undefined] as const;
 		})
@@ -134,7 +134,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						},
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [undefined, { search: peopleSearch, url: urlParse }] as const;
 		})

@@ -88,7 +88,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { collectionContents: info } = await serverGqlService.request(
 		CollectionContentsDocument,
 		{ input: { collectionId: id, take: 0 } },
-		await getAuthorizationHeader(request),
+		getAuthorizationHeader(request),
 	);
 	const [{ collectionContents: contents }] = await Promise.all([
 		serverGqlService.request(
@@ -107,7 +107,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					},
 				},
 			},
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	return { id, query, info, contents: contents.results };

@@ -45,12 +45,9 @@ const getAuthorizationCookie = (request: Request) => {
 	return getCookieValue(request, AUTH_COOKIE_NAME);
 };
 
-export const getAuthorizationHeader = async (
-	request?: Request,
-	token?: string,
-) => {
+export const getAuthorizationHeader = (request?: Request, token?: string) => {
 	let cookie: string;
-	if (request) cookie = await getAuthorizationCookie(request);
+	if (request) cookie = getAuthorizationCookie(request);
 	else if (token) cookie = token;
 	else cookie = "";
 	return { Authorization: `Bearer ${cookie}` };
@@ -140,7 +137,7 @@ export const getUserCollectionsList = async (request: Request) => {
 	const { userCollectionsList } = await serverGqlService.request(
 		UserCollectionsListDocument,
 		{},
-		await getAuthorizationHeader(request),
+		getAuthorizationHeader(request),
 	);
 	return userCollectionsList;
 };
@@ -300,12 +297,12 @@ export const getCookiesForApplication = async (token: string) => {
 			serverGqlService.request(
 				UserPreferencesDocument,
 				undefined,
-				await getAuthorizationHeader(undefined, token),
+				getAuthorizationHeader(undefined, token),
 			),
 			serverGqlService.request(
 				UserDetailsDocument,
 				undefined,
-				await getAuthorizationHeader(undefined, token),
+				getAuthorizationHeader(undefined, token),
 			),
 		]);
 	const maxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;

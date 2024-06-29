@@ -54,7 +54,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		serverGqlService.request(
 			UserNotificationPlatformsDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	return { userNotificationPlatforms };
@@ -72,7 +72,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				CreateUserNotificationPlatformDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const);
 		},
@@ -81,7 +81,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeleteUserNotificationPlatformDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -94,7 +94,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { testUserNotificationPlatforms } = await serverGqlService.request(
 				TestUserNotificationPlatformsDocument,
 				undefined,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success" } as const, {
 				headers: await createToastHeaders({

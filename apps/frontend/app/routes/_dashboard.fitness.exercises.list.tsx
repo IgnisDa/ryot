@@ -117,7 +117,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 						sortBy: query.sortBy,
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			),
 			getUserCollectionsList(request),
 		]);

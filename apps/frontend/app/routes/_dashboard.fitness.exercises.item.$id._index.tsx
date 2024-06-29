@@ -81,7 +81,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			serverGqlService.request(
 				UserExerciseDetailsDocument,
 				{ input: { exerciseId } },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			),
 			getUserCollectionsList(request),
 		]);

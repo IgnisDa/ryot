@@ -114,7 +114,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				const { createCustomExercise } = await serverGqlService.request(
 					CreateCustomExerciseDocument,
 					{ input },
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 				return redirect(
 					$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
@@ -125,7 +125,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				await serverGqlService.request(
 					EditCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 				return redirect($path("/fitness/exercises/list"));
 			},

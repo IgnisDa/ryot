@@ -140,7 +140,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { createUserWorkout } = await serverGqlService.request(
 				CreateUserWorkoutDocument,
 				workout,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return redirect(
 				$path("/fitness/workouts/:id", { id: createUserWorkout }),

@@ -33,7 +33,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	await serverGqlService.request(
 		DeployBackgroundJobDocument,
 		submission,
-		await getAuthorizationHeader(request),
+		getAuthorizationHeader(request),
 	);
 	return Response.json({ status: "success" } as const, {
 		headers: await createToastHeaders({

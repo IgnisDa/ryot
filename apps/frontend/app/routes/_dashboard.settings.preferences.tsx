@@ -96,7 +96,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		await serverGqlService.request(
 			UpdateUserPreferenceDocument,
 			{ input },
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		);
 	}
 	const token = getCookieValue(request, AUTH_COOKIE_NAME);

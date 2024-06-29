@@ -143,7 +143,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			serverGqlService.request(
 				UserMetadataDetailsDocument,
 				{ metadataId },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			),
 		]);
 	return {
@@ -167,7 +167,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeleteSeenItemDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
@@ -181,7 +181,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeployUpdateMetadataJobDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
@@ -195,7 +195,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				MergeMetadataDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return redirectWithToast(
 				$path("/media/item/:id", { id: submission.mergeInto }),
@@ -207,7 +207,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				EditSeenItemDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
