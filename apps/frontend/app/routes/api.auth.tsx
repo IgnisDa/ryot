@@ -6,7 +6,7 @@ import {
 	LoginUserDocument,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { serialize } from "cookie";
+import { type CookieSerializeOptions, serialize } from "cookie";
 import { z } from "zod";
 import { zx } from "zodix";
 import { AUTH_COOKIE_NAME } from "~/lib/generals";
@@ -41,7 +41,10 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	});
 	if (loginUser.__typename === "LoginResponse") {
 		const cookies = await getCookiesForApplication(loginUser.apiKey);
-		const options = { maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60 };
+		const options = {
+			maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
+			path: "/",
+		} satisfies CookieSerializeOptions;
 		return redirect($path("/"), {
 			headers: combineHeaders(
 				{
