@@ -14,12 +14,9 @@ import {
 	Indicator,
 	Menu,
 	Modal,
-	NumberInput,
 	Paper,
 	ScrollArea,
-	Select,
 	SimpleGrid,
-	Slider,
 	Stack,
 	Tabs,
 	Text,
@@ -58,16 +55,11 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
-	IconBook,
-	IconBrandPagekit,
 	IconBulb,
-	IconClock,
-	IconDeviceTv,
 	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconMovie,
-	IconPercentage,
 	IconPlayerPlay,
 	IconRotateClockwise,
 	IconStarFilled,
@@ -244,10 +236,6 @@ export default function Page() {
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
-	const [
-		progressModalOpened,
-		{ open: progressModalOpen, close: progressModalClose },
-	] = useDisclosure(false);
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
@@ -663,13 +651,6 @@ export default function Page() {
 						<Tabs.Panel value="actions">
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-									{loaderData.userMetadataDetails.inProgress ? (
-										<InProgressMetadataSeenUpdateModal
-											inProgress={loaderData.userMetadataDetails.inProgress}
-											onClose={progressModalClose}
-											opened={progressModalOpened}
-										/>
-									) : null}
 									<Menu shadow="md">
 										<Menu.Target>
 											<Button variant="outline">Update progress</Button>
@@ -757,7 +738,13 @@ export default function Page() {
 											{loaderData.userMetadataDetails?.inProgress ? (
 												<>
 													<Menu.Label>In progress</Menu.Label>
-													<Menu.Item onClick={progressModalOpen}>
+													<Menu.Item
+														onClick={() => {
+															setMetadataToUpdate({
+																metadataId: loaderData.metadataId,
+															});
+														}}
+													>
 														Set progress
 													</Menu.Item>
 													{loaderData.metadataDetails.lot !== MediaLot.Show &&
@@ -1160,138 +1147,6 @@ export default function Page() {
 		</>
 	);
 }
-
-type UserSeenHistory =
-	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
-
-const InProgressMetadataSeenUpdateModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	inProgress: UserSeenHistory[number];
-}) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const total =
-		loaderData.metadataDetails.audioBookSpecifics?.runtime ||
-		loaderData.metadataDetails.bookSpecifics?.pages ||
-		loaderData.metadataDetails.movieSpecifics?.runtime ||
-		loaderData.metadataDetails.mangaSpecifics?.chapters ||
-		loaderData.metadataDetails.animeSpecifics?.episodes ||
-		loaderData.metadataDetails.visualNovelSpecifics?.length;
-	const progress = Number(props.inProgress.progress);
-	const [value, setValue] = useState<number | undefined>(progress);
-
-	const [updateIcon, text] = match(loaderData.metadataDetails.lot)
-		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
-		.with(MediaLot.Anime, () => [
-			<IconDeviceTv size={24} key="element" />,
-			"Episodes",
-		])
-		.with(MediaLot.Manga, () => [
-			<IconBrandPagekit size={24} key="element" />,
-			"Chapters",
-		])
-		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
-			<IconClock size={24} key="element" />,
-			"Minutes",
-		])
-		.otherwise(() => [null, null]);
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-			size="sm"
-		>
-			<Form
-				action={withQuery($path("/actions"), {
-					intent: "individualProgressUpdate",
-				})}
-				method="post"
-				replace
-				onSubmit={() => {
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
-			>
-				<HiddenLocationInput />
-				<input
-					hidden
-					name="metadataId"
-					defaultValue={loaderData.metadataDetails.id}
-				/>
-				<input hidden name="progress" value={value} readOnly />
-				<input
-					hidden
-					name="date"
-					defaultValue={formatDateToNaiveDate(new Date())}
-				/>
-				<Stack>
-					<Title order={3}>Set progress</Title>
-					<Group>
-						<Slider
-							showLabelOnHover={false}
-							value={value}
-							onChange={setValue}
-							style={{ flexGrow: 1 }}
-						/>
-						<NumberInput
-							value={value}
-							onChange={(v) => {
-								if (v) setValue(Number(v));
-								else setValue(undefined);
-							}}
-							max={100}
-							min={0}
-							step={1}
-							w="20%"
-							hideControls
-							rightSection={<IconPercentage size={16} />}
-						/>
-					</Group>
-					{total ? (
-						<>
-							<Text ta="center" fw="bold">
-								OR
-							</Text>
-							<Flex align="center" gap="xs">
-								<NumberInput
-									defaultValue={((total || 1) * (value || 1)) / 100}
-									onChange={(v) => {
-										const value = (Number(v) / (total || 1)) * 100;
-										setValue(value);
-									}}
-									max={total}
-									min={0}
-									step={1}
-									hideControls
-									leftSection={updateIcon}
-								/>
-								<Text>{text}</Text>
-							</Flex>
-						</>
-					) : null}
-					<Select
-						data={userPreferences.general.watchProviders}
-						label={`Where did you ${getVerb(
-							Verb.Read,
-							loaderData.metadataDetails.lot,
-						)} it?`}
-						name="providerWatchedOn"
-						defaultValue={props.inProgress.providerWatchedOn}
-					/>
-					<Button variant="outline" type="submit" onClick={props.onClose}>
-						Update
-					</Button>
-					<Button variant="outline" color="red" onClick={props.onClose}>
-						Cancel
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
 
 const MetadataCreator = (props: {
 	name: string;
