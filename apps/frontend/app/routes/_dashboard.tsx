@@ -71,6 +71,7 @@ import {
 	Verb,
 	getLot,
 	getVerb,
+	queryClient,
 } from "~/lib/generals";
 import {
 	useMetadataDetails,
@@ -881,9 +882,12 @@ const MetadataInProgressUpdateForm = ({
 			})}
 			method="post"
 			replace
-			onSubmit={() => {
+			onSubmit={async () => {
 				closeMetadataProgressUpdateModal();
 				events.updateProgress(metadataDetails.title);
+				await queryClient.invalidateQueries({
+					queryKey: ["userMetadataDetails", metadataToUpdate.metadataId],
+				});
 			}}
 		>
 			<HiddenLocationInput />
