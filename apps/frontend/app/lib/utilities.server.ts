@@ -12,6 +12,7 @@ import {
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
+	type User,
 	UserCollectionsListDocument,
 	type UserPreferences,
 	UserPreferencesDocument,
@@ -58,22 +59,14 @@ export const getAuthorizationHeader = async (
 export const getIsAuthenticated = async (request: Request) => {
 	const cookie = await getAuthorizationCookie(request);
 	if (!cookie) return [false, null] as const;
-	try {
-		const { userDetails } = await serverGqlService.request(
-			UserDetailsDocument,
-			undefined,
-			await getAuthorizationHeader(request),
-		);
-		return [userDetails.__typename === "User", userDetails] as const;
-	} catch {
-		return [false, null] as const;
-	}
+	const value = getCookieValue(request, USER_DETAILS_COOKIE_NAME);
+	return [true, JSON.parse(value) as User] as const;
 };
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
 	const nextUrl = withoutHost(request.url);
-	if (!isAuthenticated || userDetails.__typename !== "User") {
+	if (!isAuthenticated) {
 		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
 			status: 302,
 			headers: combineHeaders(

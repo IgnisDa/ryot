@@ -160,7 +160,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		{ label: "Integrations", link: $path("/settings/integrations") },
 		{ label: "Notifications", link: $path("/settings/notifications") },
 		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
-		userDetails.__typename === "User" && userDetails.lot === UserLot.Admin
+		userDetails.lot === UserLot.Admin
 			? { label: "Users", link: $path("/settings/users") }
 			: undefined,
 	].filter((link) => link !== undefined);
