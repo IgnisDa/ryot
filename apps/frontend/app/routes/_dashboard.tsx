@@ -836,8 +836,8 @@ const NewProgressUpdateForm = ({
 };
 
 const MetadataInProgressUpdateForm = ({
-	metadataDetails,
 	inProgress,
+	metadataDetails,
 	metadataToUpdate,
 	closeMetadataProgressUpdateModal,
 }: {
@@ -848,6 +848,9 @@ const MetadataInProgressUpdateForm = ({
 }) => {
 	invariant(inProgress, "inProgress is required");
 	const userPreferences = useUserPreferences();
+	const { refetch: refetchUserMetadataDetails } = useUserMetadataDetails(
+		metadataToUpdate.metadataId,
+	);
 	const total =
 		metadataDetails.audioBookSpecifics?.runtime ||
 		metadataDetails.bookSpecifics?.pages ||
@@ -882,8 +885,10 @@ const MetadataInProgressUpdateForm = ({
 			method="post"
 			replace
 			onSubmit={() => {
-				closeMetadataProgressUpdateModal();
+				// DEV: Progress takes time to update, so we deploy a "job" to update the progress
+				setTimeout(refetchUserMetadataDetails, 2000);
 				events.updateProgress(metadataDetails.title);
+				closeMetadataProgressUpdateModal();
 			}}
 		>
 			<HiddenLocationInput />
@@ -902,6 +907,9 @@ const MetadataInProgressUpdateForm = ({
 				<Title order={3}>Set progress</Title>
 				<Group>
 					<Slider
+						max={100}
+						min={0}
+						step={1}
 						showLabelOnHover={false}
 						value={value}
 						onChange={setValue}
