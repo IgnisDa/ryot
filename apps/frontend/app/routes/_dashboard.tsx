@@ -222,10 +222,21 @@ export default function Layout() {
 	const theme = useMantineTheme();
 	const [opened, { toggle }] = useDisclosure(false);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 
 	return (
 		<>
-			<MetadataProgressUpdateModal />
+			<Modal
+				onClose={closeMetadataProgressUpdateModal}
+				opened={metadataToUpdate !== null}
+				withCloseButton={false}
+				centered
+			>
+				<MetadataProgressUpdateForm
+					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
+				/>
+			</Modal>
 			<AppShell
 				w="100%"
 				padding={0}
@@ -538,9 +549,12 @@ const WATCH_TIMES = [
 	"Custom Date",
 ] as const;
 
-const MetadataProgressUpdateModal = () => {
-	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
+const MetadataProgressUpdateForm = ({
+	closeMetadataProgressUpdateModal,
+}: {
+	closeMetadataProgressUpdateModal: () => void;
+}) => {
+	const [metadataToUpdate] = useMetadataProgressUpdate();
 
 	const { data: metadataDetails } = useMetadataDetails(
 		metadataToUpdate?.metadataId,
@@ -552,28 +566,19 @@ const MetadataProgressUpdateModal = () => {
 	if (!metadataDetails || !metadataToUpdate || !userMetadataDetails)
 		return null;
 
-	return (
-		<Modal
-			onClose={closeMetadataProgressUpdateModal}
-			opened={metadataToUpdate !== null}
-			withCloseButton={false}
-			centered
-		>
-			{userMetadataDetails.inProgress ? (
-				<MetadataInProgressUpdateForm
-					metadataDetails={metadataDetails}
-					metadataToUpdate={metadataToUpdate}
-					inProgress={userMetadataDetails.inProgress}
-					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
-				/>
-			) : (
-				<NewProgressUpdateForm
-					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
-					metadataDetails={metadataDetails}
-					metadataToUpdate={metadataToUpdate}
-				/>
-			)}
-		</Modal>
+	return userMetadataDetails.inProgress ? (
+		<MetadataInProgressUpdateForm
+			metadataDetails={metadataDetails}
+			metadataToUpdate={metadataToUpdate}
+			inProgress={userMetadataDetails.inProgress}
+			closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
+		/>
+	) : (
+		<NewProgressUpdateForm
+			closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
+			metadataDetails={metadataDetails}
+			metadataToUpdate={metadataToUpdate}
+		/>
 	);
 };
 
