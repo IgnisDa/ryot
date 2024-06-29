@@ -93,20 +93,11 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 	});
 };
 
-export const useCoreDetails = () => {
-	const { coreDetails } =
-		useRouteLoaderData<typeof loader>("routes/_dashboard");
-	return coreDetails;
+const useDashboardData = () => {
+	const loaderData = useRouteLoaderData<typeof loader>("routes/_dashboard");
+	return loaderData;
 };
 
-export const useUserPreferences = () => {
-	const { userPreferences } =
-		useRouteLoaderData<typeof loader>("routes/_dashboard");
-	return userPreferences;
-};
-
-export const useUserDetails = () => {
-	const { userDetails } =
-		useRouteLoaderData<typeof loader>("routes/_dashboard");
-	return userDetails;
-};
+export const useCoreDetails = () => useDashboardData().coreDetails;
+export const useUserPreferences = () => useDashboardData().userPreferences;
+export const useUserDetails = () => useDashboardData().userDetails;
