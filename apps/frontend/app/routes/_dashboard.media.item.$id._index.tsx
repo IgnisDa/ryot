@@ -822,6 +822,16 @@ export default function Page() {
 															loaderData.userMetadataDetails?.nextEntry
 																?.episode || undefined,
 													},
+													mangaExtraInformation: {
+														chapter:
+															loaderData.userMetadataDetails?.nextEntry
+																?.chapter || undefined,
+													},
+													animeExtraInformation: {
+														episode:
+															loaderData.userMetadataDetails?.nextEntry
+																?.episode || undefined,
+													},
 												},
 											});
 										}}
