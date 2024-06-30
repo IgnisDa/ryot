@@ -686,7 +686,7 @@ const MetadataInProgressUpdateForm = ({
 				defaultValue={formatDateToNaiveDate(new Date())}
 			/>
 			<Stack>
-				<Title order={3}>Set progress</Title>
+				<Title order={3}>Update progress</Title>
 				<Group>
 					<Slider
 						max={100}
@@ -793,6 +793,7 @@ const NewProgressUpdateForm = ({
 			))}
 			<HiddenLocationInput />
 			<Stack>
+				<Title order={3}>Set progress</Title>
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
 						<NumberInput
