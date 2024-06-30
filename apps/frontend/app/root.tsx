@@ -15,6 +15,7 @@ import {
 	type MetaFunction,
 	unstable_defineLoader,
 } from "@remix-run/node";
+import { Form } from "@remix-run/react";
 import {
 	Links,
 	Meta,
@@ -184,9 +185,13 @@ export function ErrorBoundary() {
 					</a>
 					.
 				</div>
-				<form action={$path("/actions", { intent: "logout" })} method="POST">
+				<Form
+					action={$path("/actions", { intent: "logout" })}
+					method="POST"
+					replace
+				>
 					<button type="submit">Logout</button>
-				</form>
+				</Form>
 				<Scripts />
 			</body>
 		</html>
