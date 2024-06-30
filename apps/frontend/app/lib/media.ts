@@ -4,6 +4,7 @@ export type UpdateProgressData = {
 	metadataId: string;
 	onlySeason?: boolean;
 	completeShow?: boolean;
+	determineNext?: boolean;
 	completePodcast?: boolean;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;

@@ -53,6 +53,7 @@ import {
 	getMetadataIcon,
 } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
+import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	getAuthorizationHeader,
 	getUserCollectionsList,
@@ -650,6 +651,7 @@ type InProgressItem =
 
 const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -663,7 +665,16 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 			entityLot={lm.entityLot}
 			noRatingLink
 		>
-			<Button variant="outline" size="compact-sm">
+			<Button
+				variant="outline"
+				size="compact-sm"
+				onClick={() => {
+					setMetadataToUpdate({
+						metadataId: lm.details.identifier,
+						determineNext: true,
+					});
+				}}
+			>
 				Update Progress
 			</Button>
 		</MediaItemWithoutUpdateModal>
