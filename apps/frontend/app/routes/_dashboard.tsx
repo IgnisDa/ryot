@@ -666,12 +666,11 @@ const MetadataInProgressUpdateForm = ({
 
 	return (
 		<Form
+			method="post"
+			onSubmit={onSubmit}
 			action={withQuery($path("/actions"), {
 				intent: "individualProgressUpdate",
 			})}
-			method="post"
-			replace
-			onSubmit={onSubmit}
 		>
 			<HiddenLocationInput />
 			<input
@@ -776,7 +775,6 @@ const NewProgressUpdateForm = ({
 
 	return (
 		<Form
-			replace
 			method="post"
 			onSubmit={onSubmit}
 			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
