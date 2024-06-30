@@ -1365,16 +1365,16 @@ const SeenItem = (props: { history: History; index: number }) => {
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
 		: null;
-	const displayAnimeExtraInformation = props.history.animeExtraInformation
-		?.episode
-		? `EP-${props.history.animeExtraInformation?.episode}`
-		: null;
-	const displayMangaExtraInformation = props.history.mangaExtraInformation
-		?.chapter
-		? `CH-${props.history.mangaExtraInformation.chapter}`
-		: props.history.mangaExtraInformation?.volume
-			? `VOL-${props.history.mangaExtraInformation.volume}`
+	const displayAnimeExtraInformation =
+		typeof props.history.animeExtraInformation?.episode === "number"
+			? `EP-${props.history.animeExtraInformation.episode}`
 			: null;
+	const displayMangaExtraInformation =
+		typeof props.history.mangaExtraInformation?.chapter === "number"
+			? `CH-${props.history.mangaExtraInformation.chapter}`
+			: typeof props.history.mangaExtraInformation?.volume === "number"
+				? `VOL-${props.history.mangaExtraInformation.volume}`
+				: null;
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const displayAllInformation = [
