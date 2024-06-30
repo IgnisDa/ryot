@@ -917,7 +917,7 @@ export default function Page() {
 							{loaderData.userMetadataDetails.seenByAllCount > 0 ||
 							loaderData.userMetadataDetails.seenByUserCount > 0 ||
 							loaderData.userMetadataDetails.unitsConsumed ? (
-								<Stack h={MEDIA_DETAILS_HEIGHT}>
+								<Stack h={MEDIA_DETAILS_HEIGHT} gap="xs">
 									<Box>
 										<Text fz={{ base: "sm", md: "md" }}>
 											Seen by all users{" "}
@@ -967,8 +967,12 @@ export default function Page() {
 									</Box>
 									<Virtuoso
 										data={loaderData.userMetadataDetails.history}
-										itemContent={(_, history) => (
-											<SeenItem history={history} key={history.id} />
+										itemContent={(index, history) => (
+											<SeenItem
+												history={history}
+												key={history.id}
+												index={index}
+											/>
 										)}
 									/>
 								</Stack>
@@ -1341,7 +1345,7 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
-const SeenItem = (props: { history: History }) => {
+const SeenItem = (props: { history: History; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
@@ -1395,7 +1399,8 @@ const SeenItem = (props: { history: History }) => {
 	return (
 		<>
 			<Flex
-				my="sm"
+				mb="sm"
+				mt={props.index === 0 ? undefined : "sm"}
 				key={props.history.id}
 				gap={{ base: "xs", md: "lg", xl: "xl" }}
 				data-seen-id={props.history.id}
