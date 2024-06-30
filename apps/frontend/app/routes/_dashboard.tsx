@@ -61,7 +61,6 @@ import {
 import { produce } from "immer";
 import { useEffect, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
@@ -72,6 +71,7 @@ import {
 	Verb,
 	getLot,
 	getVerb,
+	queryClient,
 } from "~/lib/generals";
 import {
 	useMetadataDetails,
@@ -560,10 +560,11 @@ const MetadataProgressUpdateForm = ({
 	const { data: metadataDetails } = useMetadataDetails(
 		metadataToUpdate?.metadataId,
 	);
-	const { data: userMetadataDetails, refetch: refetchUserMetadataDetails } =
-		useUserMetadataDetails(metadataToUpdate?.metadataId);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		metadataToUpdate?.metadataId,
+	);
 
-	const [isLoading, setIsLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
 		if (metadataToUpdate?.determineNext && metadataDetails) {
@@ -600,8 +601,9 @@ const MetadataProgressUpdateForm = ({
 		);
 
 	const onSubmit = () => {
-		// DEV: Progress takes time to update, so we deploy a "job" to refetch it
-		setTimeout(refetchUserMetadataDetails, 2000);
+		queryClient.removeQueries({
+			queryKey: ["userMetadataDetails", metadataToUpdate.metadataId],
+		});
 		events.updateProgress(metadataDetails.title);
 		closeMetadataProgressUpdateModal();
 	};
@@ -631,9 +633,10 @@ const MetadataInProgressUpdateForm = ({
 	onSubmit: () => void;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
-	inProgress: UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
+	inProgress: NonNullable<
+		UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"]
+	>;
 }) => {
-	invariant(inProgress, "inProgress is required");
 	const userPreferences = useUserPreferences();
 	const total =
 		metadataDetails.audioBookSpecifics?.runtime ||
