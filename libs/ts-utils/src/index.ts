@@ -7,9 +7,10 @@ import {
 } from "humanize-duration-ts";
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";
-import isEqual from "lodash/isEqual";
 import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
+import isEqual from "lodash/isEqual";
+import isNumber from "lodash/isNumber";
 import omitBy from "lodash/omitBy";
 import set from "lodash/set";
 import snakeCase from "lodash/snakeCase";
@@ -98,12 +99,13 @@ export const randomString = (length: number) => {
 };
 
 export {
-	cloneDeep,
 	camelCase,
+	cloneDeep,
 	groupBy,
-	isEqual,
-	omitBy,
 	isEmpty,
+	isEqual,
+	isNumber,
+	omitBy,
 	set,
 	snakeCase,
 	startCase,
