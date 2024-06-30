@@ -71,13 +71,13 @@ import { Verb, getLot, getVerb } from "~/lib/generals";
 import {
 	useCoreDetails,
 	useSearchParam,
+	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	getAuthorizationHeader,
-	getUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -114,13 +114,12 @@ const metadataMapping = {
 };
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const [{ latestUserSummary }, userCollectionsList] = await Promise.all([
+	const [{ latestUserSummary }] = await Promise.all([
 		serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
 			getAuthorizationHeader(request),
 		),
-		getUserCollectionsList(request),
 	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
@@ -197,7 +196,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		numPage,
 		mediaList,
 		mediaSearch,
-		collections: userCollectionsList,
 		url: withoutHost(url.href),
 		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
 	};
@@ -217,6 +215,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
+	const collections = useUserCollections();
 	const [_, { setP }] = useSearchParam();
 	const [
 		filtersModalOpened,
@@ -353,14 +352,14 @@ export default function Page() {
 											)}
 										</ActionIcon>
 									</Flex>
-									{loaderData.collections.length > 0 ? (
+									{collections.length > 0 ? (
 										<Select
 											placeholder="Select a collection"
 											defaultValue={loaderData.mediaList.url.collection?.toString()}
 											data={[
 												{
 													group: "My collections",
-													items: loaderData.collections.map((c) => ({
+													items: collections.map((c) => ({
 														value: c.id.toString(),
 														label: c.name,
 													})),
@@ -505,7 +504,6 @@ const MediaSearchItem = (props: {
 	maybeItemId?: string;
 }) => {
 	const navigate = useNavigate();
-	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
@@ -576,7 +574,6 @@ const MediaSearchItem = (props: {
 							onClose={closeIsAddMediaToCollectionModalOpened}
 							entityId={appItemId.toString()}
 							entityLot={EntityLot.Media}
-							collections={loaderData.collections}
 						/>
 					) : null}
 				</>

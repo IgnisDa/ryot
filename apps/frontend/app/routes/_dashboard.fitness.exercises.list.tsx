@@ -54,10 +54,13 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { dayjsLib } from "~/lib/generals";
-import { useCoreDetails, useSearchParam } from "~/lib/hooks";
+import {
+	useCoreDetails,
+	useSearchParam,
+	useUserCollections,
+} from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
@@ -94,34 +97,32 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [{ exerciseParameters }, { exercisesList }, userCollectionsList] =
-		await Promise.all([
-			serverGqlService.request(ExerciseParametersDocument, {}),
-			serverGqlService.request(
-				ExercisesListDocument,
-				{
-					input: {
-						search: {
-							page: query.page,
-							query: query.query,
-						},
-						filter: {
-							equipment: query.equipment,
-							force: query.force,
-							level: query.level,
-							mechanic: query.mechanic,
-							muscle: query.muscle,
-							type: query.type,
-							collection: query.collection,
-						},
-						sortBy: query.sortBy,
+	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
+		serverGqlService.request(ExerciseParametersDocument, {}),
+		serverGqlService.request(
+			ExercisesListDocument,
+			{
+				input: {
+					search: {
+						page: query.page,
+						query: query.query,
 					},
+					filter: {
+						equipment: query.equipment,
+						force: query.force,
+						level: query.level,
+						mechanic: query.mechanic,
+						muscle: query.muscle,
+						type: query.type,
+						collection: query.collection,
+					},
+					sortBy: query.sortBy,
 				},
-				getAuthorizationHeader(request),
-			),
-			getUserCollectionsList(request),
-		]);
-	return { userCollectionsList, query, exerciseParameters, exercisesList };
+			},
+			getAuthorizationHeader(request),
+		),
+	]);
+	return { query, exerciseParameters, exercisesList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -131,6 +132,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
+	const collections = useUserCollections();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
 	const [selectedExercises, setSelectedExercises] = useListState<{
@@ -249,14 +251,14 @@ export default function Page() {
 													onChange={(v) => setP(f, v)}
 												/>
 											))}
-										{loaderData.userCollectionsList.length > 0 ? (
+										{collections.length > 0 ? (
 											<Select
 												label="Collection"
 												defaultValue={loaderData.query.collection?.toString()}
 												data={[
 													{
 														group: "My collections",
-														items: loaderData.userCollectionsList.map((c) => ({
+														items: collections.map((c) => ({
 															value: c.id.toString(),
 															label: c.name,
 														})),

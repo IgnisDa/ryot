@@ -36,7 +36,7 @@ import { match } from "ts-pattern";
 import { withFragment, withoutHost } from "ufo";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import { useSearchParam, useUserCollections } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -148,11 +148,11 @@ export const AddEntityToCollectionModal = (props: {
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
-	collections: Array<Collection>;
 }) => {
 	const transition = useNavigation();
+	const collections = useUserCollections();
 	const selectData = Object.entries(
-		groupBy(props.collections, (c) =>
+		groupBy(collections, (c) =>
 			c.creator.id === props.userId ? "You" : c.creator.name,
 		),
 	).map(([g, items]) => ({
@@ -191,7 +191,7 @@ export const AddEntityToCollectionModal = (props: {
 						value={selectedCollection?.id.toString()}
 						onChange={(v) => {
 							if (v) {
-								const collection = props.collections.find((c) => c.id === v);
+								const collection = collections.find((c) => c.id === v);
 								if (collection) setSelectedCollection(collection);
 							}
 						}}

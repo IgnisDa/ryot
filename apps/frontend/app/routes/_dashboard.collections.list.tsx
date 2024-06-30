@@ -16,13 +16,12 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import { unstable_defineAction } from "@remix-run/node";
 import {
 	Form,
 	Link,
 	type MetaArgs_SingleFetch,
 	useFetcher,
-	useLoaderData,
 	useNavigation,
 } from "@remix-run/react";
 import {
@@ -42,28 +41,26 @@ import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { useUserDetails } from "~/lib/hooks";
+import { queryClient } from "~/lib/generals";
+import { useUserCollections, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserCollectionsList,
 	processSubmission,
+	redirectIfNotAuthenticatedOrUpdated,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
-	const [userCollectionsList] = await Promise.all([
-		getUserCollectionsList(request),
-	]);
-	return { collections: userCollectionsList };
-});
-
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs_SingleFetch) => {
 	return [{ title: "Your collections | Ryot" }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	queryClient.removeQueries({
+		queryKey: ["userCollectionsList", userDetails.id],
+	});
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
@@ -144,10 +141,8 @@ type UpdateCollectionInput = {
 
 export default function Page() {
 	const transition = useNavigation();
-	const loaderData = useLoaderData<typeof loader>();
-	const userCreatedCollections = loaderData.collections.filter(
-		(c) => !c.isDefault,
-	);
+	const collections = useUserCollections();
+	const userCreatedCollections = collections.filter((c) => !c.isDefault);
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
@@ -212,7 +207,7 @@ export default function Page() {
 						</Tabs.Panel>
 						<Tabs.Panel value="systemCreated">
 							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								{loaderData.collections
+								{collections
 									.filter((c) => c.isDefault)
 									.map((c) => (
 										<DisplayCollection

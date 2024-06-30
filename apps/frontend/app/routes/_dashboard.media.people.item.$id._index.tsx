@@ -55,7 +55,6 @@ import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserCollectionsList,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -70,17 +69,15 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const personId = params.id;
 	invariant(personId, "No ID provided");
-	const [{ personDetails }, { userPersonDetails }, collections] =
-		await Promise.all([
-			serverGqlService.request(PersonDetailsDocument, { personId }),
-			serverGqlService.request(
-				UserPersonDetailsDocument,
-				{ personId },
-				getAuthorizationHeader(request),
-			),
-			getUserCollectionsList(request),
-		]);
-	return { query, personId, collections, userPersonDetails, personDetails };
+	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
+		serverGqlService.request(PersonDetailsDocument, { personId }),
+		serverGqlService.request(
+			UserPersonDetailsDocument,
+			{ personId },
+			getAuthorizationHeader(request),
+		),
+	]);
+	return { query, personId, userPersonDetails, personDetails };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -319,7 +316,6 @@ export default function Page() {
 										opened={collectionModalOpened}
 										entityId={loaderData.personId.toString()}
 										entityLot={EntityLot.Person}
-										collections={loaderData.collections}
 									/>
 								</SimpleGrid>
 							</MediaScrollArea>

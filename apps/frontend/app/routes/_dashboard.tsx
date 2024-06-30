@@ -35,7 +35,6 @@ import {
 	type CoreDetails,
 	MediaLot,
 	type MetadataDetailsQuery,
-	UserCollectionsListDocument,
 	UserLot,
 	type UserMetadataDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -86,11 +85,10 @@ import {
 } from "~/lib/media";
 import {
 	serverVariables as envData,
-	getAuthorizationHeader,
 	getCookieValue,
+	getUserCollectionsList,
 	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
-	serverGqlService,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
@@ -99,18 +97,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections] = await Promise.all([
 		getUserPreferences(request),
-		queryClient.ensureQueryData({
-			queryKey: ["userCollections", userDetails.id],
-			queryFn: () =>
-				serverGqlService
-					.request(
-						UserCollectionsListDocument,
-						{},
-						getAuthorizationHeader(request),
-					)
-					.then((data) => data.userCollectionsList),
-			staleTime: Number.POSITIVE_INFINITY,
-		}),
+		getUserCollectionsList(request),
 	]);
 	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
 	const coreDetails = JSON.parse(details) as CoreDetails;

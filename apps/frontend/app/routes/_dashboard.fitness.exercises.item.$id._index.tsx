@@ -59,7 +59,6 @@ import { dayjsLib, getSetColor } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
@@ -75,23 +74,15 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const exerciseId = params.id;
 	invariant(typeof exerciseId === "string", "id must be a string");
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [{ exerciseDetails }, { userExerciseDetails }, collections] =
-		await Promise.all([
-			serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-			serverGqlService.request(
-				UserExerciseDetailsDocument,
-				{ input: { exerciseId } },
-				getAuthorizationHeader(request),
-			),
-			getUserCollectionsList(request),
-		]);
-	return {
-		query,
-		exerciseDetails,
-		userExerciseDetails,
-		exerciseId,
-		collections,
-	};
+	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
+		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+		serverGqlService.request(
+			UserExerciseDetailsDocument,
+			{ input: { exerciseId } },
+			getAuthorizationHeader(request),
+		),
+	]);
+	return { query, exerciseDetails, userExerciseDetails, exerciseId };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -121,7 +112,6 @@ export default function Page() {
 				opened={collectionModalOpened}
 				entityId={loaderData.exerciseDetails.id}
 				entityLot={EntityLot.Exercise}
-				collections={loaderData.collections}
 			/>
 			<Container size="xs" px="lg">
 				<Stack>

@@ -45,7 +45,6 @@ import {
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
-	getUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -59,7 +58,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataGroupId = params.id;
 	invariant(metadataGroupId, "No ID provided");
-	const [{ metadataGroupDetails }, { userMetadataGroupDetails }, collections] =
+	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
 		await Promise.all([
 			serverGqlService.request(MetadataGroupDetailsDocument, {
 				metadataGroupId,
@@ -69,11 +68,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				{ metadataGroupId },
 				getAuthorizationHeader(request),
 			),
-			getUserCollectionsList(request),
 		]);
 	return {
 		query,
-		collections,
 		metadataGroupId,
 		metadataGroupDetails,
 		userMetadataGroupDetails,
@@ -190,7 +187,6 @@ export default function Page() {
 										opened={collectionModalOpened}
 										entityId={loaderData.metadataGroupId.toString()}
 										entityLot={EntityLot.MediaGroup}
-										collections={loaderData.collections}
 									/>
 									<Menu shadow="md">
 										<Menu.Target>

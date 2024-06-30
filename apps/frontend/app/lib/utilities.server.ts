@@ -28,6 +28,7 @@ import {
 	CORE_DETAILS_COOKIE_NAME,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
+	queryClient,
 	redirectToQueryParam,
 } from "~/lib/generals";
 
@@ -62,8 +63,8 @@ export const getIsAuthenticated = (request: Request) => {
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const [isAuthenticated, userDetails] = getIsAuthenticated(request);
-	const nextUrl = withoutHost(request.url);
 	if (!isAuthenticated) {
+		const nextUrl = withoutHost(request.url);
 		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
 			status: 302,
 			headers: combineHeaders(
@@ -134,12 +135,19 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 };
 
 export const getUserCollectionsList = async (request: Request) => {
-	const { userCollectionsList } = await serverGqlService.request(
-		UserCollectionsListDocument,
-		{},
-		getAuthorizationHeader(request),
-	);
-	return userCollectionsList;
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	return queryClient.ensureQueryData({
+		queryKey: ["userCollections", userDetails.id],
+		queryFn: () =>
+			serverGqlService
+				.request(
+					UserCollectionsListDocument,
+					{},
+					getAuthorizationHeader(request),
+				)
+				.then((data) => data.userCollectionsList),
+		staleTime: Number.POSITIVE_INFINITY,
+	});
 };
 
 export const uploadFileAndGetKey = async (

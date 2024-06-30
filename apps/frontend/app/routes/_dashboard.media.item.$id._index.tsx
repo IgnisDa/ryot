@@ -104,7 +104,6 @@ import {
 	MetadataIdSchema,
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserCollectionsList,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -128,23 +127,15 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataId = params.id;
 	invariant(metadataId, "No ID provided");
-	const [{ metadataDetails }, collections, { userMetadataDetails }] =
-		await Promise.all([
-			serverGqlService.request(MetadataDetailsDocument, { metadataId }),
-			getUserCollectionsList(request),
-			serverGqlService.request(
-				UserMetadataDetailsDocument,
-				{ metadataId },
-				getAuthorizationHeader(request),
-			),
-		]);
-	return {
-		query,
-		metadataId,
-		metadataDetails,
-		collections,
-		userMetadataDetails,
-	};
+	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
+		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
+		serverGqlService.request(
+			UserMetadataDetailsDocument,
+			{ metadataId },
+			getAuthorizationHeader(request),
+		),
+	]);
+	return { query, metadataId, metadataDetails, userMetadataDetails };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -865,7 +856,6 @@ export default function Page() {
 											opened={collectionModalOpened}
 											entityId={loaderData.metadataId.toString()}
 											entityLot={EntityLot.Media}
-											collections={loaderData.collections}
 										/>
 									</>
 									<Menu shadow="md">
