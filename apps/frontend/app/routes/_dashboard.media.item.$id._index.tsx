@@ -827,19 +827,21 @@ export default function Page() {
 													entityLot: EntityLot.Metadata,
 													entityTitle: loaderData.metadataDetails.title,
 													metadataLot: loaderData.metadataDetails.lot,
-													showSeasonNumber:
-														loaderData.userMetadataDetails?.nextEntry?.season ??
-														undefined,
-													showEpisodeNumber:
-														loaderData.metadataDetails.lot === MediaLot.Show
-															? loaderData.userMetadataDetails?.nextEntry
-																	?.episode ?? undefined
-															: null,
-													podcastEpisodeNumber:
-														loaderData.metadataDetails.lot === MediaLot.Podcast
-															? loaderData.userMetadataDetails?.nextEntry
-																	?.episode ?? undefined
-															: null,
+													existingReview: {
+														showExtraInformation: {
+															episode:
+																loaderData.userMetadataDetails?.nextEntry
+																	?.episode || undefined,
+															season:
+																loaderData.userMetadataDetails?.nextEntry
+																	?.season || undefined,
+														},
+														podcastExtraInformation: {
+															episode:
+																loaderData.userMetadataDetails?.nextEntry
+																	?.episode || undefined,
+														},
+													},
 												});
 											}}
 										>

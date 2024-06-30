@@ -186,17 +186,6 @@ export const ReviewItemDisplay = (props: {
 										entityTitle: props.title,
 										metadataLot: props.lot,
 										existingReview: props.review,
-										showSeasonNumber: props.review.showExtraInformation?.season,
-										showEpisodeNumber:
-											props.review.showExtraInformation?.episode,
-										podcastEpisodeNumber:
-											props.review.podcastExtraInformation?.episode,
-										animeEpisodeNumber:
-											props.review.animeExtraInformation?.episode,
-										mangaChapterNumber:
-											props.review.mangaExtraInformation?.chapter,
-										mangaVolumeNumber:
-											props.review.mangaExtraInformation?.volume,
 									});
 								}}
 							>

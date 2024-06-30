@@ -64,12 +64,6 @@ export type ReviewEntityData = {
 	entityLot: EntityLot;
 	entityTitle: string;
 	metadataLot?: MediaLot;
-	showSeasonNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: number | null;
-	mangaVolumeNumber?: number | null;
-	podcastEpisodeNumber?: number | null;
 	existingReview?: DeepPartial<ReviewItem>;
 };
 

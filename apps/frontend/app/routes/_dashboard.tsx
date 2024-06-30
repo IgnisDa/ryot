@@ -1081,10 +1081,8 @@ const ReviewEntityForm = ({
 							defaultValue={
 								typeof entityToReview.existingReview?.showExtraInformation
 									?.season === "number"
-									? entityToReview.existingReview.showExtraInformation?.season
-									: typeof entityToReview.showSeasonNumber === "number"
-										? entityToReview.showSeasonNumber
-										: undefined
+									? entityToReview.existingReview.showExtraInformation.season
+									: undefined
 							}
 						/>
 						<NumberInput
@@ -1092,9 +1090,10 @@ const ReviewEntityForm = ({
 							name="showEpisodeNumber"
 							hideControls
 							defaultValue={
-								entityToReview.existingReview?.showExtraInformation?.episode
-									? entityToReview.existingReview.showExtraInformation?.episode
-									: entityToReview.showEpisodeNumber || undefined
+								typeof entityToReview.existingReview?.showExtraInformation
+									?.episode === "number"
+									? entityToReview.existingReview.showExtraInformation.episode
+									: undefined
 							}
 						/>
 					</Flex>
@@ -1105,9 +1104,10 @@ const ReviewEntityForm = ({
 						name="podcastEpisodeNumber"
 						hideControls
 						defaultValue={
-							entityToReview.existingReview?.podcastExtraInformation?.episode
-								? entityToReview.existingReview.podcastExtraInformation?.episode
-								: entityToReview.podcastEpisodeNumber || undefined
+							typeof entityToReview.existingReview?.podcastExtraInformation
+								?.episode === "number"
+								? entityToReview.existingReview.podcastExtraInformation.episode
+								: undefined
 						}
 					/>
 				) : null}
@@ -1117,9 +1117,10 @@ const ReviewEntityForm = ({
 						name="animeEpisodeNumber"
 						hideControls
 						defaultValue={
-							entityToReview.existingReview?.animeExtraInformation?.episode
-								? entityToReview.existingReview.animeExtraInformation?.episode
-								: entityToReview.animeEpisodeNumber || undefined
+							typeof entityToReview.existingReview?.animeExtraInformation
+								?.episode === "number"
+								? entityToReview.existingReview.animeExtraInformation.episode
+								: undefined
 						}
 					/>
 				) : null}
@@ -1131,10 +1132,11 @@ const ReviewEntityForm = ({
 								name="mangaChapterNumber"
 								hideControls
 								defaultValue={
-									entityToReview.existingReview?.mangaExtraInformation?.chapter
+									typeof entityToReview.existingReview?.mangaExtraInformation
+										?.chapter === "number"
 										? entityToReview.existingReview.mangaExtraInformation
-												?.chapter
-										: entityToReview.mangaChapterNumber || undefined
+												.chapter
+										: undefined
 								}
 							/>
 							<Text ta="center" fw="bold" mt="sm">
@@ -1145,10 +1147,10 @@ const ReviewEntityForm = ({
 								name="mangaVolumeNumber"
 								hideControls
 								defaultValue={
-									entityToReview.existingReview?.mangaExtraInformation?.volume
-										? entityToReview.existingReview.mangaExtraInformation
-												?.volume
-										: entityToReview.mangaVolumeNumber || undefined
+									typeof entityToReview.existingReview?.mangaExtraInformation
+										?.volume === "number"
+										? entityToReview.existingReview.mangaExtraInformation.volume
+										: undefined
 								}
 							/>
 						</Group>
