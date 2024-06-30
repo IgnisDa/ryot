@@ -3,6 +3,7 @@ import {
 	Alert,
 	Anchor,
 	Box,
+	Button,
 	Center,
 	Container,
 	Flex,
@@ -649,6 +650,7 @@ type InProgressItem =
 
 const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 	const loaderData = useLoaderData<typeof loader>();
+
 	return (
 		<MediaItemWithoutUpdateModal
 			key={lm.details.identifier}
@@ -660,6 +662,10 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 			lot={lm.metadataLot}
 			entityLot={lm.entityLot}
 			noRatingLink
-		/>
+		>
+			<Button variant="outline" size="compact-sm">
+				Update Progress
+			</Button>
+		</MediaItemWithoutUpdateModal>
 	);
 };
