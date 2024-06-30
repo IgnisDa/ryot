@@ -620,6 +620,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 }) => {
 	const navigate = useNavigate();
 	const id = props.item.identifier;
+	const averageRating = props.averageRating;
 
 	return (
 		<BaseDisplayItem
@@ -656,38 +657,43 @@ export const MediaItemWithoutUpdateModal = (props: {
 			}
 			mediaReason={props.mediaReason}
 			topRight={
-				props.averageRating ? (
+				props.noRatingLink ? undefined : (
 					<Box style={blackBgStyles}>
 						<Flex align="center" gap={4}>
-							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
-							<Text c="white" size="xs" fw="bold" pr={4}>
-								{match(props.reviewScale)
-									.with(UserReviewScale.OutOfFive, () =>
-										// biome-ignore lint/style/noNonNullAssertion: it is validated above
-										Number.parseFloat(props.averageRating!.toString()).toFixed(
-											1,
-										),
-									)
-									.with(UserReviewScale.OutOfHundred, () => props.averageRating)
-									.exhaustive()}{" "}
-								{props.reviewScale === UserReviewScale.OutOfFive
-									? undefined
-									: "%"}
-							</Text>
-						</Flex>
-					</Box>
-				) : props.noRatingLink ? undefined : (
-					<Box
-						style={blackBgStyles}
-						onClick={(e) => {
-							e.preventDefault();
-							navigate(
-								$path("/media/item/:id", { id }, { openReviewModal: true }),
-							);
-						}}
-					>
-						<Flex align="center" gap={4}>
-							<IconStarFilled size={16} className={classes.starIcon} />
+							{averageRating ? (
+								<>
+									<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
+									<Text c="white" size="xs" fw="bold" pr={4}>
+										{match(props.reviewScale)
+											.with(UserReviewScale.OutOfFive, () =>
+												Number.parseFloat(averageRating.toString()).toFixed(1),
+											)
+											.with(
+												UserReviewScale.OutOfHundred,
+												() => props.averageRating,
+											)
+											.exhaustive()}{" "}
+										{props.reviewScale === UserReviewScale.OutOfFive
+											? undefined
+											: "%"}
+									</Text>
+								</>
+							) : (
+								<IconStarFilled
+									onClick={(e) => {
+										e.preventDefault();
+										navigate(
+											$path(
+												"/media/item/:id",
+												{ id },
+												{ openReviewModal: true },
+											),
+										);
+									}}
+									size={16}
+									className={classes.starIcon}
+								/>
+							)}
 						</Flex>
 					</Box>
 				)
