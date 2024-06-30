@@ -155,7 +155,10 @@ export default function Page() {
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
-								<Section lot={DashboardElementLot.Upcoming}>
+								<Section
+									key={DashboardElementLot.Upcoming}
+									lot={DashboardElementLot.Upcoming}
+								>
 									<Title>Upcoming</Title>
 									<ApplicationGrid>
 										{loaderData.userUpcomingCalendarEvents.map((um) => (
@@ -168,7 +171,10 @@ export default function Page() {
 						.with([DashboardElementLot.InProgress, false], () =>
 							loaderData.inProgressCollectionContents.results.items.length >
 							0 ? (
-								<Section lot={DashboardElementLot.InProgress}>
+								<Section
+									key={DashboardElementLot.InProgress}
+									lot={DashboardElementLot.InProgress}
+								>
 									<Title>In Progress</Title>
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
@@ -181,7 +187,10 @@ export default function Page() {
 							) : null,
 						)
 						.with([DashboardElementLot.Summary, false], () => (
-							<Section lot={DashboardElementLot.Summary}>
+							<Section
+								key={DashboardElementLot.Summary}
+								lot={DashboardElementLot.Summary}
+							>
 								<Title>Summary</Title>
 								<Text size="xs" mt={-15}>
 									Calculated{" "}
