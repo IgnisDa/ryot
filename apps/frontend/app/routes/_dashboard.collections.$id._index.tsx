@@ -51,7 +51,6 @@ import { dayjsLib } from "~/lib/generals";
 import {
 	useCoreDetails,
 	useSearchParam,
-	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/media";
@@ -119,7 +118,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const userDetails = useUserDetails();
 	const navigate = useNavigate();
 	const [_, { setP }] = useSearchParam();
 	const [_r, setEntityToReview] = useReviewEntity();
@@ -316,8 +314,6 @@ export default function Page() {
 											review={r}
 											key={r.id}
 											entityId={loaderData.id}
-											reviewScale={userPreferences.general.reviewScale}
-											user={userDetails}
 											entityLot={EntityLot.Collection}
 										/>
 									))}

@@ -320,11 +320,9 @@ export default function Page() {
 												<ReviewItemDisplay
 													review={r}
 													key={r.id}
+													entityLot={EntityLot.Person}
 													entityId={loaderData.personId}
 													title={loaderData.personDetails.details.name}
-													user={userDetails}
-													reviewScale={userPreferences.general.reviewScale}
-													entityLot={EntityLot.Person}
 												/>
 											))}
 										</Stack>

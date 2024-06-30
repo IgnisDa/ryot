@@ -40,7 +40,6 @@ import {
 	type MediaSource,
 	type PartialMetadata,
 	type ReviewItem,
-	type User,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -69,7 +68,11 @@ import {
 	getFallbackImageUrl,
 	redirectToQueryParam,
 } from "~/lib/generals";
-import { useGetMantineColor } from "~/lib/hooks";
+import {
+	useGetMantineColor,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -143,12 +146,13 @@ export const MediaScrollArea = (props: { children: ReactNode }) => {
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	entityLot: EntityLot;
-	user: User;
-	reviewScale: UserReviewScale;
 	title: string;
 	entityId: string;
 	lot?: MediaLot;
 }) => {
+	const userDetails = useUserDetails();
+	const userPreferences = useUserPreferences();
+	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
@@ -168,7 +172,7 @@ export const ReviewItemDisplay = (props: {
 						<Text>{props.review.postedBy?.name}</Text>
 						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 					</Box>
-					{props.user && props.user.id === props.review.postedBy?.id ? (
+					{userDetails.id === props.review.postedBy?.id ? (
 						<>
 							<ActionIcon
 								onClick={() => {
@@ -246,9 +250,7 @@ export const ReviewItemDisplay = (props: {
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
 								{props.review.rating}
-								{props.reviewScale === UserReviewScale.OutOfFive
-									? undefined
-									: "%"}
+								{reviewScale === UserReviewScale.OutOfFive ? undefined : "%"}
 							</Text>
 						</Flex>
 					) : null}
@@ -326,7 +328,7 @@ export const ReviewItemDisplay = (props: {
 															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
 														) : null}
 													</Box>
-													{props.user.id === c?.user?.id ? (
+													{userDetails.id === c?.user?.id ? (
 														<Form
 															action="/actions?intent=createReviewComment"
 															method="post"
@@ -383,7 +385,7 @@ export const ReviewItemDisplay = (props: {
 															hidden
 															name="incrementLikes"
 															value={String(
-																!c?.likedBy?.includes(props.user.id),
+																!c?.likedBy?.includes(userDetails.id),
 															)}
 															readOnly
 														/>
@@ -391,7 +393,7 @@ export const ReviewItemDisplay = (props: {
 															hidden
 															name="decrementLikes"
 															value={String(
-																c?.likedBy?.includes(props.user.id),
+																c?.likedBy?.includes(userDetails.id),
 															)}
 															readOnly
 														/>

@@ -208,8 +208,6 @@ export default function Page() {
 													review={r}
 													key={r.id}
 													entityId={loaderData.metadataGroupId}
-													reviewScale={userPreferences.general.reviewScale}
-													user={userDetails}
 													title={loaderData.metadataGroupDetails.details.title}
 													entityLot={EntityLot.MetadataGroup}
 												/>

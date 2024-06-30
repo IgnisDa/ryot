@@ -1031,14 +1031,12 @@ export default function Page() {
 										<Stack>
 											{loaderData.userMetadataDetails.reviews.map((r) => (
 												<ReviewItemDisplay
-													entityLot={EntityLot.Metadata}
 													review={r}
 													key={r.id}
+													entityLot={EntityLot.Metadata}
 													entityId={loaderData.metadataId}
-													reviewScale={userPreferences.general.reviewScale}
-													user={userDetails}
-													title={loaderData.metadataDetails.title}
 													lot={loaderData.metadataDetails.lot}
+													title={loaderData.metadataDetails.title}
 												/>
 											))}
 										</Stack>
