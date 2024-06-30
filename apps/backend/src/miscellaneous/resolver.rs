@@ -623,11 +623,12 @@ struct UserMetadataDetails {
     podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
 }
 
-#[derive(SimpleObject, Debug, Clone)]
+#[derive(Eq, PartialEq, Default, SimpleObject, Debug, Clone)]
 struct UserMediaNextEntry {
     season: Option<i32>,
     episode: Option<i32>,
     chapter: Option<i32>,
+    volume: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1747,7 +1748,7 @@ impl MiscellaneousService {
                         e.iter().map(move |e| UserMediaNextEntry {
                             season: Some(s),
                             episode: Some(e.episode_number),
-                            chapter: None,
+                            ..Default::default()
                         })
                     })
                     .collect_vec();
@@ -1761,9 +1762,8 @@ impl MiscellaneousService {
                     .episodes
                     .iter()
                     .map(|e| UserMediaNextEntry {
-                        season: None,
                         episode: Some(e.number),
-                        chapter: None,
+                        ..Default::default()
                     })
                     .collect_vec();
                 let next = all_episodes.iter().position(|e| {
@@ -1774,22 +1774,28 @@ impl MiscellaneousService {
                 anime_spec.episodes.and_then(|_| {
                     h.anime_extra_information.as_ref().and_then(|hist| {
                         hist.episode.map(|e| UserMediaNextEntry {
-                            season: None,
                             episode: Some(e + 1),
-                            chapter: None,
+                            ..Default::default()
                         })
                     })
                 })
             } else if let Some(manga_spec) = &media_details.manga_specifics {
-                manga_spec.chapters.and_then(|_| {
-                    h.manga_extra_information.as_ref().and_then(|hist| {
-                        hist.chapter.map(|e| UserMediaNextEntry {
-                            season: None,
-                            episode: None,
-                            chapter: Some(e + 1),
-                        })
-                    })
-                })
+                let mut start_with = UserMediaNextEntry::default();
+                if manga_spec.chapters.is_some() || manga_spec.volumes.is_some() {
+                    if let Some(hist) = h.manga_extra_information.as_ref() {
+                        if let Some(ch) = hist.chapter {
+                            start_with.chapter = Some(ch + 1);
+                        }
+                        if let Some(vol) = hist.volume {
+                            start_with.volume = Some(vol);
+                        }
+                    }
+                };
+                if start_with == UserMediaNextEntry::default() {
+                    None
+                } else {
+                    Some(start_with)
+                }
             } else {
                 None
             }
