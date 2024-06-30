@@ -16,7 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction } from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	Link,
@@ -50,7 +50,11 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const meta = (_args: MetaArgs_SingleFetch) => {
+export const loader = unstable_defineLoader(async (_args) => {
+	return {};
+});
+
+export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Your collections | Ryot" }];
 };
 
