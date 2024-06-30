@@ -221,5 +221,3 @@ export const clientGqlService = new GraphQLClient(
 		},
 	},
 );
-
-export const TWENTY_HOURS = 20 * 60 * 60 * 1000;

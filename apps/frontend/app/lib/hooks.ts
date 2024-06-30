@@ -10,11 +10,11 @@ import {
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { skipToken, useQuery } from "@tanstack/react-query";
+import { duration } from "dayjs";
 import { useAtom } from "jotai";
 import Cookies from "js-cookie";
 import {
 	CurrentWorkoutKey,
-	TWENTY_HOURS,
 	clientGqlService,
 	getStringAsciiValue,
 } from "~/lib/generals";
@@ -77,7 +77,7 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 						.request(MetadataDetailsDocument, { metadataId })
 						.then((data) => data.metadataDetails)
 			: skipToken,
-		staleTime: TWENTY_HOURS,
+		staleTime: duration(1, "day").asMilliseconds(),
 	});
 };
 

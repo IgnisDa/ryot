@@ -19,6 +19,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
+import { duration } from "dayjs";
 import { GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
@@ -26,7 +27,6 @@ import { type ZodTypeAny, type output, z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CORE_DETAILS_COOKIE_NAME,
-	TWENTY_HOURS,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
 	queryClient,
@@ -147,7 +147,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 					getAuthorizationHeader(request),
 				)
 				.then((data) => data.userCollectionsList),
-		gcTime: TWENTY_HOURS,
+		gcTime: duration(1, "hour").asMilliseconds(),
 	});
 };
 
