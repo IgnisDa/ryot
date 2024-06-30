@@ -11,6 +11,7 @@ import groupBy from "lodash/groupBy";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
 import isNumber from "lodash/isNumber";
+import isString from "lodash/isString";
 import omitBy from "lodash/omitBy";
 import set from "lodash/set";
 import snakeCase from "lodash/snakeCase";
@@ -105,6 +106,7 @@ export {
 	isEmpty,
 	isEqual,
 	isNumber,
+	isString,
 	omitBy,
 	set,
 	snakeCase,
