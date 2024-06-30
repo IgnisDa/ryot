@@ -10,7 +10,6 @@ export type UpdateProgressData = {
 	onlySeason?: boolean;
 	pageFragment?: string;
 	completeShow?: boolean;
-	determineNext?: boolean;
 	completePodcast?: boolean;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
@@ -24,9 +23,12 @@ export const useMetadataProgressUpdate = () => {
 	const [metadataProgress, _setMetadataProgress] = useAtom(
 		metadataProgressUpdateAtom,
 	);
-	const setMetadataProgress = async (draft: UpdateProgressData | null) => {
+	const setMetadataProgress = async (
+		draft: UpdateProgressData | null,
+		determineNext?: boolean,
+	) => {
 		setIsLoading(true);
-		if (draft?.determineNext) {
+		if (draft && determineNext) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
 				queryClient.ensureQueryData(getMetadataDetailsQuery(draft.metadataId)),
 				queryClient.ensureQueryData(
@@ -45,7 +47,6 @@ export const useMetadataProgressUpdate = () => {
 					})
 					.otherwise(() => undefined);
 			}
-			draft.determineNext = undefined;
 		}
 		setIsLoading(false);
 		_setMetadataProgress(draft);

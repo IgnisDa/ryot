@@ -691,11 +691,13 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 				size="compact-sm"
 				loading={isLoading}
 				onClick={async () => {
-					await setMetadataToUpdate({
-						metadataId: lm.details.identifier,
-						determineNext: true,
-						pageFragment: DashboardElementLot.InProgress,
-					});
+					await setMetadataToUpdate(
+						{
+							metadataId: lm.details.identifier,
+							pageFragment: DashboardElementLot.InProgress,
+						},
+						true,
+					);
 				}}
 			>
 				Update Progress
