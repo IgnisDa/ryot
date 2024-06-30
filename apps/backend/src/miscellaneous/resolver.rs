@@ -1481,6 +1481,7 @@ impl MiscellaneousService {
         };
         let genres = meta
             .find_related(Genre)
+            .order_by_asc(genre::Column::Name)
             .into_model::<GenreListItem>()
             .all(&self.db)
             .await
