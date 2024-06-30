@@ -19,6 +19,7 @@ import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	type CollectionContentsQuery,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
@@ -170,17 +171,7 @@ export default function Page() {
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
 											(lm) => (
-												<MediaItemWithoutUpdateModal
-													key={lm.details.identifier}
-													reviewScale={loaderData.userPreferences.reviewScale}
-													item={{
-														...lm.details,
-														publishYear: lm.details.publishYear?.toString(),
-													}}
-													lot={lm.metadataLot}
-													entityLot={lm.entityLot}
-													noRatingLink
-												/>
+												<InProgressItem key={lm.details.identifier} lm={lm} />
 											),
 										)}
 									</ApplicationGrid>
@@ -650,5 +641,25 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
+	);
+};
+
+type InProgressItem =
+	CollectionContentsQuery["collectionContents"]["results"]["items"][number];
+
+const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	return (
+		<MediaItemWithoutUpdateModal
+			key={lm.details.identifier}
+			reviewScale={loaderData.userPreferences.reviewScale}
+			item={{
+				...lm.details,
+				publishYear: lm.details.publishYear?.toString(),
+			}}
+			lot={lm.metadataLot}
+			entityLot={lm.entityLot}
+			noRatingLink
+		/>
 	);
 };
