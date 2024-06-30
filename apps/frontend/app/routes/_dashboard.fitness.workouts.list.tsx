@@ -44,11 +44,11 @@ import {
 	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { getDefaultWorkout } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { getDefaultWorkout } from "~/lib/state/workout";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),

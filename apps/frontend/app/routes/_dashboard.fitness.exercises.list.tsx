@@ -59,11 +59,11 @@ import {
 	useSearchParam,
 	useUserCollections,
 } from "~/lib/hooks";
+import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/state/workout";
 
 const defaultFiltersValue = {
 	muscle: undefined,

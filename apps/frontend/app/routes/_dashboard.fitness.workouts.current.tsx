@@ -96,13 +96,6 @@ import events from "~/lib/events";
 import { CurrentWorkoutKey, dayjsLib, getSetColor } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import {
-	createToastHeaders,
-	getAuthorizationHeader,
-	getCoreEnabledFeatures,
-	redirectWithToast,
-	serverGqlService,
-} from "~/lib/utilities.server";
-import {
 	type Exercise,
 	type ExerciseSet,
 	type InProgressWorkout,
@@ -110,6 +103,13 @@ import {
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 } from "~/lib/state/workout";
+import {
+	createToastHeaders,
+	getAuthorizationHeader,
+	getCoreEnabledFeatures,
+	redirectWithToast,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";

@@ -57,11 +57,11 @@ import { DisplayExerciseStats } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
+import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/state/workout";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
