@@ -14,6 +14,7 @@ import { useAtom } from "jotai";
 import Cookies from "js-cookie";
 import {
 	CurrentWorkoutKey,
+	TWENTY_HOURS,
 	clientGqlService,
 	getStringAsciiValue,
 } from "~/lib/generals";
@@ -76,7 +77,7 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 						.request(MetadataDetailsDocument, { metadataId })
 						.then((data) => data.metadataDetails)
 			: skipToken,
-		staleTime: 1000 * 60 * 60 * 20,
+		staleTime: TWENTY_HOURS,
 	});
 };
 

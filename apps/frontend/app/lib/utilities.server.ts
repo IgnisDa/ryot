@@ -26,6 +26,7 @@ import { type ZodTypeAny, type output, z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CORE_DETAILS_COOKIE_NAME,
+	TWENTY_HOURS,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
 	queryClient,
@@ -146,7 +147,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 					getAuthorizationHeader(request),
 				)
 				.then((data) => data.userCollectionsList),
-		staleTime: Number.POSITIVE_INFINITY,
+		gcTime: TWENTY_HOURS,
 	});
 };
 
