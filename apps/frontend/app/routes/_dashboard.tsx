@@ -811,7 +811,7 @@ const NewProgressUpdateForm = ({
 							onChange={(e) => {
 								setMetadataToUpdate(
 									produce(metadataToUpdate, (draft) => {
-										draft.animeEpisodeNumber = Number(e);
+										draft.animeEpisodeNumber = e === "" ? undefined : Number(e);
 									}),
 								);
 							}}
@@ -838,7 +838,8 @@ const NewProgressUpdateForm = ({
 									onChange={(e) => {
 										setMetadataToUpdate(
 											produce(metadataToUpdate, (draft) => {
-												draft.mangaChapterNumber = Number(e);
+												draft.mangaChapterNumber =
+													e === "" ? undefined : Number(e);
 											}),
 										);
 									}}
@@ -853,7 +854,8 @@ const NewProgressUpdateForm = ({
 									onChange={(e) => {
 										setMetadataToUpdate(
 											produce(metadataToUpdate, (draft) => {
-												draft.mangaVolumeNumber = Number(e);
+												draft.mangaVolumeNumber =
+													e === "" ? undefined : Number(e);
 											}),
 										);
 									}}
