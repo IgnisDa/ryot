@@ -36,6 +36,7 @@ import {
 	getAuthorizationHeader,
 	getLogoutCookies,
 	processSubmission,
+	removeCachedUserCollectionsList,
 	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -140,6 +141,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			);
 		})
 		.with("addEntityToCollection", async () => {
+			removeCachedUserCollectionsList(request);
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
 			const addTo = [submission.collectionName];
@@ -167,6 +169,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			);
 		})
 		.with("removeEntityFromCollection", async () => {
+			removeCachedUserCollectionsList(request);
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
 			await serverGqlService.request(

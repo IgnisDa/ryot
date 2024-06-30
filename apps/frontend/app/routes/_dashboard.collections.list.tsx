@@ -41,13 +41,12 @@ import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import { queryClient } from "~/lib/generals";
 import { useUserCollections, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	processSubmission,
-	redirectIfNotAuthenticatedOrUpdated,
+	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -57,10 +56,7 @@ export const meta = (_args: MetaArgs_SingleFetch) => {
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	queryClient.removeQueries({
-		queryKey: ["userCollectionsList", userDetails.id],
-	});
+	await removeCachedUserCollectionsList(request);
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);

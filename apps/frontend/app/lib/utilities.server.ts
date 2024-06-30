@@ -134,7 +134,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 	return submission.value;
 };
 
-export const getUserCollectionsList = async (request: Request) => {
+export const getCachedUserCollectionsList = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return queryClient.ensureQueryData({
 		queryKey: ["userCollectionsList", userDetails.id],
@@ -147,6 +147,13 @@ export const getUserCollectionsList = async (request: Request) => {
 				)
 				.then((data) => data.userCollectionsList),
 		staleTime: Number.POSITIVE_INFINITY,
+	});
+};
+
+export const removeCachedUserCollectionsList = async (request: Request) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	queryClient.removeQueries({
+		queryKey: ["userCollectionsList", userDetails.id],
 	});
 };
 

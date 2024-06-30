@@ -85,8 +85,8 @@ import {
 } from "~/lib/media";
 import {
 	serverVariables as envData,
+	getCachedUserCollectionsList,
 	getCookieValue,
-	getUserCollectionsList,
 	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
@@ -97,7 +97,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections] = await Promise.all([
 		getUserPreferences(request),
-		getUserCollectionsList(request),
+		getCachedUserCollectionsList(request),
 	]);
 	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
 	const coreDetails = JSON.parse(details) as CoreDetails;

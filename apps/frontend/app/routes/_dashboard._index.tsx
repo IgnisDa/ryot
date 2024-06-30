@@ -56,7 +56,7 @@ import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/media";
 import {
 	getAuthorizationHeader,
-	getUserCollectionsList,
+	getCachedUserCollectionsList,
 	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -75,7 +75,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const preferences = await getUserPreferences(request);
 	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
-	const userCollectionsList = await getUserCollectionsList(request);
+	const userCollectionsList = await getCachedUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
