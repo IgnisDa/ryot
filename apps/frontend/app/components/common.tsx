@@ -36,7 +36,11 @@ import { match } from "ts-pattern";
 import { withFragment, withoutHost } from "ufo";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
-import { useSearchParam, useUserCollections } from "~/lib/hooks";
+import {
+	useSearchParam,
+	useUserCollections,
+	useUserDetails,
+} from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -143,17 +147,17 @@ export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
 type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 
 export const AddEntityToCollectionModal = (props: {
-	userId: string;
 	opened: boolean;
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
 }) => {
 	const transition = useNavigation();
+	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const selectData = Object.entries(
 		groupBy(collections, (c) =>
-			c.creator.id === props.userId ? "You" : c.creator.name,
+			c.creator.id === userDetails.id ? "You" : c.creator.name,
 		),
 	).map(([g, items]) => ({
 		group: g,

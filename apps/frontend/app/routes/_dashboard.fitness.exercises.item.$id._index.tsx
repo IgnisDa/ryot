@@ -107,7 +107,6 @@ export default function Page() {
 	return (
 		<>
 			<AddEntityToCollectionModal
-				userId={userDetails.id}
 				onClose={collectionModalClose}
 				opened={collectionModalOpened}
 				entityId={loaderData.exerciseDetails.id}

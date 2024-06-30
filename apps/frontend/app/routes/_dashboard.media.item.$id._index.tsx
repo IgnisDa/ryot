@@ -92,11 +92,7 @@ import {
 } from "~/components/media";
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, queryClient } from "~/lib/generals";
-import {
-	useGetMantineColor,
-	useUserDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import {
 	MetadataIdSchema,
@@ -217,7 +213,6 @@ const editSeenItem = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
 	const getMantineColor = useGetMantineColor();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
@@ -853,7 +848,6 @@ export default function Page() {
 											Add to collection
 										</Button>
 										<AddEntityToCollectionModal
-											userId={userDetails.id}
 											onClose={collectionModalClose}
 											opened={collectionModalOpened}
 											entityId={loaderData.metadataId.toString()}
@@ -866,7 +860,6 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
-												userId={userDetails.id}
 												inCollections={loaderData.userMetadataDetails.collections.map(
 													(c) => c.name,
 												)}

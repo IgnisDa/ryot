@@ -48,7 +48,7 @@ import {
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { useUserDetails, useUserPreferences } from "~/lib/hooks";
+import { useUserPreferences } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	createToastHeaders,
@@ -107,7 +107,6 @@ const personIdSchema = z.object({ personId: z.string() });
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
 	const [
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
@@ -279,7 +278,6 @@ export default function Page() {
 										</Menu.Target>
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
-												userId={userDetails.id}
 												inCollections={loaderData.userPersonDetails.collections.map(
 													(c) => c.name,
 												)}
@@ -302,7 +300,6 @@ export default function Page() {
 										</Menu.Dropdown>
 									</Menu>
 									<AddEntityToCollectionModal
-										userId={userDetails.id}
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.personId.toString()}

@@ -720,7 +720,6 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
-	userId: string;
 	entityLot: EntityLot;
 	inCollections: Array<string>;
 	formValue: string;
@@ -729,13 +728,14 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	const action = isMonitored
 		? "removeEntityFromCollection"
 		: "addEntityToCollection";
+	const userDetails = useUserDetails();
 
 	return (
 		<Form action={`/actions?intent=${action}`} method="post" replace>
 			<HiddenLocationInput />
 			<input hidden name="collectionName" defaultValue="Monitoring" />
 			<input readOnly hidden name="entityLot" value={props.entityLot} />
-			<input readOnly hidden name="creatorUserId" value={props.userId} />
+			<input readOnly hidden name="creatorUserId" value={userDetails.id} />
 			<Menu.Item
 				type="submit"
 				color={isMonitored ? "red" : undefined}

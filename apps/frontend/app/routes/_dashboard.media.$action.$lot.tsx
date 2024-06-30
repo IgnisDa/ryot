@@ -614,7 +614,6 @@ const MediaSearchItem = (props: {
 					</Menu>
 					{appItemId ? (
 						<AddEntityToCollectionModal
-							userId={userDetails.id}
 							opened={isAddMediaToCollectionModalOpened}
 							onClose={closeIsAddMediaToCollectionModalOpened}
 							entityId={appItemId.toString()}
