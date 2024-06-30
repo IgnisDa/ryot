@@ -659,7 +659,7 @@ const MetadataInProgressUpdateForm = ({
 				name="date"
 				defaultValue={formatDateToNaiveDate(new Date())}
 			/>
-			<Stack>
+			<Stack mt="sm">
 				<Group>
 					<Slider
 						max={100}
