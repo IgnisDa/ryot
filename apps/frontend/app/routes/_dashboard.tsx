@@ -13,7 +13,6 @@ import {
 	Flex,
 	Group,
 	Image,
-	Loader,
 	Modal,
 	NumberInput,
 	ScrollArea,
@@ -569,11 +568,7 @@ const MetadataProgressUpdateForm = ({
 	);
 
 	if (!metadataDetails || !metadataToUpdate || !userMetadataDetails)
-		return (
-			<Center p="lg">
-				<Loader type="dots" />
-			</Center>
-		);
+		return null;
 
 	const onSubmit = () => {
 		queryClient.removeQueries({
