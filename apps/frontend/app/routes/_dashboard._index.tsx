@@ -690,6 +690,7 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 					<Loader color="red" size="xs" m={2} />
 				) : (
 					<ActionIcon
+						variant="transparent"
 						color="blue"
 						size="compact-md"
 						onClick={async (e) => {
