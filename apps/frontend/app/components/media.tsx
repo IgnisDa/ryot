@@ -701,7 +701,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						)
 			}
 			highlightRightText={
-				props.hasInteracted ? "This media exists in the database" : undefined
+				props.hasInteracted ? "You have interacted with this before" : undefined
 			}
 			name={props.item.title}
 			nameRight={props.nameRight}
