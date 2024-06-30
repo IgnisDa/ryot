@@ -618,7 +618,7 @@ const MediaSearchItem = (props: {
 							opened={isAddMediaToCollectionModalOpened}
 							onClose={closeIsAddMediaToCollectionModalOpened}
 							entityId={appItemId.toString()}
-							entityLot={EntityLot.Media}
+							entityLot={EntityLot.Metadata}
 						/>
 					) : null}
 				</>
@@ -646,14 +646,14 @@ const MediaSearchItem = (props: {
 						const id = await basicCommit(e);
 						const form = new FormData();
 						form.append("entityId", id);
-						form.append("entityLot", EntityLot.Media);
+						form.append("entityLot", EntityLot.Metadata);
 						form.append("creatorUserId", userDetails.id);
 						form.append("collectionName", "Watchlist");
 						await fetch(
 							$path("/actions", { intent: "addEntityToCollection" }),
 							{ body: form, method: "POST", credentials: "include" },
 						);
-						events.addToCollection(EntityLot.Media);
+						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
 						revalidator.revalidate();
 					}}

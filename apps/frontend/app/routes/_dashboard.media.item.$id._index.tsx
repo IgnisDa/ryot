@@ -298,7 +298,7 @@ export default function Page() {
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
-				entityLot={EntityLot.Media}
+				entityLot={EntityLot.Metadata}
 				objectId={loaderData.metadataId.toString()}
 				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.metadataDetails.title}
@@ -338,7 +338,7 @@ export default function Page() {
 									col={col}
 									userId={col.userId}
 									entityId={loaderData.metadataId.toString()}
-									entityLot={EntityLot.Media}
+									entityLot={EntityLot.Metadata}
 								/>
 							))}
 						</Group>
@@ -868,7 +868,7 @@ export default function Page() {
 											onClose={collectionModalClose}
 											opened={collectionModalOpened}
 											entityId={loaderData.metadataId.toString()}
-											entityLot={EntityLot.Media}
+											entityLot={EntityLot.Metadata}
 										/>
 									</>
 									<Menu shadow="md">
@@ -882,7 +882,7 @@ export default function Page() {
 													(c) => c.name,
 												)}
 												formValue={loaderData.metadataId}
-												entityLot={EntityLot.Media}
+												entityLot={EntityLot.Metadata}
 											/>
 											{loaderData.metadataDetails.source !==
 											MediaSource.Custom ? (
@@ -1042,7 +1042,7 @@ export default function Page() {
 										<Stack>
 											{loaderData.userMetadataDetails.reviews.map((r) => (
 												<ReviewItemDisplay
-													entityLot={EntityLot.Media}
+													entityLot={EntityLot.Metadata}
 													review={r}
 													key={r.id}
 													metadataId={loaderData.metadataId}

@@ -99,7 +99,7 @@ export default function Page() {
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
-				entityLot={EntityLot.MediaGroup}
+				entityLot={EntityLot.MetadataGroup}
 				objectId={loaderData.metadataGroupId.toString()}
 				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
@@ -129,7 +129,7 @@ export default function Page() {
 									col={col}
 									userId={col.userId}
 									entityId={loaderData.metadataGroupId.toString()}
-									entityLot={EntityLot.MediaGroup}
+									entityLot={EntityLot.MetadataGroup}
 								/>
 							))}
 						</Group>
@@ -186,7 +186,7 @@ export default function Page() {
 										onClose={collectionModalClose}
 										opened={collectionModalOpened}
 										entityId={loaderData.metadataGroupId.toString()}
-										entityLot={EntityLot.MediaGroup}
+										entityLot={EntityLot.MetadataGroup}
 									/>
 									<Menu shadow="md">
 										<Menu.Target>
@@ -199,7 +199,7 @@ export default function Page() {
 													(c) => c.name,
 												)}
 												formValue={loaderData.metadataGroupId}
-												entityLot={EntityLot.MediaGroup}
+												entityLot={EntityLot.MetadataGroup}
 											/>
 										</Menu.Dropdown>
 									</Menu>
@@ -219,7 +219,7 @@ export default function Page() {
 													reviewScale={userPreferences.general.reviewScale}
 													user={userDetails}
 													title={loaderData.metadataGroupDetails.details.title}
-													entityLot={EntityLot.MediaGroup}
+													entityLot={EntityLot.MetadataGroup}
 												/>
 											))}
 										</Stack>

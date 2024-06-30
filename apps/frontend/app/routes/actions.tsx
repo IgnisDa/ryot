@@ -405,9 +405,11 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 		changeCollectionToEntitySchema.passthrough(),
 	);
 	const metadataId =
-		submission.entityLot === EntityLot.Media ? submission.entityId : undefined;
+		submission.entityLot === EntityLot.Metadata
+			? submission.entityId
+			: undefined;
 	const metadataGroupId =
-		submission.entityLot === EntityLot.MediaGroup
+		submission.entityLot === EntityLot.MetadataGroup
 			? submission.entityId
 			: undefined;
 	const personId =
@@ -418,12 +420,7 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 			: undefined;
 	return [
 		submission,
-		{
-			metadataId,
-			metadataGroupId,
-			exerciseId,
-			personId,
-		},
+		{ metadataId, metadataGroupId, exerciseId, personId },
 	] as const;
 };
 

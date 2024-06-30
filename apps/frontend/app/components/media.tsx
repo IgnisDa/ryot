@@ -627,10 +627,10 @@ export const MediaItemWithoutUpdateModal = (props: {
 					? props.href
 						? props.href
 						: match(props.entityLot)
-								.with(EntityLot.Media, undefined, null, () =>
+								.with(EntityLot.Metadata, undefined, null, () =>
 									$path("/media/item/:id", { id }),
 								)
-								.with(EntityLot.MediaGroup, () =>
+								.with(EntityLot.MetadataGroup, () =>
 									$path("/media/groups/item/:id", { id }),
 								)
 								.with(EntityLot.Person, () =>
@@ -769,8 +769,8 @@ export const PostReviewModal = (props: {
 				<input
 					hidden
 					name={match(props.entityLot)
-						.with(EntityLot.Media, () => "metadataId")
-						.with(EntityLot.MediaGroup, () => "metadataGroupId")
+						.with(EntityLot.Metadata, () => "metadataId")
+						.with(EntityLot.MetadataGroup, () => "metadataGroupId")
 						.with(EntityLot.Person, () => "personId")
 						.with(EntityLot.Collection, () => "collection")
 						.run()}

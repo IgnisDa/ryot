@@ -257,8 +257,8 @@ export default function Page() {
 												onChange={(v) => setP("entityLot", v)}
 												clearable
 											/>
-											{loaderData.query.entityLot === EntityLot.Media ||
-											loaderData.query.entityLot === EntityLot.MediaGroup ? (
+											{loaderData.query.entityLot === EntityLot.Metadata ||
+											loaderData.query.entityLot === EntityLot.MetadataGroup ? (
 												<Select
 													placeholder="Select a media type"
 													defaultValue={loaderData.query.metadataLot}
