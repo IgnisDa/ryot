@@ -101,3 +101,4 @@ const useDashboardData = () => {
 export const useCoreDetails = () => useDashboardData().coreDetails;
 export const useUserPreferences = () => useDashboardData().userPreferences;
 export const useUserDetails = () => useDashboardData().userDetails;
+export const useUserCollections = () => useDashboardData().userCollections;
