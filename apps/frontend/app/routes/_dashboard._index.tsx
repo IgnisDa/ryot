@@ -672,7 +672,7 @@ type InProgressItem =
 
 const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [_, setMetadataToUpdate, isLoading] = useMetadataProgressUpdate();
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -689,6 +689,7 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 			<Button
 				variant="outline"
 				size="compact-sm"
+				loading={isLoading}
 				onClick={async () => {
 					await setMetadataToUpdate({
 						metadataId: lm.details.identifier,

@@ -1,5 +1,6 @@
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
+import { useState } from "react";
 import { match } from "ts-pattern";
 import { queryClient } from "./generals";
 import { getMetadataDetailsQuery, getUserMetadataDetailsQuery } from "./hooks";
@@ -19,10 +20,12 @@ export type UpdateProgressData = {
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
 export const useMetadataProgressUpdate = () => {
+	const [isLoading, setIsLoading] = useState(false);
 	const [metadataProgress, _setMetadataProgress] = useAtom(
 		metadataProgressUpdateAtom,
 	);
 	const setMetadataProgress = async (draft: UpdateProgressData | null) => {
+		setIsLoading(true);
 		if (draft?.determineNext) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
 				queryClient.ensureQueryData(getMetadataDetailsQuery(draft.metadataId)),
@@ -43,7 +46,8 @@ export const useMetadataProgressUpdate = () => {
 					.otherwise(() => undefined);
 			}
 		}
+		setIsLoading(false);
 		_setMetadataProgress(draft);
 	};
-	return [metadataProgress, setMetadataProgress] as const;
+	return [metadataProgress, setMetadataProgress, isLoading] as const;
 };
