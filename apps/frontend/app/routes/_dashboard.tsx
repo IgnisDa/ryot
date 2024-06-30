@@ -759,7 +759,7 @@ const NewProgressUpdateForm = ({
 			].map(([k, v]) => (
 				<Fragment key={k}>
 					{typeof v !== "undefined" ? (
-						<input hidden name={k} defaultValue={v?.toString()} />
+						<input hidden readOnly name={k} value={v?.toString()} />
 					) : null}
 				</Fragment>
 			))}
