@@ -1,12 +1,13 @@
 import { $path } from "@ignisda/remix-routes";
 import {
+	ActionIcon,
 	Alert,
 	Anchor,
 	Box,
-	Button,
 	Center,
 	Container,
 	Flex,
+	Loader,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -34,6 +35,7 @@ import {
 	IconAlertCircle,
 	IconBarbell,
 	IconFriends,
+	IconPlayerPlay,
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
@@ -683,23 +685,29 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 			}}
 			lot={lm.metadataLot}
 			entityLot={lm.entityLot}
-		>
-			<Button
-				variant="outline"
-				size="compact-sm"
-				loading={isLoading}
-				onClick={async () => {
-					await setMetadataToUpdate(
-						{
-							metadataId: lm.details.identifier,
-							pageFragment: DashboardElementLot.InProgress,
-						},
-						true,
-					);
-				}}
-			>
-				Update Progress
-			</Button>
-		</MediaItemWithoutUpdateModal>
+			topRight={
+				isLoading ? (
+					<Loader color="red" size="xs" m={2} />
+				) : (
+					<ActionIcon
+						color="blue"
+						size="compact-md"
+						loading={isLoading}
+						onClick={async (e) => {
+							e.preventDefault();
+							await setMetadataToUpdate(
+								{
+									metadataId: lm.details.identifier,
+									pageFragment: DashboardElementLot.InProgress,
+								},
+								true,
+							);
+						}}
+					>
+						<IconPlayerPlay size={20} />
+					</ActionIcon>
+				)
+			}
+		/>
 	);
 };
