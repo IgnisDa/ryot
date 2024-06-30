@@ -826,6 +826,9 @@ export default function Page() {
 														chapter:
 															loaderData.userMetadataDetails?.nextEntry
 																?.chapter || undefined,
+														volume:
+															loaderData.userMetadataDetails?.nextEntry
+																?.volume || undefined,
 													},
 													animeExtraInformation: {
 														episode:

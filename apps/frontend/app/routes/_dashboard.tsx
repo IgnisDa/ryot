@@ -776,15 +776,6 @@ const NewProgressUpdateForm = ({
 	);
 	const [watchTime, setWatchTime] =
 		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
-	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
-		string | undefined
-	>(undefined);
-	const [mangaChapterNumber, setMangaChapterNumber] = useState<
-		string | undefined
-	>(undefined);
-	const [mangaVolumeNumber, setMangaVolumeNumber] = useState<
-		string | undefined
-	>(undefined);
 
 	return (
 		<Form
@@ -808,13 +799,18 @@ const NewProgressUpdateForm = ({
 					<>
 						<NumberInput
 							label="Episode"
-							name="animeEpisodeNumber"
 							description="Leaving this empty will mark the whole anime as watched"
 							hideControls
-							value={animeEpisodeNumber}
-							onChange={(e) => setAnimeEpisodeNumber(e.toString())}
+							value={metadataToUpdate.animeEpisodeNumber?.toString()}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.animeEpisodeNumber = Number(e);
+									}),
+								);
+							}}
 						/>
-						{animeEpisodeNumber ? (
+						{metadataToUpdate.animeEpisodeNumber ? (
 							<Checkbox
 								label="Mark all episodes before this as watched"
 								name="animeAllEpisodesBefore"
@@ -831,24 +827,34 @@ const NewProgressUpdateForm = ({
 							<Group wrap="nowrap">
 								<NumberInput
 									label="Chapter"
-									name="mangaChapterNumber"
 									hideControls
-									value={mangaChapterNumber}
-									onChange={(e) => setMangaChapterNumber(e.toString())}
+									value={metadataToUpdate.mangaChapterNumber?.toString()}
+									onChange={(e) => {
+										setMetadataToUpdate(
+											produce(metadataToUpdate, (draft) => {
+												draft.mangaChapterNumber = Number(e);
+											}),
+										);
+									}}
 								/>
 								<Text ta="center" fw="bold" mt="sm">
 									OR
 								</Text>
 								<NumberInput
 									label="Volume"
-									name="mangaVolumeNumber"
 									hideControls
-									value={mangaVolumeNumber}
-									onChange={(e) => setMangaVolumeNumber(e.toString())}
+									value={metadataToUpdate.mangaVolumeNumber?.toString()}
+									onChange={(e) => {
+										setMetadataToUpdate(
+											produce(metadataToUpdate, (draft) => {
+												draft.mangaVolumeNumber = Number(e);
+											}),
+										);
+									}}
 								/>
 							</Group>
 						</Box>
-						{mangaChapterNumber ? (
+						{metadataToUpdate.mangaChapterNumber ? (
 							<Checkbox
 								label="Mark all chapters before this as watched"
 								name="mangaAllChaptersBefore"
