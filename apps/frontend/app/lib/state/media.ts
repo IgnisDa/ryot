@@ -22,6 +22,8 @@ export type UpdateProgressData = {
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
+	animeEpisodeNumber?: number | null;
+	mangaChapterNumber?: number | null;
 };
 
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
@@ -52,6 +54,12 @@ export const useMetadataProgressUpdate = () => {
 					})
 					.with(MediaLot.Podcast, () => {
 						draft.podcastEpisodeNumber = nextEntry.episode;
+					})
+					.with(MediaLot.Anime, () => {
+						draft.animeEpisodeNumber = nextEntry.episode;
+					})
+					.with(MediaLot.Manga, () => {
+						draft.mangaChapterNumber = nextEntry.chapter;
 					})
 					.otherwise(() => undefined);
 			}
