@@ -45,6 +45,7 @@ export const useMetadataProgressUpdate = () => {
 					})
 					.otherwise(() => undefined);
 			}
+			draft.determineNext = undefined;
 		}
 		setIsLoading(false);
 		_setMetadataProgress(draft);
