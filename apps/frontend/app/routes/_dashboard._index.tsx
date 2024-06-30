@@ -586,10 +586,15 @@ const ActualDisplayStat = (props: {
 									{match(d.type)
 										.with("string", () => d.value)
 										.with("duration", () =>
-											humanizeDuration(Number(d.value) * 1000 * 60, {
-												round: true,
-												largest: 3,
-											}),
+											humanizeDuration(
+												dayjsLib
+													.duration(Number(d.value), "minutes")
+													.asMilliseconds(),
+												{
+													round: true,
+													largest: 3,
+												},
+											),
 										)
 										.with("number", () =>
 											new Intl.NumberFormat("en-US", {

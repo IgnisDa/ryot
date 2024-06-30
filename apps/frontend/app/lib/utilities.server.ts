@@ -19,7 +19,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
-import { duration } from "dayjs";
 import { GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
@@ -29,6 +28,7 @@ import {
 	CORE_DETAILS_COOKIE_NAME,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
+	dayjsLib,
 	queryClient,
 	redirectToQueryParam,
 } from "~/lib/generals";
@@ -147,7 +147,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 					getAuthorizationHeader(request),
 				)
 				.then((data) => data.userCollectionsList),
-		gcTime: duration(1, "hour").asMilliseconds(),
+		gcTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
 };
 

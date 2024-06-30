@@ -365,7 +365,12 @@ export default function Page() {
 								`${loaderData.metadataDetails.mangaSpecifics.volumes} volumes`,
 							loaderData.metadataDetails.movieSpecifics?.runtime &&
 								humanizeDuration(
-									loaderData.metadataDetails.movieSpecifics.runtime * 1000 * 60,
+									dayjsLib
+										.duration(
+											loaderData.metadataDetails.movieSpecifics.runtime,
+											"minute",
+										)
+										.asMilliseconds(),
 								),
 							loaderData.metadataDetails.showSpecifics?.totalSeasons &&
 								`${loaderData.metadataDetails.showSpecifics.totalSeasons} seasons`,
@@ -373,13 +378,21 @@ export default function Page() {
 								`${loaderData.metadataDetails.showSpecifics.totalEpisodes} episodes`,
 							loaderData.metadataDetails.showSpecifics?.runtime &&
 								humanizeDuration(
-									loaderData.metadataDetails.showSpecifics.runtime * 1000 * 60,
+									dayjsLib
+										.duration(
+											loaderData.metadataDetails.showSpecifics.runtime,
+											"minute",
+										)
+										.asMilliseconds(),
 								),
 							loaderData.metadataDetails.audioBookSpecifics?.runtime &&
 								humanizeDuration(
-									loaderData.metadataDetails.audioBookSpecifics.runtime *
-										1000 *
-										60,
+									dayjsLib
+										.duration(
+											loaderData.metadataDetails.audioBookSpecifics.runtime,
+											"minute",
+										)
+										.asMilliseconds(),
 								),
 						]
 							.filter(Boolean)
@@ -1261,7 +1274,10 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 }) => {
 	const display = [
 		props.runtime
-			? humanizeDuration(props.runtime * 1000 * 60, { units: ["h", "m"] })
+			? humanizeDuration(
+					dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
+					{ units: ["h", "m"] },
+				)
 			: null,
 		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
 		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
@@ -1383,7 +1399,8 @@ const SeenItem = (props: { history: History; index: number }) => {
 
 	const timeSpentInMilliseconds = (props.history.totalTimeSpent || 0) * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
-	const isLessThanAnHour = timeSpentInMilliseconds < 1000 * 60 * 60;
+	const isLessThanAnHour =
+		timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
 	if (isLessThanAnHour) units?.push("m");
 
 	return (
