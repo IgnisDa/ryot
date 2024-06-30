@@ -59,7 +59,7 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -555,16 +555,49 @@ const MetadataProgressUpdateForm = ({
 }: {
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
-	const [metadataToUpdate] = useMetadataProgressUpdate();
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 
 	const { data: metadataDetails } = useMetadataDetails(
 		metadataToUpdate?.metadataId,
 	);
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		metadataToUpdate?.metadataId,
-	);
+	const { data: userMetadataDetails, refetch: refetchUserMetadataDetails } =
+		useUserMetadataDetails(metadataToUpdate?.metadataId);
 
-	if (!metadataDetails || !metadataToUpdate || !userMetadataDetails)
+	// DEV: Progress takes time to update, so we deploy a "job" to refetch it
+	const fetchMetadataProgressAgain = () => {
+		setTimeout(refetchUserMetadataDetails, 2000);
+	};
+
+	const [isLoading, setIsLoading] = useState(false);
+
+	useEffect(() => {
+		if (metadataToUpdate?.determineNext && metadataDetails) {
+			setMetadataToUpdate(
+				produce(metadataToUpdate, (draft) => {
+					const nextEntry = userMetadataDetails?.nextEntry;
+					if (nextEntry) {
+						match(metadataDetails.lot)
+							.with(MediaLot.Show, () => {
+								draft.showEpisodeNumber = nextEntry.episode;
+								draft.showSeasonNumber = nextEntry.season;
+							})
+							.with(MediaLot.Podcast, () => {
+								draft.podcastEpisodeNumber = nextEntry.episode;
+							})
+							.otherwise(() => undefined);
+					}
+				}),
+			);
+		}
+		setIsLoading(false);
+	}, [metadataToUpdate, userMetadataDetails, metadataDetails]);
+
+	if (
+		!metadataDetails ||
+		!metadataToUpdate ||
+		!userMetadataDetails ||
+		isLoading
+	)
 		return (
 			<Center p="lg">
 				<Loader type="dots" />
@@ -576,23 +609,162 @@ const MetadataProgressUpdateForm = ({
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
 			inProgress={userMetadataDetails.inProgress}
+			fetchMetadataProgressAgain={fetchMetadataProgressAgain}
 			closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
 		/>
 	) : (
 		<NewProgressUpdateForm
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
+			fetchMetadataProgressAgain={fetchMetadataProgressAgain}
 			closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
 		/>
+	);
+};
+
+const MetadataInProgressUpdateForm = ({
+	inProgress,
+	metadataDetails,
+	metadataToUpdate,
+	fetchMetadataProgressAgain,
+	closeMetadataProgressUpdateModal,
+}: {
+	metadataToUpdate: UpdateProgressData;
+	fetchMetadataProgressAgain: () => void;
+	closeMetadataProgressUpdateModal: () => void;
+	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	inProgress: UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
+}) => {
+	invariant(inProgress, "inProgress is required");
+	const userPreferences = useUserPreferences();
+	const total =
+		metadataDetails.audioBookSpecifics?.runtime ||
+		metadataDetails.bookSpecifics?.pages ||
+		metadataDetails.movieSpecifics?.runtime ||
+		metadataDetails.mangaSpecifics?.chapters ||
+		metadataDetails.animeSpecifics?.episodes ||
+		metadataDetails.visualNovelSpecifics?.length;
+	const progress = Number(inProgress.progress);
+	const [value, setValue] = useState<number | undefined>(progress);
+
+	const [updateIcon, text] = match(metadataDetails.lot)
+		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
+		.with(MediaLot.Anime, () => [
+			<IconDeviceTv size={24} key="element" />,
+			"Episodes",
+		])
+		.with(MediaLot.Manga, () => [
+			<IconBrandPagekit size={24} key="element" />,
+			"Chapters",
+		])
+		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
+			<IconClock size={24} key="element" />,
+			"Minutes",
+		])
+		.otherwise(() => [null, null]);
+
+	return (
+		<Form
+			action={withQuery($path("/actions"), {
+				intent: "individualProgressUpdate",
+			})}
+			method="post"
+			replace
+			onSubmit={() => {
+				fetchMetadataProgressAgain();
+				events.updateProgress(metadataDetails.title);
+				closeMetadataProgressUpdateModal();
+			}}
+		>
+			<HiddenLocationInput />
+			<input
+				hidden
+				name="metadataId"
+				defaultValue={metadataToUpdate.metadataId}
+			/>
+			<input hidden name="progress" value={value} readOnly />
+			<input
+				hidden
+				name="date"
+				defaultValue={formatDateToNaiveDate(new Date())}
+			/>
+			<Stack>
+				<Title order={3}>Set progress</Title>
+				<Group>
+					<Slider
+						max={100}
+						min={0}
+						step={1}
+						showLabelOnHover={false}
+						value={value}
+						onChange={setValue}
+						style={{ flexGrow: 1 }}
+					/>
+					<NumberInput
+						value={value}
+						onChange={(v) => {
+							if (v) setValue(Number(v));
+							else setValue(undefined);
+						}}
+						max={100}
+						min={0}
+						step={1}
+						w="20%"
+						hideControls
+						rightSection={<IconPercentage size={16} />}
+					/>
+				</Group>
+				{total ? (
+					<>
+						<Text ta="center" fw="bold">
+							OR
+						</Text>
+						<Flex align="center" gap="xs">
+							<NumberInput
+								defaultValue={((total || 1) * (value || 1)) / 100}
+								onChange={(v) => {
+									const value = (Number(v) / (total || 1)) * 100;
+									setValue(value);
+								}}
+								max={total}
+								min={0}
+								step={1}
+								hideControls
+								leftSection={updateIcon}
+							/>
+							<Text>{text}</Text>
+						</Flex>
+					</>
+				) : null}
+				<Select
+					data={userPreferences.general.watchProviders}
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+					name="providerWatchedOn"
+					defaultValue={inProgress.providerWatchedOn}
+				/>
+				<Button variant="outline" type="submit">
+					Update
+				</Button>
+				<Button
+					variant="outline"
+					color="red"
+					onClick={closeMetadataProgressUpdateModal}
+				>
+					Cancel
+				</Button>
+			</Stack>
+		</Form>
 	);
 };
 
 const NewProgressUpdateForm = ({
 	metadataDetails,
 	metadataToUpdate,
+	fetchMetadataProgressAgain,
 	closeMetadataProgressUpdateModal,
 }: {
 	metadataToUpdate: UpdateProgressData;
+	fetchMetadataProgressAgain: () => void;
 	closeMetadataProgressUpdateModal: () => void;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }) => {
@@ -620,6 +792,7 @@ const NewProgressUpdateForm = ({
 			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
 			replace
 			onSubmit={() => {
+				fetchMetadataProgressAgain();
 				closeMetadataProgressUpdateModal();
 				events.updateProgress(metadataDetails.title);
 			}}
@@ -717,7 +890,7 @@ const NewProgressUpdateForm = ({
 									label: `${s.seasonNumber}. ${s.name.toString()}`,
 									value: s.seasonNumber.toString(),
 								}))}
-								defaultValue={metadataToUpdate.showSeasonNumber?.toString()}
+								value={metadataToUpdate.showSeasonNumber?.toString()}
 								onChange={(v) => {
 									setMetadataToUpdate(
 										produce(metadataToUpdate, (draft) => {
@@ -750,7 +923,7 @@ const NewProgressUpdateForm = ({
 											value: e.episodeNumber.toString(),
 										})) || []
 								}
-								defaultValue={metadataToUpdate.showEpisodeNumber?.toString()}
+								value={metadataToUpdate.showEpisodeNumber?.toString()}
 								onChange={(v) => {
 									setMetadataToUpdate(
 										produce(metadataToUpdate, (draft) => {
@@ -789,7 +962,7 @@ const NewProgressUpdateForm = ({
 											value: se.number.toString(),
 										}),
 									)}
-									defaultValue={metadataToUpdate.podcastEpisodeNumber?.toString()}
+									value={metadataToUpdate.podcastEpisodeNumber?.toString()}
 									onChange={(v) => {
 										setMetadataToUpdate(
 											produce(metadataToUpdate, (draft) => {
@@ -839,143 +1012,6 @@ const NewProgressUpdateForm = ({
 					value={selectedDate ? formatDateToNaiveDate(selectedDate) : undefined}
 				>
 					Submit
-				</Button>
-			</Stack>
-		</Form>
-	);
-};
-
-const MetadataInProgressUpdateForm = ({
-	inProgress,
-	metadataDetails,
-	metadataToUpdate,
-	closeMetadataProgressUpdateModal,
-}: {
-	metadataToUpdate: UpdateProgressData;
-	closeMetadataProgressUpdateModal: () => void;
-	metadataDetails: MetadataDetailsQuery["metadataDetails"];
-	inProgress: UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
-}) => {
-	invariant(inProgress, "inProgress is required");
-	const userPreferences = useUserPreferences();
-	const { refetch: refetchUserMetadataDetails } = useUserMetadataDetails(
-		metadataToUpdate.metadataId,
-	);
-	const total =
-		metadataDetails.audioBookSpecifics?.runtime ||
-		metadataDetails.bookSpecifics?.pages ||
-		metadataDetails.movieSpecifics?.runtime ||
-		metadataDetails.mangaSpecifics?.chapters ||
-		metadataDetails.animeSpecifics?.episodes ||
-		metadataDetails.visualNovelSpecifics?.length;
-	const progress = Number(inProgress.progress);
-	const [value, setValue] = useState<number | undefined>(progress);
-
-	const [updateIcon, text] = match(metadataDetails.lot)
-		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
-		.with(MediaLot.Anime, () => [
-			<IconDeviceTv size={24} key="element" />,
-			"Episodes",
-		])
-		.with(MediaLot.Manga, () => [
-			<IconBrandPagekit size={24} key="element" />,
-			"Chapters",
-		])
-		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
-			<IconClock size={24} key="element" />,
-			"Minutes",
-		])
-		.otherwise(() => [null, null]);
-
-	return (
-		<Form
-			action={withQuery($path("/actions"), {
-				intent: "individualProgressUpdate",
-			})}
-			method="post"
-			replace
-			onSubmit={() => {
-				// DEV: Progress takes time to update, so we deploy a "job" to refetch it
-				setTimeout(refetchUserMetadataDetails, 2000);
-				events.updateProgress(metadataDetails.title);
-				closeMetadataProgressUpdateModal();
-			}}
-		>
-			<HiddenLocationInput />
-			<input
-				hidden
-				name="metadataId"
-				defaultValue={metadataToUpdate.metadataId}
-			/>
-			<input hidden name="progress" value={value} readOnly />
-			<input
-				hidden
-				name="date"
-				defaultValue={formatDateToNaiveDate(new Date())}
-			/>
-			<Stack>
-				<Title order={3}>Set progress</Title>
-				<Group>
-					<Slider
-						max={100}
-						min={0}
-						step={1}
-						showLabelOnHover={false}
-						value={value}
-						onChange={setValue}
-						style={{ flexGrow: 1 }}
-					/>
-					<NumberInput
-						value={value}
-						onChange={(v) => {
-							if (v) setValue(Number(v));
-							else setValue(undefined);
-						}}
-						max={100}
-						min={0}
-						step={1}
-						w="20%"
-						hideControls
-						rightSection={<IconPercentage size={16} />}
-					/>
-				</Group>
-				{total ? (
-					<>
-						<Text ta="center" fw="bold">
-							OR
-						</Text>
-						<Flex align="center" gap="xs">
-							<NumberInput
-								defaultValue={((total || 1) * (value || 1)) / 100}
-								onChange={(v) => {
-									const value = (Number(v) / (total || 1)) * 100;
-									setValue(value);
-								}}
-								max={total}
-								min={0}
-								step={1}
-								hideControls
-								leftSection={updateIcon}
-							/>
-							<Text>{text}</Text>
-						</Flex>
-					</>
-				) : null}
-				<Select
-					data={userPreferences.general.watchProviders}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-					name="providerWatchedOn"
-					defaultValue={inProgress.providerWatchedOn}
-				/>
-				<Button variant="outline" type="submit">
-					Update
-				</Button>
-				<Button
-					variant="outline"
-					color="red"
-					onClick={closeMetadataProgressUpdateModal}
-				>
-					Cancel
 				</Button>
 			</Stack>
 		</Form>
