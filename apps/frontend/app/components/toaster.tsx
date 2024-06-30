@@ -12,8 +12,8 @@ export function Toaster({ toast }: { toast?: Toast | null }) {
 	);
 }
 
-function ShowToast({ toast }: { toast: Toast }) {
-	const { id, type, title, message } = toast;
+const ShowToast = (props: { toast: Toast }) => {
+	const { id, type, title, message } = props.toast;
 	useEffect(() => {
 		setTimeout(() => {
 			const [defaultTitle, defaultColor] = match(type)
@@ -29,5 +29,5 @@ function ShowToast({ toast }: { toast: Toast }) {
 			});
 		}, 0);
 	}, [message, id, title, type]);
-	return undefined;
-}
+	return null;
+};

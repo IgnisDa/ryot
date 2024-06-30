@@ -1481,6 +1481,7 @@ impl MiscellaneousService {
         };
         let genres = meta
             .find_related(Genre)
+            .order_by_asc(genre::Column::Name)
             .into_model::<GenreListItem>()
             .all(&self.db)
             .await
@@ -1734,7 +1735,7 @@ impl MiscellaneousService {
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
             .cloned();
-        let next_episode = history.first().and_then(|h| {
+        let next_entry = history.first().and_then(|h| {
             if let Some(s) = &media_details.show_specifics {
                 let all_episodes = s
                     .seasons
@@ -1898,7 +1899,7 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
-            next_entry: next_episode,
+            next_entry,
             seen_by_all_count: seen_by,
             seen_by_user_count,
             average_rating,
@@ -4039,8 +4040,10 @@ impl MiscellaneousService {
                 })
                 .apply_if(filter.entity_type, |query, v| {
                     let f = match v {
-                        EntityLot::Media => collection_to_entity::Column::MetadataId.is_not_null(),
-                        EntityLot::MediaGroup => {
+                        EntityLot::Metadata => {
+                            collection_to_entity::Column::MetadataId.is_not_null()
+                        }
+                        EntityLot::MetadataGroup => {
                             collection_to_entity::Column::MetadataGroupId.is_not_null()
                         }
                         EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
@@ -4088,7 +4091,7 @@ impl MiscellaneousService {
                             publish_year: m.publish_year,
                         },
                         metadata_lot: Some(m.lot),
-                        entity_lot: EntityLot::Media,
+                        entity_lot: EntityLot::Metadata,
                     }
                 } else if let Some(id) = cte.person_id {
                     let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
@@ -4114,7 +4117,7 @@ impl MiscellaneousService {
                             publish_year: None,
                         },
                         metadata_lot: None,
-                        entity_lot: EntityLot::MediaGroup,
+                        entity_lot: EntityLot::MetadataGroup,
                     }
                 } else if let Some(id) = cte.exercise_id {
                     let e = Exercise::find_by_id(id).one(&self.db).await?.unwrap();
@@ -4251,13 +4254,13 @@ impl MiscellaneousService {
                 (
                     mi.to_string(),
                     self.generic_metadata(&mi).await?.model.title,
-                    EntityLot::Media,
+                    EntityLot::Metadata,
                 )
             } else if let Some(mgi) = insert.metadata_group_id.unwrap() {
                 (
                     mgi.to_string(),
                     self.metadata_group_details(mgi).await?.details.title,
-                    EntityLot::MediaGroup,
+                    EntityLot::MetadataGroup,
                 )
             } else if let Some(pi) = insert.person_id.unwrap() {
                 (
@@ -6356,7 +6359,7 @@ impl MiscellaneousService {
                     identifier: m.id.to_string(),
                 },
                 metadata_lot: Some(m.lot),
-                entity_lot: EntityLot::Media,
+                entity_lot: EntityLot::Metadata,
             };
             contents.push(metadata);
         }
@@ -6870,7 +6873,7 @@ impl MiscellaneousService {
                 let meta = meta.unwrap();
                 let url = self.get_entity_details_frontend_url(
                     meta.id.to_string(),
-                    EntityLot::Media,
+                    EntityLot::Metadata,
                     None,
                 );
                 let notification = if let Some(show) = cal_event.metadata_show_extra_information {
@@ -7056,8 +7059,8 @@ GROUP BY m.id;
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let (meta_map, meta_group_map, person_map) = self.get_entities_monitored_by().await?;
         let monitored_by = match event.entity_lot {
-            EntityLot::Media => meta_map.get(&event.obj_id).cloned().unwrap_or_default(),
-            EntityLot::MediaGroup => meta_group_map
+            EntityLot::Metadata => meta_map.get(&event.obj_id).cloned().unwrap_or_default(),
+            EntityLot::MetadataGroup => meta_group_map
                 .get(&event.obj_id)
                 .cloned()
                 .unwrap_or_default(),
@@ -7100,9 +7103,9 @@ GROUP BY m.id;
         default_tab: Option<&str>,
     ) -> String {
         let mut url = match entity_lot {
-            EntityLot::Media => format!("media/item/{}", id),
+            EntityLot::Metadata => format!("media/item/{}", id),
             EntityLot::Person => format!("media/people/item/{}", id),
-            EntityLot::MediaGroup => format!("media/groups/item/{}", id),
+            EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
         };

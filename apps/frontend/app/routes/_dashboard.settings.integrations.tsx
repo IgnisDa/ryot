@@ -63,7 +63,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		serverGqlService.request(
 			UserIntegrationsDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	return { userIntegrations };
@@ -81,7 +81,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeleteUserIntegrationDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -98,7 +98,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				CreateUserIntegrationDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -114,7 +114,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { generateAuthToken } = await serverGqlService.request(
 				GenerateAuthTokenDocument,
 				undefined,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", generateAuthToken } as const);
 		},
@@ -255,7 +255,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 								Triggered:{" "}
 								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
 							</Text>
-						) : undefined}
+						) : null}
 					</Box>
 					<Group>
 						{!YANK_INTEGRATIONS.includes(props.integration.source) ? (
@@ -355,7 +355,7 @@ const CreateIntegrationModal = (props: {
 								max={100}
 							/>
 						</Group>
-					) : undefined}
+					) : null}
 					{match(source)
 						.with(IntegrationSource.Audiobookshelf, () => (
 							<>

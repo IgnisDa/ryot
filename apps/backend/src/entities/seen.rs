@@ -4,6 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use database::SeenState;
+use educe::Educe;
 use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -21,9 +22,10 @@ use crate::{
 // When updating a media item's progress, here are the things that should happen:
 // - remove from watchlist if it was in there
 // - add to in progress
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
+#[derive(Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Educe)]
 #[graphql(name = "Seen")]
 #[sea_orm(table_name = "seen")]
+#[educe(Debug)]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
@@ -36,6 +38,7 @@ pub struct Model {
     pub provider_watched_on: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
+    #[educe(Debug(ignore))]
     pub updated_at: Vec<DateTimeUtc>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,

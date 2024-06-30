@@ -7,32 +7,23 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import { unstable_defineAction } from "@remix-run/node";
+import { Form, type MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";
+import { useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserDetails,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
-	const [userDetails] = await Promise.all([getUserDetails(request)]);
-	return { userDetails };
-});
-
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs_SingleFetch) => {
 	return [{ title: "Miscellaneous settings | Ryot" }];
 };
 
@@ -42,7 +33,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	await serverGqlService.request(
 		DeployBackgroundJobDocument,
 		submission,
-		await getAuthorizationHeader(request),
+		getAuthorizationHeader(request),
 	);
 	return Response.json({ status: "success" } as const, {
 		headers: await createToastHeaders({
@@ -57,7 +48,7 @@ const jobSchema = z.object({
 });
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 
 	return (
 		<Container size="lg">
@@ -68,7 +59,7 @@ export default function Page() {
 						cols={{ base: 1, lg: 2 }}
 						spacing={{ base: "xl", md: "md" }}
 					>
-						{loaderData.userDetails.lot === UserLot.Admin ? (
+						{userDetails.lot === UserLot.Admin ? (
 							<>
 								<Stack>
 									<Box>

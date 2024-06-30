@@ -8,13 +8,12 @@ import {
 	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
-	type CoreDetails,
 	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
+	type User,
 	UserCollectionsListDocument,
-	type UserLot,
 	type UserPreferences,
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -29,6 +28,8 @@ import {
 	CORE_DETAILS_COOKIE_NAME,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
+	dayjsLib,
+	queryClient,
 	redirectToQueryParam,
 } from "~/lib/generals";
 
@@ -42,40 +43,29 @@ export const getCookieValue = (request: Request, cookieName: string) => {
 	return parse(request.headers.get("cookie") || "")[cookieName];
 };
 
-const getAuthorizationCookie = async (request: Request) => {
+export const getAuthorizationCookie = (request: Request) => {
 	return getCookieValue(request, AUTH_COOKIE_NAME);
 };
 
-export const getAuthorizationHeader = async (
-	request?: Request,
-	token?: string,
-) => {
+export const getAuthorizationHeader = (request?: Request, token?: string) => {
 	let cookie: string;
-	if (request) cookie = await getAuthorizationCookie(request);
+	if (request) cookie = getAuthorizationCookie(request);
 	else if (token) cookie = token;
 	else cookie = "";
 	return { Authorization: `Bearer ${cookie}` };
 };
 
-export const getIsAuthenticated = async (request: Request) => {
-	const cookie = await getAuthorizationCookie(request);
+export const getIsAuthenticated = (request: Request) => {
+	const cookie = getAuthorizationCookie(request);
 	if (!cookie) return [false, null] as const;
-	try {
-		const { userDetails } = await serverGqlService.request(
-			UserDetailsDocument,
-			undefined,
-			await getAuthorizationHeader(request),
-		);
-		return [userDetails.__typename === "User", userDetails] as const;
-	} catch {
-		return [false, null] as const;
-	}
+	const value = getCookieValue(request, USER_DETAILS_COOKIE_NAME);
+	return [true, JSON.parse(value) as User] as const;
 };
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
-	const [isAuthenticated, userDetails] = await getIsAuthenticated(request);
-	const nextUrl = withoutHost(request.url);
-	if (!isAuthenticated || userDetails.__typename !== "User") {
+	const [isAuthenticated, userDetails] = getIsAuthenticated(request);
+	if (!isAuthenticated) {
+		const nextUrl = withoutHost(request.url);
 		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
 			status: 302,
 			headers: combineHeaders(
@@ -83,7 +73,7 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 					type: "error",
 					message: "You must be logged in to view this page",
 				}),
-				await getLogoutCookies(),
+				getLogoutCookies(),
 			),
 		});
 	}
@@ -115,19 +105,12 @@ export function combineHeaders(
 	return combined;
 }
 
-export type ApplicationUser = {
-	__typename: "User";
-	id: string;
-	name: string;
-	lot: UserLot;
-	oidcIssuerId?: string;
-	isDemo: boolean;
-};
-
 const emptyNumberString = z
 	.any()
 	.transform((v) => (!v ? undefined : Number.parseInt(v)))
 	.nullable();
+
+export const MetadataIdSchema = z.object({ metadataId: z.string() });
 
 export const MetadataSpecificsSchema = z.object({
 	showSeasonNumber: emptyNumberString,
@@ -152,13 +135,27 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 	return submission.value;
 };
 
-export const getUserCollectionsList = async (request: Request) => {
-	const { userCollectionsList } = await serverGqlService.request(
-		UserCollectionsListDocument,
-		{},
-		await getAuthorizationHeader(request),
-	);
-	return userCollectionsList;
+export const getCachedUserCollectionsList = async (request: Request) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	return queryClient.ensureQueryData({
+		queryKey: ["userCollectionsList", userDetails.id],
+		queryFn: () =>
+			serverGqlService
+				.request(
+					UserCollectionsListDocument,
+					{},
+					getAuthorizationHeader(request),
+				)
+				.then((data) => data.userCollectionsList),
+		gcTime: dayjsLib.duration(1, "hour").asMilliseconds(),
+	});
+};
+
+export const removeCachedUserCollectionsList = async (request: Request) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	queryClient.removeQueries({
+		queryKey: ["userCollectionsList", userDetails.id],
+	});
 };
 
 export const uploadFileAndGetKey = async (
@@ -228,6 +225,12 @@ export const s3FileUploader = (prefix: string) =>
 		}
 		return undefined;
 	}, unstable_createMemoryUploadHandler());
+
+export const getUserPreferences = async (request: Request) => {
+	await redirectIfNotAuthenticatedOrUpdated(request);
+	const preferences = getCookieValue(request, USER_PREFERENCES_COOKIE_NAME);
+	return JSON.parse(preferences) as UserPreferences;
+};
 
 export const getCoreEnabledFeatures = async () => {
 	const { coreEnabledFeatures } = await serverGqlService.request(
@@ -310,12 +313,12 @@ export const getCookiesForApplication = async (token: string) => {
 			serverGqlService.request(
 				UserPreferencesDocument,
 				undefined,
-				await getAuthorizationHeader(undefined, token),
+				getAuthorizationHeader(undefined, token),
 			),
 			serverGqlService.request(
 				UserDetailsDocument,
 				undefined,
-				await getAuthorizationHeader(undefined, token),
+				getAuthorizationHeader(undefined, token),
 			),
 		]);
 	const maxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
@@ -342,10 +345,11 @@ export const getCookiesForApplication = async (token: string) => {
 				options,
 			),
 		},
+		{ "set-cookie": serialize(AUTH_COOKIE_NAME, token, options) },
 	);
 };
 
-export const getLogoutCookies = async () => {
+export const getLogoutCookies = () => {
 	return combineHeaders(
 		{ "set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }) },
 		{
@@ -364,23 +368,6 @@ export const getLogoutCookies = async () => {
 			}),
 		},
 	);
-};
-
-export const getCoreDetails = async (request: Request) => {
-	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
-	return JSON.parse(details) as CoreDetails;
-};
-
-export const getUserPreferences = async (request: Request) => {
-	await redirectIfNotAuthenticatedOrUpdated(request);
-	const preferences = getCookieValue(request, USER_PREFERENCES_COOKIE_NAME);
-	return JSON.parse(preferences) as UserPreferences;
-};
-
-export const getUserDetails = async (request: Request) => {
-	await redirectIfNotAuthenticatedOrUpdated(request);
-	const details = getCookieValue(request, USER_DETAILS_COOKIE_NAME);
-	return JSON.parse(details) as ApplicationUser;
 };
 
 export const extendResponseHeaders = (

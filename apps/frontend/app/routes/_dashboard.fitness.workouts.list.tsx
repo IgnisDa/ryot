@@ -38,14 +38,17 @@ import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { getSetStatisticsTextToDisplay } from "~/components/fitness";
 import { dayjsLib } from "~/lib/generals";
-import { getWorkoutStarter, useSearchParam } from "~/lib/hooks";
+import {
+	getWorkoutStarter,
+	useCoreDetails,
+	useSearchParam,
+	useUserPreferences,
+} from "~/lib/hooks";
+import { getDefaultWorkout } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { getDefaultWorkout } from "~/lib/workout";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -56,27 +59,16 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [userPreferences, coreDetails, { userWorkoutList }] = await Promise.all(
-		[
-			getUserPreferences(request),
-			getCoreDetails(request),
-			serverGqlService.request(
-				UserWorkoutListDocument,
-				{
-					input: { page: query.page, query: query.query },
-				},
-				await getAuthorizationHeader(request),
-			),
-		],
-	);
-	return {
-		userPreferences: {
-			unitSystem: userPreferences.fitness.exercises.unitSystem,
-		},
-		coreDetails: { pageLimit: coreDetails.pageLimit },
-		query,
-		userWorkoutList,
-	};
+	const [{ userWorkoutList }] = await Promise.all([
+		serverGqlService.request(
+			UserWorkoutListDocument,
+			{
+				input: { page: query.page, query: query.query },
+			},
+			getAuthorizationHeader(request),
+		),
+	]);
+	return { query, userWorkoutList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -85,8 +77,11 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useSearchParam();
 	const startWorkout = getWorkoutStarter();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 
 	return (
 		<Container size="xs">
@@ -139,7 +134,7 @@ export default function Page() {
 													<DisplayStat
 														icon={<IconWeight size={16} />}
 														data={displayWeightWithUnit(
-															loaderData.userPreferences.unitSystem,
+															unitSystem,
 															workout.summary.total.weight,
 														)}
 													/>
@@ -178,7 +173,7 @@ export default function Page() {
 													<ExerciseDisplay
 														exercise={exercise}
 														key={`${idx}-${exercise.id}`}
-														unit={loaderData.userPreferences.unitSystem}
+														unit={unitSystem}
 													/>
 												))}
 											</>
@@ -199,8 +194,7 @@ export default function Page() {
 						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
-							loaderData.userWorkoutList.details.total /
-								loaderData.coreDetails.pageLimit,
+							loaderData.userWorkoutList.details.total / coreDetails.pageLimit,
 						)}
 					/>
 				</Center>

@@ -5,36 +5,24 @@ import {
 	Anchor,
 	Badge,
 	Box,
-	Button,
 	Flex,
 	Image,
-	Modal,
-	NumberInput,
-	Select,
 	SimpleGrid,
 	Stack,
 	Text,
 	TextInput,
-	Title,
 	useComputedColorScheme,
 } from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
-import { Form, useNavigation } from "@remix-run/react";
-import {
-	CollectionExtraInformationLot,
-	type EntityLot,
-	type MediaLot,
-	type MediaSource,
-	type UserCollectionsListQuery,
+import type {
+	MediaLot,
+	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
-import { formatDateToNaiveDate, groupBy, snakeCase } from "@ryot/ts-utils";
+import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { Fragment, type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import { useState } from "react";
-import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
-import events from "~/lib/events";
+import { withFragment, withoutHost } from "ufo";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
@@ -140,162 +128,18 @@ export const MediaDetailsLayout = (props: {
 
 export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
 
-type Collection = UserCollectionsListQuery["userCollectionsList"][number];
-
-export const AddEntityToCollectionModal = (props: {
-	userId: string;
-	opened: boolean;
-	onClose: () => void;
-	entityId: string;
-	entityLot: EntityLot;
-	collections: Array<Collection>;
-}) => {
-	const transition = useNavigation();
-	const selectData = Object.entries(
-		groupBy(props.collections, (c) =>
-			c.creator.id === props.userId ? "You" : c.creator.name,
-		),
-	).map(([g, items]) => ({
-		group: g,
-		items: items.map((c) => ({
-			label: c.name,
-			value: c.id.toString(),
-		})),
-	}));
-	const [selectedCollection, setSelectedCollection] =
-		useState<Collection | null>(null);
-	const [ownedOn, setOwnedOn] = useState<Date | null>();
-	useEffect(() => {
-		if (transition.state !== "submitting") {
-			props.onClose();
-		}
-	}, [transition.state]);
-
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form action="/actions?intent=addEntityToCollection" method="post">
-				<input readOnly hidden name="entityId" value={props.entityId} />
-				<input readOnly hidden name="entityLot" value={props.entityLot} />
-				<HiddenLocationInput />
-				<Stack>
-					<Title order={3}>Select collection</Title>
-					<Select
-						searchable
-						data={selectData}
-						nothingFoundMessage="Nothing found..."
-						value={selectedCollection?.id.toString()}
-						onChange={(v) => {
-							if (v) {
-								const collection = props.collections.find((c) => c.id === v);
-								if (collection) setSelectedCollection(collection);
-							}
-						}}
-					/>
-					{selectedCollection ? (
-						<>
-							<input
-								readOnly
-								hidden
-								name="collectionName"
-								value={selectedCollection.name}
-							/>
-							<input
-								readOnly
-								hidden
-								name="creatorUserId"
-								value={selectedCollection.creator.id}
-							/>
-							{selectedCollection.informationTemplate?.map((template) => (
-								<Fragment key={template.name}>
-									{match(template.lot)
-										.with(CollectionExtraInformationLot.String, () => (
-											<TextInput
-												name={`information.${template.name}`}
-												label={template.name}
-												description={template.description}
-												required={!!template.required}
-												defaultValue={template.defaultValue || undefined}
-											/>
-										))
-										.with(CollectionExtraInformationLot.Number, () => (
-											<NumberInput
-												name={`information.${template.name}`}
-												label={template.name}
-												description={template.description}
-												required={!!template.required}
-												defaultValue={
-													template.defaultValue
-														? Number(template.defaultValue)
-														: undefined
-												}
-											/>
-										))
-										.with(CollectionExtraInformationLot.Date, () => (
-											<>
-												<DateInput
-													label={template.name}
-													description={template.description}
-													required={!!template.required}
-													onChange={setOwnedOn}
-													value={ownedOn}
-													defaultValue={
-														template.defaultValue
-															? new Date(template.defaultValue)
-															: undefined
-													}
-												/>
-												<input
-													readOnly
-													hidden
-													name={`information.${template.name}`}
-													value={
-														ownedOn ? formatDateToNaiveDate(ownedOn) : undefined
-													}
-												/>
-											</>
-										))
-										.with(CollectionExtraInformationLot.DateTime, () => (
-											<DateTimePicker
-												name={`information.${template.name}`}
-												label={template.name}
-												description={template.description}
-												required={!!template.required}
-											/>
-										))
-										.exhaustive()}
-								</Fragment>
-							))}
-						</>
-					) : null}
-					<Button
-						disabled={!selectedCollection}
-						variant="outline"
-						type="submit"
-						onClick={() => events.addToCollection(props.entityLot)}
-					>
-						Set
-					</Button>
-					<Button variant="outline" color="red" onClick={props.onClose}>
-						Cancel
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-export const HiddenLocationInput = () => {
+export const HiddenLocationInput = (props: { hash?: string }) => {
 	const value = withoutHost(
 		typeof window !== "undefined" ? window.location.href : "",
 	);
 
 	return (
-		<input type="hidden" name={redirectToQueryParam} value={value} readOnly />
+		<input
+			type="hidden"
+			name={redirectToQueryParam}
+			value={withFragment(value, props.hash || "")}
+			readOnly
+		/>
 	);
 };
 

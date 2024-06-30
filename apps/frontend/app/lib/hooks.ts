@@ -1,10 +1,28 @@
 import { $path } from "@ignisda/remix-routes";
 import { useMantineTheme } from "@mantine/core";
-import { useNavigate, useSearchParams } from "@remix-run/react";
+import {
+	useNavigate,
+	useRouteLoaderData,
+	useSearchParams,
+} from "@remix-run/react";
+import {
+	MetadataDetailsDocument,
+	UserMetadataDetailsDocument,
+} from "@ryot/generated/graphql/backend/graphql";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import Cookies from "js-cookie";
-import { CurrentWorkoutKey, getStringAsciiValue } from "~/lib/generals";
-import { type InProgressWorkout, currentWorkoutAtom } from "~/lib/workout";
+import {
+	CurrentWorkoutKey,
+	clientGqlService,
+	dayjsLib,
+	getStringAsciiValue,
+} from "~/lib/generals";
+import {
+	type InProgressWorkout,
+	currentWorkoutAtom,
+} from "~/lib/state/workout";
+import type { loader } from "~/routes/_dashboard";
 
 export function useGetMantineColor() {
 	const theme = useMantineTheme();
@@ -52,3 +70,45 @@ export function getWorkoutStarter() {
 	};
 	return fn;
 }
+
+export const getMetadataDetailsQuery = (metadataId?: string | null) =>
+	({
+		queryKey: ["metadataDetails", metadataId],
+		queryFn: metadataId
+			? () =>
+					clientGqlService
+						.request(MetadataDetailsDocument, { metadataId })
+						.then((data) => data.metadataDetails)
+			: skipToken,
+		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
+	}) as const;
+
+export const useMetadataDetails = (metadataId?: string | null) => {
+	return useQuery(getMetadataDetailsQuery(metadataId));
+};
+
+export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
+	({
+		queryKey: ["userMetadataDetails", metadataId],
+		queryFn: metadataId
+			? () =>
+					clientGqlService
+						.request(UserMetadataDetailsDocument, { metadataId })
+						.then((data) => data.userMetadataDetails)
+			: skipToken,
+		staleTime: Number.POSITIVE_INFINITY,
+	}) as const;
+
+export const useUserMetadataDetails = (metadataId?: string | null) => {
+	return useQuery(getUserMetadataDetailsQuery(metadataId));
+};
+
+const useDashboardData = () => {
+	const loaderData = useRouteLoaderData<typeof loader>("routes/_dashboard");
+	return loaderData;
+};
+
+export const useCoreDetails = () => useDashboardData().coreDetails;
+export const useUserPreferences = () => useDashboardData().userPreferences;
+export const useUserDetails = () => useDashboardData().userDetails;
+export const useUserCollections = () => useDashboardData().userCollections;

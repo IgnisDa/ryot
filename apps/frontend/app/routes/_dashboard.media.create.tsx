@@ -66,7 +66,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	const { createCustomMetadata } = await serverGqlService.request(
 		CreateCustomMetadataDocument,
 		{ input },
-		await getAuthorizationHeader(request),
+		getAuthorizationHeader(request),
 	);
 	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
 });

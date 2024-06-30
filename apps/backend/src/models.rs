@@ -47,9 +47,9 @@ pub enum BackgroundJob {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
 pub enum EntityLot {
     #[default]
-    Media,
+    Metadata,
     Person,
-    MediaGroup,
+    MetadataGroup,
     Exercise,
     Collection,
 }
@@ -1491,7 +1491,7 @@ pub mod fitness {
         pub basal_metabolic_rate: Option<Decimal>,
         pub total_daily_energy_expenditure: Option<Decimal>,
         pub calories: Option<Decimal>,
-        // DEV: the only custom data type we allow is decimal
+        // DEV: The only custom data type we allow is decimal
         pub custom: Option<HashMap<String, Decimal>>,
     }
 

@@ -18,8 +18,8 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { BaseDisplayItem } from "~/components/media";
-import { useSearchParam } from "~/lib/hooks";
-import { getCoreDetails, serverGqlService } from "~/lib/utilities.server";
+import { useCoreDetails, useSearchParam } from "~/lib/hooks";
+import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -31,17 +31,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const genreId = params.id;
 	invariant(genreId, "No ID provided");
-	const [coreDetails, { genreDetails }] = await Promise.all([
-		getCoreDetails(request),
+	const [{ genreDetails }] = await Promise.all([
 		serverGqlService.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },
 		}),
 	]);
-	return {
-		query,
-		coreDetails: { pageLimit: coreDetails.pageLimit },
-		genreDetails,
-	};
+	return { query, genreDetails };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -50,6 +45,7 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useSearchParam();
 
 	return (
@@ -79,7 +75,7 @@ export default function Page() {
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
 							loaderData.genreDetails.contents.details.total /
-								loaderData.coreDetails.pageLimit,
+								coreDetails.pageLimit,
 						)}
 					/>
 				</Center>

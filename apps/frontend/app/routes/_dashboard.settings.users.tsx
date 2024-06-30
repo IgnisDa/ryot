@@ -31,21 +31,19 @@ import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [coreDetails, { usersList }] = await Promise.all([
-		getCoreDetails(request),
+	const [{ usersList }] = await Promise.all([
 		serverGqlService.request(
 			UsersListDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
-	return { coreDetails, usersList };
+	return { usersList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -60,7 +58,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { deleteUser } = await serverGqlService.request(
 				DeleteUserDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -76,7 +74,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { registerUser } = await serverGqlService.request(
 				RegisterUserDocument,
 				{ input: { password: submission } },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			const success = registerUser.__typename === "StringIdObject";
 			return Response.json({ status: "success", submission } as const, {

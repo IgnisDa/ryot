@@ -6,12 +6,9 @@ import {
 	LoginUserDocument,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { type CookieSerializeOptions, serialize } from "cookie";
 import { z } from "zod";
 import { zx } from "zodix";
-import { AUTH_COOKIE_NAME } from "~/lib/generals";
 import {
-	combineHeaders,
 	getCookiesForApplication,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -30,7 +27,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		email: getOidcToken.email,
 		issuerId: getOidcToken.subject,
 	};
-	const [{ coreDetails }] = await Promise.all([
+	await Promise.all([
 		serverGqlService.request(CoreDetailsDocument),
 		serverGqlService.request(RegisterUserDocument, {
 			input: { oidc: oidcInput },
@@ -40,19 +37,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		input: { oidc: oidcInput },
 	});
 	if (loginUser.__typename === "LoginResponse") {
-		const cookies = await getCookiesForApplication(loginUser.apiKey);
-		const options = {
-			maxAge: coreDetails.tokenValidForDays * 24 * 60 * 60,
-			path: "/",
-		} satisfies CookieSerializeOptions;
-		return redirect($path("/"), {
-			headers: combineHeaders(
-				{
-					"set-cookie": serialize(AUTH_COOKIE_NAME, loginUser.apiKey, options),
-				},
-				cookies,
-			),
-		});
+		const headers = await getCookiesForApplication(loginUser.apiKey);
+		return redirect($path("/"), { headers });
 	}
 	return Response.json({ input });
 });

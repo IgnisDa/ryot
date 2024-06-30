@@ -22,8 +22,12 @@ import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
-import { useGetMantineColor, useSearchParam } from "~/lib/hooks";
-import { getCoreDetails, serverGqlService } from "~/lib/utilities.server";
+import {
+	useCoreDetails,
+	useGetMantineColor,
+	useSearchParam,
+} from "~/lib/hooks";
+import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -34,13 +38,12 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [coreDetails, { genresList }] = await Promise.all([
-		getCoreDetails(request),
+	const [{ genresList }] = await Promise.all([
 		serverGqlService.request(GenresListDocument, {
 			input: { page: query.page, query: query.query },
 		}),
 	]);
-	return { coreDetails, query, listGenres: genresList };
+	return { query, listGenres: genresList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -49,6 +52,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const getMantineColor = useGetMantineColor();
 	const [_, { setP }] = useSearchParam();
 
@@ -107,8 +111,7 @@ export default function Page() {
 							value={loaderData.query.page}
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(
-								loaderData.listGenres.details.total /
-									loaderData.coreDetails.pageLimit,
+								loaderData.listGenres.details.total / coreDetails.pageLimit,
 							)}
 						/>
 					</Center>
