@@ -1,6 +1,11 @@
-import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	type EntityLot,
+	MediaLot,
+	type ReviewItem,
+} from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { useState } from "react";
+import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { queryClient } from "./generals";
 import { getMetadataDetailsQuery, getUserMetadataDetailsQuery } from "./hooks";
@@ -52,4 +57,24 @@ export const useMetadataProgressUpdate = () => {
 		_setMetadataProgress(draft);
 	};
 	return [metadataProgress, setMetadataProgress, isLoading] as const;
+};
+
+export type ReviewEntityData = {
+	entityId: string;
+	entityLot: EntityLot;
+	entityTitle: string;
+	metadataLot: MediaLot;
+	showSeasonNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	animeEpisodeNumber?: number | null;
+	mangaChapterNumber?: number | null;
+	mangaVolumeNumber?: number | null;
+	podcastEpisodeNumber?: number | null;
+	existingReview?: DeepPartial<ReviewItem>;
+};
+
+export const reviewEntityAtom = atom<ReviewEntityData | null>(null);
+
+export const useReviewEntity = () => {
+	return useAtom(reviewEntityAtom);
 };

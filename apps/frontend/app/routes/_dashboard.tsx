@@ -13,14 +13,18 @@ import {
 	Flex,
 	Group,
 	Image,
+	Input,
 	Loader,
 	Modal,
 	NumberInput,
+	Rating,
 	ScrollArea,
+	SegmentedControl,
 	Select,
 	Slider,
 	Stack,
 	Text,
+	Textarea,
 	ThemeIcon,
 	UnstyledButton,
 	useDirection,
@@ -32,10 +36,13 @@ import { unstable_defineLoader } from "@remix-run/node";
 import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	type CoreDetails,
+	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
 	UserLot,
 	type UserMetadataDetailsQuery,
+	UserReviewScale,
+	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
 import {
@@ -80,6 +87,7 @@ import {
 import {
 	type UpdateProgressData,
 	useMetadataProgressUpdate,
+	useReviewEntity,
 } from "~/lib/media";
 import {
 	serverVariables as envData,
@@ -229,6 +237,8 @@ export default function Layout() {
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
+	const [entityToReview, setEntityToReview] = useReviewEntity();
+	const closeReviewEntityModal = () => setEntityToReview(null);
 
 	return (
 		<>
@@ -241,6 +251,14 @@ export default function Layout() {
 				<MetadataProgressUpdateForm
 					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
 				/>
+			</Modal>
+			<Modal
+				onClose={() => setEntityToReview(null)}
+				opened={entityToReview !== null}
+				withCloseButton={false}
+				centered
+			>
+				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
 			</Modal>
 			<AppShell
 				w="100%"
@@ -972,6 +990,198 @@ const NewProgressUpdateForm = ({
 					value={selectedDate ? formatDateToNaiveDate(selectedDate) : undefined}
 				>
 					Submit
+				</Button>
+			</Stack>
+		</Form>
+	);
+};
+
+const ReviewEntityForm = ({
+	closeReviewEntityModal,
+}: {
+	closeReviewEntityModal: () => void;
+}) => {
+	const userPreferences = useUserPreferences();
+	const [entityToReview] = useReviewEntity();
+
+	if (!entityToReview) return null;
+
+	return (
+		<Form
+			method="post"
+			action="/actions?intent=performReviewAction"
+			replace
+			onSubmit={() => {
+				events.postReview(entityToReview.entityTitle);
+				closeReviewEntityModal();
+			}}
+		>
+			<input
+				hidden
+				name={match(entityToReview.entityLot)
+					.with(EntityLot.Metadata, () => "metadataId")
+					.with(EntityLot.MetadataGroup, () => "metadataGroupId")
+					.with(EntityLot.Person, () => "personId")
+					.with(EntityLot.Collection, () => "collection")
+					.run()}
+				value={entityToReview.entityId}
+				readOnly
+			/>
+			<HiddenLocationInput />
+			{entityToReview.existingReview?.id ? (
+				<input
+					hidden
+					name="reviewId"
+					value={entityToReview.existingReview.id}
+				/>
+			) : null}
+			<Stack>
+				<Flex align="center" gap="xl">
+					{match(userPreferences.general.reviewScale)
+						.with(UserReviewScale.OutOfFive, () => (
+							<Flex gap="sm" mt="lg">
+								<Input.Label>Rating:</Input.Label>
+								<Rating
+									name="rating"
+									defaultValue={
+										entityToReview.existingReview?.rating
+											? Number(entityToReview.existingReview.rating)
+											: undefined
+									}
+									fractions={2}
+								/>
+							</Flex>
+						))
+						.with(UserReviewScale.OutOfHundred, () => (
+							<NumberInput
+								label="Rating"
+								name="rating"
+								min={0}
+								max={100}
+								step={1}
+								w="40%"
+								hideControls
+								rightSection={<IconPercentage size={16} />}
+								defaultValue={
+									entityToReview.existingReview?.rating
+										? Number(entityToReview.existingReview.rating)
+										: undefined
+								}
+							/>
+						))
+						.exhaustive()}
+					<Checkbox label="This review is a spoiler" mt="lg" name="isSpoiler" />
+				</Flex>
+				{entityToReview.metadataLot === MediaLot.Show ? (
+					<Flex gap="md">
+						<NumberInput
+							label="Season"
+							name="showSeasonNumber"
+							hideControls
+							defaultValue={
+								typeof entityToReview.existingReview?.showExtraInformation
+									?.season === "number"
+									? entityToReview.existingReview.showExtraInformation?.season
+									: typeof entityToReview.showSeasonNumber === "number"
+										? entityToReview.showSeasonNumber
+										: undefined
+							}
+						/>
+						<NumberInput
+							label="Episode"
+							name="showEpisodeNumber"
+							hideControls
+							defaultValue={
+								entityToReview.existingReview?.showExtraInformation?.episode
+									? entityToReview.existingReview.showExtraInformation?.episode
+									: entityToReview.showEpisodeNumber || undefined
+							}
+						/>
+					</Flex>
+				) : null}
+				{entityToReview.metadataLot === MediaLot.Podcast ? (
+					<NumberInput
+						label="Episode"
+						name="podcastEpisodeNumber"
+						hideControls
+						defaultValue={
+							entityToReview.existingReview?.podcastExtraInformation?.episode
+								? entityToReview.existingReview.podcastExtraInformation?.episode
+								: entityToReview.podcastEpisodeNumber || undefined
+						}
+					/>
+				) : null}
+				{entityToReview.metadataLot === MediaLot.Anime ? (
+					<NumberInput
+						label="Episode"
+						name="animeEpisodeNumber"
+						hideControls
+						defaultValue={
+							entityToReview.existingReview?.animeExtraInformation?.episode
+								? entityToReview.existingReview.animeExtraInformation?.episode
+								: entityToReview.animeEpisodeNumber || undefined
+						}
+					/>
+				) : null}
+				{entityToReview.metadataLot === MediaLot.Manga ? (
+					<>
+						<Group wrap="nowrap">
+							<NumberInput
+								label="Chapter"
+								name="mangaChapterNumber"
+								hideControls
+								defaultValue={
+									entityToReview.existingReview?.mangaExtraInformation?.chapter
+										? entityToReview.existingReview.mangaExtraInformation
+												?.chapter
+										: entityToReview.mangaChapterNumber || undefined
+								}
+							/>
+							<Text ta="center" fw="bold" mt="sm">
+								OR
+							</Text>
+							<NumberInput
+								label="Volume"
+								name="mangaVolumeNumber"
+								hideControls
+								defaultValue={
+									entityToReview.existingReview?.mangaExtraInformation?.volume
+										? entityToReview.existingReview.mangaExtraInformation
+												?.volume
+										: entityToReview.mangaVolumeNumber || undefined
+								}
+							/>
+						</Group>
+					</>
+				) : null}
+				<Textarea
+					label="Review"
+					name="text"
+					description="Markdown is supported"
+					autoFocus
+					minRows={10}
+					maxRows={20}
+					autosize
+					defaultValue={
+						entityToReview.existingReview?.textOriginal ?? undefined
+					}
+				/>
+				<Box>
+					<Input.Label>Visibility</Input.Label>
+					<SegmentedControl
+						fullWidth
+						data={Object.entries(Visibility).map(([k, v]) => ({
+							label: changeCase(k),
+							value: v,
+						}))}
+						defaultValue={
+							entityToReview.existingReview?.visibility ?? Visibility.Public
+						}
+						name="visibility"
+					/>
+				</Box>
+				<Button mt="md" type="submit" w="100%">
+					{entityToReview.existingReview?.id ? "Update" : "Submit"}
 				</Button>
 			</Stack>
 		</Form>
