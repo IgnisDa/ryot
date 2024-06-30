@@ -7,27 +7,20 @@ import {
 	Badge,
 	Box,
 	Button,
-	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
 	Group,
 	Image,
-	Input,
 	Loader,
 	type MantineStyleProp,
 	Menu,
-	Modal,
-	NumberInput,
 	Paper,
-	Rating,
 	ScrollArea,
-	SegmentedControl,
 	Stack,
 	type StyleProp,
 	Text,
 	TextInput,
-	Textarea,
 	ThemeIcon,
 	Tooltip,
 	useComputedColorScheme,
@@ -43,14 +36,13 @@ import {
 } from "@remix-run/react";
 import {
 	EntityLot,
-	MediaLot,
+	type MediaLot,
 	type MediaSource,
 	type PartialMetadata,
 	type ReviewItem,
 	type User,
 	UserReviewScale,
 	UserToMediaReason,
-	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
@@ -61,25 +53,24 @@ import {
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
-	IconPercentage,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import events from "~/lib/events";
 import {
 	dayjsLib,
 	getFallbackImageUrl,
 	redirectToQueryParam,
 } from "~/lib/generals";
-import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
+import { useGetMantineColor } from "~/lib/hooks";
+import { useReviewEntity } from "~/lib/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
@@ -164,30 +155,13 @@ export const ReviewItemDisplay = (props: {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
-	const [postReviewModalData, setPostReviewModalData] = useState<
-		PostReview | undefined
-	>(undefined);
 	const deleteReviewFetcher = useFetcher<typeof action>();
+	const [_, setEntityToReview] = useReviewEntity();
 
 	const submit = useSubmit();
 
 	return (
 		<>
-			<PostReviewModal
-				onClose={() => setPostReviewModalData(undefined)}
-				opened={postReviewModalData !== undefined}
-				data={postReviewModalData}
-				entityLot={props.entityLot}
-				objectId={
-					props.metadataId?.toString() ||
-					props.metadataGroupId?.toString() ||
-					props.collectionId?.toString() ||
-					props.personId?.toString() ||
-					""
-				}
-				title={props.title}
-				lot={props.lot}
-			/>
 			<Box key={props.review.id} data-review-id={props.review.id}>
 				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
@@ -201,7 +175,16 @@ export const ReviewItemDisplay = (props: {
 						<>
 							<ActionIcon
 								onClick={() => {
-									setPostReviewModalData({
+									setEntityToReview({
+										entityLot: props.entityLot,
+										entityId:
+											props.metadataId?.toString() ||
+											props.metadataGroupId?.toString() ||
+											props.collectionId?.toString() ||
+											props.personId?.toString() ||
+											"",
+										entityTitle: props.title,
+										metadataLot: props.lot,
 										existingReview: props.review,
 										showSeasonNumber: props.review.showExtraInformation?.season,
 										showEpisodeNumber:
@@ -725,219 +708,6 @@ export const DisplayCollection = (props: {
 				</Flex>
 			</Form>
 		</Badge>
-	);
-};
-
-export type PostReview = {
-	showSeasonNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: number | null;
-	mangaVolumeNumber?: number | null;
-	podcastEpisodeNumber?: number | null;
-	existingReview?: DeepPartial<ReviewItem>;
-};
-
-export const PostReviewModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	objectId: string;
-	entityLot: EntityLot;
-	title: string;
-	data?: PostReview;
-	lot?: MediaLot;
-}) => {
-	const userPreferences = useUserPreferences();
-
-	if (!props.data) return <></>;
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form
-				method="post"
-				action="/actions?intent=performReviewAction"
-				replace
-				onSubmit={() => {
-					events.postReview(props.title);
-					props.onClose();
-				}}
-			>
-				<input
-					hidden
-					name={match(props.entityLot)
-						.with(EntityLot.Metadata, () => "metadataId")
-						.with(EntityLot.MetadataGroup, () => "metadataGroupId")
-						.with(EntityLot.Person, () => "personId")
-						.with(EntityLot.Collection, () => "collection")
-						.run()}
-					value={props.objectId}
-					readOnly
-				/>
-				<HiddenLocationInput />
-				{props.data.existingReview?.id ? (
-					<input hidden name="reviewId" value={props.data.existingReview.id} />
-				) : null}
-				<Stack>
-					<Flex align="center" gap="xl">
-						{match(userPreferences.general.reviewScale)
-							.with(UserReviewScale.OutOfFive, () => (
-								<Flex gap="sm" mt="lg">
-									<Input.Label>Rating:</Input.Label>
-									<Rating
-										name="rating"
-										defaultValue={
-											props.data?.existingReview?.rating
-												? Number(props.data.existingReview.rating)
-												: undefined
-										}
-										fractions={2}
-									/>
-								</Flex>
-							))
-							.with(UserReviewScale.OutOfHundred, () => (
-								<NumberInput
-									label="Rating"
-									name="rating"
-									min={0}
-									max={100}
-									step={1}
-									w="40%"
-									hideControls
-									rightSection={<IconPercentage size={16} />}
-									defaultValue={
-										props.data?.existingReview?.rating
-											? Number(props.data.existingReview.rating)
-											: undefined
-									}
-								/>
-							))
-							.exhaustive()}
-						<Checkbox
-							label="This review is a spoiler"
-							mt="lg"
-							name="isSpoiler"
-						/>
-					</Flex>
-					{props.lot === MediaLot.Show ? (
-						<Flex gap="md">
-							<NumberInput
-								label="Season"
-								name="showSeasonNumber"
-								hideControls
-								defaultValue={
-									typeof props.data?.existingReview?.showExtraInformation
-										?.season === "number"
-										? props.data.existingReview.showExtraInformation?.season
-										: typeof props.data.showSeasonNumber === "number"
-											? props.data.showSeasonNumber
-											: undefined
-								}
-							/>
-							<NumberInput
-								label="Episode"
-								name="showEpisodeNumber"
-								hideControls
-								defaultValue={
-									props.data?.existingReview?.showExtraInformation?.episode
-										? props.data.existingReview.showExtraInformation?.episode
-										: props.data.showEpisodeNumber || undefined
-								}
-							/>
-						</Flex>
-					) : null}
-					{props.lot === MediaLot.Podcast ? (
-						<NumberInput
-							label="Episode"
-							name="podcastEpisodeNumber"
-							hideControls
-							defaultValue={
-								props.data?.existingReview?.podcastExtraInformation?.episode
-									? props.data.existingReview.podcastExtraInformation?.episode
-									: props.data.podcastEpisodeNumber || undefined
-							}
-						/>
-					) : null}
-					{props.lot === MediaLot.Anime ? (
-						<NumberInput
-							label="Episode"
-							name="animeEpisodeNumber"
-							hideControls
-							defaultValue={
-								props.data?.existingReview?.animeExtraInformation?.episode
-									? props.data.existingReview.animeExtraInformation?.episode
-									: props.data.animeEpisodeNumber || undefined
-							}
-						/>
-					) : null}
-					{props.lot === MediaLot.Manga ? (
-						<>
-							<Group wrap="nowrap">
-								<NumberInput
-									label="Chapter"
-									name="mangaChapterNumber"
-									hideControls
-									defaultValue={
-										props.data?.existingReview?.mangaExtraInformation?.chapter
-											? props.data.existingReview.mangaExtraInformation?.chapter
-											: props.data.mangaChapterNumber || undefined
-									}
-								/>
-								<Text ta="center" fw="bold" mt="sm">
-									OR
-								</Text>
-								<NumberInput
-									label="Volume"
-									name="mangaVolumeNumber"
-									hideControls
-									defaultValue={
-										props.data?.existingReview?.mangaExtraInformation?.volume
-											? props.data.existingReview.mangaExtraInformation?.volume
-											: props.data.mangaVolumeNumber || undefined
-									}
-								/>
-							</Group>
-						</>
-					) : null}
-					<Textarea
-						label="Review"
-						name="text"
-						description="Markdown is supported"
-						autoFocus
-						minRows={10}
-						maxRows={20}
-						autosize
-						defaultValue={props.data.existingReview?.textOriginal ?? undefined}
-					/>
-					<Box>
-						<Input.Label>Visibility</Input.Label>
-						<SegmentedControl
-							fullWidth
-							data={[
-								{
-									label: Visibility.Public,
-									value: Visibility.Public,
-								},
-								{
-									label: Visibility.Private,
-									value: Visibility.Private,
-								},
-							]}
-							defaultValue={
-								props.data.existingReview?.visibility ?? Visibility.Public
-							}
-							name="visibility"
-						/>
-					</Box>
-					<Button mt="md" type="submit" w="100%">
-						{props.data.existingReview?.id ? "Update" : "Submit"}
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
 	);
 };
 

@@ -24,7 +24,6 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
-import { useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -37,12 +36,11 @@ import {
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
-	type PostReview,
-	PostReviewModal,
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
+import { useReviewEntity } from "~/lib/media";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -89,20 +87,10 @@ export default function Page() {
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
-	const [postReviewModalData, setPostReviewModalData] = useState<
-		PostReview | undefined
-	>(undefined);
+	const [_r, setEntityToReview] = useReviewEntity();
 
 	return (
 		<>
-			<PostReviewModal
-				onClose={() => setPostReviewModalData(undefined)}
-				opened={postReviewModalData !== undefined}
-				data={postReviewModalData}
-				entityLot={EntityLot.MetadataGroup}
-				objectId={loaderData.metadataGroupId.toString()}
-				title={loaderData.metadataGroupDetails.details.title}
-			/>
 			<Container>
 				<MediaDetailsLayout
 					images={loaderData.metadataGroupDetails.details.displayImages}
@@ -172,7 +160,12 @@ export default function Page() {
 										variant="outline"
 										w="100%"
 										onClick={() => {
-											setPostReviewModalData({});
+											setEntityToReview({
+												entityId: loaderData.metadataGroupId,
+												entityLot: EntityLot.MetadataGroup,
+												entityTitle:
+													loaderData.metadataGroupDetails.details.title,
+											});
 										}}
 									>
 										Post a review

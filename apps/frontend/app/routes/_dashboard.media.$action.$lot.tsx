@@ -76,7 +76,7 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useMetadataProgressUpdate } from "~/lib/media";
+import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/media";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -219,6 +219,7 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const collections = useUserCollections();
 	const [_, { setP }] = useSearchParam();
+	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -422,13 +423,12 @@ export default function Page() {
 														<IconStarFilled
 															onClick={(e) => {
 																e.preventDefault();
-																navigate(
-																	$path(
-																		"/media/item/:id",
-																		{ id: lm.data.identifier },
-																		{ openReviewModal: true },
-																	),
-																);
+																setEntityToReview({
+																	entityId: lm.data.identifier,
+																	entityLot: EntityLot.Metadata,
+																	entityTitle: lm.data.title,
+																	metadataLot: loaderData.lot,
+																});
 															}}
 															size={16}
 															className={classes.starIcon}

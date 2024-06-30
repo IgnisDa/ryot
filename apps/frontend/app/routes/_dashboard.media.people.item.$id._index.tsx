@@ -33,7 +33,6 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
-import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { z } from "zod";
@@ -46,12 +45,11 @@ import {
 	DisplayCollection,
 	MediaIsPartial,
 	MediaScrollArea,
-	type PostReview,
-	PostReviewModal,
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
+import { useReviewEntity } from "~/lib/media";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -114,20 +112,10 @@ export default function Page() {
 		collectionModalOpened,
 		{ open: collectionModalOpen, close: collectionModalClose },
 	] = useDisclosure(false);
-	const [postReviewModalData, setPostReviewModalData] = useState<
-		PostReview | undefined
-	>(undefined);
+	const [_r, setEntityToReview] = useReviewEntity();
 
 	return (
 		<>
-			<PostReviewModal
-				onClose={() => setPostReviewModalData(undefined)}
-				opened={postReviewModalData !== undefined}
-				data={postReviewModalData}
-				entityLot={EntityLot.Person}
-				objectId={loaderData.personId.toString()}
-				title={loaderData.personDetails.details.name}
-			/>
 			<Container>
 				<MediaDetailsLayout
 					images={loaderData.personDetails.details.displayImages}
@@ -273,7 +261,11 @@ export default function Page() {
 										variant="outline"
 										w="100%"
 										onClick={() => {
-											setPostReviewModalData({});
+											setEntityToReview({
+												entityId: loaderData.personId,
+												entityLot: EntityLot.Person,
+												entityTitle: loaderData.personDetails.details.name,
+											});
 										}}
 									>
 										Post a review

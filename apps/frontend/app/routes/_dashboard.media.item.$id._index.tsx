@@ -87,8 +87,6 @@ import {
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
-	type PostReview,
-	PostReviewModal,
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
@@ -99,7 +97,7 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useMetadataProgressUpdate } from "~/lib/media";
+import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/media";
 import {
 	MetadataIdSchema,
 	createToastHeaders,
@@ -115,10 +113,7 @@ import {
 const JUST_WATCH_URL = "https://www.justwatch.com";
 
 const searchParamsSchema = z
-	.object({
-		defaultTab: z.string().optional(),
-		openReviewModal: zx.BoolAsString.optional(),
-	})
+	.object({ defaultTab: z.string().optional() })
 	.merge(MetadataSpecificsSchema);
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -235,10 +230,8 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [postReviewModalData, setPostReviewModalData] = useState<
-		PostReview | undefined
-	>(loaderData.query.openReviewModal ? {} : undefined);
+	const [_m, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [_r, setEntityToReview] = useReviewEntity();
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -293,15 +286,6 @@ export default function Page() {
 				onClose={mergeMetadataModalClose}
 				opened={mergeMetadataModalOpened}
 				metadataId={loaderData.metadataId}
-			/>
-			<PostReviewModal
-				onClose={() => setPostReviewModalData(undefined)}
-				opened={postReviewModalData !== undefined}
-				data={postReviewModalData}
-				entityLot={EntityLot.Metadata}
-				objectId={loaderData.metadataId.toString()}
-				title={loaderData.metadataDetails.title}
-				lot={loaderData.metadataDetails.lot}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -838,7 +822,11 @@ export default function Page() {
 											variant="outline"
 											w="100%"
 											onClick={() => {
-												setPostReviewModalData({
+												setEntityToReview({
+													entityId: loaderData.metadataId,
+													entityLot: EntityLot.Metadata,
+													entityTitle: loaderData.metadataDetails.title,
+													metadataLot: loaderData.metadataDetails.lot,
 													showSeasonNumber:
 														loaderData.userMetadataDetails?.nextEntry?.season ??
 														undefined,

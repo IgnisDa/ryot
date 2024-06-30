@@ -63,7 +63,7 @@ export type ReviewEntityData = {
 	entityId: string;
 	entityLot: EntityLot;
 	entityTitle: string;
-	metadataLot: MediaLot;
+	metadataLot?: MediaLot;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	animeEpisodeNumber?: number | null;
