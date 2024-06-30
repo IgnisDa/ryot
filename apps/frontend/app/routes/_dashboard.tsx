@@ -22,7 +22,6 @@ import {
 	Stack,
 	Text,
 	ThemeIcon,
-	Title,
 	UnstyledButton,
 	useDirection,
 	useMantineTheme,
@@ -693,7 +692,6 @@ const MetadataInProgressUpdateForm = ({
 				defaultValue={formatDateToNaiveDate(new Date())}
 			/>
 			<Stack>
-				<Title order={3}>Set progress</Title>
 				<Group>
 					<Slider
 						max={100}
@@ -799,7 +797,6 @@ const NewProgressUpdateForm = ({
 			))}
 			<HiddenLocationInput hash={metadataToUpdate.pageFragment} />
 			<Stack>
-				<Title order={3}>Update progress</Title>
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
 						<NumberInput
@@ -943,7 +940,7 @@ const NewProgressUpdateForm = ({
 							</Alert>
 						) : (
 							<>
-								<Title order={6}>Select episode</Title>
+								<Text fw="bold">Select episode</Text>
 								<Select
 									required
 									label="Episode"
