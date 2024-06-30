@@ -704,6 +704,58 @@ export default function Page() {
 												)}
 											</>
 										) : null}
+										{loaderData.metadataDetails.lot === MediaLot.Anime &&
+										loaderData.userMetadataDetails.nextEntry ? (
+											<>
+												<Menu.Label>Anime</Menu.Label>
+												<Menu.Item
+													onClick={() => {
+														setMetadataToUpdate({
+															metadataId: loaderData.metadataId,
+															animeEpisodeNumber:
+																loaderData.metadataDetails.lot ===
+																MediaLot.Anime
+																	? loaderData.userMetadataDetails.nextEntry
+																			?.episode
+																	: undefined,
+														});
+													}}
+												>
+													Mark EP-
+													{loaderData.userMetadataDetails.nextEntry?.episode} as
+													watched
+												</Menu.Item>
+											</>
+										) : null}
+										{loaderData.metadataDetails.lot === MediaLot.Manga &&
+										loaderData.userMetadataDetails.nextEntry ? (
+											<>
+												<Menu.Label>Manga</Menu.Label>
+												<Menu.Item
+													onClick={() => {
+														setMetadataToUpdate({
+															metadataId: loaderData.metadataId,
+															mangaChapterNumber:
+																loaderData.metadataDetails.lot ===
+																MediaLot.Manga
+																	? loaderData.userMetadataDetails.nextEntry
+																			?.chapter
+																	: undefined,
+															mangaVolumeNumber:
+																loaderData.metadataDetails.lot ===
+																MediaLot.Manga
+																	? loaderData.userMetadataDetails.nextEntry
+																			?.volume
+																	: undefined,
+														});
+													}}
+												>
+													Mark EP-
+													{loaderData.userMetadataDetails.nextEntry?.episode} as
+													read
+												</Menu.Item>
+											</>
+										) : null}
 										{loaderData.userMetadataDetails?.inProgress ? (
 											<>
 												<Menu.Label>In progress</Menu.Label>
