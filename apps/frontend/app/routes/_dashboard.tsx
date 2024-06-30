@@ -563,11 +563,6 @@ const MetadataProgressUpdateForm = ({
 	const { data: userMetadataDetails, refetch: refetchUserMetadataDetails } =
 		useUserMetadataDetails(metadataToUpdate?.metadataId);
 
-	// DEV: Progress takes time to update, so we deploy a "job" to refetch it
-	const fetchMetadataProgressAgain = () => {
-		setTimeout(refetchUserMetadataDetails, 2000);
-	};
-
 	const [isLoading, setIsLoading] = useState(false);
 
 	useEffect(() => {
@@ -604,34 +599,37 @@ const MetadataProgressUpdateForm = ({
 			</Center>
 		);
 
+	const onSubmit = () => {
+		// DEV: Progress takes time to update, so we deploy a "job" to refetch it
+		setTimeout(refetchUserMetadataDetails, 2000);
+		events.updateProgress(metadataDetails.title);
+		closeMetadataProgressUpdateModal();
+	};
+
 	return userMetadataDetails.inProgress ? (
 		<MetadataInProgressUpdateForm
+			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
 			inProgress={userMetadataDetails.inProgress}
-			fetchMetadataProgressAgain={fetchMetadataProgressAgain}
-			closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
 		/>
 	) : (
 		<NewProgressUpdateForm
+			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
-			fetchMetadataProgressAgain={fetchMetadataProgressAgain}
-			closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
 		/>
 	);
 };
 
 const MetadataInProgressUpdateForm = ({
+	onSubmit,
 	inProgress,
 	metadataDetails,
 	metadataToUpdate,
-	fetchMetadataProgressAgain,
-	closeMetadataProgressUpdateModal,
 }: {
+	onSubmit: () => void;
 	metadataToUpdate: UpdateProgressData;
-	fetchMetadataProgressAgain: () => void;
-	closeMetadataProgressUpdateModal: () => void;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 	inProgress: UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
 }) => {
@@ -670,11 +668,7 @@ const MetadataInProgressUpdateForm = ({
 			})}
 			method="post"
 			replace
-			onSubmit={() => {
-				fetchMetadataProgressAgain();
-				events.updateProgress(metadataDetails.title);
-				closeMetadataProgressUpdateModal();
-			}}
+			onSubmit={onSubmit}
 		>
 			<HiddenLocationInput />
 			<input
@@ -745,27 +739,18 @@ const MetadataInProgressUpdateForm = ({
 				<Button variant="outline" type="submit">
 					Update
 				</Button>
-				<Button
-					variant="outline"
-					color="red"
-					onClick={closeMetadataProgressUpdateModal}
-				>
-					Cancel
-				</Button>
 			</Stack>
 		</Form>
 	);
 };
 
 const NewProgressUpdateForm = ({
+	onSubmit,
 	metadataDetails,
 	metadataToUpdate,
-	fetchMetadataProgressAgain,
-	closeMetadataProgressUpdateModal,
 }: {
+	onSubmit: () => void;
 	metadataToUpdate: UpdateProgressData;
-	fetchMetadataProgressAgain: () => void;
-	closeMetadataProgressUpdateModal: () => void;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }) => {
 	const userPreferences = useUserPreferences();
@@ -788,14 +773,10 @@ const NewProgressUpdateForm = ({
 
 	return (
 		<Form
-			method="post"
-			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
 			replace
-			onSubmit={() => {
-				fetchMetadataProgressAgain();
-				closeMetadataProgressUpdateModal();
-				events.updateProgress(metadataDetails.title);
-			}}
+			method="post"
+			onSubmit={onSubmit}
+			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
 		>
 			{[
 				...Object.entries(metadataToUpdate),
