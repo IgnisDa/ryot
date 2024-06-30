@@ -34,7 +34,13 @@ import {
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
-import { camelCase, changeCase, snakeCase, startCase } from "@ryot/ts-utils";
+import {
+	camelCase,
+	changeCase,
+	isNumber,
+	snakeCase,
+	startCase,
+} from "@ryot/ts-utils";
 import { IconCheckbox } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
@@ -583,7 +589,7 @@ const EditDashboardElement = (props: {
 							}}
 						/>
 					</Group>
-					{typeof focusedElement.numElements === "number" ? (
+					{isNumber(focusedElement.numElements) ? (
 						<Flex>
 							<NumberInput
 								label="Number of elements"
@@ -591,7 +597,7 @@ const EditDashboardElement = (props: {
 								defaultValue={focusedElement.numElements}
 								disabled={!!userDetails.isDemo}
 								onChange={(num) => {
-									if (typeof num === "number") {
+									if (isNumber(num)) {
 										const newDashboardData = Array.from(
 											userPreferences.general.dashboard,
 										);
