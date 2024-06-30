@@ -154,80 +154,78 @@ export default function Page() {
 	}, [transition.state]);
 
 	return (
-		<>
-			<Container>
-				<Stack>
-					<Flex align="center" gap="md">
-						<Title>Your collections</Title>
-						<ActionIcon
-							color="green"
-							variant="outline"
-							onClick={() => {
-								setToUpdateCollection(undefined);
-								createOrUpdateModalOpen();
-							}}
+		<Container>
+			<Stack>
+				<Flex align="center" gap="md">
+					<Title>Your collections</Title>
+					<ActionIcon
+						color="green"
+						variant="outline"
+						onClick={() => {
+							setToUpdateCollection(undefined);
+							createOrUpdateModalOpen();
+						}}
+					>
+						<IconPlus size={20} />
+					</ActionIcon>
+					<Modal
+						opened={createOrUpdateModalOpened}
+						onClose={createOrUpdateModalClose}
+						withCloseButton={false}
+						centered
+						size="lg"
+					>
+						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
+					</Modal>
+				</Flex>
+				<Tabs defaultValue="userCreated" variant="outline">
+					<Tabs.List mb="xs">
+						<Tabs.Tab
+							value="userCreated"
+							leftSection={<IconUserCog size={16} />}
 						>
-							<IconPlus size={20} />
-						</ActionIcon>
-					</Flex>
-					<Tabs defaultValue="userCreated" variant="outline">
-						<Tabs.List mb="xs">
-							<Tabs.Tab
-								value="userCreated"
-								leftSection={<IconUserCog size={16} />}
-							>
-								User created
-							</Tabs.Tab>
-							<Tabs.Tab
-								value="systemCreated"
-								leftSection={<IconAssembly size={16} />}
-							>
-								System created
-							</Tabs.Tab>
-						</Tabs.List>
-						<Tabs.Panel value="userCreated">
-							{userCreatedCollections.length > 0 ? (
-								<SimpleGrid cols={{ base: 1, md: 2 }}>
-									{userCreatedCollections.map((c) => (
-										<DisplayCollection
-											key={c.id}
-											collection={c}
-											setToUpdateCollection={setToUpdateCollection}
-											openModal={createOrUpdateModalOpen}
-										/>
-									))}
-								</SimpleGrid>
-							) : (
-								<Text>You have not created any collections yet</Text>
-							)}
-						</Tabs.Panel>
-						<Tabs.Panel value="systemCreated">
+							User created
+						</Tabs.Tab>
+						<Tabs.Tab
+							value="systemCreated"
+							leftSection={<IconAssembly size={16} />}
+						>
+							System created
+						</Tabs.Tab>
+					</Tabs.List>
+					<Tabs.Panel value="userCreated">
+						{userCreatedCollections.length > 0 ? (
 							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								{collections
-									.filter((c) => c.isDefault)
-									.map((c) => (
-										<DisplayCollection
-											key={c.id}
-											collection={c}
-											setToUpdateCollection={setToUpdateCollection}
-											openModal={createOrUpdateModalOpen}
-										/>
-									))}
+								{userCreatedCollections.map((c) => (
+									<DisplayCollection
+										key={c.id}
+										collection={c}
+										setToUpdateCollection={setToUpdateCollection}
+										openModal={createOrUpdateModalOpen}
+									/>
+								))}
 							</SimpleGrid>
-						</Tabs.Panel>
-					</Tabs>
-				</Stack>
-			</Container>
-			<Modal
-				opened={createOrUpdateModalOpened}
-				onClose={createOrUpdateModalClose}
-				withCloseButton={false}
-				centered
-				size="lg"
-			>
-				<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
-			</Modal>
-		</>
+						) : (
+							<Text>You have not created any collections yet</Text>
+						)}
+					</Tabs.Panel>
+					<Tabs.Panel value="systemCreated">
+						<SimpleGrid cols={{ base: 1, md: 2 }}>
+							{collections
+								.filter((c) => c.isDefault)
+								.map((c) => (
+									<DisplayCollection
+										key={c.id}
+										collection={c}
+										setToUpdateCollection={setToUpdateCollection}
+										openModal={createOrUpdateModalOpen}
+									/>
+								))}
+						</SimpleGrid>
+					</Tabs.Panel>
+				</Tabs>
+			</Stack>
+		</Container>
 	);
 }
 
