@@ -29,19 +29,19 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Exercise::Table)
                     .col(ColumnDef::new(Exercise::Id).primary_key().text().not_null())
-                    .col(ColumnDef::new(Exercise::Identifier).text())
+                    .col(ColumnDef::new(Exercise::Muscles).json_binary().not_null())
                     .col(ColumnDef::new(Exercise::Lot).text().not_null())
                     .col(ColumnDef::new(Exercise::Level).text().not_null())
                     .col(ColumnDef::new(Exercise::Force).text())
                     .col(ColumnDef::new(Exercise::Mechanic).text())
                     .col(ColumnDef::new(Exercise::Equipment).text())
-                    .col(ColumnDef::new(Exercise::Source).text().not_null())
-                    .col(ColumnDef::new(Exercise::Muscles).json_binary().not_null())
+                    .col(ColumnDef::new(Exercise::Identifier).text())
                     .col(
                         ColumnDef::new(Exercise::Attributes)
                             .json_binary()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Exercise::Source).text().not_null())
                     .col(ColumnDef::new(Exercise::CreatedByUserId).text())
                     .foreign_key(
                         ForeignKey::create()
