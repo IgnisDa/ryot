@@ -7,27 +7,20 @@ import {
 	Badge,
 	Box,
 	Button,
-	Checkbox,
 	Collapse,
 	Divider,
 	Flex,
 	Group,
 	Image,
-	Input,
 	Loader,
 	type MantineStyleProp,
 	Menu,
-	Modal,
-	NumberInput,
 	Paper,
-	Rating,
 	ScrollArea,
-	SegmentedControl,
 	Stack,
 	type StyleProp,
 	Text,
 	TextInput,
-	Textarea,
 	ThemeIcon,
 	Tooltip,
 	useComputedColorScheme,
@@ -43,13 +36,12 @@ import {
 } from "@remix-run/react";
 import {
 	EntityLot,
-	MediaLot,
+	type MediaLot,
 	type MediaSource,
 	type PartialMetadata,
 	type ReviewItem,
 	UserReviewScale,
 	UserToMediaReason,
-	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials } from "@ryot/ts-utils";
 import {
@@ -60,26 +52,28 @@ import {
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
-	IconPercentage,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import events from "~/lib/events";
 import {
 	dayjsLib,
 	getFallbackImageUrl,
 	redirectToQueryParam,
 } from "~/lib/generals";
-import { useGetMantineColor } from "~/lib/hooks";
-import type { ApplicationUser } from "~/lib/utilities.server";
+import {
+	useGetMantineColor,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
+import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
@@ -151,44 +145,24 @@ export const MediaScrollArea = (props: { children: ReactNode }) => {
 
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
-	entityType: EntityType;
-	user: ApplicationUser;
-	reviewScale: UserReviewScale;
+	entityLot: EntityLot;
 	title: string;
-	metadataId?: string;
-	metadataGroupId?: string;
-	personId?: string;
-	collectionId?: string;
+	entityId: string;
 	lot?: MediaLot;
 }) => {
+	const userDetails = useUserDetails();
+	const userPreferences = useUserPreferences();
+	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
-	const [postReviewModalData, setPostReviewModalData] = useState<
-		PostReview | undefined
-	>(undefined);
 	const deleteReviewFetcher = useFetcher<typeof action>();
+	const [_, setEntityToReview] = useReviewEntity();
 
 	const submit = useSubmit();
 
 	return (
 		<>
-			<PostReviewModal
-				onClose={() => setPostReviewModalData(undefined)}
-				opened={postReviewModalData !== undefined}
-				data={postReviewModalData}
-				entityType={props.entityType}
-				objectId={
-					props.metadataId?.toString() ||
-					props.metadataGroupId?.toString() ||
-					props.collectionId?.toString() ||
-					props.personId?.toString() ||
-					""
-				}
-				reviewScale={props.reviewScale}
-				title={props.title}
-				lot={props.lot}
-			/>
 			<Box key={props.review.id} data-review-id={props.review.id}>
 				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
@@ -198,23 +172,16 @@ export const ReviewItemDisplay = (props: {
 						<Text>{props.review.postedBy?.name}</Text>
 						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
 					</Box>
-					{props.user && props.user.id === props.review.postedBy?.id ? (
+					{userDetails.id === props.review.postedBy?.id ? (
 						<>
 							<ActionIcon
 								onClick={() => {
-									setPostReviewModalData({
+									setEntityToReview({
+										entityLot: props.entityLot,
+										entityId: props.entityId,
+										entityTitle: props.title,
+										metadataLot: props.lot,
 										existingReview: props.review,
-										showSeasonNumber: props.review.showExtraInformation?.season,
-										showEpisodeNumber:
-											props.review.showExtraInformation?.episode,
-										podcastEpisodeNumber:
-											props.review.podcastExtraInformation?.episode,
-										animeEpisodeNumber:
-											props.review.animeExtraInformation?.episode,
-										mangaChapterNumber:
-											props.review.mangaExtraInformation?.chapter,
-										mangaVolumeNumber:
-											props.review.mangaExtraInformation?.volume,
 									});
 								}}
 							>
@@ -283,9 +250,7 @@ export const ReviewItemDisplay = (props: {
 							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
 							<Text className={classes.text} fw="bold">
 								{props.review.rating}
-								{props.reviewScale === UserReviewScale.OutOfFive
-									? undefined
-									: "%"}
+								{reviewScale === UserReviewScale.OutOfFive ? undefined : "%"}
 							</Text>
 						</Flex>
 					) : null}
@@ -363,7 +328,7 @@ export const ReviewItemDisplay = (props: {
 															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
 														) : null}
 													</Box>
-													{props.user.id === c?.user?.id ? (
+													{userDetails.id === c?.user?.id ? (
 														<Form
 															action="/actions?intent=createReviewComment"
 															method="post"
@@ -420,7 +385,7 @@ export const ReviewItemDisplay = (props: {
 															hidden
 															name="incrementLikes"
 															value={String(
-																!c?.likedBy?.includes(props.user.id),
+																!c?.likedBy?.includes(userDetails.id),
 															)}
 															readOnly
 														/>
@@ -428,7 +393,7 @@ export const ReviewItemDisplay = (props: {
 															hidden
 															name="decrementLikes"
 															value={String(
-																c?.likedBy?.includes(props.user.id),
+																c?.likedBy?.includes(userDetails.id),
 															)}
 															readOnly
 														/>
@@ -610,15 +575,13 @@ export const MediaItemWithoutUpdateModal = (props: {
 	children?: ReactNode;
 	imageOverlayForLoadingIndicator?: boolean;
 	hasInteracted?: boolean;
-	averageRating?: string;
-	noRatingLink?: boolean;
+	topRight?: ReactNode;
 	noBottomRight?: boolean;
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: ReactNode;
 	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
-	const navigate = useNavigate();
 	const id = props.item.identifier;
 
 	return (
@@ -629,10 +592,10 @@ export const MediaItemWithoutUpdateModal = (props: {
 					? props.href
 						? props.href
 						: match(props.entityLot)
-								.with(EntityLot.Media, undefined, null, () =>
+								.with(EntityLot.Metadata, undefined, null, () =>
 									$path("/media/item/:id", { id }),
 								)
-								.with(EntityLot.MediaGroup, () =>
+								.with(EntityLot.MetadataGroup, () =>
 									$path("/media/groups/item/:id", { id }),
 								)
 								.with(EntityLot.Person, () =>
@@ -656,41 +619,13 @@ export const MediaItemWithoutUpdateModal = (props: {
 			}
 			mediaReason={props.mediaReason}
 			topRight={
-				props.averageRating ? (
+				props.topRight ? (
 					<Box style={blackBgStyles}>
 						<Flex align="center" gap={4}>
-							<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
-							<Text c="white" size="xs" fw="bold" pr={4}>
-								{match(props.reviewScale)
-									.with(UserReviewScale.OutOfFive, () =>
-										// biome-ignore lint/style/noNonNullAssertion: it is validated above
-										Number.parseFloat(props.averageRating!.toString()).toFixed(
-											1,
-										),
-									)
-									.with(UserReviewScale.OutOfHundred, () => props.averageRating)
-									.exhaustive()}{" "}
-								{props.reviewScale === UserReviewScale.OutOfFive
-									? undefined
-									: "%"}
-							</Text>
+							{props.topRight}
 						</Flex>
 					</Box>
-				) : props.noRatingLink ? undefined : (
-					<Box
-						style={blackBgStyles}
-						onClick={(e) => {
-							e.preventDefault();
-							navigate(
-								$path("/media/item/:id", { id }, { openReviewModal: true }),
-							);
-						}}
-					>
-						<Flex align="center" gap={4}>
-							<IconStarFilled size={16} className={classes.starIcon} />
-						</Flex>
-					</Box>
-				)
+				) : undefined
 			}
 			bottomLeft={props.item.publishYear}
 			bottomRight={
@@ -701,7 +636,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 						)
 			}
 			highlightRightText={
-				props.hasInteracted ? "This media exists in the database" : undefined
+				props.hasInteracted ? "You have interacted with this before" : undefined
 			}
 			name={props.item.title}
 			nameRight={props.nameRight}
@@ -712,7 +647,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 };
 
 export const DisplayCollection = (props: {
-	userId: string;
+	creatorUserId: string;
 	col: { id: string; name: string };
 	entityId: string;
 	entityLot: EntityLot;
@@ -737,7 +672,12 @@ export const DisplayCollection = (props: {
 					<input readOnly hidden name="entityId" value={props.entityId} />
 					<input readOnly hidden name="entityLot" value={props.entityLot} />
 					<input readOnly hidden name="collectionName" value={props.col.name} />
-					<input readOnly hidden name="creatorUserId" value={props.userId} />
+					<input
+						readOnly
+						hidden
+						name="creatorUserId"
+						value={props.creatorUserId}
+					/>
 					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
@@ -756,225 +696,6 @@ export const DisplayCollection = (props: {
 				</Flex>
 			</Form>
 		</Badge>
-	);
-};
-
-export type PostReview = {
-	showSeasonNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: number | null;
-	mangaVolumeNumber?: number | null;
-	podcastEpisodeNumber?: number | null;
-	existingReview?: DeepPartial<ReviewItem>;
-};
-
-type EntityType = "metadata" | "metadataGroup" | "collection" | "person";
-
-export const PostReviewModal = (props: {
-	opened: boolean;
-	onClose: () => void;
-	objectId: string;
-	entityType: EntityType;
-	title: string;
-	reviewScale: UserReviewScale;
-	data?: PostReview;
-	lot?: MediaLot;
-}) => {
-	if (!props.data) return <></>;
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form
-				method="post"
-				action="/actions?intent=performReviewAction"
-				replace
-				onSubmit={() => {
-					events.postReview(props.title);
-					props.onClose();
-				}}
-			>
-				<input
-					hidden
-					name={
-						props.entityType === "metadata"
-							? "metadataId"
-							: props.entityType === "metadataGroup"
-								? "metadataGroupId"
-								: props.entityType === "collection"
-									? "collectionId"
-									: props.entityType === "person"
-										? "personId"
-										: undefined
-					}
-					value={props.objectId}
-					readOnly
-				/>
-				<HiddenLocationInput />
-				{props.data.existingReview?.id ? (
-					<input hidden name="reviewId" value={props.data.existingReview.id} />
-				) : null}
-				<Stack>
-					<Flex align="center" gap="xl">
-						{match(props.reviewScale)
-							.with(UserReviewScale.OutOfFive, () => (
-								<Flex gap="sm" mt="lg">
-									<Input.Label>Rating:</Input.Label>
-									<Rating
-										name="rating"
-										defaultValue={
-											props.data?.existingReview?.rating
-												? Number(props.data.existingReview.rating)
-												: undefined
-										}
-										fractions={2}
-									/>
-								</Flex>
-							))
-							.with(UserReviewScale.OutOfHundred, () => (
-								<NumberInput
-									label="Rating"
-									name="rating"
-									min={0}
-									max={100}
-									step={1}
-									w="40%"
-									hideControls
-									rightSection={<IconPercentage size={16} />}
-									defaultValue={
-										props.data?.existingReview?.rating
-											? Number(props.data.existingReview.rating)
-											: undefined
-									}
-								/>
-							))
-							.exhaustive()}
-						<Checkbox
-							label="This review is a spoiler"
-							mt="lg"
-							name="isSpoiler"
-						/>
-					</Flex>
-					{props.lot === MediaLot.Show ? (
-						<Flex gap="md">
-							<NumberInput
-								label="Season"
-								name="showSeasonNumber"
-								hideControls
-								defaultValue={
-									typeof props.data?.existingReview?.showExtraInformation
-										?.season === "number"
-										? props.data.existingReview.showExtraInformation?.season
-										: typeof props.data.showSeasonNumber === "number"
-											? props.data.showSeasonNumber
-											: undefined
-								}
-							/>
-							<NumberInput
-								label="Episode"
-								name="showEpisodeNumber"
-								hideControls
-								defaultValue={
-									props.data?.existingReview?.showExtraInformation?.episode
-										? props.data.existingReview.showExtraInformation?.episode
-										: props.data.showEpisodeNumber || undefined
-								}
-							/>
-						</Flex>
-					) : null}
-					{props.lot === MediaLot.Podcast ? (
-						<NumberInput
-							label="Episode"
-							name="podcastEpisodeNumber"
-							hideControls
-							defaultValue={
-								props.data?.existingReview?.podcastExtraInformation?.episode
-									? props.data.existingReview.podcastExtraInformation?.episode
-									: props.data.podcastEpisodeNumber || undefined
-							}
-						/>
-					) : null}
-					{props.lot === MediaLot.Anime ? (
-						<NumberInput
-							label="Episode"
-							name="animeEpisodeNumber"
-							hideControls
-							defaultValue={
-								props.data?.existingReview?.animeExtraInformation?.episode
-									? props.data.existingReview.animeExtraInformation?.episode
-									: props.data.animeEpisodeNumber || undefined
-							}
-						/>
-					) : null}
-					{props.lot === MediaLot.Manga ? (
-						<>
-							<Group wrap="nowrap">
-								<NumberInput
-									label="Chapter"
-									name="mangaChapterNumber"
-									hideControls
-									defaultValue={
-										props.data?.existingReview?.mangaExtraInformation?.chapter
-											? props.data.existingReview.mangaExtraInformation?.chapter
-											: props.data.mangaChapterNumber || undefined
-									}
-								/>
-								<Text ta="center" fw="bold" mt="sm">
-									OR
-								</Text>
-								<NumberInput
-									label="Volume"
-									name="mangaVolumeNumber"
-									hideControls
-									defaultValue={
-										props.data?.existingReview?.mangaExtraInformation?.volume
-											? props.data.existingReview.mangaExtraInformation?.volume
-											: props.data.mangaVolumeNumber || undefined
-									}
-								/>
-							</Group>
-						</>
-					) : null}
-					<Textarea
-						label="Review"
-						name="text"
-						description="Markdown is supported"
-						autoFocus
-						minRows={10}
-						maxRows={20}
-						autosize
-						defaultValue={props.data.existingReview?.textOriginal ?? undefined}
-					/>
-					<Box>
-						<Input.Label>Visibility</Input.Label>
-						<SegmentedControl
-							fullWidth
-							data={[
-								{
-									label: Visibility.Public,
-									value: Visibility.Public,
-								},
-								{
-									label: Visibility.Private,
-									value: Visibility.Private,
-								},
-							]}
-							defaultValue={
-								props.data.existingReview?.visibility ?? Visibility.Public
-							}
-							name="visibility"
-						/>
-					</Box>
-					<Button mt="md" type="submit" w="100%">
-						{props.data.existingReview?.id ? "Update" : "Submit"}
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
 	);
 };
 
@@ -1004,7 +725,6 @@ export const MediaIsPartial = (props: { mediaType: string }) => {
 };
 
 export const ToggleMediaMonitorMenuItem = (props: {
-	userId: string;
 	entityLot: EntityLot;
 	inCollections: Array<string>;
 	formValue: string;
@@ -1013,13 +733,14 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	const action = isMonitored
 		? "removeEntityFromCollection"
 		: "addEntityToCollection";
+	const userDetails = useUserDetails();
 
 	return (
 		<Form action={`/actions?intent=${action}`} method="post" replace>
 			<HiddenLocationInput />
 			<input hidden name="collectionName" defaultValue="Monitoring" />
 			<input readOnly hidden name="entityLot" value={props.entityLot} />
-			<input readOnly hidden name="creatorUserId" value={props.userId} />
+			<input readOnly hidden name="creatorUserId" value={userDetails.id} />
 			<Menu.Item
 				type="submit"
 				color={isMonitored ? "red" : undefined}

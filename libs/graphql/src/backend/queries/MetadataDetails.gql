@@ -1,7 +1,8 @@
 query MetadataDetails($metadataId: String!) {
   metadataDetails(metadataId: $metadataId) {
-    title
+    id
     lot
+    title
     source
     isNsfw
     isPartial

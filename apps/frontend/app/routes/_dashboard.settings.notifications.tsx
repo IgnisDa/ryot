@@ -41,27 +41,23 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
+import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getCoreDetails,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [coreDetails, { userNotificationPlatforms }] = await Promise.all([
-		getCoreDetails(request),
+	const [{ userNotificationPlatforms }] = await Promise.all([
 		serverGqlService.request(
 			UserNotificationPlatformsDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
-	return {
-		userNotificationPlatforms,
-		coreDetails: { docsLink: coreDetails.docsLink },
-	};
+	return { userNotificationPlatforms };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -76,7 +72,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				CreateUserNotificationPlatformDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const);
 		},
@@ -85,7 +81,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeleteUserNotificationPlatformDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -98,7 +94,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { testUserNotificationPlatforms } = await serverGqlService.request(
 				TestUserNotificationPlatformsDocument,
 				undefined,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success" } as const, {
 				headers: await createToastHeaders({
@@ -125,6 +121,7 @@ const createSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [
 		createUserNotificationPlatformModalOpened,
 		{
@@ -298,7 +295,7 @@ export default function Page() {
 																Make sure
 																<Anchor
 																	size="xs"
-																	href={`${loaderData.coreDetails.docsLink}/configuration.html?h=smtp#all-parameters`}
+																	href={`${coreDetails.docsLink}/configuration.html?h=smtp#all-parameters`}
 																	target="_blank"
 																>
 																	{" "}

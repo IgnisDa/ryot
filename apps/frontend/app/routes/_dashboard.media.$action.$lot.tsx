@@ -35,7 +35,7 @@ import {
 	MediaSource,
 	MetadataListDocument,
 	MetadataSearchDocument,
-	type UserReviewScale,
+	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -48,6 +48,7 @@ import {
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
+	IconStarFilled,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
@@ -55,11 +56,7 @@ import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	AddEntityToCollectionModal,
-	ApplicationGrid,
-	DebouncedSearchInput,
-} from "~/components/common";
+import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import {
 	type Item,
 	MediaItemWithoutUpdateModal,
@@ -67,23 +64,31 @@ import {
 	commitMedia,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, getLot, getVerb, redirectToQueryParam } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import { Verb, getLot, getVerb } from "~/lib/generals";
+import {
+	useCoreDetails,
+	useSearchParam,
+	useUserCollections,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
+import {
+	useAddEntityToCollection,
+	useMetadataProgressUpdate,
+	useReviewEntity,
+} from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
-	getCoreDetails,
-	getUserCollectionsList,
-	getUserDetails,
-	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import classes from "~/styles/common.module.css";
 
 export type SearchParams = {
 	query?: string;
 };
 
 const defaultFilters = {
-	minecollection: undefined,
+	mineCollection: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineSortBy: MediaSortBy.LastUpdated,
@@ -111,22 +116,12 @@ const metadataMapping = {
 };
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const [
-		userDetails,
-		coreDetails,
-		userPreferences,
-		{ latestUserSummary },
-		userCollectionsList,
-	] = await Promise.all([
-		getUserDetails(request),
-		getCoreDetails(request),
-		getUserPreferences(request),
+	const [{ latestUserSummary }] = await Promise.all([
 		serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
-		getUserCollectionsList(request),
 	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
@@ -165,7 +160,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						},
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
@@ -183,7 +178,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						source: urlParse.source,
 					},
 				},
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return [
 				undefined,
@@ -203,12 +198,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		numPage,
 		mediaList,
 		mediaSearch,
-		userId: userDetails.id,
-		collections: userCollectionsList,
 		url: withoutHost(url.href),
-		coreDetails: { pageLimit: coreDetails.pageLimit },
 		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
-		userPreferences: { reviewScale: userPreferences.general.reviewScale },
 	};
 });
 
@@ -224,7 +215,11 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const coreDetails = useCoreDetails();
+	const collections = useUserCollections();
 	const [_, { setP }] = useSearchParam();
+	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -236,7 +231,7 @@ export default function Page() {
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collection !== defaultFilters.minecollection;
+		loaderData.mediaList?.url.collection !== defaultFilters.mineCollection;
 
 	return (
 		<Container>
@@ -360,14 +355,14 @@ export default function Page() {
 											)}
 										</ActionIcon>
 									</Flex>
-									{loaderData.collections.length > 0 ? (
+									{collections.length > 0 ? (
 										<Select
 											placeholder="Select a collection"
 											defaultValue={loaderData.mediaList.url.collection?.toString()}
 											data={[
 												{
 													group: "My collections",
-													items: loaderData.collections.map((c) => ({
+													items: collections.map((c) => ({
 														value: c.id.toString(),
 														label: c.name,
 													})),
@@ -390,22 +385,65 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{loaderData.mediaList.list.items.map((lm) => (
-										<MediaItemWithoutUpdateModal
-											key={lm.data.identifier}
-											item={{
-												...lm.data,
-												publishYear: lm.data.publishYear?.toString(),
-											}}
-											averageRating={lm.averageRating ?? undefined}
-											mediaReason={lm.mediaReason}
-											lot={loaderData.lot}
-											href={$path("/media/item/:id", {
-												id: lm.data.identifier,
-											})}
-											reviewScale={loaderData.userPreferences.reviewScale}
-										/>
-									))}
+									{loaderData.mediaList.list.items.map((lm) => {
+										const averageRating = lm.averageRating;
+										return (
+											<MediaItemWithoutUpdateModal
+												key={lm.data.identifier}
+												item={{
+													...lm.data,
+													publishYear: lm.data.publishYear?.toString(),
+												}}
+												topRight={
+													averageRating ? (
+														<>
+															<IconStarFilled
+																size={12}
+																style={{ color: "#EBE600FF" }}
+															/>
+															<Text c="white" size="xs" fw="bold" pr={4}>
+																{match(userPreferences.general.reviewScale)
+																	.with(UserReviewScale.OutOfFive, () =>
+																		Number.parseFloat(
+																			averageRating.toString(),
+																		).toFixed(1),
+																	)
+																	.with(
+																		UserReviewScale.OutOfHundred,
+																		() => averageRating,
+																	)
+																	.exhaustive()}{" "}
+																{userPreferences.general.reviewScale ===
+																UserReviewScale.OutOfFive
+																	? undefined
+																	: "%"}
+															</Text>
+														</>
+													) : (
+														<IconStarFilled
+															onClick={(e) => {
+																e.preventDefault();
+																setEntityToReview({
+																	entityId: lm.data.identifier,
+																	entityLot: EntityLot.Metadata,
+																	entityTitle: lm.data.title,
+																	metadataLot: loaderData.lot,
+																});
+															}}
+															size={16}
+															className={classes.starIcon}
+														/>
+													)
+												}
+												mediaReason={lm.mediaReason}
+												lot={loaderData.lot}
+												href={$path("/media/item/:id", {
+													id: lm.data.identifier,
+												})}
+												reviewScale={userPreferences.general.reviewScale}
+											/>
+										);
+									})}
 								</ApplicationGrid>
 							</>
 						) : (
@@ -419,7 +457,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaList.list.details.total /
-											loaderData.coreDetails.pageLimit,
+											coreDetails.pageLimit,
 									)}
 								/>
 							</Center>
@@ -473,7 +511,7 @@ export default function Page() {
 												loaderData.mediaSearch?.url.source ||
 												MediaSource.Anilist
 											}
-											reviewScale={loaderData.userPreferences.reviewScale}
+											reviewScale={userPreferences.general.reviewScale}
 										/>
 									))}
 								</ApplicationGrid>
@@ -489,7 +527,7 @@ export default function Page() {
 									onChange={(v) => setP("page", v.toString())}
 									total={Math.ceil(
 										loaderData.mediaSearch.search.details.total /
-											loaderData.coreDetails.pageLimit,
+											coreDetails.pageLimit,
 									)}
 								/>
 							</Center>
@@ -512,9 +550,11 @@ const MediaSearchItem = (props: {
 	maybeItemId?: string;
 }) => {
 	const navigate = useNavigate();
-	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const basicCommit = async (e: React.MouseEvent) => {
 		if (props.maybeItemId) return props.maybeItemId;
 		e.preventDefault();
@@ -527,17 +567,6 @@ const MediaSearchItem = (props: {
 		setIsLoading(false);
 		return response;
 	};
-	const [
-		isAddMediaToCollectionModalOpened,
-		{
-			open: openIsAddMediaToCollectionModalOpened,
-			close: closeIsAddMediaToCollectionModalOpened,
-		},
-	] = useDisclosure(false);
-	const [appItemId, setAppItemId] = useState(props.maybeItemId);
-
-	const isShowOrPodcast =
-		props.lot === MediaLot.Show || props.lot === MediaLot.Podcast;
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -546,7 +575,6 @@ const MediaSearchItem = (props: {
 			reviewScale={props.reviewScale}
 			hasInteracted={props.hasInteracted}
 			imageOverlayForLoadingIndicator={isLoading}
-			noRatingLink
 			noHref
 			onClick={async (e) => {
 				setIsLoading(true);
@@ -555,39 +583,27 @@ const MediaSearchItem = (props: {
 				return navigate($path("/media/item/:id", { id }));
 			}}
 			nameRight={
-				<>
-					<Menu shadow="md">
-						<Menu.Target>
-							<ActionIcon size="xs">
-								<IconDotsVertical />
-							</ActionIcon>
-						</Menu.Target>
-						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconBoxMultiple size={14} />}
-								onClick={async (e) => {
-									if (!appItemId) {
-										const id = await basicCommit(e);
-										setAppItemId(id);
-									}
-									openIsAddMediaToCollectionModalOpened();
-								}}
-							>
-								Add to collection
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-					{appItemId ? (
-						<AddEntityToCollectionModal
-							userId={loaderData.userId}
-							opened={isAddMediaToCollectionModalOpened}
-							onClose={closeIsAddMediaToCollectionModalOpened}
-							entityId={appItemId.toString()}
-							entityLot={EntityLot.Media}
-							collections={loaderData.collections}
-						/>
-					) : null}
-				</>
+				<Menu shadow="md">
+					<Menu.Target>
+						<ActionIcon size="xs">
+							<IconDotsVertical />
+						</ActionIcon>
+					</Menu.Target>
+					<Menu.Dropdown>
+						<Menu.Item
+							leftSection={<IconBoxMultiple size={14} />}
+							onClick={async (e) => {
+								const id = await basicCommit(e);
+								setAddEntityToCollectionData({
+									entityId: id,
+									entityLot: EntityLot.Metadata,
+								});
+							}}
+						>
+							Add to collection
+						</Menu.Item>
+					</Menu.Dropdown>
+				</Menu>
 			}
 		>
 			<>
@@ -596,25 +612,11 @@ const MediaSearchItem = (props: {
 					w="100%"
 					size="compact-md"
 					onClick={async (e) => {
-						const id = await basicCommit(e);
-						return navigate(
-							$path(
-								"/media/item/:id",
-								{ id },
-								!isShowOrPodcast
-									? {
-											defaultTab: "actions",
-											openProgressModal: true,
-											[redirectToQueryParam]: loaderData.url,
-										}
-									: { defaultTab: "showSeasons" },
-							),
-						);
+						const metadataId = await basicCommit(e);
+						setMetadataToUpdate({ metadataId });
 					}}
 				>
-					{!isShowOrPodcast
-						? `Mark as ${getVerb(Verb.Read, props.lot)}`
-						: "Show details"}
+					Mark as {getVerb(Verb.Read, props.lot)}
 				</Button>
 				<Button
 					mt="xs"
@@ -626,14 +628,14 @@ const MediaSearchItem = (props: {
 						const id = await basicCommit(e);
 						const form = new FormData();
 						form.append("entityId", id);
-						form.append("entityLot", EntityLot.Media);
-						form.append("creatorUserId", loaderData.userId.toString());
+						form.append("entityLot", EntityLot.Metadata);
+						form.append("creatorUserId", userDetails.id);
 						form.append("collectionName", "Watchlist");
 						await fetch(
 							$path("/actions", { intent: "addEntityToCollection" }),
 							{ body: form, method: "POST", credentials: "include" },
 						);
-						events.addToCollection(EntityLot.Media);
+						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
 						revalidator.revalidate();
 					}}

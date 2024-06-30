@@ -1,11 +1,13 @@
 import { $path } from "@ignisda/remix-routes";
 import {
+	ActionIcon,
 	Alert,
 	Anchor,
 	Box,
 	Center,
 	Container,
 	Flex,
+	Loader,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -19,6 +21,7 @@ import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	type CollectionContentsQuery,
 	DashboardElementLot,
 	EntityLot,
 	GraphqlSortOrder,
@@ -34,6 +37,7 @@ import {
 	IconAlertCircle,
 	IconBarbell,
 	IconFriends,
+	IconPlayerPlay,
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
@@ -52,10 +56,11 @@ import {
 	getLot,
 	getMetadataIcon,
 } from "~/lib/generals";
-import { useGetMantineColor } from "~/lib/hooks";
+import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
-	getUserCollectionsList,
+	getCachedUserCollectionsList,
 	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -84,11 +89,11 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		const { userRecommendations } = await serverGqlService.request(
 			UserRecommendationsDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		);
 		return userRecommendations;
 	};
-	const userCollectionsList = await getUserCollectionsList(request);
+	const userCollectionsList = await getCachedUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
@@ -108,18 +113,18 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					sort: { order: GraphqlSortOrder.Desc },
 				},
 			},
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 		getRecommendations(),
 		await serverGqlService.request(
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 		await serverGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	const cookies = request.headers.get("cookie");
@@ -146,6 +151,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const theme = useMantineTheme();
 
 	return (
@@ -166,11 +172,14 @@ export default function Page() {
 				0 ? (
 					<NewUserGuideAlert />
 				) : null}
-				{loaderData.userPreferences.dashboard.map((de) =>
+				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
-								<Section key="upcoming">
+								<Section
+									key={DashboardElementLot.Upcoming}
+									lot={DashboardElementLot.Upcoming}
+								>
 									<Title>Upcoming</Title>
 									<ApplicationGrid>
 										{loaderData.userUpcomingCalendarEvents.map((um) => (
@@ -183,22 +192,15 @@ export default function Page() {
 						.with([DashboardElementLot.InProgress, false], () =>
 							loaderData.inProgressCollectionContents.results.items.length >
 							0 ? (
-								<Section key="inProgress">
+								<Section
+									key={DashboardElementLot.InProgress}
+									lot={DashboardElementLot.InProgress}
+								>
 									<Title>In Progress</Title>
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
 											(lm) => (
-												<MediaItemWithoutUpdateModal
-													key={lm.details.identifier}
-													reviewScale={loaderData.userPreferences.reviewScale}
-													item={{
-														...lm.details,
-														publishYear: lm.details.publishYear?.toString(),
-													}}
-													lot={lm.metadataLot}
-													entityLot={lm.entityLot}
-													noRatingLink
-												/>
+												<InProgressItem key={lm.details.identifier} lm={lm} />
 											),
 										)}
 									</ApplicationGrid>
@@ -207,7 +209,10 @@ export default function Page() {
 						)
 						.with([DashboardElementLot.Recommendations, false], () =>
 							loaderData.userRecommendations.length > 0 ? (
-								<Section key="recommendations">
+								<Section
+									key={DashboardElementLot.Recommendations}
+									lot={DashboardElementLot.Recommendations}
+								>
 									<Title>Recommendations</Title>
 									<ApplicationGrid>
 										{loaderData.userRecommendations.map((lm) => (
@@ -216,8 +221,7 @@ export default function Page() {
 												reviewScale={loaderData.userPreferences.reviewScale}
 												item={{ ...lm, identifier: lm.id }}
 												lot={lm.lot}
-												entityLot={EntityLot.Media}
-												noRatingLink
+												entityLot={EntityLot.Metadata}
 											/>
 										))}
 									</ApplicationGrid>
@@ -225,7 +229,10 @@ export default function Page() {
 							) : null,
 						)
 						.with([DashboardElementLot.Summary, false], () => (
-							<Section key="summary">
+							<Section
+								key={DashboardElementLot.Summary}
+								lot={DashboardElementLot.Summary}
+							>
 								<Title>Summary</Title>
 								<Text size="xs" mt={-15}>
 									Calculated{" "}
@@ -555,7 +562,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 		<MediaItemWithoutUpdateModal
 			reviewScale={loaderData.userPreferences.reviewScale}
 			item={{
-				identifier: um.metadataId.toString(),
+				identifier: um.metadataId,
 				title: um.metadataTitle,
 				image: um.metadataImage,
 				publishYear: `${match(um.metadataLot)
@@ -578,7 +585,6 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 			}}
 			lot={um.metadataLot}
 			noBottomRight
-			noRatingLink
 		/>
 	);
 };
@@ -621,10 +627,15 @@ const ActualDisplayStat = (props: {
 									{match(d.type)
 										.with("string", () => d.value)
 										.with("duration", () =>
-											humanizeDuration(Number(d.value) * 1000 * 60, {
-												round: true,
-												largest: 3,
-											}),
+											humanizeDuration(
+												dayjsLib
+													.duration(Number(d.value), "minutes")
+													.asMilliseconds(),
+												{
+													round: true,
+													largest: 3,
+												},
+											),
 										)
 										.with("number", () =>
 											new Intl.NumberFormat("en-US", {
@@ -678,8 +689,15 @@ const DisplayStatForMediaType = (props: {
 	) : null;
 };
 
-const Section = (props: { children: Array<ReactNode> }) => {
-	return <Stack gap="sm">{props.children}</Stack>;
+const Section = (props: {
+	children: Array<ReactNode>;
+	lot: DashboardElementLot;
+}) => {
+	return (
+		<Stack gap="sm" id={props.lot}>
+			{props.children}
+		</Stack>
+	);
 };
 
 const UnstyledLink = (props: { children: ReactNode; to: string }) => {
@@ -687,5 +705,49 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
+	);
+};
+
+type InProgressItem =
+	CollectionContentsQuery["collectionContents"]["results"]["items"][number];
+
+const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, setMetadataToUpdate, isLoading] = useMetadataProgressUpdate();
+
+	return (
+		<MediaItemWithoutUpdateModal
+			key={lm.details.identifier}
+			reviewScale={loaderData.userPreferences.reviewScale}
+			item={{
+				...lm.details,
+				publishYear: lm.details.publishYear?.toString(),
+			}}
+			lot={lm.metadataLot}
+			entityLot={lm.entityLot}
+			topRight={
+				isLoading ? (
+					<Loader color="red" size="xs" m={2} />
+				) : (
+					<ActionIcon
+						variant="transparent"
+						color="blue"
+						size="compact-md"
+						onClick={async (e) => {
+							e.preventDefault();
+							await setMetadataToUpdate(
+								{
+									metadataId: lm.details.identifier,
+									pageFragment: DashboardElementLot.InProgress,
+								},
+								true,
+							);
+						}}
+					>
+						<IconPlayerPlay size={20} />
+					</ActionIcon>
+				)
+			}
+		/>
 	);
 };

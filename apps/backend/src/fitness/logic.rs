@@ -332,7 +332,7 @@ impl UserWorkoutInput {
 
 impl workout::Model {
     // DEV: For exercises, reduce count, remove from history if present. We will not
-    // recalculate exercise associations totals or change personal bests.
+    // re-calculate exercise associations totals or change personal bests.
     pub async fn delete_existing(self, db: &DatabaseConnection, user_id: String) -> Result<()> {
         for (idx, ex) in self.information.exercises.iter().enumerate() {
             let association = match UserToEntity::find()

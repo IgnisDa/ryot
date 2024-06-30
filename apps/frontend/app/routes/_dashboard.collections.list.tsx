@@ -24,12 +24,12 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import {
 	Form,
 	Link,
 	type MetaArgs_SingleFetch,
 	useFetcher,
-	useLoaderData,
 	useNavigation,
 } from "@remix-run/react";
 import {
@@ -55,26 +55,24 @@ import { namedAction } from "remix-utils/named-action";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
+import { useUserCollections, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserCollectionsList,
-	getUserDetails,
 	processSubmission,
+	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [userDetails, collections, { usersList }] = await Promise.all([
-		getUserDetails(request),
-		getUserCollectionsList(request),
+	const [{ usersList }] = await Promise.all([
 		serverGqlService.request(
 			UsersListDocument,
 			undefined,
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
-	return { collections, currentUserId: userDetails.id, usersList };
+	return { usersList };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -83,6 +81,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
+	await removeCachedUserCollectionsList(request);
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
@@ -90,7 +89,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				await serverGqlService.request(
 					CreateOrUpdateCollectionDocument,
 					{ input: submission },
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 				return Response.json(
 					{},
@@ -128,7 +127,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				await serverGqlService.request(
 					DeleteCollectionDocument,
 					submission,
-					await getAuthorizationHeader(request),
+					getAuthorizationHeader(request),
 				);
 			} catch {
 				wasSuccessful = false;
@@ -180,10 +179,8 @@ type UpdateCollectionInput = {
 
 export default function Page() {
 	const transition = useNavigation();
-	const loaderData = useLoaderData<typeof loader>();
-	const userCreatedCollections = loaderData.collections.filter(
-		(c) => !c.isDefault,
-	);
+	const collections = useUserCollections();
+	const userCreatedCollections = collections.filter((c) => !c.isDefault);
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
@@ -199,80 +196,78 @@ export default function Page() {
 	}, [transition.state]);
 
 	return (
-		<>
-			<Container>
-				<Stack>
-					<Flex align="center" gap="md">
-						<Title>Your collections</Title>
-						<ActionIcon
-							color="green"
-							variant="outline"
-							onClick={() => {
-								setToUpdateCollection(undefined);
-								createOrUpdateModalOpen();
-							}}
+		<Container>
+			<Stack>
+				<Flex align="center" gap="md">
+					<Title>Your collections</Title>
+					<ActionIcon
+						color="green"
+						variant="outline"
+						onClick={() => {
+							setToUpdateCollection(undefined);
+							createOrUpdateModalOpen();
+						}}
+					>
+						<IconPlus size={20} />
+					</ActionIcon>
+					<Modal
+						opened={createOrUpdateModalOpened}
+						onClose={createOrUpdateModalClose}
+						withCloseButton={false}
+						centered
+						size="lg"
+					>
+						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
+					</Modal>
+				</Flex>
+				<Tabs defaultValue="userCreated" variant="outline">
+					<Tabs.List mb="xs">
+						<Tabs.Tab
+							value="userCreated"
+							leftSection={<IconUserCog size={16} />}
 						>
-							<IconPlus size={20} />
-						</ActionIcon>
-					</Flex>
-					<Tabs defaultValue="userCreated" variant="outline">
-						<Tabs.List mb="xs">
-							<Tabs.Tab
-								value="userCreated"
-								leftSection={<IconUserCog size={16} />}
-							>
-								User created
-							</Tabs.Tab>
-							<Tabs.Tab
-								value="systemCreated"
-								leftSection={<IconAssembly size={16} />}
-							>
-								System created
-							</Tabs.Tab>
-						</Tabs.List>
-						<Tabs.Panel value="userCreated">
-							{userCreatedCollections.length > 0 ? (
-								<SimpleGrid cols={{ base: 1, md: 2 }}>
-									{userCreatedCollections.map((c) => (
-										<DisplayCollection
-											key={c.id}
-											collection={c}
-											setToUpdateCollection={setToUpdateCollection}
-											openModal={createOrUpdateModalOpen}
-										/>
-									))}
-								</SimpleGrid>
-							) : (
-								<Text>You have not created any collections yet</Text>
-							)}
-						</Tabs.Panel>
-						<Tabs.Panel value="systemCreated">
+							User created
+						</Tabs.Tab>
+						<Tabs.Tab
+							value="systemCreated"
+							leftSection={<IconAssembly size={16} />}
+						>
+							System created
+						</Tabs.Tab>
+					</Tabs.List>
+					<Tabs.Panel value="userCreated">
+						{userCreatedCollections.length > 0 ? (
 							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								{loaderData.collections
-									.filter((c) => c.isDefault)
-									.map((c) => (
-										<DisplayCollection
-											key={c.id}
-											collection={c}
-											setToUpdateCollection={setToUpdateCollection}
-											openModal={createOrUpdateModalOpen}
-										/>
-									))}
+								{userCreatedCollections.map((c) => (
+									<DisplayCollection
+										key={c.id}
+										collection={c}
+										setToUpdateCollection={setToUpdateCollection}
+										openModal={createOrUpdateModalOpen}
+									/>
+								))}
 							</SimpleGrid>
-						</Tabs.Panel>
-					</Tabs>
-				</Stack>
-			</Container>
-			<Modal
-				opened={createOrUpdateModalOpened}
-				onClose={createOrUpdateModalClose}
-				withCloseButton={false}
-				centered
-				size="lg"
-			>
-				<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
-			</Modal>
-		</>
+						) : (
+							<Text>You have not created any collections yet</Text>
+						)}
+					</Tabs.Panel>
+					<Tabs.Panel value="systemCreated">
+						<SimpleGrid cols={{ base: 1, md: 2 }}>
+							{collections
+								.filter((c) => c.isDefault)
+								.map((c) => (
+									<DisplayCollection
+										key={c.id}
+										collection={c}
+										setToUpdateCollection={setToUpdateCollection}
+										openModal={createOrUpdateModalOpen}
+									/>
+								))}
+						</SimpleGrid>
+					</Tabs.Panel>
+				</Tabs>
+			</Stack>
+		</Container>
 	);
 }
 
@@ -283,12 +278,12 @@ const DisplayCollection = (props: {
 	setToUpdateCollection: (c: UpdateCollectionInput) => void;
 	openModal: () => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [];
 
-	if (props.collection.creator.id !== loaderData.currentUserId)
+	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
 	if (props.collection.count > 0)
 		additionalDisplay.push(`${props.collection.count} items`);
@@ -314,14 +309,14 @@ const DisplayCollection = (props: {
 						<Text c="dimmed" size="xs">
 							({additionalDisplay.join(", ")})
 						</Text>
-					) : undefined}
+					) : null}
 				</Flex>
 				{props.collection.description ? (
 					<Text lineClamp={1}>{props.collection.description}</Text>
 				) : null}
 			</Box>
 			<Flex gap="sm" style={{ flex: 0 }}>
-				{loaderData.currentUserId === props.collection.creator.id ? (
+				{userDetails.id === props.collection.creator.id ? (
 					<ActionIcon
 						color="blue"
 						variant="outline"
@@ -339,7 +334,7 @@ const DisplayCollection = (props: {
 					>
 						<IconEdit size={18} />
 					</ActionIcon>
-				) : undefined}
+				) : null}
 				{!props.collection.isDefault ? (
 					<fetcher.Form
 						action="?intent=delete"
@@ -375,6 +370,7 @@ const CreateOrUpdateModal = (props: {
 	toUpdateCollection: UpdateCollectionInput | undefined;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const [informationTemplate, setInformationTemplate] =
 		useListState<CollectionExtraInformation>(
@@ -416,7 +412,7 @@ const CreateOrUpdateModal = (props: {
 					data={loaderData.usersList.map((u) => ({
 						value: u.id,
 						label: u.name,
-						disabled: u.id === loaderData.currentUserId,
+						disabled: u.id === userDetails.id,
 					}))}
 				/>
 				<Input.Wrapper

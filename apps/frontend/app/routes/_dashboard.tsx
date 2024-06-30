@@ -1,62 +1,119 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
+	Alert,
 	Anchor,
 	AppShell,
 	Box,
 	Burger,
+	Button,
 	Center,
+	Checkbox,
 	Collapse,
 	Flex,
 	Group,
 	Image,
+	Input,
+	Loader,
+	Modal,
+	NumberInput,
+	Rating,
 	ScrollArea,
+	SegmentedControl,
+	Select,
+	Slider,
 	Stack,
 	Text,
+	TextInput,
+	Textarea,
 	ThemeIcon,
+	Title,
 	UnstyledButton,
 	useDirection,
 	useMantineTheme,
 } from "@mantine/core";
+import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
-import { UserLot } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
 import {
+	CollectionExtraInformationLot,
+	type CoreDetails,
+	EntityLot,
+	MediaLot,
+	type MetadataDetailsQuery,
+	type UserCollectionsListQuery,
+	UserLot,
+	type UserMetadataDetailsQuery,
+	UserReviewScale,
+	Visibility,
+} from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
+import {
+	IconAlertCircle,
 	IconArchive,
+	IconBook,
+	IconBrandPagekit,
 	IconCalendar,
 	IconChevronLeft,
 	IconChevronRight,
+	IconClock,
 	IconDeviceSpeaker,
+	IconDeviceTv,
 	IconHome2,
 	IconLogout,
 	IconMoon,
+	IconPercentage,
 	IconSettings,
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { joinURL } from "ufo";
+import { useState } from "react";
+import { Fragment } from "react/jsx-runtime";
+import { match } from "ts-pattern";
+import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
-import { LOGO_IMAGE_URL, getLot } from "~/lib/generals";
+import events from "~/lib/events";
 import {
-	redirectIfNotAuthenticatedOrUpdated,
-	serverVariables,
-} from "~/lib/utilities.server";
+	CORE_DETAILS_COOKIE_NAME,
+	LOGO_IMAGE_URL,
+	Verb,
+	getLot,
+	getVerb,
+	queryClient,
+} from "~/lib/generals";
 import {
-	colorSchemeCookie,
-	getCoreDetails,
+	useMetadataDetails,
+	useUserCollections,
+	useUserDetails,
+	useUserMetadataDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
+import {
+	type UpdateProgressData,
+	useAddEntityToCollection,
+	useMetadataProgressUpdate,
+	useReviewEntity,
+} from "~/lib/state/media";
+import {
+	serverVariables as envData,
+	getCachedUserCollectionsList,
+	getCookieValue,
 	getUserPreferences,
+	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
+import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userPreferences, coreDetails] = await Promise.all([
+	const [userPreferences, userCollections] = await Promise.all([
 		getUserPreferences(request),
-		getCoreDetails(request),
+		getCachedUserCollectionsList(request),
 	]);
+	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
+	const coreDetails = JSON.parse(details) as CoreDetails;
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
@@ -132,7 +189,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		{ label: "Integrations", link: $path("/settings/integrations") },
 		{ label: "Notifications", link: $path("/settings/notifications") },
 		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
-		userDetails.__typename === "User" && userDetails.lot === UserLot.Admin
+		userDetails.lot === UserLot.Admin
 			? { label: "Users", link: $path("/settings/users") }
 			: undefined,
 	].filter((link) => link !== undefined);
@@ -142,21 +199,22 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	);
 
 	const shouldHaveUmami =
-		serverVariables.FRONTEND_UMAMI_SCRIPT_URL &&
-		serverVariables.FRONTEND_UMAMI_WEBSITE_ID &&
-		!serverVariables.DISABLE_TELEMETRY &&
+		envData.FRONTEND_UMAMI_SCRIPT_URL &&
+		envData.FRONTEND_UMAMI_WEBSITE_ID &&
+		!envData.DISABLE_TELEMETRY &&
 		!userDetails.isDemo;
 
 	return {
-		envData: serverVariables,
+		envData,
 		mediaLinks,
 		userDetails,
 		coreDetails,
 		fitnessLinks,
 		settingsLinks,
-		shouldHaveUmami,
-		currentColorScheme,
 		userPreferences,
+		shouldHaveUmami,
+		userCollections,
+		currentColorScheme,
 	};
 });
 
@@ -184,9 +242,45 @@ export default function Layout() {
 	const theme = useMantineTheme();
 	const [opened, { toggle }] = useDisclosure(false);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
+	const [entityToReview, setEntityToReview] = useReviewEntity();
+	const closeReviewEntityModal = () => setEntityToReview(null);
+	const [addEntityToCollectionData, setAddEntityToCollectionData] =
+		useAddEntityToCollection();
+	const closeAddEntityToCollectionModal = () =>
+		setAddEntityToCollectionData(null);
 
 	return (
 		<>
+			<Modal
+				onClose={closeMetadataProgressUpdateModal}
+				opened={metadataToUpdate !== null}
+				withCloseButton={false}
+				centered
+			>
+				<MetadataProgressUpdateForm
+					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
+				/>
+			</Modal>
+			<Modal
+				onClose={() => setEntityToReview(null)}
+				opened={entityToReview !== null}
+				withCloseButton={false}
+				centered
+			>
+				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
+			</Modal>
+			<Modal
+				onClose={closeAddEntityToCollectionModal}
+				opened={addEntityToCollectionData !== null}
+				withCloseButton={false}
+				centered
+			>
+				<AddEntityToCollectionForm
+					closeAddEntityToCollectionModal={closeAddEntityToCollectionModal}
+				/>
+			</Modal>
 			<AppShell
 				w="100%"
 				padding={0}
@@ -229,7 +323,7 @@ export default function Layout() {
 									)
 								}
 							/>
-						) : undefined}
+						) : null}
 						{loaderData.userPreferences.featuresEnabled.fitness.enabled ? (
 							<LinksGroup
 								label="Fitness"
@@ -245,7 +339,7 @@ export default function Layout() {
 								}
 								links={loaderData.fitnessLinks}
 							/>
-						) : undefined}
+						) : null}
 						{loaderData.userPreferences.featuresEnabled.others.calendar ? (
 							<LinksGroup
 								label="Calendar"
@@ -454,10 +548,10 @@ function LinksGroup({
 									: "none",
 							}}
 						/>
-					) : undefined}
+					) : null}
 				</Group>
 			</UnstyledButton>
-			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : undefined}
+			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
 		</>
 	);
 }
@@ -490,5 +584,793 @@ const Footer = () => {
 				</Anchor>
 			</Flex>
 		</Stack>
+	);
+};
+
+const WATCH_TIMES = [
+	"Just Right Now",
+	"I don't remember",
+	"Custom Date",
+] as const;
+
+const MetadataProgressUpdateForm = ({
+	closeMetadataProgressUpdateModal,
+}: {
+	closeMetadataProgressUpdateModal: () => void;
+}) => {
+	const [metadataToUpdate] = useMetadataProgressUpdate();
+
+	const { data: metadataDetails } = useMetadataDetails(
+		metadataToUpdate?.metadataId,
+	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		metadataToUpdate?.metadataId,
+	);
+
+	if (!metadataDetails || !metadataToUpdate || !userMetadataDetails)
+		return (
+			<Center p="lg">
+				<Loader type="dots" />
+			</Center>
+		);
+
+	const onSubmit = () => {
+		queryClient.removeQueries({
+			queryKey: ["userMetadataDetails", metadataToUpdate.metadataId],
+		});
+		events.updateProgress(metadataDetails.title);
+		closeMetadataProgressUpdateModal();
+	};
+
+	return userMetadataDetails.inProgress ? (
+		<MetadataInProgressUpdateForm
+			onSubmit={onSubmit}
+			metadataDetails={metadataDetails}
+			metadataToUpdate={metadataToUpdate}
+			inProgress={userMetadataDetails.inProgress}
+		/>
+	) : (
+		<NewProgressUpdateForm
+			onSubmit={onSubmit}
+			metadataDetails={metadataDetails}
+			metadataToUpdate={metadataToUpdate}
+		/>
+	);
+};
+
+type InProgress = UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
+
+const MetadataInProgressUpdateForm = ({
+	onSubmit,
+	inProgress,
+	metadataDetails,
+	metadataToUpdate,
+}: {
+	onSubmit: () => void;
+	inProgress: NonNullable<InProgress>;
+	metadataToUpdate: UpdateProgressData;
+	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+}) => {
+	const userPreferences = useUserPreferences();
+	const total =
+		metadataDetails.audioBookSpecifics?.runtime ||
+		metadataDetails.bookSpecifics?.pages ||
+		metadataDetails.movieSpecifics?.runtime ||
+		metadataDetails.mangaSpecifics?.chapters ||
+		metadataDetails.animeSpecifics?.episodes ||
+		metadataDetails.visualNovelSpecifics?.length;
+	const progress = Number(inProgress.progress);
+	const [value, setValue] = useState<number | undefined>(progress);
+
+	const [updateIcon, text] = match(metadataDetails.lot)
+		.with(MediaLot.Book, () => [<IconBook size={24} key="element" />, "Pages"])
+		.with(MediaLot.Anime, () => [
+			<IconDeviceTv size={24} key="element" />,
+			"Episodes",
+		])
+		.with(MediaLot.Manga, () => [
+			<IconBrandPagekit size={24} key="element" />,
+			"Chapters",
+		])
+		.with(MediaLot.Movie, MediaLot.VisualNovel, MediaLot.AudioBook, () => [
+			<IconClock size={24} key="element" />,
+			"Minutes",
+		])
+		.otherwise(() => [null, null]);
+
+	return (
+		<Form
+			method="post"
+			onSubmit={onSubmit}
+			action={withQuery($path("/actions"), {
+				intent: "individualProgressUpdate",
+			})}
+		>
+			<HiddenLocationInput hash={metadataToUpdate.pageFragment} />
+			<input
+				hidden
+				name="metadataId"
+				defaultValue={metadataToUpdate.metadataId}
+			/>
+			<input hidden name="progress" value={value} readOnly />
+			<input
+				hidden
+				name="date"
+				defaultValue={formatDateToNaiveDate(new Date())}
+			/>
+			<Stack mt="sm">
+				<Group>
+					<Slider
+						max={100}
+						min={0}
+						step={1}
+						showLabelOnHover={false}
+						value={value}
+						onChange={setValue}
+						style={{ flexGrow: 1 }}
+					/>
+					<NumberInput
+						value={value}
+						onChange={(v) => {
+							if (v) setValue(Number(v));
+							else setValue(undefined);
+						}}
+						max={100}
+						min={0}
+						step={1}
+						w="20%"
+						hideControls
+						rightSection={<IconPercentage size={16} />}
+					/>
+				</Group>
+				{total ? (
+					<>
+						<Text ta="center" fw="bold">
+							OR
+						</Text>
+						<Flex align="center" gap="xs">
+							<NumberInput
+								defaultValue={((total || 1) * (value || 1)) / 100}
+								onChange={(v) => {
+									const value = (Number(v) / (total || 1)) * 100;
+									setValue(value);
+								}}
+								max={total}
+								min={0}
+								step={1}
+								hideControls
+								leftSection={updateIcon}
+							/>
+							<Text>{text}</Text>
+						</Flex>
+					</>
+				) : null}
+				<Select
+					data={userPreferences.general.watchProviders}
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+					name="providerWatchedOn"
+					defaultValue={inProgress.providerWatchedOn}
+				/>
+				<Button variant="outline" type="submit">
+					Update
+				</Button>
+			</Stack>
+		</Form>
+	);
+};
+
+const NewProgressUpdateForm = ({
+	onSubmit,
+	metadataDetails,
+	metadataToUpdate,
+}: {
+	onSubmit: () => void;
+	metadataToUpdate: UpdateProgressData;
+	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+}) => {
+	const userPreferences = useUserPreferences();
+	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+
+	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
+		new Date(),
+	);
+	const [watchTime, setWatchTime] =
+		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
+	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
+		string | undefined
+	>(undefined);
+	const [mangaChapterNumber, setMangaChapterNumber] = useState<
+		string | undefined
+	>(undefined);
+	const [mangaVolumeNumber, setMangaVolumeNumber] = useState<
+		string | undefined
+	>(undefined);
+
+	return (
+		<Form
+			method="post"
+			onSubmit={onSubmit}
+			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
+		>
+			{[
+				...Object.entries(metadataToUpdate),
+				["metadataLot", metadataDetails.lot],
+			].map(([k, v]) => (
+				<Fragment key={k}>
+					{typeof v !== "undefined" ? (
+						<input hidden readOnly name={k} value={v?.toString()} />
+					) : null}
+				</Fragment>
+			))}
+			<HiddenLocationInput hash={metadataToUpdate.pageFragment} />
+			<Stack>
+				{metadataDetails.lot === MediaLot.Anime ? (
+					<>
+						<NumberInput
+							label="Episode"
+							name="animeEpisodeNumber"
+							description="Leaving this empty will mark the whole anime as watched"
+							hideControls
+							value={animeEpisodeNumber}
+							onChange={(e) => setAnimeEpisodeNumber(e.toString())}
+						/>
+						{animeEpisodeNumber ? (
+							<Checkbox
+								label="Mark all episodes before this as watched"
+								name="animeAllEpisodesBefore"
+							/>
+						) : null}
+					</>
+				) : null}
+				{metadataDetails.lot === MediaLot.Manga ? (
+					<>
+						<Box>
+							<Text c="dimmed" size="sm">
+								Leaving the following empty will mark the whole manga as watched
+							</Text>
+							<Group wrap="nowrap">
+								<NumberInput
+									label="Chapter"
+									name="mangaChapterNumber"
+									hideControls
+									value={mangaChapterNumber}
+									onChange={(e) => setMangaChapterNumber(e.toString())}
+								/>
+								<Text ta="center" fw="bold" mt="sm">
+									OR
+								</Text>
+								<NumberInput
+									label="Volume"
+									name="mangaVolumeNumber"
+									hideControls
+									value={mangaVolumeNumber}
+									onChange={(e) => setMangaVolumeNumber(e.toString())}
+								/>
+							</Group>
+						</Box>
+						{mangaChapterNumber ? (
+							<Checkbox
+								label="Mark all chapters before this as watched"
+								name="mangaAllChaptersBefore"
+							/>
+						) : null}
+					</>
+				) : null}
+				{metadataDetails.lot === MediaLot.Show ? (
+					<>
+						<input
+							hidden
+							name="showSpecifics"
+							defaultValue={JSON.stringify(
+								metadataDetails.showSpecifics?.seasons.map((s) => ({
+									seasonNumber: s.seasonNumber,
+									episodes: s.episodes.map((e) => e.episodeNumber),
+								})),
+							)}
+						/>
+						{metadataToUpdate.onlySeason || metadataToUpdate.completeShow ? (
+							<Alert color="yellow" icon={<IconAlertCircle />}>
+								{metadataToUpdate.onlySeason
+									? `This will mark all episodes of season ${metadataToUpdate.showSeasonNumber} as seen`
+									: metadataToUpdate.completeShow
+										? "This will mark all episodes for this show as seen"
+										: null}
+							</Alert>
+						) : null}
+						{!metadataToUpdate.completeShow ? (
+							<Select
+								label="Season"
+								required
+								data={metadataDetails.showSpecifics?.seasons.map((s) => ({
+									label: `${s.seasonNumber}. ${s.name.toString()}`,
+									value: s.seasonNumber.toString(),
+								}))}
+								value={metadataToUpdate.showSeasonNumber?.toString()}
+								onChange={(v) => {
+									setMetadataToUpdate(
+										produce(metadataToUpdate, (draft) => {
+											draft.showSeasonNumber = Number(v);
+										}),
+									);
+								}}
+								searchable
+								limit={50}
+							/>
+						) : null}
+						{metadataToUpdate?.onlySeason ? (
+							<Checkbox
+								label="Mark all seasons before this as seen"
+								name="showAllSeasonsBefore"
+							/>
+						) : null}
+						{!metadataToUpdate.onlySeason &&
+						typeof metadataToUpdate.showSeasonNumber !== "undefined" ? (
+							<Select
+								label="Episode"
+								required
+								data={
+									metadataDetails.showSpecifics?.seasons
+										.find(
+											(s) =>
+												s.seasonNumber ===
+												Number(metadataToUpdate.showSeasonNumber),
+										)
+										?.episodes.map((e) => ({
+											label: `${e.episodeNumber}. ${e.name.toString()}`,
+											value: e.episodeNumber.toString(),
+										})) || []
+								}
+								value={metadataToUpdate.showEpisodeNumber?.toString()}
+								onChange={(v) => {
+									setMetadataToUpdate(
+										produce(metadataToUpdate, (draft) => {
+											draft.showEpisodeNumber = Number(v);
+										}),
+									);
+								}}
+								searchable
+								limit={50}
+							/>
+						) : null}
+					</>
+				) : null}
+				{metadataDetails.lot === MediaLot.Podcast ? (
+					<>
+						<input
+							hidden
+							name="podcastSpecifics"
+							defaultValue={JSON.stringify(
+								metadataDetails.podcastSpecifics?.episodes.map((e) => ({
+									episodeNumber: e.number,
+								})),
+							)}
+						/>
+						{metadataToUpdate.completePodcast ? (
+							<Alert color="yellow" icon={<IconAlertCircle />}>
+								This will mark all episodes for this podcast as seen
+							</Alert>
+						) : (
+							<>
+								<Text fw="bold">Select episode</Text>
+								<Select
+									required
+									label="Episode"
+									data={metadataDetails.podcastSpecifics?.episodes.map(
+										(se) => ({
+											label: se.title.toString(),
+											value: se.number.toString(),
+										}),
+									)}
+									value={metadataToUpdate.podcastEpisodeNumber?.toString()}
+									onChange={(v) => {
+										setMetadataToUpdate(
+											produce(metadataToUpdate, (draft) => {
+												draft.podcastEpisodeNumber = Number(v);
+											}),
+										);
+									}}
+									searchable
+									limit={50}
+								/>
+							</>
+						)}
+					</>
+				) : null}
+				<Select
+					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+					data={WATCH_TIMES}
+					value={watchTime}
+					onChange={(v) => {
+						setWatchTime(v as typeof watchTime);
+						match(v)
+							.with(WATCH_TIMES[0], () => setSelectedDate(new Date()))
+							.with(WATCH_TIMES[1], () => setSelectedDate(null))
+							.with(WATCH_TIMES[2], () => setSelectedDate(null));
+					}}
+				/>
+				{watchTime === WATCH_TIMES[2] ? (
+					<DatePickerInput
+						required
+						label="Enter exact date"
+						dropdownType="modal"
+						maxDate={new Date()}
+						onChange={setSelectedDate}
+						clearable
+					/>
+				) : null}
+				<Select
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+					data={userPreferences.general.watchProviders}
+					name="providerWatchedOn"
+				/>
+				<Button
+					variant="outline"
+					disabled={selectedDate === undefined}
+					type="submit"
+					name="date"
+					value={selectedDate ? formatDateToNaiveDate(selectedDate) : undefined}
+				>
+					Submit
+				</Button>
+			</Stack>
+		</Form>
+	);
+};
+
+const ReviewEntityForm = ({
+	closeReviewEntityModal,
+}: {
+	closeReviewEntityModal: () => void;
+}) => {
+	const userPreferences = useUserPreferences();
+	const [entityToReview] = useReviewEntity();
+
+	if (!entityToReview) return null;
+
+	return (
+		<Form
+			method="post"
+			action="/actions?intent=performReviewAction"
+			replace
+			onSubmit={() => {
+				events.postReview(entityToReview.entityTitle);
+				closeReviewEntityModal();
+			}}
+		>
+			<input
+				hidden
+				name={match(entityToReview.entityLot)
+					.with(EntityLot.Metadata, () => "metadataId")
+					.with(EntityLot.MetadataGroup, () => "metadataGroupId")
+					.with(EntityLot.Person, () => "personId")
+					.with(EntityLot.Collection, () => "collection")
+					.run()}
+				value={entityToReview.entityId}
+				readOnly
+			/>
+			<HiddenLocationInput />
+			{entityToReview.existingReview?.id ? (
+				<input
+					hidden
+					name="reviewId"
+					value={entityToReview.existingReview.id}
+				/>
+			) : null}
+			<Stack>
+				<Flex align="center" gap="xl">
+					{match(userPreferences.general.reviewScale)
+						.with(UserReviewScale.OutOfFive, () => (
+							<Flex gap="sm" mt="lg">
+								<Input.Label>Rating:</Input.Label>
+								<Rating
+									name="rating"
+									defaultValue={
+										entityToReview.existingReview?.rating
+											? Number(entityToReview.existingReview.rating)
+											: undefined
+									}
+									fractions={2}
+								/>
+							</Flex>
+						))
+						.with(UserReviewScale.OutOfHundred, () => (
+							<NumberInput
+								label="Rating"
+								name="rating"
+								min={0}
+								max={100}
+								step={1}
+								w="40%"
+								hideControls
+								rightSection={<IconPercentage size={16} />}
+								defaultValue={
+									entityToReview.existingReview?.rating
+										? Number(entityToReview.existingReview.rating)
+										: undefined
+								}
+							/>
+						))
+						.exhaustive()}
+					<Checkbox label="This review is a spoiler" mt="lg" name="isSpoiler" />
+				</Flex>
+				{entityToReview.metadataLot === MediaLot.Show ? (
+					<Flex gap="md">
+						<NumberInput
+							label="Season"
+							name="showSeasonNumber"
+							hideControls
+							defaultValue={
+								typeof entityToReview.existingReview?.showExtraInformation
+									?.season === "number"
+									? entityToReview.existingReview.showExtraInformation.season
+									: undefined
+							}
+						/>
+						<NumberInput
+							label="Episode"
+							name="showEpisodeNumber"
+							hideControls
+							defaultValue={
+								typeof entityToReview.existingReview?.showExtraInformation
+									?.episode === "number"
+									? entityToReview.existingReview.showExtraInformation.episode
+									: undefined
+							}
+						/>
+					</Flex>
+				) : null}
+				{entityToReview.metadataLot === MediaLot.Podcast ? (
+					<NumberInput
+						label="Episode"
+						name="podcastEpisodeNumber"
+						hideControls
+						defaultValue={
+							typeof entityToReview.existingReview?.podcastExtraInformation
+								?.episode === "number"
+								? entityToReview.existingReview.podcastExtraInformation.episode
+								: undefined
+						}
+					/>
+				) : null}
+				{entityToReview.metadataLot === MediaLot.Anime ? (
+					<NumberInput
+						label="Episode"
+						name="animeEpisodeNumber"
+						hideControls
+						defaultValue={
+							typeof entityToReview.existingReview?.animeExtraInformation
+								?.episode === "number"
+								? entityToReview.existingReview.animeExtraInformation.episode
+								: undefined
+						}
+					/>
+				) : null}
+				{entityToReview.metadataLot === MediaLot.Manga ? (
+					<>
+						<Group wrap="nowrap">
+							<NumberInput
+								label="Chapter"
+								name="mangaChapterNumber"
+								hideControls
+								defaultValue={
+									typeof entityToReview.existingReview?.mangaExtraInformation
+										?.chapter === "number"
+										? entityToReview.existingReview.mangaExtraInformation
+												.chapter
+										: undefined
+								}
+							/>
+							<Text ta="center" fw="bold" mt="sm">
+								OR
+							</Text>
+							<NumberInput
+								label="Volume"
+								name="mangaVolumeNumber"
+								hideControls
+								defaultValue={
+									typeof entityToReview.existingReview?.mangaExtraInformation
+										?.volume === "number"
+										? entityToReview.existingReview.mangaExtraInformation.volume
+										: undefined
+								}
+							/>
+						</Group>
+					</>
+				) : null}
+				<Textarea
+					label="Review"
+					name="text"
+					description="Markdown is supported"
+					autoFocus
+					minRows={10}
+					maxRows={20}
+					autosize
+					defaultValue={
+						entityToReview.existingReview?.textOriginal ?? undefined
+					}
+				/>
+				<Box>
+					<Input.Label>Visibility</Input.Label>
+					<SegmentedControl
+						fullWidth
+						data={Object.entries(Visibility).map(([k, v]) => ({
+							label: changeCase(k),
+							value: v,
+						}))}
+						defaultValue={
+							entityToReview.existingReview?.visibility ?? Visibility.Public
+						}
+						name="visibility"
+					/>
+				</Box>
+				<Button mt="md" type="submit" w="100%">
+					{entityToReview.existingReview?.id ? "Update" : "Submit"}
+				</Button>
+			</Stack>
+		</Form>
+	);
+};
+
+type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+
+const AddEntityToCollectionForm = ({
+	closeAddEntityToCollectionModal,
+}: {
+	closeAddEntityToCollectionModal: () => void;
+}) => {
+	const userDetails = useUserDetails();
+	const collections = useUserCollections();
+	const [selectedCollection, setSelectedCollection] =
+		useState<Collection | null>(null);
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+	const [addEntityToCollectionData, _] = useAddEntityToCollection();
+
+	if (!addEntityToCollectionData) return null;
+
+	const selectData = Object.entries(
+		groupBy(collections, (c) =>
+			c.creator.id === userDetails.id ? "You" : c.creator.name,
+		),
+	).map(([g, items]) => ({
+		group: g,
+		items: items.map((c) => ({
+			label: c.name,
+			value: c.id.toString(),
+			disabled: addEntityToCollectionData.alreadyInCollections?.includes(
+				c.id.toString(),
+			),
+		})),
+	}));
+
+	return (
+		<Form
+			action="/actions?intent=addEntityToCollection"
+			method="post"
+			onSubmit={() => {
+				closeAddEntityToCollectionModal();
+			}}
+		>
+			<input
+				readOnly
+				hidden
+				name="entityId"
+				value={addEntityToCollectionData.entityId}
+			/>
+			<input
+				readOnly
+				hidden
+				name="entityLot"
+				value={addEntityToCollectionData.entityLot}
+			/>
+			<HiddenLocationInput />
+			<Stack>
+				<Title order={3}>Select collection</Title>
+				<Select
+					searchable
+					data={selectData}
+					nothingFoundMessage="Nothing found..."
+					value={selectedCollection?.id.toString()}
+					onChange={(v) => {
+						if (v) {
+							const collection = collections.find((c) => c.id === v);
+							if (collection) setSelectedCollection(collection);
+						}
+					}}
+				/>
+				{selectedCollection ? (
+					<>
+						<input
+							readOnly
+							hidden
+							name="collectionName"
+							value={selectedCollection.name}
+						/>
+						<input
+							readOnly
+							hidden
+							name="creatorUserId"
+							value={selectedCollection.creator.id}
+						/>
+						{selectedCollection.informationTemplate?.map((template) => (
+							<Fragment key={template.name}>
+								{match(template.lot)
+									.with(CollectionExtraInformationLot.String, () => (
+										<TextInput
+											name={`information.${template.name}`}
+											label={template.name}
+											description={template.description}
+											required={!!template.required}
+											defaultValue={template.defaultValue || undefined}
+										/>
+									))
+									.with(CollectionExtraInformationLot.Number, () => (
+										<NumberInput
+											name={`information.${template.name}`}
+											label={template.name}
+											description={template.description}
+											required={!!template.required}
+											defaultValue={
+												template.defaultValue
+													? Number(template.defaultValue)
+													: undefined
+											}
+										/>
+									))
+									.with(CollectionExtraInformationLot.Date, () => (
+										<>
+											<DateInput
+												label={template.name}
+												description={template.description}
+												required={!!template.required}
+												onChange={setOwnedOn}
+												value={ownedOn}
+												defaultValue={
+													template.defaultValue
+														? new Date(template.defaultValue)
+														: undefined
+												}
+											/>
+											<input
+												readOnly
+												hidden
+												name={`information.${template.name}`}
+												value={
+													ownedOn ? formatDateToNaiveDate(ownedOn) : undefined
+												}
+											/>
+										</>
+									))
+									.with(CollectionExtraInformationLot.DateTime, () => (
+										<DateTimePicker
+											name={`information.${template.name}`}
+											label={template.name}
+											description={template.description}
+											required={!!template.required}
+										/>
+									))
+									.exhaustive()}
+							</Fragment>
+						))}
+					</>
+				) : null}
+				<Button
+					disabled={!selectedCollection}
+					variant="outline"
+					type="submit"
+					onClick={() =>
+						events.addToCollection(addEntityToCollectionData.entityLot)
+					}
+				>
+					Set
+				</Button>
+				<Button
+					variant="outline"
+					color="red"
+					onClick={closeAddEntityToCollectionModal}
+				>
+					Cancel
+				</Button>
+			</Stack>
+		</Form>
 	);
 };

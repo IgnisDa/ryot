@@ -64,26 +64,28 @@ import { withFragment } from "ufo";
 import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { getWorkoutStarter, useGetMantineColor } from "~/lib/hooks";
+import {
+	getWorkoutStarter,
+	useGetMantineColor,
+	useUserPreferences,
+} from "~/lib/hooks";
+import { duplicateOldWorkout, getExerciseDetails } from "~/lib/state/workout";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
-	getUserPreferences,
 	processSubmission,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const workoutId = params.id;
 	invariant(workoutId, "No ID provided");
-	const [userPreferences, { workoutDetails }] = await Promise.all([
-		getUserPreferences(request),
+	const [{ workoutDetails }] = await Promise.all([
 		serverGqlService.request(
 			WorkoutDetailsDocument,
 			{ workoutId },
-			await getAuthorizationHeader(request),
+			getAuthorizationHeader(request),
 		),
 	]);
 	let repeatedWorkout = null;
@@ -92,7 +94,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			await serverGqlService.request(
 				WorkoutDetailsDocument,
 				{ workoutId: workoutDetails.repeatedFrom },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 		repeatedWorkout = {
 			id: workoutDetails.repeatedFrom,
@@ -100,14 +102,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			doneOn: repeatedWorkoutData.startTime,
 		};
 	}
-	return {
-		workoutId,
-		userPreferences: {
-			unitSystem: userPreferences.fitness.exercises.unitSystem,
-		},
-		workoutDetails,
-		repeatedWorkout,
-	};
+	return { workoutId, workoutDetails, repeatedWorkout };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -122,7 +117,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				EditUserWorkoutDocument,
 				{ input: submission },
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -136,7 +131,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.request(
 				DeleteUserWorkoutDocument,
 				submission,
-				await getAuthorizationHeader(request),
+				getAuthorizationHeader(request),
 			);
 			return redirectWithToast($path("/fitness/workouts/list"), {
 				type: "success",
@@ -156,6 +151,8 @@ const editWorkoutSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
@@ -290,7 +287,7 @@ export default function Page() {
 								<DisplayStat
 									icon={<IconWeight size={16} />}
 									data={displayWeightWithUnit(
-										loaderData.userPreferences.unitSystem,
+										unitSystem,
 										loaderData.workoutDetails.summary.total.weight,
 									)}
 								/>
@@ -299,7 +296,7 @@ export default function Page() {
 								<DisplayStat
 									icon={<IconRun size={16} />}
 									data={displayDistanceWithUnit(
-										loaderData.userPreferences.unitSystem,
+										unitSystem,
 										loaderData.workoutDetails.summary.total.distance,
 									)}
 								/>
@@ -361,6 +358,8 @@ type Exercise =
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const exerciseDetails = useQuery({
@@ -442,7 +441,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 									<Text fz="xs">
 										Weight:{" "}
 										{displayWeightWithUnit(
-											loaderData.userPreferences.unitSystem,
+											unitSystem,
 											props.exercise.total.weight,
 										)}
 									</Text>
@@ -454,7 +453,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 									<Text fz="xs">
 										Distance:{" "}
 										{displayDistanceWithUnit(
-											loaderData.userPreferences.unitSystem,
+											unitSystem,
 											props.exercise.total.distance,
 										)}
 									</Text>
@@ -509,7 +508,8 @@ const DisplaySet = (props: {
 	idx: number;
 	exerciseLot: ExerciseLot;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const getMantineColor = useGetMantineColor();
 	const [opened, { close, open }] = useDisclosure(false);
 
@@ -558,7 +558,7 @@ const DisplaySet = (props: {
 				<DisplayExerciseStats
 					lot={props.exerciseLot}
 					statistic={props.set.statistic}
-					unit={loaderData.userPreferences.unitSystem}
+					unit={unitSystem}
 				/>
 			</Flex>
 		</Box>
