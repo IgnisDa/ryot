@@ -24,27 +24,38 @@ import {
 	Slider,
 	Stack,
 	Text,
+	TextInput,
 	Textarea,
 	ThemeIcon,
+	Title,
 	UnstyledButton,
 	useDirection,
 	useMantineTheme,
 } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
+import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
-import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
+	Form,
+	Link,
+	NavLink,
+	Outlet,
+	useLoaderData,
+	useNavigation,
+} from "@remix-run/react";
+import {
+	CollectionExtraInformationLot,
 	type CoreDetails,
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
+	type UserCollectionsListQuery,
 	UserLot,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate } from "@ryot/ts-utils";
+import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconArchive,
@@ -65,7 +76,7 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
@@ -81,11 +92,14 @@ import {
 } from "~/lib/generals";
 import {
 	useMetadataDetails,
+	useUserCollections,
+	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
 	type UpdateProgressData,
+	useAddEntityToCollection,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
@@ -239,6 +253,10 @@ export default function Layout() {
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
 	const closeReviewEntityModal = () => setEntityToReview(null);
+	const [addEntityToCollectionData, setAddEntityToCollectionData] =
+		useAddEntityToCollection();
+	const closeAddEntityToCollectionModal = () =>
+		setAddEntityToCollectionData(null);
 
 	return (
 		<>
@@ -259,6 +277,16 @@ export default function Layout() {
 				centered
 			>
 				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
+			</Modal>
+			<Modal
+				onClose={closeAddEntityToCollectionModal}
+				opened={addEntityToCollectionData !== null}
+				withCloseButton={false}
+				centered
+			>
+				<AddEntityToCollectionForm
+					closeAddEntityToCollectionModal={closeAddEntityToCollectionModal}
+				/>
 			</Modal>
 			<AppShell
 				w="100%"
@@ -1184,6 +1212,170 @@ const ReviewEntityForm = ({
 				</Box>
 				<Button mt="md" type="submit" w="100%">
 					{entityToReview.existingReview?.id ? "Update" : "Submit"}
+				</Button>
+			</Stack>
+		</Form>
+	);
+};
+
+type Collection = UserCollectionsListQuery["userCollectionsList"][number];
+
+const AddEntityToCollectionForm = ({
+	closeAddEntityToCollectionModal,
+}: {
+	closeAddEntityToCollectionModal: () => void;
+}) => {
+	const transition = useNavigation();
+	const userDetails = useUserDetails();
+	const collections = useUserCollections();
+	const [selectedCollection, setSelectedCollection] =
+		useState<Collection | null>(null);
+	const [ownedOn, setOwnedOn] = useState<Date | null>();
+	useEffect(() => {
+		if (transition.state !== "submitting") {
+			closeAddEntityToCollectionModal();
+		}
+	}, [transition.state]);
+	const [addEntityToCollectionData, _] = useAddEntityToCollection();
+
+	if (!addEntityToCollectionData) return null;
+
+	const selectData = Object.entries(
+		groupBy(collections, (c) =>
+			c.creator.id === userDetails.id ? "You" : c.creator.name,
+		),
+	).map(([g, items]) => ({
+		group: g,
+		items: items.map((c) => ({
+			label: c.name,
+			value: c.id.toString(),
+			disabled: addEntityToCollectionData.alreadyInCollections?.includes(
+				c.id.toString(),
+			),
+		})),
+	}));
+
+	return (
+		<Form action="/actions?intent=addEntityToCollection" method="post">
+			<input
+				readOnly
+				hidden
+				name="entityId"
+				value={addEntityToCollectionData.entityId}
+			/>
+			<input
+				readOnly
+				hidden
+				name="entityLot"
+				value={addEntityToCollectionData.entityLot}
+			/>
+			<HiddenLocationInput />
+			<Stack>
+				<Title order={3}>Select collection</Title>
+				<Select
+					searchable
+					data={selectData}
+					nothingFoundMessage="Nothing found..."
+					value={selectedCollection?.id.toString()}
+					onChange={(v) => {
+						if (v) {
+							const collection = collections.find((c) => c.id === v);
+							if (collection) setSelectedCollection(collection);
+						}
+					}}
+				/>
+				{selectedCollection ? (
+					<>
+						<input
+							readOnly
+							hidden
+							name="collectionName"
+							value={selectedCollection.name}
+						/>
+						<input
+							readOnly
+							hidden
+							name="creatorUserId"
+							value={selectedCollection.creator.id}
+						/>
+						{selectedCollection.informationTemplate?.map((template) => (
+							<Fragment key={template.name}>
+								{match(template.lot)
+									.with(CollectionExtraInformationLot.String, () => (
+										<TextInput
+											name={`information.${template.name}`}
+											label={template.name}
+											description={template.description}
+											required={!!template.required}
+											defaultValue={template.defaultValue || undefined}
+										/>
+									))
+									.with(CollectionExtraInformationLot.Number, () => (
+										<NumberInput
+											name={`information.${template.name}`}
+											label={template.name}
+											description={template.description}
+											required={!!template.required}
+											defaultValue={
+												template.defaultValue
+													? Number(template.defaultValue)
+													: undefined
+											}
+										/>
+									))
+									.with(CollectionExtraInformationLot.Date, () => (
+										<>
+											<DateInput
+												label={template.name}
+												description={template.description}
+												required={!!template.required}
+												onChange={setOwnedOn}
+												value={ownedOn}
+												defaultValue={
+													template.defaultValue
+														? new Date(template.defaultValue)
+														: undefined
+												}
+											/>
+											<input
+												readOnly
+												hidden
+												name={`information.${template.name}`}
+												value={
+													ownedOn ? formatDateToNaiveDate(ownedOn) : undefined
+												}
+											/>
+										</>
+									))
+									.with(CollectionExtraInformationLot.DateTime, () => (
+										<DateTimePicker
+											name={`information.${template.name}`}
+											label={template.name}
+											description={template.description}
+											required={!!template.required}
+										/>
+									))
+									.exhaustive()}
+							</Fragment>
+						))}
+					</>
+				) : null}
+				<Button
+					disabled={!selectedCollection}
+					variant="outline"
+					type="submit"
+					onClick={() =>
+						events.addToCollection(addEntityToCollectionData.entityLot)
+					}
+				>
+					Set
+				</Button>
+				<Button
+					variant="outline"
+					color="red"
+					onClick={closeAddEntityToCollectionModal}
+				>
+					Cancel
 				</Button>
 			</Stack>
 		</Form>

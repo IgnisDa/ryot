@@ -56,11 +56,7 @@ import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	AddEntityToCollectionModal,
-	ApplicationGrid,
-	DebouncedSearchInput,
-} from "~/components/common";
+import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import {
 	type Item,
 	MediaItemWithoutUpdateModal,
@@ -76,7 +72,11 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
+import {
+	useAddEntityToCollection,
+	useMetadataProgressUpdate,
+	useReviewEntity,
+} from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -554,6 +554,7 @@ const MediaSearchItem = (props: {
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const basicCommit = async (e: React.MouseEvent) => {
 		if (props.maybeItemId) return props.maybeItemId;
 		e.preventDefault();
@@ -566,14 +567,6 @@ const MediaSearchItem = (props: {
 		setIsLoading(false);
 		return response;
 	};
-	const [
-		isAddMediaToCollectionModalOpened,
-		{
-			open: openIsAddMediaToCollectionModalOpened,
-			close: closeIsAddMediaToCollectionModalOpened,
-		},
-	] = useDisclosure(false);
-	const [appItemId, setAppItemId] = useState(props.maybeItemId);
 
 	return (
 		<MediaItemWithoutUpdateModal
@@ -590,37 +583,27 @@ const MediaSearchItem = (props: {
 				return navigate($path("/media/item/:id", { id }));
 			}}
 			nameRight={
-				<>
-					<Menu shadow="md">
-						<Menu.Target>
-							<ActionIcon size="xs">
-								<IconDotsVertical />
-							</ActionIcon>
-						</Menu.Target>
-						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconBoxMultiple size={14} />}
-								onClick={async (e) => {
-									if (!appItemId) {
-										const id = await basicCommit(e);
-										setAppItemId(id);
-									}
-									openIsAddMediaToCollectionModalOpened();
-								}}
-							>
-								Add to collection
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-					{appItemId ? (
-						<AddEntityToCollectionModal
-							opened={isAddMediaToCollectionModalOpened}
-							onClose={closeIsAddMediaToCollectionModalOpened}
-							entityId={appItemId.toString()}
-							entityLot={EntityLot.Metadata}
-						/>
-					) : null}
-				</>
+				<Menu shadow="md">
+					<Menu.Target>
+						<ActionIcon size="xs">
+							<IconDotsVertical />
+						</ActionIcon>
+					</Menu.Target>
+					<Menu.Dropdown>
+						<Menu.Item
+							leftSection={<IconBoxMultiple size={14} />}
+							onClick={async (e) => {
+								const id = await basicCommit(e);
+								setAddEntityToCollectionData({
+									entityId: id,
+									entityLot: EntityLot.Metadata,
+								});
+							}}
+						>
+							Add to collection
+						</Menu.Item>
+					</Menu.Dropdown>
+				</Menu>
 			}
 		>
 			<>

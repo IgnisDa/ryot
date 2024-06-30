@@ -13,7 +13,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -37,10 +36,7 @@ import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	AddEntityToCollectionModal,
-	MediaDetailsLayout,
-} from "~/components/common";
+import { MediaDetailsLayout } from "~/components/common";
 import {
 	DisplayCollection,
 	MediaIsPartial,
@@ -49,7 +45,7 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import { useUserPreferences } from "~/lib/hooks";
-import { useReviewEntity } from "~/lib/state/media";
+import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -107,11 +103,8 @@ const personIdSchema = z.object({ personId: z.string() });
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const [
-		collectionModalOpened,
-		{ open: collectionModalOpen, close: collectionModalClose },
-	] = useDisclosure(false);
 	const [_r, setEntityToReview] = useReviewEntity();
+	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 
 	return (
 		<Container>
@@ -268,7 +261,19 @@ export default function Page() {
 								>
 									Post a review
 								</Button>
-								<Button variant="outline" onClick={collectionModalOpen}>
+								<Button
+									variant="outline"
+									onClick={() => {
+										setAddEntityToCollectionData({
+											entityId: loaderData.personId,
+											entityLot: EntityLot.Person,
+											alreadyInCollections:
+												loaderData.userPersonDetails.collections.map(
+													(c) => c.id,
+												),
+										});
+									}}
+								>
 									Add to collection
 								</Button>
 								<Menu shadow="md">
@@ -298,15 +303,6 @@ export default function Page() {
 										</Form>
 									</Menu.Dropdown>
 								</Menu>
-								<AddEntityToCollectionModal
-									onClose={collectionModalClose}
-									opened={collectionModalOpened}
-									entityId={loaderData.personId.toString()}
-									entityLot={EntityLot.Person}
-									alreadyInCollections={loaderData.userPersonDetails.collections.map(
-										(c) => c.id,
-									)}
-								/>
 							</SimpleGrid>
 						</MediaScrollArea>
 					</Tabs.Panel>

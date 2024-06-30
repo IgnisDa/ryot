@@ -75,3 +75,17 @@ export const reviewEntityAtom = atom<ReviewEntityData | null>(null);
 export const useReviewEntity = () => {
 	return useAtom(reviewEntityAtom);
 };
+
+export type AddEntityToCollectionData = {
+	entityId: string;
+	entityLot: EntityLot;
+	alreadyInCollections?: Array<string>;
+};
+
+export const addEntityToCollectionAtom = atom<AddEntityToCollectionData | null>(
+	null,
+);
+
+export const useAddEntityToCollection = () => {
+	return useAtom(addEntityToCollectionAtom);
+};

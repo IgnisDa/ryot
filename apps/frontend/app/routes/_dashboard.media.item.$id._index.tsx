@@ -77,7 +77,6 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
-	AddEntityToCollectionModal,
 	HiddenLocationInput,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
@@ -93,7 +92,11 @@ import {
 import events from "~/lib/events";
 import { Verb, dayjsLib, getVerb, queryClient } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
-import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
+import {
+	useAddEntityToCollection,
+	useMetadataProgressUpdate,
+	useReviewEntity,
+} from "~/lib/state/media";
 import {
 	MetadataIdSchema,
 	createToastHeaders,
@@ -218,15 +221,12 @@ export default function Page() {
 		loaderData.query.defaultTab || "overview",
 	);
 	const [
-		collectionModalOpened,
-		{ open: collectionModalOpen, close: collectionModalClose },
-	] = useDisclosure(false);
-	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
 	const [_m, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
+	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -830,18 +830,21 @@ export default function Page() {
 									</Button>
 								) : null}
 								<>
-									<Button variant="outline" onClick={collectionModalOpen}>
+									<Button
+										variant="outline"
+										onClick={() => {
+											setAddEntityToCollectionData({
+												entityId: loaderData.metadataId,
+												entityLot: EntityLot.Metadata,
+												alreadyInCollections:
+													loaderData.userMetadataDetails.collections.map(
+														(c) => c.id,
+													),
+											});
+										}}
+									>
 										Add to collection
 									</Button>
-									<AddEntityToCollectionModal
-										onClose={collectionModalClose}
-										opened={collectionModalOpened}
-										entityId={loaderData.metadataId.toString()}
-										entityLot={EntityLot.Metadata}
-										alreadyInCollections={loaderData.userMetadataDetails.collections.map(
-											(c) => c.id,
-										)}
-									/>
 								</>
 								<Menu shadow="md">
 									<Menu.Target>
