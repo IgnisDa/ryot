@@ -114,224 +114,222 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 
 	return (
-		<>
-			<Container>
-				<MediaDetailsLayout
-					images={loaderData.personDetails.details.displayImages}
-					externalLink={{
-						source: loaderData.personDetails.details.source,
-						href: loaderData.personDetails.sourceUrl,
-					}}
-				>
-					<Title id="creator-title">
-						{loaderData.personDetails.details.name}
-					</Title>
-					<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
-						{[
-							`${
-								loaderData.personDetails.contents.flatMap((c) => c.items).length
-							} media items`,
-							loaderData.personDetails.details.birthDate &&
-								`Birth: ${loaderData.personDetails.details.birthDate}`,
-							loaderData.personDetails.details.deathDate &&
-								`Death: ${loaderData.personDetails.details.deathDate}`,
-							loaderData.personDetails.details.place &&
-								loaderData.personDetails.details.place,
-							loaderData.personDetails.details.gender,
-						]
-							.filter(Boolean)
-							.join(" • ")}
-						{loaderData.personDetails.details.website ? (
-							<>
-								{" "}
-								•{" "}
-								<Anchor
-									href={loaderData.personDetails.details.website}
-									target="_blank"
-								>
-									Website
-								</Anchor>
-							</>
+		<Container>
+			<MediaDetailsLayout
+				images={loaderData.personDetails.details.displayImages}
+				externalLink={{
+					source: loaderData.personDetails.details.source,
+					href: loaderData.personDetails.sourceUrl,
+				}}
+			>
+				<Title id="creator-title">
+					{loaderData.personDetails.details.name}
+				</Title>
+				<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
+					{[
+						`${
+							loaderData.personDetails.contents.flatMap((c) => c.items).length
+						} media items`,
+						loaderData.personDetails.details.birthDate &&
+							`Birth: ${loaderData.personDetails.details.birthDate}`,
+						loaderData.personDetails.details.deathDate &&
+							`Death: ${loaderData.personDetails.details.deathDate}`,
+						loaderData.personDetails.details.place &&
+							loaderData.personDetails.details.place,
+						loaderData.personDetails.details.gender,
+					]
+						.filter(Boolean)
+						.join(" • ")}
+					{loaderData.personDetails.details.website ? (
+						<>
+							{" "}
+							•{" "}
+							<Anchor
+								href={loaderData.personDetails.details.website}
+								target="_blank"
+							>
+								Website
+							</Anchor>
+						</>
+					) : null}
+				</Text>
+				{loaderData.userPersonDetails.collections.length > 0 ? (
+					<Group>
+						{loaderData.userPersonDetails.collections.map((col) => (
+							<DisplayCollection
+								key={col.id}
+								col={col}
+								userId={col.userId}
+								entityId={loaderData.personId.toString()}
+								entityLot={EntityLot.Person}
+							/>
+						))}
+					</Group>
+				) : null}
+				{loaderData.personDetails.details.isPartial ? (
+					<MediaIsPartial mediaType="person" />
+				) : null}
+				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
+					<Tabs.List mb="xs">
+						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
+							Media
+						</Tabs.Tab>
+						{loaderData.personDetails.details.description ? (
+							<Tabs.Tab
+								value="overview"
+								leftSection={<IconInfoCircle size={16} />}
+							>
+								Overview
+							</Tabs.Tab>
 						) : null}
-					</Text>
-					{loaderData.userPersonDetails.collections.length > 0 ? (
-						<Group>
-							{loaderData.userPersonDetails.collections.map((col) => (
-								<DisplayCollection
-									key={col.id}
-									col={col}
-									userId={col.userId}
+						{!userPreferences.general.disableReviews ? (
+							<Tabs.Tab
+								value="reviews"
+								leftSection={<IconMessageCircle2 size={16} />}
+							>
+								Reviews
+							</Tabs.Tab>
+						) : null}
+						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+							Actions
+						</Tabs.Tab>
+					</Tabs.List>
+					<Tabs.Panel value="media">
+						<MediaScrollArea>
+							<Stack>
+								{loaderData.personDetails.contents.map((role) => (
+									<Box key={role.name}>
+										<Title order={3} mb="xs" ta="center">
+											{role.name}
+										</Title>
+										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+											{role.items.map((item) => (
+												<Anchor
+													key={item.media.id}
+													data-media-id={item.media.id}
+													component={Link}
+													to={$path("/media/item/:id", {
+														id: item.media.id || "",
+													})}
+												>
+													<Avatar
+														imageProps={{ loading: "lazy" }}
+														src={item.media.image}
+														radius="sm"
+														h={100}
+														w={85}
+														mx="auto"
+														alt={item.media.title}
+														styles={{ image: { objectPosition: "top" } }}
+													/>
+													<Text
+														c="dimmed"
+														size="xs"
+														ta="center"
+														lineClamp={2}
+														mt={4}
+													>
+														{item.media.title}{" "}
+														{item.character ? `as ${item.character}` : ""}
+													</Text>
+												</Anchor>
+											))}
+										</SimpleGrid>
+									</Box>
+								))}
+							</Stack>
+						</MediaScrollArea>
+					</Tabs.Panel>
+					{loaderData.personDetails.details.description ? (
+						<Tabs.Panel value="overview">
+							<MediaScrollArea>
+								<div
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
+									dangerouslySetInnerHTML={{
+										__html: loaderData.personDetails.details.description,
+									}}
+								/>
+							</MediaScrollArea>
+						</Tabs.Panel>
+					) : null}
+					<Tabs.Panel value="actions">
+						<MediaScrollArea>
+							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+								<Button
+									variant="outline"
+									w="100%"
+									onClick={() => {
+										setEntityToReview({
+											entityId: loaderData.personId,
+											entityLot: EntityLot.Person,
+											entityTitle: loaderData.personDetails.details.name,
+										});
+									}}
+								>
+									Post a review
+								</Button>
+								<Button variant="outline" onClick={collectionModalOpen}>
+									Add to collection
+								</Button>
+								<Menu shadow="md">
+									<Menu.Target>
+										<Button variant="outline">More actions</Button>
+									</Menu.Target>
+									<Menu.Dropdown>
+										<ToggleMediaMonitorMenuItem
+											inCollections={loaderData.userPersonDetails.collections.map(
+												(c) => c.name,
+											)}
+											formValue={loaderData.personId}
+											entityLot={EntityLot.Person}
+										/>
+										<Form
+											action="?intent=deployUpdatePersonJob"
+											method="post"
+											replace
+										>
+											<Menu.Item
+												type="submit"
+												name="personId"
+												value={loaderData.personId}
+											>
+												Update person
+											</Menu.Item>
+										</Form>
+									</Menu.Dropdown>
+								</Menu>
+								<AddEntityToCollectionModal
+									onClose={collectionModalClose}
+									opened={collectionModalOpened}
 									entityId={loaderData.personId.toString()}
 									entityLot={EntityLot.Person}
 								/>
-							))}
-						</Group>
-					) : null}
-					{loaderData.personDetails.details.isPartial ? (
-						<MediaIsPartial mediaType="person" />
-					) : null}
-					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
-						<Tabs.List mb="xs">
-							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
-								Media
-							</Tabs.Tab>
-							{loaderData.personDetails.details.description ? (
-								<Tabs.Tab
-									value="overview"
-									leftSection={<IconInfoCircle size={16} />}
-								>
-									Overview
-								</Tabs.Tab>
-							) : null}
-							{!userPreferences.general.disableReviews ? (
-								<Tabs.Tab
-									value="reviews"
-									leftSection={<IconMessageCircle2 size={16} />}
-								>
-									Reviews
-								</Tabs.Tab>
-							) : null}
-							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
-								Actions
-							</Tabs.Tab>
-						</Tabs.List>
-						<Tabs.Panel value="media">
+							</SimpleGrid>
+						</MediaScrollArea>
+					</Tabs.Panel>
+					{!userPreferences.general.disableReviews ? (
+						<Tabs.Panel value="reviews">
 							<MediaScrollArea>
-								<Stack>
-									{loaderData.personDetails.contents.map((role) => (
-										<Box key={role.name}>
-											<Title order={3} mb="xs" ta="center">
-												{role.name}
-											</Title>
-											<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-												{role.items.map((item) => (
-													<Anchor
-														key={item.media.id}
-														data-media-id={item.media.id}
-														component={Link}
-														to={$path("/media/item/:id", {
-															id: item.media.id || "",
-														})}
-													>
-														<Avatar
-															imageProps={{ loading: "lazy" }}
-															src={item.media.image}
-															radius="sm"
-															h={100}
-															w={85}
-															mx="auto"
-															alt={item.media.title}
-															styles={{ image: { objectPosition: "top" } }}
-														/>
-														<Text
-															c="dimmed"
-															size="xs"
-															ta="center"
-															lineClamp={2}
-															mt={4}
-														>
-															{item.media.title}{" "}
-															{item.character ? `as ${item.character}` : ""}
-														</Text>
-													</Anchor>
-												))}
-											</SimpleGrid>
-										</Box>
-									))}
-								</Stack>
-							</MediaScrollArea>
-						</Tabs.Panel>
-						{loaderData.personDetails.details.description ? (
-							<Tabs.Panel value="overview">
-								<MediaScrollArea>
-									<div
-										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
-										dangerouslySetInnerHTML={{
-											__html: loaderData.personDetails.details.description,
-										}}
-									/>
-								</MediaScrollArea>
-							</Tabs.Panel>
-						) : null}
-						<Tabs.Panel value="actions">
-							<MediaScrollArea>
-								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-									<Button
-										variant="outline"
-										w="100%"
-										onClick={() => {
-											setEntityToReview({
-												entityId: loaderData.personId,
-												entityLot: EntityLot.Person,
-												entityTitle: loaderData.personDetails.details.name,
-											});
-										}}
-									>
-										Post a review
-									</Button>
-									<Button variant="outline" onClick={collectionModalOpen}>
-										Add to collection
-									</Button>
-									<Menu shadow="md">
-										<Menu.Target>
-											<Button variant="outline">More actions</Button>
-										</Menu.Target>
-										<Menu.Dropdown>
-											<ToggleMediaMonitorMenuItem
-												inCollections={loaderData.userPersonDetails.collections.map(
-													(c) => c.name,
-												)}
-												formValue={loaderData.personId}
+								{loaderData.userPersonDetails.reviews.length > 0 ? (
+									<Stack>
+										{loaderData.userPersonDetails.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
 												entityLot={EntityLot.Person}
+												entityId={loaderData.personId}
+												title={loaderData.personDetails.details.name}
 											/>
-											<Form
-												action="?intent=deployUpdatePersonJob"
-												method="post"
-												replace
-											>
-												<Menu.Item
-													type="submit"
-													name="personId"
-													value={loaderData.personId}
-												>
-													Update person
-												</Menu.Item>
-											</Form>
-										</Menu.Dropdown>
-									</Menu>
-									<AddEntityToCollectionModal
-										onClose={collectionModalClose}
-										opened={collectionModalOpened}
-										entityId={loaderData.personId.toString()}
-										entityLot={EntityLot.Person}
-									/>
-								</SimpleGrid>
+										))}
+									</Stack>
+								) : (
+									<Text>No reviews</Text>
+								)}
 							</MediaScrollArea>
 						</Tabs.Panel>
-						{!userPreferences.general.disableReviews ? (
-							<Tabs.Panel value="reviews">
-								<MediaScrollArea>
-									{loaderData.userPersonDetails.reviews.length > 0 ? (
-										<Stack>
-											{loaderData.userPersonDetails.reviews.map((r) => (
-												<ReviewItemDisplay
-													review={r}
-													key={r.id}
-													entityLot={EntityLot.Person}
-													entityId={loaderData.personId}
-													title={loaderData.personDetails.details.name}
-												/>
-											))}
-										</Stack>
-									) : (
-										<Text>No reviews</Text>
-									)}
-								</MediaScrollArea>
-							</Tabs.Panel>
-						) : null}
-					</Tabs>
-				</MediaDetailsLayout>
-			</Container>
-		</>
+					) : null}
+				</Tabs>
+			</MediaDetailsLayout>
+		</Container>
 	);
 }

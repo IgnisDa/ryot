@@ -89,136 +89,134 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 
 	return (
-		<>
-			<Container>
-				<MediaDetailsLayout
-					images={loaderData.metadataGroupDetails.details.displayImages}
-					externalLink={{
-						source: loaderData.metadataGroupDetails.details.source,
-						lot: loaderData.metadataGroupDetails.details.lot,
-						href: loaderData.metadataGroupDetails.sourceUrl,
-					}}
-				>
-					<Title id="group-title">
-						{loaderData.metadataGroupDetails.details.title}
-					</Title>
-					<Flex id="group-details" wrap="wrap" gap={4}>
-						<Text>
-							{loaderData.metadataGroupDetails.details.parts} media items
-						</Text>
-					</Flex>
-					{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
-						<Group>
-							{loaderData.userMetadataGroupDetails.collections.map((col) => (
-								<DisplayCollection
-									key={col.id}
-									col={col}
-									userId={col.userId}
+		<Container>
+			<MediaDetailsLayout
+				images={loaderData.metadataGroupDetails.details.displayImages}
+				externalLink={{
+					source: loaderData.metadataGroupDetails.details.source,
+					lot: loaderData.metadataGroupDetails.details.lot,
+					href: loaderData.metadataGroupDetails.sourceUrl,
+				}}
+			>
+				<Title id="group-title">
+					{loaderData.metadataGroupDetails.details.title}
+				</Title>
+				<Flex id="group-details" wrap="wrap" gap={4}>
+					<Text>
+						{loaderData.metadataGroupDetails.details.parts} media items
+					</Text>
+				</Flex>
+				{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
+					<Group>
+						{loaderData.userMetadataGroupDetails.collections.map((col) => (
+							<DisplayCollection
+								key={col.id}
+								col={col}
+								userId={col.userId}
+								entityId={loaderData.metadataGroupId.toString()}
+								entityLot={EntityLot.MetadataGroup}
+							/>
+						))}
+					</Group>
+				) : null}
+				{loaderData.metadataGroupDetails.details.isPartial ? (
+					<MediaIsPartial mediaType="group" />
+				) : null}
+				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
+					<Tabs.List mb="xs">
+						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
+							Media
+						</Tabs.Tab>
+						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+							Actions
+						</Tabs.Tab>
+						{!userPreferences.general.disableReviews ? (
+							<Tabs.Tab
+								value="reviews"
+								leftSection={<IconMessageCircle2 size={16} />}
+							>
+								Reviews
+							</Tabs.Tab>
+						) : null}
+					</Tabs.List>
+					<Tabs.Panel value="media">
+						<MediaScrollArea>
+							<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+								{loaderData.metadataGroupDetails.contents.map((media) => (
+									<PartialMetadataDisplay
+										key={media.identifier}
+										media={media}
+									/>
+								))}
+							</SimpleGrid>
+						</MediaScrollArea>
+					</Tabs.Panel>
+					<Tabs.Panel value="actions">
+						<MediaScrollArea>
+							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+								<Button
+									variant="outline"
+									w="100%"
+									onClick={() => {
+										setEntityToReview({
+											entityId: loaderData.metadataGroupId,
+											entityLot: EntityLot.MetadataGroup,
+											entityTitle:
+												loaderData.metadataGroupDetails.details.title,
+										});
+									}}
+								>
+									Post a review
+								</Button>
+								<Button variant="outline" onClick={collectionModalOpen}>
+									Add to collection
+								</Button>
+								<AddEntityToCollectionModal
+									onClose={collectionModalClose}
+									opened={collectionModalOpened}
 									entityId={loaderData.metadataGroupId.toString()}
 									entityLot={EntityLot.MetadataGroup}
 								/>
-							))}
-						</Group>
-					) : null}
-					{loaderData.metadataGroupDetails.details.isPartial ? (
-						<MediaIsPartial mediaType="group" />
-					) : null}
-					<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
-						<Tabs.List mb="xs">
-							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
-								Media
-							</Tabs.Tab>
-							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
-								Actions
-							</Tabs.Tab>
-							{!userPreferences.general.disableReviews ? (
-								<Tabs.Tab
-									value="reviews"
-									leftSection={<IconMessageCircle2 size={16} />}
-								>
-									Reviews
-								</Tabs.Tab>
-							) : null}
-						</Tabs.List>
-						<Tabs.Panel value="media">
-							<MediaScrollArea>
-								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-									{loaderData.metadataGroupDetails.contents.map((media) => (
-										<PartialMetadataDisplay
-											key={media.identifier}
-											media={media}
+								<Menu shadow="md">
+									<Menu.Target>
+										<Button variant="outline">More actions</Button>
+									</Menu.Target>
+									<Menu.Dropdown>
+										<ToggleMediaMonitorMenuItem
+											inCollections={loaderData.userMetadataGroupDetails.collections.map(
+												(c) => c.name,
+											)}
+											formValue={loaderData.metadataGroupId}
+											entityLot={EntityLot.MetadataGroup}
 										/>
-									))}
-								</SimpleGrid>
-							</MediaScrollArea>
-						</Tabs.Panel>
-						<Tabs.Panel value="actions">
+									</Menu.Dropdown>
+								</Menu>
+							</SimpleGrid>
+						</MediaScrollArea>
+					</Tabs.Panel>
+					{!userPreferences.general.disableReviews ? (
+						<Tabs.Panel value="reviews">
 							<MediaScrollArea>
-								<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-									<Button
-										variant="outline"
-										w="100%"
-										onClick={() => {
-											setEntityToReview({
-												entityId: loaderData.metadataGroupId,
-												entityLot: EntityLot.MetadataGroup,
-												entityTitle:
-													loaderData.metadataGroupDetails.details.title,
-											});
-										}}
-									>
-										Post a review
-									</Button>
-									<Button variant="outline" onClick={collectionModalOpen}>
-										Add to collection
-									</Button>
-									<AddEntityToCollectionModal
-										onClose={collectionModalClose}
-										opened={collectionModalOpened}
-										entityId={loaderData.metadataGroupId.toString()}
-										entityLot={EntityLot.MetadataGroup}
-									/>
-									<Menu shadow="md">
-										<Menu.Target>
-											<Button variant="outline">More actions</Button>
-										</Menu.Target>
-										<Menu.Dropdown>
-											<ToggleMediaMonitorMenuItem
-												inCollections={loaderData.userMetadataGroupDetails.collections.map(
-													(c) => c.name,
-												)}
-												formValue={loaderData.metadataGroupId}
+								{loaderData.userMetadataGroupDetails.reviews.length > 0 ? (
+									<Stack>
+										{loaderData.userMetadataGroupDetails.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												entityId={loaderData.metadataGroupId}
+												title={loaderData.metadataGroupDetails.details.title}
 												entityLot={EntityLot.MetadataGroup}
 											/>
-										</Menu.Dropdown>
-									</Menu>
-								</SimpleGrid>
+										))}
+									</Stack>
+								) : (
+									<Text>No reviews</Text>
+								)}
 							</MediaScrollArea>
 						</Tabs.Panel>
-						{!userPreferences.general.disableReviews ? (
-							<Tabs.Panel value="reviews">
-								<MediaScrollArea>
-									{loaderData.userMetadataGroupDetails.reviews.length > 0 ? (
-										<Stack>
-											{loaderData.userMetadataGroupDetails.reviews.map((r) => (
-												<ReviewItemDisplay
-													review={r}
-													key={r.id}
-													entityId={loaderData.metadataGroupId}
-													title={loaderData.metadataGroupDetails.details.title}
-													entityLot={EntityLot.MetadataGroup}
-												/>
-											))}
-										</Stack>
-									) : (
-										<Text>No reviews</Text>
-									)}
-								</MediaScrollArea>
-							</Tabs.Panel>
-						) : null}
-					</Tabs>
-				</MediaDetailsLayout>
-			</Container>
-		</>
+					) : null}
+				</Tabs>
+			</MediaDetailsLayout>
+		</Container>
 	);
 }
