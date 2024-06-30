@@ -675,7 +675,7 @@ const MetadataInProgressUpdateForm = ({
 				intent: "individualProgressUpdate",
 			})}
 		>
-			<HiddenLocationInput />
+			<HiddenLocationInput hash={metadataToUpdate.pageFragment} />
 			<input
 				hidden
 				name="metadataId"
@@ -792,7 +792,7 @@ const NewProgressUpdateForm = ({
 					) : null}
 				</Fragment>
 			))}
-			<HiddenLocationInput />
+			<HiddenLocationInput hash={metadataToUpdate.pageFragment} />
 			<Stack>
 				<Title order={3}>Update progress</Title>
 				{metadataDetails.lot === MediaLot.Anime ? (

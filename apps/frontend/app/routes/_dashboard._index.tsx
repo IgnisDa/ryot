@@ -155,7 +155,7 @@ export default function Page() {
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
-								<Section key="upcoming">
+								<Section lot={DashboardElementLot.Upcoming}>
 									<Title>Upcoming</Title>
 									<ApplicationGrid>
 										{loaderData.userUpcomingCalendarEvents.map((um) => (
@@ -168,7 +168,7 @@ export default function Page() {
 						.with([DashboardElementLot.InProgress, false], () =>
 							loaderData.inProgressCollectionContents.results.items.length >
 							0 ? (
-								<Section key="inProgress">
+								<Section lot={DashboardElementLot.InProgress}>
 									<Title>In Progress</Title>
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
@@ -181,7 +181,7 @@ export default function Page() {
 							) : null,
 						)
 						.with([DashboardElementLot.Summary, false], () => (
-							<Section key="summary">
+							<Section lot={DashboardElementLot.Summary}>
 								<Title>Summary</Title>
 								<Text size="xs" mt={-15}>
 									Calculated{" "}
@@ -634,8 +634,15 @@ const DisplayStatForMediaType = (props: {
 	) : null;
 };
 
-const Section = (props: { children: Array<ReactNode> }) => {
-	return <Stack gap="sm">{props.children}</Stack>;
+const Section = (props: {
+	children: Array<ReactNode>;
+	lot: DashboardElementLot;
+}) => {
+	return (
+		<Stack gap="sm" id={props.lot}>
+			{props.children}
+		</Stack>
+	);
 };
 
 const UnstyledLink = (props: { children: ReactNode; to: string }) => {
@@ -672,6 +679,7 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 					setMetadataToUpdate({
 						metadataId: lm.details.identifier,
 						determineNext: true,
+						pageFragment: DashboardElementLot.InProgress,
 					});
 				}}
 			>

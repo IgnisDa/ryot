@@ -3,6 +3,7 @@ import { atom, useAtom } from "jotai";
 export type UpdateProgressData = {
 	metadataId: string;
 	onlySeason?: boolean;
+	pageFragment?: string;
 	completeShow?: boolean;
 	determineNext?: boolean;
 	completePodcast?: boolean;

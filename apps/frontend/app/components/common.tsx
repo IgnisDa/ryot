@@ -33,7 +33,7 @@ import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
 import { Fragment, type ReactNode, useEffect, useRef } from "react";
 import { useState } from "react";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
+import { withFragment, withoutHost } from "ufo";
 import events from "~/lib/events";
 import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
@@ -289,13 +289,18 @@ export const AddEntityToCollectionModal = (props: {
 	);
 };
 
-export const HiddenLocationInput = () => {
+export const HiddenLocationInput = (props: { hash?: string }) => {
 	const value = withoutHost(
 		typeof window !== "undefined" ? window.location.href : "",
 	);
 
 	return (
-		<input type="hidden" name={redirectToQueryParam} value={value} readOnly />
+		<input
+			type="hidden"
+			name={redirectToQueryParam}
+			value={withFragment(value, props.hash || "")}
+			readOnly
+		/>
 	);
 };
 
