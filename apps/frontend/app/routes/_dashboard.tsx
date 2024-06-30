@@ -854,6 +854,8 @@ const NewProgressUpdateForm = ({
 										}),
 									);
 								}}
+								searchable
+								limit={10}
 							/>
 						) : null}
 						{metadataToUpdate?.onlySeason ? (
@@ -887,6 +889,8 @@ const NewProgressUpdateForm = ({
 										}),
 									);
 								}}
+								searchable
+								limit={10}
 							/>
 						) : null}
 					</>
