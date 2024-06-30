@@ -692,7 +692,6 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 					<ActionIcon
 						color="blue"
 						size="compact-md"
-						loading={isLoading}
 						onClick={async (e) => {
 							e.preventDefault();
 							await setMetadataToUpdate(
