@@ -624,6 +624,8 @@ const MetadataProgressUpdateForm = ({
 	);
 };
 
+type InProgress = UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
+
 const MetadataInProgressUpdateForm = ({
 	onSubmit,
 	inProgress,
@@ -631,11 +633,9 @@ const MetadataInProgressUpdateForm = ({
 	metadataToUpdate,
 }: {
 	onSubmit: () => void;
+	inProgress: NonNullable<InProgress>;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
-	inProgress: NonNullable<
-		UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"]
-	>;
 }) => {
 	const userPreferences = useUserPreferences();
 	const total =
