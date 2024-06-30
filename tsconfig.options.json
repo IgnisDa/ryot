@@ -5,6 +5,7 @@
 		"incremental": true,
 		"noEmitOnError": true,
 		"skipLibCheck": true,
+		"module": "nodenext",
 		"moduleResolution": "nodenext",
 		"target": "es2022"
 	}
