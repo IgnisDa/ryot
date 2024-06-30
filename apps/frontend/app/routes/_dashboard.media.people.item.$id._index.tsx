@@ -126,7 +126,6 @@ export default function Page() {
 				data={postReviewModalData}
 				entityLot={EntityLot.Person}
 				objectId={loaderData.personId.toString()}
-				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.personDetails.details.name}
 			/>
 			<Container>

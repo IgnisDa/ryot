@@ -140,7 +140,6 @@ export default function Page() {
 				data={postReviewModalData}
 				entityLot={EntityLot.Collection}
 				objectId={loaderData.id}
-				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.info.details.name}
 			/>
 			<Container>

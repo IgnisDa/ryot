@@ -79,7 +79,7 @@ import {
 	getFallbackImageUrl,
 	redirectToQueryParam,
 } from "~/lib/generals";
-import { useGetMantineColor } from "~/lib/hooks";
+import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
@@ -185,7 +185,6 @@ export const ReviewItemDisplay = (props: {
 					props.personId?.toString() ||
 					""
 				}
-				reviewScale={props.reviewScale}
 				title={props.title}
 				lot={props.lot}
 			/>
@@ -745,10 +744,11 @@ export const PostReviewModal = (props: {
 	objectId: string;
 	entityLot: EntityLot;
 	title: string;
-	reviewScale: UserReviewScale;
 	data?: PostReview;
 	lot?: MediaLot;
 }) => {
+	const userPreferences = useUserPreferences();
+
 	if (!props.data) return <></>;
 	return (
 		<Modal
@@ -783,7 +783,7 @@ export const PostReviewModal = (props: {
 				) : null}
 				<Stack>
 					<Flex align="center" gap="xl">
-						{match(props.reviewScale)
+						{match(userPreferences.general.reviewScale)
 							.with(UserReviewScale.OutOfFive, () => (
 								<Flex gap="sm" mt="lg">
 									<Input.Label>Rating:</Input.Label>

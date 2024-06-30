@@ -300,7 +300,6 @@ export default function Page() {
 				data={postReviewModalData}
 				entityLot={EntityLot.Metadata}
 				objectId={loaderData.metadataId.toString()}
-				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.metadataDetails.title}
 				lot={loaderData.metadataDetails.lot}
 			/>
