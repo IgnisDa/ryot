@@ -320,6 +320,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				{ input: updates },
 				getAuthorizationHeader(request),
 			);
+			await sleepForHalfSecond();
 			response.headers = extendResponseHeaders(
 				response.headers,
 				await createToastHeaders({
@@ -338,6 +339,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				{ input: submission },
 				getAuthorizationHeader(request),
 			);
+			await sleepForHalfSecond();
 			response.headers = extendResponseHeaders(
 				response.headers,
 				await createToastHeaders({
@@ -457,3 +459,6 @@ const bulkUpdateSchema = z
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
+
+const sleepForHalfSecond = () =>
+	new Promise((resolve) => setTimeout(resolve, 500));
