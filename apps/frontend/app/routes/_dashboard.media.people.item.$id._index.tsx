@@ -150,11 +150,11 @@ export default function Page() {
 					<Group>
 						{loaderData.userPersonDetails.collections.map((col) => (
 							<DisplayCollection
-								key={col.id}
 								col={col}
-								userId={col.userId}
-								entityId={loaderData.personId.toString()}
+								key={col.id}
+								creatorUserId={col.userId}
 								entityLot={EntityLot.Person}
+								entityId={loaderData.personId}
 							/>
 						))}
 					</Group>

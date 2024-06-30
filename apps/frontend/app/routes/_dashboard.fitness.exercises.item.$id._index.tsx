@@ -108,11 +108,11 @@ export default function Page() {
 					<Group id="entity-collections">
 						{loaderData.userExerciseDetails.collections.map((col) => (
 							<DisplayCollection
-								key={col.id}
 								col={col}
-								userId={col.userId}
-								entityId={loaderData.exerciseDetails.id}
+								key={col.id}
+								creatorUserId={col.userId}
 								entityLot={EntityLot.Exercise}
+								entityId={loaderData.exerciseDetails.id}
 							/>
 						))}
 					</Group>

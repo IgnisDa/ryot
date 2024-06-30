@@ -522,7 +522,7 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 		<MediaItemWithoutUpdateModal
 			reviewScale={loaderData.userPreferences.reviewScale}
 			item={{
-				identifier: um.metadataId.toString(),
+				identifier: um.metadataId,
 				title: um.metadataTitle,
 				image: um.metadataImage,
 				publishYear: `${match(um.metadataLot)

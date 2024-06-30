@@ -647,7 +647,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 };
 
 export const DisplayCollection = (props: {
-	userId: string;
+	creatorUserId: string;
 	col: { id: string; name: string };
 	entityId: string;
 	entityLot: EntityLot;
@@ -672,7 +672,12 @@ export const DisplayCollection = (props: {
 					<input readOnly hidden name="entityId" value={props.entityId} />
 					<input readOnly hidden name="entityLot" value={props.entityLot} />
 					<input readOnly hidden name="collectionName" value={props.col.name} />
-					<input readOnly hidden name="creatorUserId" value={props.userId} />
+					<input
+						readOnly
+						hidden
+						name="creatorUserId"
+						value={props.creatorUserId}
+					/>
 					<HiddenLocationInput />
 					<ActionIcon
 						size={16}

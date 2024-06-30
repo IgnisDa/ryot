@@ -306,11 +306,11 @@ export default function Page() {
 					<Group>
 						{loaderData.userMetadataDetails.collections.map((col) => (
 							<DisplayCollection
-								key={col.id}
 								col={col}
-								userId={col.userId}
-								entityId={loaderData.metadataId.toString()}
+								key={col.id}
+								creatorUserId={col.userId}
 								entityLot={EntityLot.Metadata}
+								entityId={loaderData.metadataId}
 							/>
 						))}
 					</Group>
