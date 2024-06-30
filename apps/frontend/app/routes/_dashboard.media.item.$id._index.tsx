@@ -715,8 +715,11 @@ export default function Page() {
 														});
 													}}
 												>
-													Mark
-													{nextEntry.episode} as read
+													Mark{" "}
+													{typeof nextEntry.chapter === "number"
+														? `CH-${nextEntry.chapter}`
+														: `VOL-${nextEntry.volume}`}{" "}
+													as read
 												</Menu.Item>
 											</>
 										) : null}
@@ -968,9 +971,9 @@ export default function Page() {
 									data={loaderData.userMetadataDetails.history}
 									itemContent={(index, history) => (
 										<SeenItem
-											history={history}
-											key={history.id}
 											index={index}
+											key={history.id}
+											history={history}
 										/>
 									)}
 								/>
