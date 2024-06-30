@@ -63,7 +63,7 @@ import {
 	getAuthorizationHeader,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/workout";
+import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/state/workout";
 
 const defaultFiltersValue = {
 	muscle: undefined,

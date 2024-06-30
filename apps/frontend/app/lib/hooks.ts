@@ -18,7 +18,10 @@ import {
 	dayjsLib,
 	getStringAsciiValue,
 } from "~/lib/generals";
-import { type InProgressWorkout, currentWorkoutAtom } from "~/lib/workout";
+import {
+	type InProgressWorkout,
+	currentWorkoutAtom,
+} from "~/lib/state/workout";
 import type { loader } from "~/routes/_dashboard";
 
 export function useGetMantineColor() {

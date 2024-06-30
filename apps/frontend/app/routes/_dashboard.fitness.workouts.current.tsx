@@ -109,7 +109,7 @@ import {
 	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
-} from "~/lib/workout";
+} from "~/lib/state/workout";
 
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";

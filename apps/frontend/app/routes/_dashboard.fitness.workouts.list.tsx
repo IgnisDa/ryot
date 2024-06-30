@@ -48,7 +48,7 @@ import {
 	getAuthorizationHeader,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { getDefaultWorkout } from "~/lib/workout";
+import { getDefaultWorkout } from "~/lib/state/workout";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),

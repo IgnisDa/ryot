@@ -76,7 +76,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { duplicateOldWorkout, getExerciseDetails } from "~/lib/workout";
+import { duplicateOldWorkout, getExerciseDetails } from "~/lib/state/workout";
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const workoutId = params.id;
