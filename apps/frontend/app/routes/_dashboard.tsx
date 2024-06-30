@@ -35,14 +35,7 @@ import {
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
 import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	NavLink,
-	Outlet,
-	useLoaderData,
-	useNavigation,
-} from "@remix-run/react";
+import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
 	type CoreDetails,
@@ -76,7 +69,7 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
@@ -1225,17 +1218,11 @@ const AddEntityToCollectionForm = ({
 }: {
 	closeAddEntityToCollectionModal: () => void;
 }) => {
-	const transition = useNavigation();
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const [selectedCollection, setSelectedCollection] =
 		useState<Collection | null>(null);
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
-	useEffect(() => {
-		if (transition.state !== "submitting") {
-			closeAddEntityToCollectionModal();
-		}
-	}, [transition.state]);
 	const [addEntityToCollectionData, _] = useAddEntityToCollection();
 
 	if (!addEntityToCollectionData) return null;
@@ -1256,7 +1243,13 @@ const AddEntityToCollectionForm = ({
 	}));
 
 	return (
-		<Form action="/actions?intent=addEntityToCollection" method="post">
+		<Form
+			action="/actions?intent=addEntityToCollection"
+			method="post"
+			onSubmit={() => {
+				closeAddEntityToCollectionModal();
+			}}
+		>
 			<input
 				readOnly
 				hidden
