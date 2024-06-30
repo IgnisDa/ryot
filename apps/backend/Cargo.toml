@@ -12,7 +12,7 @@ argon2 = "=0.6.0-pre.0"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.6"
 async-trait = "=0.1.80"
-aws-sdk-s3 = { version = "=1.37.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.38.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 cached = { version = "=0.51.4", features = ["disk_store"] }
