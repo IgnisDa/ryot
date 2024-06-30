@@ -151,6 +151,7 @@ export const AddEntityToCollectionModal = (props: {
 	onClose: () => void;
 	entityId: string;
 	entityLot: EntityLot;
+	alreadyInCollections?: Array<string>;
 }) => {
 	const transition = useNavigation();
 	const userDetails = useUserDetails();
@@ -164,6 +165,7 @@ export const AddEntityToCollectionModal = (props: {
 		items: items.map((c) => ({
 			label: c.name,
 			value: c.id.toString(),
+			disabled: props.alreadyInCollections?.includes(c.id.toString()),
 		})),
 	}));
 	const [selectedCollection, setSelectedCollection] =

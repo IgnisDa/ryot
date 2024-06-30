@@ -852,6 +852,9 @@ export default function Page() {
 											opened={collectionModalOpened}
 											entityId={loaderData.metadataId.toString()}
 											entityLot={EntityLot.Metadata}
+											alreadyInCollections={loaderData.userMetadataDetails.collections.map(
+												(c) => c.id,
+											)}
 										/>
 									</>
 									<Menu shadow="md">

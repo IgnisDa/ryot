@@ -303,6 +303,9 @@ export default function Page() {
 									opened={collectionModalOpened}
 									entityId={loaderData.personId.toString()}
 									entityLot={EntityLot.Person}
+									alreadyInCollections={loaderData.userPersonDetails.collections.map(
+										(c) => c.id,
+									)}
 								/>
 							</SimpleGrid>
 						</MediaScrollArea>

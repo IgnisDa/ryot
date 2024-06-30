@@ -176,6 +176,9 @@ export default function Page() {
 									opened={collectionModalOpened}
 									entityId={loaderData.metadataGroupId.toString()}
 									entityLot={EntityLot.MetadataGroup}
+									alreadyInCollections={loaderData.userMetadataGroupDetails.collections.map(
+										(c) => c.id,
+									)}
 								/>
 								<Menu shadow="md">
 									<Menu.Target>

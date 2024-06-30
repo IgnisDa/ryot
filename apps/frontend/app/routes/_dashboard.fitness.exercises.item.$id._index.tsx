@@ -111,6 +111,9 @@ export default function Page() {
 				opened={collectionModalOpened}
 				entityId={loaderData.exerciseDetails.id}
 				entityLot={EntityLot.Exercise}
+				alreadyInCollections={loaderData.userExerciseDetails.collections.map(
+					(c) => c.id,
+				)}
 			/>
 			<Container size="xs" px="lg">
 				<Stack>
