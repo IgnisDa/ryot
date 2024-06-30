@@ -137,7 +137,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 export const getUserCollectionsList = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return queryClient.ensureQueryData({
-		queryKey: ["userCollections", userDetails.id],
+		queryKey: ["userCollectionsList", userDetails.id],
 		queryFn: () =>
 			serverGqlService
 				.request(
