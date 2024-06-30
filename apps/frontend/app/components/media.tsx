@@ -146,10 +146,7 @@ export const ReviewItemDisplay = (props: {
 	user: User;
 	reviewScale: UserReviewScale;
 	title: string;
-	metadataId?: string;
-	metadataGroupId?: string;
-	personId?: string;
-	collectionId?: string;
+	entityId: string;
 	lot?: MediaLot;
 }) => {
 	const [opened, { toggle }] = useDisclosure(false);
@@ -177,12 +174,7 @@ export const ReviewItemDisplay = (props: {
 								onClick={() => {
 									setEntityToReview({
 										entityLot: props.entityLot,
-										entityId:
-											props.metadataId?.toString() ||
-											props.metadataGroupId?.toString() ||
-											props.collectionId?.toString() ||
-											props.personId?.toString() ||
-											"",
+										entityId: props.entityId,
 										entityTitle: props.title,
 										metadataLot: props.lot,
 										existingReview: props.review,

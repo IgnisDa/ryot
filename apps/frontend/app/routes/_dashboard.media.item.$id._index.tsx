@@ -1034,7 +1034,7 @@ export default function Page() {
 													entityLot={EntityLot.Metadata}
 													review={r}
 													key={r.id}
-													metadataId={loaderData.metadataId}
+													entityId={loaderData.metadataId}
 													reviewScale={userPreferences.general.reviewScale}
 													user={userDetails}
 													title={loaderData.metadataDetails.title}

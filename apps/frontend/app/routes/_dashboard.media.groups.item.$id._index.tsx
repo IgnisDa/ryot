@@ -207,7 +207,7 @@ export default function Page() {
 												<ReviewItemDisplay
 													review={r}
 													key={r.id}
-													metadataGroupId={loaderData.metadataGroupId}
+													entityId={loaderData.metadataGroupId}
 													reviewScale={userPreferences.general.reviewScale}
 													user={userDetails}
 													title={loaderData.metadataGroupDetails.details.title}

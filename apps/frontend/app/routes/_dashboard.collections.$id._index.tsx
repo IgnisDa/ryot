@@ -315,7 +315,7 @@ export default function Page() {
 											title={loaderData.info.details.name}
 											review={r}
 											key={r.id}
-											collectionId={loaderData.id}
+											entityId={loaderData.id}
 											reviewScale={userPreferences.general.reviewScale}
 											user={userDetails}
 											entityLot={EntityLot.Collection}
