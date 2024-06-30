@@ -7,8 +7,11 @@ import { atom, useAtom } from "jotai";
 import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { queryClient } from "./generals";
-import { getMetadataDetailsQuery, getUserMetadataDetailsQuery } from "./hooks";
+import { queryClient } from "~/lib/generals";
+import {
+	getMetadataDetailsQuery,
+	getUserMetadataDetailsQuery,
+} from "~/lib/hooks";
 
 export type UpdateProgressData = {
 	metadataId: string;

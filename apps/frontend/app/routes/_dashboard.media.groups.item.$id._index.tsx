@@ -40,7 +40,7 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
-import { useReviewEntity } from "~/lib/media";
+import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
 	serverGqlService,

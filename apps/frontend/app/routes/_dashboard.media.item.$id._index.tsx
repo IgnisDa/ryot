@@ -97,7 +97,7 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/media";
+import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import {
 	MetadataIdSchema,
 	createToastHeaders,

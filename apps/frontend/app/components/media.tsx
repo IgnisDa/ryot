@@ -73,7 +73,7 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useReviewEntity } from "~/lib/media";
+import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 

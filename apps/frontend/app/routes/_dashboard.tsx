@@ -88,7 +88,7 @@ import {
 	type UpdateProgressData,
 	useMetadataProgressUpdate,
 	useReviewEntity,
-} from "~/lib/media";
+} from "~/lib/state/media";
 import {
 	serverVariables as envData,
 	getCachedUserCollectionsList,

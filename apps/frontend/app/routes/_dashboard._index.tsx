@@ -55,7 +55,7 @@ import {
 	getMetadataIcon,
 } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
-import { useMetadataProgressUpdate } from "~/lib/media";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
 	getCachedUserCollectionsList,
