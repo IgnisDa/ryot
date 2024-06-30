@@ -48,7 +48,12 @@ import {
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, formatDateToNaiveDate, groupBy } from "@ryot/ts-utils";
+import {
+	changeCase,
+	formatDateToNaiveDate,
+	groupBy,
+	isNumber,
+} from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconArchive,
@@ -1114,8 +1119,9 @@ const ReviewEntityForm = ({
 							name="showSeasonNumber"
 							hideControls
 							defaultValue={
-								typeof entityToReview.existingReview?.showExtraInformation
-									?.season === "number"
+								isNumber(
+									entityToReview.existingReview?.showExtraInformation?.season,
+								)
 									? entityToReview.existingReview.showExtraInformation.season
 									: undefined
 							}
@@ -1125,8 +1131,9 @@ const ReviewEntityForm = ({
 							name="showEpisodeNumber"
 							hideControls
 							defaultValue={
-								typeof entityToReview.existingReview?.showExtraInformation
-									?.episode === "number"
+								isNumber(
+									entityToReview.existingReview?.showExtraInformation?.episode,
+								)
 									? entityToReview.existingReview.showExtraInformation.episode
 									: undefined
 							}
@@ -1139,8 +1146,9 @@ const ReviewEntityForm = ({
 						name="podcastEpisodeNumber"
 						hideControls
 						defaultValue={
-							typeof entityToReview.existingReview?.podcastExtraInformation
-								?.episode === "number"
+							isNumber(
+								entityToReview.existingReview?.podcastExtraInformation?.episode,
+							)
 								? entityToReview.existingReview.podcastExtraInformation.episode
 								: undefined
 						}
@@ -1152,8 +1160,9 @@ const ReviewEntityForm = ({
 						name="animeEpisodeNumber"
 						hideControls
 						defaultValue={
-							typeof entityToReview.existingReview?.animeExtraInformation
-								?.episode === "number"
+							isNumber(
+								entityToReview.existingReview?.animeExtraInformation?.episode,
+							)
 								? entityToReview.existingReview.animeExtraInformation.episode
 								: undefined
 						}
@@ -1167,8 +1176,10 @@ const ReviewEntityForm = ({
 								name="mangaChapterNumber"
 								hideControls
 								defaultValue={
-									typeof entityToReview.existingReview?.mangaExtraInformation
-										?.chapter === "number"
+									isNumber(
+										entityToReview.existingReview?.mangaExtraInformation
+											?.chapter,
+									)
 										? entityToReview.existingReview.mangaExtraInformation
 												.chapter
 										: undefined
@@ -1182,8 +1193,10 @@ const ReviewEntityForm = ({
 								name="mangaVolumeNumber"
 								hideControls
 								defaultValue={
-									typeof entityToReview.existingReview?.mangaExtraInformation
-										?.volume === "number"
+									isNumber(
+										entityToReview.existingReview?.mangaExtraInformation
+											?.volume,
+									)
 										? entityToReview.existingReview.mangaExtraInformation.volume
 										: undefined
 								}

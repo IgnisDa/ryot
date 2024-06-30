@@ -52,6 +52,7 @@ import {
 	changeCase,
 	formatDateToNaiveDate,
 	humanizeDuration,
+	isNumber,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -716,7 +717,7 @@ export default function Page() {
 													}}
 												>
 													Mark{" "}
-													{typeof nextEntry.chapter === "number"
+													{isNumber(nextEntry.chapter)
 														? `CH-${nextEntry.chapter}`
 														: `VOL-${nextEntry.volume}`}{" "}
 													as read
@@ -1365,16 +1366,18 @@ const SeenItem = (props: { history: History; index: number }) => {
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
 		: null;
-	const displayAnimeExtraInformation =
-		typeof props.history.animeExtraInformation?.episode === "number"
-			? `EP-${props.history.animeExtraInformation.episode}`
+	const displayAnimeExtraInformation = isNumber(
+		props.history.animeExtraInformation?.episode,
+	)
+		? `EP-${props.history.animeExtraInformation.episode}`
+		: null;
+	const displayMangaExtraInformation = isNumber(
+		props.history.mangaExtraInformation?.chapter,
+	)
+		? `CH-${props.history.mangaExtraInformation.chapter}`
+		: isNumber(props.history.mangaExtraInformation?.volume)
+			? `VOL-${props.history.mangaExtraInformation.volume}`
 			: null;
-	const displayMangaExtraInformation =
-		typeof props.history.mangaExtraInformation?.chapter === "number"
-			? `CH-${props.history.mangaExtraInformation.chapter}`
-			: typeof props.history.mangaExtraInformation?.volume === "number"
-				? `VOL-${props.history.mangaExtraInformation.volume}`
-				: null;
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const displayAllInformation = [
