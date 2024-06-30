@@ -1735,7 +1735,7 @@ impl MiscellaneousService {
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
             .cloned();
-        let next_episode = history.first().and_then(|h| {
+        let next_entry = history.first().and_then(|h| {
             if let Some(s) = &media_details.show_specifics {
                 let all_episodes = s
                     .seasons
@@ -1899,7 +1899,7 @@ impl MiscellaneousService {
             reviews,
             history,
             in_progress,
-            next_entry: next_episode,
+            next_entry,
             seen_by_all_count: seen_by,
             seen_by_user_count,
             average_rating,
