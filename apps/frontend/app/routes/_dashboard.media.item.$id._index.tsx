@@ -637,17 +637,11 @@ export default function Page() {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
 																	showSeasonNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Show
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.season
-																			: undefined,
+																		loaderData.userMetadataDetails.nextEntry
+																			?.season,
 																	showEpisodeNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Show
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.episode
-																			: undefined,
+																		loaderData.userMetadataDetails.nextEntry
+																			?.episode,
 																});
 															}}
 														>
@@ -677,11 +671,8 @@ export default function Page() {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
 																	podcastEpisodeNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Podcast
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.episode
-																			: undefined,
+																		loaderData.userMetadataDetails.nextEntry
+																			?.episode,
 																});
 															}}
 														>
@@ -713,11 +704,8 @@ export default function Page() {
 														setMetadataToUpdate({
 															metadataId: loaderData.metadataId,
 															animeEpisodeNumber:
-																loaderData.metadataDetails.lot ===
-																MediaLot.Anime
-																	? loaderData.userMetadataDetails.nextEntry
-																			?.episode
-																	: undefined,
+																loaderData.userMetadataDetails.nextEntry
+																	?.episode,
 														});
 													}}
 												>
@@ -736,17 +724,11 @@ export default function Page() {
 														setMetadataToUpdate({
 															metadataId: loaderData.metadataId,
 															mangaChapterNumber:
-																loaderData.metadataDetails.lot ===
-																MediaLot.Manga
-																	? loaderData.userMetadataDetails.nextEntry
-																			?.chapter
-																	: undefined,
+																loaderData.userMetadataDetails.nextEntry
+																	?.chapter,
 															mangaVolumeNumber:
-																loaderData.metadataDetails.lot ===
-																MediaLot.Manga
-																	? loaderData.userMetadataDetails.nextEntry
-																			?.volume
-																	: undefined,
+																loaderData.userMetadataDetails.nextEntry
+																	?.volume,
 														});
 													}}
 												>
