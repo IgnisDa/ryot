@@ -58,8 +58,7 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { useEffect, useState } from "react";
-import { flushSync } from "react-dom";
+import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
@@ -560,7 +559,7 @@ const MetadataProgressUpdateForm = ({
 }: {
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
-	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [metadataToUpdate] = useMetadataProgressUpdate();
 
 	const { data: metadataDetails } = useMetadataDetails(
 		metadataToUpdate?.metadataId,
@@ -569,38 +568,7 @@ const MetadataProgressUpdateForm = ({
 		metadataToUpdate?.metadataId,
 	);
 
-	const [isLoading, setIsLoading] = useState(true);
-
-	useEffect(() => {
-		if (metadataToUpdate?.determineNext && metadataDetails) {
-			flushSync(() => {
-				setMetadataToUpdate(
-					produce(metadataToUpdate, (draft) => {
-						const nextEntry = userMetadataDetails?.nextEntry;
-						if (nextEntry) {
-							match(metadataDetails.lot)
-								.with(MediaLot.Show, () => {
-									draft.showEpisodeNumber = nextEntry.episode;
-									draft.showSeasonNumber = nextEntry.season;
-								})
-								.with(MediaLot.Podcast, () => {
-									draft.podcastEpisodeNumber = nextEntry.episode;
-								})
-								.otherwise(() => undefined);
-						}
-					}),
-				);
-			});
-		}
-		setIsLoading(false);
-	}, [metadataToUpdate, userMetadataDetails, metadataDetails]);
-
-	if (
-		!metadataDetails ||
-		!metadataToUpdate ||
-		!userMetadataDetails ||
-		isLoading
-	)
+	if (!metadataDetails || !metadataToUpdate || !userMetadataDetails)
 		return (
 			<Center p="lg">
 				<Loader type="dots" />

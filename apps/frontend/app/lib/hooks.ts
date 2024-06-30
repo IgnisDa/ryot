@@ -68,8 +68,8 @@ export function getWorkoutStarter() {
 	return fn;
 }
 
-export const useMetadataDetails = (metadataId?: string | null) => {
-	return useQuery({
+export const getMetadataDetailsQuery = (metadataId?: string | null) =>
+	({
 		queryKey: ["metadataDetails", metadataId],
 		queryFn: metadataId
 			? () =>
@@ -78,11 +78,14 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 						.then((data) => data.metadataDetails)
 			: skipToken,
 		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
-	});
+	}) as const;
+
+export const useMetadataDetails = (metadataId?: string | null) => {
+	return useQuery(getMetadataDetailsQuery(metadataId));
 };
 
-export const useUserMetadataDetails = (metadataId?: string | null) => {
-	return useQuery({
+export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
+	({
 		queryKey: ["userMetadataDetails", metadataId],
 		queryFn: metadataId
 			? () =>
@@ -91,7 +94,10 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
 		staleTime: Number.POSITIVE_INFINITY,
-	});
+	}) as const;
+
+export const useUserMetadataDetails = (metadataId?: string | null) => {
+	return useQuery(getUserMetadataDetailsQuery(metadataId));
 };
 
 const useDashboardData = () => {

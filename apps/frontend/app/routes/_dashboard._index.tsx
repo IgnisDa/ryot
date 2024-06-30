@@ -689,8 +689,8 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 			<Button
 				variant="outline"
 				size="compact-sm"
-				onClick={() => {
-					setMetadataToUpdate({
+				onClick={async () => {
+					await setMetadataToUpdate({
 						metadataId: lm.details.identifier,
 						determineNext: true,
 						pageFragment: DashboardElementLot.InProgress,
