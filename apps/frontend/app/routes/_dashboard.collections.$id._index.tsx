@@ -277,7 +277,6 @@ export default function Page() {
 									<ApplicationGrid>
 										{loaderData.contents.items.map((lm) => (
 											<MediaItemWithoutUpdateModal
-												noRatingLink
 												key={lm.details.identifier}
 												item={{
 													...lm.details,

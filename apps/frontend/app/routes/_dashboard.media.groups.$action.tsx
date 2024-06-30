@@ -253,7 +253,6 @@ const GroupSearchItem = (props: {
 	return (
 		<MediaItemWithoutUpdateModal
 			item={props.item}
-			noRatingLink
 			noHref
 			reviewScale={userPreferences.general.reviewScale}
 			imageOverlayForLoadingIndicator={isLoading}

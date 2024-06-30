@@ -543,7 +543,6 @@ const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 			}}
 			lot={um.metadataLot}
 			noBottomRight
-			noRatingLink
 		/>
 	);
 };
@@ -684,7 +683,6 @@ const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
 			}}
 			lot={lm.metadataLot}
 			entityLot={lm.entityLot}
-			noRatingLink
 		>
 			<Button
 				variant="outline"

@@ -610,17 +610,14 @@ export const MediaItemWithoutUpdateModal = (props: {
 	children?: ReactNode;
 	imageOverlayForLoadingIndicator?: boolean;
 	hasInteracted?: boolean;
-	averageRating?: string;
-	noRatingLink?: boolean;
+	topRight?: ReactNode;
 	noBottomRight?: boolean;
 	noHref?: boolean;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
 	nameRight?: ReactNode;
 	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
-	const navigate = useNavigate();
 	const id = props.item.identifier;
-	const averageRating = props.averageRating;
 
 	return (
 		<BaseDisplayItem
@@ -657,46 +654,13 @@ export const MediaItemWithoutUpdateModal = (props: {
 			}
 			mediaReason={props.mediaReason}
 			topRight={
-				props.noRatingLink ? undefined : (
+				props.topRight ? (
 					<Box style={blackBgStyles}>
 						<Flex align="center" gap={4}>
-							{averageRating ? (
-								<>
-									<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
-									<Text c="white" size="xs" fw="bold" pr={4}>
-										{match(props.reviewScale)
-											.with(UserReviewScale.OutOfFive, () =>
-												Number.parseFloat(averageRating.toString()).toFixed(1),
-											)
-											.with(
-												UserReviewScale.OutOfHundred,
-												() => props.averageRating,
-											)
-											.exhaustive()}{" "}
-										{props.reviewScale === UserReviewScale.OutOfFive
-											? undefined
-											: "%"}
-									</Text>
-								</>
-							) : (
-								<IconStarFilled
-									onClick={(e) => {
-										e.preventDefault();
-										navigate(
-											$path(
-												"/media/item/:id",
-												{ id },
-												{ openReviewModal: true },
-											),
-										);
-									}}
-									size={16}
-									className={classes.starIcon}
-								/>
-							)}
+							{props.topRight}
 						</Flex>
 					</Box>
-				)
+				) : undefined
 			}
 			bottomLeft={props.item.publishYear}
 			bottomRight={
