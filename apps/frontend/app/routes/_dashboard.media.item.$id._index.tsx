@@ -298,7 +298,7 @@ export default function Page() {
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
-				entityType="metadata"
+				entityLot={EntityLot.Media}
 				objectId={loaderData.metadataId.toString()}
 				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.metadataDetails.title}
@@ -1042,7 +1042,7 @@ export default function Page() {
 										<Stack>
 											{loaderData.userMetadataDetails.reviews.map((r) => (
 												<ReviewItemDisplay
-													entityType="metadata"
+													entityLot={EntityLot.Media}
 													review={r}
 													key={r.id}
 													metadataId={loaderData.metadataId}

@@ -99,7 +99,7 @@ export default function Page() {
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
-				entityType="metadataGroup"
+				entityLot={EntityLot.MediaGroup}
 				objectId={loaderData.metadataGroupId.toString()}
 				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.metadataGroupDetails.details.title}
@@ -219,7 +219,7 @@ export default function Page() {
 													reviewScale={userPreferences.general.reviewScale}
 													user={userDetails}
 													title={loaderData.metadataGroupDetails.details.title}
-													entityType="metadataGroup"
+													entityLot={EntityLot.MediaGroup}
 												/>
 											))}
 										</Stack>

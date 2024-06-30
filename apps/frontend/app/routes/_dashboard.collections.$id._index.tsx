@@ -138,7 +138,7 @@ export default function Page() {
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
-				entityType="collection"
+				entityLot={EntityLot.Collection}
 				objectId={loaderData.id}
 				reviewScale={userPreferences.general.reviewScale}
 				title={loaderData.info.details.name}
@@ -331,7 +331,7 @@ export default function Page() {
 												collectionId={loaderData.id}
 												reviewScale={userPreferences.general.reviewScale}
 												user={userDetails}
-												entityType="collection"
+												entityLot={EntityLot.Collection}
 											/>
 										))}
 									</Stack>

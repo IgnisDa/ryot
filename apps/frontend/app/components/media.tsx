@@ -151,7 +151,7 @@ export const MediaScrollArea = (props: { children: ReactNode }) => {
 
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
-	entityType: EntityType;
+	entityLot: EntityLot;
 	user: User;
 	reviewScale: UserReviewScale;
 	title: string;
@@ -177,7 +177,7 @@ export const ReviewItemDisplay = (props: {
 				onClose={() => setPostReviewModalData(undefined)}
 				opened={postReviewModalData !== undefined}
 				data={postReviewModalData}
-				entityType={props.entityType}
+				entityLot={props.entityLot}
 				objectId={
 					props.metadataId?.toString() ||
 					props.metadataGroupId?.toString() ||
@@ -739,13 +739,11 @@ export type PostReview = {
 	existingReview?: DeepPartial<ReviewItem>;
 };
 
-type EntityType = "metadata" | "metadataGroup" | "collection" | "person";
-
 export const PostReviewModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	objectId: string;
-	entityType: EntityType;
+	entityLot: EntityLot;
 	title: string;
 	reviewScale: UserReviewScale;
 	data?: PostReview;
@@ -770,17 +768,12 @@ export const PostReviewModal = (props: {
 			>
 				<input
 					hidden
-					name={
-						props.entityType === "metadata"
-							? "metadataId"
-							: props.entityType === "metadataGroup"
-								? "metadataGroupId"
-								: props.entityType === "collection"
-									? "collectionId"
-									: props.entityType === "person"
-										? "personId"
-										: undefined
-					}
+					name={match(props.entityLot)
+						.with(EntityLot.Media, () => "metadataId")
+						.with(EntityLot.MediaGroup, () => "metadataGroupId")
+						.with(EntityLot.Person, () => "personId")
+						.with(EntityLot.Collection, () => "collection")
+						.run()}
 					value={props.objectId}
 					readOnly
 				/>
