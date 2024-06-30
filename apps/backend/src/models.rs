@@ -47,9 +47,9 @@ pub enum BackgroundJob {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
 pub enum EntityLot {
     #[default]
-    Media,
+    Metadata,
     Person,
-    MediaGroup,
+    MetadataGroup,
     Exercise,
     Collection,
 }
