@@ -1280,15 +1280,19 @@ const SeenItem = (props: { history: History; index: number }) => {
 			: null;
 	const watchedOnInformation = props.history.providerWatchedOn;
 
-	const displayAllInformation = [
+	const filteredDisplayInformation = [
+		watchedOnInformation,
 		displayShowExtraInformation,
 		displayPodcastExtraInformation,
 		displayAnimeExtraInformation,
 		displayMangaExtraInformation,
-		watchedOnInformation,
-	]
-		.filter(Boolean)
-		.join("; ");
+	].filter((s) => s !== null);
+	const displayAllInformation =
+		filteredDisplayInformation.length > 0
+			? filteredDisplayInformation
+					.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
+					.reduce((prev, curr) => [prev, " • ", curr])
+			: null;
 
 	const timeSpentInMilliseconds = (props.history.totalTimeSpent || 0) * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
@@ -1331,7 +1335,7 @@ const SeenItem = (props: { history: History; index: number }) => {
 					) : null}
 				</Flex>
 				<Stack gap={4}>
-					<Flex gap="lg">
+					<Flex gap="lg" align="center">
 						<Text fw="bold">
 							{changeCase(props.history.state)}{" "}
 							{props.history.progress !== "100"
@@ -1339,7 +1343,7 @@ const SeenItem = (props: { history: History; index: number }) => {
 								: null}
 						</Text>
 						{displayAllInformation ? (
-							<Text c="dimmed" lineClamp={1}>
+							<Text c="dimmed" size="sm" lineClamp={1}>
 								{displayAllInformation}
 							</Text>
 						) : null}
