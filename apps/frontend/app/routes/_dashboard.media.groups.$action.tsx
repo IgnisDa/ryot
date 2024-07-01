@@ -85,7 +85,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				}),
 			);
 			const lot = SEARCH_SOURCES_ALLOWED[urlParse.source];
-			invariant(lot, "Invalid lot");
+			invariant(lot);
 			const { metadataGroupSearch } = await serverGqlService.request(
 				MetadataGroupSearchDocument,
 				{ input: { lot, source: urlParse.source, search: { page, query } } },

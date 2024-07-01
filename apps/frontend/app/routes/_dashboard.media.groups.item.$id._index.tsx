@@ -51,7 +51,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataGroupId = params.id;
-	invariant(metadataGroupId, "No ID provided");
+	invariant(metadataGroupId);
 	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
 		await Promise.all([
 			serverGqlService.request(MetadataGroupDetailsDocument, {

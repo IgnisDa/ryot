@@ -35,6 +35,7 @@ import {
 	changeCase,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	isString,
 	startCase,
 } from "@ryot/ts-utils";
 import { IconCheck, IconExternalLink } from "@tabler/icons-react";
@@ -71,7 +72,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const exerciseId = params.id;
-	invariant(typeof exerciseId === "string", "id must be a string");
+	invariant(isString(exerciseId));
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
 		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),

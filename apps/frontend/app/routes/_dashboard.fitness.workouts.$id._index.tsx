@@ -80,7 +80,7 @@ import {
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const workoutId = params.id;
-	invariant(workoutId, "No ID provided");
+	invariant(workoutId);
 	const [{ workoutDetails }] = await Promise.all([
 		serverGqlService.request(
 			WorkoutDetailsDocument,

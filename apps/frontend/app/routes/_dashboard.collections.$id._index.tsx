@@ -80,7 +80,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const id = params.id;
-	invariant(id, "No ID provided");
+	invariant(id);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const { collectionContents: info } = await serverGqlService.request(
 		CollectionContentsDocument,

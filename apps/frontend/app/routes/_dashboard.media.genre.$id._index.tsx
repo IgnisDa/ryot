@@ -30,7 +30,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const genreId = params.id;
-	invariant(genreId, "No ID provided");
+	invariant(genreId);
 	const [{ genreDetails }] = await Promise.all([
 		serverGqlService.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },

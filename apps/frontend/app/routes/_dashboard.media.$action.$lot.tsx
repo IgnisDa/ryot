@@ -129,12 +129,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const numPage = Number(page);
 	const lot = getLot(params.lot);
-	invariant(lot, "Lot is not defined");
+	invariant(lot);
 	const action = params.action as Action;
-	invariant(
-		action && Object.values(Action).includes(action as Action),
-		"Incorrect action",
-	);
+	invariant(action && Object.values(Action).includes(action as Action));
 	const [mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
