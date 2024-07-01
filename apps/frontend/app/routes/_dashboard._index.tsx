@@ -75,7 +75,7 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 	const t = preferences.general.dashboard.find(
 		(de) => de.section === el,
 	)?.numElements;
-	invariant(isNumber(t), `No take found for ${el}`);
+	invariant(isNumber(t));
 	return t;
 };
 
@@ -101,7 +101,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
-	invariant(foundInProgressCollection, 'No collection found for "In Progress"');
+	invariant(foundInProgressCollection);
 	const [
 		{ collectionContents: inProgressCollectionContents },
 		userRecommendations,

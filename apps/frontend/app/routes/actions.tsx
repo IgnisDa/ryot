@@ -47,7 +47,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 	const formData = await request.clone().formData();
 	const url = new URL(request.url);
 	const intent = url.searchParams.get("intent") as string;
-	invariant(intent, "No intent provided");
+	invariant(intent);
 	const redirectToForm = formData.get(redirectToQueryParam);
 	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
 	let returnData = {};
@@ -187,7 +187,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		.with("performReviewAction", async () => {
 			const submission = processSubmission(formData, reviewSchema);
 			if (submission.shouldDelete) {
-				invariant(submission.reviewId, "No reviewId provided");
+				invariant(submission.reviewId);
 				await serverGqlService.request(
 					DeleteReviewDocument,
 					{ reviewId: submission.reviewId },
@@ -280,7 +280,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					const selectedSeason = showSpecifics.find(
 						(s) => s.seasonNumber === submission.showSeasonNumber,
 					);
-					invariant(selectedSeason, "No season selected");
+					invariant(selectedSeason);
 					needsFinalUpdate = false;
 					if (submission.showAllSeasonsBefore) {
 						for (const season of showSpecifics) {

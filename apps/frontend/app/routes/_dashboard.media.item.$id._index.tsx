@@ -122,7 +122,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const metadataId = params.id;
-	invariant(metadataId, "No ID provided");
+	invariant(metadataId);
 	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
 		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
 		serverGqlService.request(
@@ -1518,10 +1518,9 @@ const DisplayShowSeason = (props: {
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const season =
 		loaderData.metadataDetails.showSpecifics?.seasons[props.seasonIdx];
+	invariant(season);
 	const numTimesSeen = props.showProgress?.[props.seasonIdx]?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
-
-	invariant(season, "Season not found");
 
 	return (
 		<Paper my="xs" py="sm">
@@ -1570,12 +1569,11 @@ const DisplayShowEpisode = (props: {
 			(season) => season.episodes,
 		) || [];
 	const episode = flattenedEpisodes[props.overallIdx];
+	invariant(episode);
 	const flattenedProgress =
 		props.seasonProgress?.flatMap((season) => season.episodes) || [];
 	const episodeProgress = flattenedProgress[props.overallIdx];
 	const numTimesEpisodeSeen = episodeProgress?.timesSeen || 0;
-
-	invariant(episode, "Episode not found");
 
 	return (
 		<Box my="lg" ml="md">

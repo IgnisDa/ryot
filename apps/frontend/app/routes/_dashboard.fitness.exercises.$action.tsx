@@ -65,7 +65,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {
-			invariant(query.name, "Exercise name is required");
+			invariant(query.name);
 			const { exerciseDetails } = await serverGqlService.request(
 				ExerciseDetailsDocument,
 				{ exerciseId: query.name },
@@ -121,7 +121,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				);
 			},
 			[Action.Update]: async () => {
-				invariant(submission.oldName, "Old name is required");
+				invariant(submission.oldName);
 				await serverGqlService.request(
 					EditCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },
