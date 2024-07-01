@@ -53,6 +53,7 @@ import {
 	changeCase,
 	formatDateToNaiveDate,
 	humanizeDuration,
+	isNumber,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -1268,14 +1269,16 @@ const SeenItem = (props: { history: History; index: number }) => {
 	const displayPodcastExtraInformation = podcastExtraInformation
 		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
 		: null;
-	const displayAnimeExtraInformation = props.history.animeExtraInformation
-		?.episode
-		? `EP-${props.history.animeExtraInformation?.episode}`
+	const displayAnimeExtraInformation = isNumber(
+		props.history.animeExtraInformation?.episode,
+	)
+		? `EP-${props.history.animeExtraInformation.episode}`
 		: null;
-	const displayMangaExtraInformation = props.history.mangaExtraInformation
-		?.chapter
+	const displayMangaExtraInformation = isNumber(
+		props.history.mangaExtraInformation?.chapter,
+	)
 		? `CH-${props.history.mangaExtraInformation.chapter}`
-		: props.history.mangaExtraInformation?.volume
+		: isNumber(props.history.mangaExtraInformation?.volume)
 			? `VOL-${props.history.mangaExtraInformation.volume}`
 			: null;
 	const watchedOnInformation = props.history.providerWatchedOn;

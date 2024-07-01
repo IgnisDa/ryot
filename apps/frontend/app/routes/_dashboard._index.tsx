@@ -32,7 +32,11 @@ import {
 	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
+import {
+	displayWeightWithUnit,
+	humanizeDuration,
+	isNumber,
+} from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconBarbell,
@@ -71,7 +75,7 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 	const t = preferences.general.dashboard.find(
 		(de) => de.section === el,
 	)?.numElements;
-	invariant(typeof t === "number", `No take found for ${el}`);
+	invariant(isNumber(t), `No take found for ${el}`);
 	return t;
 };
 
@@ -615,9 +619,7 @@ const ActualDisplayStat = (props: {
 			<Flex wrap="wrap" ml="xs">
 				{props.data.map((d, idx) => (
 					<Fragment key={idx.toString()}>
-						{d.type === "number" &&
-						d.value === 0 &&
-						d.hideIfZero ? undefined : (
+						{isNumber(d.type) && d.value === 0 && d.hideIfZero ? undefined : (
 							<Box mx="xs" data-stat-stringified={JSON.stringify(d)}>
 								<Text
 									fw={d.label !== "Runtime" ? "bold" : undefined}

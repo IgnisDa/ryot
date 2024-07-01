@@ -43,7 +43,7 @@ import {
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/ts-utils";
+import { changeCase, getInitials, isNumber } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconArrowsRight,
@@ -219,28 +219,28 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
-					{typeof props.review.showExtraInformation?.season === "number" ? (
+					{isNumber(props.review.showExtraInformation?.season) ? (
 						<Text c="dimmed">
 							S{props.review.showExtraInformation.season}-E
 							{props.review.showExtraInformation.episode}
 						</Text>
 					) : null}
-					{typeof props.review.podcastExtraInformation?.episode === "number" ? (
+					{isNumber(props.review.podcastExtraInformation?.episode) ? (
 						<Text c="dimmed">
 							EP-{props.review.podcastExtraInformation.episode}
 						</Text>
 					) : null}
-					{typeof props.review.animeExtraInformation?.episode === "number" ? (
+					{isNumber(props.review.animeExtraInformation?.episode) ? (
 						<Text c="dimmed">
 							EP-{props.review.animeExtraInformation.episode}
 						</Text>
 					) : null}
-					{typeof props.review.mangaExtraInformation?.chapter === "number" ? (
+					{isNumber(props.review.mangaExtraInformation?.chapter) ? (
 						<Text c="dimmed">
 							Ch-{props.review.mangaExtraInformation.chapter}
 						</Text>
 					) : null}
-					{typeof props.review.mangaExtraInformation?.volume === "number" ? (
+					{isNumber(props.review.mangaExtraInformation?.volume) ? (
 						<Text c="dimmed">
 							VOL-{props.review.mangaExtraInformation.volume}
 						</Text>

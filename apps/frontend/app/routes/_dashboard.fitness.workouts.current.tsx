@@ -59,6 +59,8 @@ import {
 import {
 	displayWeightWithUnit,
 	isEqual,
+	isNumber,
+	isString,
 	snakeCase,
 	startCase,
 	sum,
@@ -542,7 +544,7 @@ const StatInput = (props: {
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },
 				}}
 				decimalScale={
-					typeof props.inputStep === "number"
+					isNumber(props.inputStep)
 						? Math.log10(1 / props.inputStep)
 						: undefined
 				}
@@ -737,7 +739,7 @@ const ExerciseDisplay = (props: {
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
-									const value = typeof v === "number" ? v : null;
+									const value = isNumber(v) ? v : null;
 									const restTimer =
 										draft.exercises[props.exerciseIdx].restTimer;
 									if (restTimer && value) {
@@ -1167,7 +1169,7 @@ const ExerciseDisplay = (props: {
 														const newObject = { ...obj };
 														for (const key in newObject)
 															if (
-																typeof newObject[key] === "string" &&
+																isString(newObject[key]) &&
 																!Number.isNaN(newObject[key])
 															)
 																newObject[key] = Number.parseFloat(
@@ -1257,22 +1259,20 @@ const ExerciseDisplay = (props: {
 															.with(
 																ExerciseLot.DistanceAndDuration,
 																() =>
-																	typeof s.statistic.distance === "number" &&
-																	typeof s.statistic.duration === "number",
+																	isNumber(s.statistic.distance) &&
+																	isNumber(s.statistic.duration),
 															)
-															.with(
-																ExerciseLot.Duration,
-																() => typeof s.statistic.duration === "number",
+															.with(ExerciseLot.Duration, () =>
+																isNumber(s.statistic.duration),
 															)
-															.with(
-																ExerciseLot.Reps,
-																() => typeof s.statistic.reps === "number",
+															.with(ExerciseLot.Reps, () =>
+																isNumber(s.statistic.reps),
 															)
 															.with(
 																ExerciseLot.RepsAndWeight,
 																() =>
-																	typeof s.statistic.reps === "number" &&
-																	typeof s.statistic.weight === "number",
+																	isNumber(s.statistic.reps) &&
+																	isNumber(s.statistic.weight),
 															)
 															.exhaustive()
 													}

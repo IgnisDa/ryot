@@ -21,7 +21,7 @@ import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase, startCase, sum } from "@ryot/ts-utils";
+import { isNumber, snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -144,13 +144,13 @@ const CalendarEvent = (props: {
 						>
 							{evt.metadataTitle}
 						</Anchor>{" "}
-						{typeof evt.showExtraInformation?.season === "number" ? (
+						{isNumber(evt.showExtraInformation?.season) ? (
 							<Text span c="dimmed" size="sm">
 								(S{evt.showExtraInformation.season}-E
 								{evt.showExtraInformation.episode})
 							</Text>
 						) : null}
-						{typeof evt.podcastExtraInformation?.episode === "number" ? (
+						{isNumber(evt.podcastExtraInformation?.episode) ? (
 							<Text span c="dimmed" size="sm">
 								(EP-{evt.podcastExtraInformation.episode})
 							</Text>
