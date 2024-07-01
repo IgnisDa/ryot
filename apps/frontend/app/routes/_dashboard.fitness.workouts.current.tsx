@@ -23,7 +23,6 @@ import {
 	RingProgress,
 	ScrollArea,
 	SimpleGrid,
-	Skeleton,
 	Stack,
 	Switch,
 	Text,
@@ -101,9 +100,9 @@ import {
 	type Exercise,
 	type ExerciseSet,
 	type InProgressWorkout,
-	currentWorkoutAtom,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
+	useCurrentWorkout,
 } from "~/lib/state/workout";
 import {
 	createToastHeaders,
@@ -172,7 +171,7 @@ export default function Page() {
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
 	const [time, setTime] = useState(0);
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
 		sound.play();
@@ -231,234 +230,230 @@ export default function Page() {
 
 	return (
 		<Container size="sm">
-			{currentWorkout ? (
-				<ClientOnly fallback={<Text>Loading workout...</Text>}>
-					{() => (
-						<>
-							<TimerDrawer
-								opened={timerDrawerOpened}
-								onClose={timerDrawerClose}
-								startTimer={startTimer}
-								stopTimer={stopTimer}
+			<ClientOnly fallback={<Text>Loading workout...</Text>}>
+				{() => (
+					<>
+						<TimerDrawer
+							opened={timerDrawerOpened}
+							onClose={timerDrawerClose}
+							startTimer={startTimer}
+							stopTimer={stopTimer}
+						/>
+						<ReorderDrawer
+							opened={reorderDrawerOpened}
+							onClose={reorderDrawerClose}
+							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+							exercises={currentWorkout.exercises as any}
+							key={currentWorkout.exercises.toString()}
+						/>
+						<Stack ref={parent}>
+							<TextInput
+								size="sm"
+								label="Name"
+								placeholder="A name for your workout"
+								value={currentWorkout.name}
+								required
+								onChange={(e) =>
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.name = e.currentTarget.value;
+										}),
+									)
+								}
 							/>
-							<ReorderDrawer
-								opened={reorderDrawerOpened}
-								onClose={reorderDrawerClose}
-								// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-								exercises={currentWorkout.exercises as any}
-								key={currentWorkout.exercises.toString()}
+							<Textarea
+								size="sm"
+								minRows={2}
+								label="Comment"
+								placeholder="Your thoughts about this workout"
+								value={currentWorkout.comment}
+								onChange={(e) =>
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.comment = e.currentTarget.value;
+										}),
+									)
+								}
 							/>
-							<Stack ref={parent}>
-								<TextInput
-									size="sm"
-									label="Name"
-									placeholder="A name for your workout"
-									value={currentWorkout.name}
-									required
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.name = e.currentTarget.value;
-											}),
-										)
-									}
+							<Group>
+								<DurationTimer startTime={currentWorkout.startTime} />
+								<StatDisplay
+									name="Exercises"
+									value={`${
+										currentWorkout.exercises
+											.map((e) => e.sets.every((s) => s.confirmed))
+											.filter((e) => e !== undefined).length
+									}/${currentWorkout.exercises.length}`}
 								/>
-								<Textarea
-									size="sm"
-									minRows={2}
-									label="Comment"
-									placeholder="Your thoughts about this workout"
-									value={currentWorkout.comment}
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.comment = e.currentTarget.value;
-											}),
-										)
-									}
-								/>
-								<Group>
-									<DurationTimer startTime={currentWorkout.startTime} />
-									<StatDisplay
-										name="Exercises"
-										value={`${
-											currentWorkout.exercises
-												.map((e) => e.sets.every((s) => s.confirmed))
-												.filter((e) => e !== undefined).length
-										}/${currentWorkout.exercises.length}`}
-									/>
-									<StatDisplay
-										name="Weight"
-										value={`${displayWeightWithUnit(
-											unitSystem,
-											sum(
-												currentWorkout.exercises
-													.flatMap((e) => e.sets)
-													.flatMap((s) =>
-														s.confirmed
-															? Number(s.statistic.reps || 0) *
-																Number(s.statistic.weight || 0)
-															: 0,
-													),
-											).toFixed(),
-										)}`}
-									/>
-									<StatDisplay
-										name="Sets"
-										value={sum(
+								<StatDisplay
+									name="Weight"
+									value={`${displayWeightWithUnit(
+										unitSystem,
+										sum(
 											currentWorkout.exercises
 												.flatMap((e) => e.sets)
-												.flatMap((s) => (s.confirmed ? 1 : 0)),
-										).toString()}
-									/>
-								</Group>
-								<Divider />
-								<SimpleGrid
-									cols={
-										2 +
-										Number(currentWorkout.exercises.length > 0) +
-										Number(currentWorkout.exercises.length > 1)
-									}
+												.flatMap((s) =>
+													s.confirmed
+														? Number(s.statistic.reps || 0) *
+															Number(s.statistic.weight || 0)
+														: 0,
+												),
+										).toFixed(),
+									)}`}
+								/>
+								<StatDisplay
+									name="Sets"
+									value={sum(
+										currentWorkout.exercises
+											.flatMap((e) => e.sets)
+											.flatMap((s) => (s.confirmed ? 1 : 0)),
+									).toString()}
+								/>
+							</Group>
+							<Divider />
+							<SimpleGrid
+								cols={
+									2 +
+									Number(currentWorkout.exercises.length > 0) +
+									Number(currentWorkout.exercises.length > 1)
+								}
+							>
+								<Button
+									color="orange"
+									variant="subtle"
+									onClick={timerDrawerToggle}
+									radius="md"
+									size="compact-md"
 								>
-									<Button
-										color="orange"
-										variant="subtle"
-										onClick={timerDrawerToggle}
-										radius="md"
-										size="compact-md"
-									>
-										{currentTimer
-											? dayjsLib
-													.duration(currentTimer.endAt.diff(dayjsLib()))
-													.format("m:ss")
-											: "Timer"}
-									</Button>
-									{currentWorkout.exercises.length > 1 ? (
-										<>
-											<Button
-												color="blue"
-												variant="subtle"
-												onClick={reorderDrawerToggle}
-												radius="md"
-												size="compact-md"
-											>
-												Reorder
-											</Button>
-										</>
-									) : null}
-									{currentWorkout.exercises.length > 0 ? (
-										<>
-											<Button
-												color="green"
-												variant="subtle"
-												radius="md"
-												size="compact-md"
-												onClick={async () => {
-													if (!currentWorkout.name) {
-														notifications.show({
-															color: "red",
-															message: "Please give a name to the workout",
-														});
-														return;
-													}
-													const yes = await confirmWrapper({
-														title: "Finish workout",
-														confirmation:
-															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-													});
-													if (yes) {
-														events.createWorkout();
-														const input =
-															currentWorkoutToCreateWorkoutInput(
-																currentWorkout,
-															);
-														stopTimer();
-														interval.stop();
-														Cookies.remove(workoutCookieName);
-														createUserWorkoutFetcher.submit(
-															{ workout: JSON.stringify(input) },
-															{
-																method: "post",
-																action: withQuery(".", {
-																	intent: "createWorkout",
-																}),
-																encType: "multipart/form-data",
-															},
-														);
-													}
-												}}
-											>
-												Finish
-											</Button>
-										</>
-									) : null}
-									<Button
-										color="red"
-										variant="subtle"
-										radius="md"
-										size="compact-md"
-										onClick={async () => {
-											const yes = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to cancel this workout?",
-											});
-											if (yes) {
-												for (const e of currentWorkout.exercises) {
-													const assets = [...e.images, ...e.videos];
-													for (const asset of assets)
-														deleteUploadedAsset(asset.key);
-												}
-												navigate($path("/"));
-												Cookies.remove(workoutCookieName);
-												setCurrentWorkout(RESET);
-											}
-										}}
-									>
-										Cancel
-									</Button>
-								</SimpleGrid>
-								<Divider />
-								{currentWorkout.exercises.map((ex, idx) => (
-									<ExerciseDisplay
-										key={ex.identifier}
-										exercise={ex}
-										exerciseIdx={idx}
-										startTimer={startTimer}
-										stopTimer={stopTimer}
-										openTimerDrawer={timerDrawerOpen}
-									/>
-								))}
-								<Group justify="center">
-									{userPreferences.featuresEnabled.fitness.measurements ? (
+									{currentTimer
+										? dayjsLib
+												.duration(currentTimer.endAt.diff(dayjsLib()))
+												.format("m:ss")
+										: "Timer"}
+								</Button>
+								{currentWorkout.exercises.length > 1 ? (
+									<>
 										<Button
-											component={Link}
+											color="blue"
 											variant="subtle"
-											color="teal"
-											to={$path("/fitness/measurements/list", {
-												openModal: true,
-												redirectTo: $path("/fitness/workouts/current"),
-											})}
+											onClick={reorderDrawerToggle}
+											radius="md"
+											size="compact-md"
 										>
-											Add measurement
+											Reorder
 										</Button>
-									) : null}
+									</>
+								) : null}
+								{currentWorkout.exercises.length > 0 ? (
+									<>
+										<Button
+											color="green"
+											variant="subtle"
+											radius="md"
+											size="compact-md"
+											onClick={async () => {
+												if (!currentWorkout.name) {
+													notifications.show({
+														color: "red",
+														message: "Please give a name to the workout",
+													});
+													return;
+												}
+												const yes = await confirmWrapper({
+													title: "Finish workout",
+													confirmation:
+														"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+												});
+												if (yes) {
+													events.createWorkout();
+													const input =
+														currentWorkoutToCreateWorkoutInput(currentWorkout);
+													stopTimer();
+													interval.stop();
+													Cookies.remove(workoutCookieName);
+													createUserWorkoutFetcher.submit(
+														{ workout: JSON.stringify(input) },
+														{
+															method: "post",
+															action: withQuery(".", {
+																intent: "createWorkout",
+															}),
+															encType: "multipart/form-data",
+														},
+													);
+												}
+											}}
+										>
+											Finish
+										</Button>
+									</>
+								) : null}
+								<Button
+									color="red"
+									variant="subtle"
+									radius="md"
+									size="compact-md"
+									onClick={async () => {
+										const yes = await confirmWrapper({
+											confirmation:
+												"Are you sure you want to cancel this workout?",
+										});
+										if (yes) {
+											for (const e of currentWorkout.exercises) {
+												const assets = [...e.images, ...e.videos];
+												for (const asset of assets)
+													deleteUploadedAsset(asset.key);
+											}
+											navigate($path("/"));
+											Cookies.remove(workoutCookieName);
+											setCurrentWorkout(RESET);
+										}
+									}}
+								>
+									Cancel
+								</Button>
+							</SimpleGrid>
+							<Divider />
+							{currentWorkout.exercises.map((ex, idx) => (
+								<ExerciseDisplay
+									key={ex.identifier}
+									exercise={ex}
+									exerciseIdx={idx}
+									startTimer={startTimer}
+									stopTimer={stopTimer}
+									openTimerDrawer={timerDrawerOpen}
+								/>
+							))}
+							<Group justify="center">
+								{userPreferences.featuresEnabled.fitness.measurements ? (
 									<Button
 										component={Link}
 										variant="subtle"
-										to={$path("/fitness/exercises/list", {
-											selectionEnabled: true,
-											page: 1,
-											sortBy: ExerciseSortBy.LastPerformed,
+										color="teal"
+										to={$path("/fitness/measurements/list", {
+											openModal: true,
+											redirectTo: $path("/fitness/workouts/current"),
 										})}
 									>
-										Add an exercise
+										Add measurement
 									</Button>
-								</Group>
-							</Stack>
-						</>
-					)}
-				</ClientOnly>
-			) : null}
+								) : null}
+								<Button
+									component={Link}
+									variant="subtle"
+									to={$path("/fitness/exercises/list", {
+										selectionEnabled: true,
+										page: 1,
+										sortBy: ExerciseSortBy.LastPerformed,
+									})}
+								>
+									Add an exercise
+								</Button>
+							</Group>
+						</Stack>
+					</>
+				)}
+			</ClientOnly>
 		</Container>
 	);
 }
@@ -507,30 +502,29 @@ const StatInput = (props: {
 	stat: keyof ExerciseSet["statistic"];
 	inputStep?: number;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [value, setValue] = useDebouncedState(
-		currentWorkout?.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+		currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 			props.stat
 		] ?? undefined,
 		500,
 	);
 
 	useDidUpdate(() => {
-		if (currentWorkout)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					const val = isNumber(value) ? Number(value) : undefined;
-					draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
-						props.stat
-					] = val as unknown as null;
-					if (val === undefined)
-						draft.exercises[props.exerciseIdx].sets[props.setIdx].confirmed =
-							false;
-				}),
-			);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				const val = isNumber(value) ? Number(value) : undefined;
+				draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+					props.stat
+				] = val as unknown as null;
+				if (val === undefined)
+					draft.exercises[props.exerciseIdx].sets[props.setIdx].confirmed =
+						false;
+			}),
+		);
 	}, [value]);
 
-	return currentWorkout ? (
+	return (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
 				value={
@@ -553,7 +547,7 @@ const StatInput = (props: {
 				required
 			/>
 		</Flex>
-	) : null;
+	);
 };
 
 const fileType = "image/jpeg";
@@ -588,9 +582,9 @@ const SupersetExerciseModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
-	return currentWorkout ? (
+	return (
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
@@ -641,7 +635,7 @@ const SupersetExerciseModal = (props: {
 				))}
 			</Stack>
 		</Modal>
-	) : null;
+	);
 };
 
 const ExerciseDisplay = (props: {
@@ -658,7 +652,7 @@ const ExerciseDisplay = (props: {
 	const userPreferences = useUserPreferences();
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [parent] = useAutoAnimate();
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer] = useAtom(timerAtom);
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -697,7 +691,7 @@ const ExerciseDisplay = (props: {
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
-	return currentWorkout ? (
+	return (
 		<>
 			<SupersetExerciseModal
 				exerciseIdx={props.exerciseIdx}
@@ -1320,8 +1314,6 @@ const ExerciseDisplay = (props: {
 			</Paper>
 			<Divider />
 		</>
-	) : (
-		<Skeleton height={20} radius="xl" />
 	);
 };
 
@@ -1481,24 +1473,22 @@ const ReorderDrawer = (props: {
 	onClose: () => void;
 	exercises: Array<Exercise>;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [exerciseElements, exerciseElementsHandlers] = useListState(
 		props.exercises,
 	);
 
 	useEffect(() => {
-		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
+		const oldOrder = currentWorkout.exercises.map((e) => e.exerciseId);
 		const newOrder = exerciseElements.map((e) => e.exerciseId);
 		if (!isEqual(oldOrder, newOrder)) {
 			setCurrentWorkout(
 				// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
 				produce(currentWorkout, (draft: any) => {
-					if (draft) {
-						draft.exercises = exerciseElements.map((de) =>
-							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-							draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
-						);
-					}
+					draft.exercises = exerciseElements.map((de) =>
+						// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+						draft.exercises.find((e: any) => e.exerciseId === de.exerciseId),
+					);
 				}),
 			);
 			props.onClose();
@@ -1514,7 +1504,7 @@ const ReorderDrawer = (props: {
 				: ("not-started" as const);
 	};
 
-	return currentWorkout ? (
+	return (
 		<Drawer
 			onClose={props.onClose}
 			opened={props.opened}
@@ -1575,7 +1565,7 @@ const ReorderDrawer = (props: {
 				</Droppable>
 			</DragDropContext>
 		</Drawer>
-	) : null;
+	);
 };
 
 const NoteInput = (props: {
@@ -1583,16 +1573,15 @@ const NoteInput = (props: {
 	noteIdx: number;
 	note: string;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [value, setValue] = useDebouncedState(props.note, 500);
 
 	useDidUpdate(() => {
-		if (currentWorkout)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
-				}),
-			);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
+			}),
+		);
 	}, [value]);
 
 	return (
@@ -1616,11 +1605,10 @@ const NoteInput = (props: {
 					if (yes)
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
-								if (draft)
-									draft.exercises[props.exerciseIdx].notes.splice(
-										props.noteIdx,
-										1,
-									);
+								draft.exercises[props.exerciseIdx].notes.splice(
+									props.noteIdx,
+									1,
+								);
 							}),
 						);
 				}}

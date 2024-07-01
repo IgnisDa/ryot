@@ -11,7 +11,9 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
+import { useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import invariant from "tiny-invariant";
 import { v4 as randomUUID } from "uuid";
 import { CurrentWorkoutKey, clientGqlService } from "~/lib/generals";
 
@@ -58,6 +60,12 @@ export const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
 	CurrentWorkoutKey,
 	null,
 );
+
+export const useCurrentWorkout = () => {
+	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	invariant(currentWorkout);
+	return [currentWorkout, setCurrentWorkout] as const;
+};
 
 function getTimeOfDay(date: Date) {
 	const hours = date.getHours();
