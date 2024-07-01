@@ -519,7 +519,7 @@ const StatInput = (props: {
 		if (currentWorkout)
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const val = value === "" ? undefined : Number(value);
+					const val = isNumber(value) ? Number(value) : undefined;
 					draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 						props.stat
 					] = val as unknown as null;
