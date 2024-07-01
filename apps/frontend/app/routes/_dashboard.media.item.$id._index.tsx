@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
@@ -68,7 +69,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
-import { type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -1240,94 +1241,6 @@ const MergeMetadataModal = (props: {
 	);
 };
 
-const DisplaySeasonOrEpisodeDetails = (props: {
-	name: string;
-	children: ReactNode;
-	runtime?: number | null;
-	overview?: string | null;
-	displayIndicator: number;
-	id?: number | string | null;
-	numEpisodes?: number | null;
-	posterImages: Array<string>;
-	publishDate?: string | null;
-	isEpisode?: boolean;
-}) => {
-	const display = [
-		props.runtime
-			? humanizeDuration(
-					dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
-					{ units: ["h", "m"] },
-				)
-			: null,
-		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
-		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
-	]
-		.filter(Boolean)
-		.join("; ");
-
-	const isSeen = props.displayIndicator >= 1;
-
-	const DisplayDetails = () => (
-		<>
-			<Text lineClamp={2}>{props.name}</Text>
-			{display ? (
-				<Text size="xs" c="dimmed">
-					{display}
-				</Text>
-			) : null}
-		</>
-	);
-
-	return (
-		<Stack data-episode-id={props.id}>
-			<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
-				<Group wrap="nowrap">
-					<Indicator
-						disabled={!isSeen}
-						label={
-							props.displayIndicator === 1
-								? "Seen"
-								: `Seen × ${props.displayIndicator}`
-						}
-						offset={7}
-						position="bottom-end"
-						size={16}
-						color="red"
-						zIndex={props.isEpisode ? "auto" : undefined}
-					>
-						<Avatar
-							src={props.posterImages[0]}
-							name={props.name}
-							radius="xl"
-							size="lg"
-							imageProps={{ loading: "lazy" }}
-							style={props.isEpisode ? { zIndex: -1 } : {}}
-						/>
-					</Indicator>
-					<Box visibleFrom="md" ml="sm">
-						<DisplayDetails />
-					</Box>
-				</Group>
-				<Box flex={0} ml={{ base: "md", md: 0 }}>
-					{props.children}
-				</Box>
-			</Flex>
-			<Box hiddenFrom="md">
-				<DisplayDetails />
-			</Box>
-			{props.overview ? (
-				<Text
-					size="sm"
-					c="dimmed"
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-					dangerouslySetInnerHTML={{ __html: props.overview }}
-					lineClamp={5}
-				/>
-			) : null}
-		</Stack>
-	);
-};
-
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
@@ -1479,6 +1392,117 @@ const SeenItem = (props: { history: History; index: number }) => {
 	);
 };
 
+const DisplaySeasonOrEpisodeDetails = (props: {
+	name: string;
+	children: ReactNode;
+	runtime?: number | null;
+	overview?: string | null;
+	displayIndicator: number;
+	id?: number | string | null;
+	numEpisodes?: number | null;
+	posterImages: Array<string>;
+	publishDate?: string | null;
+	isShowSeason?: boolean;
+}) => {
+	const [parent] = useAutoAnimate();
+	const [displayOverview, setDisplayOverview] = useDisclosure(false);
+	const swt = (t: string) => (
+		<Text size="xs" c="dimmed">
+			{t}
+		</Text>
+	);
+	const filteredElements = [
+		props.runtime
+			? swt(
+					humanizeDuration(
+						dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
+						{ units: ["h", "m"] },
+					),
+				)
+			: null,
+		props.publishDate ? swt(dayjsLib(props.publishDate).format("ll")) : null,
+		props.numEpisodes ? swt(`${props.numEpisodes} episodes`) : null,
+		props.overview ? (
+			<Anchor key="overview" size="xs" onClick={setDisplayOverview.toggle}>
+				{displayOverview ? "Hide" : "Show"} overview
+			</Anchor>
+		) : null,
+	].filter((s) => s !== null);
+	const display =
+		filteredElements.length > 0
+			? filteredElements
+					.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
+					.reduce((prev, curr) => [prev, " • ", curr])
+			: null;
+
+	const isSeen = props.displayIndicator >= 1;
+
+	const DisplayDetails = () => (
+		<>
+			<Text lineClamp={2}>{props.name}</Text>
+			{display ? (
+				<Flex align="center" gap={4}>
+					{display}
+				</Flex>
+			) : null}
+		</>
+	);
+
+	return (
+		<Paper
+			withBorder={props.isShowSeason}
+			p={props.isShowSeason ? 8 : undefined}
+			shadow={props.isShowSeason ? "md" : undefined}
+		>
+			<Stack data-episode-id={props.id} ref={parent}>
+				<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
+					<Group wrap="nowrap">
+						<Indicator
+							disabled={!isSeen}
+							label={
+								props.displayIndicator === 1
+									? "Seen"
+									: `Seen × ${props.displayIndicator}`
+							}
+							offset={7}
+							position="bottom-end"
+							size={16}
+							color="cyan"
+							style={{ zIndex: 0 }}
+						>
+							<Avatar
+								src={props.posterImages[0]}
+								name={props.name}
+								radius="xl"
+								size="lg"
+								imageProps={{ loading: "lazy" }}
+							/>
+						</Indicator>
+						<Box visibleFrom="md" ml="sm">
+							<DisplayDetails />
+						</Box>
+					</Group>
+					<Box flex={0} ml={{ base: "md", md: 0 }}>
+						{props.children}
+					</Box>
+				</Flex>
+				<Box hiddenFrom="md">
+					<DisplayDetails />
+				</Box>
+				{props.overview && displayOverview ? (
+					<Text
+						size="sm"
+						c="dimmed"
+						// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+						dangerouslySetInnerHTML={{ __html: props.overview }}
+						lineClamp={5}
+					/>
+				) : null}
+			</Stack>
+		</Paper>
+	);
+};
+
 const DisplayShowSeason = (props: {
 	seasonIdx: number;
 	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
@@ -1502,6 +1526,7 @@ const DisplayShowSeason = (props: {
 				runtime={season.episodes
 					.map((e) => e.runtime || 0)
 					.reduce((i, a) => i + a, 0)}
+				isShowSeason
 			>
 				<>
 					{season.episodes.length > 0 ? (
@@ -1553,7 +1578,6 @@ const DisplayShowEpisode = (props: {
 				name={`${episode.episodeNumber}. ${episode.name}`}
 				publishDate={episode.publishDate}
 				displayIndicator={numTimesEpisodeSeen}
-				isEpisode
 			>
 				<Button
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
