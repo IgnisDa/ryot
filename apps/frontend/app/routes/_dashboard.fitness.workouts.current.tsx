@@ -693,9 +693,7 @@ const ExerciseDisplay = (props: {
 		.exhaustive();
 
 	const toBeDisplayedColumns =
-		[durationCol, distanceCol, weightCol, repsCol].filter(
-			(c) => c !== undefined,
-		).length + 1;
+		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
 	return currentWorkout ? (
 		<>
