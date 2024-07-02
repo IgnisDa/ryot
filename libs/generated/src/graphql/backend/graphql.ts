@@ -1031,7 +1031,10 @@ export type MutationRoot = {
   deleteUserWorkout: Scalars['Boolean']['output'];
   /** Start a background job. */
   deployBackgroundJob: Scalars['Boolean']['output'];
-  /** Deploy job to update progress of media items in bulk. */
+  /**
+   * Deploy job to update progress of media items in bulk. For seen items in progress,
+   * progress is updated only if it has actually changed.
+   */
   deployBulkProgressUpdate: Scalars['Boolean']['output'];
   /** Deploy a job to export data for a user. */
   deployExportJob: Scalars['Boolean']['output'];

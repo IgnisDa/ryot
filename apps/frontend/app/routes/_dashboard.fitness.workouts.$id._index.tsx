@@ -511,8 +511,6 @@ const DisplaySet = (props: {
 	idx: number;
 	exerciseLot: ExerciseLot;
 }) => {
-	const userPreferences = useUserPreferences();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const getMantineColor = useGetMantineColor();
 	const [opened, { close, open }] = useDisclosure(false);
 
@@ -561,7 +559,6 @@ const DisplaySet = (props: {
 				<DisplayExerciseStats
 					lot={props.exerciseLot}
 					statistic={props.set.statistic}
-					unit={unitSystem}
 				/>
 			</Flex>
 		</Box>

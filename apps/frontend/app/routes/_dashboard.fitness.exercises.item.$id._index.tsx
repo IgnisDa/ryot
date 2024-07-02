@@ -11,7 +11,6 @@ import {
 	Group,
 	Image,
 	List,
-	Paper,
 	ScrollArea,
 	SimpleGrid,
 	Stack,
@@ -27,7 +26,6 @@ import {
 	EntityLot,
 	ExerciseDetailsDocument,
 	ExerciseSource,
-	SetLot,
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -51,9 +49,9 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { DisplayExerciseStats } from "~/components/fitness";
+import { ExerciseHistory } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
-import { dayjsLib, getSetColor } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
@@ -235,42 +233,13 @@ export default function Page() {
 					{loaderData.userExerciseDetails.history ? (
 						<Tabs.Panel value="history">
 							<Stack>
-								{loaderData.userExerciseDetails.history.map((h) => (
-									<Paper key={h.workoutId} withBorder p="xs">
-										<Anchor
-											component={Link}
-											to={withFragment(
-												$path("/fitness/workouts/:id", { id: h.workoutId }),
-												`${loaderData.exerciseDetails.id}__${h.index}`,
-											)}
-											fw="bold"
-										>
-											{h.workoutName}
-										</Anchor>
-										<Text c="dimmed" fz="sm" mb="xs">
-											{dayjsLib(h.workoutTime).format("LLLL")}
-										</Text>
-										{h.sets.map((s, idx) => (
-											<Flex key={`${idx}-${s.lot}`} align="center">
-												<Text
-													fz="sm"
-													c={getSetColor(s.lot)}
-													mr="md"
-													fw="bold"
-													ff="monospace"
-												>
-													{match(s.lot)
-														.with(SetLot.Normal, () => idx + 1)
-														.otherwise(() => s.lot.at(0))}
-												</Text>
-												<DisplayExerciseStats
-													lot={loaderData.exerciseDetails.lot}
-													statistic={s.statistic}
-													unit={unitSystem}
-												/>
-											</Flex>
-										))}
-									</Paper>
+								{loaderData.userExerciseDetails.history.map((history) => (
+									<ExerciseHistory
+										history={history}
+										key={history.workoutId}
+										exerciseId={loaderData.exerciseDetails.id}
+										exerciseLot={loaderData.exerciseDetails.lot}
+									/>
 								))}
 							</Stack>
 						</Tabs.Panel>

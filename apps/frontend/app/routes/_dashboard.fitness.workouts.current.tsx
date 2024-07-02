@@ -54,6 +54,7 @@ import {
 	ExerciseSortBy,
 	SetLot,
 	UserUnitSystem,
+	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	displayWeightWithUnit,
@@ -89,6 +90,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
@@ -97,12 +99,11 @@ import events from "~/lib/events";
 import { CurrentWorkoutKey, dayjsLib, getSetColor } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import {
-	type Exercise,
-	type ExerciseSet,
 	type InProgressWorkout,
 	currentWorkoutToCreateWorkoutInput,
 	timerAtom,
 	useCurrentWorkout,
+	useGetExerciseAtIndex,
 } from "~/lib/state/workout";
 import {
 	createToastHeaders,
@@ -243,8 +244,6 @@ export default function Page() {
 							<ReorderDrawer
 								opened={reorderDrawerOpened}
 								onClose={reorderDrawerClose}
-								// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-								exercises={currentWorkout.exercises as any}
 								key={currentWorkout.exercises.toString()}
 							/>
 							<Stack ref={parent}>
@@ -420,7 +419,6 @@ export default function Page() {
 								{currentWorkout.exercises.map((ex, idx) => (
 									<ExerciseDisplay
 										key={ex.identifier}
-										exercise={ex}
 										exerciseIdx={idx}
 										startTimer={startTimer}
 										stopTimer={stopTimer}
@@ -505,7 +503,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 const StatInput = (props: {
 	exerciseIdx: number;
 	setIdx: number;
-	stat: keyof ExerciseSet["statistic"];
+	stat: keyof WorkoutSetStatistic;
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -647,7 +645,6 @@ const SupersetExerciseModal = (props: {
 
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
-	exercise: Exercise;
 	startTimer: (
 		duration: number,
 		triggeredBy: { exerciseIdentifier: string; setIdx: number },
@@ -660,6 +657,8 @@ const ExerciseDisplay = (props: {
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
+	invariant(exercise);
 	const [currentTimer] = useAtom(timerAtom);
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -686,9 +685,7 @@ const ExerciseDisplay = (props: {
 		{ close: supersetModalClose, toggle: supersetModalToggle },
 	] = useDisclosure(false);
 
-	const [durationCol, distanceCol, weightCol, repsCol] = match(
-		props.exercise.lot,
-	)
+	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
@@ -701,10 +698,10 @@ const ExerciseDisplay = (props: {
 	return currentWorkout ? (
 		<>
 			<SupersetExerciseModal
-				exerciseIdx={props.exerciseIdx}
-				exerciseIdentifier={props.exercise.identifier}
 				opened={supersetModalOpened}
 				onClose={supersetModalClose}
+				exerciseIdx={props.exerciseIdx}
+				exerciseIdentifier={exercise.identifier}
 			/>
 			<Modal
 				opened={restTimerModalOpened}
@@ -717,7 +714,7 @@ const ExerciseDisplay = (props: {
 						label="Enabled"
 						labelPosition="left"
 						styles={{ body: { justifyContent: "space-between" } }}
-						defaultChecked={props.exercise.restTimer?.enabled}
+						defaultChecked={exercise.restTimer?.enabled}
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
@@ -726,17 +723,14 @@ const ExerciseDisplay = (props: {
 									);
 									draft.exercises[props.exerciseIdx].restTimer = {
 										enabled: v.currentTarget.checked,
-										duration:
-											props.exercise.restTimer?.duration ?? defaultDuration,
+										duration: exercise.restTimer?.duration ?? defaultDuration,
 									};
 								}),
 							);
 						}}
 					/>
 					<NumberInput
-						value={
-							currentWorkout.exercises[props.exerciseIdx].restTimer?.duration
-						}
+						value={exercise.restTimer?.duration}
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
@@ -753,9 +747,7 @@ const ExerciseDisplay = (props: {
 								}),
 							);
 						}}
-						disabled={
-							!currentWorkout.exercises[props.exerciseIdx].restTimer?.enabled
-						}
+						disabled={!exercise.restTimer?.enabled}
 						hideControls
 						suffix="s"
 						label="Duration"
@@ -778,12 +770,12 @@ const ExerciseDisplay = (props: {
 				withCloseButton={false}
 			>
 				<Stack>
-					<Text size="lg">Images for {props.exercise.exerciseId}</Text>
+					<Text size="lg">Images for {exercise.exerciseId}</Text>
 					{loaderData.coreEnabledFeatures.fileStorage ? (
 						<>
-							{props.exercise.images.length > 0 ? (
+							{exercise.images.length > 0 ? (
 								<Avatar.Group spacing="xs">
-									{props.exercise.images.map((i, imgIdx) => (
+									{exercise.images.map((i, imgIdx) => (
 										<ImageDisplay
 											key={i.key}
 											imageSrc={i.imageSrc}
@@ -876,12 +868,12 @@ const ExerciseDisplay = (props: {
 								<Anchor
 									component={Link}
 									to={$path("/fitness/exercises/item/:id", {
-										id: props.exercise.exerciseId,
+										id: exercise.exerciseId,
 									})}
 									fw="bold"
 									lineClamp={1}
 								>
-									{props.exercise.exerciseId}
+									{exercise.exerciseId}
 								</Anchor>
 								<Menu.Target>
 									<ActionIcon color="blue" mr={-10}>
@@ -889,7 +881,7 @@ const ExerciseDisplay = (props: {
 									</ActionIcon>
 								</Menu.Target>
 								{currentTimer?.triggeredBy?.exerciseIdentifier ===
-								props.exercise.identifier ? (
+								exercise.identifier ? (
 									<Progress
 										pos="absolute"
 										color="violet"
@@ -906,26 +898,22 @@ const ExerciseDisplay = (props: {
 									/>
 								) : null}
 							</Group>
-							{currentWorkout.exercises[props.exerciseIdx].notes.map(
-								(note, idx) => (
-									<NoteInput
-										key={`${
-											currentWorkout.exercises[props.exerciseIdx].identifier
-										}-${idx}`}
-										exerciseIdx={props.exerciseIdx}
-										noteIdx={idx}
-										note={note}
-									/>
-								),
-							)}
+							{exercise.notes.map((note, idx) => (
+								<NoteInput
+									key={`${exercise.identifier}-${idx}`}
+									exerciseIdx={props.exerciseIdx}
+									noteIdx={idx}
+									note={note}
+								/>
+							))}
 						</Stack>
 						<Menu.Dropdown>
 							<Menu.Item
 								leftSection={<IconZzz size={14} />}
 								onClick={restTimerModalToggle}
 								rightSection={
-									props.exercise.restTimer?.enabled
-										? `${props.exercise.restTimer.duration}s`
+									exercise.restTimer?.enabled
+										? `${exercise.restTimer.duration}s`
 										: "Off"
 								}
 							>
@@ -934,9 +922,7 @@ const ExerciseDisplay = (props: {
 							<Menu.Item
 								leftSection={<IconClipboard size={14} />}
 								rightSection={
-									props.exercise.notes.length > 0
-										? props.exercise.notes.length
-										: null
+									exercise.notes.length > 0 ? exercise.notes.length : null
 								}
 								onClick={() => {
 									setCurrentWorkout(
@@ -952,10 +938,8 @@ const ExerciseDisplay = (props: {
 								leftSection={<IconLayersIntersect size={14} />}
 								onClick={supersetModalToggle}
 								rightSection={
-									currentWorkout.exercises[props.exerciseIdx].supersetWith
-										.length > 0
-										? currentWorkout.exercises[props.exerciseIdx].supersetWith
-												.length
+									exercise.supersetWith.length > 0
+										? exercise.supersetWith.length
 										: "Off"
 								}
 							>
@@ -964,15 +948,13 @@ const ExerciseDisplay = (props: {
 							<Menu.Item
 								leftSection={<IconPhoto size={14} />}
 								rightSection={
-									props.exercise.images.length > 0
-										? props.exercise.images.length
-										: null
+									exercise.images.length > 0 ? exercise.images.length : null
 								}
 								onClick={assetsModalToggle}
 							>
 								Images
 							</Menu.Item>
-							{props.exercise.exerciseDetails.images.length > 0 ? (
+							{exercise.exerciseDetails.images.length > 0 ? (
 								<Menu.Item
 									leftSection={<IconInfoCircle size={14} />}
 									onClick={() => {
@@ -984,7 +966,7 @@ const ExerciseDisplay = (props: {
 										);
 									}}
 								>
-									{props.exercise.isShowDetailsOpen ? "Hide" : "Show"} details
+									{exercise.isShowDetailsOpen ? "Hide" : "Show"} details
 								</Menu.Item>
 							) : null}
 							<Menu.Item
@@ -992,13 +974,10 @@ const ExerciseDisplay = (props: {
 								leftSection={<IconTrash size={14} />}
 								onClick={() => {
 									const yes = confirm(
-										`This removes '${props.exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+										`This removes '${exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
 									);
 									if (yes) {
-										const assets = [
-											...props.exercise.images,
-											...props.exercise.videos,
-										];
+										const assets = [...exercise.images, ...exercise.videos];
 										for (const asset of assets) deleteUploadedAsset(asset.key);
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
@@ -1013,10 +992,10 @@ const ExerciseDisplay = (props: {
 						</Menu.Dropdown>
 					</Menu>
 					<Box ref={parent}>
-						{props.exercise.isShowDetailsOpen ? (
+						{exercise.isShowDetailsOpen ? (
 							<ScrollArea mb="md" type="scroll">
 								<Group wrap="nowrap">
-									{props.exercise.exerciseDetails.images.map((i) => (
+									{exercise.exerciseDetails.images.map((i) => (
 										<Image key={i} radius="md" src={i} h={200} w={350} />
 									))}
 								</Group>
@@ -1061,8 +1040,8 @@ const ExerciseDisplay = (props: {
 							) : null}
 							<Box w="10%" />
 						</Flex>
-						{props.exercise.sets.map((s, idx) => (
-							<Fragment key={`${props.exercise.identifier}-${idx}`}>
+						{exercise.sets.map((s, idx) => (
+							<Fragment key={`${exercise.identifier}-${idx}`}>
 								<Flex justify="space-between" align="center" py={4}>
 									<Menu>
 										<Menu.Target>
@@ -1135,10 +1114,10 @@ const ExerciseDisplay = (props: {
 										</Menu.Dropdown>
 									</Menu>
 									<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
-										{props.exercise.alreadyDoneSets[idx] ? (
+										{exercise.alreadyDoneSets[idx] ? (
 											<Box
 												onClick={() => {
-													if (props.exercise.sets[idx].confirmed) return;
+													if (exercise.sets[idx].confirmed) return;
 													const convertStringValuesToNumbers = (
 														obj: Record<string, unknown>,
 													) => {
@@ -1159,26 +1138,23 @@ const ExerciseDisplay = (props: {
 																draft.exercises[props.exerciseIdx].sets[
 																	idx
 																].statistic = convertStringValuesToNumbers(
-																	props.exercise.alreadyDoneSets[idx].statistic,
+																	exercise.alreadyDoneSets[idx].statistic,
 																);
 															}
 														}),
 													);
 												}}
 												style={
-													!props.exercise.sets[idx].confirmed
+													!exercise.sets[idx].confirmed
 														? { cursor: "pointer" }
 														: undefined
 												}
 											>
 												<DisplayExerciseStats
-													statistic={
-														props.exercise.alreadyDoneSets[idx].statistic
-													}
-													lot={props.exercise.lot}
+													statistic={exercise.alreadyDoneSets[idx].statistic}
+													lot={exercise.lot}
 													hideExtras
 													centerText
-													unit={unitSystem}
 												/>
 											</Box>
 										) : (
@@ -1231,7 +1207,7 @@ const ExerciseDisplay = (props: {
 													variant={s.confirmed ? "filled" : "outline"}
 													style={style}
 													disabled={
-														!match(props.exercise.lot)
+														!match(exercise.lot)
 															.with(
 																ExerciseLot.DistanceAndDuration,
 																() =>
@@ -1259,22 +1235,19 @@ const ExerciseDisplay = (props: {
 														if (
 															!newConfirmed &&
 															currentTimer?.triggeredBy?.exerciseIdentifier ===
-																props.exercise.identifier &&
+																exercise.identifier &&
 															currentTimer?.triggeredBy?.setIdx === idx
 														)
 															props.stopTimer();
 														if (
-															props.exercise.restTimer?.enabled &&
+															exercise.restTimer?.enabled &&
 															newConfirmed &&
 															s.lot !== SetLot.WarmUp
 														) {
-															props.startTimer(
-																props.exercise.restTimer.duration,
-																{
-																	exerciseIdentifier: props.exercise.identifier,
-																	setIdx: idx,
-																},
-															);
+															props.startTimer(exercise.restTimer.duration, {
+																exerciseIdentifier: exercise.identifier,
+																setIdx: idx,
+															});
 														}
 														setCurrentWorkout(
 															produce(currentWorkout, (draft) => {
@@ -1336,8 +1309,8 @@ const styles = {
 const TimerDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
-	startTimer: (duration: number) => void;
 	stopTimer: () => void;
+	startTimer: (duration: number) => void;
 }) => {
 	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
 
@@ -1475,14 +1448,10 @@ const TimerDrawer = (props: {
 	);
 };
 
-const ReorderDrawer = (props: {
-	opened: boolean;
-	onClose: () => void;
-	exercises: Array<Exercise>;
-}) => {
+const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [exerciseElements, exerciseElementsHandlers] = useListState(
-		props.exercises,
+		currentWorkout?.exercises || [],
 	);
 
 	useEffect(() => {

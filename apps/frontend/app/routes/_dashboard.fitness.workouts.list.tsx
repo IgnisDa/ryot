@@ -20,7 +20,6 @@ import {
 	useLoaderData,
 } from "@remix-run/react";
 import {
-	type UserUnitSystem,
 	UserWorkoutListDocument,
 	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -173,7 +172,6 @@ export default function Page() {
 													<ExerciseDisplay
 														exercise={exercise}
 														key={`${idx}-${exercise.id}`}
-														unit={unitSystem}
 													/>
 												))}
 											</>
@@ -219,12 +217,12 @@ const DisplayStat = (props: {
 
 const ExerciseDisplay = (props: {
 	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
-	unit: UserUnitSystem;
 }) => {
+	const userPreferences = useUserPreferences();
 	const [stat, _] = getSetStatisticsTextToDisplay(
 		props.exercise.lot,
 		props.exercise.bestSet.statistic,
-		props.unit,
+		userPreferences.fitness.exercises.unitSystem,
 	);
 
 	return (
