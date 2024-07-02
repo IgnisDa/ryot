@@ -86,7 +86,7 @@ import { produce } from "immer";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
@@ -104,6 +104,7 @@ import {
 	timerAtom,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
+	useGetSetAtIndex,
 } from "~/lib/state/workout";
 import {
 	createToastHeaders,
@@ -643,12 +644,14 @@ const SupersetExerciseModal = (props: {
 	) : null;
 };
 
+type FuncStartTimer = (
+	duration: number,
+	triggeredBy: { exerciseIdentifier: string; setIdx: number },
+) => void;
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
-	startTimer: (
-		duration: number,
-		triggeredBy: { exerciseIdentifier: string; setIdx: number },
-	) => void;
+	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	stopTimer: () => void;
 }) => {
@@ -660,10 +663,7 @@ const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const [currentTimer] = useAtom(timerAtom);
-	const playCheckSound = () => {
-		const sound = new Howl({ src: ["/check.mp3"] });
-		sound.play();
-	};
+
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
 		sound.play();
@@ -1040,276 +1040,19 @@ const ExerciseDisplay = (props: {
 							) : null}
 							<Box w="10%" />
 						</Flex>
-						{exercise.sets.map((s, idx) => (
-							<Fragment key={`${exercise.identifier}-${idx}`}>
-								<Flex justify="space-between" align="center" py={4}>
-									<Menu>
-										<Menu.Target>
-											<UnstyledButton w="5%">
-												<Text
-													mt={2}
-													fw="bold"
-													c={getSetColor(s.lot)}
-													ta="center"
-												>
-													{match(s.lot)
-														.with(SetLot.Normal, () => idx + 1)
-														.otherwise(() => s.lot.at(0))}
-												</Text>
-											</UnstyledButton>
-										</Menu.Target>
-										<Menu.Dropdown>
-											<Menu.Label>Set type</Menu.Label>
-											{Object.values(SetLot).map((lot) => (
-												<Menu.Item
-													key={lot}
-													disabled={s.lot === lot}
-													fz="xs"
-													leftSection={
-														<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
-															{lot.at(0)}
-														</Text>
-													}
-													onClick={() => {
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																draft.exercises[props.exerciseIdx].sets[
-																	idx
-																].lot = lot;
-															}),
-														);
-													}}
-												>
-													{startCase(snakeCase(lot))}
-												</Menu.Item>
-											))}
-											<Menu.Divider />
-											<Menu.Label>Actions</Menu.Label>
-											<Menu.Item
-												color="red"
-												fz="xs"
-												leftSection={<IconTrash size={14} />}
-												onClick={() => {
-													const yes = match(s.confirmed)
-														.with(true, () => {
-															return confirm(
-																"Are you sure you want to delete this set?",
-															);
-														})
-														.with(false, () => true)
-														.exhaustive();
-													if (yes)
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																draft.exercises[props.exerciseIdx].sets.splice(
-																	idx,
-																	1,
-																);
-															}),
-														);
-												}}
-											>
-												Delete
-											</Menu.Item>
-											<Menu.Item
-												fz="xs"
-												leftSection={<IconClipboard size={14} />}
-												onClick={() => {
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															const hasNote = !!props.exercise.sets[idx].note;
-															let currentSetNote =
-																draft.exercises[props.exerciseIdx].sets[idx]
-																	.note;
-															if (!hasNote) currentSetNote = true;
-															else currentSetNote = undefined;
-															draft.exercises[props.exerciseIdx].sets[
-																idx
-															].note = currentSetNote;
-														}),
-													);
-												}}
-											>
-												{!currentWorkout.exercises[props.exerciseIdx].sets[idx]
-													.note
-													? "Add"
-													: "Remove"}{" "}
-												note
-											</Menu.Item>
-										</Menu.Dropdown>
-									</Menu>
-									<Box w={`${85 / toBeDisplayedColumns}%`} ta="center">
-										{exercise.alreadyDoneSets[idx] ? (
-											<Box
-												onClick={() => {
-													if (exercise.sets[idx].confirmed) return;
-													const convertStringValuesToNumbers = (
-														obj: Record<string, unknown>,
-													) => {
-														const newObject = { ...obj };
-														for (const key in newObject)
-															if (
-																isString(newObject[key]) &&
-																!Number.isNaN(newObject[key])
-															)
-																newObject[key] = Number.parseFloat(
-																	newObject[key] as string,
-																);
-														return newObject;
-													};
-													setCurrentWorkout(
-														produce(currentWorkout, (draft) => {
-															if (draft) {
-																draft.exercises[props.exerciseIdx].sets[
-																	idx
-																].statistic = convertStringValuesToNumbers(
-																	exercise.alreadyDoneSets[idx].statistic,
-																);
-															}
-														}),
-													);
-												}}
-												style={
-													!exercise.sets[idx].confirmed
-														? { cursor: "pointer" }
-														: undefined
-												}
-											>
-												<DisplayExerciseStats
-													statistic={exercise.alreadyDoneSets[idx].statistic}
-													lot={exercise.lot}
-													hideExtras
-													centerText
-												/>
-											</Box>
-										) : (
-											"—"
-										)}
-									</Box>
-									{durationCol ? (
-										<StatInput
-											exerciseIdx={props.exerciseIdx}
-											setIdx={idx}
-											stat="duration"
-											inputStep={0.1}
-										/>
-									) : null}
-									{distanceCol ? (
-										<StatInput
-											exerciseIdx={props.exerciseIdx}
-											setIdx={idx}
-											stat="distance"
-											inputStep={0.01}
-										/>
-									) : null}
-									{weightCol ? (
-										<StatInput
-											exerciseIdx={props.exerciseIdx}
-											setIdx={idx}
-											stat="weight"
-										/>
-									) : null}
-									{repsCol ? (
-										<StatInput
-											exerciseIdx={props.exerciseIdx}
-											setIdx={idx}
-											stat="reps"
-										/>
-									) : null}
-									<Group w="10%" justify="center">
-										<Transition
-											mounted
-											transition={{
-												in: {},
-												out: {},
-												transitionProperty: "all",
-											}}
-											duration={200}
-											timingFunction="ease-in-out"
-										>
-											{(style) => (
-												<ActionIcon
-													variant={s.confirmed ? "filled" : "outline"}
-													style={style}
-													disabled={
-														!match(exercise.lot)
-															.with(
-																ExerciseLot.DistanceAndDuration,
-																() =>
-																	isNumber(s.statistic.distance) &&
-																	isNumber(s.statistic.duration),
-															)
-															.with(ExerciseLot.Duration, () =>
-																isNumber(s.statistic.duration),
-															)
-															.with(ExerciseLot.Reps, () =>
-																isNumber(s.statistic.reps),
-															)
-															.with(
-																ExerciseLot.RepsAndWeight,
-																() =>
-																	isNumber(s.statistic.reps) &&
-																	isNumber(s.statistic.weight),
-															)
-															.exhaustive()
-													}
-													color="green"
-													onClick={() => {
-														playCheckSound();
-														const newConfirmed = !s.confirmed;
-														if (
-															!newConfirmed &&
-															currentTimer?.triggeredBy?.exerciseIdentifier ===
-																exercise.identifier &&
-															currentTimer?.triggeredBy?.setIdx === idx
-														)
-															props.stopTimer();
-														if (
-															exercise.restTimer?.enabled &&
-															newConfirmed &&
-															s.lot !== SetLot.WarmUp
-														) {
-															props.startTimer(exercise.restTimer.duration, {
-																exerciseIdentifier: exercise.identifier,
-																setIdx: idx,
-															});
-														}
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																const currentExercise =
-																	draft.exercises[props.exerciseIdx];
-																currentExercise.sets[idx].confirmed =
-																	newConfirmed;
-																currentExercise.sets[idx].confirmedAt =
-																	dayjsLib().toISOString();
-															}),
-														);
-													}}
-													data-statistics={JSON.stringify(s.statistic)}
-												>
-													<IconCheck />
-												</ActionIcon>
-											)}
-										</Transition>
-									</Group>
-								</Flex>
-								{s.note ? (
-									<TextInput
-										my={4}
-										size="xs"
-										value={typeof s.note === "string" ? s.note : ""}
-										onChange={(v) => {
-											const value = v.currentTarget.value;
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													draft.exercises[props.exerciseIdx].sets[idx].note =
-														value;
-												}),
-											);
-										}}
-									/>
-								) : undefined}
-							</Fragment>
+						{exercise.sets.map((_, idx) => (
+							<SetDisplay
+								setIdx={idx}
+								repsCol={repsCol}
+								weightCol={weightCol}
+								distanceCol={distanceCol}
+								durationCol={durationCol}
+								stopTimer={props.stopTimer}
+								startTimer={props.startTimer}
+								exerciseIdx={props.exerciseIdx}
+								key={`${exercise.identifier}-${idx}`}
+								toBeDisplayedColumns={toBeDisplayedColumns}
+							/>
 						))}
 					</Box>
 					<Button
@@ -1338,12 +1081,291 @@ const ExerciseDisplay = (props: {
 	) : null;
 };
 
+const SetDisplay = (props: {
+	setIdx: number;
+	repsCol: boolean;
+	weightCol: boolean;
+	exerciseIdx: number;
+	durationCol: boolean;
+	distanceCol: boolean;
+	stopTimer: () => void;
+	startTimer: FuncStartTimer;
+	toBeDisplayedColumns: number;
+}) => {
+	const [currentTimer, _] = useAtom(timerAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
+	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	const playCheckSound = () => {
+		const sound = new Howl({ src: ["/check.mp3"] });
+		sound.play();
+	};
+
+	return currentWorkout && exercise && set ? (
+		<Box>
+			<Flex justify="space-between" align="center" py={4}>
+				<Menu>
+					<Menu.Target>
+						<UnstyledButton w="5%">
+							<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
+								{match(set.lot)
+									.with(SetLot.Normal, () => props.setIdx + 1)
+									.otherwise(() => set.lot.at(0))}
+							</Text>
+						</UnstyledButton>
+					</Menu.Target>
+					<Menu.Dropdown>
+						<Menu.Label>Set type</Menu.Label>
+						{Object.values(SetLot).map((lot) => (
+							<Menu.Item
+								key={lot}
+								disabled={set.lot === lot}
+								fz="xs"
+								leftSection={
+									<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
+										{lot.at(0)}
+									</Text>
+								}
+								onClick={() => {
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.exercises[props.exerciseIdx].sets[
+												props.setIdx
+											].lot = lot;
+										}),
+									);
+								}}
+							>
+								{startCase(snakeCase(lot))}
+							</Menu.Item>
+						))}
+						<Menu.Divider />
+						<Menu.Label>Actions</Menu.Label>
+						<Menu.Item
+							fz="xs"
+							leftSection={<IconClipboard size={14} />}
+							onClick={() => {
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const hasNote = !!set.note;
+										let currentSetNote =
+											draft.exercises[props.exerciseIdx].sets[props.setIdx]
+												.note;
+										if (!hasNote) currentSetNote = true;
+										else currentSetNote = undefined;
+										draft.exercises[props.exerciseIdx].sets[props.setIdx].note =
+											currentSetNote;
+									}),
+								);
+							}}
+						>
+							{!set.note ? "Add" : "Remove"} note
+						</Menu.Item>
+						<Menu.Item
+							color="red"
+							fz="xs"
+							leftSection={<IconTrash size={14} />}
+							onClick={() => {
+								const yes = match(set.confirmed)
+									.with(true, () => {
+										return confirm("Are you sure you want to delete this set?");
+									})
+									.with(false, () => true)
+									.exhaustive();
+								if (yes)
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.exercises[props.exerciseIdx].sets.splice(
+												props.setIdx,
+												1,
+											);
+										}),
+									);
+							}}
+						>
+							Delete
+						</Menu.Item>
+					</Menu.Dropdown>
+				</Menu>
+				<Box w={`${85 / props.toBeDisplayedColumns}%`} ta="center">
+					{exercise.alreadyDoneSets[props.setIdx] ? (
+						<Box
+							onClick={() => {
+								if (exercise.sets[props.setIdx].confirmed) return;
+								const convertStringValuesToNumbers = (
+									obj: Record<string, unknown>,
+								) => {
+									const newObject = { ...obj };
+									for (const key in newObject)
+										if (
+											isString(newObject[key]) &&
+											!Number.isNaN(newObject[key])
+										)
+											newObject[key] = Number.parseFloat(
+												newObject[key] as string,
+											);
+									return newObject;
+								};
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										if (draft) {
+											draft.exercises[props.exerciseIdx].sets[
+												props.setIdx
+											].statistic = convertStringValuesToNumbers(
+												exercise.alreadyDoneSets[props.setIdx].statistic,
+											);
+										}
+									}),
+								);
+							}}
+							style={
+								!exercise.sets[props.setIdx].confirmed
+									? { cursor: "pointer" }
+									: undefined
+							}
+						>
+							<DisplayExerciseStats
+								statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
+								lot={exercise.lot}
+								hideExtras
+								centerText
+							/>
+						</Box>
+					) : (
+						"—"
+					)}
+				</Box>
+				{props.durationCol ? (
+					<StatInput
+						exerciseIdx={props.exerciseIdx}
+						setIdx={props.setIdx}
+						stat="duration"
+						inputStep={0.1}
+					/>
+				) : null}
+				{props.distanceCol ? (
+					<StatInput
+						exerciseIdx={props.exerciseIdx}
+						setIdx={props.setIdx}
+						stat="distance"
+						inputStep={0.01}
+					/>
+				) : null}
+				{props.weightCol ? (
+					<StatInput
+						exerciseIdx={props.exerciseIdx}
+						setIdx={props.setIdx}
+						stat="weight"
+					/>
+				) : null}
+				{props.repsCol ? (
+					<StatInput
+						exerciseIdx={props.exerciseIdx}
+						setIdx={props.setIdx}
+						stat="reps"
+					/>
+				) : null}
+				<Group w="10%" justify="center">
+					<Transition
+						mounted
+						transition={{
+							in: {},
+							out: {},
+							transitionProperty: "all",
+						}}
+						duration={200}
+						timingFunction="ease-in-out"
+					>
+						{(style) => (
+							<ActionIcon
+								variant={set.confirmed ? "filled" : "outline"}
+								style={style}
+								disabled={
+									!match(exercise.lot)
+										.with(
+											ExerciseLot.DistanceAndDuration,
+											() =>
+												isNumber(set.statistic.distance) &&
+												isNumber(set.statistic.duration),
+										)
+										.with(ExerciseLot.Duration, () =>
+											isNumber(set.statistic.duration),
+										)
+										.with(ExerciseLot.Reps, () => isNumber(set.statistic.reps))
+										.with(
+											ExerciseLot.RepsAndWeight,
+											() =>
+												isNumber(set.statistic.reps) &&
+												isNumber(set.statistic.weight),
+										)
+										.exhaustive()
+								}
+								color="green"
+								onClick={() => {
+									playCheckSound();
+									const newConfirmed = !set.confirmed;
+									if (
+										!newConfirmed &&
+										currentTimer?.triggeredBy?.exerciseIdentifier ===
+											exercise.identifier &&
+										currentTimer?.triggeredBy?.setIdx === props.setIdx
+									)
+										props.stopTimer();
+									if (
+										exercise.restTimer?.enabled &&
+										newConfirmed &&
+										set.lot !== SetLot.WarmUp
+									) {
+										props.startTimer(exercise.restTimer.duration, {
+											exerciseIdentifier: exercise.identifier,
+											setIdx: props.setIdx,
+										});
+									}
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											const currentExercise =
+												draft.exercises[props.exerciseIdx];
+											currentExercise.sets[props.setIdx].confirmed =
+												newConfirmed;
+											currentExercise.sets[props.setIdx].confirmedAt =
+												dayjsLib().toISOString();
+										}),
+									);
+								}}
+								data-statistics={JSON.stringify(set.statistic)}
+							>
+								<IconCheck />
+							</ActionIcon>
+						)}
+					</Transition>
+				</Group>
+			</Flex>
+			{set.note ? (
+				<TextInput
+					my={4}
+					size="xs"
+					value={isString(set.note) ? set.note : ""}
+					onChange={(v) => {
+						const value = v.currentTarget.value;
+						setCurrentWorkout(
+							produce(currentWorkout, (draft) => {
+								draft.exercises[props.exerciseIdx].sets[props.setIdx].note =
+									value;
+							}),
+						);
+					}}
+				/>
+			) : undefined}
+		</Box>
+	) : null;
+};
+
 const styles = {
 	body: {
-		display: "flex",
 		height: "80%",
-		justifyContent: "center",
+		display: "flex",
 		alignItems: "center",
+		justifyContent: "center",
 	},
 };
 
