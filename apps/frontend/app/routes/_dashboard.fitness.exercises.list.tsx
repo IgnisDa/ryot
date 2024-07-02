@@ -49,7 +49,6 @@ import {
 	IconFilterOff,
 	IconPlus,
 } from "@tabler/icons-react";
-import { useAtom } from "jotai";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
@@ -59,7 +58,7 @@ import {
 	useSearchParam,
 	useUserCollections,
 } from "~/lib/hooks";
-import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/state/workout";
+import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -144,7 +143,7 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")

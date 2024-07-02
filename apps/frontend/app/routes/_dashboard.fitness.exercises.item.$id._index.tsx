@@ -45,7 +45,6 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
-import { useAtom } from "jotai";
 import { Fragment } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -57,7 +56,7 @@ import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection } from "~/lib/state/media";
-import { addExerciseToWorkout, currentWorkoutAtom } from "~/lib/state/workout";
+import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -97,7 +96,7 @@ export default function Page() {
 	const canCurrentUserUpdate =
 		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === loaderData.exerciseDetails.createdByUserId;
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 
