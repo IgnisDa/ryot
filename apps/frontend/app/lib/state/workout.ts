@@ -67,6 +67,11 @@ export const useGetExerciseAtIndex = (exerciseIdx: number) => {
 	return currentWorkout?.exercises[exerciseIdx];
 };
 
+export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
+	const exercise = useGetExerciseAtIndex(exerciseIdx);
+	return exercise?.sets[setIdx];
+};
+
 function getTimeOfDay(date: Date) {
 	const hours = date.getHours();
 	if (hours >= 5 && hours < 12) return "Morning";
