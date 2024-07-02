@@ -14,7 +14,11 @@ import { createDraft, finishDraft } from "immer";
 import { useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
-import { CurrentWorkoutKey, clientGqlService } from "~/lib/generals";
+import {
+	CurrentWorkoutKey,
+	clientGqlService,
+	queryClient,
+} from "~/lib/generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
@@ -91,18 +95,30 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 	};
 };
 
-export const getExerciseDetails = async (exerciseId: string) => {
-	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
-		clientGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-		clientGqlService.request(UserExerciseDetailsDocument, {
-			input: { exerciseId, takeHistory: 1 },
-		}),
+export const getExerciseDetailsQuery = (exerciseId: string) =>
+	({
+		queryKey: ["exerciseDetails", exerciseId],
+		queryFn: () =>
+			clientGqlService
+				.request(ExerciseDetailsDocument, { exerciseId })
+				.then((data) => data.exerciseDetails),
+	}) as const;
+
+export const getUserExerciseDetailsQuery = (exerciseId: string) =>
+	({
+		queryKey: ["userExerciseDetails", exerciseId],
+		queryFn: () =>
+			clientGqlService
+				.request(UserExerciseDetailsDocument, { input: { exerciseId } })
+				.then((data) => data.userExerciseDetails),
+	}) as const;
+
+const getExerciseDetails = async (exerciseId: string) => {
+	const [details, userDetails] = await Promise.all([
+		queryClient.ensureQueryData(getExerciseDetailsQuery(exerciseId)),
+		queryClient.ensureQueryData(getUserExerciseDetailsQuery(exerciseId)),
 	]);
-	const json = {
-		details: { images: exerciseDetails.attributes.images },
-		history: userExerciseDetails.history,
-	};
-	return json;
+	return { details, userDetails };
 };
 
 export const duplicateOldWorkout = async (
@@ -131,7 +147,7 @@ export const duplicateOldWorkout = async (
 		inProgress.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: false,
-			exerciseDetails: { images: exerciseDetails.details.images },
+			exerciseDetails: { images: exerciseDetails.details.attributes.images },
 			images: [],
 			videos: [],
 			// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -162,12 +178,14 @@ export const addExerciseToWorkout = async (
 ) => {
 	const draft = createDraft(currentWorkout);
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
-		const userExerciseDetails = await getExerciseDetails(ex.name);
+		const exerciseDetails = await getExerciseDetails(ex.name);
 		draft.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: false,
 			exerciseId: ex.name,
-			exerciseDetails: { images: userExerciseDetails.details.images },
+			exerciseDetails: {
+				images: exerciseDetails.details.attributes.images,
+			},
 			lot: ex.lot,
 			sets: [
 				{
@@ -178,7 +196,7 @@ export const addExerciseToWorkout = async (
 			],
 			supersetWith: [],
 			alreadyDoneSets:
-				userExerciseDetails.history?.at(0)?.sets.map((s) => ({
+				exerciseDetails.userDetails.history?.at(0)?.sets.map((s) => ({
 					// biome-ignore lint/suspicious/noExplicitAny: required here
 					statistic: s.statistic as any,
 				})) || [],

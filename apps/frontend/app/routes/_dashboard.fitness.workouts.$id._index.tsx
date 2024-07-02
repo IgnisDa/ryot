@@ -69,7 +69,10 @@ import {
 	useGetMantineColor,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { duplicateOldWorkout, getExerciseDetails } from "~/lib/state/workout";
+import {
+	duplicateOldWorkout,
+	getExerciseDetailsQuery,
+} from "~/lib/state/workout";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -365,14 +368,9 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
-	const exerciseDetails = useQuery({
-		queryKey: ["exerciseDetails", props.exercise.name],
-		queryFn: async () => {
-			const exerciseDetails = await getExerciseDetails(props.exercise.name);
-			return exerciseDetails;
-		},
-		staleTime: Number.POSITIVE_INFINITY,
-	});
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.name),
+	);
 
 	const supersetLinks =
 		props.exercise.supersetWith.length > 0
@@ -463,10 +461,10 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 								</Flex>
 							) : null}
 						</SimpleGrid>
-						{exerciseDetails.data ? (
+						{exerciseDetails ? (
 							<ScrollArea type="scroll">
 								<Flex gap="lg">
-									{exerciseDetails.data.details.images.map((i) => (
+									{exerciseDetails.attributes.images.map((i) => (
 										<Image key={i} radius="md" src={i} h={200} w={350} />
 									))}
 								</Flex>
