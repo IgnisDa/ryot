@@ -23,7 +23,11 @@ import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
 import { type ReactNode, useRef } from "react";
 import { useState } from "react";
 import { withFragment, withoutHost } from "ufo";
-import { getFallbackImageUrl, redirectToQueryParam } from "~/lib/generals";
+import {
+	getFallbackImageUrl,
+	getSurroundingElements,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import { useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
@@ -36,17 +40,6 @@ export const ApplicationGrid = (props: {
 		</SimpleGrid>
 	);
 };
-
-function getSurroundingElements<T>(
-	array: Array<T>,
-	element: number,
-): Array<number> {
-	if (array.length === 1) return [0];
-	const lastIndex = array.length - 1;
-	if (element === 0) return [lastIndex, element, element + 1];
-	if (element === lastIndex) return [element - 1, element, 0];
-	return [element - 1, element, element + 1];
-}
 
 export const MediaDetailsLayout = (props: {
 	children: Array<ReactNode | (ReactNode | undefined)>;
