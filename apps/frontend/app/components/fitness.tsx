@@ -1,11 +1,18 @@
-import { Text } from "@mantine/core";
+import { $path } from "@ignisda/remix-routes";
+import { Anchor, Flex, Paper, Text } from "@mantine/core";
+import { Link } from "@remix-run/react";
 import {
 	ExerciseLot,
+	SetLot,
+	type UserExerciseDetailsQuery,
 	type UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { displayDistanceWithUnit, displayWeightWithUnit } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
+import { withFragment } from "ufo";
+import { dayjsLib, getSetColor } from "~/lib/generals";
+import { useUserPreferences } from "~/lib/hooks";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
@@ -39,15 +46,17 @@ export const getSetStatisticsTextToDisplay = (
 export const DisplayExerciseStats = (props: {
 	lot: ExerciseLot;
 	statistic: WorkoutSetStatistic;
-	unit: UserUnitSystem;
 	hideExtras?: boolean;
 	centerText?: boolean;
 }) => {
+	const userPreferences = useUserPreferences();
+	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [first, second] = getSetStatisticsTextToDisplay(
 		props.lot,
 		props.statistic,
-		props.unit,
+		unitSystem,
 	);
+
 	return (
 		<>
 			<Text
@@ -66,5 +75,44 @@ export const DisplayExerciseStats = (props: {
 				</Text>
 			) : null}
 		</>
+	);
+};
+
+export const ExerciseHistory = (props: {
+	exerciseId: string;
+	exerciseLot: ExerciseLot;
+	history: NonNullable<
+		UserExerciseDetailsQuery["userExerciseDetails"]["history"]
+	>[number];
+}) => {
+	return (
+		<Paper key={props.history.workoutId} withBorder p="xs">
+			<Anchor
+				component={Link}
+				to={withFragment(
+					$path("/fitness/workouts/:id", { id: props.history.workoutId }),
+					`${props.exerciseId}__${props.history.index}`,
+				)}
+				fw="bold"
+			>
+				{props.history.workoutName}
+			</Anchor>
+			<Text c="dimmed" fz="sm" mb="xs">
+				{dayjsLib(props.history.workoutTime).format("LLLL")}
+			</Text>
+			{props.history.sets.map((s, idx) => (
+				<Flex key={`${idx}-${s.lot}`} align="center">
+					<Text fz="sm" c={getSetColor(s.lot)} mr="md" fw="bold" ff="monospace">
+						{match(s.lot)
+							.with(SetLot.Normal, () => idx + 1)
+							.otherwise(() => s.lot.at(0))}
+					</Text>
+					<DisplayExerciseStats
+						lot={props.exerciseLot}
+						statistic={s.statistic}
+					/>
+				</Flex>
+			))}
+		</Paper>
 	);
 };

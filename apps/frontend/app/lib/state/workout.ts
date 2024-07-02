@@ -61,9 +61,11 @@ const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
 	null,
 );
 
-export const useCurrentWorkout = () => {
-	const [currentWorkout, setCurrentWorkout] = useAtom(currentWorkoutAtom);
-	return [currentWorkout, setCurrentWorkout] as const;
+export const useCurrentWorkout = () => useAtom(currentWorkoutAtom);
+
+export const useGetExerciseAtIndex = (exerciseIdx: number) => {
+	const [currentWorkout] = useCurrentWorkout();
+	return currentWorkout?.exercises[exerciseIdx];
 };
 
 function getTimeOfDay(date: Date) {

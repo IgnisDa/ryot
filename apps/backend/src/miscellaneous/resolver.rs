@@ -1142,7 +1142,8 @@ impl MiscellaneousMutation {
             .map(|m| StringIdObject { id: m.id })
     }
 
-    /// Deploy job to update progress of media items in bulk.
+    /// Deploy job to update progress of media items in bulk. For seen items in progress,
+    /// progress is updated only if it has actually changed.
     async fn deploy_bulk_progress_update(
         &self,
         gql_ctx: &Context<'_>,
@@ -2414,8 +2415,13 @@ impl MiscellaneousService {
         };
         let seen = match action {
             ProgressUpdateAction::Update => {
-                let progress = input.progress.unwrap();
                 let prev_seen = all_prev_seen[0].clone();
+                let progress = input.progress.unwrap();
+                if prev_seen.progress == progress {
+                    return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                        error: ProgressUpdateErrorVariant::UpdateWithoutProgressUpdate,
+                    }));
+                }
                 let watched_on = prev_seen.provider_watched_on.clone();
                 let mut updated_at = prev_seen.updated_at.clone();
                 let now = Utc::now();
