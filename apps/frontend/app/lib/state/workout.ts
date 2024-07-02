@@ -123,7 +123,10 @@ const getExerciseDetails = async (exerciseId: string) => {
 type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
 
 export const convertHistorySetToCurrentSet = (
-	s: TWorkoutDetails["information"]["exercises"][number]["sets"][number],
+	s: Pick<
+		TWorkoutDetails["information"]["exercises"][number]["sets"][number],
+		"statistic" | "lot"
+	>,
 ) =>
 	({
 		lot: s.lot,
