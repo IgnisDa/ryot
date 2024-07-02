@@ -513,7 +513,7 @@ const DisplaySet = (props: {
 	const [opened, { close, open }] = useDisclosure(false);
 
 	return (
-		<Box key={`${props.idx}`} mb={2}>
+		<Box key={`${props.idx}`} mb={props.set.note ? 6 : 2}>
 			<Flex align="center">
 				<Text
 					fz="sm"
@@ -559,6 +559,7 @@ const DisplaySet = (props: {
 					statistic={props.set.statistic}
 				/>
 			</Flex>
+			{props.set.note ? <Text c="dimmed">{props.set.note}</Text> : null}
 		</Box>
 	);
 };

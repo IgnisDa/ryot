@@ -1,5 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
-import { Anchor, Flex, Paper, Text } from "@mantine/core";
+import { ActionIcon, Anchor, Flex, Group, Paper, Text } from "@mantine/core";
 import { Link } from "@remix-run/react";
 import {
 	ExerciseLot,
@@ -13,6 +13,7 @@ import {
 	displayWeightWithUnit,
 	truncate,
 } from "@ryot/ts-utils";
+import { IconArrowLeftToArc } from "@tabler/icons-react";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { dayjsLib, getSetColor } from "~/lib/generals";
@@ -88,19 +89,27 @@ export const ExerciseHistory = (props: {
 	history: NonNullable<
 		UserExerciseDetailsQuery["userExerciseDetails"]["history"]
 	>[number];
+	onCopyButtonClick?: () => Promise<void>;
 }) => {
 	return (
 		<Paper key={props.history.workoutId} withBorder p="xs">
-			<Anchor
-				component={Link}
-				to={withFragment(
-					$path("/fitness/workouts/:id", { id: props.history.workoutId }),
-					`${props.exerciseId}__${props.history.index}`,
-				)}
-				fw="bold"
-			>
-				{truncate(props.history.workoutName, { length: 36 })}
-			</Anchor>
+			<Group justify="space-between" wrap="nowrap">
+				<Anchor
+					component={Link}
+					to={withFragment(
+						$path("/fitness/workouts/:id", { id: props.history.workoutId }),
+						`${props.exerciseId}__${props.history.index}`,
+					)}
+					fw="bold"
+				>
+					{truncate(props.history.workoutName, { length: 36 })}
+				</Anchor>
+				{props.onCopyButtonClick ? (
+					<ActionIcon onClick={props.onCopyButtonClick} size="sm">
+						<IconArrowLeftToArc size={16} />
+					</ActionIcon>
+				) : null}
+			</Group>
 			<Text c="dimmed" fz="sm" mb="xs">
 				{dayjsLib(props.history.workoutTime).format("LLLL")}
 			</Text>

@@ -70,8 +70,14 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
-import { Fragment, type ReactNode, useState } from "react";
-import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
+import {
+	Fragment,
+	type ReactNode,
+	type RefObject,
+	useRef,
+	useState,
+} from "react";
+import { GroupedVirtuoso, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -222,6 +228,8 @@ export default function Page() {
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
+	const podcastVirtuosoRef = useRef<VirtuosoHandle>(null);
+	const showVirtuosoRef = useRef<VirtuosoHandle>(null);
 	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
@@ -965,9 +973,12 @@ export default function Page() {
 									data={loaderData.userMetadataDetails.history}
 									itemContent={(index, history) => (
 										<SeenItem
-											history={history}
-											key={history.id}
 											index={index}
+											setTab={setTab}
+											key={history.id}
+											history={history}
+											showVirtuosoRef={showVirtuosoRef}
+											podcastVirtuosoRef={podcastVirtuosoRef}
 										/>
 									)}
 								/>
@@ -981,6 +992,7 @@ export default function Page() {
 						loaderData.userMetadataDetails.showProgress ? (
 							<Box h={MEDIA_DETAILS_HEIGHT}>
 								<GroupedVirtuoso
+									ref={showVirtuosoRef}
 									groupCounts={loaderData.metadataDetails.showSpecifics.seasons.map(
 										(season) => season.episodes.length,
 									)}
@@ -1012,6 +1024,7 @@ export default function Page() {
 					{loaderData.metadataDetails.podcastSpecifics ? (
 						<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
 							<Virtuoso
+								ref={podcastVirtuosoRef}
 								data={loaderData.metadataDetails.podcastSpecifics.episodes}
 								itemContent={(podcastEpisodeIdx, podcastEpisode) => (
 									<DisplayPodcastEpisode
@@ -1251,7 +1264,15 @@ const MergeMetadataModal = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
-const SeenItem = (props: { history: History; index: number }) => {
+type PossibleTab = "showSeasons" | "podcastEpisodes";
+
+const SeenItem = (props: {
+	index: number;
+	history: History;
+	showVirtuosoRef: RefObject<VirtuosoHandle>;
+	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
+	setTab: (tab: PossibleTab) => void;
+}) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
@@ -1264,17 +1285,52 @@ const SeenItem = (props: { history: History; index: number }) => {
 						e.episodeNumber === props.history.showExtraInformation?.episode,
 				)
 		: null;
-	const displayShowExtraInformation = showExtraInformation
-		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
-		: null;
+	const scrollToEpisode = (tab: PossibleTab, index?: number) => {
+		props.setTab(tab);
+		if (!isNumber(index)) return;
+		setTimeout(() => {
+			const current = match(tab)
+				.with("showSeasons", () => props.showVirtuosoRef.current)
+				.with("podcastEpisodes", () => props.podcastVirtuosoRef.current)
+				.exhaustive();
+			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
+		}, 500);
+	};
+	const displayShowExtraInformation = showExtraInformation ? (
+		<Anchor
+			onClick={() =>
+				scrollToEpisode(
+					"showSeasons",
+					loaderData.metadataDetails.showSpecifics?.seasons
+						.flatMap((s) => s.episodes)
+						.findIndex((e) => e.id === showExtraInformation.id),
+				)
+			}
+		>
+			S{props.history.showExtraInformation?.season}-E
+			{props.history.showExtraInformation?.episode}: {showExtraInformation.name}
+		</Anchor>
+	) : null;
 	const podcastExtraInformation = props.history.podcastExtraInformation
 		? loaderData.metadataDetails.podcastSpecifics?.episodes.find(
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
 			)
 		: null;
-	const displayPodcastExtraInformation = podcastExtraInformation
-		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
-		: null;
+	const displayPodcastExtraInformation = podcastExtraInformation ? (
+		<Anchor
+			onClick={() =>
+				scrollToEpisode(
+					"podcastEpisodes",
+					loaderData.metadataDetails.podcastSpecifics?.episodes.findIndex(
+						(e) => e.number === podcastExtraInformation.number,
+					),
+				)
+			}
+		>
+			EP-{props.history.podcastExtraInformation?.episode}:{" "}
+			{podcastExtraInformation.title}
+		</Anchor>
+	) : null;
 	const displayAnimeExtraInformation = isNumber(
 		props.history.animeExtraInformation?.episode,
 	)

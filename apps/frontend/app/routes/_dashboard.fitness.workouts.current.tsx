@@ -1,8 +1,10 @@
 // biome-ignore lint/style/useNodejsImportProtocol: This is a browser import
 import { Buffer } from "buffer";
+import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { $path } from "@ignisda/remix-routes";
+import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
 	Anchor,
@@ -71,6 +73,7 @@ import {
 	IconCameraRotate,
 	IconCheck,
 	IconClipboard,
+	IconClock,
 	IconDotsVertical,
 	IconDroplet,
 	IconDropletFilled,
@@ -81,6 +84,7 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
@@ -95,14 +99,21 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
-import { DisplayExerciseStats } from "~/components/fitness";
+import { DisplayExerciseStats, ExerciseHistory } from "~/components/fitness";
 import events from "~/lib/events";
-import { CurrentWorkoutKey, dayjsLib, getSetColor } from "~/lib/generals";
+import {
+	CurrentWorkoutKey,
+	dayjsLib,
+	getSetColor,
+	getSurroundingElements,
+} from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import {
 	type InProgressWorkout,
+	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	exerciseHasDetailsToShow,
+	getUserExerciseDetailsQuery,
 	timerAtom,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
@@ -666,6 +677,15 @@ const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const [currentTimer] = useAtom(timerAtom);
+	const [openedDetails, toggleOpenedDetails] = useToggle([
+		"images",
+		"history",
+	] as const);
+	const [detailsParent] = useAutoAnimate();
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(exercise.exerciseId),
+	);
+	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -689,13 +709,13 @@ const ExerciseDisplay = (props: {
 		{ close: supersetModalClose, toggle: supersetModalToggle },
 	] = useDisclosure(false);
 
+	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
 		.exhaustive();
-
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
@@ -990,13 +1010,81 @@ const ExerciseDisplay = (props: {
 					</Menu>
 					<Box ref={parent}>
 						{exercise.isShowDetailsOpen ? (
-							<ScrollArea mb="md" type="scroll">
-								<Group wrap="nowrap">
-									{exercise.exerciseDetails.images.map((i) => (
-										<Image key={i} radius="md" src={i} h={200} w={350} />
-									))}
-								</Group>
-							</ScrollArea>
+							<Box mb="md" ref={detailsParent} pos="relative">
+								{match(openedDetails)
+									.with("images", () => (
+										<ScrollArea type="scroll">
+											<Group wrap="nowrap">
+												{exercise.exerciseDetails.images.map((i) => (
+													<Image key={i} radius="md" src={i} h={200} w={350} />
+												))}
+											</Group>
+										</ScrollArea>
+									))
+									.with("history", () => (
+										<Carousel
+											align="start"
+											slideGap="md"
+											withControls={false}
+											style={{ userSelect: "none" }}
+											onSlideChange={setActiveHistoryIdx}
+											slideSize={{ base: "100%", md: "50%" }}
+										>
+											{exerciseHistory?.map((history, idx) => (
+												<Carousel.Slide
+													key={`${history.workoutId}-${history.index}`}
+												>
+													{getSurroundingElements(
+														exerciseHistory,
+														activeHistoryIdx,
+													).includes(idx) ? (
+														<ExerciseHistory
+															history={history}
+															exerciseLot={exercise.lot}
+															exerciseId={exercise.exerciseId}
+															onCopyButtonClick={async () => {
+																const yes = await confirmWrapper({
+																	confirmation: `Are you sure you want to copy all sets from "${history.workoutName}"?`,
+																});
+																if (yes) {
+																	const sets = history.sets;
+																	const converted = sets.map(
+																		convertHistorySetToCurrentSet,
+																	);
+																	setCurrentWorkout(
+																		produce(currentWorkout, (draft) => {
+																			draft.exercises[
+																				props.exerciseIdx
+																			].sets.push(...converted);
+																		}),
+																	);
+																}
+															}}
+														/>
+													) : null}
+												</Carousel.Slide>
+											))}
+										</Carousel>
+									))
+									.exhaustive()}
+								{(userExerciseDetails?.history?.length || 0) > 0 ? (
+									<ActionIcon
+										right={10}
+										bottom={10}
+										variant="filled"
+										color="red"
+										size="sm"
+										pos="absolute"
+										p={2}
+										onClick={() => toggleOpenedDetails()}
+									>
+										{match(openedDetails)
+											.with("images", () => <IconPhoto />)
+											.with("history", () => <IconClock />)
+											.exhaustive()}
+									</ActionIcon>
+								) : null}
+							</Box>
 						) : null}
 						<Flex justify="space-between" align="center" mb="xs">
 							<Text size="xs" w="5%" ta="center">
@@ -1092,10 +1180,20 @@ const SetDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
 		sound.play();
 	};
+
+	useDidUpdate(() => {
+		if (currentWorkout && isString(value))
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.exercises[props.exerciseIdx].sets[props.setIdx].note = value;
+				}),
+			);
+	}, [value]);
 
 	return currentWorkout && exercise && set ? (
 		<Box>
@@ -1302,6 +1400,18 @@ const SetDisplay = (props: {
 												draft.exercises[props.exerciseIdx];
 											currentExercise.sets[props.setIdx].confirmedAt =
 												newConfirmed ? dayjsLib().toISOString() : null;
+											const isLastSet =
+												props.setIdx === currentExercise.sets.length - 1;
+											const nextExercise =
+												draft.exercises[props.exerciseIdx + 1];
+											if (newConfirmed && isLastSet) {
+												currentExercise.isShowDetailsOpen = false;
+												if (
+													nextExercise &&
+													exerciseHasDetailsToShow(nextExercise)
+												)
+													nextExercise.isShowDetailsOpen = true;
+											}
 										}),
 									);
 								}}
@@ -1317,16 +1427,8 @@ const SetDisplay = (props: {
 				<TextInput
 					my={4}
 					size="xs"
-					value={isString(set.note) ? set.note : ""}
-					onChange={(v) => {
-						const value = v.currentTarget.value;
-						setCurrentWorkout(
-							produce(currentWorkout, (draft) => {
-								draft.exercises[props.exerciseIdx].sets[props.setIdx].note =
-									value;
-							}),
-						);
-					}}
+					defaultValue={isString(set.note) ? set.note : ""}
+					onChange={(v) => setValue(v.currentTarget.value)}
 				/>
 			) : undefined}
 		</Box>

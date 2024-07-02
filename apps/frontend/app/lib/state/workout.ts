@@ -9,6 +9,7 @@ import {
 	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
+import { isString } from "@ryot/ts-utils";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { useAtom } from "jotai";
@@ -139,12 +140,12 @@ export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = workout.name;
 	inProgress.repeatedFrom = workout.id;
-	for (const [_exerciseIdx, ex] of workout.information.exercises.entries()) {
+	for (const [exerciseIdx, ex] of workout.information.exercises.entries()) {
 		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
+			isShowDetailsOpen: exerciseIdx === 0,
 			exerciseDetails: { images: exerciseDetails.details.attributes.images },
 			images: [],
 			videos: [],
@@ -177,7 +178,7 @@ export const addExerciseToWorkout = async (
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		draft.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
+			isShowDetailsOpen: true,
 			exerciseId: ex.name,
 			exerciseDetails: {
 				images: exerciseDetails.details.attributes.images,
@@ -221,7 +222,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
 			if (set.confirmedAt) {
-				const note = typeof set.note === "string" ? set.note : undefined;
+				const note = isString(set.note) ? set.note : undefined;
 				sets.push({
 					note,
 					lot: set.lot,
