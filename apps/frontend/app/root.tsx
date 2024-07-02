@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Alert,
@@ -14,6 +15,7 @@ import {
 	type MetaFunction,
 	unstable_defineLoader,
 } from "@remix-run/node";
+import { Form } from "@remix-run/react";
 import {
 	Links,
 	Meta,
@@ -161,37 +163,37 @@ export default function App() {
 	);
 }
 
-// export function ErrorBoundary() {
-// 	return (
-// 		<html lang="en">
-// 			<head>
-// 				<DefaultHeadTags />
-// 				<Meta />
-// 				<Links />
-// 			</head>
-// 			<body>
-// 				<div>
-// 					We encountered an error. If you recently upgraded the server, you may
-// 					have to logout and login again. If the error still persists, please
-// 					create a new issue on{" "}
-// 					<a
-// 						href="https://github.com/ignisda/ryot/issues"
-// 						target="_blank"
-// 						rel="noreferrer noopener"
-// 					>
-// 						GitHub
-// 					</a>
-// 					.
-// 				</div>
-// 				<Form
-// 					replace
-// 					method="POST"
-// 					action={$path("/actions", { intent: "logout" })}
-// 				>
-// 					<button type="submit">Logout</button>
-// 				</Form>
-// 				<Scripts />
-// 			</body>
-// 		</html>
-// 	);
-// }
+export function ErrorBoundary() {
+	return (
+		<html lang="en">
+			<head>
+				<DefaultHeadTags />
+				<Meta />
+				<Links />
+			</head>
+			<body>
+				<div>
+					We encountered an error. If you recently upgraded the server, you may
+					have to logout and login again. If the error still persists, please
+					create a new issue on{" "}
+					<a
+						href="https://github.com/ignisda/ryot/issues"
+						target="_blank"
+						rel="noreferrer noopener"
+					>
+						GitHub
+					</a>
+					.
+				</div>
+				<Form
+					replace
+					method="POST"
+					action={$path("/actions", { intent: "logout" })}
+				>
+					<button type="submit">Logout</button>
+				</Form>
+				<Scripts />
+			</body>
+		</html>
+	);
+}
