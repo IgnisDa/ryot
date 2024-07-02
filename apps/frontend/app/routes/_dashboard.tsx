@@ -382,7 +382,10 @@ export default function Layout() {
 					</Box>
 					<Stack gap="xs">
 						<Flex direction="column" justify="center" gap="md">
-							<Form method="post" action="/actions?intent=toggleColorScheme">
+							<Form
+								method="post"
+								action={withQuery("/actions", { intent: "toggleColorScheme" })}
+							>
 								<HiddenLocationInput />
 								<Group justify="center">
 									<UnstyledButton
@@ -406,8 +409,8 @@ export default function Layout() {
 							</Form>
 							<Form
 								method="post"
-								action="/actions?intent=logout"
 								style={{ display: "flex" }}
+								action={withQuery("/actions", { intent: "logout" })}
 							>
 								<UnstyledButton
 									mx="auto"
@@ -1034,9 +1037,9 @@ const ReviewEntityForm = ({
 
 	return (
 		<Form
-			method="post"
-			action="/actions?intent=performReviewAction"
 			replace
+			method="post"
+			action={withQuery("/actions", { intent: "performReviewAction" })}
 			onSubmit={() => {
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
@@ -1257,11 +1260,9 @@ const AddEntityToCollectionForm = ({
 
 	return (
 		<Form
-			action="/actions?intent=addEntityToCollection"
 			method="post"
-			onSubmit={() => {
-				closeAddEntityToCollectionModal();
-			}}
+			onSubmit={() => closeAddEntityToCollectionModal()}
+			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 		>
 			<input
 				readOnly

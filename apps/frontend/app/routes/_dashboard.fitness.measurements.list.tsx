@@ -46,6 +46,7 @@ import {
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import events from "~/lib/events";
@@ -187,7 +188,7 @@ export default function Page() {
 				<Form
 					replace
 					method="post"
-					action="?intent=create"
+					action={withQuery("", { intent: "create" })}
 					onSubmit={() => {
 						events.createMeasurement();
 						close();

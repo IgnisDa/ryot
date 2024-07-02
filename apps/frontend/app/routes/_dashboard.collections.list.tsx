@@ -39,6 +39,7 @@ import {
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { useUserCollections, useUserDetails } from "~/lib/hooks";
@@ -297,9 +298,9 @@ const DisplayCollection = (props: {
 				) : null}
 				{!props.collection.isDefault ? (
 					<fetcher.Form
-						action="?intent=delete"
 						method="post"
 						ref={deleteFormRef}
+						action={withQuery("", { intent: "delete" })}
 					>
 						<input
 							hidden
@@ -330,7 +331,11 @@ const CreateOrUpdateModal = (props: {
 	toUpdateCollection: UpdateCollectionInput | undefined;
 }) => {
 	return (
-		<Box component={Form} method="post" action="?intent=createOrUpdate">
+		<Box
+			method="post"
+			component={Form}
+			action={withQuery("", { intent: "createOrUpdate" })}
+		>
 			<Stack>
 				<Title order={3}>
 					{props.toUpdateCollection ? "Update" : "Create"} collection

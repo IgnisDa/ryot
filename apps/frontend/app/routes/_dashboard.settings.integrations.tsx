@@ -46,6 +46,7 @@ import {
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
@@ -165,7 +166,11 @@ export default function Page() {
 				)}
 				<Box w="100%">
 					<Group justify="space-between">
-						<Form method="post" action="?intent=generateAuthToken" replace>
+						<Form
+							replace
+							method="post"
+							action={withQuery("", { intent: "generateAuthToken" })}
+						>
 							<Button
 								variant="light"
 								color="orange"
@@ -264,9 +269,9 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 							</ActionIcon>
 						) : null}
 						<fetcher.Form
-							action="?intent=delete"
 							method="post"
 							ref={deleteFormRef}
+							action={withQuery("", { intent: "delete" })}
 						>
 							<input
 								type="hidden"
@@ -316,10 +321,10 @@ const CreateIntegrationModal = (props: {
 			withCloseButton={false}
 		>
 			<Form
-				action="?intent=create"
+				replace
 				method="post"
 				onSubmit={() => props.closeIntegrationModal()}
-				replace
+				action={withQuery("", { intent: "create" })}
 			>
 				<Stack>
 					<Select

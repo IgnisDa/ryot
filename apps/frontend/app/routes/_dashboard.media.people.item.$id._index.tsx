@@ -34,6 +34,7 @@ import {
 } from "@tabler/icons-react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { MediaDetailsLayout } from "~/components/common";
@@ -289,9 +290,11 @@ export default function Page() {
 											entityLot={EntityLot.Person}
 										/>
 										<Form
-											action="?intent=deployUpdatePersonJob"
-											method="post"
 											replace
+											method="post"
+											action={withQuery("", {
+												intent: "deployUpdatePersonJob",
+											})}
 										>
 											<Menu.Item
 												type="submit"

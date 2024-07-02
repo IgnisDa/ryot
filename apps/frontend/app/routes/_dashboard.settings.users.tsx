@@ -26,6 +26,7 @@ import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import {
@@ -69,7 +70,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
-		register: async () => {
+		registerNew: async () => {
 			const submission = processSubmission(formData, registerFormSchema);
 			const { registerUser } = await serverGqlService.request(
 				RegisterUserDocument,
@@ -140,7 +141,7 @@ export default function Page() {
 						replace
 						onSubmit={closeRegisterUserModal}
 						method="post"
-						action="?intent=register"
+						action={withQuery("", { intent: "registerNew" })}
 					>
 						<Stack>
 							<Title order={3}>Create User</Title>
@@ -175,9 +176,9 @@ export default function Page() {
 								<Text size="xs">Role: {changeCase(user.lot)}</Text>
 							</Box>
 							<fetcher.Form
-								action="?intent=delete"
 								method="post"
 								ref={deleteFormRef}
+								action={withQuery("", { intent: "delete" })}
 							>
 								<input hidden name="toDeleteUserId" defaultValue={user.id} />
 								<ActionIcon

@@ -258,7 +258,11 @@ export default function Page() {
 			{loaderData.oidcEnabled ? (
 				<>
 					{!loaderData.localAuthDisabled ? <Divider label="OR" /> : null}
-					<Form method="post" action="?intent=getOauthRedirectUrl" replace>
+					<Form
+						replace
+						method="post"
+						action={withQuery("", { intent: "getOauthRedirectUrl" })}
+					>
 						<Button
 							variant="outline"
 							color="gray"
