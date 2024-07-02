@@ -19,6 +19,7 @@ import {
 	useLoaderData,
 } from "@remix-run/react";
 import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
+import { truncate } from "@ryot/ts-utils";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
@@ -89,8 +90,7 @@ export default function Page() {
 												component={Link}
 												to={$path("/media/genre/:id", { id: genre.id })}
 											>
-												{genre.name.substring(0, 13).trim()}
-												{genre.name.length > 13 ? "..." : ""}
+												{truncate(genre.name, { length: 13 })}
 											</Anchor>
 											<Text size="sm" c="dimmed">
 												{genre.numItems} items

@@ -8,7 +8,11 @@ import {
 	type UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { displayDistanceWithUnit, displayWeightWithUnit } from "@ryot/ts-utils";
+import {
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+	truncate,
+} from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { dayjsLib, getSetColor } from "~/lib/generals";
@@ -95,7 +99,7 @@ export const ExerciseHistory = (props: {
 				)}
 				fw="bold"
 			>
-				{props.history.workoutName}
+				{truncate(props.history.workoutName, { length: 36 })}
 			</Anchor>
 			<Text c="dimmed" fz="sm" mb="xs">
 				{dayjsLib(props.history.workoutTime).format("LLLL")}

@@ -2353,7 +2353,7 @@ export type WorkoutInformation = {
 export type WorkoutListItem = {
   endTime: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
-  name?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
   startTime: Scalars['DateTime']['output'];
   summary: WorkoutSummary;
 };
@@ -2869,7 +2869,7 @@ export type UserWorkoutListQueryVariables = Exact<{
 }>;
 
 
-export type UserWorkoutListQuery = { userWorkoutList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: string, name?: string | null, startTime: string, endTime: string, summary: { total: { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> } }> } };
+export type UserWorkoutListQuery = { userWorkoutList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: string, name: string, startTime: string, endTime: string, summary: { total: { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> } }> } };
 
 export type WorkoutDetailsQueryVariables = Exact<{
   workoutId: Scalars['String']['input'];

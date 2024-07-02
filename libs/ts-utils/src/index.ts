@@ -17,6 +17,7 @@ import set from "lodash/set";
 import snakeCase from "lodash/snakeCase";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
+import truncate from "lodash/truncate";
 
 /**
  * Humanize a duration.
@@ -112,4 +113,5 @@ export {
 	snakeCase,
 	startCase,
 	sum,
+	truncate,
 };
