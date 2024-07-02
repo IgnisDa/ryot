@@ -60,7 +60,7 @@ import {
 import type { ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withoutHost, withQuery } from "ufo";
+import { withQuery, withoutHost } from "ufo";
 import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
