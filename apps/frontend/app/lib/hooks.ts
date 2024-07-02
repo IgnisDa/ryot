@@ -10,7 +10,6 @@ import {
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { useAtom } from "jotai";
 import Cookies from "js-cookie";
 import {
 	CurrentWorkoutKey,
@@ -18,10 +17,7 @@ import {
 	dayjsLib,
 	getStringAsciiValue,
 } from "~/lib/generals";
-import {
-	type InProgressWorkout,
-	currentWorkoutAtom,
-} from "~/lib/state/workout";
+import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import type { loader } from "~/routes/_dashboard";
 
 export function useGetMantineColor() {
@@ -58,7 +54,7 @@ export function useSearchParam() {
 
 export function getWorkoutStarter() {
 	const navigate = useNavigate();
-	const [_, setCurrentWorkout] = useAtom(currentWorkoutAtom);
+	const [_, setCurrentWorkout] = useCurrentWorkout();
 
 	const fn = (wkt: InProgressWorkout) => {
 		setCurrentWorkout(wkt);

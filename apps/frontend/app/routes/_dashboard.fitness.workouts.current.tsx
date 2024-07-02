@@ -230,230 +230,236 @@ export default function Page() {
 
 	return (
 		<Container size="sm">
-			<ClientOnly fallback={<Text>Loading workout...</Text>}>
-				{() => (
-					<>
-						<TimerDrawer
-							opened={timerDrawerOpened}
-							onClose={timerDrawerClose}
-							startTimer={startTimer}
-							stopTimer={stopTimer}
-						/>
-						<ReorderDrawer
-							opened={reorderDrawerOpened}
-							onClose={reorderDrawerClose}
-							// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-							exercises={currentWorkout.exercises as any}
-							key={currentWorkout.exercises.toString()}
-						/>
-						<Stack ref={parent}>
-							<TextInput
-								size="sm"
-								label="Name"
-								placeholder="A name for your workout"
-								value={currentWorkout.name}
-								required
-								onChange={(e) =>
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											draft.name = e.currentTarget.value;
-										}),
-									)
-								}
+			{currentWorkout ? (
+				<ClientOnly fallback={<Text>Loading workout...</Text>}>
+					{() => (
+						<>
+							<TimerDrawer
+								opened={timerDrawerOpened}
+								onClose={timerDrawerClose}
+								startTimer={startTimer}
+								stopTimer={stopTimer}
 							/>
-							<Textarea
-								size="sm"
-								minRows={2}
-								label="Comment"
-								placeholder="Your thoughts about this workout"
-								value={currentWorkout.comment}
-								onChange={(e) =>
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											draft.comment = e.currentTarget.value;
-										}),
-									)
-								}
+							<ReorderDrawer
+								opened={reorderDrawerOpened}
+								onClose={reorderDrawerClose}
+								// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
+								exercises={currentWorkout.exercises as any}
+								key={currentWorkout.exercises.toString()}
 							/>
-							<Group>
-								<DurationTimer startTime={currentWorkout.startTime} />
-								<StatDisplay
-									name="Exercises"
-									value={`${
-										currentWorkout.exercises
-											.map((e) => e.sets.every((s) => s.confirmed))
-											.filter((e) => e !== undefined).length
-									}/${currentWorkout.exercises.length}`}
+							<Stack ref={parent}>
+								<TextInput
+									size="sm"
+									label="Name"
+									placeholder="A name for your workout"
+									value={currentWorkout.name}
+									required
+									onChange={(e) =>
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.name = e.currentTarget.value;
+											}),
+										)
+									}
 								/>
-								<StatDisplay
-									name="Weight"
-									value={`${displayWeightWithUnit(
-										unitSystem,
-										sum(
+								<Textarea
+									size="sm"
+									minRows={2}
+									label="Comment"
+									placeholder="Your thoughts about this workout"
+									value={currentWorkout.comment}
+									onChange={(e) =>
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.comment = e.currentTarget.value;
+											}),
+										)
+									}
+								/>
+								<Group>
+									<DurationTimer startTime={currentWorkout.startTime} />
+									<StatDisplay
+										name="Exercises"
+										value={`${
+											currentWorkout.exercises
+												.map((e) => e.sets.every((s) => s.confirmed))
+												.filter((e) => e !== undefined).length
+										}/${currentWorkout.exercises.length}`}
+									/>
+									<StatDisplay
+										name="Weight"
+										value={`${displayWeightWithUnit(
+											unitSystem,
+											sum(
+												currentWorkout.exercises
+													.flatMap((e) => e.sets)
+													.flatMap((s) =>
+														s.confirmed
+															? Number(s.statistic.reps || 0) *
+																Number(s.statistic.weight || 0)
+															: 0,
+													),
+											).toFixed(),
+										)}`}
+									/>
+									<StatDisplay
+										name="Sets"
+										value={sum(
 											currentWorkout.exercises
 												.flatMap((e) => e.sets)
-												.flatMap((s) =>
-													s.confirmed
-														? Number(s.statistic.reps || 0) *
-															Number(s.statistic.weight || 0)
-														: 0,
-												),
-										).toFixed(),
-									)}`}
-								/>
-								<StatDisplay
-									name="Sets"
-									value={sum(
-										currentWorkout.exercises
-											.flatMap((e) => e.sets)
-											.flatMap((s) => (s.confirmed ? 1 : 0)),
-									).toString()}
-								/>
-							</Group>
-							<Divider />
-							<SimpleGrid
-								cols={
-									2 +
-									Number(currentWorkout.exercises.length > 0) +
-									Number(currentWorkout.exercises.length > 1)
-								}
-							>
-								<Button
-									color="orange"
-									variant="subtle"
-									onClick={timerDrawerToggle}
-									radius="md"
-									size="compact-md"
+												.flatMap((s) => (s.confirmed ? 1 : 0)),
+										).toString()}
+									/>
+								</Group>
+								<Divider />
+								<SimpleGrid
+									cols={
+										2 +
+										Number(currentWorkout.exercises.length > 0) +
+										Number(currentWorkout.exercises.length > 1)
+									}
 								>
-									{currentTimer
-										? dayjsLib
-												.duration(currentTimer.endAt.diff(dayjsLib()))
-												.format("m:ss")
-										: "Timer"}
-								</Button>
-								{currentWorkout.exercises.length > 1 ? (
-									<>
-										<Button
-											color="blue"
-											variant="subtle"
-											onClick={reorderDrawerToggle}
-											radius="md"
-											size="compact-md"
-										>
-											Reorder
-										</Button>
-									</>
-								) : null}
-								{currentWorkout.exercises.length > 0 ? (
-									<>
-										<Button
-											color="green"
-											variant="subtle"
-											radius="md"
-											size="compact-md"
-											onClick={async () => {
-												if (!currentWorkout.name) {
-													notifications.show({
-														color: "red",
-														message: "Please give a name to the workout",
+									<Button
+										color="orange"
+										variant="subtle"
+										onClick={timerDrawerToggle}
+										radius="md"
+										size="compact-md"
+									>
+										{currentTimer
+											? dayjsLib
+													.duration(currentTimer.endAt.diff(dayjsLib()))
+													.format("m:ss")
+											: "Timer"}
+									</Button>
+									{currentWorkout.exercises.length > 1 ? (
+										<>
+											<Button
+												color="blue"
+												variant="subtle"
+												onClick={reorderDrawerToggle}
+												radius="md"
+												size="compact-md"
+											>
+												Reorder
+											</Button>
+										</>
+									) : null}
+									{currentWorkout.exercises.length > 0 ? (
+										<>
+											<Button
+												color="green"
+												variant="subtle"
+												radius="md"
+												size="compact-md"
+												onClick={async () => {
+													if (!currentWorkout.name) {
+														notifications.show({
+															color: "red",
+															message: "Please give a name to the workout",
+														});
+														return;
+													}
+													const yes = await confirmWrapper({
+														title: "Finish workout",
+														confirmation:
+															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
-													return;
+													if (yes) {
+														events.createWorkout();
+														const input =
+															currentWorkoutToCreateWorkoutInput(
+																currentWorkout,
+															);
+														stopTimer();
+														interval.stop();
+														Cookies.remove(workoutCookieName);
+														createUserWorkoutFetcher.submit(
+															{ workout: JSON.stringify(input) },
+															{
+																method: "post",
+																action: withQuery(".", {
+																	intent: "createWorkout",
+																}),
+																encType: "multipart/form-data",
+															},
+														);
+													}
+												}}
+											>
+												Finish
+											</Button>
+										</>
+									) : null}
+									<Button
+										color="red"
+										variant="subtle"
+										radius="md"
+										size="compact-md"
+										onClick={async () => {
+											const yes = await confirmWrapper({
+												confirmation:
+													"Are you sure you want to cancel this workout?",
+											});
+											if (yes) {
+												for (const e of currentWorkout.exercises) {
+													const assets = [...e.images, ...e.videos];
+													for (const asset of assets)
+														deleteUploadedAsset(asset.key);
 												}
-												const yes = await confirmWrapper({
-													title: "Finish workout",
-													confirmation:
-														"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
-												});
-												if (yes) {
-													events.createWorkout();
-													const input =
-														currentWorkoutToCreateWorkoutInput(currentWorkout);
-													stopTimer();
-													interval.stop();
-													Cookies.remove(workoutCookieName);
-													createUserWorkoutFetcher.submit(
-														{ workout: JSON.stringify(input) },
-														{
-															method: "post",
-															action: withQuery(".", {
-																intent: "createWorkout",
-															}),
-															encType: "multipart/form-data",
-														},
-													);
-												}
-											}}
-										>
-											Finish
-										</Button>
-									</>
-								) : null}
-								<Button
-									color="red"
-									variant="subtle"
-									radius="md"
-									size="compact-md"
-									onClick={async () => {
-										const yes = await confirmWrapper({
-											confirmation:
-												"Are you sure you want to cancel this workout?",
-										});
-										if (yes) {
-											for (const e of currentWorkout.exercises) {
-												const assets = [...e.images, ...e.videos];
-												for (const asset of assets)
-													deleteUploadedAsset(asset.key);
+												navigate($path("/"));
+												Cookies.remove(workoutCookieName);
+												setCurrentWorkout(RESET);
 											}
-											navigate($path("/"));
-											Cookies.remove(workoutCookieName);
-											setCurrentWorkout(RESET);
-										}
-									}}
-								>
-									Cancel
-								</Button>
-							</SimpleGrid>
-							<Divider />
-							{currentWorkout.exercises.map((ex, idx) => (
-								<ExerciseDisplay
-									key={ex.identifier}
-									exercise={ex}
-									exerciseIdx={idx}
-									startTimer={startTimer}
-									stopTimer={stopTimer}
-									openTimerDrawer={timerDrawerOpen}
-								/>
-							))}
-							<Group justify="center">
-								{userPreferences.featuresEnabled.fitness.measurements ? (
+										}}
+									>
+										Cancel
+									</Button>
+								</SimpleGrid>
+								<Divider />
+								{currentWorkout.exercises.map((ex, idx) => (
+									<ExerciseDisplay
+										key={ex.identifier}
+										exercise={ex}
+										exerciseIdx={idx}
+										startTimer={startTimer}
+										stopTimer={stopTimer}
+										openTimerDrawer={timerDrawerOpen}
+									/>
+								))}
+								<Group justify="center">
+									{userPreferences.featuresEnabled.fitness.measurements ? (
+										<Button
+											component={Link}
+											variant="subtle"
+											color="teal"
+											to={$path("/fitness/measurements/list", {
+												openModal: true,
+												redirectTo: $path("/fitness/workouts/current"),
+											})}
+										>
+											Add measurement
+										</Button>
+									) : null}
 									<Button
 										component={Link}
 										variant="subtle"
-										color="teal"
-										to={$path("/fitness/measurements/list", {
-											openModal: true,
-											redirectTo: $path("/fitness/workouts/current"),
+										to={$path("/fitness/exercises/list", {
+											selectionEnabled: true,
+											page: 1,
+											sortBy: ExerciseSortBy.LastPerformed,
 										})}
 									>
-										Add measurement
+										Add an exercise
 									</Button>
-								) : null}
-								<Button
-									component={Link}
-									variant="subtle"
-									to={$path("/fitness/exercises/list", {
-										selectionEnabled: true,
-										page: 1,
-										sortBy: ExerciseSortBy.LastPerformed,
-									})}
-								>
-									Add an exercise
-								</Button>
-							</Group>
-						</Stack>
-					</>
-				)}
-			</ClientOnly>
+								</Group>
+							</Stack>
+						</>
+					)}
+				</ClientOnly>
+			) : (
+				<Text>Loading workout...</Text>
+			)}
 		</Container>
 	);
 }
@@ -504,27 +510,28 @@ const StatInput = (props: {
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [value, setValue] = useDebouncedState(
-		currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+		currentWorkout?.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
 			props.stat
 		] ?? undefined,
 		500,
 	);
 
 	useDidUpdate(() => {
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				const val = isNumber(value) ? Number(value) : undefined;
-				draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
-					props.stat
-				] = val as unknown as null;
-				if (val === undefined)
-					draft.exercises[props.exerciseIdx].sets[props.setIdx].confirmed =
-						false;
-			}),
-		);
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const val = isNumber(value) ? Number(value) : undefined;
+					draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
+						props.stat
+					] = val as unknown as null;
+					if (val === undefined)
+						draft.exercises[props.exerciseIdx].sets[props.setIdx].confirmed =
+							false;
+				}),
+			);
 	}, [value]);
 
-	return (
+	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
 				value={
@@ -547,7 +554,7 @@ const StatInput = (props: {
 				required
 			/>
 		</Flex>
-	);
+	) : null;
 };
 
 const fileType = "image/jpeg";
@@ -584,7 +591,7 @@ const SupersetExerciseModal = (props: {
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
-	return (
+	return currentWorkout ? (
 		<Modal
 			opened={props.opened}
 			onClose={props.onClose}
@@ -635,7 +642,7 @@ const SupersetExerciseModal = (props: {
 				))}
 			</Stack>
 		</Modal>
-	);
+	) : null;
 };
 
 const ExerciseDisplay = (props: {
@@ -691,7 +698,7 @@ const ExerciseDisplay = (props: {
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
-	return (
+	return currentWorkout ? (
 		<>
 			<SupersetExerciseModal
 				exerciseIdx={props.exerciseIdx}
@@ -1355,7 +1362,7 @@ const ExerciseDisplay = (props: {
 			</Paper>
 			<Divider />
 		</>
-	);
+	) : null;
 };
 
 const styles = {
@@ -1520,7 +1527,7 @@ const ReorderDrawer = (props: {
 	);
 
 	useEffect(() => {
-		const oldOrder = currentWorkout.exercises.map((e) => e.exerciseId);
+		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
 		const newOrder = exerciseElements.map((e) => e.exerciseId);
 		if (!isEqual(oldOrder, newOrder)) {
 			setCurrentWorkout(
@@ -1545,7 +1552,7 @@ const ReorderDrawer = (props: {
 				: ("not-started" as const);
 	};
 
-	return (
+	return currentWorkout ? (
 		<Drawer
 			onClose={props.onClose}
 			opened={props.opened}
@@ -1606,7 +1613,7 @@ const ReorderDrawer = (props: {
 				</Droppable>
 			</DragDropContext>
 		</Drawer>
-	);
+	) : null;
 };
 
 const NoteInput = (props: {
@@ -1618,11 +1625,12 @@ const NoteInput = (props: {
 	const [value, setValue] = useDebouncedState(props.note, 500);
 
 	useDidUpdate(() => {
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
-			}),
-		);
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
+				}),
+			);
 	}, [value]);
 
 	return (
@@ -1643,7 +1651,7 @@ const NoteInput = (props: {
 					const yes = confirm(
 						"This note will be deleted. Are you sure you want to continue?",
 					);
-					if (yes)
+					if (yes && currentWorkout)
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].notes.splice(
