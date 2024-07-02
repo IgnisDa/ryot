@@ -23,7 +23,6 @@ import {
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
 	lot: SetLot;
-	confirmed: boolean;
 	confirmedAt?: string | null;
 	note?: boolean | string | null;
 };
@@ -122,29 +121,23 @@ const getExerciseDetails = async (exerciseId: string) => {
 	return { details, userDetails };
 };
 
-export const duplicateOldWorkout = async (
-	workout: WorkoutDetailsQuery["workoutDetails"],
-) => {
+type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
+
+export const convertHistorySetToCurrentSet = (
+	s: TWorkoutDetails["information"]["exercises"][number]["sets"][number],
+) =>
+	({
+		lot: s.lot,
+		confirmedAt: null,
+		statistic: s.statistic,
+	}) satisfies ExerciseSet;
+
+export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = workout.name;
 	inProgress.repeatedFrom = workout.id;
 	for (const [_exerciseIdx, ex] of workout.information.exercises.entries()) {
-		const sets = ex.sets.map((s) => ({
-			confirmed: false,
-			lot: s.lot,
-			note: s.note,
-			statistic: {
-				...s.statistic,
-				duration: s.statistic.duration
-					? Number(s.statistic.duration)
-					: undefined,
-				distance: s.statistic.distance
-					? Number(s.statistic.distance)
-					: undefined,
-				weight: s.statistic.weight ? Number(s.statistic.weight) : undefined,
-			},
-			endedAt: s.confirmedAt,
-		}));
+		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
@@ -152,15 +145,13 @@ export const duplicateOldWorkout = async (
 			exerciseDetails: { images: exerciseDetails.details.attributes.images },
 			images: [],
 			videos: [],
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic }) as any),
+			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 			exerciseId: ex.name,
 			lot: ex.lot,
 			notes: ex.notes,
 			supersetWith: [],
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			sets: sets as any,
+			sets: sets,
 		});
 	}
 	for (const [idx, exercise] of workout.information.exercises.entries()) {
@@ -189,18 +180,11 @@ export const addExerciseToWorkout = async (
 				images: exerciseDetails.details.attributes.images,
 			},
 			lot: ex.lot,
-			sets: [
-				{
-					confirmed: false,
-					statistic: {},
-					lot: SetLot.Normal,
-				},
-			],
+			sets: [{ statistic: {}, lot: SetLot.Normal }],
 			supersetWith: [],
 			alreadyDoneSets:
 				exerciseDetails.userDetails.history?.at(0)?.sets.map((s) => ({
-					// biome-ignore lint/suspicious/noExplicitAny: required here
-					statistic: s.statistic as any,
+					statistic: s.statistic,
 				})) || [],
 			restTimer: { duration: 60, enabled: true },
 			notes: [],
@@ -233,21 +217,13 @@ export const currentWorkoutToCreateWorkoutInput = (
 	for (const exercise of currentWorkout.exercises) {
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
-			if (set.confirmed) {
+			if (set.confirmedAt) {
 				const note = typeof set.note === "string" ? set.note : undefined;
 				sets.push({
 					note,
 					lot: set.lot,
-					confirmedAt: set.confirmedAt
-						? new Date(set.confirmedAt).toISOString()
-						: undefined,
-					statistic: {
-						...set.statistic,
-						distance: set.statistic.distance?.toString(),
-						duration: set.statistic.duration?.toString(),
-						weight: set.statistic.weight?.toString(),
-						// biome-ignore lint/suspicious/noExplicitAny: required here
-					} as any,
+					confirmedAt: new Date(set.confirmedAt).toISOString(),
+					statistic: set.statistic,
 				});
 			}
 		if (sets.length === 0) continue;

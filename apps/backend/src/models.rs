@@ -13,7 +13,6 @@ use database::{
     MediaLot, MediaSource, SeenState, UserToMediaReason, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
-use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
@@ -1519,7 +1518,7 @@ pub mod fitness {
         /// The number of personal bests achieved.
         pub personal_bests_achieved: usize,
         pub weight: Decimal,
-        pub reps: usize,
+        pub reps: Decimal,
         pub distance: Decimal,
         pub duration: Decimal,
         /// The total seconds that were logged in the rest timer.
@@ -1563,7 +1562,7 @@ pub mod fitness {
     pub struct WorkoutSetStatistic {
         pub duration: Option<Decimal>,
         pub distance: Option<Decimal>,
-        pub reps: Option<usize>,
+        pub reps: Option<Decimal>,
         pub weight: Option<Decimal>,
         pub one_rm: Option<Decimal>,
         pub pace: Option<Decimal>,
@@ -1662,7 +1661,7 @@ pub mod fitness {
         // DEV: Formula from https://en.wikipedia.org/wiki/One-repetition_maximum#cite_note-7
         pub fn calculate_one_rm(&self) -> Option<Decimal> {
             let mut val = (self.statistic.weight? * dec!(36.0))
-                .checked_div(dec!(37.0) - Decimal::from_usize(self.statistic.reps?).unwrap());
+                .checked_div(dec!(37.0) - self.statistic.reps?);
             if let Some(v) = val {
                 if v <= dec!(0) {
                     val = None;
@@ -1672,7 +1671,7 @@ pub mod fitness {
         }
 
         pub fn calculate_volume(&self) -> Option<Decimal> {
-            Some(self.statistic.weight? * Decimal::from_usize(self.statistic.reps?).unwrap())
+            Some(self.statistic.weight? * self.statistic.reps?)
         }
 
         pub fn calculate_pace(&self) -> Option<Decimal> {
@@ -1685,7 +1684,7 @@ pub mod fitness {
             match pb_type {
                 WorkoutSetPersonalBest::Weight => self.statistic.weight,
                 WorkoutSetPersonalBest::Time => self.statistic.duration,
-                WorkoutSetPersonalBest::Reps => self.statistic.reps.and_then(Decimal::from_usize),
+                WorkoutSetPersonalBest::Reps => self.statistic.reps,
                 WorkoutSetPersonalBest::OneRm => self.calculate_one_rm(),
                 WorkoutSetPersonalBest::Volume => self.calculate_volume(),
                 WorkoutSetPersonalBest::Pace => self.calculate_pace(),
