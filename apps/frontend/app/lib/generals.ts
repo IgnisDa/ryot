@@ -221,3 +221,14 @@ export const clientGqlService = new GraphQLClient(
 		},
 	},
 );
+
+export const getSurroundingElements = <T>(
+	array: Array<T>,
+	elementIndex: number,
+): Array<number> => {
+	if (array.length === 1) return [0];
+	const lastIndex = array.length - 1;
+	if (elementIndex === 0) return [lastIndex, elementIndex, elementIndex + 1];
+	if (elementIndex === lastIndex) return [elementIndex - 1, elementIndex, 0];
+	return [elementIndex - 1, elementIndex, elementIndex + 1];
+};
