@@ -2,7 +2,6 @@ use anyhow::{bail, Result};
 use database::ExerciseLot;
 use nanoid::nanoid;
 use rs_utils::LengthVec;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
@@ -30,11 +29,7 @@ fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
         .max_by_key(|(_, record)| {
             record.statistic.duration.unwrap_or(dec!(0))
                 + record.statistic.distance.unwrap_or(dec!(0))
-                + record
-                    .statistic
-                    .reps
-                    .map(|r| Decimal::from_usize(r).unwrap())
-                    .unwrap_or(dec!(0))
+                + record.statistic.reps.unwrap_or(dec!(0))
                 + record.statistic.weight.unwrap_or(dec!(0))
         })
         .map(|(index, _)| index)
@@ -189,7 +184,7 @@ impl UserWorkoutInput {
                 if let Some(r) = set.statistic.reps {
                     total.reps += r;
                     if let Some(w) = set.statistic.weight {
-                        total.weight += w * Decimal::from_usize(r).unwrap();
+                        total.weight += w * r;
                     }
                 }
                 if let Some(d) = set.statistic.duration {
@@ -200,7 +195,7 @@ impl UserWorkoutInput {
                 }
                 let mut totals = WorkoutSetTotals::default();
                 if let (Some(we), Some(re)) = (&set.statistic.weight, &set.statistic.reps) {
-                    totals.weight = Some(we * Decimal::from_usize(*re).unwrap());
+                    totals.weight = Some(we * re);
                 }
                 let mut value = WorkoutSetRecord {
                     totals,

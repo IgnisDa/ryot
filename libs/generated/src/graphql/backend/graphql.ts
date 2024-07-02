@@ -1780,7 +1780,7 @@ export type SetStatisticInput = {
   duration?: InputMaybe<Scalars['Decimal']['input']>;
   oneRm?: InputMaybe<Scalars['Decimal']['input']>;
   pace?: InputMaybe<Scalars['Decimal']['input']>;
-  reps?: InputMaybe<Scalars['Int']['input']>;
+  reps?: InputMaybe<Scalars['Decimal']['input']>;
   volume?: InputMaybe<Scalars['Decimal']['input']>;
   weight?: InputMaybe<Scalars['Decimal']['input']>;
 };
@@ -2369,7 +2369,7 @@ export type WorkoutOrExerciseTotals = {
   duration: Scalars['Decimal']['output'];
   /** The number of personal bests achieved. */
   personalBestsAchieved: Scalars['Int']['output'];
-  reps: Scalars['Int']['output'];
+  reps: Scalars['Decimal']['output'];
   /** The total seconds that were logged in the rest timer. */
   restTime: Scalars['Int']['output'];
   weight: Scalars['Decimal']['output'];
@@ -2402,7 +2402,7 @@ export type WorkoutSetStatistic = {
   duration?: Maybe<Scalars['Decimal']['output']>;
   oneRm?: Maybe<Scalars['Decimal']['output']>;
   pace?: Maybe<Scalars['Decimal']['output']>;
-  reps?: Maybe<Scalars['Int']['output']>;
+  reps?: Maybe<Scalars['Decimal']['output']>;
   volume?: Maybe<Scalars['Decimal']['output']>;
   weight?: Maybe<Scalars['Decimal']['output']>;
 };
@@ -2829,7 +2829,7 @@ export type UserExerciseDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserExerciseDetailsQuery = { userExerciseDetails: { collections: Array<{ id: string, name: string, userId: string }>, history?: Array<{ workoutId: string, workoutName: string, workoutTime: string, index: number, sets: Array<{ lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> | null, details?: { exerciseId?: string | null, createdOn: string, lastUpdatedOn: string, exerciseNumTimesInteracted?: number | null, exerciseExtraInformation?: { lifetimeStats: { weight: string, reps: number, distance: string, duration: string, personalBestsAchieved: number }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, workoutDoneOn: string, exerciseIdx: number, setIdx: number, data: { lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> }> } | null } | null } };
+export type UserExerciseDetailsQuery = { userExerciseDetails: { collections: Array<{ id: string, name: string, userId: string }>, history?: Array<{ workoutId: string, workoutName: string, workoutTime: string, index: number, sets: Array<{ lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> | null, details?: { exerciseId?: string | null, createdOn: string, lastUpdatedOn: string, exerciseNumTimesInteracted?: number | null, exerciseExtraInformation?: { lifetimeStats: { weight: string, reps: string, distance: string, duration: string, personalBestsAchieved: number }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, workoutDoneOn: string, exerciseIdx: number, setIdx: number, data: { lot: SetLot, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> }> } | null } | null } };
 
 export type UserMeasurementsListQueryVariables = Exact<{
   input: UserMeasurementsListInput;
@@ -2869,14 +2869,14 @@ export type UserWorkoutListQueryVariables = Exact<{
 }>;
 
 
-export type UserWorkoutListQuery = { userWorkoutList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: string, name: string, startTime: string, endTime: string, summary: { total: { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> } }> } };
+export type UserWorkoutListQuery = { userWorkoutList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: string, name: string, startTime: string, endTime: string, summary: { total: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> } }> } };
 
 export type WorkoutDetailsQueryVariables = Exact<{
   workoutId: Scalars['String']['input'];
 }>;
 
 
-export type WorkoutDetailsQuery = { workoutDetails: { id: string, name: string, comment?: string | null, startTime: string, endTime: string, repeatedFrom?: string | null, summary: { total: { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> }, information: { assets: { images: Array<string>, videos: Array<string> }, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total: { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number }, assets: { images: Array<string>, videos: Array<string> }, sets: Array<{ lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } };
+export type WorkoutDetailsQuery = { workoutDetails: { id: string, name: string, comment?: string | null, startTime: string, endTime: string, repeatedFrom?: string | null, summary: { total: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> }, information: { assets: { images: Array<string>, videos: Array<string> }, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number }, assets: { images: Array<string>, videos: Array<string> }, sets: Array<{ lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } };
 
 export type CoreEnabledFeaturesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2966,13 +2966,13 @@ export type MetadataSearchItemPartFragment = { identifier: string, title: string
 
 export type PartialMetadataPartFragment = { id: string, lot: MediaLot, source: MediaSource, identifier: string, title: string, image?: string | null };
 
-export type WorkoutOrExerciseTotalsPartFragment = { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number };
+export type WorkoutOrExerciseTotalsPartFragment = { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number };
 
 export type EntityAssetsPartFragment = { images: Array<string>, videos: Array<string> };
 
-export type WorkoutSetStatisticPartFragment = { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null };
+export type WorkoutSetStatisticPartFragment = { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null };
 
-export type WorkoutSummaryPartFragment = { total: { personalBestsAchieved: number, weight: string, reps: number, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: number | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> };
+export type WorkoutSummaryPartFragment = { total: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number }, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests: Array<WorkoutSetPersonalBest>, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> };
 
 export type CollectionPartFragment = { id: string, name: string, userId: string };
 

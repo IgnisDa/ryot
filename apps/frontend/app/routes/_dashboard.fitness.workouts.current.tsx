@@ -284,7 +284,7 @@ export default function Page() {
 										name="Exercises"
 										value={`${
 											currentWorkout.exercises
-												.map((e) => e.sets.every((s) => s.confirmed))
+												.map((e) => e.sets.every((s) => s.confirmedAt))
 												.filter((e) => e !== undefined).length
 										}/${currentWorkout.exercises.length}`}
 									/>
@@ -296,7 +296,7 @@ export default function Page() {
 												currentWorkout.exercises
 													.flatMap((e) => e.sets)
 													.flatMap((s) =>
-														s.confirmed
+														s.confirmedAt
 															? Number(s.statistic.reps || 0) *
 																Number(s.statistic.weight || 0)
 															: 0,
@@ -309,7 +309,7 @@ export default function Page() {
 										value={sum(
 											currentWorkout.exercises
 												.flatMap((e) => e.sets)
-												.flatMap((s) => (s.confirmed ? 1 : 0)),
+												.flatMap((s) => (s.confirmedAt ? 1 : 0)),
 										).toString()}
 									/>
 								</Group>
@@ -510,10 +510,12 @@ const StatInput = (props: {
 	inputStep?: number;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [value, setValue] = useDebouncedState(
-		currentWorkout?.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
-			props.stat
-		] ?? undefined,
+	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	invariant(set);
+	const [value, setValue] = useDebouncedState<string | number | undefined>(
+		isString(set.statistic[props.stat])
+			? Number(set.statistic[props.stat])
+			: undefined,
 		500,
 	);
 
@@ -521,13 +523,11 @@ const StatInput = (props: {
 		if (currentWorkout)
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					const val = isNumber(value) ? Number(value) : undefined;
-					draft.exercises[props.exerciseIdx].sets[props.setIdx].statistic[
-						props.stat
-					] = val as unknown as null;
-					if (val === undefined)
-						draft.exercises[props.exerciseIdx].sets[props.setIdx].confirmed =
-							false;
+					const val = isString(value) ? null : value?.toString();
+					const draftSet =
+						draft.exercises[props.exerciseIdx].sets[props.setIdx];
+					draftSet.statistic[props.stat] = val;
+					if (val === null) draftSet.confirmedAt = null;
 				}),
 			);
 	}, [value]);
@@ -535,9 +535,11 @@ const StatInput = (props: {
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
 			<NumberInput
+				required
 				value={
-					currentWorkout.exercises[props.exerciseIdx].sets[props.setIdx]
-						.statistic[props.stat] ?? undefined
+					isString(set.statistic[props.stat])
+						? Number(set.statistic[props.stat])
+						: undefined
 				}
 				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
@@ -552,7 +554,6 @@ const StatInput = (props: {
 				}
 				step={props.inputStep}
 				hideControls
-				required
 			/>
 		</Flex>
 	) : null;
@@ -1062,7 +1063,6 @@ const ExerciseDisplay = (props: {
 									draft.exercises[props.exerciseIdx].sets.push({
 										statistic: currentSet?.statistic ?? {},
 										lot: SetLot.Normal,
-										confirmed: false,
 									});
 								}),
 							);
@@ -1142,7 +1142,7 @@ const SetDisplay = (props: {
 							fz="xs"
 							leftSection={<IconTrash size={14} />}
 							onClick={() => {
-								const yes = match(set.confirmed)
+								const yes = match(!!set.confirmedAt)
 									.with(true, () => {
 										return confirm("Are you sure you want to delete this set?");
 									})
@@ -1167,38 +1167,17 @@ const SetDisplay = (props: {
 					{exercise.alreadyDoneSets[props.setIdx] ? (
 						<Box
 							onClick={() => {
-								if (exercise.sets[props.setIdx].confirmed) return;
-								const convertStringValuesToNumbers = (
-									obj: Record<string, unknown>,
-								) => {
-									const newObject = { ...obj };
-									for (const key in newObject)
-										if (
-											isString(newObject[key]) &&
-											!Number.isNaN(newObject[key])
-										)
-											newObject[key] = Number.parseFloat(
-												newObject[key] as string,
-											);
-									return newObject;
-								};
+								if (set.confirmedAt) return;
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
-										if (draft) {
-											draft.exercises[props.exerciseIdx].sets[
-												props.setIdx
-											].statistic = convertStringValuesToNumbers(
-												exercise.alreadyDoneSets[props.setIdx].statistic,
-											);
-										}
+										draft.exercises[props.exerciseIdx].sets[
+											props.setIdx
+										].statistic =
+											exercise.alreadyDoneSets[props.setIdx].statistic;
 									}),
 								);
 							}}
-							style={
-								!exercise.sets[props.setIdx].confirmed
-									? { cursor: "pointer" }
-									: undefined
-							}
+							style={!set.confirmedAt ? { cursor: "pointer" } : undefined}
 						>
 							<DisplayExerciseStats
 								statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
@@ -1254,32 +1233,32 @@ const SetDisplay = (props: {
 					>
 						{(style) => (
 							<ActionIcon
-								variant={set.confirmed ? "filled" : "outline"}
+								variant={set.confirmedAt ? "filled" : "outline"}
 								style={style}
 								disabled={
 									!match(exercise.lot)
 										.with(
 											ExerciseLot.DistanceAndDuration,
 											() =>
-												isNumber(set.statistic.distance) &&
-												isNumber(set.statistic.duration),
+												isString(set.statistic.distance) &&
+												isString(set.statistic.duration),
 										)
 										.with(ExerciseLot.Duration, () =>
-											isNumber(set.statistic.duration),
+											isString(set.statistic.duration),
 										)
-										.with(ExerciseLot.Reps, () => isNumber(set.statistic.reps))
+										.with(ExerciseLot.Reps, () => isString(set.statistic.reps))
 										.with(
 											ExerciseLot.RepsAndWeight,
 											() =>
-												isNumber(set.statistic.reps) &&
-												isNumber(set.statistic.weight),
+												isString(set.statistic.reps) &&
+												isString(set.statistic.weight),
 										)
 										.exhaustive()
 								}
 								color="green"
 								onClick={() => {
 									playCheckSound();
-									const newConfirmed = !set.confirmed;
+									const newConfirmed = !set.confirmedAt;
 									if (
 										!newConfirmed &&
 										currentTimer?.triggeredBy?.exerciseIdentifier ===
@@ -1301,10 +1280,8 @@ const SetDisplay = (props: {
 										produce(currentWorkout, (draft) => {
 											const currentExercise =
 												draft.exercises[props.exerciseIdx];
-											currentExercise.sets[props.setIdx].confirmed =
-												newConfirmed;
 											currentExercise.sets[props.setIdx].confirmedAt =
-												dayjsLib().toISOString();
+												newConfirmed ? dayjsLib().toISOString() : null;
 										}),
 									);
 								}}
@@ -1495,10 +1472,10 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 	}, [exerciseElements]);
 
 	const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
-		const isCompleted = cw.exercises[index].sets.every((s) => s.confirmed);
+		const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
 		return isCompleted
 			? ("complete" as const)
-			: cw.exercises[index].sets.some((s) => s.confirmed)
+			: cw.exercises[index].sets.some((s) => s.confirmedAt)
 				? ("in-progress" as const)
 				: ("not-started" as const);
 	};

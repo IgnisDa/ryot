@@ -22,7 +22,7 @@ use crate::{
 struct Entry {
     date: String,
     weight: Option<Decimal>,
-    reps: Option<usize>,
+    reps: Option<Decimal>,
     distance: Option<Decimal>,
     seconds: Option<Decimal>,
     notes: Option<String>,

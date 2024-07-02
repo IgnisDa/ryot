@@ -223,7 +223,7 @@ export interface WorkoutSetStatistic {
 	duration: string | null;
 	one_rm: string | null;
 	pace: string | null;
-	reps: number | null;
+	reps: string | null;
 	volume: string | null;
 	weight: string | null;
 }
@@ -249,7 +249,7 @@ export interface WorkoutOrExerciseTotals {
 	duration: string;
 	/** The number of personal bests achieved. */
 	personal_bests_achieved: number;
-	reps: number;
+	reps: string;
 	/** The total seconds that were logged in the rest timer. */
 	rest_time?: number;
 	weight: string;

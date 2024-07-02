@@ -196,13 +196,10 @@ export const ReviewItemDisplay = (props: {
 									if (conf)
 										deleteReviewFetcher.submit(
 											{
-												[redirectToQueryParam]: withoutHost(
-													window.location.href,
-												),
+												[redirectToQueryParam]: withoutHost(location.href),
 												shouldDelete: "true",
-												reviewId: props.review.id?.toString(),
-												// biome-ignore lint/suspicious/noExplicitAny: otherwise an error here
-											} as any,
+												reviewId: props.review.id || null,
+											},
 											{
 												method: "post",
 												action: $path("/actions", {
