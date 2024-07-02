@@ -223,7 +223,7 @@ export default function Page() {
 					<Tabs.Panel value="import">
 						<fetcher.Form
 							ref={formRef}
-							method="post"
+							method="POST"
 							action={withQuery("", { intent: "deployImport" })}
 							encType="multipart/form-data"
 							onSubmit={() => {
@@ -504,7 +504,7 @@ export default function Page() {
 								</Group>
 							</Flex>
 							<Form
-								method="post"
+								method="POST"
 								encType="multipart/form-data"
 								action={withQuery("", { intent: "deployExport" })}
 							>

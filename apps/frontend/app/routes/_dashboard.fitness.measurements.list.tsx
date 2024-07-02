@@ -187,7 +187,7 @@ export default function Page() {
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
 				<Form
 					replace
-					method="post"
+					method="POST"
 					action={withQuery("", { intent: "create" })}
 					onSubmit={() => {
 						events.createMeasurement();
@@ -347,7 +347,7 @@ export default function Page() {
 									width: 80,
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<Form method="post" replace>
+										<Form method="POST" replace>
 											<input
 												type="hidden"
 												name="intent"

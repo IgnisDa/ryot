@@ -60,7 +60,7 @@ export default function Page() {
 		<Container size="xs">
 			<Stack>
 				<Title>Profile settings</Title>
-				<fetcher.Form ref={formRef} method="post">
+				<fetcher.Form ref={formRef} method="POST">
 					<Stack>
 						<TextInput
 							readOnly

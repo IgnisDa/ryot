@@ -94,7 +94,7 @@ export default function Page() {
 
 	return (
 		<Container>
-			<Form method="post" encType="multipart/form-data">
+			<Form method="POST" encType="multipart/form-data">
 				<Stack>
 					<Title>Create Media</Title>
 					<TextInput label="Title" required autoFocus name="title" />

@@ -284,7 +284,7 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 					{openedLeaveComment ? (
 						<Form
-							method="post"
+							method="POST"
 							onSubmit={() => toggleLeaveComment()}
 							action={withQuery("/actions", { intent: "createReviewComment" })}
 						>
@@ -330,7 +330,7 @@ export const ReviewItemDisplay = (props: {
 													</Box>
 													{userDetails.id === c?.user?.id ? (
 														<Form
-															method="post"
+															method="POST"
 															action={withQuery("/actions", {
 																intent: "createReviewComment",
 															})}
@@ -369,7 +369,7 @@ export const ReviewItemDisplay = (props: {
 														</Form>
 													) : null}
 													<Form
-														method="post"
+														method="POST"
 														action={withQuery("/actions", {
 															intent: "createReviewComment",
 														})}
@@ -662,7 +662,7 @@ export const DisplayCollection = (props: {
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
 			<Form
-				method="post"
+				method="POST"
 				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}
 			>
 				<Flex gap={2}>
@@ -745,7 +745,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	return (
 		<Form
 			replace
-			method="post"
+			method="POST"
 			action={withQuery("/actions", { intent: action })}
 		>
 			<HiddenLocationInput />

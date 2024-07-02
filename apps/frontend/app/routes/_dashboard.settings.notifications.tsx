@@ -155,7 +155,7 @@ export default function Page() {
 							{loaderData.userNotificationPlatforms.length > 0 ? (
 								<Form
 									replace
-									method="post"
+									method="POST"
 									action={withQuery("", { intent: "test" })}
 								>
 									<Button size="xs" variant="light" color="green" type="submit">
@@ -180,7 +180,7 @@ export default function Page() {
 					>
 						<Box
 							component={Form}
-							method="post"
+							method="POST"
 							action={withQuery("", { intent: "create" })}
 							onSubmit={() => {
 								closeCreateUserNotificationPlatformModal();
@@ -343,7 +343,7 @@ const DisplayNotification = (props: {
 				<Group>
 					<Tooltip label="Delete">
 						<fetcher.Form
-							method="post"
+							method="POST"
 							ref={deleteFormRef}
 							action={withQuery("", { intent: "delete" })}
 						>

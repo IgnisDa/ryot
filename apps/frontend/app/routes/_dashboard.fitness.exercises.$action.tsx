@@ -169,7 +169,7 @@ export default function Page() {
 
 	return (
 		<Container>
-			<Form method="post" encType="multipart/form-data" replace>
+			<Form method="POST" encType="multipart/form-data" replace>
 				<Stack>
 					<Title>{title} Exercise</Title>
 					{loaderData.details?.id ? (

@@ -169,7 +169,7 @@ export default function Page() {
 			>
 				<Form
 					replace
-					method="post"
+					method="POST"
 					action={withQuery("", { intent: "edit" })}
 					onSubmit={() => adjustTimeModalClose()}
 				>
@@ -227,7 +227,7 @@ export default function Page() {
 									Adjust time
 								</Menu.Item>
 								<Form
-									method="post"
+									method="POST"
 									action={withQuery("", { intent: "delete" })}
 								>
 									<Menu.Item

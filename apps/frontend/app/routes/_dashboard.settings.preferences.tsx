@@ -140,7 +140,7 @@ export default function Page() {
 		<Container size="xs">
 			{toUpdatePreferences.length > 0 ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
-					<Form method="post" action={`?defaultTab=${defaultTab}`} replace>
+					<Form method="POST" action={`?defaultTab=${defaultTab}`} replace>
 						{toUpdatePreferences.map((pref) => (
 							<input
 								key={pref[0]}
@@ -164,7 +164,7 @@ export default function Page() {
 			<Stack>
 				<Group justify="space-between">
 					<Title>Preferences</Title>
-					<Form method="post" reloadDocument>
+					<Form method="POST" reloadDocument>
 						<Tooltip label="Reset preferences">
 							<ActionIcon
 								color="red"

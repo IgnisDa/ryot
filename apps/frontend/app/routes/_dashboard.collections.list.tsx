@@ -298,7 +298,7 @@ const DisplayCollection = (props: {
 				) : null}
 				{!props.collection.isDefault ? (
 					<fetcher.Form
-						method="post"
+						method="POST"
 						ref={deleteFormRef}
 						action={withQuery("", { intent: "delete" })}
 					>
@@ -332,7 +332,7 @@ const CreateOrUpdateModal = (props: {
 }) => {
 	return (
 		<Box
-			method="post"
+			method="POST"
 			component={Form}
 			action={withQuery("", { intent: "createOrUpdate" })}
 		>

@@ -210,7 +210,7 @@ export default function Page() {
 			) : null}
 			{!loaderData.localAuthDisabled ? (
 				<Form
-					method="post"
+					method="POST"
 					action={withQuery(".", { intent })}
 					{...getFormProps(form)}
 					ref={parent}
@@ -260,7 +260,7 @@ export default function Page() {
 					{!loaderData.localAuthDisabled ? <Divider label="OR" /> : null}
 					<Form
 						replace
-						method="post"
+						method="POST"
 						action={withQuery("", { intent: "getOauthRedirectUrl" })}
 					>
 						<Button

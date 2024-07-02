@@ -291,7 +291,7 @@ export default function Page() {
 										/>
 										<Form
 											replace
-											method="post"
+											method="POST"
 											action={withQuery("", {
 												intent: "deployUpdatePersonJob",
 											})}

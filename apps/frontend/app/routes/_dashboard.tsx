@@ -383,7 +383,7 @@ export default function Layout() {
 					<Stack gap="xs">
 						<Flex direction="column" justify="center" gap="md">
 							<Form
-								method="post"
+								method="POST"
 								action={withQuery("/actions", { intent: "toggleColorScheme" })}
 							>
 								<HiddenLocationInput />
@@ -408,7 +408,7 @@ export default function Layout() {
 								</Group>
 							</Form>
 							<Form
-								method="post"
+								method="POST"
 								style={{ display: "flex" }}
 								action={withQuery("/actions", { intent: "logout" })}
 							>
@@ -688,7 +688,7 @@ const MetadataInProgressUpdateForm = ({
 
 	return (
 		<Form
-			method="post"
+			method="POST"
 			onSubmit={onSubmit}
 			action={withQuery($path("/actions"), {
 				intent: "individualProgressUpdate",
@@ -796,7 +796,7 @@ const NewProgressUpdateForm = ({
 
 	return (
 		<Form
-			method="post"
+			method="POST"
 			onSubmit={onSubmit}
 			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
 		>
@@ -1038,7 +1038,7 @@ const ReviewEntityForm = ({
 	return (
 		<Form
 			replace
-			method="post"
+			method="POST"
 			action={withQuery("/actions", { intent: "performReviewAction" })}
 			onSubmit={() => {
 				events.postReview(entityToReview.entityTitle);
@@ -1260,7 +1260,7 @@ const AddEntityToCollectionForm = ({
 
 	return (
 		<Form
-			method="post"
+			method="POST"
 			onSubmit={() => closeAddEntityToCollectionModal()}
 			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 		>

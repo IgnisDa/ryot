@@ -168,7 +168,7 @@ export default function Page() {
 					<Group justify="space-between">
 						<Form
 							replace
-							method="post"
+							method="POST"
 							action={withQuery("", { intent: "generateAuthToken" })}
 						>
 							<Button
@@ -269,7 +269,7 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 							</ActionIcon>
 						) : null}
 						<fetcher.Form
-							method="post"
+							method="POST"
 							ref={deleteFormRef}
 							action={withQuery("", { intent: "delete" })}
 						>
@@ -322,7 +322,7 @@ const CreateIntegrationModal = (props: {
 		>
 			<Form
 				replace
-				method="post"
+				method="POST"
 				onSubmit={() => props.closeIntegrationModal()}
 				action={withQuery("", { intent: "create" })}
 			>

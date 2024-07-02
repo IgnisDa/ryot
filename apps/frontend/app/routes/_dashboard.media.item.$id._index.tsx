@@ -236,7 +236,7 @@ export default function Page() {
 				action={withQuery($path("/actions"), {
 					intent: "individualProgressUpdate",
 				})}
-				method="post"
+				method="POST"
 				replace
 				onSubmit={() => {
 					events.updateProgress(loaderData.metadataDetails.title);
@@ -255,7 +255,7 @@ export default function Page() {
 				action={withQuery($path("/actions"), {
 					intent: "individualProgressUpdate",
 				})}
-				method="post"
+				method="POST"
 				replace
 				onSubmit={() => {
 					events.updateProgress(loaderData.metadataDetails.title);
@@ -726,7 +726,7 @@ export default function Page() {
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="post"
+													method="POST"
 													replace
 													onSubmit={() => {
 														events.updateProgress(
@@ -758,7 +758,7 @@ export default function Page() {
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="post"
+													method="POST"
 													replace
 													onSubmit={() => {
 														events.updateProgress(
@@ -874,7 +874,7 @@ export default function Page() {
 										MediaSource.Custom ? (
 											<Form
 												replace
-												method="post"
+												method="POST"
 												action={withQuery("", {
 													intent: "deployUpdateMetadataJob",
 												})}
@@ -1180,7 +1180,7 @@ const AdjustSeenTimesModal = (props: {
 		>
 			<Form
 				replace
-				method="post"
+				method="POST"
 				onSubmit={props.onClose}
 				action={withQuery("", { intent: "editSeenItem" })}
 			>
@@ -1228,7 +1228,7 @@ const MergeMetadataModal = (props: {
 		>
 			<Form
 				replace
-				method="post"
+				method="POST"
 				action={withQuery("", { intent: "mergeMetadata" })}
 			>
 				<input hidden name="mergeFrom" defaultValue={props.metadataId} />
@@ -1322,7 +1322,7 @@ const SeenItem = (props: { history: History; index: number }) => {
 				<Flex direction="column" justify="center">
 					<Form
 						replace
-						method="post"
+						method="POST"
 						action={withQuery("", { intent: "deleteSeenItem" })}
 					>
 						<input hidden name="seenId" defaultValue={props.history.id} />

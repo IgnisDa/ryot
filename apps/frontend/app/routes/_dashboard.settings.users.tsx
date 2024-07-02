@@ -1,11 +1,14 @@
 import {
 	ActionIcon,
+	Avatar,
 	Box,
 	Button,
 	Container,
 	Flex,
+	Group,
 	Modal,
 	Paper,
+	SimpleGrid,
 	Stack,
 	Text,
 	TextInput,
@@ -23,11 +26,14 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, randomString } from "@ryot/ts-utils";
 import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { forwardRef, useRef, useState } from "react";
+import { type Components, VirtuosoGrid } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { zx } from "zodix";
+import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
@@ -36,15 +42,22 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
+const searchParamsSchema = z.object({
+	query: z.string().optional(),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
+
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ usersList }] = await Promise.all([
 		serverGqlService.request(
 			UsersListDocument,
-			undefined,
+			{ query: query.query },
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { usersList };
+	return { usersList, query };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -113,11 +126,9 @@ export default function Page() {
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
 	] = useDisclosure(false);
 	const [password, setPassword] = useState("");
-	const fetcher = useFetcher<typeof action>();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
 
 	return (
-		<Container size="xs">
+		<Container size="lg">
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Users settings</Title>
@@ -137,27 +148,19 @@ export default function Page() {
 					withCloseButton={false}
 					centered
 				>
-					<Form
-						replace
-						onSubmit={closeRegisterUserModal}
-						method="post"
-						action={withQuery("", { intent: "registerNew" })}
-					>
+					<Form replace method="POST" onSubmit={closeRegisterUserModal}>
+						<input hidden name="intent" defaultValue="registerNew" />
 						<Stack>
 							<Title order={3}>Create User</Title>
 							<TextInput label="Name" required name="username" />
 							<TextInput
-								label="Password"
 								required
 								name="password"
+								label="Password"
 								value={password}
 								onChange={(e) => setPassword(e.currentTarget.value)}
 								rightSection={
-									<ActionIcon
-										onClick={() => {
-											setPassword(randomString(7));
-										}}
-									>
+									<ActionIcon onClick={() => setPassword(randomString(7))}>
 										<IconRefresh size={16} />
 									</ActionIcon>
 								}
@@ -168,37 +171,72 @@ export default function Page() {
 						</Stack>
 					</Form>
 				</Modal>
-				{loaderData.usersList.map((user) => (
-					<Paper p="xs" withBorder key={user.id} data-user-id={user.id}>
-						<Flex align="center" justify="space-between">
-							<Box>
-								<Text>{user.name}</Text>
-								<Text size="xs">Role: {changeCase(user.lot)}</Text>
-							</Box>
-							<fetcher.Form
-								method="post"
-								ref={deleteFormRef}
-								action={withQuery("", { intent: "delete" })}
-							>
-								<input hidden name="toDeleteUserId" defaultValue={user.id} />
-								<ActionIcon
-									color="red"
-									variant="outline"
-									onClick={async () => {
-										const conf = await confirmWrapper({
-											confirmation:
-												"Are you sure you want to delete this user?",
-										});
-										if (conf) fetcher.submit(deleteFormRef.current);
-									}}
-								>
-									<IconTrash size={16} />
-								</ActionIcon>
-							</fetcher.Form>
-						</Flex>
-					</Paper>
-				))}
+				<DebouncedSearchInput
+					placeholder="Search for users"
+					initialValue={loaderData.query.query}
+				/>
+
+				<VirtuosoGrid
+					components={{ List }}
+					style={{ height: "70vh" }}
+					totalCount={loaderData.usersList.length}
+					itemContent={(index) => <UserDisplay index={index} />}
+				/>
 			</Stack>
 		</Container>
 	);
 }
+
+const List: Components["List"] = forwardRef(
+	({ style, children, ...props }, ref) => {
+		return (
+			<SimpleGrid ref={ref} {...props} style={style} cols={{ md: 2, xl: 3 }}>
+				{children}
+			</SimpleGrid>
+		);
+	},
+);
+
+const UserDisplay = (props: { index: number }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const fetcher = useFetcher<typeof action>();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
+	const user = loaderData.usersList[props.index];
+	if (!user) return null;
+
+	return (
+		<Paper p="xs" withBorder key={user.id} data-user-id={user.id}>
+			<Flex align="center" justify="space-between">
+				<Group wrap="nowrap">
+					<Avatar name={user.name} />
+					<Box>
+						<Text lineClamp={1} fw="bold">
+							{user.name}
+						</Text>
+						<Text size="xs">Role: {changeCase(user.lot)}</Text>
+					</Box>
+				</Group>
+				<fetcher.Form
+					method="POST"
+					ref={deleteFormRef}
+					action={withQuery("", { intent: "delete" })}
+					style={{ flex: "none" }}
+				>
+					<input hidden name="toDeleteUserId" defaultValue={user.id} />
+					<ActionIcon
+						color="red"
+						variant="outline"
+						onClick={async () => {
+							const conf = await confirmWrapper({
+								confirmation: "Are you sure you want to delete this user?",
+							});
+							if (conf) fetcher.submit(deleteFormRef.current);
+						}}
+					>
+						<IconTrash size={16} />
+					</ActionIcon>
+				</fetcher.Form>
+			</Flex>
+		</Paper>
+	);
+};
