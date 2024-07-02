@@ -186,9 +186,9 @@ export function ErrorBoundary() {
 					.
 				</div>
 				<Form
-					action={$path("/actions", { intent: "logout" })}
-					method="POST"
 					replace
+					method="POST"
+					action={$path("/actions", { intent: "logout" })}
 				>
 					<button type="submit">Logout</button>
 				</Form>

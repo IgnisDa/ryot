@@ -920,9 +920,13 @@ impl MiscellaneousQuery {
     }
 
     /// Get details about all the users in the service.
-    async fn users_list(&self, gql_ctx: &Context<'_>) -> Result<Vec<user::Model>> {
+    async fn users_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        query: Option<String>,
+    ) -> Result<Vec<user::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.users_list().await
+        service.users_list(query).await
     }
 
     /// Get details about the currently logged in user.
@@ -5827,8 +5831,11 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn users_list(&self) -> Result<Vec<user::Model>> {
+    async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
         Ok(User::find()
+            .apply_if(query, |query, value| {
+                query.filter(Expr::col(user::Column::Name).ilike(ilike_sql(&value)))
+            })
             .order_by_asc(user::Column::Id)
             .all(&self.db)
             .await?)
@@ -5838,7 +5845,7 @@ impl MiscellaneousService {
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
         if let Some(u) = maybe_user {
             if self
-                .users_list()
+                .users_list(None)
                 .await?
                 .into_iter()
                 .filter(|u| u.lot == UserLot::Admin)

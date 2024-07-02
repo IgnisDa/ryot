@@ -60,7 +60,7 @@ import type { ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withFragment } from "ufo";
+import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { DisplayExerciseStats } from "~/components/fitness";
 import { dayjsLib, getSetColor } from "~/lib/generals";
@@ -169,8 +169,8 @@ export default function Page() {
 			>
 				<Form
 					replace
-					action="?intent=edit"
-					method="post"
+					method="POST"
+					action={withQuery("", { intent: "edit" })}
 					onSubmit={() => adjustTimeModalClose()}
 				>
 					<Stack>
@@ -226,7 +226,10 @@ export default function Page() {
 								>
 									Adjust time
 								</Menu.Item>
-								<Form action="?intent=delete" method="post">
+								<Form
+									method="POST"
+									action={withQuery("", { intent: "delete" })}
+								>
 									<Menu.Item
 										onClick={(e) => {
 											if (

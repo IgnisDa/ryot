@@ -52,6 +52,7 @@ import {
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
@@ -68,7 +69,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ usersList }] = await Promise.all([
 		serverGqlService.request(
 			UsersListDocument,
-			undefined,
+			{},
 			getAuthorizationHeader(request),
 		),
 	]);
@@ -337,9 +338,9 @@ const DisplayCollection = (props: {
 				) : null}
 				{!props.collection.isDefault ? (
 					<fetcher.Form
-						action="?intent=delete"
-						method="post"
+						method="POST"
 						ref={deleteFormRef}
+						action={withQuery("", { intent: "delete" })}
 					>
 						<input
 							hidden
@@ -378,7 +379,11 @@ const CreateOrUpdateModal = (props: {
 		);
 
 	return (
-		<Box component={Form} method="post" action="?intent=createOrUpdate">
+		<Box
+			method="POST"
+			component={Form}
+			action={withQuery("", { intent: "createOrUpdate" })}
+		>
 			<Stack>
 				<Title order={3}>
 					{props.toUpdateCollection ? "Update" : "Create"} collection

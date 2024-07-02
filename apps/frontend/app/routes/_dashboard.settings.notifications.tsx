@@ -37,6 +37,7 @@ import { IconTrash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
@@ -152,7 +153,11 @@ export default function Page() {
 					<Flex justify="end">
 						<Group>
 							{loaderData.userNotificationPlatforms.length > 0 ? (
-								<Form action="?intent=test" method="post" replace>
+								<Form
+									replace
+									method="POST"
+									action={withQuery("", { intent: "test" })}
+								>
 									<Button size="xs" variant="light" color="green" type="submit">
 										Trigger test notifications
 									</Button>
@@ -175,8 +180,8 @@ export default function Page() {
 					>
 						<Box
 							component={Form}
-							action="?intent=create"
-							method="post"
+							method="POST"
+							action={withQuery("", { intent: "create" })}
 							onSubmit={() => {
 								closeCreateUserNotificationPlatformModal();
 								setCreateUserNotificationPlatformLot(undefined);
@@ -338,9 +343,9 @@ const DisplayNotification = (props: {
 				<Group>
 					<Tooltip label="Delete">
 						<fetcher.Form
-							action="?intent=delete"
-							method="post"
+							method="POST"
 							ref={deleteFormRef}
+							action={withQuery("", { intent: "delete" })}
 						>
 							<input
 								hidden

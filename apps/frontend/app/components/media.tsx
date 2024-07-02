@@ -60,7 +60,7 @@ import {
 import type { ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
+import { withQuery, withoutHost } from "ufo";
 import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
@@ -284,9 +284,9 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 					{openedLeaveComment ? (
 						<Form
-							action="/actions?intent=createReviewComment"
-							method="post"
+							method="POST"
 							onSubmit={() => toggleLeaveComment()}
+							action={withQuery("/actions", { intent: "createReviewComment" })}
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
 							<HiddenLocationInput />
@@ -330,8 +330,10 @@ export const ReviewItemDisplay = (props: {
 													</Box>
 													{userDetails.id === c?.user?.id ? (
 														<Form
-															action="/actions?intent=createReviewComment"
-															method="post"
+															method="POST"
+															action={withQuery("/actions", {
+																intent: "createReviewComment",
+															})}
 														>
 															<input
 																hidden
@@ -367,8 +369,10 @@ export const ReviewItemDisplay = (props: {
 														</Form>
 													) : null}
 													<Form
-														action="/actions?intent=createReviewComment"
-														method="post"
+														method="POST"
+														action={withQuery("/actions", {
+															intent: "createReviewComment",
+														})}
 													>
 														<HiddenLocationInput />
 														<input
@@ -657,7 +661,10 @@ export const DisplayCollection = (props: {
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<Form action="/actions?intent=removeEntityFromCollection" method="post">
+			<Form
+				method="POST"
+				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}
+			>
 				<Flex gap={2}>
 					<Anchor
 						component={Link}
@@ -736,7 +743,11 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	const userDetails = useUserDetails();
 
 	return (
-		<Form action={`/actions?intent=${action}`} method="post" replace>
+		<Form
+			replace
+			method="POST"
+			action={withQuery("/actions", { intent: action })}
+		>
 			<HiddenLocationInput />
 			<input hidden name="collectionName" defaultValue="Monitoring" />
 			<input readOnly hidden name="entityLot" value={props.entityLot} />

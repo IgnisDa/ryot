@@ -382,7 +382,10 @@ export default function Layout() {
 					</Box>
 					<Stack gap="xs">
 						<Flex direction="column" justify="center" gap="md">
-							<Form method="post" action="/actions?intent=toggleColorScheme">
+							<Form
+								method="POST"
+								action={withQuery("/actions", { intent: "toggleColorScheme" })}
+							>
 								<HiddenLocationInput />
 								<Group justify="center">
 									<UnstyledButton
@@ -405,9 +408,9 @@ export default function Layout() {
 								</Group>
 							</Form>
 							<Form
-								method="post"
-								action="/actions?intent=logout"
+								method="POST"
 								style={{ display: "flex" }}
+								action={withQuery("/actions", { intent: "logout" })}
 							>
 								<UnstyledButton
 									mx="auto"
@@ -685,7 +688,7 @@ const MetadataInProgressUpdateForm = ({
 
 	return (
 		<Form
-			method="post"
+			method="POST"
 			onSubmit={onSubmit}
 			action={withQuery($path("/actions"), {
 				intent: "individualProgressUpdate",
@@ -793,7 +796,7 @@ const NewProgressUpdateForm = ({
 
 	return (
 		<Form
-			method="post"
+			method="POST"
 			onSubmit={onSubmit}
 			action={withQuery($path("/actions"), { intent: "progressUpdate" })}
 		>
@@ -1034,9 +1037,9 @@ const ReviewEntityForm = ({
 
 	return (
 		<Form
-			method="post"
-			action="/actions?intent=performReviewAction"
 			replace
+			method="POST"
+			action={withQuery("/actions", { intent: "performReviewAction" })}
 			onSubmit={() => {
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
@@ -1257,11 +1260,9 @@ const AddEntityToCollectionForm = ({
 
 	return (
 		<Form
-			action="/actions?intent=addEntityToCollection"
-			method="post"
-			onSubmit={() => {
-				closeAddEntityToCollectionModal();
-			}}
+			method="POST"
+			onSubmit={() => closeAddEntityToCollectionModal()}
+			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 		>
 			<input
 				readOnly

@@ -46,6 +46,7 @@ import {
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import events from "~/lib/events";
@@ -186,8 +187,8 @@ export default function Page() {
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
 				<Form
 					replace
-					method="post"
-					action="?intent=create"
+					method="POST"
+					action={withQuery("", { intent: "create" })}
 					onSubmit={() => {
 						events.createMeasurement();
 						close();
@@ -346,7 +347,7 @@ export default function Page() {
 									width: 80,
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<Form method="post" replace>
+										<Form method="POST" replace>
 											<input
 												type="hidden"
 												name="intent"

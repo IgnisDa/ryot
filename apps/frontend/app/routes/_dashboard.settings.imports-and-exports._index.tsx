@@ -46,7 +46,7 @@ import { IconDownload } from "@tabler/icons-react";
 import { type ReactNode, type RefObject, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
-import { withFragment } from "ufo";
+import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import events from "~/lib/events";
@@ -222,10 +222,10 @@ export default function Page() {
 				<Box mt="xl">
 					<Tabs.Panel value="import">
 						<fetcher.Form
-							method="post"
-							action="?intent=deployImport"
-							encType="multipart/form-data"
 							ref={formRef}
+							method="POST"
+							action={withQuery("", { intent: "deployImport" })}
+							encType="multipart/form-data"
 							onSubmit={() => {
 								if (deployImportSource) events.deployImport(deployImportSource);
 							}}
@@ -504,9 +504,9 @@ export default function Page() {
 								</Group>
 							</Flex>
 							<Form
-								action="?intent=deployExport"
-								method="post"
+								method="POST"
 								encType="multipart/form-data"
+								action={withQuery("", { intent: "deployExport" })}
 							>
 								<MultiSelect
 									name="toExport"

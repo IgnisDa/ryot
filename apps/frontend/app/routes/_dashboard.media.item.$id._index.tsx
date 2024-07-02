@@ -236,7 +236,7 @@ export default function Page() {
 				action={withQuery($path("/actions"), {
 					intent: "individualProgressUpdate",
 				})}
-				method="post"
+				method="POST"
 				replace
 				onSubmit={() => {
 					events.updateProgress(loaderData.metadataDetails.title);
@@ -255,7 +255,7 @@ export default function Page() {
 				action={withQuery($path("/actions"), {
 					intent: "individualProgressUpdate",
 				})}
-				method="post"
+				method="POST"
 				replace
 				onSubmit={() => {
 					events.updateProgress(loaderData.metadataDetails.title);
@@ -726,7 +726,7 @@ export default function Page() {
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="post"
+													method="POST"
 													replace
 													onSubmit={() => {
 														events.updateProgress(
@@ -758,7 +758,7 @@ export default function Page() {
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="post"
+													method="POST"
 													replace
 													onSubmit={() => {
 														events.updateProgress(
@@ -873,9 +873,11 @@ export default function Page() {
 										{loaderData.metadataDetails.source !==
 										MediaSource.Custom ? (
 											<Form
-												action="?intent=deployUpdateMetadataJob"
-												method="post"
 												replace
+												method="POST"
+												action={withQuery("", {
+													intent: "deployUpdateMetadataJob",
+												})}
 												onSubmit={async () => {
 													await queryClient.invalidateQueries({
 														queryKey: [
@@ -1177,10 +1179,10 @@ const AdjustSeenTimesModal = (props: {
 			centered
 		>
 			<Form
-				action="?intent=editSeenItem"
-				method="post"
 				replace
+				method="POST"
 				onSubmit={props.onClose}
+				action={withQuery("", { intent: "editSeenItem" })}
 			>
 				<Stack>
 					<Title order={3}>Adjust seen times</Title>
@@ -1224,7 +1226,11 @@ const MergeMetadataModal = (props: {
 			withCloseButton={false}
 			centered
 		>
-			<Form method="post" action="?intent=mergeMetadata" replace>
+			<Form
+				replace
+				method="POST"
+				action={withQuery("", { intent: "mergeMetadata" })}
+			>
 				<input hidden name="mergeFrom" defaultValue={props.metadataId} />
 				<Stack>
 					<Title order={3}>Merge media</Title>
@@ -1314,7 +1320,11 @@ const SeenItem = (props: { history: History; index: number }) => {
 				data-seen-num-times-updated={props.history.numTimesUpdated}
 			>
 				<Flex direction="column" justify="center">
-					<Form action="?intent=deleteSeenItem" method="post" replace>
+					<Form
+						replace
+						method="POST"
+						action={withQuery("", { intent: "deleteSeenItem" })}
+					>
 						<input hidden name="seenId" defaultValue={props.history.id} />
 						<ActionIcon
 							color="red"

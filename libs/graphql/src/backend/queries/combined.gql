@@ -81,8 +81,8 @@ query UserNotificationPlatforms {
   }
 }
 
-query UsersList {
-  usersList {
+query UsersList($query: String) {
+  usersList(query: $query) {
     id
     name
     lot
