@@ -101,6 +101,7 @@ import { useUserPreferences } from "~/lib/hooks";
 import {
 	type InProgressWorkout,
 	currentWorkoutToCreateWorkoutInput,
+	exerciseHasDetailsToShow,
 	timerAtom,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
@@ -954,14 +955,14 @@ const ExerciseDisplay = (props: {
 							>
 								Images
 							</Menu.Item>
-							{exercise.exerciseDetails.images.length > 0 ? (
+							{exerciseHasDetailsToShow(exercise) ? (
 								<Menu.Item
 									leftSection={<IconInfoCircle size={14} />}
 									onClick={() => {
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
 												draft.exercises[props.exerciseIdx].isShowDetailsOpen =
-													!draft.exercises[props.exerciseIdx].isShowDetailsOpen;
+													!exercise.isShowDetailsOpen;
 											}),
 										);
 									}}

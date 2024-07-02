@@ -267,6 +267,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 	return input;
 };
 
+export const exerciseHasDetailsToShow = (exercise: Exercise) =>
+	exercise.exerciseDetails.images.length > 0;
+
 type Timer = {
 	totalTime: number;
 	endAt: Dayjs;
