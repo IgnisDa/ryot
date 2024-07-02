@@ -39,6 +39,7 @@ import {
 	useDisclosure,
 	useInterval,
 	useListState,
+	useToggle,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -673,9 +674,10 @@ const ExerciseDisplay = (props: {
 		restTimerModalOpened,
 		{ close: restTimerModalClose, toggle: restTimerModalToggle },
 	] = useDisclosure(false);
-	const [cameraFacing, setCameraFacing] = useState<"user" | "environment">(
+	const [cameraFacing, toggleCameraFacing] = useToggle([
 		"environment",
-	);
+		"user",
+	] as const);
 	const webcamRef = useRef<Webcam>(null);
 	const [
 		assetsModalOpened,
@@ -806,14 +808,7 @@ const ExerciseDisplay = (props: {
 									/>
 								</Paper>
 								<Stack>
-									<ActionIcon
-										size="xl"
-										onClick={() => {
-											setCameraFacing(
-												cameraFacing === "user" ? "environment" : "user",
-											);
-										}}
-									>
+									<ActionIcon size="xl" onClick={() => toggleCameraFacing()}>
 										<IconCameraRotate size={32} />
 									</ActionIcon>
 									<ActionIcon
