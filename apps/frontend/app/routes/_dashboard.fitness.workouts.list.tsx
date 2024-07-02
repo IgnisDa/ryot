@@ -23,7 +23,11 @@ import {
 	UserWorkoutListDocument,
 	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { displayWeightWithUnit, humanizeDuration } from "@ryot/ts-utils";
+import {
+	displayWeightWithUnit,
+	humanizeDuration,
+	truncate,
+} from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
@@ -61,9 +65,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userWorkoutList }] = await Promise.all([
 		serverGqlService.request(
 			UserWorkoutListDocument,
-			{
-				input: { page: query.page, query: query.query },
-			},
+			{ input: { page: query.page, query: query.query } },
 			getAuthorizationHeader(request),
 		),
 	]);
@@ -114,7 +116,7 @@ export default function Page() {
 										<Accordion.Control>
 											<Group wrap="nowrap">
 												<Text fz={{ base: "sm", md: "md" }}>
-													{workout.name}
+													{truncate(workout.name, { length: 20 })}
 												</Text>
 												<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
 													{dayjsLib(workout.startTime).format("LL")}

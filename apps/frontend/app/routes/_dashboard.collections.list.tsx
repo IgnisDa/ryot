@@ -40,7 +40,7 @@ import {
 	type UserCollectionsListQuery,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase, truncate } from "@ryot/ts-utils";
 import {
 	IconAssembly,
 	IconEdit,
@@ -302,8 +302,7 @@ const DisplayCollection = (props: {
 						to={$path("/collections/:id", { id: props.collection.id })}
 					>
 						<Title order={4}>
-							{props.collection.name.slice(0, 20)}
-							{props.collection.name.length > 20 ? "..." : ""}
+							{truncate(props.collection.name, { length: 20 })}
 						</Title>
 					</Anchor>
 					{additionalDisplay.length > 0 ? (

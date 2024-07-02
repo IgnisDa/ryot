@@ -1877,7 +1877,7 @@ pub mod fitness {
         pub start_time: DateTimeUtc,
         pub end_time: DateTimeUtc,
         pub summary: WorkoutSummary,
-        pub name: Option<String>,
+        pub name: String,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
