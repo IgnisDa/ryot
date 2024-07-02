@@ -108,7 +108,7 @@ export const getUserExerciseDetailsQuery = (exerciseId: string) =>
 		queryKey: ["userExerciseDetails", exerciseId],
 		queryFn: () =>
 			clientGqlService
-				.request(UserExerciseDetailsDocument, { input: { exerciseId } })
+				.request(UserExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.userExerciseDetails),
 	}) as const;
 
