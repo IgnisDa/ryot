@@ -152,7 +152,8 @@ export enum CollectionExtraInformationLot {
   Date = 'DATE',
   DateTime = 'DATE_TIME',
   Number = 'NUMBER',
-  String = 'STRING'
+  String = 'STRING',
+  StringArray = 'STRING_ARRAY'
 }
 
 export type CollectionItem = {
