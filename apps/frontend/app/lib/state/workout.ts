@@ -17,6 +17,7 @@ import { v4 as randomUUID } from "uuid";
 import {
 	CurrentWorkoutKey,
 	clientGqlService,
+	dayjsLib,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
@@ -102,6 +103,7 @@ export const getExerciseDetailsQuery = (exerciseId: string) =>
 			clientGqlService
 				.request(ExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.exerciseDetails),
+		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
 	}) as const;
 
 export const getUserExerciseDetailsQuery = (exerciseId: string) =>
@@ -111,6 +113,7 @@ export const getUserExerciseDetailsQuery = (exerciseId: string) =>
 			clientGqlService
 				.request(UserExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.userExerciseDetails),
+		staleTime: Number.POSITIVE_INFINITY,
 	}) as const;
 
 const getExerciseDetails = async (exerciseId: string) => {

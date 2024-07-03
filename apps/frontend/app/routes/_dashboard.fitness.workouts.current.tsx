@@ -97,7 +97,13 @@ import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
 import { DisplayExerciseStats } from "~/components/fitness";
 import events from "~/lib/events";
-import { CurrentWorkoutKey, dayjsLib, getSetColor } from "~/lib/generals";
+import {
+	CurrentWorkoutKey,
+	dayjsLib,
+	getSetColor,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import {
 	type InProgressWorkout,
@@ -373,6 +379,14 @@ export default function Page() {
 															currentWorkoutToCreateWorkoutInput(
 																currentWorkout,
 															);
+														for (const exercise of currentWorkout.exercises) {
+															queryClient.removeQueries({
+																queryKey:
+																	queryFactory.fitness.userExerciseDetails(
+																		exercise.exerciseId,
+																	).queryKey,
+															});
+														}
 														stopTimer();
 														interval.stop();
 														Cookies.remove(workoutCookieName);
