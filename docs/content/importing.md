@@ -144,6 +144,22 @@ the "Watchlist" collection.
 - Go the bottom and click on the "Export this list" button.
 - Upload the csv file in the input.
 
+## IGDb
+
+You can import your lists from [IGDb](https://www.igdb.com). Each list has to be imported
+separately. A few points to note:
+
+- Importing into the "In Progress" collection will set 0% progress for the items.
+- Importing into the "Completed" collection will set 100% progress for the items.
+- Import into any other collection will just add the items to the collection.
+
+### Steps
+
+- Login to your account and go to your profile. The default activity lists can be exported
+  from  here. Click on the list you want to export and download it as CSV.
+- For your custom lists, please visit the "My Lists" page.
+- Upload the CSV file and choose the correct list type from the dropdown.
+
 ## Audiobookshelf
 
 The Audiobookshelf importer supports importing all media that have a valid Audible ID or
