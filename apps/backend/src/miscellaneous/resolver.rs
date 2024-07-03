@@ -2460,7 +2460,10 @@ impl MiscellaneousService {
                 tracing::debug!("Progress update finished on = {:?}", finished_on);
                 let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
                 {
-                    (dec!(0), Some(Utc::now().date_naive()))
+                    (
+                        input.progress.unwrap_or(dec!(0)),
+                        Some(Utc::now().date_naive()),
+                    )
                 } else {
                     (dec!(100), None)
                 };
