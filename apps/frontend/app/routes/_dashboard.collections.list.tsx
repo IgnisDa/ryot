@@ -43,7 +43,7 @@ import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
-	useGetFallbackImageUrl,
+	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,
 } from "~/lib/hooks";
@@ -227,7 +227,7 @@ const DisplayCollection = (props: {
 	const userDetails = useUserDetails();
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
-	const getFallbackImageUrl = useGetFallbackImageUrl();
+	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
 
 	if (props.collection.creator.id !== userDetails.id)
@@ -252,7 +252,7 @@ const DisplayCollection = (props: {
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 				<Flex h={180} w={{ md: IMAGES_CONTAINER_WIDTH }} pos="relative">
 					<Image
-						src={getFallbackImageUrl(props.collection.name)}
+						src={fallbackImageUrl}
 						h="100%"
 						flex="none"
 						mx="auto"

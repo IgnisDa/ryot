@@ -32,13 +32,11 @@ export const useGetMantineColor = () => {
 	return getColor;
 };
 
-export const useGetFallbackImageUrl = () => {
+export const useFallbackImageUrl = (text = "No Image") => {
 	const colorScheme = useComputedColorScheme("dark");
-	const fn = (text = "No Image") =>
-		`https://placehold.co/100x200/${
-			colorScheme === "dark" ? "343632" : "c1c4bb"
-		}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
-	return fn;
+	return `https://placehold.co/100x200/${
+		colorScheme === "dark" ? "343632" : "c1c4bb"
+	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 };
 
 export const useSearchParam = () => {

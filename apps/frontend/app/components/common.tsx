@@ -27,7 +27,7 @@ import { withFragment, withoutHost } from "ufo";
 import { getSurroundingElements, redirectToQueryParam } from "~/lib/generals";
 import {
 	useCoreDetails,
-	useGetFallbackImageUrl,
+	useFallbackImageUrl,
 	useSearchParam,
 } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
@@ -52,7 +52,7 @@ export const MediaDetailsLayout = (props: {
 	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
-	const getFallbackImageUrl = useGetFallbackImageUrl();
+	const fallbackImageUrl = useFallbackImageUrl();
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -79,7 +79,7 @@ export const MediaDetailsLayout = (props: {
 							src={props.images[0]}
 							height={400}
 							radius="lg"
-							fallbackSrc={getFallbackImageUrl()}
+							fallbackSrc={fallbackImageUrl}
 						/>
 					</Box>
 				)}
