@@ -324,7 +324,9 @@ const DisplayCollection = (props: {
 						</Group>
 					</Group>
 					{props.collection.description ? (
-						<Text lineClamp={1}>{props.collection.description}</Text>
+						<Text size="xs" lineClamp={5}>
+							{props.collection.description}
+						</Text>
 					) : null}
 					{props.collection.isDefault ? (
 						<Text lineClamp={1} mt="auto" ta="right" c="dimmed" size="xs">
