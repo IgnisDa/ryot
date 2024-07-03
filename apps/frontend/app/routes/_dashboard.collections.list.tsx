@@ -255,7 +255,7 @@ const DisplayCollection = (props: {
 						radius="md"
 					/>
 					<Box pos="absolute" left={0} right={0} bottom={0}>
-						<ProRequiredAlert tooltipLabel="Custom images for collections" />
+						<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
 					</Box>
 				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
