@@ -688,8 +688,8 @@ const ExerciseDisplay = (props: {
 	invariant(exercise);
 	const [currentTimer] = useAtom(timerAtom);
 	const [openedDetails, toggleOpenedDetails] = useToggle([
-		"images",
 		"history",
+		"images",
 	] as const);
 	const [detailsParent] = useAutoAnimate();
 	const { data: userExerciseDetails } = useQuery(
