@@ -3559,6 +3559,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@lukemorales/query-key-factory@npm:1.3.4":
+  version: 1.3.4
+  resolution: "@lukemorales/query-key-factory@npm:1.3.4"
+  peerDependencies:
+    "@tanstack/query-core": ">= 4.0.0"
+    "@tanstack/react-query": ">= 4.0.0"
+  checksum: 10/8954bbce9c5fc7103ccb8bc546eee746896af47a1453cf9a2413c0accae296727db60329a3b75a8f2ef15c516cfadb4eb17530242274f20bfd129bc85f799149
+  languageName: node
+  linkType: hard
+
 "@mantine/carousel@npm:7.11.0":
   version: 7.11.0
   resolution: "@mantine/carousel@npm:7.11.0"
@@ -4191,6 +4201,7 @@ __metadata:
     "@formkit/auto-animate": "npm:0.8.2"
     "@hello-pangea/dnd": "npm:16.6.0"
     "@ignisda/remix-routes": "npm:3.3.0"
+    "@lukemorales/query-key-factory": "npm:1.3.4"
     "@mantine/carousel": "npm:7.11.0"
     "@mantine/charts": "npm:7.11.0"
     "@mantine/core": "npm:7.11.0"

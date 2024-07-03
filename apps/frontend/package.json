@@ -12,6 +12,7 @@
 		"@formkit/auto-animate": "0.8.2",
 		"@hello-pangea/dnd": "16.6.0",
 		"@ignisda/remix-routes": "3.3.0",
+		"@lukemorales/query-key-factory": "1.3.4",
 		"@mantine/carousel": "7.11.0",
 		"@mantine/charts": "7.11.0",
 		"@mantine/core": "7.11.0",
