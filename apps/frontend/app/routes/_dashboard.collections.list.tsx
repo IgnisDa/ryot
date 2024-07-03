@@ -16,7 +16,6 @@ import {
 	TextInput,
 	Textarea,
 	Title,
-	useComputedColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
@@ -43,8 +42,11 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { getFallbackImageUrl } from "~/lib/generals";
-import { useUserCollections, useUserDetails } from "~/lib/hooks";
+import {
+	useGetFallbackImageUrl,
+	useUserCollections,
+	useUserDetails,
+} from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -225,7 +227,7 @@ const DisplayCollection = (props: {
 	const userDetails = useUserDetails();
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
-	const colorScheme = useComputedColorScheme("dark");
+	const getFallbackImageUrl = useGetFallbackImageUrl();
 	const additionalDisplay = [];
 
 	if (props.collection.creator.id !== userDetails.id)
@@ -250,7 +252,7 @@ const DisplayCollection = (props: {
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 				<Flex h={180} w={{ md: IMAGES_CONTAINER_WIDTH }} pos="relative">
 					<Image
-						src={getFallbackImageUrl(colorScheme, props.collection.name)}
+						src={getFallbackImageUrl(props.collection.name)}
 						h="100%"
 						flex="none"
 						mx="auto"

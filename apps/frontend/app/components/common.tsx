@@ -13,7 +13,6 @@ import {
 	Text,
 	TextInput,
 	Tooltip,
-	useComputedColorScheme,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate } from "@mantine/hooks";
 import type {
@@ -25,12 +24,12 @@ import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { withFragment, withoutHost } from "ufo";
+import { getSurroundingElements, redirectToQueryParam } from "~/lib/generals";
 import {
-	getFallbackImageUrl,
-	getSurroundingElements,
-	redirectToQueryParam,
-} from "~/lib/generals";
-import { useCoreDetails, useSearchParam } from "~/lib/hooks";
+	useCoreDetails,
+	useGetFallbackImageUrl,
+	useSearchParam,
+} from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -53,7 +52,7 @@ export const MediaDetailsLayout = (props: {
 	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
-	const colorScheme = useComputedColorScheme("dark");
+	const getFallbackImageUrl = useGetFallbackImageUrl();
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -80,7 +79,7 @@ export const MediaDetailsLayout = (props: {
 							src={props.images[0]}
 							height={400}
 							radius="lg"
-							fallbackSrc={getFallbackImageUrl(colorScheme)}
+							fallbackSrc={getFallbackImageUrl()}
 						/>
 					</Box>
 				)}
@@ -178,7 +177,7 @@ export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 					<Anchor href={coreDetails.websiteUrl} target="_blank">
 						Ryot Pro
 					</Anchor>{" "}
-					required to use this feature.
+					required to use this feature
 				</Text>
 			</Tooltip>
 		</Alert>

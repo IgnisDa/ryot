@@ -2,7 +2,6 @@ import {
 	createQueryKeys,
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
-import type { MantineColorScheme } from "@mantine/core";
 import {
 	MediaLot,
 	MediaSource,
@@ -45,14 +44,6 @@ export const getSetColor = (l: SetLot) =>
 		.with(SetLot.Failure, () => "red")
 		.with(SetLot.Normal, () => "indigo.6")
 		.exhaustive();
-
-export const getFallbackImageUrl = (
-	colorScheme: Exclude<MantineColorScheme, "auto">,
-	text = "No Image",
-) =>
-	`https://placehold.co/100x200/${
-		colorScheme === "dark" ? "343632" : "c1c4bb"
-	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 
 /**
  * Get the correct name of the lot from a string
