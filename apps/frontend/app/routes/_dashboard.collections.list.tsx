@@ -189,26 +189,22 @@ export default function Page() {
 					</Modal>
 				</Flex>
 				<DebouncedSearchInput initialValue={query} />
-				{filteredCollections.length > 0 ? (
-					<Virtuoso
-						style={{ height: "80vh" }}
-						data={filteredCollections}
-						itemContent={(index) => {
-							const c = filteredCollections[index];
-							return (
-								<DisplayCollection
-									key={c.id}
-									index={index}
-									collection={c}
-									setToUpdateCollection={setToUpdateCollection}
-									openModal={createOrUpdateModalOpen}
-								/>
-							);
-						}}
-					/>
-				) : (
-					<Text>You have not created any collections yet</Text>
-				)}
+				<Virtuoso
+					style={{ height: "80vh" }}
+					data={filteredCollections}
+					itemContent={(index) => {
+						const c = filteredCollections[index];
+						return (
+							<DisplayCollection
+								key={c.id}
+								index={index}
+								collection={c}
+								setToUpdateCollection={setToUpdateCollection}
+								openModal={createOrUpdateModalOpen}
+							/>
+						);
+					}}
+				/>
 			</Stack>
 		</Container>
 	);
