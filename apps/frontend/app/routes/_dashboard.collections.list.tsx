@@ -250,7 +250,12 @@ const DisplayCollection = (props: {
 			style={{ overflow: "hidden" }}
 		>
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
-				<Flex h={180} w={{ md: IMAGES_CONTAINER_WIDTH }} pos="relative">
+				<Flex
+					h={180}
+					w={{ md: IMAGES_CONTAINER_WIDTH }}
+					pos="relative"
+					style={{ overflow: "hidden" }}
+				>
 					<Image
 						src={fallbackImageUrl}
 						h="100%"
