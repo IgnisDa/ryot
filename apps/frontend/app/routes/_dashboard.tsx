@@ -1390,7 +1390,7 @@ const AddEntityToCollectionForm = ({
 													(_, i) => (
 														<Group key={i.toString()}>
 															<TextInput
-																name={`information.${template.name}.${i}`}
+																name={`information.${template.name}[${i}]`}
 																flex={1}
 																defaultValue={
 																	template.defaultValue || undefined
