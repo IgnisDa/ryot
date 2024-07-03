@@ -1,9 +1,8 @@
 # Importing
 
 Importing is meant to be a one-time operation. They are irreversible, i.e., importing from
-the same source twice will create duplicates. I recommend you make a database backup before
-starting an import. To start, click on "Imports and Exports" link under the "Settings"
-section in the sidebar.
+the same source twice will create duplicates. I recommend you to make a database backup
+before starting an import.
 
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
 You can see the reports under "Import History" of the imports page.
@@ -12,8 +11,6 @@ You can see the reports under "Import History" of the imports page.
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
-- You can see description of the importing steps by going to `<your instance
-  url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
 - I recommend turning on debug logging for the duration of the import using the
   `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
   progress in the docker logs.
