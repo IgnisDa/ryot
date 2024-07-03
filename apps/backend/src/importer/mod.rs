@@ -37,6 +37,7 @@ use crate::{
 mod audiobookshelf;
 mod generic_json;
 mod goodreads;
+mod igdb;
 mod imdb;
 mod jellyfin;
 mod mal;
@@ -92,6 +93,13 @@ pub struct DeployStrongAppImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployIgdbImportInput {
+    // The path to the CSV file in the local file system.
+    csv_path: String,
+    collection: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployJsonImportInput {
     // The file path of the uploaded JSON export.
     export: String,
@@ -113,13 +121,14 @@ pub struct DeployUrlAndKeyAndUsernameImportInput {
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployImportJobInput {
     pub source: ImportSource,
-    pub generic_csv: Option<DeployGenericCsvImportInput>,
+    pub mal: Option<DeployMalImportInput>,
+    pub igdb: Option<DeployIgdbImportInput>,
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
-    pub mal: Option<DeployMalImportInput>,
-    pub strong_app: Option<DeployStrongAppImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
+    pub strong_app: Option<DeployStrongAppImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,
+    pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
 }
 
@@ -291,6 +300,7 @@ impl ImporterService {
             )
             .await
             .unwrap(),
+            ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await.unwrap(),
             ImportSource::Imdb => imdb::import(
                 input.generic_csv.unwrap(),
                 &self
