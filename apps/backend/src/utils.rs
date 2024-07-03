@@ -24,7 +24,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     PartialModelTrait, QueryFilter,
 };
-use serde_json::Value;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -340,16 +339,13 @@ pub async fn add_entity_to_collection(
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
         to_update.update(db).await.is_ok()
     } else {
-        let information = input
-            .information
-            .map(|d| serde_json::from_str::<Value>(&serde_json::to_string(&d).unwrap()).unwrap());
         let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
             metadata_id: ActiveValue::Set(input.metadata_id.clone()),
             person_id: ActiveValue::Set(input.person_id.clone()),
             metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
             exercise_id: ActiveValue::Set(input.exercise_id.clone()),
-            information: ActiveValue::Set(information),
+            information: ActiveValue::Set(input.information),
             ..Default::default()
         };
         if let Ok(created) = created_collection.insert(db).await {

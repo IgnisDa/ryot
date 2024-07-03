@@ -149,7 +149,7 @@ pub struct ChangeCollectionToEntityInput {
     pub person_id: Option<String>,
     pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
-    pub information: Option<HashMap<String, String>>,
+    pub information: Option<serde_json::Value>,
 }
 
 #[derive(

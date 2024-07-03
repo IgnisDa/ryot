@@ -21,6 +21,8 @@ export type Scalars = {
    */
   DateTime: { input: string; output: string; }
   Decimal: { input: string; output: string; }
+  /** A scalar that can represent any JSON value. */
+  JSON: { input: any; output: any; }
   /** A scalar that can represent any JSON Object value. */
   JSONObject: { input: any; output: any; }
   /**
@@ -93,7 +95,7 @@ export type ChangeCollectionToEntityInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['String']['input'];
   exerciseId?: InputMaybe<Scalars['String']['input']>;
-  information?: InputMaybe<Scalars['JSONObject']['input']>;
+  information?: InputMaybe<Scalars['JSON']['input']>;
   metadataGroupId?: InputMaybe<Scalars['String']['input']>;
   metadataId?: InputMaybe<Scalars['String']['input']>;
   personId?: InputMaybe<Scalars['String']['input']>;
