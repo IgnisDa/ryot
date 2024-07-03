@@ -33,7 +33,12 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
-import { upperFirst, useDisclosure, useLocalStorage } from "@mantine/hooks";
+import {
+	upperFirst,
+	useCounter,
+	useDisclosure,
+	useLocalStorage,
+} from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import {
@@ -1240,6 +1245,7 @@ const AddEntityToCollectionForm = ({
 		useState<Collection | null>(null);
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
 	const [addEntityToCollectionData, _] = useAddEntityToCollection();
+	const [numArrayElements, setNumArrayElements] = useCounter(1);
 
 	if (!addEntityToCollectionData) return null;
 
@@ -1361,6 +1367,47 @@ const AddEntityToCollectionForm = ({
 											description={template.description}
 											required={!!template.required}
 										/>
+									))
+									.with(CollectionExtraInformationLot.StringArray, () => (
+										<Input.Wrapper
+											label={template.name}
+											description={
+												<>
+													{template.description}
+													<Anchor
+														ml={4}
+														size="xs"
+														onClick={() => setNumArrayElements.increment()}
+													>
+														Add more
+													</Anchor>
+												</>
+											}
+											required={!!template.required}
+										>
+											<Stack gap="xs" mt={4}>
+												{Array.from({ length: numArrayElements }).map(
+													(_, i) => (
+														<Group key={i.toString()}>
+															<TextInput
+																name={`information.${template.name}.${i}`}
+																flex={1}
+																defaultValue={
+																	template.defaultValue || undefined
+																}
+															/>
+															<Anchor
+																ml="auto"
+																size="xs"
+																onClick={() => setNumArrayElements.decrement()}
+															>
+																Remove
+															</Anchor>
+														</Group>
+													),
+												)}
+											</Stack>
+										</Input.Wrapper>
 									))
 									.exhaustive()}
 							</Fragment>
