@@ -255,9 +255,15 @@ export type DeployGenericCsvImportInput = {
   csvPath: Scalars['String']['input'];
 };
 
+export type DeployIgdbImportInput = {
+  collection: Scalars['String']['input'];
+  csvPath: Scalars['String']['input'];
+};
+
 export type DeployImportJobInput = {
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
   genericJson?: InputMaybe<DeployJsonImportInput>;
+  igdb?: InputMaybe<DeployIgdbImportInput>;
   jellyfin?: InputMaybe<DeployUrlAndKeyAndUsernameImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
@@ -686,6 +692,7 @@ export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
+  Igdb = 'IGDB',
   Imdb = 'IMDB',
   Jellyfin = 'JELLYFIN',
   Mal = 'MAL',

@@ -154,6 +154,7 @@ pub enum ImportSource {
     Audiobookshelf,
     GenericJson,
     Goodreads,
+    Igdb,
     Imdb,
     Jellyfin,
     Mal,
