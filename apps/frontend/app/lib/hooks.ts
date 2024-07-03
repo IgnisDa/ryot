@@ -21,7 +21,7 @@ import {
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import type { loader } from "~/routes/_dashboard";
 
-export function useGetMantineColor() {
+export const useGetMantineColor = () => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 
@@ -30,9 +30,9 @@ export function useGetMantineColor() {
 		colors[(getStringAsciiValue(input) + colors.length) % colors.length];
 
 	return getColor;
-}
+};
 
-export function useSearchParam() {
+export const useSearchParam = () => {
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	const delP = (key: string) => {
@@ -51,9 +51,9 @@ export function useSearchParam() {
 	};
 
 	return [searchParams, { setP, delP }] as const;
-}
+};
 
-export function getWorkoutStarter() {
+export const getWorkoutStarter = () => {
 	const navigate = useNavigate();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
@@ -66,7 +66,7 @@ export function getWorkoutStarter() {
 		navigate($path("/fitness/workouts/current"));
 	};
 	return fn;
-}
+};
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 	queryOptions({

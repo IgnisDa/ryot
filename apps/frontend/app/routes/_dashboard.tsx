@@ -504,7 +504,7 @@ interface LinksGroupProps {
 	links?: Array<{ label: string; link: string }>;
 }
 
-function LinksGroup({
+const LinksGroup = ({
 	icon: Icon,
 	label,
 	href,
@@ -512,7 +512,7 @@ function LinksGroup({
 	toggle,
 	opened,
 	links,
-}: LinksGroupProps) {
+}: LinksGroupProps) => {
 	const { dir } = useDirection();
 	const hasLinks = Array.isArray(links);
 	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
@@ -568,7 +568,7 @@ function LinksGroup({
 			{hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
 		</>
 	);
-}
+};
 
 const Footer = () => {
 	const loaderData = useLoaderData<typeof loader>();
