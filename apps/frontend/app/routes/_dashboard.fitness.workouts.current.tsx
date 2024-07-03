@@ -423,7 +423,7 @@ export default function Page() {
 													for (const asset of assets)
 														deleteUploadedAsset(asset.key);
 												}
-												navigate($path("/"));
+												navigate(-1);
 												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
 											}
