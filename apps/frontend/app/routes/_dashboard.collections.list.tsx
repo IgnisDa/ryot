@@ -360,6 +360,11 @@ const CreateOrUpdateModal = (props: {
 						props.toUpdateCollection ? props.toUpdateCollection.name : undefined
 					}
 					readOnly={props.toUpdateCollection?.isDefault}
+					description={
+						props.toUpdateCollection?.isDefault
+							? "Can not edit a default collection"
+							: undefined
+					}
 				/>
 				<Textarea
 					label="Description"
