@@ -2,6 +2,7 @@ import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
 import {
 	ActionIcon,
+	Alert,
 	Anchor,
 	Badge,
 	Box,
@@ -28,7 +29,7 @@ import {
 	getSurroundingElements,
 	redirectToQueryParam,
 } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import { useCoreDetails, useSearchParam } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -164,4 +165,18 @@ export const DebouncedSearchInput = (props: {
 			}
 		/>
 	);
+};
+
+export const ProRequiredAlert = () => {
+	const coreDetails = useCoreDetails();
+	return !coreDetails.isPro ? (
+		<Alert>
+			<Text size="sm">
+				<Anchor href={coreDetails.websiteUrl} target="_blank">
+					Ryot Pro
+				</Anchor>{" "}
+				required to use this feature.
+			</Text>
+		</Alert>
+	) : null;
 };
