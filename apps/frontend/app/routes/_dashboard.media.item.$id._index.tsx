@@ -1366,7 +1366,11 @@ const SeenItem = (props: { history: History; index: number }) => {
 							</Text>
 						) : null}
 					</Flex>
-					<SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 2 }}>
+					<SimpleGrid
+						spacing="md"
+						verticalSpacing={2}
+						cols={{ base: 1, md: 2 }}
+					>
 						<Flex gap="xs">
 							<Text size="sm">Started:</Text>
 							<Text size="sm" fw="bold">
