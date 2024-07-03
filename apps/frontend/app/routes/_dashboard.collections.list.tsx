@@ -6,8 +6,10 @@ import {
 	Button,
 	Container,
 	Flex,
+	Group,
+	Image,
 	Modal,
-	SimpleGrid,
+	Paper,
 	Stack,
 	Text,
 	TextInput,
@@ -36,6 +38,7 @@ import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
+import { getFallbackImageUrl } from "~/lib/generals";
 import { useUserCollections, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -152,8 +155,8 @@ export default function Page() {
 	}, [transition.state]);
 
 	return (
-		<Container>
-			<Stack>
+		<Container size="sm">
+			<Stack gap="xl">
 				<Flex align="center" gap="md">
 					<Title>Your collections</Title>
 					<ActionIcon
@@ -177,16 +180,14 @@ export default function Page() {
 					</Modal>
 				</Flex>
 				{collections.length > 0 ? (
-					<SimpleGrid cols={{ base: 1, md: 2 }}>
-						{collections.map((c) => (
-							<DisplayCollection
-								key={c.id}
-								collection={c}
-								setToUpdateCollection={setToUpdateCollection}
-								openModal={createOrUpdateModalOpen}
-							/>
-						))}
-					</SimpleGrid>
+					collections.map((c) => (
+						<DisplayCollection
+							key={c.id}
+							collection={c}
+							setToUpdateCollection={setToUpdateCollection}
+							openModal={createOrUpdateModalOpen}
+						/>
+					))
 				) : (
 					<Text>You have not created any collections yet</Text>
 				)}
@@ -217,72 +218,86 @@ const DisplayCollection = (props: {
 		);
 
 	return (
-		<Flex align="center" justify="space-between" gap="md" mr="lg">
-			<Box>
-				<Flex align="center" gap="xs">
-					<Anchor
-						component={Link}
-						to={$path("/collections/:id", { id: props.collection.id })}
-					>
-						<Title order={4}>
-							{truncate(props.collection.name, { length: 20 })}
-						</Title>
-					</Anchor>
-					{additionalDisplay.length > 0 ? (
-						<Text c="dimmed" size="xs">
-							({additionalDisplay.join(", ")})
+		<Flex gap="xs" direction={{ base: "column", md: "row" }}>
+			<Image
+				src={getFallbackImageUrl("dark", props.collection.name)}
+				radius="md"
+				h={180}
+				w={250}
+				flex="none"
+			/>
+			<Paper withBorder p="xs" flex={1}>
+				<Stack h={"100%"}>
+					<Group justify="space-between">
+						<Anchor
+							component={Link}
+							to={$path("/collections/:id", { id: props.collection.id })}
+						>
+							<Title order={4}>
+								{truncate(props.collection.name, { length: 20 })}
+							</Title>
+						</Anchor>
+						<Group gap="md">
+							{additionalDisplay.length > 0 ? (
+								<Text c="dimmed" size="xs">
+									({additionalDisplay.join(", ")})
+								</Text>
+							) : null}
+							{userDetails.id === props.collection.creator.id ? (
+								<ActionIcon
+									color="blue"
+									variant="outline"
+									onClick={() => {
+										props.setToUpdateCollection({
+											name: props.collection.name,
+											id: props.collection.id,
+											description: props.collection.description,
+											isDefault: props.collection.isDefault,
+										});
+										props.openModal();
+									}}
+								>
+									<IconEdit size={18} />
+								</ActionIcon>
+							) : null}
+							{!props.collection.isDefault ? (
+								<fetcher.Form
+									method="POST"
+									ref={deleteFormRef}
+									action={withQuery("", { intent: "delete" })}
+								>
+									<input
+										hidden
+										name="collectionName"
+										defaultValue={props.collection.name}
+									/>
+									<ActionIcon
+										color="red"
+										variant="outline"
+										onClick={async () => {
+											const conf = await confirmWrapper({
+												confirmation:
+													"Are you sure you want to delete this collection?",
+											});
+											if (conf) fetcher.submit(deleteFormRef.current);
+										}}
+									>
+										<IconTrashFilled size={18} />
+									</ActionIcon>
+								</fetcher.Form>
+							) : null}
+						</Group>
+					</Group>
+					{props.collection.description ? (
+						<Text lineClamp={1}>{props.collection.description}</Text>
+					) : null}
+					{props.collection.isDefault ? (
+						<Text lineClamp={1} mt="auto" ta="right" c="dimmed" size="xs">
+							System created
 						</Text>
 					) : null}
-				</Flex>
-				{props.collection.description ? (
-					<Text lineClamp={1}>{props.collection.description}</Text>
-				) : null}
-			</Box>
-			<Flex gap="sm" style={{ flex: 0 }}>
-				{userDetails.id === props.collection.creator.id ? (
-					<ActionIcon
-						color="blue"
-						variant="outline"
-						onClick={() => {
-							props.setToUpdateCollection({
-								name: props.collection.name,
-								id: props.collection.id,
-								description: props.collection.description,
-								isDefault: props.collection.isDefault,
-							});
-							props.openModal();
-						}}
-					>
-						<IconEdit size={18} />
-					</ActionIcon>
-				) : null}
-				{!props.collection.isDefault ? (
-					<fetcher.Form
-						method="POST"
-						ref={deleteFormRef}
-						action={withQuery("", { intent: "delete" })}
-					>
-						<input
-							hidden
-							name="collectionName"
-							defaultValue={props.collection.name}
-						/>
-						<ActionIcon
-							color="red"
-							variant="outline"
-							onClick={async () => {
-								const conf = await confirmWrapper({
-									confirmation:
-										"Are you sure you want to delete this collection?",
-								});
-								if (conf) fetcher.submit(deleteFormRef.current);
-							}}
-						>
-							<IconTrashFilled size={18} />
-						</ActionIcon>
-					</fetcher.Form>
-				) : null}
-			</Flex>
+				</Stack>
+			</Paper>
 		</Flex>
 	);
 };
