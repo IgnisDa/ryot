@@ -17,7 +17,12 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import {
+	useDidUpdate,
+	useDisclosure,
+	useHover,
+	useListState,
+} from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -236,16 +241,27 @@ const DisplayCollection = (props: {
 		queryFn: () =>
 			clientGqlService
 				.request(CollectionContentsDocument, {
-					input: { collectionId: props.collection.id, take: 5 },
+					input: { collectionId: props.collection.id, take: 10 },
 				})
 				.then((data) => data.collectionContents),
 		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
 
-	const collectionImages =
+	const collectionImages = (
 		collectionContents?.results.items
 			.flatMap((o) => o.details.image)
-			.filter((i) => isString(i)) || [];
+			.filter((i) => isString(i)) || []
+	).splice(0, 5);
+
+	const [hoveredStates, setHoveredStates] = useListState(
+		collectionImages.map(() => false),
+	);
+
+	const setHoveredState = (index: number, state: boolean) => {
+		setHoveredStates.setItem(index, state);
+	};
+
+	const currentlyHovered = hoveredStates.findIndex((h) => h);
 
 	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
@@ -267,21 +283,19 @@ const DisplayCollection = (props: {
 			style={{ overflow: "hidden" }}
 		>
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
-				<Box h={180} w={{ md: 250 }} pos="relative">
+				<Flex h={180} w={{ md: 250 }} pos="relative">
 					{collectionImages.length > 0 ? (
 						collectionImages.map((image, index) => {
-							const offset = 250 / collectionImages.length - 20;
+							const shouldCollapse = index < currentlyHovered;
 							return (
-								<Box
-									pos="absolute"
+								<CollectionImageDisplay
 									key={image}
-									top={0}
-									left={index * offset}
-									style={{ zIndex: collectionImages.length - index }}
-									h="100%"
-								>
-									<Image src={image} h="100%" />
-								</Box>
+									image={image}
+									index={index}
+									shouldCollapse={shouldCollapse}
+									setHoveredState={setHoveredState}
+									totalImages={collectionImages.length}
+								/>
 							);
 						})
 					) : (
@@ -293,7 +307,7 @@ const DisplayCollection = (props: {
 							mx="auto"
 						/>
 					)}
-				</Box>
+				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">
 						<Anchor
@@ -366,6 +380,37 @@ const DisplayCollection = (props: {
 				</Stack>
 			</Flex>
 		</Paper>
+	);
+};
+
+const CollectionImageDisplay = (props: {
+	image: string;
+	index: number;
+	totalImages: number;
+	shouldCollapse: boolean;
+	setHoveredState: (index: number, state: boolean) => void;
+}) => {
+	const { ref, hovered } = useHover();
+	const offset = 250 / props.totalImages - 20;
+
+	useDidUpdate(() => {
+		props.setHoveredState(props.index, hovered);
+	}, [hovered]);
+
+	return (
+		<Box
+			h="100%"
+			ref={ref}
+			top={{ md: 0 }}
+			pos={{ md: "absolute" }}
+			left={{ md: props.index * offset - (props.shouldCollapse ? 60 : 0) }}
+			style={{
+				zIndex: props.totalImages - props.index,
+				transition: "left 0.5s ease-in-out",
+			}}
+		>
+			<Image src={props.image} h="100%" />
+		</Box>
 	);
 };
 
