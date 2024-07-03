@@ -18,6 +18,7 @@ import {
 	CurrentWorkoutKey,
 	clientGqlService,
 	queryClient,
+	queryFactory,
 } from "~/lib/generals";
 
 export type ExerciseSet = {
@@ -96,7 +97,7 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 
 export const getExerciseDetailsQuery = (exerciseId: string) =>
 	({
-		queryKey: ["exerciseDetails", exerciseId],
+		queryKey: queryFactory.fitness.exerciseDetails(exerciseId).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(ExerciseDetailsDocument, { exerciseId })
@@ -105,7 +106,7 @@ export const getExerciseDetailsQuery = (exerciseId: string) =>
 
 export const getUserExerciseDetailsQuery = (exerciseId: string) =>
 	({
-		queryKey: ["userExerciseDetails", exerciseId],
+		queryKey: queryFactory.fitness.userExerciseDetails(exerciseId).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(UserExerciseDetailsDocument, { exerciseId })

@@ -16,6 +16,7 @@ import {
 	clientGqlService,
 	dayjsLib,
 	getStringAsciiValue,
+	queryFactory,
 } from "~/lib/generals";
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import type { loader } from "~/routes/_dashboard";
@@ -69,7 +70,7 @@ export function getWorkoutStarter() {
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 	({
-		queryKey: ["metadataDetails", metadataId],
+		queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
@@ -85,7 +86,7 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 
 export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 	({
-		queryKey: ["userMetadataDetails", metadataId],
+		queryKey: queryFactory.media.userMetadataDetails(metadataId || "").queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService

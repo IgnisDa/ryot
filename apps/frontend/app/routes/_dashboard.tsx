@@ -92,6 +92,7 @@ import {
 	getLot,
 	getVerb,
 	queryClient,
+	queryFactory,
 } from "~/lib/generals";
 import {
 	useMetadataDetails,
@@ -629,7 +630,9 @@ const MetadataProgressUpdateForm = ({
 
 	const onSubmit = () => {
 		queryClient.removeQueries({
-			queryKey: ["userMetadataDetails", metadataToUpdate.metadataId],
+			queryKey: queryFactory.media.userMetadataDetails(
+				metadataToUpdate.metadataId,
+			).queryKey,
 		});
 		events.updateProgress(metadataDetails.title);
 		closeMetadataProgressUpdateModal();

@@ -92,7 +92,13 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getVerb, queryClient } from "~/lib/generals";
+import {
+	Verb,
+	dayjsLib,
+	getVerb,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import {
 	useAddEntityToCollection,
@@ -880,10 +886,9 @@ export default function Page() {
 												})}
 												onSubmit={async () => {
 													await queryClient.invalidateQueries({
-														queryKey: [
-															"metadataDetails",
+														queryKey: queryFactory.media.metadataDetails(
 															loaderData.metadataId,
-														],
+														).queryKey,
 													});
 												}}
 											>

@@ -30,6 +30,7 @@ import {
 	USER_PREFERENCES_COOKIE_NAME,
 	dayjsLib,
 	queryClient,
+	queryFactory,
 	redirectToQueryParam,
 } from "~/lib/generals";
 
@@ -138,7 +139,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 export const getCachedUserCollectionsList = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return queryClient.ensureQueryData({
-		queryKey: ["userCollectionsList", userDetails.id],
+		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 		queryFn: () =>
 			serverGqlService
 				.request(
@@ -154,7 +155,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 export const removeCachedUserCollectionsList = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	queryClient.removeQueries({
-		queryKey: ["userCollectionsList", userDetails.id],
+		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 	});
 };
 
