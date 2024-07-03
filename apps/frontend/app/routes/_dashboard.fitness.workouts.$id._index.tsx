@@ -56,7 +56,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -160,6 +160,7 @@ export default function Page() {
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
+	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = getWorkoutStarter();
 
 	return (
@@ -207,17 +208,19 @@ export default function Page() {
 						<Title>{loaderData.workoutDetails.name}</Title>
 						<Menu shadow="md" position="bottom-end">
 							<Menu.Target>
-								<ActionIcon>
+								<ActionIcon variant="transparent" loading={isWorkoutLoading}>
 									<IconDotsVertical />
 								</ActionIcon>
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
 									onClick={async () => {
+										setIsWorkoutLoading(true);
 										const workout = await duplicateOldWorkout(
 											loaderData.workoutDetails,
 										);
 										startWorkout(workout);
+										setIsWorkoutLoading(false);
 									}}
 									leftSection={<IconRepeat size={14} />}
 								>
