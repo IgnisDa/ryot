@@ -1,9 +1,8 @@
 # Importing
 
 Importing is meant to be a one-time operation. They are irreversible, i.e., importing from
-the same source twice will create duplicates. I recommend you make a database backup before
-starting an import. To start, click on "Imports and Exports" link under the "Settings"
-section in the sidebar.
+the same source twice will create duplicates. I recommend you to make a database backup
+before starting an import.
 
 An import can fail at various steps. Ryot creates a report when an import completes/fails.
 
@@ -11,8 +10,6 @@ An import can fail at various steps. Ryot creates a report when an import comple
 
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.
-- You can see description of the importing steps by going to `<your instance
-  url>/backend/graphql`, and then searching for `ImportFailStep` enum in search bar.
 - I recommend turning on debug logging for the duration of the import using the
   `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
   progress in the docker logs.
@@ -142,6 +139,22 @@ the "Watchlist" collection.
 - Go to your account and select your watchlist.
 - Go the bottom and click on the "Export this list" button.
 - Upload the csv file in the input.
+
+## IGDb
+
+You can import your lists from [IGDb](https://www.igdb.com). Each list has to be imported
+separately. A few points to note:
+
+- Importing into the "In Progress" collection will set 5% progress for the items.
+- Importing into the "Completed" collection will set 100% progress for the items.
+- Import into any other collection will just add the items to the collection.
+
+### Steps
+
+- Login to your account and go to your profile. The default activity lists can be exported
+  from  here. Click on the list you want to export and download it as CSV.
+- For your custom lists, please visit the "My Lists" page.
+- Upload the CSV file and choose the collection you want to import into.
 
 ## Audiobookshelf
 

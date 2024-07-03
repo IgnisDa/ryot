@@ -23,7 +23,6 @@ import {
 	TextInput,
 	ThemeIcon,
 	Tooltip,
-	useComputedColorScheme,
 } from "@mantine/core";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
@@ -63,12 +62,9 @@ import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
 import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
+import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import {
-	dayjsLib,
-	getFallbackImageUrl,
-	redirectToQueryParam,
-} from "~/lib/generals";
-import {
+	useFallbackImageUrl,
 	useGetMantineColor,
 	useUserDetails,
 	useUserPreferences,
@@ -439,7 +435,7 @@ export const BaseDisplayItem = (props: {
 	nameRight?: ReactNode;
 	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
-	const colorScheme = useComputedColorScheme("dark");
+	const fallbackImageUrl = useFallbackImageUrl(getInitials(props.name));
 
 	const SurroundingElement = (iProps: {
 		children: ReactNode;
@@ -498,10 +494,7 @@ export const BaseDisplayItem = (props: {
 					}}
 					h={260}
 					w={170}
-					fallbackSrc={getFallbackImageUrl(
-						colorScheme,
-						getInitials(props.name),
-					)}
+					fallbackSrc={fallbackImageUrl}
 				/>
 				<Box pos="absolute" style={{ zIndex: 999 }} top={10} left={10}>
 					{props.topLeft}

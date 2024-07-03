@@ -111,13 +111,6 @@ struct UserExerciseDetails {
     collections: Vec<collection::Model>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct UserExerciseDetailsInput {
-    exercise_id: String,
-    /// The number of elements to return in the history.
-    take_history: Option<u64>,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 struct EditUserWorkoutInput {
     id: String,
@@ -191,11 +184,11 @@ impl ExerciseQuery {
     async fn user_exercise_details(
         &self,
         gql_ctx: &Context<'_>,
-        input: UserExerciseDetailsInput,
+        exercise_id: String,
     ) -> Result<UserExerciseDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
-        service.user_exercise_details(user_id, input).await
+        service.user_exercise_details(user_id, exercise_id).await
     }
 
     /// Get all the measurements for a user.
@@ -382,7 +375,7 @@ impl ExerciseService {
     async fn user_exercise_details(
         &self,
         user_id: String,
-        input: UserExerciseDetailsInput,
+        exercise_id: String,
     ) -> Result<UserExerciseDetails> {
         let collections = entity_in_collections(
             &self.db,
@@ -390,7 +383,7 @@ impl ExerciseService {
             None,
             None,
             None,
-            Some(input.exercise_id.clone()),
+            Some(exercise_id.clone()),
         )
         .await?;
         let mut resp = UserExerciseDetails {
@@ -400,7 +393,7 @@ impl ExerciseService {
         };
         if let Some(association) = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::ExerciseId.eq(input.exercise_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(exercise_id))
             .one(&self.db)
             .await?
         {
@@ -417,7 +410,6 @@ impl ExerciseService {
                             .map(|h| h.workout_id.clone()),
                     ),
                 )
-                .limit(input.take_history)
                 .order_by_desc(workout::Column::EndTime)
                 .all(&self.db)
                 .await?;

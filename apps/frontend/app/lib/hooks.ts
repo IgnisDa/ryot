@@ -1,5 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
-import { useMantineTheme } from "@mantine/core";
+import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import {
 	useNavigate,
 	useRouteLoaderData,
@@ -9,18 +9,19 @@ import {
 	MetadataDetailsDocument,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { queryOptions, skipToken, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import {
 	CurrentWorkoutKey,
 	clientGqlService,
 	dayjsLib,
 	getStringAsciiValue,
+	queryFactory,
 } from "~/lib/generals";
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import type { loader } from "~/routes/_dashboard";
 
-export function useGetMantineColor() {
+export const useGetMantineColor = () => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 
@@ -29,9 +30,16 @@ export function useGetMantineColor() {
 		colors[(getStringAsciiValue(input) + colors.length) % colors.length];
 
 	return getColor;
-}
+};
 
-export function useSearchParam() {
+export const useFallbackImageUrl = (text = "No Image") => {
+	const colorScheme = useComputedColorScheme("dark");
+	return `https://placehold.co/100x200/${
+		colorScheme === "dark" ? "343632" : "c1c4bb"
+	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
+};
+
+export const useSearchParam = () => {
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	const delP = (key: string) => {
@@ -50,9 +58,9 @@ export function useSearchParam() {
 	};
 
 	return [searchParams, { setP, delP }] as const;
-}
+};
 
-export function getWorkoutStarter() {
+export const getWorkoutStarter = () => {
 	const navigate = useNavigate();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
@@ -65,11 +73,11 @@ export function getWorkoutStarter() {
 		navigate($path("/fitness/workouts/current"));
 	};
 	return fn;
-}
+};
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
-	({
-		queryKey: ["metadataDetails", metadataId],
+	queryOptions({
+		queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
@@ -77,15 +85,15 @@ export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 						.then((data) => data.metadataDetails)
 			: skipToken,
 		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
-	}) as const;
+	});
 
 export const useMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getMetadataDetailsQuery(metadataId));
 };
 
 export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
-	({
-		queryKey: ["userMetadataDetails", metadataId],
+	queryOptions({
+		queryKey: queryFactory.media.userMetadataDetails(metadataId || "").queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
@@ -93,7 +101,7 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
 		staleTime: Number.POSITIVE_INFINITY,
-	}) as const;
+	});
 
 export const useUserMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getUserMetadataDetailsQuery(metadataId));

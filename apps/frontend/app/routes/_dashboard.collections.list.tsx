@@ -9,20 +9,24 @@ import {
 	Container,
 	Flex,
 	Group,
+	Image,
 	Input,
 	Modal,
 	MultiSelect,
 	Paper,
 	Select,
-	SimpleGrid,
 	Stack,
-	Tabs,
 	Text,
 	TextInput,
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { useDisclosure, useListState } from "@mantine/hooks";
+import {
+	useDidUpdate,
+	useDisclosure,
+	useHover,
+	useListState,
+} from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
@@ -31,32 +35,42 @@ import {
 	type MetaArgs_SingleFetch,
 	useFetcher,
 	useNavigation,
+	useSearchParams,
 } from "@remix-run/react";
 import {
+	CollectionContentsDocument,
+	CollectionContentsSortBy,
 	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
+	GraphqlSortOrder,
 	type UserCollectionsListQuery,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, truncate } from "@ryot/ts-utils";
+import { changeCase, isString, truncate } from "@ryot/ts-utils";
 import {
-	IconAssembly,
 	IconEdit,
 	IconPlus,
 	IconTrash,
 	IconTrashFilled,
-	IconUserCog,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
+import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { useUserCollections, useUserDetails } from "~/lib/hooks";
+import { queryFactory, clientGqlService, dayjsLib } from "~/lib/generals";
+import {
+	useFallbackImageUrl,
+	useUserCollections,
+	useUserDetails,
+} from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -181,7 +195,12 @@ type UpdateCollectionInput = {
 export default function Page() {
 	const transition = useNavigation();
 	const collections = useUserCollections();
-	const userCreatedCollections = collections.filter((c) => !c.isDefault);
+	const [params] = useSearchParams();
+	const query = params.get("query") || undefined;
+
+	const filteredCollections = collections.filter((c) =>
+		query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
+	);
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
@@ -197,7 +216,7 @@ export default function Page() {
 	}, [transition.state]);
 
 	return (
-		<Container>
+		<Container size="sm">
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Your collections</Title>
@@ -221,52 +240,23 @@ export default function Page() {
 						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 					</Modal>
 				</Flex>
-				<Tabs defaultValue="userCreated" variant="outline">
-					<Tabs.List mb="xs">
-						<Tabs.Tab
-							value="userCreated"
-							leftSection={<IconUserCog size={16} />}
-						>
-							User created
-						</Tabs.Tab>
-						<Tabs.Tab
-							value="systemCreated"
-							leftSection={<IconAssembly size={16} />}
-						>
-							System created
-						</Tabs.Tab>
-					</Tabs.List>
-					<Tabs.Panel value="userCreated">
-						{userCreatedCollections.length > 0 ? (
-							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								{userCreatedCollections.map((c) => (
-									<DisplayCollection
-										key={c.id}
-										collection={c}
-										setToUpdateCollection={setToUpdateCollection}
-										openModal={createOrUpdateModalOpen}
-									/>
-								))}
-							</SimpleGrid>
-						) : (
-							<Text>You have not created any collections yet</Text>
-						)}
-					</Tabs.Panel>
-					<Tabs.Panel value="systemCreated">
-						<SimpleGrid cols={{ base: 1, md: 2 }}>
-							{collections
-								.filter((c) => c.isDefault)
-								.map((c) => (
-									<DisplayCollection
-										key={c.id}
-										collection={c}
-										setToUpdateCollection={setToUpdateCollection}
-										openModal={createOrUpdateModalOpen}
-									/>
-								))}
-						</SimpleGrid>
-					</Tabs.Panel>
-				</Tabs>
+				<DebouncedSearchInput initialValue={query} />
+				<Virtuoso
+					style={{ height: "80vh" }}
+					data={filteredCollections}
+					itemContent={(index) => {
+						const c = filteredCollections[index];
+						return (
+							<DisplayCollection
+								key={c.id}
+								index={index}
+								collection={c}
+								setToUpdateCollection={setToUpdateCollection}
+								openModal={createOrUpdateModalOpen}
+							/>
+						);
+					}}
+				/>
 			</Stack>
 		</Container>
 	);
@@ -274,15 +264,53 @@ export default function Page() {
 
 type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 
+const IMAGES_CONTAINER_WIDTH = 250;
+
 const DisplayCollection = (props: {
 	collection: Collection;
+	index: number;
 	setToUpdateCollection: (c: UpdateCollectionInput) => void;
 	openModal: () => void;
 }) => {
 	const userDetails = useUserDetails();
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
+	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
+
+	const { data: collectionContents } = useQuery({
+		queryKey: queryFactory.collections.details(props.collection.id).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(CollectionContentsDocument, {
+					input: {
+						collectionId: props.collection.id,
+						take: 10,
+						sort: {
+							by: CollectionContentsSortBy.LastUpdatedOn,
+							order: GraphqlSortOrder.Desc,
+						},
+					},
+				})
+				.then((data) => data.collectionContents),
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
+	});
+
+	const collectionImages = (
+		collectionContents?.results.items
+			.flatMap((o) => o.details.image)
+			.filter((i) => isString(i)) || []
+	).splice(0, 5);
+
+	const [hoveredStates, setHoveredStates] = useListState(
+		collectionImages.map(() => false),
+	);
+
+	const setHoveredState = (index: number, state: boolean) => {
+		setHoveredStates.setItem(index, state);
+	};
+
+	const currentlyHovered = hoveredStates.findIndex((h) => h);
 
 	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
@@ -294,75 +322,161 @@ const DisplayCollection = (props: {
 		);
 
 	return (
-		<Flex align="center" justify="space-between" gap="md" mr="lg">
-			<Box>
-				<Flex align="center" gap="xs">
-					<Anchor
-						component={Link}
-						to={$path("/collections/:id", { id: props.collection.id })}
-					>
-						<Title order={4}>
-							{truncate(props.collection.name, { length: 20 })}
-						</Title>
-					</Anchor>
-					{additionalDisplay.length > 0 ? (
-						<Text c="dimmed" size="xs">
-							({additionalDisplay.join(", ")})
+		<Paper
+			pr="md"
+			radius="lg"
+			withBorder
+			mt={props.index !== 0 ? "lg" : undefined}
+			pl={{ base: "md", md: 0 }}
+			py={{ base: "sm", md: 0 }}
+			style={{ overflow: "hidden" }}
+		>
+			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
+				<Flex
+					h={180}
+					w={{ md: IMAGES_CONTAINER_WIDTH }}
+					pos="relative"
+					style={{ overflow: "hidden" }}
+				>
+					{collectionImages.length > 0 ? (
+						collectionImages.map((image, index) => {
+							const shouldCollapse = index < currentlyHovered;
+							return (
+								<CollectionImageDisplay
+									key={image}
+									image={image}
+									index={index}
+									shouldCollapse={shouldCollapse}
+									setHoveredState={setHoveredState}
+									totalImages={collectionImages.length}
+								/>
+							);
+						})
+					) : (
+						<Image
+							src={fallbackImageUrl}
+							h="100%"
+							flex="none"
+							mx="auto"
+							radius="md"
+						/>
+					)}
+					<Box pos="absolute" left={0} right={0} bottom={0}>
+						<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
+					</Box>
+				</Flex>
+				<Stack flex={1} py={{ md: "sm" }}>
+					<Group justify="space-between">
+						<Anchor
+							component={Link}
+							to={$path("/collections/:id", { id: props.collection.id })}
+						>
+							<Title order={4}>
+								{truncate(props.collection.name, { length: 20 })}
+							</Title>
+						</Anchor>
+						<Group gap="md">
+							{additionalDisplay.length > 0 ? (
+								<Text c="dimmed" size="xs">
+									({additionalDisplay.join(", ")})
+								</Text>
+							) : null}
+							{userDetails.id === props.collection.creator.id ? (
+								<ActionIcon
+									color="blue"
+									variant="outline"
+									onClick={() => {
+										props.setToUpdateCollection({
+											name: props.collection.name,
+											id: props.collection.id,
+											description: props.collection.description,
+											collaborators: props.collection.collaborators,
+											isDefault: props.collection.isDefault,
+											informationTemplate: props.collection.informationTemplate,
+										});
+										props.openModal();
+									}}
+								>
+									<IconEdit size={18} />
+								</ActionIcon>
+							) : null}
+							{!props.collection.isDefault ? (
+								<fetcher.Form
+									method="POST"
+									ref={deleteFormRef}
+									action={withQuery("", { intent: "delete" })}
+								>
+									<input
+										hidden
+										name="collectionName"
+										defaultValue={props.collection.name}
+									/>
+									<ActionIcon
+										color="red"
+										variant="outline"
+										onClick={async () => {
+											const conf = await confirmWrapper({
+												confirmation:
+													"Are you sure you want to delete this collection?",
+											});
+											if (conf) fetcher.submit(deleteFormRef.current);
+										}}
+									>
+										<IconTrashFilled size={18} />
+									</ActionIcon>
+								</fetcher.Form>
+							) : null}
+						</Group>
+					</Group>
+					{props.collection.description ? (
+						<Text size="xs" lineClamp={5}>
+							{props.collection.description}
 						</Text>
 					) : null}
-				</Flex>
-				{props.collection.description ? (
-					<Text lineClamp={1}>{props.collection.description}</Text>
-				) : null}
-			</Box>
-			<Flex gap="sm" style={{ flex: 0 }}>
-				{userDetails.id === props.collection.creator.id ? (
-					<ActionIcon
-						color="blue"
-						variant="outline"
-						onClick={() => {
-							props.setToUpdateCollection({
-								name: props.collection.name,
-								id: props.collection.id,
-								description: props.collection.description,
-								collaborators: props.collection.collaborators,
-								isDefault: props.collection.isDefault,
-								informationTemplate: props.collection.informationTemplate,
-							});
-							props.openModal();
-						}}
-					>
-						<IconEdit size={18} />
-					</ActionIcon>
-				) : null}
-				{!props.collection.isDefault ? (
-					<fetcher.Form
-						method="POST"
-						ref={deleteFormRef}
-						action={withQuery("", { intent: "delete" })}
-					>
-						<input
-							hidden
-							name="collectionName"
-							defaultValue={props.collection.name}
-						/>
-						<ActionIcon
-							color="red"
-							variant="outline"
-							onClick={async () => {
-								const conf = await confirmWrapper({
-									confirmation:
-										"Are you sure you want to delete this collection?",
-								});
-								if (conf) fetcher.submit(deleteFormRef.current);
-							}}
-						>
-							<IconTrashFilled size={18} />
-						</ActionIcon>
-					</fetcher.Form>
-				) : null}
+					{props.collection.isDefault ? (
+						<Text lineClamp={1} mt="auto" ta="right" c="dimmed" size="xs">
+							System created
+						</Text>
+					) : null}
+				</Stack>
 			</Flex>
-		</Flex>
+		</Paper>
+	);
+};
+
+const CollectionImageDisplay = (props: {
+	image: string;
+	index: number;
+	totalImages: number;
+	shouldCollapse: boolean;
+	setHoveredState: (index: number, state: boolean) => void;
+}) => {
+	const { ref, hovered } = useHover();
+	const offset = IMAGES_CONTAINER_WIDTH / props.totalImages - 20;
+
+	useDidUpdate(() => {
+		props.setHoveredState(props.index, hovered);
+	}, [hovered]);
+
+	return (
+		<Box
+			h="100%"
+			w="120px"
+			ref={ref}
+			top={{ md: 0 }}
+			pos={{ md: "absolute" }}
+			left={{
+				md: props.index * offset - (props.shouldCollapse ? offset * 2 : 0),
+			}}
+			style={{
+				zIndex: props.totalImages - props.index,
+				transitionProperty: "left",
+				transitionDuration: "0.2s",
+				transitionTimingFunction: "ease-in-out",
+			}}
+		>
+			<Image src={props.image} h="100%" />
+		</Box>
 	);
 };
 
@@ -395,6 +509,11 @@ const CreateOrUpdateModal = (props: {
 						props.toUpdateCollection ? props.toUpdateCollection.name : undefined
 					}
 					readOnly={props.toUpdateCollection?.isDefault}
+					description={
+						props.toUpdateCollection?.isDefault
+							? "Can not edit a default collection"
+							: undefined
+					}
 				/>
 				<Textarea
 					label="Description"

@@ -16,6 +16,7 @@ pub enum CollectionExtraInformationLot {
     Number,
     Date,
     DateTime,
+    StringArray,
 }
 
 #[derive(

@@ -51,7 +51,7 @@ import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import events from "~/lib/events";
 import { dayjsLib } from "~/lib/generals";
-import { useCoreDetails } from "~/lib/hooks";
+import { useCoreDetails, useUserCollections } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -130,6 +130,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 				.with(ImportSource.Jellyfin, async () => ({
 					jellyfin: processSubmission(formData, jellyfinImportFormSchema),
 				}))
+				.with(ImportSource.Igdb, async () => ({
+					igdb: processSubmission(formData, igdbImportFormSchema),
+				}))
 				.exhaustive();
 			await serverGqlService.request(
 				DeployImportJobDocument,
@@ -182,6 +185,10 @@ const jellyfinImportFormSchema = usernameImportFormSchema
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
+const igdbImportFormSchema = z
+	.object({ collection: z.string() })
+	.merge(genericCsvImportFormSchema);
+
 const movaryImportFormSchema = z.object({
 	ratings: z.string(),
 	history: z.string(),
@@ -207,6 +214,7 @@ const deployExportForm = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
+	const userCollections = useUserCollections();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const fetcher = useFetcher<typeof action>();
@@ -251,6 +259,7 @@ export default function Page() {
 													() => "audiobookshelf",
 												)
 												.with(ImportSource.Imdb, () => "imdb")
+												.with(ImportSource.Igdb, () => "igdb")
 												.with(ImportSource.Jellyfin, () => "jellyfin")
 												.with(ImportSource.GenericJson, () => "generic-json")
 												.with(ImportSource.OpenScale, () => "open-scale")
@@ -361,6 +370,22 @@ export default function Page() {
 														accept=".csv"
 														required
 														name="watchlist"
+													/>
+												</>
+											))
+											.with(ImportSource.Igdb, () => (
+												<>
+													<Select
+														label="Collection"
+														required
+														name="collection"
+														data={userCollections.map((c) => c.name)}
+													/>
+													<FileInput
+														label="CSV File"
+														accept=".csv"
+														required
+														name="csvPath"
 													/>
 												</>
 											))
