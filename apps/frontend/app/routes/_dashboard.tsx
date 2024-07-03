@@ -1,6 +1,8 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
+	ActionIcon,
+	Affix,
 	Alert,
 	Anchor,
 	AppShell,
@@ -29,6 +31,7 @@ import {
 	ThemeIcon,
 	Title,
 	UnstyledButton,
+	rem,
 	useDirection,
 	useMantineTheme,
 } from "@mantine/core";
@@ -40,7 +43,15 @@ import {
 	useLocalStorage,
 } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
-import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	NavLink,
+	Outlet,
+	useLoaderData,
+	useLocation,
+	useNavigate,
+} from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
 	type CoreDetails,
@@ -78,6 +89,7 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
+import { parse } from "cookie";
 import { produce } from "immer";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
@@ -87,6 +99,7 @@ import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import {
 	CORE_DETAILS_COOKIE_NAME,
+	CurrentWorkoutKey,
 	LOGO_IMAGE_URL,
 	Verb,
 	getLot,
@@ -215,6 +228,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		!envData.DISABLE_TELEMETRY &&
 		!userDetails.isDemo;
 
+	const cookies = request.headers.get("cookie");
+	const workoutInProgress = parse(cookies || "")[CurrentWorkoutKey] === "true";
+
 	return {
 		envData,
 		mediaLinks,
@@ -223,6 +239,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		fitnessLinks,
 		settingsLinks,
 		userPreferences,
+		workoutInProgress,
 		shouldHaveUmami,
 		userCollections,
 		currentColorScheme,
@@ -251,6 +268,8 @@ export default function Layout() {
 		getInitialValueInEffect: true,
 	});
 	const theme = useMantineTheme();
+	const navigate = useNavigate();
+	const location = useLocation();
 	const [opened, { toggle }] = useDisclosure(false);
 	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
@@ -264,6 +283,20 @@ export default function Layout() {
 
 	return (
 		<>
+			{loaderData.workoutInProgress &&
+			location.pathname !== $path("/fitness/workouts/current") ? (
+				<Affix position={{ bottom: rem(30), right: rem(30) }}>
+					<ActionIcon
+						variant="filled"
+						color="orange"
+						radius="xl"
+						size="xl"
+						onClick={() => navigate($path("/fitness/workouts/current"))}
+					>
+						<IconStretching size={32} />
+					</ActionIcon>
+				</Affix>
+			) : null}
 			<Modal
 				onClose={closeMetadataProgressUpdateModal}
 				opened={metadataToUpdate !== null}
