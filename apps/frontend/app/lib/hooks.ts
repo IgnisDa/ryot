@@ -9,7 +9,7 @@ import {
 	MetadataDetailsDocument,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { queryOptions, skipToken, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import {
 	CurrentWorkoutKey,
@@ -69,7 +69,7 @@ export function getWorkoutStarter() {
 }
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
-	({
+	queryOptions({
 		queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
 		queryFn: metadataId
 			? () =>
@@ -78,14 +78,14 @@ export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 						.then((data) => data.metadataDetails)
 			: skipToken,
 		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
-	}) as const;
+	});
 
 export const useMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getMetadataDetailsQuery(metadataId));
 };
 
 export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
-	({
+	queryOptions({
 		queryKey: queryFactory.media.userMetadataDetails(metadataId || "").queryKey,
 		queryFn: metadataId
 			? () =>
@@ -94,7 +94,7 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
 		staleTime: Number.POSITIVE_INFINITY,
-	}) as const;
+	});
 
 export const useUserMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getUserMetadataDetailsQuery(metadataId));

@@ -9,6 +9,7 @@ import {
 	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
+import { queryOptions } from "@tanstack/react-query";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { useAtom } from "jotai";
@@ -97,24 +98,24 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 };
 
 export const getExerciseDetailsQuery = (exerciseId: string) =>
-	({
+	queryOptions({
 		queryKey: queryFactory.fitness.exerciseDetails(exerciseId).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(ExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.exerciseDetails),
 		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
-	}) as const;
+	});
 
 export const getUserExerciseDetailsQuery = (exerciseId: string) =>
-	({
+	queryOptions({
 		queryKey: queryFactory.fitness.userExerciseDetails(exerciseId).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(UserExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.userExerciseDetails),
 		staleTime: Number.POSITIVE_INFINITY,
-	}) as const;
+	});
 
 const getExerciseDetails = async (exerciseId: string) => {
 	const [details, userDetails] = await Promise.all([
