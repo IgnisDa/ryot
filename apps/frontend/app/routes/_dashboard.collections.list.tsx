@@ -17,12 +17,7 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import {
-	useDidUpdate,
-	useDisclosure,
-	useHover,
-	useListState,
-} from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -33,14 +28,12 @@ import {
 	useSearchParams,
 } from "@remix-run/react";
 import {
-	CollectionContentsDocument,
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
 	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isString, truncate } from "@ryot/ts-utils";
+import { truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -49,12 +42,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import {
-	clientGqlService,
-	dayjsLib,
-	getFallbackImageUrl,
-	queryFactory,
-} from "~/lib/generals";
+import { getFallbackImageUrl } from "~/lib/generals";
 import { useUserCollections, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -238,33 +226,6 @@ const DisplayCollection = (props: {
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [];
 
-	const { data: collectionContents } = useQuery({
-		queryKey: queryFactory.collections.details(props.collection.id).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(CollectionContentsDocument, {
-					input: { collectionId: props.collection.id, take: 10 },
-				})
-				.then((data) => data.collectionContents),
-		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
-	});
-
-	const collectionImages = (
-		collectionContents?.results.items
-			.flatMap((o) => o.details.image)
-			.filter((i) => isString(i)) || []
-	).splice(0, 5);
-
-	const [hoveredStates, setHoveredStates] = useListState(
-		collectionImages.map(() => false),
-	);
-
-	const setHoveredState = (index: number, state: boolean) => {
-		setHoveredStates.setItem(index, state);
-	};
-
-	const currentlyHovered = hoveredStates.findIndex((h) => h);
-
 	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
 	if (props.collection.count > 0)
@@ -286,31 +247,13 @@ const DisplayCollection = (props: {
 		>
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 				<Flex h={180} w={{ md: IMAGES_CONTAINER_WIDTH }} pos="relative">
-					{collectionImages.length > 0 ? (
-						collectionImages.map((image, index) => {
-							const shouldCollapse = index < currentlyHovered;
-							const shouldScale = index === currentlyHovered;
-							return (
-								<CollectionImageDisplay
-									key={image}
-									image={image}
-									index={index}
-									shouldScale={shouldScale}
-									shouldCollapse={shouldCollapse}
-									setHoveredState={setHoveredState}
-									totalImages={collectionImages.length}
-								/>
-							);
-						})
-					) : (
-						<Image
-							src={getFallbackImageUrl("dark", props.collection.name)}
-							h="100%"
-							radius="md"
-							flex="none"
-							mx="auto"
-						/>
-					)}
+					<Image
+						src={getFallbackImageUrl("dark", props.collection.name)}
+						h="100%"
+						radius="md"
+						flex="none"
+						mx="auto"
+					/>
 				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">
@@ -384,41 +327,6 @@ const DisplayCollection = (props: {
 				</Stack>
 			</Flex>
 		</Paper>
-	);
-};
-
-const CollectionImageDisplay = (props: {
-	image: string;
-	index: number;
-	totalImages: number;
-	shouldCollapse: boolean;
-	shouldScale: boolean;
-	setHoveredState: (index: number, state: boolean) => void;
-}) => {
-	const { ref, hovered } = useHover();
-	const offset = IMAGES_CONTAINER_WIDTH / props.totalImages - 20;
-
-	useDidUpdate(() => {
-		props.setHoveredState(props.index, hovered);
-	}, [hovered]);
-
-	return (
-		<Box
-			h="100%"
-			ref={ref}
-			top={{ md: 0 }}
-			pos={{ md: "absolute" }}
-			left={{ md: props.index * offset - (props.shouldCollapse ? 100 : 0) }}
-			style={{
-				zIndex: props.totalImages - props.index,
-				scale: props.shouldScale ? "1.2" : undefined,
-				transitionProperty: "right, left, scale",
-				transitionDuration: "0.3s",
-				transitionTimingFunction: "ease-in-out",
-			}}
-		>
-			<Image src={props.image} h="100%" />
-		</Box>
 	);
 };
 
