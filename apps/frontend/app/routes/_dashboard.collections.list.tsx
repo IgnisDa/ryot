@@ -46,6 +46,7 @@ import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
+	dayjsLib,
 	getFallbackImageUrl,
 	queryFactory,
 } from "~/lib/generals";
@@ -238,6 +239,7 @@ const DisplayCollection = (props: {
 					input: { collectionId: props.collection.id, take: 5 },
 				})
 				.then((data) => data.collectionContents),
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
 
 	const collectionImages =
