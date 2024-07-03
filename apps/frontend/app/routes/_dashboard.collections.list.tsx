@@ -28,12 +28,14 @@ import {
 	useSearchParams,
 } from "@remix-run/react";
 import {
+	CollectionContentsDocument,
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
 	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils";
+import { isString, truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -42,7 +44,11 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { getFallbackImageUrl } from "~/lib/generals";
+import {
+	clientGqlService,
+	getFallbackImageUrl,
+	queryFactory,
+} from "~/lib/generals";
 import { useUserCollections, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
@@ -224,6 +230,21 @@ const DisplayCollection = (props: {
 	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const additionalDisplay = [];
 
+	const { data: collectionContents } = useQuery({
+		queryKey: queryFactory.collections.details(props.collection.id).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(CollectionContentsDocument, {
+					input: { collectionId: props.collection.id, take: 5 },
+				})
+				.then((data) => data.collectionContents),
+	});
+
+	const collectionImages =
+		collectionContents?.results.items
+			.flatMap((o) => o.details.image)
+			.filter((i) => isString(i)) || [];
+
 	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
 	if (props.collection.count > 0)
@@ -235,21 +256,42 @@ const DisplayCollection = (props: {
 
 	return (
 		<Paper
+			pr="md"
+			radius="lg"
 			withBorder
 			mt={props.index !== 0 ? "lg" : undefined}
-			pr="md"
 			pl={{ base: "md", md: 0 }}
 			py={{ base: "sm", md: 0 }}
+			style={{ overflow: "hidden" }}
 		>
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
-				<Image
-					src={getFallbackImageUrl("dark", props.collection.name)}
-					radius="md"
-					h={180}
-					w={250}
-					flex="none"
-					mx="auto"
-				/>
+				<Box h={180} w={{ md: 250 }} pos="relative">
+					{collectionImages.length > 0 ? (
+						collectionImages.map((image, index) => {
+							const offset = 250 / collectionImages.length - 20;
+							return (
+								<Box
+									pos="absolute"
+									key={image}
+									top={0}
+									left={index * offset}
+									style={{ zIndex: collectionImages.length - index }}
+									h="100%"
+								>
+									<Image src={image} h="100%" />
+								</Box>
+							);
+						})
+					) : (
+						<Image
+							src={getFallbackImageUrl("dark", props.collection.name)}
+							h="100%"
+							radius="md"
+							flex="none"
+							mx="auto"
+						/>
+					)}
+				</Box>
 				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">
 						<Anchor

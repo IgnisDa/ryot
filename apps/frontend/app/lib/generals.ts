@@ -250,6 +250,9 @@ const collectionQueryKeys = createQueryKeys("collections", {
 	userList: (userId: string) => ({
 		queryKey: ["userCollectionsList", userId],
 	}),
+	details: (collectionId: string) => ({
+		queryKey: ["collectionDetails", collectionId],
+	}),
 });
 
 const fitnessQueryKeys = createQueryKeys("fitness", {
