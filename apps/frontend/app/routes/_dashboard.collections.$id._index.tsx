@@ -65,7 +65,7 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	defaultTab: z.string().optional().default("contents"),
+	defaultTab: z.string().optional(),
 	page: zx.IntAsString.optional(),
 	query: z.string().optional(),
 	sortBy: z
@@ -132,7 +132,7 @@ export default function Page() {
 					</Text>
 				</Box>
 				<Text>{loaderData.collectionContents.details.description}</Text>
-				<Tabs defaultValue={loaderData.query.defaultTab}>
+				<Tabs defaultValue={loaderData.query.defaultTab || "contents"}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="contents"
