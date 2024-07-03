@@ -406,7 +406,7 @@ const CollectionImageDisplay = (props: {
 			left={{ md: props.index * offset - (props.shouldCollapse ? 60 : 0) }}
 			style={{
 				zIndex: props.totalImages - props.index,
-				transition: "left 0.5s ease-in-out",
+				transition: "left 0.2s ease-in-out",
 			}}
 		>
 			<Image src={props.image} h="100%" />
