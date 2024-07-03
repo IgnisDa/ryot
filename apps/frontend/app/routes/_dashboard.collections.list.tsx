@@ -250,10 +250,12 @@ const DisplayCollection = (props: {
 					<Image
 						src={getFallbackImageUrl("dark", props.collection.name)}
 						h="100%"
-						radius="md"
 						flex="none"
 						mx="auto"
 					/>
+					<Box pos="absolute" left={0} right={0} bottom={0}>
+						<ProRequiredAlert tooltipLabel="Custom images for collections" />
+					</Box>
 				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">

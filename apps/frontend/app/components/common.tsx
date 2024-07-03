@@ -12,6 +12,7 @@ import {
 	Stack,
 	Text,
 	TextInput,
+	Tooltip,
 	useComputedColorScheme,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate } from "@mantine/hooks";
@@ -167,16 +168,19 @@ export const DebouncedSearchInput = (props: {
 	);
 };
 
-export const ProRequiredAlert = () => {
+export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 	const coreDetails = useCoreDetails();
+
 	return !coreDetails.isPro ? (
 		<Alert>
-			<Text size="sm">
-				<Anchor href={coreDetails.websiteUrl} target="_blank">
-					Ryot Pro
-				</Anchor>{" "}
-				required to use this feature.
-			</Text>
+			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
+				<Text size="xs">
+					<Anchor href={coreDetails.websiteUrl} target="_blank">
+						Ryot Pro
+					</Anchor>{" "}
+					required to use this feature.
+				</Text>
+			</Tooltip>
 		</Alert>
 	) : null;
 };
