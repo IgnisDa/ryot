@@ -461,6 +461,7 @@ const CreateOrUpdateModal = (props: {
 									<Select
 										label="Input type"
 										required
+										flex={1}
 										name={`informationTemplate[${index}].lot`}
 										data={Object.values(CollectionExtraInformationLot).map(
 											(lot) => ({ value: lot, label: changeCase(lot) }),
@@ -470,6 +471,7 @@ const CreateOrUpdateModal = (props: {
 									/>
 									<TextInput
 										label="Default value"
+										flex={1}
 										name={`informationTemplate[${index}].defaultValue`}
 										size="xs"
 										defaultValue={field.defaultValue || undefined}
