@@ -51,7 +51,7 @@ const mounter = createReactTreeMounter();
 
 export const createConfirmation = createConfirmationCreater(mounter);
 
-export const MountPoint = createMountPoint(mounter);
+export const ConfirmationMountPoint = createMountPoint(mounter);
 
 export const confirmWrapper = createConfirmation<
 	ConfirmationProps,
