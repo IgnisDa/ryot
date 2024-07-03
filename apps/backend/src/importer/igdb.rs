@@ -2,9 +2,15 @@ use async_graphql::Result;
 use csv::Reader;
 use database::{MediaLot, MediaSource};
 use itertools::Itertools;
+use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use crate::models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem};
+use crate::{
+    miscellaneous::DefaultCollection,
+    models::media::{
+        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    },
+};
 
 use super::{DeployIgdbImportInput, ImportFailStep, ImportFailedItem, ImportResult};
 
@@ -24,6 +30,18 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
         .unwrap()
         .deserialize()
         .collect_vec();
+    let seen_history = if collection == DefaultCollection::Completed.to_string() {
+        vec![ImportOrExportMediaItemSeen {
+            ..Default::default()
+        }]
+    } else if collection == DefaultCollection::InProgress.to_string() {
+        vec![ImportOrExportMediaItemSeen {
+            progress: Some(dec!(5)),
+            ..Default::default()
+        }]
+    } else {
+        vec![]
+    };
     for (idx, result) in items.into_iter().enumerate() {
         let record: Item = match result {
             Ok(r) => r,
@@ -44,8 +62,8 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
             source,
             source_id: record.game,
             identifier: "".to_string(),
+            seen_history: seen_history.clone(),
             reviews: vec![],
-            seen_history: vec![],
         });
     }
     Ok(ImportResult {
