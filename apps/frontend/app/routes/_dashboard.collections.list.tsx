@@ -8,6 +8,7 @@ import {
 	Flex,
 	Group,
 	Image,
+	Input,
 	Modal,
 	Paper,
 	Stack,
@@ -39,7 +40,7 @@ import { Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DebouncedSearchInput } from "~/components/common";
+import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import { getFallbackImageUrl } from "~/lib/generals";
 import { useUserCollections, useUserDetails } from "~/lib/hooks";
@@ -355,6 +356,14 @@ const CreateOrUpdateModal = (props: {
 							: undefined
 					}
 					autosize
+				/>
+				<Input.Wrapper
+					label="Collaborators"
+					description={<ProRequiredAlert />}
+				/>
+				<Input.Wrapper
+					label="Information template"
+					description={<ProRequiredAlert />}
 				/>
 				<Button
 					variant="outline"
