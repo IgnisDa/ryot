@@ -225,6 +225,8 @@ export default function Page() {
 
 type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 
+const IMAGES_CONTAINER_WIDTH = 250;
+
 const DisplayCollection = (props: {
 	collection: Collection;
 	index: number;
@@ -283,15 +285,17 @@ const DisplayCollection = (props: {
 			style={{ overflow: "hidden" }}
 		>
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
-				<Flex h={180} w={{ md: 250 }} pos="relative">
+				<Flex h={180} w={{ md: IMAGES_CONTAINER_WIDTH }} pos="relative">
 					{collectionImages.length > 0 ? (
 						collectionImages.map((image, index) => {
 							const shouldCollapse = index < currentlyHovered;
+							const shouldScale = index === currentlyHovered;
 							return (
 								<CollectionImageDisplay
 									key={image}
 									image={image}
 									index={index}
+									shouldScale={shouldScale}
 									shouldCollapse={shouldCollapse}
 									setHoveredState={setHoveredState}
 									totalImages={collectionImages.length}
@@ -388,10 +392,11 @@ const CollectionImageDisplay = (props: {
 	index: number;
 	totalImages: number;
 	shouldCollapse: boolean;
+	shouldScale: boolean;
 	setHoveredState: (index: number, state: boolean) => void;
 }) => {
 	const { ref, hovered } = useHover();
-	const offset = 250 / props.totalImages - 20;
+	const offset = IMAGES_CONTAINER_WIDTH / props.totalImages - 20;
 
 	useDidUpdate(() => {
 		props.setHoveredState(props.index, hovered);
@@ -403,10 +408,13 @@ const CollectionImageDisplay = (props: {
 			ref={ref}
 			top={{ md: 0 }}
 			pos={{ md: "absolute" }}
-			left={{ md: props.index * offset - (props.shouldCollapse ? 60 : 0) }}
+			left={{ md: props.index * offset - (props.shouldCollapse ? 100 : 0) }}
 			style={{
 				zIndex: props.totalImages - props.index,
-				transition: "left 0.2s ease-in-out",
+				scale: props.shouldScale ? "1.2" : undefined,
+				transitionProperty: "right, left, scale",
+				transitionDuration: "0.3s",
+				transitionTimingFunction: "ease-in-out",
 			}}
 		>
 			<Image src={props.image} h="100%" />
