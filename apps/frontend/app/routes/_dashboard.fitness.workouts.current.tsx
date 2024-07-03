@@ -285,7 +285,7 @@ export default function Page() {
 										value={`${
 											currentWorkout.exercises
 												.map((e) => e.sets.every((s) => s.confirmedAt))
-												.filter((e) => e !== undefined).length
+												.filter((e) => e !== null).length
 										}/${currentWorkout.exercises.length}`}
 									/>
 									<StatDisplay
@@ -1063,6 +1063,7 @@ const ExerciseDisplay = (props: {
 									draft.exercises[props.exerciseIdx].sets.push({
 										statistic: currentSet?.statistic ?? {},
 										lot: SetLot.Normal,
+										confirmedAt: null,
 									});
 								}),
 							);

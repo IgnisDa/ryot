@@ -23,7 +23,7 @@ import {
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
 	lot: SetLot;
-	confirmedAt?: string | null;
+	confirmedAt: string | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -182,7 +182,7 @@ export const addExerciseToWorkout = async (
 				images: exerciseDetails.details.attributes.images,
 			},
 			lot: ex.lot,
-			sets: [{ statistic: {}, lot: SetLot.Normal }],
+			sets: [{ statistic: {}, lot: SetLot.Normal, confirmedAt: null }],
 			supersetWith: [],
 			alreadyDoneSets:
 				exerciseDetails.userDetails.history?.at(0)?.sets.map((s) => ({
