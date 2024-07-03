@@ -79,39 +79,31 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const id = params.id;
-	invariant(id);
+	const collectionId = params.id;
+	invariant(collectionId);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const { collectionContents: info } = await serverGqlService.request(
-		CollectionContentsDocument,
-		{ input: { collectionId: id, take: 0 } },
-		getAuthorizationHeader(request),
-	);
-	const [{ collectionContents: contents }] = await Promise.all([
+	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.request(
 			CollectionContentsDocument,
 			{
 				input: {
-					collectionId: id,
+					collectionId,
 					filter: {
 						entityType: query.entityLot,
 						metadataLot: query.metadataLot,
 					},
 					sort: { by: query.sortBy, order: query.orderBy },
-					search: {
-						page: query.page,
-						query: query.query,
-					},
+					search: { page: query.page, query: query.query },
 				},
 			},
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { id, query, info, contents: contents.results };
+	return { collectionId, query, collectionContents };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: `${data?.info.details.name} | Ryot` }];
+	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 
 export default function Page() {
@@ -130,14 +122,16 @@ export default function Page() {
 		<Container>
 			<Stack>
 				<Box>
-					<Title>{loaderData.info.details.name}</Title>{" "}
+					<Title>{loaderData.collectionContents.details.name}</Title>{" "}
 					<Text size="sm">
-						{loaderData.contents.details.total} items, created by{" "}
-						{loaderData.info.user.name}{" "}
-						{dayjsLib(loaderData.info.details.createdOn).fromNow()}
+						{loaderData.collectionContents.results.details.total} items, created
+						by {loaderData.collectionContents.user.name}{" "}
+						{dayjsLib(
+							loaderData.collectionContents.details.createdOn,
+						).fromNow()}
 					</Text>
 				</Box>
-				<Text>{loaderData.info.details.description}</Text>
+				<Text>{loaderData.collectionContents.details.description}</Text>
 				<Tabs defaultValue={loaderData.query.defaultTab}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
@@ -255,9 +249,9 @@ export default function Page() {
 									</Stack>
 								</Modal>
 							</Group>
-							{loaderData.contents.items.length > 0 ? (
+							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
-									{loaderData.contents.items.map((lm) => (
+									{loaderData.collectionContents.results.items.map((lm) => (
 										<MediaItemWithoutUpdateModal
 											key={lm.details.identifier}
 											item={{
@@ -273,14 +267,15 @@ export default function Page() {
 							) : (
 								<Text>You have not added anything this collection</Text>
 							)}
-							{loaderData.contents.details ? (
+							{loaderData.collectionContents.details ? (
 								<Center>
 									<Pagination
 										size="sm"
 										value={loaderData.query.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
-											loaderData.contents.details.total / coreDetails.pageLimit,
+											loaderData.collectionContents.results.details.total /
+												coreDetails.pageLimit,
 										)}
 									/>
 								</Center>
@@ -294,9 +289,9 @@ export default function Page() {
 								w="100%"
 								onClick={() => {
 									setEntityToReview({
-										entityId: loaderData.id,
+										entityId: loaderData.collectionId,
 										entityLot: EntityLot.Collection,
-										entityTitle: loaderData.info.details.name,
+										entityTitle: loaderData.collectionContents.details.name,
 									});
 								}}
 							>
@@ -306,14 +301,14 @@ export default function Page() {
 					</Tabs.Panel>
 					{!userPreferences.general.disableReviews ? (
 						<Tabs.Panel value="reviews">
-							{loaderData.info.reviews.length > 0 ? (
+							{loaderData.collectionContents.reviews.length > 0 ? (
 								<Stack>
-									{loaderData.info.reviews.map((r) => (
+									{loaderData.collectionContents.reviews.map((r) => (
 										<ReviewItemDisplay
-											title={loaderData.info.details.name}
+											title={loaderData.collectionContents.details.name}
 											review={r}
 											key={r.id}
-											entityId={loaderData.id}
+											entityId={loaderData.collectionId}
 											entityLot={EntityLot.Collection}
 										/>
 									))}
