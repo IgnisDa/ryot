@@ -24,6 +24,7 @@ import {
 	type MetaArgs_SingleFetch,
 	useFetcher,
 	useNavigation,
+	useSearchParams,
 } from "@remix-run/react";
 import {
 	CreateOrUpdateCollectionDocument,
@@ -37,6 +38,7 @@ import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import { getFallbackImageUrl } from "~/lib/generals";
 import { useUserCollections, useUserDetails } from "~/lib/hooks";
@@ -140,6 +142,12 @@ type UpdateCollectionInput = {
 export default function Page() {
 	const transition = useNavigation();
 	const collections = useUserCollections();
+	const [params] = useSearchParams();
+	const query = params.get("query") || undefined;
+
+	const filteredCollections = collections.filter((c) =>
+		query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
+	);
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
@@ -179,8 +187,9 @@ export default function Page() {
 						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 					</Modal>
 				</Flex>
-				{collections.length > 0 ? (
-					collections.map((c) => (
+				<DebouncedSearchInput initialValue={query} />
+				{filteredCollections.length > 0 ? (
+					filteredCollections.map((c) => (
 						<DisplayCollection
 							key={c.id}
 							collection={c}
