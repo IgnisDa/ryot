@@ -30,6 +30,7 @@ import {
 	USER_PREFERENCES_COOKIE_NAME,
 	dayjsLib,
 	queryClient,
+	queryFactory,
 	redirectToQueryParam,
 } from "~/lib/generals";
 
@@ -93,9 +94,9 @@ const expectedServerVariables = z.object({
 /**
  * Combine multiple header objects into one (uses append so headers are not overridden)
  */
-export function combineHeaders(
+export const combineHeaders = (
 	...headers: Array<ResponseInit["headers"] | null | undefined>
-) {
+) => {
 	const combined = new Headers();
 	for (const header of headers) {
 		if (!header) continue;
@@ -103,7 +104,7 @@ export function combineHeaders(
 			combined.append(key, value);
 	}
 	return combined;
-}
+};
 
 const emptyNumberString = z
 	.any()
@@ -138,7 +139,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 export const getCachedUserCollectionsList = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return queryClient.ensureQueryData({
-		queryKey: ["userCollectionsList", userDetails.id],
+		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 		queryFn: () =>
 			serverGqlService
 				.request(
@@ -154,7 +155,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 export const removeCachedUserCollectionsList = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	queryClient.removeQueries({
-		queryKey: ["userCollectionsList", userDetails.id],
+		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 	});
 };
 
@@ -271,26 +272,26 @@ export type OptionalToast = Omit<Toast, "id" | "type"> & {
 	type?: z.infer<typeof TypeSchema>;
 };
 
-export async function redirectWithToast(
+export const redirectWithToast = async (
 	url: string,
 	toast: OptionalToast,
 	init?: ResponseInit,
-) {
+) => {
 	return redirect(url, {
 		...init,
 		headers: combineHeaders(init?.headers, await createToastHeaders(toast)),
 	});
-}
+};
 
-export async function createToastHeaders(optionalToast: OptionalToast) {
+export const createToastHeaders = async (optionalToast: OptionalToast) => {
 	const session = await toastSessionStorage.getSession();
 	const toast = ToastSchema.parse(optionalToast);
 	session.flash(toastKey, toast);
 	const cookie = await toastSessionStorage.commitSession(session);
 	return new Headers({ "set-cookie": cookie });
-}
+};
 
-export async function getToast(request: Request) {
+export const getToast = async (request: Request) => {
 	const session = await toastSessionStorage.getSession(
 		request.headers.get("cookie"),
 	);
@@ -304,7 +305,7 @@ export async function getToast(request: Request) {
 				})
 			: null,
 	};
-}
+};
 
 export const getCookiesForApplication = async (token: string) => {
 	const [{ coreDetails }, { userPreferences }, { userDetails }] =

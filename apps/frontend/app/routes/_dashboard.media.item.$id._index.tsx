@@ -92,7 +92,13 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, dayjsLib, getVerb, queryClient } from "~/lib/generals";
+import {
+	Verb,
+	dayjsLib,
+	getVerb,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import {
 	useAddEntityToCollection,
@@ -880,10 +886,9 @@ export default function Page() {
 												})}
 												onSubmit={async () => {
 													await queryClient.invalidateQueries({
-														queryKey: [
-															"metadataDetails",
+														queryKey: queryFactory.media.metadataDetails(
 															loaderData.metadataId,
-														],
+														).queryKey,
 													});
 												}}
 											>
@@ -1361,7 +1366,11 @@ const SeenItem = (props: { history: History; index: number }) => {
 							</Text>
 						) : null}
 					</Flex>
-					<SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 2 }}>
+					<SimpleGrid
+						spacing="md"
+						verticalSpacing={2}
+						cols={{ base: 1, md: 2 }}
+					>
 						<Flex gap="xs">
 							<Text size="sm">Started:</Text>
 							<Text size="sm" fw="bold">

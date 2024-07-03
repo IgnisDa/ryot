@@ -9,6 +9,7 @@ import {
 	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
+import { queryOptions } from "@tanstack/react-query";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { useAtom } from "jotai";
@@ -17,13 +18,15 @@ import { v4 as randomUUID } from "uuid";
 import {
 	CurrentWorkoutKey,
 	clientGqlService,
+	dayjsLib,
 	queryClient,
+	queryFactory,
 } from "~/lib/generals";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
 	lot: SetLot;
-	confirmedAt?: string | null;
+	confirmedAt: string | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -75,13 +78,13 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 	return exercise?.sets[setIdx];
 };
 
-function getTimeOfDay(date: Date) {
+const getTimeOfDay = (date: Date) => {
 	const hours = date.getHours();
 	if (hours >= 5 && hours < 12) return "Morning";
 	if (hours >= 12 && hours < 17) return "Afternoon";
 	if (hours >= 17 && hours < 21) return "Evening";
 	return "Night";
-}
+};
 
 export const getDefaultWorkout = (): InProgressWorkout => {
 	const date = new Date();
@@ -95,22 +98,24 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 };
 
 export const getExerciseDetailsQuery = (exerciseId: string) =>
-	({
-		queryKey: ["exerciseDetails", exerciseId],
+	queryOptions({
+		queryKey: queryFactory.fitness.exerciseDetails(exerciseId).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(ExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.exerciseDetails),
-	}) as const;
+		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
+	});
 
 export const getUserExerciseDetailsQuery = (exerciseId: string) =>
-	({
-		queryKey: ["userExerciseDetails", exerciseId],
+	queryOptions({
+		queryKey: queryFactory.fitness.userExerciseDetails(exerciseId).queryKey,
 		queryFn: () =>
 			clientGqlService
-				.request(UserExerciseDetailsDocument, { input: { exerciseId } })
+				.request(UserExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.userExerciseDetails),
-	}) as const;
+		staleTime: Number.POSITIVE_INFINITY,
+	});
 
 const getExerciseDetails = async (exerciseId: string) => {
 	const [details, userDetails] = await Promise.all([
@@ -182,7 +187,7 @@ export const addExerciseToWorkout = async (
 				images: exerciseDetails.details.attributes.images,
 			},
 			lot: ex.lot,
-			sets: [{ statistic: {}, lot: SetLot.Normal }],
+			sets: [{ statistic: {}, lot: SetLot.Normal, confirmedAt: null }],
 			supersetWith: [],
 			alreadyDoneSets:
 				exerciseDetails.userDetails.history?.at(0)?.sets.map((s) => ({

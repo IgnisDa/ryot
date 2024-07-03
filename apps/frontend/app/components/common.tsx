@@ -2,6 +2,7 @@ import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
 import {
 	ActionIcon,
+	Alert,
 	Anchor,
 	Badge,
 	Box,
@@ -11,24 +12,24 @@ import {
 	Stack,
 	Text,
 	TextInput,
-	useComputedColorScheme,
+	Tooltip,
 } from "@mantine/core";
-import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
+import { useDebouncedValue, useDidUpdate } from "@mantine/hooks";
 import type {
 	MediaLot,
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { type ReactNode, useRef } from "react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { withFragment, withoutHost } from "ufo";
+import { getSurroundingElements, redirectToQueryParam } from "~/lib/generals";
 import {
-	getFallbackImageUrl,
-	getSurroundingElements,
-	redirectToQueryParam,
-} from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+	useCoreDetails,
+	useFallbackImageUrl,
+	useSearchParam,
+} from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -51,7 +52,7 @@ export const MediaDetailsLayout = (props: {
 	};
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
-	const colorScheme = useComputedColorScheme("dark");
+	const fallbackImageUrl = useFallbackImageUrl();
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -61,11 +62,7 @@ export const MediaDetailsLayout = (props: {
 				className={classes.imagesContainer}
 			>
 				{props.images.length > 1 ? (
-					<Carousel
-						withIndicators={props.images.length > 1}
-						w={300}
-						onSlideChange={setActiveImageId}
-					>
+					<Carousel w={300} onSlideChange={setActiveImageId}>
 						{props.images.map((url, idx) => (
 							<Carousel.Slide key={url} data-image-idx={idx}>
 								{getSurroundingElements(props.images, activeImageId).includes(
@@ -82,7 +79,7 @@ export const MediaDetailsLayout = (props: {
 							src={props.images[0]}
 							height={400}
 							radius="lg"
-							fallbackSrc={getFallbackImageUrl(colorScheme)}
+							fallbackSrc={fallbackImageUrl}
 						/>
 					</Box>
 				)}
@@ -141,44 +138,48 @@ export const DebouncedSearchInput = (props: {
 	queryParam?: string;
 	placeholder?: string;
 }) => {
-	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(
-		props.initialValue || "",
-		1000,
-	);
+	const [query, setQuery] = useState(props.initialValue || "");
+	const [debounced] = useDebouncedValue(query, 1000);
 	const [_, { setP }] = useSearchParam();
 
-	useDidUpdate(
-		() => setP(props.queryParam || "query", debouncedQuery),
-		[debouncedQuery],
-	);
-
-	const ref = useRef<HTMLInputElement>(null);
+	useDidUpdate(() => {
+		setP(props.queryParam || "query", debounced);
+	}, [debounced]);
 
 	return (
 		<TextInput
-			ref={ref}
 			name="query"
 			placeholder={props.placeholder || "Search..."}
 			leftSection={<IconSearch />}
-			onChange={(e) => setDebouncedQuery(e.currentTarget.value)}
-			defaultValue={debouncedQuery}
+			onChange={(e) => setQuery(e.currentTarget.value)}
+			value={query}
 			style={{ flexGrow: 1 }}
 			autoCapitalize="none"
 			autoComplete="off"
 			rightSection={
-				debouncedQuery ? (
-					<ActionIcon
-						onClick={() => {
-							if (ref.current) {
-								ref.current.value = "";
-								setDebouncedQuery("");
-							}
-						}}
-					>
+				query ? (
+					<ActionIcon onClick={() => setQuery("")}>
 						<IconX size={16} />
 					</ActionIcon>
 				) : null
 			}
 		/>
 	);
+};
+
+export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
+	const coreDetails = useCoreDetails();
+
+	return !coreDetails.isPro ? (
+		<Alert>
+			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
+				<Text size="xs">
+					<Anchor href={coreDetails.websiteUrl} target="_blank">
+						Ryot Pro
+					</Anchor>{" "}
+					required to use this feature
+				</Text>
+			</Tooltip>
+		</Alert>
+	) : null;
 };

@@ -617,13 +617,13 @@ const EditDashboardElement = (props: {
 	);
 };
 
-function reorder<T>(
+const reorder = <T,>(
 	array: Array<T>,
 	{ from, to }: { from: number; to: number },
-) {
+) => {
 	const cloned = [...array];
 	const item = array[from];
 	cloned.splice(from, 1);
 	cloned.splice(to, 0, item);
 	return cloned;
-}
+};

@@ -1,8 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
-	Alert,
-	Anchor,
 	Box,
 	Center,
 	Container,
@@ -36,14 +34,12 @@ import {
 	isNumber,
 } from "@ryot/ts-utils";
 import {
-	IconAlertCircle,
 	IconBarbell,
 	IconFriends,
 	IconPlayerPlay,
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
-import { parse } from "cookie";
 import { Fragment, type ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -52,12 +48,7 @@ import {
 	MediaItemWithoutUpdateModal,
 	NewUserGuideAlert,
 } from "~/components/media";
-import {
-	CurrentWorkoutKey,
-	dayjsLib,
-	getLot,
-	getMetadataIcon,
-} from "~/lib/generals";
+import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
@@ -66,8 +57,6 @@ import {
 	getUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
-
-const cookieName = CurrentWorkoutKey;
 
 const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 	const t = preferences.general.dashboard.find(
@@ -113,10 +102,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	const cookies = request.headers.get("cookie");
-	const workoutInProgress = parse(cookies || "")[cookieName] === "true";
 	return {
-		workoutInProgress,
 		userPreferences: {
 			reviewScale: preferences.general.reviewScale,
 			dashboard: preferences.general.dashboard,
@@ -142,17 +128,6 @@ export default function Page() {
 	return (
 		<Container>
 			<Stack gap={32}>
-				{loaderData.workoutInProgress ? (
-					<Alert icon={<IconAlertCircle />} variant="outline" color="yellow">
-						<Text>
-							You have a workout in progress. Click{" "}
-							<Anchor component={Link} to={$path("/fitness/workouts/current")}>
-								here
-							</Anchor>{" "}
-							to continue.
-						</Text>
-					</Alert>
-				) : null}
 				{loaderData.latestUserSummary.media.metadataOverall.interactedWith ===
 				0 ? (
 					<NewUserGuideAlert />

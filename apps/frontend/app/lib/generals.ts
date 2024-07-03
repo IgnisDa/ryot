@@ -1,4 +1,7 @@
-import type { MantineColorScheme } from "@mantine/core";
+import {
+	createQueryKeys,
+	mergeQueryKeys,
+} from "@lukemorales/query-key-factory";
 import {
 	MediaLot,
 	MediaSource,
@@ -41,14 +44,6 @@ export const getSetColor = (l: SetLot) =>
 		.with(SetLot.Failure, () => "red")
 		.with(SetLot.Normal, () => "indigo.6")
 		.exhaustive();
-
-export const getFallbackImageUrl = (
-	colorScheme: Exclude<MantineColorScheme, "auto">,
-	text = "No Image",
-) =>
-	`https://placehold.co/100x200/${
-		colorScheme === "dark" ? "343632" : "c1c4bb"
-	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 
 /**
  * Get the correct name of the lot from a string
@@ -232,3 +227,36 @@ export const getSurroundingElements = <T>(
 	if (elementIndex === lastIndex) return [elementIndex - 1, elementIndex, 0];
 	return [elementIndex - 1, elementIndex, elementIndex + 1];
 };
+
+const mediaQueryKeys = createQueryKeys("media", {
+	metadataDetails: (metadataId: string) => ({
+		queryKey: ["metadataDetails", metadataId],
+	}),
+	userMetadataDetails: (metadataId: string) => ({
+		queryKey: ["userMetadataDetails", metadataId],
+	}),
+});
+
+const collectionQueryKeys = createQueryKeys("collections", {
+	userList: (userId: string) => ({
+		queryKey: ["userCollectionsList", userId],
+	}),
+	details: (collectionId: string) => ({
+		queryKey: ["collectionDetails", collectionId],
+	}),
+});
+
+const fitnessQueryKeys = createQueryKeys("fitness", {
+	exerciseDetails: (exerciseId: string) => ({
+		queryKey: ["exerciseDetails", exerciseId],
+	}),
+	userExerciseDetails: (exerciseId: string) => ({
+		queryKey: ["userExerciseDetails", exerciseId],
+	}),
+});
+
+export const queryFactory = mergeQueryKeys(
+	mediaQueryKeys,
+	collectionQueryKeys,
+	fitnessQueryKeys,
+);
