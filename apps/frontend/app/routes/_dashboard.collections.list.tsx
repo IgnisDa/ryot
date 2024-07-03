@@ -9,7 +9,6 @@ import {
 	Modal,
 	SimpleGrid,
 	Stack,
-	Tabs,
 	Text,
 	TextInput,
 	Textarea,
@@ -30,13 +29,7 @@ import {
 	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { truncate } from "@ryot/ts-utils";
-import {
-	IconAssembly,
-	IconEdit,
-	IconPlus,
-	IconTrashFilled,
-	IconUserCog,
-} from "@tabler/icons-react";
+import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
@@ -144,7 +137,6 @@ type UpdateCollectionInput = {
 export default function Page() {
 	const transition = useNavigation();
 	const collections = useUserCollections();
-	const userCreatedCollections = collections.filter((c) => !c.isDefault);
 
 	const [toUpdateCollection, setToUpdateCollection] =
 		useState<UpdateCollectionInput>();
@@ -184,52 +176,20 @@ export default function Page() {
 						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 					</Modal>
 				</Flex>
-				<Tabs defaultValue="userCreated" variant="outline">
-					<Tabs.List mb="xs">
-						<Tabs.Tab
-							value="userCreated"
-							leftSection={<IconUserCog size={16} />}
-						>
-							User created
-						</Tabs.Tab>
-						<Tabs.Tab
-							value="systemCreated"
-							leftSection={<IconAssembly size={16} />}
-						>
-							System created
-						</Tabs.Tab>
-					</Tabs.List>
-					<Tabs.Panel value="userCreated">
-						{userCreatedCollections.length > 0 ? (
-							<SimpleGrid cols={{ base: 1, md: 2 }}>
-								{userCreatedCollections.map((c) => (
-									<DisplayCollection
-										key={c.id}
-										collection={c}
-										setToUpdateCollection={setToUpdateCollection}
-										openModal={createOrUpdateModalOpen}
-									/>
-								))}
-							</SimpleGrid>
-						) : (
-							<Text>You have not created any collections yet</Text>
-						)}
-					</Tabs.Panel>
-					<Tabs.Panel value="systemCreated">
-						<SimpleGrid cols={{ base: 1, md: 2 }}>
-							{collections
-								.filter((c) => c.isDefault)
-								.map((c) => (
-									<DisplayCollection
-										key={c.id}
-										collection={c}
-										setToUpdateCollection={setToUpdateCollection}
-										openModal={createOrUpdateModalOpen}
-									/>
-								))}
-						</SimpleGrid>
-					</Tabs.Panel>
-				</Tabs>
+				{collections.length > 0 ? (
+					<SimpleGrid cols={{ base: 1, md: 2 }}>
+						{collections.map((c) => (
+							<DisplayCollection
+								key={c.id}
+								collection={c}
+								setToUpdateCollection={setToUpdateCollection}
+								openModal={createOrUpdateModalOpen}
+							/>
+						))}
+					</SimpleGrid>
+				) : (
+					<Text>You have not created any collections yet</Text>
+				)}
 			</Stack>
 		</Container>
 	);
