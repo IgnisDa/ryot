@@ -149,7 +149,7 @@ the "Watchlist" collection.
 You can import your lists from [IGDb](https://www.igdb.com). Each list has to be imported
 separately. A few points to note:
 
-- Importing into the "In Progress" collection will set 0% progress for the items.
+- Importing into the "In Progress" collection will set 5% progress for the items.
 - Importing into the "Completed" collection will set 100% progress for the items.
 - Import into any other collection will just add the items to the collection.
 
