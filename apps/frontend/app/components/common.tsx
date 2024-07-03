@@ -13,14 +13,14 @@ import {
 	TextInput,
 	useComputedColorScheme,
 } from "@mantine/core";
-import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
+import { useDebouncedValue, useDidUpdate } from "@mantine/hooks";
 import type {
 	MediaLot,
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
 import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
-import { type ReactNode, useRef } from "react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { withFragment, withoutHost } from "ufo";
 import {
@@ -137,40 +137,27 @@ export const DebouncedSearchInput = (props: {
 	queryParam?: string;
 	placeholder?: string;
 }) => {
-	const [debouncedQuery, setDebouncedQuery] = useDebouncedState(
-		props.initialValue || "",
-		1000,
-	);
+	const [query, setQuery] = useState(props.initialValue || "");
+	const [debounced] = useDebouncedValue(query, 1000);
 	const [_, { setP }] = useSearchParam();
 
-	useDidUpdate(
-		() => setP(props.queryParam || "query", debouncedQuery),
-		[debouncedQuery],
-	);
-
-	const ref = useRef<HTMLInputElement>(null);
+	useDidUpdate(() => {
+		setP(props.queryParam || "query", debounced);
+	}, [debounced]);
 
 	return (
 		<TextInput
-			ref={ref}
 			name="query"
 			placeholder={props.placeholder || "Search..."}
 			leftSection={<IconSearch />}
-			onChange={(e) => setDebouncedQuery(e.currentTarget.value)}
-			defaultValue={debouncedQuery}
+			onChange={(e) => setQuery(e.currentTarget.value)}
+			value={query}
 			style={{ flexGrow: 1 }}
 			autoCapitalize="none"
 			autoComplete="off"
 			rightSection={
-				debouncedQuery ? (
-					<ActionIcon
-						onClick={() => {
-							if (ref.current) {
-								ref.current.value = "";
-								setDebouncedQuery("");
-							}
-						}}
-					>
+				query ? (
+					<ActionIcon onClick={() => setQuery("")}>
 						<IconX size={16} />
 					</ActionIcon>
 				) : null
