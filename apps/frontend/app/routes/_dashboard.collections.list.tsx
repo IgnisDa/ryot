@@ -252,6 +252,7 @@ const DisplayCollection = (props: {
 						h="100%"
 						flex="none"
 						mx="auto"
+						radius="md"
 					/>
 					<Box pos="absolute" left={0} right={0} bottom={0}>
 						<ProRequiredAlert tooltipLabel="Custom images for collections" />
