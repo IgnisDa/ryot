@@ -35,6 +35,7 @@ import { truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { useEffect, useRef, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -164,7 +165,7 @@ export default function Page() {
 
 	return (
 		<Container size="sm">
-			<Stack gap="xl">
+			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Your collections</Title>
 					<ActionIcon
@@ -189,14 +190,22 @@ export default function Page() {
 				</Flex>
 				<DebouncedSearchInput initialValue={query} />
 				{filteredCollections.length > 0 ? (
-					filteredCollections.map((c) => (
-						<DisplayCollection
-							key={c.id}
-							collection={c}
-							setToUpdateCollection={setToUpdateCollection}
-							openModal={createOrUpdateModalOpen}
-						/>
-					))
+					<Virtuoso
+						style={{ height: "80vh" }}
+						data={filteredCollections}
+						itemContent={(index) => {
+							const c = filteredCollections[index];
+							return (
+								<DisplayCollection
+									key={c.id}
+									index={index}
+									collection={c}
+									setToUpdateCollection={setToUpdateCollection}
+									openModal={createOrUpdateModalOpen}
+								/>
+							);
+						}}
+					/>
 				) : (
 					<Text>You have not created any collections yet</Text>
 				)}
@@ -209,6 +218,7 @@ type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 
 const DisplayCollection = (props: {
 	collection: Collection;
+	index: number;
 	setToUpdateCollection: (c: UpdateCollectionInput) => void;
 	openModal: () => void;
 }) => {
@@ -227,16 +237,23 @@ const DisplayCollection = (props: {
 		);
 
 	return (
-		<Flex gap="xs" direction={{ base: "column", md: "row" }}>
-			<Image
-				src={getFallbackImageUrl("dark", props.collection.name)}
-				radius="md"
-				h={180}
-				w={250}
-				flex="none"
-			/>
-			<Paper withBorder p="xs" flex={1}>
-				<Stack h={"100%"}>
+		<Paper
+			withBorder
+			mt={props.index !== 0 ? "lg" : undefined}
+			pr="md"
+			pl={{ base: "md", md: 0 }}
+			py={{ base: "sm", md: 0 }}
+		>
+			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
+				<Image
+					src={getFallbackImageUrl("dark", props.collection.name)}
+					radius="md"
+					h={180}
+					w={250}
+					flex="none"
+					mx="auto"
+				/>
+				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">
 						<Anchor
 							component={Link}
@@ -306,8 +323,8 @@ const DisplayCollection = (props: {
 						</Text>
 					) : null}
 				</Stack>
-			</Paper>
-		</Flex>
+			</Flex>
+		</Paper>
 	);
 };
 
