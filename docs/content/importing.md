@@ -158,7 +158,7 @@ separately. A few points to note:
 - Login to your account and go to your profile. The default activity lists can be exported
   from  here. Click on the list you want to export and download it as CSV.
 - For your custom lists, please visit the "My Lists" page.
-- Upload the CSV file and choose the correct list type from the dropdown.
+- Upload the CSV file and choose the collection you want to import into.
 
 ## Audiobookshelf
 
