@@ -283,7 +283,14 @@ export default function Layout() {
 		<>
 			{loaderData.workoutInProgress &&
 			location.pathname !== $path("/fitness/workouts/current") ? (
-				<Affix position={{ bottom: rem(30), right: rem(30) }}>
+				<Affix
+					position={{
+						bottom: rem(40),
+						right: rem(
+							location.search.includes("selectionEnabled") ? 90 : 40,
+						),
+					}}
+				>
 					<ActionIcon
 						variant="filled"
 						color="orange"
