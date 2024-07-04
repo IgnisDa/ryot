@@ -16,9 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import { redirect, unstable_defineLoader } from "@remix-run/node";
-import { useLocation } from "@remix-run/react";
 import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
@@ -34,7 +32,6 @@ import {
 import { isEmpty, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
-	IconDeviceFloppy,
 	IconFilter,
 	IconFilterOff,
 	IconMessageCircle2,
@@ -54,8 +51,8 @@ import {
 } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
-	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
@@ -83,21 +80,23 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-const cookieName = `SearchParams-${"collections.details"}`;
-
-const redirectToPersistedFilters = (request: Request) => {
-	const searchParams = new URL(request.url).search;
-	const cookies = parse(request.headers.get("Cookie") || "");
-	if (isEmpty(searchParams)) {
-		const persistedSearchParams = cookies[cookieName] || "?redirected=true";
-		throw redirect(`./${persistedSearchParams}`);
-	}
+const redirectUsingEnhancedSearchParams = (
+	request: Request,
+	cookieName: string,
+) => {
+	const isPersisted = new URL(request.url).searchParams.has("from");
+	if (isPersisted) return;
+	const cookies = parse(request.headers.get("cookie") || "");
+	const persistedSearchParams = cookies[cookieName];
+	if (!isEmpty(persistedSearchParams))
+		throw redirect(`./?${persistedSearchParams}&from=persisted`);
 };
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	redirectToPersistedFilters(request);
 	const collectionId = params.id;
 	invariant(collectionId);
+	const cookieName = `SearchParams-collections.details-${collectionId}`;
+	redirectUsingEnhancedSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.request(
@@ -116,25 +115,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { collectionId, query, collectionContents };
+	return { collectionId, query, collectionContents, cookieName };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
-};
-
-export const SaveSearchParams = (props: { cookieName: string }) => {
-	const location = useLocation();
-	return (
-		<ActionIcon
-			onClick={() => {
-				Cookies.set(props.cookieName, location.search);
-				notifications.show({ message: "Filters saved successfully" });
-			}}
-		>
-			<IconDeviceFloppy size={24} />
-		</ActionIcon>
-	);
 };
 
 export default function Page() {
@@ -142,7 +127,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
@@ -212,18 +197,15 @@ export default function Page() {
 									<Stack>
 										<Group justify="space-between">
 											<Title order={3}>Filters</Title>
-											<Group>
-												<SaveSearchParams cookieName={cookieName} />
-												<ActionIcon
-													onClick={() => {
-														navigate(".");
-														closeFiltersModal();
-														Cookies.remove(cookieName);
-													}}
-												>
-													<IconFilterOff size={24} />
-												</ActionIcon>
-											</Group>
+											<ActionIcon
+												onClick={() => {
+													navigate(".");
+													closeFiltersModal();
+													Cookies.remove(loaderData.cookieName);
+												}}
+											>
+												<IconFilterOff size={24} />
+											</ActionIcon>
 										</Group>
 										<Flex gap="xs" align="center">
 											<Select
