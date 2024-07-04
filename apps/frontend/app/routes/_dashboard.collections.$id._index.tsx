@@ -17,6 +17,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
+import { useLocation, useMatches } from "@remix-run/react";
 import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
@@ -32,6 +33,7 @@ import {
 import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
+	IconDeviceFloppy,
 	IconFilter,
 	IconFilterOff,
 	IconMessageCircle2,
@@ -39,6 +41,7 @@ import {
 	IconSortDescending,
 	IconUser,
 } from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -104,6 +107,20 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
+};
+
+export const SaveSearchParams = () => {
+	const matches = useMatches();
+	const routeId = matches.map((match) => match.id).join(";");
+	const location = useLocation();
+
+	return (
+		<ActionIcon
+			onClick={() => Cookies.set(`SearchParams-${routeId}`, location.search)}
+		>
+			<IconDeviceFloppy size={24} />
+		</ActionIcon>
+	);
 };
 
 export default function Page() {
@@ -179,16 +196,19 @@ export default function Page() {
 									withCloseButton={false}
 								>
 									<Stack>
-										<Group>
+										<Group justify="space-between">
 											<Title order={3}>Filters</Title>
-											<ActionIcon
-												onClick={() => {
-													navigate(".");
-													closeFiltersModal();
-												}}
-											>
-												<IconFilterOff size={24} />
-											</ActionIcon>
+											<Group>
+												<SaveSearchParams />
+												<ActionIcon
+													onClick={() => {
+														navigate(".");
+														closeFiltersModal();
+													}}
+												>
+													<IconFilterOff size={24} />
+												</ActionIcon>
+											</Group>
 										</Group>
 										<Flex gap="xs" align="center">
 											<Select
