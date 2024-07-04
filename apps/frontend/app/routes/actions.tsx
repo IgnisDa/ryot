@@ -22,7 +22,7 @@ import {
 	SeenState,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty, omitBy, set } from "@ryot/ts-utils";
+import { isEmpty, omitBy } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -350,12 +350,12 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			);
 		})
 		.with("createMeasurement", async () => {
-			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
-			const input: any = {};
-			for (const [name, value] of formData.entries()) {
-				if (!isEmpty(value) && name !== redirectToQueryParam)
-					set(input, name, value);
-			}
+			let input = processSubmission(formData, createMeasurementSchema);
+			input[redirectToQueryParam] = undefined;
+			input.stats.custom = omitBy(input.stats.custom, isEmpty);
+			input.stats = omitBy(input.stats, isEmpty);
+			input = omitBy(input, isEmpty);
+			console.log(input);
 			await serverGqlService.request(
 				CreateUserMeasurementDocument,
 				{ input },
@@ -480,6 +480,8 @@ const bulkUpdateSchema = z
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
+
+const createMeasurementSchema = z.any();
 
 const sleepForHalfSecond = () =>
 	new Promise((resolve) => setTimeout(resolve, 500));
