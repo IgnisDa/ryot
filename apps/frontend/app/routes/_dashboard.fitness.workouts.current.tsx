@@ -52,7 +52,6 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
 	ExerciseLot,
-	ExerciseSortBy,
 	SetLot,
 	UserUnitSystem,
 	type WorkoutSetStatistic,
@@ -461,8 +460,6 @@ export default function Page() {
 										variant="subtle"
 										to={$path("/fitness/exercises/list", {
 											[selectionEnabledQueryParam]: true,
-											page: 1,
-											sortBy: ExerciseSortBy.LastPerformed,
 										})}
 									>
 										Add an exercise

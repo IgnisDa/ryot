@@ -49,18 +49,24 @@ import {
 	IconFilterOff,
 	IconPlus,
 } from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
-import { dayjsLib, selectionEnabledQueryParam } from "~/lib/generals";
 import {
+	dayjsLib,
+	enhancedCookieName,
+	selectionEnabledQueryParam,
+} from "~/lib/generals";
+import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
-	useSearchParam,
 	useUserCollections,
 } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -76,12 +82,9 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.optional().default("1"),
+	page: zx.IntAsString.optional(),
 	query: z.string().optional(),
-	sortBy: z
-		.nativeEnum(ExerciseSortBy)
-		.optional()
-		.default(defaultFiltersValue.sortBy),
+	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
 	type: z.nativeEnum(ExerciseLot).optional(),
 	level: z.nativeEnum(ExerciseLevel).optional(),
 	force: z.nativeEnum(ExerciseForce).optional(),
@@ -95,7 +98,11 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = enhancedCookieName("exercises.list");
+	redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
+	query.sortBy = query.sortBy ?? ExerciseSortBy.NumTimesPerformed;
+	query.page = query.page ?? 1;
 	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
 		serverGqlService.request(ExerciseParametersDocument, {}),
 		serverGqlService.request(
@@ -121,7 +128,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { query, exerciseParameters, exercisesList };
+	return { query, exerciseParameters, exercisesList, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -133,7 +140,7 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const collections = useUserCollections();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
@@ -213,6 +220,7 @@ export default function Page() {
 												onClick={() => {
 													navigate(".");
 													closeFiltersModal();
+													Cookies.remove(loaderData.cookieName);
 												}}
 											>
 												<IconFilterOff size={24} />
