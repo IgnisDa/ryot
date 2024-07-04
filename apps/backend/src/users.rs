@@ -284,15 +284,16 @@ pub struct UserGeneralDashboardElement {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserGeneralPreferences {
-    pub review_scale: UserReviewScale,
     pub display_nsfw: bool,
-    pub dashboard: Vec<UserGeneralDashboardElement>,
+    pub disable_videos: bool,
+    pub disable_reviews: bool,
+    pub persist_queries: bool,
+    pub watch_providers: Vec<String>,
+    pub review_scale: UserReviewScale,
+    pub disable_watch_providers: bool,
     pub disable_yank_integrations: bool,
     pub disable_navigation_animation: bool,
-    pub disable_videos: bool,
-    pub disable_watch_providers: bool,
-    pub watch_providers: Vec<String>,
-    pub disable_reviews: bool,
+    pub dashboard: Vec<UserGeneralDashboardElement>,
 }
 
 impl Default for UserGeneralPreferences {
@@ -317,6 +318,7 @@ impl Default for UserGeneralPreferences {
                     num_elements: None,
                 },
             ],
+            persist_queries: true,
             disable_yank_integrations: false,
             disable_navigation_animation: false,
             disable_videos: false,

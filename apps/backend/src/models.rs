@@ -984,15 +984,6 @@ pub mod media {
         pub manga_specifics: Option<MangaSpecifics>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
-    #[serde(untagged)]
-    pub enum ImportOrExportItemIdentifier {
-        // the identifier in case we need to fetch details
-        NeedsDetails(String),
-        // details are already filled and just need to be committed to database
-        AlreadyFilled(Box<MediaDetails>),
-    }
-
     /// A specific instance when an entity was seen.
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Deserialize, Clone, Default, Schematic)]
@@ -1071,10 +1062,6 @@ pub mod media {
         pub source: MediaSource,
         /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
         pub identifier: String,
-        // DEV: Only to be used internally.
-        #[serde(skip)]
-        #[schema(exclude)]
-        pub internal_identifier: Option<ImportOrExportItemIdentifier>,
         /// The seen history for the user.
         pub seen_history: Vec<ImportOrExportMediaItemSeen>,
         /// The review history for the user.

@@ -38,6 +38,7 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
@@ -49,14 +50,16 @@ import {
 	type Item,
 	MediaItemWithoutUpdateModal,
 } from "~/components/media";
-import { redirectToQueryParam } from "~/lib/generals";
+import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
 import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
 	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -85,6 +88,7 @@ const SEARCH_SOURCES_ALLOWED = [
 ] as const;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
+	const cookieName = enhancedCookieName("people.action");
 	const action = params.action as Action;
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
@@ -92,6 +96,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const [peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
+			await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 			const urlParse = zx.parseQuery(
 				request,
 				z.object({
@@ -139,7 +144,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			return [undefined, { search: peopleSearch, url: urlParse }] as const;
 		})
 		.exhaustive();
-	return { action, query, page, peopleList, peopleSearch };
+	return { action, query, page, peopleList, peopleSearch, cookieName };
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -150,7 +155,10 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
+	const [_p, { setP }] = useSearchParam();
+	const [_e, { setP: setEnhancedP }] = useCookieEnhancedSearchParam(
+		loaderData.cookieName,
+	);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -188,6 +196,11 @@ export default function Page() {
 					<DebouncedSearchInput
 						placeholder="Search for people"
 						initialValue={loaderData.query}
+						enhancedQueryParams={
+							loaderData.action === Action.List
+								? loaderData.cookieName
+								: undefined
+						}
 					/>
 					{loaderData.action === Action.List ? (
 						<>
@@ -210,12 +223,13 @@ export default function Page() {
 								withCloseButton={false}
 							>
 								<Stack>
-									<Group>
+									<Group justify="space-between">
 										<Title order={3}>Sort by</Title>
 										<ActionIcon
 											onClick={() => {
 												navigate(".");
 												closeFiltersModal();
+												Cookies.remove(loaderData.cookieName);
 											}}
 										>
 											<IconFilterOff size={24} />
@@ -229,7 +243,7 @@ export default function Page() {
 												label: startCase(o.toLowerCase()),
 											}))}
 											defaultValue={loaderData.peopleList?.url.sortBy}
-											onChange={(v) => setP("sortBy", v)}
+											onChange={(v) => setEnhancedP("sortBy", v)}
 										/>
 										<ActionIcon
 											onClick={() => {
@@ -237,8 +251,8 @@ export default function Page() {
 													loaderData.peopleList?.url.orderBy ===
 													GraphqlSortOrder.Asc
 												)
-													setP("orderBy", GraphqlSortOrder.Desc);
-												else setP("orderBy", GraphqlSortOrder.Asc);
+													setEnhancedP("orderBy", GraphqlSortOrder.Desc);
+												else setEnhancedP("orderBy", GraphqlSortOrder.Asc);
 											}}
 										>
 											{loaderData.peopleList?.url.orderBy ===
@@ -310,7 +324,7 @@ export default function Page() {
 									<Pagination
 										size="sm"
 										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
+										onChange={(v) => setEnhancedP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.peopleList.list.details.total /
 												coreDetails.pageLimit,

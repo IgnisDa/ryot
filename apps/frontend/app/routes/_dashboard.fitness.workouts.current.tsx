@@ -52,7 +52,6 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
 	ExerciseLot,
-	ExerciseSortBy,
 	SetLot,
 	UserUnitSystem,
 	type WorkoutSetStatistic,
@@ -81,10 +80,8 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
-import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
-import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
@@ -109,15 +106,17 @@ import {
 	type InProgressWorkout,
 	currentWorkoutToCreateWorkoutInput,
 	exerciseHasDetailsToShow,
-	timerAtom,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
-} from "~/lib/state/workout";
+	useMeasurementsDrawerOpen,
+	useTimerAtom,
+} from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getCoreEnabledFeatures,
+	isWorkoutActive,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -126,8 +125,7 @@ const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookies = request.headers.get("cookie");
-	const inProgress = parse(cookies || "")[workoutCookieName] === "true";
+	const inProgress = isWorkoutActive(request);
 	if (!inProgress)
 		throw await redirectWithToast($path("/"), {
 			type: "error",
@@ -198,7 +196,8 @@ export default function Page() {
 		reorderDrawerOpened,
 		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
 	] = useDisclosure(false);
-	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
+	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
+	const [currentTimer, setCurrentTimer] = useTimerAtom();
 	const interval = useInterval(() => {
 		setTime((s) => s + 1);
 	}, 1000);
@@ -445,13 +444,9 @@ export default function Page() {
 								<Group justify="center">
 									{userPreferences.featuresEnabled.fitness.measurements ? (
 										<Button
-											component={Link}
 											variant="subtle"
 											color="teal"
-											to={$path("/fitness/measurements/list", {
-												openModal: true,
-												redirectTo: $path("/fitness/workouts/current"),
-											})}
+											onClick={() => setMeasurementsDrawerOpen(true)}
 										>
 											Add measurement
 										</Button>
@@ -459,11 +454,7 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
-										to={$path("/fitness/exercises/list", {
-											selectionEnabled: true,
-											page: 1,
-											sortBy: ExerciseSortBy.LastPerformed,
-										})}
+										to={$path("/fitness/exercises/list")}
 									>
 										Add an exercise
 									</Button>
@@ -679,7 +670,7 @@ const ExerciseDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
-	const [currentTimer] = useAtom(timerAtom);
+	const [currentTimer] = useTimerAtom();
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -1103,7 +1094,7 @@ const SetDisplay = (props: {
 	startTimer: FuncStartTimer;
 	toBeDisplayedColumns: number;
 }) => {
-	const [currentTimer, _] = useAtom(timerAtom);
+	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
@@ -1327,7 +1318,7 @@ const TimerDrawer = (props: {
 	stopTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
-	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
+	const [currentTimer, setCurrentTimer] = useTimerAtom();
 
 	return (
 		<Drawer

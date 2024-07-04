@@ -12,6 +12,7 @@ import {
 	Center,
 	Checkbox,
 	Collapse,
+	Drawer,
 	Flex,
 	Group,
 	Image,
@@ -23,6 +24,7 @@ import {
 	ScrollArea,
 	SegmentedControl,
 	Select,
+	SimpleGrid,
 	Slider,
 	Stack,
 	Text,
@@ -30,6 +32,7 @@ import {
 	Textarea,
 	ThemeIcon,
 	Title,
+	Tooltip,
 	UnstyledButton,
 	rem,
 	useDirection,
@@ -69,6 +72,7 @@ import {
 	formatDateToNaiveDate,
 	groupBy,
 	isNumber,
+	snakeCase,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -89,7 +93,6 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { parse } from "cookie";
 import { produce } from "immer";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
@@ -99,7 +102,6 @@ import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import {
 	CORE_DETAILS_COOKIE_NAME,
-	CurrentWorkoutKey,
 	LOGO_IMAGE_URL,
 	Verb,
 	getLot,
@@ -114,6 +116,7 @@ import {
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	type UpdateProgressData,
 	useAddEntityToCollection,
@@ -125,9 +128,11 @@ import {
 	getCachedUserCollectionsList,
 	getCookieValue,
 	getUserPreferences,
+	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
+import "@mantine/dates/styles.css";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -228,8 +233,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		!envData.DISABLE_TELEMETRY &&
 		!userDetails.isDemo;
 
-	const cookies = request.headers.get("cookie");
-	const workoutInProgress = parse(cookies || "")[CurrentWorkoutKey] === "true";
+	const workoutInProgress = isWorkoutActive(request);
 
 	return {
 		envData,
@@ -239,9 +243,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		fitnessLinks,
 		settingsLinks,
 		userPreferences,
-		workoutInProgress,
 		shouldHaveUmami,
 		userCollections,
+		workoutInProgress,
 		currentColorScheme,
 	};
 });
@@ -280,22 +284,38 @@ export default function Layout() {
 		useAddEntityToCollection();
 	const closeAddEntityToCollectionModal = () =>
 		setAddEntityToCollectionData(null);
+	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
+		useMeasurementsDrawerOpen();
+	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 
 	return (
 		<>
 			{loaderData.workoutInProgress &&
 			location.pathname !== $path("/fitness/workouts/current") ? (
-				<Affix position={{ bottom: rem(30), right: rem(30) }}>
-					<ActionIcon
-						variant="filled"
-						color="orange"
-						radius="xl"
-						size="xl"
-						onClick={() => navigate($path("/fitness/workouts/current"))}
+				<Tooltip label="You have an active workout" position="left">
+					<Affix
+						position={{
+							bottom: rem(40),
+							right: rem(
+								location.pathname === $path("/fitness/exercises/list") ||
+									location.pathname.includes("/fitness/exercises/item")
+									? 90
+									: 40,
+							),
+						}}
+						style={{ transition: "all 0.3s" }}
 					>
-						<IconStretching size={32} />
-					</ActionIcon>
-				</Affix>
+						<ActionIcon
+							variant="filled"
+							color="orange"
+							radius="xl"
+							size="xl"
+							onClick={() => navigate($path("/fitness/workouts/current"))}
+						>
+							<IconStretching size={32} />
+						</ActionIcon>
+					</Affix>
+				</Tooltip>
 			) : null}
 			<Modal
 				onClose={closeMetadataProgressUpdateModal}
@@ -325,6 +345,15 @@ export default function Layout() {
 					closeAddEntityToCollectionModal={closeAddEntityToCollectionModal}
 				/>
 			</Modal>
+			<Drawer
+				onClose={closeMeasurementsDrawer}
+				opened={measurementsDrawerOpen}
+				title="Add new measurement"
+			>
+				<CreateMeasurementForm
+					closeMeasurementModal={closeMeasurementsDrawer}
+				/>
+			</Drawer>
 			<AppShell
 				w="100%"
 				padding={0}
@@ -1467,6 +1496,61 @@ const AddEntityToCollectionForm = ({
 				>
 					Cancel
 				</Button>
+			</Stack>
+		</Form>
+	);
+};
+
+const CreateMeasurementForm = (props: {
+	closeMeasurementModal: () => void;
+}) => {
+	const userPreferences = useUserPreferences();
+
+	return (
+		<Form
+			replace
+			method="POST"
+			action={withQuery($path("/actions"), { intent: "createMeasurement" })}
+			onSubmit={() => {
+				events.createMeasurement();
+				props.closeMeasurementModal();
+			}}
+		>
+			<Stack>
+				<DateTimePicker
+					label="Timestamp"
+					defaultValue={new Date()}
+					name="timestamp"
+					required
+				/>
+				<HiddenLocationInput />
+				<TextInput label="Name" name="name" />
+				<SimpleGrid cols={2} style={{ alignItems: "end" }}>
+					{Object.keys(userPreferences.fitness.measurements.inbuilt)
+						.filter((n) => n !== "custom")
+						.filter(
+							(n) =>
+								// biome-ignore lint/suspicious/noExplicitAny: required
+								(userPreferences as any).fitness.measurements.inbuilt[n],
+						)
+						.map((v) => (
+							<NumberInput
+								decimalScale={3}
+								key={v}
+								label={changeCase(snakeCase(v))}
+								name={`stats.${v}`}
+							/>
+						))}
+					{userPreferences.fitness.measurements.custom.map(({ name }) => (
+						<NumberInput
+							key={name}
+							label={changeCase(snakeCase(name))}
+							name={`stats.custom.${name}`}
+						/>
+					))}
+				</SimpleGrid>
+				<Textarea label="Comment" name="comment" />
+				<Button type="submit">Submit</Button>
 			</Stack>
 		</Form>
 	);

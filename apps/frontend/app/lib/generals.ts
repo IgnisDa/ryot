@@ -36,6 +36,17 @@ export { dayjs as dayjsLib };
 export const CurrentWorkoutKey = "CurrentWorkout";
 export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
+export const redirectToQueryParam = "redirectTo";
+export const AUTH_COOKIE_NAME = "Auth";
+export const USER_PREFERENCES_COOKIE_NAME = "UserPreferences";
+export const CORE_DETAILS_COOKIE_NAME = "CoreDetails";
+export const USER_DETAILS_COOKIE_NAME = "UserDetails";
+
+const enhancedSearchParamCookie = "SearchParams__";
+export const enhancedCookieName = (name: string) =>
+	`${enhancedSearchParamCookie}${name}`;
+
+export const queryClient = new QueryClient();
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
@@ -195,15 +206,6 @@ export const getMetadataIcon = (lot: MediaLot) => {
 		.with(MediaLot.VisualNovel, () => IconBook2)
 		.exhaustive();
 };
-
-export const redirectToQueryParam = "redirectTo";
-
-export const queryClient = new QueryClient();
-
-export const AUTH_COOKIE_NAME = "Auth";
-export const USER_PREFERENCES_COOKIE_NAME = "UserPreferences";
-export const CORE_DETAILS_COOKIE_NAME = "CoreDetails";
-export const USER_DETAILS_COOKIE_NAME = "UserDetails";
 
 const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 

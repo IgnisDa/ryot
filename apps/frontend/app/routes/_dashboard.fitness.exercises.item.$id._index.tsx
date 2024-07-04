@@ -53,8 +53,8 @@ import { ExerciseHistory } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
+import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
-import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -62,7 +62,6 @@ import {
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
-	selectionEnabled: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -401,7 +400,7 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 			</Stack>
-			{currentWorkout && loaderData.query.selectionEnabled ? (
+			{currentWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"

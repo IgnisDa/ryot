@@ -18,6 +18,7 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { isEmpty } from "@ryot/ts-utils";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
 import { GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
@@ -26,6 +27,7 @@ import { type ZodTypeAny, type output, z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CORE_DETAILS_COOKIE_NAME,
+	CurrentWorkoutKey,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
 	dayjsLib,
@@ -378,4 +380,22 @@ export const extendResponseHeaders = (
 	for (const [key, value] of headers.entries())
 		responseHeaders.append(key, value);
 	return responseHeaders;
+};
+
+export const isWorkoutActive = (request: Request) => {
+	const cookies = request.headers.get("cookie");
+	const inProgress = parse(cookies || "")[CurrentWorkoutKey] === "true";
+	return inProgress;
+};
+
+export const redirectUsingEnhancedCookieSearchParams = async (
+	request: Request,
+	cookieName: string,
+) => {
+	const preferences = await getUserPreferences(request);
+	const searchParams = new URL(request.url).searchParams;
+	if (searchParams.size > 0 || !preferences.general.persistQueries) return;
+	const cookies = parse(request.headers.get("cookie") || "");
+	const savedSearchParams = cookies[cookieName];
+	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
 };

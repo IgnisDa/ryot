@@ -18,7 +18,7 @@ import {
 	getStringAsciiValue,
 	queryFactory,
 } from "~/lib/generals";
-import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/workout";
+import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import type { loader } from "~/routes/_dashboard";
 
 export const useGetMantineColor = () => {
@@ -58,6 +58,30 @@ export const useSearchParam = () => {
 	};
 
 	return [searchParams, { setP, delP }] as const;
+};
+
+export const useCookieEnhancedSearchParam = (cookieKey: string) => {
+	const [searchParams, { setP, delP }] = useSearchParam();
+
+	const updateCookieP = (key: string, value?: string | null) => {
+		const cookieValue = Cookies.get(cookieKey);
+		const cookieSearchParams = new URLSearchParams(cookieValue);
+		if (value === undefined || value === null) cookieSearchParams.delete(key);
+		else cookieSearchParams.set(key, value);
+		Cookies.set(cookieKey, cookieSearchParams.toString());
+	};
+
+	const delCookieP = (key: string) => {
+		delP(key);
+		updateCookieP(key);
+	};
+
+	const setCookieP = (key: string, value?: string | null) => {
+		setP(key, value);
+		updateCookieP(key, value);
+	};
+
+	return [searchParams, { setP: setCookieP, delP: delCookieP }] as const;
 };
 
 export const getWorkoutStarter = () => {

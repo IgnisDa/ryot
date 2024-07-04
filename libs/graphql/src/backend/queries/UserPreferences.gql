@@ -3,17 +3,18 @@ query UserPreferences {
     general {
       reviewScale
       displayNsfw
+      disableVideos
+      persistQueries
+      watchProviders
+      disableReviews
+      disableWatchProviders
+      disableYankIntegrations
+      disableNavigationAnimation
       dashboard {
         section
         hidden
         numElements
       }
-      disableYankIntegrations
-      disableNavigationAnimation
-      disableVideos
-      watchProviders
-      disableReviews
-      disableWatchProviders
     }
     fitness {
       measurements {

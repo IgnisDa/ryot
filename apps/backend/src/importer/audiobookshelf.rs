@@ -14,10 +14,7 @@ use crate::{
     entities::metadata,
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
     miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
-    models::media::{
-        CommitMediaInput, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
-        ImportOrExportMediaItemSeen,
-    },
+    models::media::{CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
     providers::google_books::GoogleBooksService,
     utils::get_base_http_client,
 };
@@ -159,10 +156,9 @@ where
             media.push(ImportOrExportMediaItem {
                 lot,
                 source,
-                source_id: metadata.title,
-                identifier: "".to_string(),
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(identifier)),
+                identifier,
                 seen_history,
+                source_id: metadata.title,
                 collections: vec![],
                 reviews: vec![],
             })

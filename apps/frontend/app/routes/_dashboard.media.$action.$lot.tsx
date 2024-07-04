@@ -50,6 +50,7 @@ import {
 	IconSortDescending,
 	IconStarFilled,
 } from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -64,10 +65,10 @@ import {
 	commitMedia,
 } from "~/components/media";
 import events from "~/lib/events";
-import { Verb, getLot, getVerb } from "~/lib/generals";
+import { Verb, enhancedCookieName, getLot, getVerb } from "~/lib/generals";
 import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
-	useSearchParam,
 	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
@@ -79,6 +80,7 @@ import {
 } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import classes from "~/styles/common.module.css";
@@ -130,10 +132,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const numPage = Number(page);
 	const lot = getLot(params.lot);
 	invariant(lot);
+	const cookieName = enhancedCookieName(`media.action.lot.${lot}`);
 	const action = params.action as Action;
 	invariant(action && Object.values(Action).includes(action as Action));
 	const [mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
+			await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 			const urlParse = zx.parseQuery(request, {
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)
@@ -194,6 +198,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		action,
 		numPage,
 		mediaList,
+		cookieName,
 		mediaSearch,
 		url: withoutHost(url.href),
 		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
@@ -215,7 +220,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const collections = useUserCollections();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
@@ -273,10 +278,11 @@ export default function Page() {
 					<>
 						<Group wrap="nowrap">
 							<DebouncedSearchInput
+								initialValue={loaderData.query}
+								enhancedQueryParams={loaderData.cookieName}
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
-								initialValue={loaderData.query}
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}
@@ -291,12 +297,13 @@ export default function Page() {
 								withCloseButton={false}
 							>
 								<Stack>
-									<Group>
+									<Group justify="space-between">
 										<Title order={3}>Filters</Title>
 										<ActionIcon
 											onClick={() => {
 												navigate(".");
 												closeFiltersModal();
+												Cookies.remove(loaderData.cookieName);
 											}}
 										>
 											<IconFilterOff size={24} />

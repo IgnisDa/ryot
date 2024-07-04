@@ -27,6 +27,7 @@ mod m20240608_add_created_on_column_to_collection_to_entity;
 mod m20240619_remove_seen_from_media_reason_of_user_to_entity;
 mod m20240620_add_minimum_and_maximum_progress_columns_to_integration;
 mod m20240620_delete_invalid_calendar_events;
+mod m20240704_add_new_preference_for_persisted_queries;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -75,6 +76,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240619_remove_seen_from_media_reason_of_user_to_entity::Migration),
             Box::new(m20240620_delete_invalid_calendar_events::Migration),
             Box::new(m20240620_add_minimum_and_maximum_progress_columns_to_integration::Migration),
+            Box::new(m20240704_add_new_preference_for_persisted_queries::Migration),
         ]
     }
 }

@@ -39,6 +39,7 @@ import {
 	IconSortDescending,
 	IconUser,
 } from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -47,15 +48,16 @@ import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
-	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -65,7 +67,7 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	defaultTab: z.string().optional().default("contents"),
+	defaultTab: z.string().optional(),
 	page: zx.IntAsString.optional(),
 	query: z.string().optional(),
 	sortBy: z
@@ -81,6 +83,8 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const collectionId = params.id;
 	invariant(collectionId);
+	const cookieName = enhancedCookieName(`collections.details.${collectionId}`);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.request(
@@ -99,7 +103,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { collectionId, query, collectionContents };
+	return { collectionId, query, collectionContents, cookieName };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -111,7 +115,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
@@ -132,7 +136,7 @@ export default function Page() {
 					</Text>
 				</Box>
 				<Text>{loaderData.collectionContents.details.description}</Text>
-				<Tabs defaultValue={loaderData.query.defaultTab}>
+				<Tabs defaultValue={loaderData.query.defaultTab || "contents"}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="contents"
@@ -156,8 +160,9 @@ export default function Page() {
 						<Stack>
 							<Group wrap="nowrap">
 								<DebouncedSearchInput
-									placeholder="Search in the collection"
 									initialValue={loaderData.query.query}
+									placeholder="Search in the collection"
+									enhancedQueryParams={loaderData.cookieName}
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
@@ -179,12 +184,13 @@ export default function Page() {
 									withCloseButton={false}
 								>
 									<Stack>
-										<Group>
+										<Group justify="space-between">
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {
 													navigate(".");
 													closeFiltersModal();
+													Cookies.remove(loaderData.cookieName);
 												}}
 											>
 												<IconFilterOff size={24} />

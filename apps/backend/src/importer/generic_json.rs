@@ -7,7 +7,7 @@ use itertools::Itertools;
 use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
-    models::{media::ImportOrExportItemIdentifier, CompleteExport},
+    models::CompleteExport,
 };
 
 pub async fn import(
@@ -22,9 +22,6 @@ pub async fn import(
         .unwrap_or_default()
         .iter_mut()
         .map(|m| {
-            m.internal_identifier = Some(ImportOrExportItemIdentifier::NeedsDetails(
-                m.identifier.clone(),
-            ));
             m.seen_history.iter_mut().for_each(|s| {
                 s.provider_watched_on = Some(ImportSource::GenericJson.to_string());
             });
