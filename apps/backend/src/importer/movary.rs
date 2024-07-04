@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItemIdentifier,
-        ImportOrExportMediaItem, ImportResult,
+        DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
+        ImportResult,
     },
     miscellaneous::DefaultCollection,
     models::media::{
@@ -65,10 +65,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             source_id: record.common.title.clone(),
             lot,
             source,
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                record.common.tmdb_id.to_string(),
-            )),
-            identifier: "".to_string(),
+            identifier: record.common.tmdb_id.to_string(),
             seen_history: vec![],
             reviews: vec![ImportOrExportItemRating {
                 // DEV: Rates items out of 10
@@ -96,10 +93,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             source_id: record.title.clone(),
             lot,
             source,
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                record.tmdb_id.to_string(),
-            )),
-            identifier: "".to_string(),
+            identifier: record.tmdb_id.to_string(),
             seen_history: vec![],
             reviews: vec![],
             collections: vec![DefaultCollection::Watchlist.to_string()],
@@ -159,10 +153,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 source_id: record.common.title.clone(),
                 lot,
                 source,
-                identifier: "".to_string(),
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                    record.common.tmdb_id.to_string(),
-                )),
+                identifier: record.common.tmdb_id.to_string(),
                 seen_history: vec![seen_item],
                 reviews,
                 collections: vec![],

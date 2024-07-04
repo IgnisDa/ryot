@@ -6587,7 +6587,6 @@ impl MiscellaneousService {
                 lot: m.lot,
                 source: m.source,
                 identifier: m.identifier.clone(),
-                internal_identifier: None,
                 seen_history,
                 reviews,
                 collections,

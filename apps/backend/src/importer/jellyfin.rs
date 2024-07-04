@@ -13,9 +13,7 @@ use crate::{
     importer::{
         DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
     },
-    models::media::{
-        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-    },
+    models::media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
     utils::{JSON, USER_AGENT_STR},
 };
 
@@ -175,9 +173,6 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 lot,
                 source_id: item.series_name.unwrap_or(item.name),
                 source: MediaSource::Tmdb,
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                    tmdb_id.clone(),
-                )),
                 seen_history: vec![seen],
                 identifier: tmdb_id,
                 reviews: vec![],

@@ -16,8 +16,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use crate::{
     importer::{DeployMalImportInput, ImportResult},
     models::media::{
-        ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportMediaItem,
-        ImportOrExportMediaItemSeen,
+        ImportOrExportItemRating, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
     },
 };
 
@@ -91,14 +90,11 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         ..Default::default()
     };
     ImportOrExportMediaItem {
-        source_id: item.title.clone(),
         lot,
         source: MediaSource::Mal,
-        identifier: "".to_string(),
-        internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-            item.identifier.to_string(),
-        )),
+        identifier: item.identifier.to_string(),
         seen_history,
+        source_id: item.title.clone(),
         reviews: vec![review_item],
         collections: vec![],
     }

@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{
-        DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportItemIdentifier,
-        ImportOrExportMediaItem, ImportResult,
+        DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
+        ImportResult,
     },
     models::media::{
         CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -255,8 +255,7 @@ fn process_item(
         Some(i) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),
             lot,
-            identifier: "".to_string(),
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(i.to_string())),
+            identifier: i.to_string(),
             source: MediaSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],

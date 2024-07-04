@@ -17,8 +17,8 @@ use crate::{
     },
     models::{
         media::{
-            CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+            CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
+            ImportOrExportMediaItemSeen,
         },
         IdObject,
     },
@@ -273,8 +273,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             source,
             lot,
             collections,
-            identifier: "".to_string(),
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(identifier)),
+            identifier,
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
