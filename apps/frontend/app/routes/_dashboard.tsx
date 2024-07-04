@@ -243,9 +243,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		fitnessLinks,
 		settingsLinks,
 		userPreferences,
-		workoutInProgress,
 		shouldHaveUmami,
 		userCollections,
+		workoutInProgress,
 		currentColorScheme,
 	};
 });
