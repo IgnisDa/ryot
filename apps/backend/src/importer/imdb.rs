@@ -7,7 +7,7 @@ use serde::Deserialize;
 use crate::{
     importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
     miscellaneous::DefaultCollection,
-    models::media::{ImportOrExportItemIdentifier, ImportOrExportMediaItem},
+    models::media::ImportOrExportMediaItem,
     providers::tmdb::NonMediaTmdbService,
 };
 
@@ -58,7 +58,7 @@ pub async fn import(
                 continue;
             }
         };
-        let tmdb_identifier = match tmdb_service
+        let identifier = match tmdb_service
             .find_by_external_id(&record.id, "imdb_id")
             .await
         {
@@ -73,14 +73,13 @@ pub async fn import(
                 continue;
             }
         };
-        tracing::debug!("Found tmdb id: {} ({}/{})", tmdb_identifier, idx + 1, total);
+        tracing::debug!("Found tmdb id: {} ({}/{})", identifier, idx + 1, total);
         media.push(ImportOrExportMediaItem {
-            collections: vec![DefaultCollection::Watchlist.to_string()],
-            identifier: "".to_string(),
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(tmdb_identifier)),
+            identifier,
             lot,
             source,
             source_id: record.id,
+            collections: vec![DefaultCollection::Watchlist.to_string()],
             reviews: vec![],
             seen_history: vec![],
         });

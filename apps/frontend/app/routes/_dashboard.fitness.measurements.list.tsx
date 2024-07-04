@@ -3,40 +3,28 @@ import "@mantine/charts/styles.css";
 import {
 	ActionIcon,
 	Box,
-	Button,
 	Container,
-	Drawer,
 	Flex,
 	MultiSelect,
-	NumberInput,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
-	Textarea,
 	Title,
 } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
-import "@mantine/dates/styles.css";
-import { useDisclosure, useLocalStorage } from "@mantine/hooks";
-import {
-	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
-} from "@remix-run/node";
+import { useLocalStorage } from "@mantine/hooks";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	type MetaArgs_SingleFetch,
 	useLoaderData,
 } from "@remix-run/react";
 import {
-	CreateUserMeasurementDocument,
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isEmpty, set, snakeCase, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -46,12 +34,11 @@ import {
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import events from "~/lib/events";
-import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import { useSearchParam, useUserPreferences } from "~/lib/hooks";
+import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -69,8 +56,6 @@ enum TimeSpan {
 
 const searchParamsSchema = z.object({
 	timeSpan: z.nativeEnum(TimeSpan).optional(),
-	openModal: zx.BoolAsString.optional(),
-	[redirectToQueryParam]: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -109,31 +94,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
-		create: async () => {
-			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
-			const input: any = {};
-			for (const [name, value] of formData.entries()) {
-				if (!isEmpty(value) && name !== redirectToQueryParam)
-					set(input, name, value);
-			}
-			await serverGqlService.request(
-				CreateUserMeasurementDocument,
-				{ input },
-				getAuthorizationHeader(request),
-			);
-			const toastHeaders = {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Measurement submitted successfully",
-				}),
-			};
-			const redirectTo = formData.get(redirectToQueryParam);
-			if (redirectTo) return redirect(redirectTo.toString(), toastHeaders);
-			return Response.json(
-				{ status: "success", submission: input } as const,
-				toastHeaders,
-			);
-		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.request(
@@ -171,77 +131,24 @@ export default function Page() {
 			timestamp: tickFormatter(m.timestamp),
 		};
 	});
-	const [opened, { open, close }] = useDisclosure(
-		loaderData.query.openModal || false,
-	);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
 		key: "SavedMeasurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
-	const [searchParams, { setP }] = useSearchParam();
+	const [_p, { setP }] = useSearchParam();
+	const [_m, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 
-	const redirectToFormEntry = searchParams.get(redirectToQueryParam);
 	return (
 		<Container>
-			<Drawer opened={opened} onClose={close} title="Add new measurement">
-				<Form
-					replace
-					method="POST"
-					action={withQuery("", { intent: "create" })}
-					onSubmit={() => {
-						events.createMeasurement();
-						close();
-					}}
-				>
-					{redirectToFormEntry ? (
-						<input
-							type="hidden"
-							name={redirectToQueryParam}
-							value={redirectToFormEntry}
-						/>
-					) : null}
-					<Stack>
-						<DateTimePicker
-							label="Timestamp"
-							defaultValue={new Date()}
-							name="timestamp"
-							required
-						/>
-						<TextInput label="Name" name="name" />
-						<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-							{Object.keys(userPreferences.fitness.measurements.inbuilt)
-								.filter((n) => n !== "custom")
-								.filter(
-									(n) =>
-										// biome-ignore lint/suspicious/noExplicitAny: required
-										(userPreferences as any).fitness.measurements.inbuilt[n],
-								)
-								.map((v) => (
-									<NumberInput
-										decimalScale={3}
-										key={v}
-										label={changeCase(snakeCase(v))}
-										name={`stats.${v}`}
-									/>
-								))}
-							{userPreferences.fitness.measurements.custom.map(({ name }) => (
-								<NumberInput
-									key={name}
-									label={changeCase(snakeCase(name))}
-									name={`stats.custom.${name}`}
-								/>
-							))}
-						</SimpleGrid>
-						<Textarea label="Comment" name="comment" />
-						<Button type="submit">Submit</Button>
-					</Stack>
-				</Form>
-			</Drawer>
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Measurements</Title>
-					<ActionIcon color="green" variant="outline" onClick={open}>
+					<ActionIcon
+						color="green"
+						variant="outline"
+						onClick={() => setMeasurementsDrawerOpen(true)}
+					>
 						<IconPlus size={20} />
 					</ActionIcon>
 				</Flex>

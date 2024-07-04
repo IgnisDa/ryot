@@ -47,7 +47,7 @@ import {
 	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { getDefaultWorkout } from "~/lib/state/workout";
+import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
 	getAuthorizationHeader,
 	serverGqlService,

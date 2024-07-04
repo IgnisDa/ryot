@@ -11,8 +11,8 @@ use serde::Deserialize;
 use crate::{
     importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
     models::media::{
-        ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportItemReview,
-        ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+        ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItem,
+        ImportOrExportMediaItemSeen,
     },
     providers::google_books::GoogleBooksService,
 };
@@ -127,8 +127,7 @@ pub async fn import(
                 source_id: record.title.clone(),
                 lot,
                 source,
-                identifier: "".to_string(),
-                internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(identifier)),
+                identifier,
                 seen_history,
                 reviews,
                 collections,

@@ -23,9 +23,8 @@ use crate::{
         fitness::UserWorkoutInput,
         media::{
             CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-            ImportOrExportItemIdentifier, ImportOrExportItemRating, ImportOrExportMediaGroupItem,
-            ImportOrExportMediaItem, ImportOrExportPersonItem, PostReviewInput,
-            ProgressUpdateInput,
+            ImportOrExportItemRating, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+            ImportOrExportPersonItem, PostReviewInput, ProgressUpdateInput,
         },
         BackgroundJob, ChangeCollectionToEntityInput,
     },
@@ -341,24 +340,16 @@ impl ImporterService {
                 iden = &item.source_id
             );
             let rev_length = item.reviews.len();
-            let identifier = item.internal_identifier.clone().unwrap();
-            let data = match identifier {
-                ImportOrExportItemIdentifier::NeedsDetails(identifier) => {
-                    self.media_service
-                        .commit_metadata(CommitMediaInput {
-                            identifier,
-                            lot: item.lot,
-                            source: item.source,
-                            force_update: Some(true),
-                        })
-                        .await
-                }
-                ImportOrExportItemIdentifier::AlreadyFilled(a) => {
-                    self.media_service
-                        .commit_metadata_internal(*a.clone(), None)
-                        .await
-                }
-            };
+            let identifier = item.identifier.clone();
+            let data = self
+                .media_service
+                .commit_metadata(CommitMediaInput {
+                    identifier,
+                    lot: item.lot,
+                    source: item.source,
+                    force_update: Some(true),
+                })
+                .await;
             let metadata = match data {
                 Ok(r) => r,
                 Err(e) => {

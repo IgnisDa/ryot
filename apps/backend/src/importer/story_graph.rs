@@ -9,10 +9,7 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    importer::{
-        ImportFailStep, ImportFailedItem, ImportOrExportItemIdentifier, ImportOrExportMediaItem,
-        ImportResult,
-    },
+    importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult},
     models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
     },
@@ -109,10 +106,7 @@ pub async fn import(
                     source_id: record.title.clone(),
                     lot,
                     source,
-                    identifier: "".to_string(),
-                    internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(
-                        identifier,
-                    )),
+                    identifier,
                     seen_history,
                     reviews: vec![ImportOrExportItemRating {
                         rating: record

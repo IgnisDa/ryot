@@ -7,9 +7,7 @@ use serde::Deserialize;
 
 use crate::{
     miscellaneous::DefaultCollection,
-    models::media::{
-        ImportOrExportItemIdentifier, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-    },
+    models::media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
 };
 
 use super::{DeployIgdbImportInput, ImportFailStep, ImportFailedItem, ImportResult};
@@ -56,13 +54,12 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
             }
         };
         media.push(ImportOrExportMediaItem {
-            collections: vec![collection.clone()],
-            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(record.id)),
             lot,
             source,
             source_id: record.game,
-            identifier: "".to_string(),
+            identifier: record.id,
             seen_history: seen_history.clone(),
+            collections: vec![collection.clone()],
             reviews: vec![],
         });
     }

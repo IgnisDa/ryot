@@ -72,7 +72,7 @@ import {
 import {
 	duplicateOldWorkout,
 	getExerciseDetailsQuery,
-} from "~/lib/state/workout";
+} from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,

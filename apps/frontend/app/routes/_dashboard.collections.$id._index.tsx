@@ -39,6 +39,7 @@ import {
 	IconSortDescending,
 	IconUser,
 } from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -47,15 +48,16 @@ import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
-	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -65,7 +67,7 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	defaultTab: z.string().optional().default("contents"),
+	defaultTab: z.string().optional(),
 	page: zx.IntAsString.optional(),
 	query: z.string().optional(),
 	sortBy: z
@@ -79,39 +81,33 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const id = params.id;
-	invariant(id);
+	const collectionId = params.id;
+	invariant(collectionId);
+	const cookieName = enhancedCookieName(`collections.details.${collectionId}`);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const { collectionContents: info } = await serverGqlService.request(
-		CollectionContentsDocument,
-		{ input: { collectionId: id, take: 0 } },
-		getAuthorizationHeader(request),
-	);
-	const [{ collectionContents: contents }] = await Promise.all([
+	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.request(
 			CollectionContentsDocument,
 			{
 				input: {
-					collectionId: id,
+					collectionId,
 					filter: {
 						entityType: query.entityLot,
 						metadataLot: query.metadataLot,
 					},
 					sort: { by: query.sortBy, order: query.orderBy },
-					search: {
-						page: query.page,
-						query: query.query,
-					},
+					search: { page: query.page, query: query.query },
 				},
 			},
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { id, query, info, contents: contents.results };
+	return { collectionId, query, collectionContents, cookieName };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: `${data?.info.details.name} | Ryot` }];
+	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 
 export default function Page() {
@@ -119,7 +115,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
@@ -130,15 +126,17 @@ export default function Page() {
 		<Container>
 			<Stack>
 				<Box>
-					<Title>{loaderData.info.details.name}</Title>{" "}
+					<Title>{loaderData.collectionContents.details.name}</Title>{" "}
 					<Text size="sm">
-						{loaderData.contents.details.total} items, created by{" "}
-						{loaderData.info.user.name}{" "}
-						{dayjsLib(loaderData.info.details.createdOn).fromNow()}
+						{loaderData.collectionContents.results.details.total} items, created
+						by {loaderData.collectionContents.user.name}{" "}
+						{dayjsLib(
+							loaderData.collectionContents.details.createdOn,
+						).fromNow()}
 					</Text>
 				</Box>
-				<Text>{loaderData.info.details.description}</Text>
-				<Tabs defaultValue={loaderData.query.defaultTab}>
+				<Text>{loaderData.collectionContents.details.description}</Text>
+				<Tabs defaultValue={loaderData.query.defaultTab || "contents"}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="contents"
@@ -162,8 +160,9 @@ export default function Page() {
 						<Stack>
 							<Group wrap="nowrap">
 								<DebouncedSearchInput
-									placeholder="Search in the collection"
 									initialValue={loaderData.query.query}
+									placeholder="Search in the collection"
+									enhancedQueryParams={loaderData.cookieName}
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
@@ -185,12 +184,13 @@ export default function Page() {
 									withCloseButton={false}
 								>
 									<Stack>
-										<Group>
+										<Group justify="space-between">
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {
 													navigate(".");
 													closeFiltersModal();
+													Cookies.remove(loaderData.cookieName);
 												}}
 											>
 												<IconFilterOff size={24} />
@@ -255,9 +255,9 @@ export default function Page() {
 									</Stack>
 								</Modal>
 							</Group>
-							{loaderData.contents.items.length > 0 ? (
+							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
-									{loaderData.contents.items.map((lm) => (
+									{loaderData.collectionContents.results.items.map((lm) => (
 										<MediaItemWithoutUpdateModal
 											key={lm.details.identifier}
 											item={{
@@ -273,14 +273,15 @@ export default function Page() {
 							) : (
 								<Text>You have not added anything this collection</Text>
 							)}
-							{loaderData.contents.details ? (
+							{loaderData.collectionContents.details ? (
 								<Center>
 									<Pagination
 										size="sm"
 										value={loaderData.query.page}
 										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
-											loaderData.contents.details.total / coreDetails.pageLimit,
+											loaderData.collectionContents.results.details.total /
+												coreDetails.pageLimit,
 										)}
 									/>
 								</Center>
@@ -294,9 +295,9 @@ export default function Page() {
 								w="100%"
 								onClick={() => {
 									setEntityToReview({
-										entityId: loaderData.id,
+										entityId: loaderData.collectionId,
 										entityLot: EntityLot.Collection,
-										entityTitle: loaderData.info.details.name,
+										entityTitle: loaderData.collectionContents.details.name,
 									});
 								}}
 							>
@@ -306,14 +307,14 @@ export default function Page() {
 					</Tabs.Panel>
 					{!userPreferences.general.disableReviews ? (
 						<Tabs.Panel value="reviews">
-							{loaderData.info.reviews.length > 0 ? (
+							{loaderData.collectionContents.reviews.length > 0 ? (
 								<Stack>
-									{loaderData.info.reviews.map((r) => (
+									{loaderData.collectionContents.reviews.map((r) => (
 										<ReviewItemDisplay
-											title={loaderData.info.details.name}
+											title={loaderData.collectionContents.details.name}
 											review={r}
 											key={r.id}
-											entityId={loaderData.id}
+											entityId={loaderData.collectionId}
 											entityLot={EntityLot.Collection}
 										/>
 									))}

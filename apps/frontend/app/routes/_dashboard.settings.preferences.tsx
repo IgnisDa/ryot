@@ -293,6 +293,7 @@ export default function Page() {
 										"disableVideos",
 										"disableReviews",
 										"disableWatchProviders",
+										"persistQueries",
 									] as const
 								).map((name) => (
 									<Switch
@@ -316,6 +317,10 @@ export default function Page() {
 											.with(
 												"disableWatchProviders",
 												() => 'Do not display the "Watch On" tab',
+											)
+											.with(
+												"persistQueries",
+												() => "Persist queries in the URL",
 											)
 											.exhaustive()}
 										defaultChecked={userPreferences.general[name]}

@@ -49,18 +49,20 @@ import {
 	IconFilterOff,
 	IconPlus,
 } from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
-	useSearchParam,
 	useUserCollections,
 } from "~/lib/hooks";
-import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
+import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -76,12 +78,9 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.optional().default("1"),
+	page: zx.IntAsString.optional(),
 	query: z.string().optional(),
-	sortBy: z
-		.nativeEnum(ExerciseSortBy)
-		.optional()
-		.default(defaultFiltersValue.sortBy),
+	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
 	type: z.nativeEnum(ExerciseLot).optional(),
 	level: z.nativeEnum(ExerciseLevel).optional(),
 	force: z.nativeEnum(ExerciseForce).optional(),
@@ -89,13 +88,16 @@ const searchParamsSchema = z.object({
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscle: z.nativeEnum(ExerciseMuscle).optional(),
 	collection: z.string().optional(),
-	selectionEnabled: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = enhancedCookieName("exercises.list");
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
+	query.sortBy = query.sortBy ?? ExerciseSortBy.NumTimesPerformed;
+	query.page = query.page ?? 1;
 	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
 		serverGqlService.request(ExerciseParametersDocument, {}),
 		serverGqlService.request(
@@ -121,7 +123,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { query, exerciseParameters, exercisesList };
+	return { query, exerciseParameters, exercisesList, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -133,7 +135,7 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const collections = useUserCollections();
 	const navigate = useNavigate();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
@@ -146,7 +148,7 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
-		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
+		.filter((k) => k !== "page" && k !== "query")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
@@ -182,8 +184,9 @@ export default function Page() {
 					<>
 						<Group wrap="nowrap">
 							<DebouncedSearchInput
-								placeholder="Search for exercises by name or instructions"
 								initialValue={loaderData.query.query}
+								enhancedQueryParams={loaderData.cookieName}
+								placeholder="Search for exercises by name or instructions"
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}
@@ -205,12 +208,13 @@ export default function Page() {
 									}}
 								>
 									<Stack gap={4}>
-										<Group>
+										<Group justify="space-between">
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {
 													navigate(".");
 													closeFiltersModal();
+													Cookies.remove(loaderData.cookieName);
 												}}
 											>
 												<IconFilterOff size={24} />
@@ -278,7 +282,7 @@ export default function Page() {
 										{loaderData.exercisesList.details.total}
 									</Text>{" "}
 									items found
-									{loaderData.query.selectionEnabled ? (
+									{currentWorkout ? (
 										<>
 											{" "}
 											and{" "}
@@ -297,7 +301,7 @@ export default function Page() {
 											align="center"
 											data-exercise-id={exercise.id}
 										>
-											{loaderData.query.selectionEnabled ? (
+											{currentWorkout ? (
 												<Checkbox
 													onChange={(e) => {
 														if (e.currentTarget.checked)
@@ -328,13 +332,9 @@ export default function Page() {
 												/>
 											</Indicator>
 											<Link
-												to={$path(
-													"/fitness/exercises/item/:id",
-													{ id: exercise.id },
-													{
-														selectionEnabled: loaderData.query.selectionEnabled,
-													},
-												)}
+												to={$path("/fitness/exercises/item/:id", {
+													id: exercise.id,
+												})}
 												style={{ all: "unset", cursor: "pointer" }}
 											>
 												<Flex direction="column" justify="space-around">
@@ -379,7 +379,7 @@ export default function Page() {
 					</>
 				)}
 			</Stack>
-			{currentWorkout && loaderData.query.selectionEnabled ? (
+			{currentWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"
