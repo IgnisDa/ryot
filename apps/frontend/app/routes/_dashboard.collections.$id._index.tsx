@@ -48,7 +48,7 @@ import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { SEARCH_PARAM_COOKIE, dayjsLib } from "~/lib/generals";
+import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
@@ -83,7 +83,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const collectionId = params.id;
 	invariant(collectionId);
-	const cookieName = `${SEARCH_PARAM_COOKIE}-collections.details-${collectionId}`;
+	const cookieName = enhancedCookieName(`collections.details.${collectionId}`);
 	redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
