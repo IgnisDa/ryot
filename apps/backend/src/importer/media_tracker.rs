@@ -1,6 +1,5 @@
 use async_graphql::Result;
 use database::{ImportSource, MediaLot, MediaSource};
-use nanoid::nanoid;
 use reqwest::{
     header::{HeaderMap, HeaderValue, USER_AGENT},
     ClientBuilder,
@@ -18,9 +17,8 @@ use crate::{
     },
     models::{
         media::{
-            BookSpecifics, CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier,
-            ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
-            MediaDetails, MetadataFreeCreator,
+            CreateOrUpdateCollectionInput, ImportOrExportItemIdentifier, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportMediaItemSeen,
         },
         IdObject,
     },
@@ -117,13 +115,6 @@ struct ItemSeen {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-enum ItemNumberOfPages {
-    Nothing(String),
-    Something(i32),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct ItemDetails {
     id: i32,
@@ -135,10 +126,6 @@ struct ItemDetails {
     tmdb_id: Option<i32>,
     openlibrary_id: Option<String>,
     goodreads_id: Option<i32>,
-    title: String,
-    overview: Option<String>,
-    authors: Option<Vec<String>>,
-    number_of_pages: Option<ItemNumberOfPages>,
 }
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
@@ -244,7 +231,13 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         let (identifier, source) = match media_type {
             MediaType::Book => {
                 if let Some(_g_id) = details.goodreads_id {
-                    (nanoid!(10), MediaSource::Custom)
+                    failed_items.push(ImportFailedItem {
+                        lot: Some(lot),
+                        step: ImportFailStep::ItemDetailsFromSource,
+                        identifier: d.id.to_string(),
+                        error: Some("Goodreads ID not supported".to_string()),
+                    });
+                    continue;
                 } else {
                     (
                         get_key(&details.openlibrary_id.clone().unwrap()),
@@ -265,7 +258,6 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             total = data_len,
             seen = details.seen_history.len()
         );
-        let need_details = details.goodreads_id.is_none();
 
         let mut collections = vec![];
         for list in lists.iter() {
@@ -276,52 +268,13 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             }
         }
 
-        let num_pages = details.number_of_pages.and_then(|d| match d {
-            ItemNumberOfPages::Nothing(_) => None,
-            ItemNumberOfPages::Something(s) => Some(s),
-        });
-
         let item = ImportOrExportMediaItem {
             source_id: d.id.to_string(),
             source,
             lot,
             collections,
             identifier: "".to_string(),
-            internal_identifier: Some(match need_details {
-                false => ImportOrExportItemIdentifier::AlreadyFilled(Box::new(MediaDetails {
-                    identifier,
-                    title: details.title,
-                    description: details.overview,
-                    lot,
-                    source: MediaSource::Custom,
-                    creators: details
-                        .authors
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|a| MetadataFreeCreator {
-                            name: a,
-                            role: "Author".to_owned(),
-                            image: None,
-                        })
-                        .collect(),
-                    provider_rating: None,
-                    genres: vec![],
-                    url_images: vec![],
-                    videos: vec![],
-                    publish_year: None,
-                    publish_date: None,
-                    suggestions: vec![],
-                    group_identifiers: vec![],
-                    is_nsfw: None,
-                    production_status: None,
-                    people: vec![],
-                    s3_images: vec![],
-                    original_language: None,
-                    book_specifics: Some(BookSpecifics { pages: num_pages }),
-                    ..Default::default()
-                })),
-                true => ImportOrExportItemIdentifier::NeedsDetails(identifier),
-            }),
+            internal_identifier: Some(ImportOrExportItemIdentifier::NeedsDetails(identifier)),
             reviews: Vec::from_iter(details.user_rating.map(|r| {
                 let review = if let Some(_s) = r.clone().review {
                     Some(ImportOrExportItemReview {
