@@ -53,11 +53,7 @@ import Cookies from "js-cookie";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
-import {
-	dayjsLib,
-	enhancedCookieName,
-	selectionEnabledQueryParam,
-} from "~/lib/generals";
+import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
@@ -92,7 +88,6 @@ const searchParamsSchema = z.object({
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscle: z.nativeEnum(ExerciseMuscle).optional(),
 	collection: z.string().optional(),
-	[selectionEnabledQueryParam]: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -153,9 +148,7 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
-		.filter(
-			(k) => k !== "page" && k !== "query" && k !== selectionEnabledQueryParam,
-		)
+		.filter((k) => k !== "page" && k !== "query")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
@@ -288,7 +281,7 @@ export default function Page() {
 										{loaderData.exercisesList.details.total}
 									</Text>{" "}
 									items found
-									{loaderData.query.selectionEnabled ? (
+									{currentWorkout ? (
 										<>
 											{" "}
 											and{" "}
@@ -307,7 +300,7 @@ export default function Page() {
 											align="center"
 											data-exercise-id={exercise.id}
 										>
-											{loaderData.query.selectionEnabled ? (
+											{currentWorkout ? (
 												<Checkbox
 													onChange={(e) => {
 														if (e.currentTarget.checked)
@@ -338,14 +331,9 @@ export default function Page() {
 												/>
 											</Indicator>
 											<Link
-												to={$path(
-													"/fitness/exercises/item/:id",
-													{ id: exercise.id },
-													{
-														[selectionEnabledQueryParam]:
-															loaderData.query.selectionEnabled,
-													},
-												)}
+												to={$path("/fitness/exercises/item/:id", {
+													id: exercise.id,
+												})}
 												style={{ all: "unset", cursor: "pointer" }}
 											>
 												<Flex direction="column" justify="space-around">
@@ -390,7 +378,7 @@ export default function Page() {
 					</>
 				)}
 			</Stack>
-			{currentWorkout && loaderData.query.selectionEnabled ? (
+			{currentWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"

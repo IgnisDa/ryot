@@ -101,7 +101,6 @@ import {
 	getSetColor,
 	queryClient,
 	queryFactory,
-	selectionEnabledQueryParam,
 } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import {
@@ -458,9 +457,7 @@ export default function Page() {
 									<Button
 										component={Link}
 										variant="subtle"
-										to={$path("/fitness/exercises/list", {
-											[selectionEnabledQueryParam]: true,
-										})}
+										to={$path("/fitness/exercises/list")}
 									>
 										Add an exercise
 									</Button>

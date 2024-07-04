@@ -104,7 +104,6 @@ import {
 	getVerb,
 	queryClient,
 	queryFactory,
-	selectionEnabledQueryParam,
 } from "~/lib/generals";
 import {
 	useMetadataDetails,
@@ -288,9 +287,13 @@ export default function Layout() {
 					position={{
 						bottom: rem(40),
 						right: rem(
-							location.search.includes(selectionEnabledQueryParam) ? 90 : 40,
+							location.pathname === $path("/fitness/exercises/list") ||
+								location.pathname.includes("/fitness/exercises/item")
+								? 90
+								: 40,
 						),
 					}}
+					style={{ transition: "all 0.3s" }}
 				>
 					<ActionIcon
 						variant="filled"
