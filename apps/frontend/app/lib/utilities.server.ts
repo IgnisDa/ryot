@@ -26,6 +26,7 @@ import { type ZodTypeAny, type output, z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CORE_DETAILS_COOKIE_NAME,
+	CurrentWorkoutKey,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
 	dayjsLib,
@@ -378,4 +379,10 @@ export const extendResponseHeaders = (
 	for (const [key, value] of headers.entries())
 		responseHeaders.append(key, value);
 	return responseHeaders;
+};
+
+export const isWorkoutActive = (request: Request) => {
+	const cookies = request.headers.get("cookie");
+	const inProgress = parse(cookies || "")[CurrentWorkoutKey] === "true";
+	return inProgress;
 };

@@ -89,7 +89,6 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { parse } from "cookie";
 import { produce } from "immer";
 import { useState } from "react";
 import { Fragment } from "react/jsx-runtime";
@@ -99,7 +98,6 @@ import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import {
 	CORE_DETAILS_COOKIE_NAME,
-	CurrentWorkoutKey,
 	LOGO_IMAGE_URL,
 	Verb,
 	getLot,
@@ -125,6 +123,7 @@ import {
 	getCachedUserCollectionsList,
 	getCookieValue,
 	getUserPreferences,
+	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
@@ -228,8 +227,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		!envData.DISABLE_TELEMETRY &&
 		!userDetails.isDemo;
 
-	const cookies = request.headers.get("cookie");
-	const workoutInProgress = parse(cookies || "")[CurrentWorkoutKey] === "true";
+	const workoutInProgress = isWorkoutActive(request);
 
 	return {
 		envData,

@@ -81,7 +81,6 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
-import { parse } from "cookie";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useAtom } from "jotai";
@@ -118,6 +117,7 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	getCoreEnabledFeatures,
+	isWorkoutActive,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -126,8 +126,7 @@ const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookies = request.headers.get("cookie");
-	const inProgress = parse(cookies || "")[workoutCookieName] === "true";
+	const inProgress = isWorkoutActive(request);
 	if (!inProgress)
 		throw await redirectWithToast($path("/"), {
 			type: "error",
