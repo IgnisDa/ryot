@@ -109,6 +109,7 @@ import {
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
+	useMeasurementsDrawerOpen,
 	useTimerAtom,
 } from "~/lib/state/fitness";
 import {
@@ -195,6 +196,7 @@ export default function Page() {
 		reorderDrawerOpened,
 		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
 	] = useDisclosure(false);
+	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
 	const interval = useInterval(() => {
 		setTime((s) => s + 1);
@@ -442,10 +444,9 @@ export default function Page() {
 								<Group justify="center">
 									{userPreferences.featuresEnabled.fitness.measurements ? (
 										<Button
-											component={Link}
 											variant="subtle"
 											color="teal"
-											to={$path("/fitness/measurements/list")}
+											onClick={() => setMeasurementsDrawerOpen(true)}
 										>
 											Add measurement
 										</Button>

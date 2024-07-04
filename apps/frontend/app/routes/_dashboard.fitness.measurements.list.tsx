@@ -3,24 +3,17 @@ import "@mantine/charts/styles.css";
 import {
 	ActionIcon,
 	Box,
-	Button,
 	Container,
-	Drawer,
 	Flex,
 	MultiSelect,
-	NumberInput,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
-	Textarea,
 	Title,
 } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
-import "@mantine/dates/styles.css";
-import { useDisclosure, useLocalStorage } from "@mantine/hooks";
+import { useLocalStorage } from "@mantine/hooks";
 import {
 	redirect,
 	unstable_defineAction,
@@ -36,7 +29,7 @@ import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isEmpty, set, snakeCase, startCase } from "@ryot/ts-utils";
+import { isEmpty, set, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -46,12 +39,11 @@ import {
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import events from "~/lib/events";
 import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import { useSearchParam, useUserPreferences } from "~/lib/hooks";
+import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -169,67 +161,24 @@ export default function Page() {
 			timestamp: tickFormatter(m.timestamp),
 		};
 	});
-	const [opened, { open, close }] = useDisclosure(false);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
 		key: "SavedMeasurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
-	const [_, { setP }] = useSearchParam();
+	const [_p, { setP }] = useSearchParam();
+	const [_m, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 
 	return (
 		<Container>
-			<Drawer opened={opened} onClose={close} title="Add new measurement">
-				<Form
-					replace
-					method="POST"
-					action={withQuery("", { intent: "create" })}
-					onSubmit={() => {
-						events.createMeasurement();
-						close();
-					}}
-				>
-					<Stack>
-						<DateTimePicker
-							label="Timestamp"
-							defaultValue={new Date()}
-							name="timestamp"
-							required
-						/>
-						<TextInput label="Name" name="name" />
-						<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-							{Object.keys(userPreferences.fitness.measurements.inbuilt)
-								.filter((n) => n !== "custom")
-								.filter(
-									(n) =>
-										// biome-ignore lint/suspicious/noExplicitAny: required
-										(userPreferences as any).fitness.measurements.inbuilt[n],
-								)
-								.map((v) => (
-									<NumberInput
-										decimalScale={3}
-										key={v}
-										label={changeCase(snakeCase(v))}
-										name={`stats.${v}`}
-									/>
-								))}
-							{userPreferences.fitness.measurements.custom.map(({ name }) => (
-								<NumberInput
-									key={name}
-									label={changeCase(snakeCase(name))}
-									name={`stats.custom.${name}`}
-								/>
-							))}
-						</SimpleGrid>
-						<Textarea label="Comment" name="comment" />
-						<Button type="submit">Submit</Button>
-					</Stack>
-				</Form>
-			</Drawer>
 			<Stack>
 				<Flex align="center" gap="md">
 					<Title>Measurements</Title>
-					<ActionIcon color="green" variant="outline" onClick={open}>
+					<ActionIcon
+						color="green"
+						variant="outline"
+						onClick={() => setMeasurementsDrawerOpen(true)}
+					>
 						<IconPlus size={20} />
 					</ActionIcon>
 				</Flex>
