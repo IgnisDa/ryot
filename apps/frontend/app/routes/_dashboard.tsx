@@ -30,6 +30,7 @@ import {
 	Textarea,
 	ThemeIcon,
 	Title,
+	Tooltip,
 	UnstyledButton,
 	rem,
 	useDirection,
@@ -283,28 +284,30 @@ export default function Layout() {
 		<>
 			{loaderData.workoutInProgress &&
 			location.pathname !== $path("/fitness/workouts/current") ? (
-				<Affix
-					position={{
-						bottom: rem(40),
-						right: rem(
-							location.pathname === $path("/fitness/exercises/list") ||
-								location.pathname.includes("/fitness/exercises/item")
-								? 90
-								: 40,
-						),
-					}}
-					style={{ transition: "all 0.3s" }}
-				>
-					<ActionIcon
-						variant="filled"
-						color="orange"
-						radius="xl"
-						size="xl"
-						onClick={() => navigate($path("/fitness/workouts/current"))}
+				<Tooltip label="You have an active workout" position="left">
+					<Affix
+						position={{
+							bottom: rem(40),
+							right: rem(
+								location.pathname === $path("/fitness/exercises/list") ||
+									location.pathname.includes("/fitness/exercises/item")
+									? 90
+									: 40,
+							),
+						}}
+						style={{ transition: "all 0.3s" }}
 					>
-						<IconStretching size={32} />
-					</ActionIcon>
-				</Affix>
+						<ActionIcon
+							variant="filled"
+							color="orange"
+							radius="xl"
+							size="xl"
+							onClick={() => navigate($path("/fitness/workouts/current"))}
+						>
+							<IconStretching size={32} />
+						</ActionIcon>
+					</Affix>
+				</Tooltip>
 			) : null}
 			<Modal
 				onClose={closeMetadataProgressUpdateModal}
