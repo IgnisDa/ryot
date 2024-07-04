@@ -278,3 +278,8 @@ type Timer = {
 const timerAtom = atomWithReset<Timer | null>(null);
 
 export const useTimerAtom = () => useAtom(timerAtom);
+
+const measurementsDrawerOpenAtom = atom(false);
+
+export const useMeasurementsDrawerOpen = () =>
+	useAtom(measurementsDrawerOpenAtom);
