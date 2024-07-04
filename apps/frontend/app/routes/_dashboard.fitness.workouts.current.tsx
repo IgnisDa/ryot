@@ -111,7 +111,7 @@ import {
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
-} from "~/lib/state/workout";
+} from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,

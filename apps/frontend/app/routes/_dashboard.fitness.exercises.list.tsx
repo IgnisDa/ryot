@@ -59,7 +59,7 @@ import {
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
-import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
+import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getAuthorizationHeader,
 	redirectUsingEnhancedCookieSearchParams,
