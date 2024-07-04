@@ -5415,6 +5415,9 @@ impl MiscellaneousService {
                         "disable_yank_integrations" => {
                             preferences.general.disable_yank_integrations = value_bool.unwrap();
                         }
+                        "persist_queries" => {
+                            preferences.general.persist_queries = value_bool.unwrap();
+                        }
                         "disable_navigation_animation" => {
                             preferences.general.disable_navigation_animation = value_bool.unwrap();
                         }

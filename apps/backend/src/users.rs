@@ -292,6 +292,7 @@ pub struct UserGeneralPreferences {
     pub disable_watch_providers: bool,
     pub disable_yank_integrations: bool,
     pub disable_navigation_animation: bool,
+    pub persist_queries: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
 }
 
@@ -317,6 +318,7 @@ impl Default for UserGeneralPreferences {
                     num_elements: None,
                 },
             ],
+            persist_queries: true,
             disable_yank_integrations: false,
             disable_navigation_animation: false,
             disable_videos: false,
