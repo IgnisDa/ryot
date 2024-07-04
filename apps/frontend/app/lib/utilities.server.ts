@@ -392,10 +392,9 @@ export const redirectUsingEnhancedCookieSearchParams = (
 	request: Request,
 	cookieName: string,
 ) => {
-	const isPersisted = new URL(request.url).searchParams.has("_persisted");
-	if (isPersisted) return;
+	const searchParams = new URL(request.url).searchParams;
+	if (searchParams.size > 0) return;
 	const cookies = parse(request.headers.get("cookie") || "");
-	const persistedSearchParams = cookies[cookieName];
-	if (!isEmpty(persistedSearchParams))
-		throw redirect(`./?${persistedSearchParams}&_persisted=yes`);
+	const savedSearchParams = cookies[cookieName];
+	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
 };
