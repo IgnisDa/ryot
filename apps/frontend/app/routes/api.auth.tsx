@@ -40,5 +40,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		const headers = await getCookiesForApplication(loginUser.apiKey);
 		return redirect($path("/"), { headers });
 	}
+	console.error("Login failed:", loginUser);
 	return Response.json({ input });
 });
