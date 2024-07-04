@@ -18,7 +18,7 @@ import {
 	getStringAsciiValue,
 	queryFactory,
 } from "~/lib/generals";
-import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/workout";
+import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import type { loader } from "~/routes/_dashboard";
 
 export const useGetMantineColor = () => {
