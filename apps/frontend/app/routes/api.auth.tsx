@@ -23,6 +23,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		GetOidcTokenDocument,
 		input,
 	);
+	console.log("OIDC token response:", getOidcToken);
 	const oidcInput = {
 		email: getOidcToken.email,
 		issuerId: getOidcToken.subject,
