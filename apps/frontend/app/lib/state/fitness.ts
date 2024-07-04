@@ -12,7 +12,7 @@ import {
 import { queryOptions } from "@tanstack/react-query";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
-import { useAtom } from "jotai";
+import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import { v4 as randomUUID } from "uuid";
 import {
@@ -275,4 +275,6 @@ type Timer = {
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
-export const timerAtom = atomWithReset<Timer | null>(null);
+const timerAtom = atomWithReset<Timer | null>(null);
+
+export const useTimerAtom = () => useAtom(timerAtom);

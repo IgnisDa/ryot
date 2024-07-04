@@ -82,7 +82,6 @@ import {
 } from "@tabler/icons-react";
 import { Howl } from "howler";
 import { produce } from "immer";
-import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
@@ -107,10 +106,10 @@ import {
 	type InProgressWorkout,
 	currentWorkoutToCreateWorkoutInput,
 	exerciseHasDetailsToShow,
-	timerAtom,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
+	useTimerAtom,
 } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
@@ -196,7 +195,7 @@ export default function Page() {
 		reorderDrawerOpened,
 		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
 	] = useDisclosure(false);
-	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
+	const [currentTimer, setCurrentTimer] = useTimerAtom();
 	const interval = useInterval(() => {
 		setTime((s) => s + 1);
 	}, 1000);
@@ -670,7 +669,7 @@ const ExerciseDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
-	const [currentTimer] = useAtom(timerAtom);
+	const [currentTimer] = useTimerAtom();
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -1094,7 +1093,7 @@ const SetDisplay = (props: {
 	startTimer: FuncStartTimer;
 	toBeDisplayedColumns: number;
 }) => {
-	const [currentTimer, _] = useAtom(timerAtom);
+	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
@@ -1318,7 +1317,7 @@ const TimerDrawer = (props: {
 	stopTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
-	const [currentTimer, setCurrentTimer] = useAtom(timerAtom);
+	const [currentTimer, setCurrentTimer] = useTimerAtom();
 
 	return (
 		<Drawer
