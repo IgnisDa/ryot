@@ -94,7 +94,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = enhancedCookieName("exercises.list");
-	redirectUsingEnhancedCookieSearchParams(request, cookieName);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? ExerciseSortBy.NumTimesPerformed;
 	query.page = query.page ?? 1;

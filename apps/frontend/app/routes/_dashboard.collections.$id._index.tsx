@@ -84,7 +84,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const collectionId = params.id;
 	invariant(collectionId);
 	const cookieName = enhancedCookieName(`collections.details.${collectionId}`);
-	redirectUsingEnhancedCookieSearchParams(request, cookieName);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.request(

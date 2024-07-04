@@ -96,7 +96,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const [peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
-			redirectUsingEnhancedCookieSearchParams(request, cookieName);
+			await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 			const urlParse = zx.parseQuery(
 				request,
 				z.object({

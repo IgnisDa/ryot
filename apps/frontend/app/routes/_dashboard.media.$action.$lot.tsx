@@ -137,7 +137,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	invariant(action && Object.values(Action).includes(action as Action));
 	const [mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
-			redirectUsingEnhancedCookieSearchParams(request, cookieName);
+			await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 			const urlParse = zx.parseQuery(request, {
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)

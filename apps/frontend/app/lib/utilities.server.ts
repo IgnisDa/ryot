@@ -388,12 +388,13 @@ export const isWorkoutActive = (request: Request) => {
 	return inProgress;
 };
 
-export const redirectUsingEnhancedCookieSearchParams = (
+export const redirectUsingEnhancedCookieSearchParams = async (
 	request: Request,
 	cookieName: string,
 ) => {
+	const preferences = await getUserPreferences(request);
 	const searchParams = new URL(request.url).searchParams;
-	if (searchParams.size > 0) return;
+	if (searchParams.size > 0 || !preferences.general.persistQueries) return;
 	const cookies = parse(request.headers.get("cookie") || "");
 	const savedSearchParams = cookies[cookieName];
 	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
