@@ -51,7 +51,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ExerciseHistory } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, selectionEnabledQueryParam } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/workout";
@@ -62,7 +62,7 @@ import {
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
-	selectionEnabled: zx.BoolAsString.optional(),
+	[selectionEnabledQueryParam]: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

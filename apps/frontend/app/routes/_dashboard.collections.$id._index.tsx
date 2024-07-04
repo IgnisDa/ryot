@@ -16,8 +16,9 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
-import { useLocation, useMatches } from "@remix-run/react";
+import { notifications } from "@mantine/notifications";
+import { redirect, unstable_defineLoader } from "@remix-run/node";
+import { useLocation } from "@remix-run/react";
 import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
@@ -30,7 +31,7 @@ import {
 	GraphqlSortOrder,
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { isEmpty, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconDeviceFloppy,
@@ -41,6 +42,7 @@ import {
 	IconSortDescending,
 	IconUser,
 } from "@tabler/icons-react";
+import { parse } from "cookie";
 import Cookies from "js-cookie";
 import invariant from "tiny-invariant";
 import { z } from "zod";
@@ -82,7 +84,18 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 const cookieName = `SearchParams-${"collections.details"}`;
+
+const redirectToPersistedFilters = (request: Request) => {
+	const searchParams = new URL(request.url).search;
+	const cookies = parse(request.headers.get("Cookie") || "");
+	if (isEmpty(searchParams)) {
+		const persistedSearchParams = cookies[cookieName] || "?redirected=true";
+		throw redirect(`./${persistedSearchParams}`);
+	}
+};
+
 export const loader = unstable_defineLoader(async ({ request, params }) => {
+	redirectToPersistedFilters(request);
 	const collectionId = params.id;
 	invariant(collectionId);
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -113,7 +126,12 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 export const SaveSearchParams = (props: { cookieName: string }) => {
 	const location = useLocation();
 	return (
-		<ActionIcon onClick={() => Cookies.set(props.cookieName, location.search)}>
+		<ActionIcon
+			onClick={() => {
+				Cookies.set(props.cookieName, location.search);
+				notifications.show({ message: "Filters saved successfully" });
+			}}
+		>
 			<IconDeviceFloppy size={24} />
 		</ActionIcon>
 	);

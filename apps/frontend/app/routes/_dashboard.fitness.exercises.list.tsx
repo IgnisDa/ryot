@@ -52,7 +52,7 @@ import {
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, selectionEnabledQueryParam } from "~/lib/generals";
 import {
 	useCoreDetails,
 	useSearchParam,
@@ -89,7 +89,7 @@ const searchParamsSchema = z.object({
 	equipment: z.nativeEnum(ExerciseEquipment).optional(),
 	muscle: z.nativeEnum(ExerciseMuscle).optional(),
 	collection: z.string().optional(),
-	selectionEnabled: zx.BoolAsString.optional(),
+	[selectionEnabledQueryParam]: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -146,7 +146,9 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
-		.filter((k) => k !== "page" && k !== "query" && k !== "selectionEnabled")
+		.filter(
+			(k) => k !== "page" && k !== "query" && k !== selectionEnabledQueryParam,
+		)
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
@@ -332,7 +334,8 @@ export default function Page() {
 													"/fitness/exercises/item/:id",
 													{ id: exercise.id },
 													{
-														selectionEnabled: loaderData.query.selectionEnabled,
+														[selectionEnabledQueryParam]:
+															loaderData.query.selectionEnabled,
 													},
 												)}
 												style={{ all: "unset", cursor: "pointer" }}

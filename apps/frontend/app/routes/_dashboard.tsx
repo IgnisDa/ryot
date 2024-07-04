@@ -104,6 +104,7 @@ import {
 	getVerb,
 	queryClient,
 	queryFactory,
+	selectionEnabledQueryParam,
 } from "~/lib/generals";
 import {
 	useMetadataDetails,
@@ -287,7 +288,7 @@ export default function Layout() {
 					position={{
 						bottom: rem(40),
 						right: rem(
-							location.search.includes("selectionEnabled") ? 90 : 40,
+							location.search.includes(selectionEnabledQueryParam) ? 90 : 40,
 						),
 					}}
 				>

@@ -102,6 +102,7 @@ import {
 	getSetColor,
 	queryClient,
 	queryFactory,
+	selectionEnabledQueryParam,
 } from "~/lib/generals";
 import { useUserPreferences } from "~/lib/hooks";
 import {
@@ -459,7 +460,7 @@ export default function Page() {
 										component={Link}
 										variant="subtle"
 										to={$path("/fitness/exercises/list", {
-											selectionEnabled: true,
+											[selectionEnabledQueryParam]: true,
 											page: 1,
 											sortBy: ExerciseSortBy.LastPerformed,
 										})}

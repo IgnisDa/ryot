@@ -197,6 +197,7 @@ export const getMetadataIcon = (lot: MediaLot) => {
 };
 
 export const redirectToQueryParam = "redirectTo";
+export const selectionEnabledQueryParam = "selectionEnabled";
 
 export const queryClient = new QueryClient();
 
