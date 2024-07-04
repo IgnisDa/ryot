@@ -27,12 +27,14 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		email: getOidcToken.email,
 		issuerId: getOidcToken.subject,
 	};
-	await Promise.all([
+	const [_, { registerUser }] = await Promise.all([
 		serverGqlService.request(CoreDetailsDocument),
 		serverGqlService.request(RegisterUserDocument, {
 			input: { oidc: oidcInput },
 		}),
 	]);
+	if (registerUser.__typename === "RegisterError")
+		console.error("Registration failed:", registerUser);
 	const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 		input: { oidc: oidcInput },
 	});
