@@ -10,6 +10,7 @@ import {
 	CommitMetadataGroupDocument,
 	CommitPersonDocument,
 	CreateReviewCommentDocument,
+	CreateUserMeasurementDocument,
 	DeleteReviewDocument,
 	DeleteS3ObjectDocument,
 	DeployBulkProgressUpdateDocument,
@@ -21,7 +22,7 @@ import {
 	SeenState,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty, omitBy } from "@ryot/ts-utils";
+import { isEmpty, omitBy, set } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -345,6 +346,26 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				await createToastHeaders({
 					message: "Progress updated successfully",
 					type: "success",
+				}),
+			);
+		})
+		.with("createMeasurement", async () => {
+			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
+			const input: any = {};
+			for (const [name, value] of formData.entries()) {
+				if (!isEmpty(value) && name !== redirectToQueryParam)
+					set(input, name, value);
+			}
+			await serverGqlService.request(
+				CreateUserMeasurementDocument,
+				{ input },
+				getAuthorizationHeader(request),
+			);
+			response.headers = extendResponseHeaders(
+				response.headers,
+				await createToastHeaders({
+					type: "success",
+					message: "Measurement submitted successfully",
 				}),
 			);
 		})

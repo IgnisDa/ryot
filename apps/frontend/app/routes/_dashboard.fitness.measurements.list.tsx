@@ -14,22 +14,17 @@ import {
 	Title,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import {
-	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	type MetaArgs_SingleFetch,
 	useLoaderData,
 } from "@remix-run/react";
 import {
-	CreateUserMeasurementDocument,
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty, set, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -41,7 +36,7 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import { useSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
@@ -99,31 +94,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
-		create: async () => {
-			// biome-ignore lint/suspicious/noExplicitAny: the form values ensure that the submission is valid
-			const input: any = {};
-			for (const [name, value] of formData.entries()) {
-				if (!isEmpty(value) && name !== redirectToQueryParam)
-					set(input, name, value);
-			}
-			await serverGqlService.request(
-				CreateUserMeasurementDocument,
-				{ input },
-				getAuthorizationHeader(request),
-			);
-			const toastHeaders = {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Measurement submitted successfully",
-				}),
-			};
-			const redirectTo = formData.get(redirectToQueryParam);
-			if (redirectTo) return redirect(redirectTo.toString(), toastHeaders);
-			return Response.json(
-				{ status: "success", submission: input } as const,
-				toastHeaders,
-			);
-		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.request(

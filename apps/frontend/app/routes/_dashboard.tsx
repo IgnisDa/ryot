@@ -350,7 +350,9 @@ export default function Layout() {
 				opened={measurementsDrawerOpen}
 				title="Add new measurement"
 			>
-				<CreateMeasurementForm />
+				<CreateMeasurementForm
+					closeMeasurementModal={closeMeasurementsDrawer}
+				/>
 			</Drawer>
 			<AppShell
 				w="100%"
@@ -1499,17 +1501,19 @@ const AddEntityToCollectionForm = ({
 	);
 };
 
-const CreateMeasurementForm = () => {
+const CreateMeasurementForm = (props: {
+	closeMeasurementModal: () => void;
+}) => {
 	const userPreferences = useUserPreferences();
 
 	return (
 		<Form
 			replace
 			method="POST"
-			action={withQuery("", { intent: "create" })}
+			action={withQuery($path("/actions"), { intent: "createMeasurement" })}
 			onSubmit={() => {
 				events.createMeasurement();
-				close();
+				props.closeMeasurementModal();
 			}}
 		>
 			<Stack>
@@ -1519,6 +1523,7 @@ const CreateMeasurementForm = () => {
 					name="timestamp"
 					required
 				/>
+				<HiddenLocationInput />
 				<TextInput label="Name" name="name" />
 				<SimpleGrid cols={2} style={{ alignItems: "end" }}>
 					{Object.keys(userPreferences.fitness.measurements.inbuilt)
