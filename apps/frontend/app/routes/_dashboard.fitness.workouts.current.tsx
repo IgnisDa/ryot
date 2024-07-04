@@ -446,10 +446,7 @@ export default function Page() {
 											component={Link}
 											variant="subtle"
 											color="teal"
-											to={$path("/fitness/measurements/list", {
-												openModal: true,
-												redirectTo: $path("/fitness/workouts/current"),
-											})}
+											to={$path("/fitness/measurements/list")}
 										>
 											Add measurement
 										</Button>

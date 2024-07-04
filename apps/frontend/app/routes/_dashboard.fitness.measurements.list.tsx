@@ -69,8 +69,6 @@ enum TimeSpan {
 
 const searchParamsSchema = z.object({
 	timeSpan: z.nativeEnum(TimeSpan).optional(),
-	openModal: zx.BoolAsString.optional(),
-	[redirectToQueryParam]: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -171,17 +169,14 @@ export default function Page() {
 			timestamp: tickFormatter(m.timestamp),
 		};
 	});
-	const [opened, { open, close }] = useDisclosure(
-		loaderData.query.openModal || false,
-	);
+	const [opened, { open, close }] = useDisclosure(false);
 	const [selectedStats, setSelectedStats] = useLocalStorage({
 		defaultValue: ["weight"],
 		key: "SavedMeasurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
-	const [searchParams, { setP }] = useSearchParam();
+	const [_, { setP }] = useSearchParam();
 
-	const redirectToFormEntry = searchParams.get(redirectToQueryParam);
 	return (
 		<Container>
 			<Drawer opened={opened} onClose={close} title="Add new measurement">
@@ -194,13 +189,6 @@ export default function Page() {
 						close();
 					}}
 				>
-					{redirectToFormEntry ? (
-						<input
-							type="hidden"
-							name={redirectToQueryParam}
-							value={redirectToFormEntry}
-						/>
-					) : null}
 					<Stack>
 						<DateTimePicker
 							label="Timestamp"
