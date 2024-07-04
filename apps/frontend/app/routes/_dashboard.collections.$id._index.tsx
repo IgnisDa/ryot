@@ -16,7 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { redirect, unstable_defineLoader } from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
@@ -29,7 +29,7 @@ import {
 	GraphqlSortOrder,
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -39,7 +39,6 @@ import {
 	IconSortDescending,
 	IconUser,
 } from "@tabler/icons-react";
-import { parse } from "cookie";
 import Cookies from "js-cookie";
 import invariant from "tiny-invariant";
 import { z } from "zod";
@@ -49,7 +48,7 @@ import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { SEARCH_PARAM_COOKIE, dayjsLib } from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
@@ -58,6 +57,7 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -80,23 +80,11 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-const redirectUsingEnhancedSearchParams = (
-	request: Request,
-	cookieName: string,
-) => {
-	const isPersisted = new URL(request.url).searchParams.has("from");
-	if (isPersisted) return;
-	const cookies = parse(request.headers.get("cookie") || "");
-	const persistedSearchParams = cookies[cookieName];
-	if (!isEmpty(persistedSearchParams))
-		throw redirect(`./?${persistedSearchParams}&from=persisted`);
-};
-
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const collectionId = params.id;
 	invariant(collectionId);
-	const cookieName = `SearchParams-collections.details-${collectionId}`;
-	redirectUsingEnhancedSearchParams(request, cookieName);
+	const cookieName = `${SEARCH_PARAM_COOKIE}-collections.details-${collectionId}`;
+	redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
 		serverGqlService.request(

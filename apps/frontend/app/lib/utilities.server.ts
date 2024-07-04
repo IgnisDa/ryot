@@ -18,6 +18,7 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { isEmpty } from "@ryot/ts-utils";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
 import { GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
@@ -385,4 +386,16 @@ export const isWorkoutActive = (request: Request) => {
 	const cookies = request.headers.get("cookie");
 	const inProgress = parse(cookies || "")[CurrentWorkoutKey] === "true";
 	return inProgress;
+};
+
+export const redirectUsingEnhancedCookieSearchParams = (
+	request: Request,
+	cookieName: string,
+) => {
+	const isPersisted = new URL(request.url).searchParams.has("_persisted");
+	if (isPersisted) return;
+	const cookies = parse(request.headers.get("cookie") || "");
+	const persistedSearchParams = cookies[cookieName];
+	if (!isEmpty(persistedSearchParams))
+		throw redirect(`./?${persistedSearchParams}&_persisted=yes`);
 };
