@@ -196,6 +196,11 @@ export default function Page() {
 					<DebouncedSearchInput
 						placeholder="Search for people"
 						initialValue={loaderData.query}
+						enhancedQueryParams={
+							loaderData.action === Action.List
+								? loaderData.cookieName
+								: undefined
+						}
 					/>
 					{loaderData.action === Action.List ? (
 						<>

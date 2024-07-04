@@ -26,6 +26,7 @@ import { useState } from "react";
 import { withFragment, withoutHost } from "ufo";
 import { getSurroundingElements, redirectToQueryParam } from "~/lib/generals";
 import {
+	useCookieEnhancedSearchParam,
 	useCoreDetails,
 	useFallbackImageUrl,
 	useSearchParam,
@@ -137,13 +138,18 @@ export const DebouncedSearchInput = (props: {
 	initialValue?: string;
 	queryParam?: string;
 	placeholder?: string;
+	enhancedQueryParams?: string;
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
 	const [debounced] = useDebouncedValue(query, 1000);
-	const [_, { setP }] = useSearchParam();
+	const [_p, { setP }] = useSearchParam();
+	const [_e, { setP: setEnhancedP }] = useCookieEnhancedSearchParam(
+		props.enhancedQueryParams || "query",
+	);
 
 	useDidUpdate(() => {
-		setP(props.queryParam || "query", debounced);
+		const fn = props.enhancedQueryParams ? setEnhancedP : setP;
+		fn(props.queryParam || "query", debounced);
 	}, [debounced]);
 
 	return (

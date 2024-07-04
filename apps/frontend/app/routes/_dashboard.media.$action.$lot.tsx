@@ -278,10 +278,11 @@ export default function Page() {
 					<>
 						<Group wrap="nowrap">
 							<DebouncedSearchInput
+								initialValue={loaderData.query}
+								enhancedQueryParams={loaderData.cookieName}
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
-								initialValue={loaderData.query}
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}

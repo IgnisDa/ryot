@@ -184,8 +184,9 @@ export default function Page() {
 					<>
 						<Group wrap="nowrap">
 							<DebouncedSearchInput
-								placeholder="Search for exercises by name or instructions"
 								initialValue={loaderData.query.query}
+								enhancedQueryParams={loaderData.cookieName}
+								placeholder="Search for exercises by name or instructions"
 							/>
 							<ActionIcon
 								onClick={openFiltersModal}

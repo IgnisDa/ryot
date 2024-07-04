@@ -160,8 +160,9 @@ export default function Page() {
 						<Stack>
 							<Group wrap="nowrap">
 								<DebouncedSearchInput
-									placeholder="Search in the collection"
 									initialValue={loaderData.query.query}
+									placeholder="Search in the collection"
+									enhancedQueryParams={loaderData.cookieName}
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
