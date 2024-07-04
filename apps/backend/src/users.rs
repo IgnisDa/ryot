@@ -287,12 +287,12 @@ pub struct UserGeneralPreferences {
     pub display_nsfw: bool,
     pub disable_videos: bool,
     pub disable_reviews: bool,
+    pub persist_queries: bool,
     pub watch_providers: Vec<String>,
     pub review_scale: UserReviewScale,
     pub disable_watch_providers: bool,
     pub disable_yank_integrations: bool,
     pub disable_navigation_animation: bool,
-    pub persist_queries: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
 }
 
