@@ -208,7 +208,7 @@ export default function Page() {
 									}}
 								>
 									<Stack gap={4}>
-										<Group>
+										<Group justify="space-between">
 											<Title order={3}>Filters</Title>
 											<ActionIcon
 												onClick={() => {

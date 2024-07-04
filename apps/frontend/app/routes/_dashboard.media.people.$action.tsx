@@ -223,7 +223,7 @@ export default function Page() {
 								withCloseButton={false}
 							>
 								<Stack>
-									<Group>
+									<Group justify="space-between">
 										<Title order={3}>Sort by</Title>
 										<ActionIcon
 											onClick={() => {
