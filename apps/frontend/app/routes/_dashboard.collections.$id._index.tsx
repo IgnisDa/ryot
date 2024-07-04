@@ -81,6 +81,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
+const cookieName = `SearchParams-${"collections.details"}`;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const collectionId = params.id;
 	invariant(collectionId);
@@ -109,15 +110,10 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 
-export const SaveSearchParams = () => {
-	const matches = useMatches();
-	const routeId = matches.map((match) => match.id).join(";");
+export const SaveSearchParams = (props: { cookieName: string }) => {
 	const location = useLocation();
-
 	return (
-		<ActionIcon
-			onClick={() => Cookies.set(`SearchParams-${routeId}`, location.search)}
-		>
+		<ActionIcon onClick={() => Cookies.set(props.cookieName, location.search)}>
 			<IconDeviceFloppy size={24} />
 		</ActionIcon>
 	);
@@ -199,11 +195,12 @@ export default function Page() {
 										<Group justify="space-between">
 											<Title order={3}>Filters</Title>
 											<Group>
-												<SaveSearchParams />
+												<SaveSearchParams cookieName={cookieName} />
 												<ActionIcon
 													onClick={() => {
 														navigate(".");
 														closeFiltersModal();
+														Cookies.remove(cookieName);
 													}}
 												>
 													<IconFilterOff size={24} />
