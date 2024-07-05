@@ -58,10 +58,10 @@ struct ExerciseListFilter {
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 enum ExerciseSortBy {
+    Name,
     #[default]
     LastPerformed,
-    NumTimesPerformed,
-    Name,
+    TimesPerformed,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -478,7 +478,7 @@ impl ExerciseService {
                 // DEV: This is just a small hack to reduce duplicated code. We
                 // are ordering by name for the other `sort_by` anyway.
                 ExerciseSortBy::Name => Expr::val("1"),
-                ExerciseSortBy::NumTimesPerformed => Expr::expr(Func::coalesce([
+                ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
                     Expr::col((
                         etu.clone(),
                         user_to_entity::Column::ExerciseNumTimesInteracted,

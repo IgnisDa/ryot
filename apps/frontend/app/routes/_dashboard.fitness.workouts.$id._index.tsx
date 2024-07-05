@@ -402,7 +402,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 			<Stack mb="xs" gap="xs" ref={parent}>
 				<Group justify="space-between" wrap="nowrap">
 					<Anchor
-						id={`${props.exercise.name}__${props.idx}`}
+						id={props.idx.toString()}
 						component={Link}
 						to={$path("/fitness/exercises/item/:id", {
 							id: props.exercise.name,

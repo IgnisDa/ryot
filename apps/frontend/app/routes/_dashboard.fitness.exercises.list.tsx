@@ -13,7 +13,6 @@ import {
 	Group,
 	Indicator,
 	MantineThemeProvider,
-	Modal,
 	Pagination,
 	Select,
 	SimpleGrid,
@@ -46,13 +45,11 @@ import {
 	IconAlertCircle,
 	IconCheck,
 	IconFilter,
-	IconFilterOff,
 	IconPlus,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
 import { z } from "zod";
 import { zx } from "zodix";
-import { DebouncedSearchInput } from "~/components/common";
+import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
@@ -73,7 +70,7 @@ const defaultFiltersValue = {
 	force: undefined,
 	level: undefined,
 	mechanic: undefined,
-	sortBy: ExerciseSortBy.NumTimesPerformed,
+	sortBy: ExerciseSortBy.TimesPerformed,
 	collection: undefined,
 };
 
@@ -96,7 +93,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = enhancedCookieName("exercises.list");
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	query.sortBy = query.sortBy ?? ExerciseSortBy.NumTimesPerformed;
+	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query.page = query.page ?? 1;
 	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
 		serverGqlService.request(ExerciseParametersDocument, {}),
@@ -133,7 +130,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const collections = useUserCollections();
 	const navigate = useNavigate();
 	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
@@ -194,86 +190,13 @@ export default function Page() {
 							>
 								<IconFilter size={24} />
 							</ActionIcon>
-							<Modal
+							<FiltersModal
+								closeFiltersModal={closeFiltersModal}
+								cookieName={loaderData.cookieName}
 								opened={filtersModalOpened}
-								onClose={closeFiltersModal}
-								centered
-								withCloseButton={false}
 							>
-								<MantineThemeProvider
-									theme={{
-										components: {
-											Select: Select.extend({ defaultProps: { size: "xs" } }),
-										},
-									}}
-								>
-									<Stack gap={4}>
-										<Group justify="space-between">
-											<Title order={3}>Filters</Title>
-											<ActionIcon
-												onClick={() => {
-													navigate(".");
-													closeFiltersModal();
-													Cookies.remove(loaderData.cookieName);
-												}}
-											>
-												<IconFilterOff size={24} />
-											</ActionIcon>
-										</Group>
-										<Select
-											data={Object.values(ExerciseSortBy).map((v) => ({
-												label: startCase(snakeCase(v)),
-												value: v,
-											}))}
-											label="Sort by"
-											defaultValue={loaderData.query.sortBy}
-											onChange={(v) => setP("sortBy", v)}
-										/>
-										{Object.keys(defaultFiltersValue)
-											.filter(
-												(f) =>
-													f !== "sortBy" && f !== "order" && f !== "collection",
-											)
-											.map((f) => (
-												<Select
-													key={f}
-													clearable
-													// biome-ignore lint/suspicious/noExplicitAny: required here
-													data={(loaderData.exerciseParameters.filters as any)[
-														f
-													].map(
-														// biome-ignore lint/suspicious/noExplicitAny: required here
-														(v: any) => ({
-															label: startCase(snakeCase(v)),
-															value: v,
-														}),
-													)}
-													label={startCase(f)}
-													// biome-ignore lint/suspicious/noExplicitAny: required here
-													defaultValue={(loaderData.query as any)[f]}
-													onChange={(v) => setP(f, v)}
-												/>
-											))}
-										{collections.length > 0 ? (
-											<Select
-												label="Collection"
-												defaultValue={loaderData.query.collection?.toString()}
-												data={[
-													{
-														group: "My collections",
-														items: collections.map((c) => ({
-															value: c.id.toString(),
-															label: c.name,
-														})),
-													},
-												]}
-												onChange={(v) => setP("collection", v)}
-												clearable
-											/>
-										) : null}
-									</Stack>
-								</MantineThemeProvider>
-							</Modal>
+								<FiltersModalForm />
+							</FiltersModal>
 						</Group>
 						{loaderData.exercisesList.details.total > 0 ? (
 							<>
@@ -403,3 +326,68 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const FiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const collections = useUserCollections();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+
+	return (
+		<MantineThemeProvider
+			theme={{
+				components: {
+					Select: Select.extend({ defaultProps: { size: "xs" } }),
+				},
+			}}
+		>
+			<Stack gap={4}>
+				<Select
+					data={Object.values(ExerciseSortBy).map((v) => ({
+						label: startCase(snakeCase(v)),
+						value: v,
+					}))}
+					label="Sort by"
+					defaultValue={loaderData.query.sortBy}
+					onChange={(v) => setP("sortBy", v)}
+				/>
+				{Object.keys(defaultFiltersValue)
+					.filter((f) => f !== "sortBy" && f !== "order" && f !== "collection")
+					.map((f) => (
+						<Select
+							key={f}
+							clearable
+							// biome-ignore lint/suspicious/noExplicitAny: required here
+							data={(loaderData.exerciseParameters.filters as any)[f].map(
+								// biome-ignore lint/suspicious/noExplicitAny: required here
+								(v: any) => ({
+									label: startCase(snakeCase(v)),
+									value: v,
+								}),
+							)}
+							label={startCase(f)}
+							// biome-ignore lint/suspicious/noExplicitAny: required here
+							defaultValue={(loaderData.query as any)[f]}
+							onChange={(v) => setP(f, v)}
+						/>
+					))}
+				{collections.length > 0 ? (
+					<Select
+						label="Collection"
+						defaultValue={loaderData.query.collection?.toString()}
+						data={[
+							{
+								group: "My collections",
+								items: collections.map((c) => ({
+									value: c.id.toString(),
+									label: c.name,
+								})),
+							},
+						]}
+						onChange={(v) => setP("collection", v)}
+						clearable
+					/>
+				) : null}
+			</Stack>
+		</MantineThemeProvider>
+	);
+};

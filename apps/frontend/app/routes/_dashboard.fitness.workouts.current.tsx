@@ -297,7 +297,7 @@ export default function Page() {
 										value={`${
 											currentWorkout.exercises
 												.map((e) => e.sets.every((s) => s.confirmedAt))
-												.filter((e) => e !== null).length
+												.filter(Boolean).length
 										}/${currentWorkout.exercises.length}`}
 									/>
 									<StatDisplay
@@ -878,7 +878,10 @@ const ExerciseDisplay = (props: {
 					)}
 				</Stack>
 			</Modal>
-			<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
+			<Paper
+				id={props.exerciseIdx.toString()}
+				px={{ base: 4, md: "xs", lg: "sm" }}
+			>
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
 						<Stack ref={parent}>

@@ -39,34 +39,43 @@ export const useFallbackImageUrl = (text = "No Image") => {
 	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 };
 
-export const useSearchParam = () => {
+export const useSearchParam = (replace?: boolean) => {
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	const delP = (key: string) => {
-		setSearchParams((prev) => {
-			prev.delete(key);
-			return prev;
-		});
+		setSearchParams(
+			(prev) => {
+				prev.delete(key);
+				return prev;
+			},
+			{ replace },
+		);
 	};
 
 	const setP = (key: string, value?: string | null) => {
-		setSearchParams((prev) => {
-			if (!value) delP(key);
-			else prev.set(key, value);
-			return prev;
-		});
+		setSearchParams(
+			(prev) => {
+				if (!value) delP(key);
+				else prev.set(key, value);
+				return prev;
+			},
+			{ replace },
+		);
 	};
 
 	return [searchParams, { setP, delP }] as const;
 };
 
 export const useCookieEnhancedSearchParam = (cookieKey: string) => {
-	const [searchParams, { setP, delP }] = useSearchParam();
+	const userPreferences = useUserPreferences();
+	const [searchParams, { setP, delP }] = useSearchParam(
+		userPreferences.general.persistQueries,
+	);
 
 	const updateCookieP = (key: string, value?: string | null) => {
 		const cookieValue = Cookies.get(cookieKey);
 		const cookieSearchParams = new URLSearchParams(cookieValue);
-		if (value === undefined || value === null) cookieSearchParams.delete(key);
+		if (!value) cookieSearchParams.delete(key);
 		else cookieSearchParams.set(key, value);
 		Cookies.set(cookieKey, cookieSearchParams.toString());
 	};

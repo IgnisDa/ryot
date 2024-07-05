@@ -7,20 +7,30 @@ import {
 	Badge,
 	Box,
 	Flex,
+	Group,
 	Image,
+	Modal,
 	SimpleGrid,
 	Stack,
 	Text,
 	TextInput,
+	Title,
 	Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate } from "@mantine/hooks";
+import { useNavigate } from "@remix-run/react";
 import type {
 	MediaLot,
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase } from "@ryot/ts-utils";
-import { IconExternalLink, IconSearch, IconX } from "@tabler/icons-react";
+import {
+	IconExternalLink,
+	IconFilterOff,
+	IconSearch,
+	IconX,
+} from "@tabler/icons-react";
+import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { withFragment, withoutHost } from "ufo";
@@ -188,4 +198,39 @@ export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 			</Tooltip>
 		</Alert>
 	) : null;
+};
+
+export const FiltersModal = (props: {
+	opened: boolean;
+	cookieName: string;
+	children: ReactNode;
+	closeFiltersModal: () => void;
+	title?: string;
+}) => {
+	const navigate = useNavigate();
+
+	return (
+		<Modal
+			onClose={props.closeFiltersModal}
+			opened={props.opened}
+			withCloseButton={false}
+			centered
+		>
+			<Stack>
+				<Group justify="space-between">
+					<Title order={3}>{props.title || "Filters"}</Title>
+					<ActionIcon
+						onClick={() => {
+							navigate(".");
+							props.closeFiltersModal();
+							Cookies.remove(props.cookieName);
+						}}
+					>
+						<IconFilterOff size={24} />
+					</ActionIcon>
+				</Group>
+				{props.children}
+			</Stack>
+		</Modal>
+	);
 };

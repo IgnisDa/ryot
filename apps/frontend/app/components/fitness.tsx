@@ -98,7 +98,7 @@ export const ExerciseHistory = (props: {
 					component={Link}
 					to={withFragment(
 						$path("/fitness/workouts/:id", { id: props.history.workoutId }),
-						`${props.exerciseId}__${props.history.index}`,
+						props.history.index.toString(),
 					)}
 					fw="bold"
 				>

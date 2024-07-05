@@ -1,26 +1,28 @@
 import {
 	ActionIcon,
+	Affix,
 	Box,
 	Button,
 	Center,
 	Container,
 	Flex,
 	Group,
-	Modal,
 	Pagination,
+	Paper,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
 	Title,
+	rem,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
+import { useDisclosure, useListState } from "@mantine/hooks";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
+	Form,
 	type MetaArgs_SingleFetch,
 	useLoaderData,
-	useNavigate,
 } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
@@ -28,27 +30,41 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
+	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
-	IconFilterOff,
 	IconMessageCircle2,
 	IconSortAscending,
 	IconSortDescending,
+	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
+import { Fragment, useState } from "react";
+import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { dayjsLib, enhancedCookieName } from "~/lib/generals";
+import {
+	clientGqlService,
+	convertEntityToIndividualId,
+	dayjsLib,
+	enhancedCookieName,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
@@ -57,9 +73,13 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
+	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
+
+const DEFAULT_TAB = "contents";
 
 const defaultFiltersValue = {
 	sort: CollectionContentsSortBy.LastUpdatedOn,
@@ -110,20 +130,151 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 
+export const action = unstable_defineAction(async ({ request }) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		bulkRemove: async () => {
+			const submission = processSubmission(formData, bulkRemoveSchema);
+			for (const item of submission.items) {
+				const input = convertEntityToIndividualId(
+					item.entityId,
+					item.entityLot,
+				);
+				await serverGqlService.request(
+					RemoveEntityFromCollectionDocument,
+					{
+						input: {
+							collectionName: submission.collectionName,
+							creatorUserId: submission.creatorUserId,
+							...input,
+						},
+					},
+					getAuthorizationHeader(request),
+				);
+			}
+			await removeCachedUserCollectionsList(request);
+			return Response.json({});
+		},
+	});
+});
+
+const bulkRemoveSchema = z.object({
+	collectionName: z.string(),
+	creatorUserId: z.string(),
+	items: z.array(
+		z.object({
+			entityId: z.string(),
+			entityLot: z.nativeEnum(EntityLot),
+		}),
+	),
+});
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const navigate = useNavigate();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [tab, setTab] = useState<string | null>(
+		loaderData.query.defaultTab || DEFAULT_TAB,
+	);
+	const [isBulkRemoving, setIsBulkRemoving] = useState(false);
+	const [isSelectAllLoading, setIsSelectAllLoading] = useState(false);
+	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<{
+		entityId: string;
+		entityLot: EntityLot;
+	}>([]);
+
+	const addBulkRemoveItem = (entityId: string, entityLot: EntityLot) => {
+		if (!bulkRemoveItems.includes({ entityId, entityLot }))
+			bulkRemoveItemsHandler.append({ entityId, entityLot });
+	};
 
 	return (
 		<Container>
+			{isBulkRemoving ? (
+				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
+					<Form
+						method="POST"
+						reloadDocument
+						action={withQuery(".", { intent: "bulkRemove" })}
+					>
+						<input
+							type="hidden"
+							name="collectionName"
+							defaultValue={loaderData.collectionContents.details.name}
+						/>
+						<input
+							type="hidden"
+							name="creatorUserId"
+							defaultValue={loaderData.collectionContents.user.id}
+						/>
+						{bulkRemoveItems.map((item, index) => (
+							<Fragment key={item.entityId}>
+								<input
+									type="hidden"
+									readOnly
+									name={`items[${index}].entityId`}
+									value={item.entityId}
+								/>
+								<input
+									type="hidden"
+									readOnly
+									name={`items[${index}].entityLot`}
+									value={item.entityLot}
+								/>
+							</Fragment>
+						))}
+						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+							<Group wrap="nowrap" justify="space-between">
+								<Text>{bulkRemoveItems.length} items selected</Text>
+								<Group wrap="nowrap">
+									<Button
+										color="blue"
+										loading={isSelectAllLoading}
+										onClick={async () => {
+											setIsSelectAllLoading(true);
+											const { collectionContents } =
+												await queryClient.ensureQueryData({
+													queryKey: queryFactory.collections.details(
+														loaderData.collectionId,
+														Number.MAX_SAFE_INTEGER,
+													).queryKey,
+													queryFn: () =>
+														clientGqlService.request(
+															CollectionContentsDocument,
+															{
+																input: {
+																	collectionId: loaderData.collectionId,
+																	take: Number.MAX_SAFE_INTEGER,
+																},
+															},
+														),
+												});
+											for (const lm of collectionContents.results.items)
+												addBulkRemoveItem(lm.details.identifier, lm.entityLot);
+											setIsSelectAllLoading(false);
+										}}
+									>
+										Select all items
+									</Button>
+									<Button
+										color="red"
+										type="submit"
+										disabled={bulkRemoveItems.length === 0}
+									>
+										Remove
+									</Button>
+								</Group>
+							</Group>
+						</Paper>
+					</Form>
+				</Affix>
+			) : null}
 			<Stack>
 				<Box>
 					<Title>{loaderData.collectionContents.details.name}</Title>{" "}
@@ -136,7 +287,7 @@ export default function Page() {
 					</Text>
 				</Box>
 				<Text>{loaderData.collectionContents.details.description}</Text>
-				<Tabs defaultValue={loaderData.query.defaultTab || "contents"}>
+				<Tabs value={tab} onChange={setTab}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="contents"
@@ -165,7 +316,7 @@ export default function Page() {
 									enhancedQueryParams={loaderData.cookieName}
 								/>
 								<ActionIcon
-									onClick={openFiltersModal}
+									onClick={() => openFiltersModal()}
 									color={
 										loaderData.query.entityLot !== undefined ||
 										loaderData.query.metadataLot !== undefined ||
@@ -177,98 +328,54 @@ export default function Page() {
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
-								<Modal
+								<FiltersModal
+									closeFiltersModal={closeFiltersModal}
+									cookieName={loaderData.cookieName}
 									opened={filtersModalOpened}
-									onClose={closeFiltersModal}
-									centered
-									withCloseButton={false}
 								>
-									<Stack>
-										<Group justify="space-between">
-											<Title order={3}>Filters</Title>
-											<ActionIcon
-												onClick={() => {
-													navigate(".");
-													closeFiltersModal();
-													Cookies.remove(loaderData.cookieName);
-												}}
-											>
-												<IconFilterOff size={24} />
-											</ActionIcon>
-										</Group>
-										<Flex gap="xs" align="center">
-											<Select
-												w="100%"
-												data={[
-													{
-														group: "Sort by",
-														items: Object.values(CollectionContentsSortBy).map(
-															(o) => ({
-																value: o.toString(),
-																label: startCase(o.toLowerCase()),
-															}),
-														),
-													},
-												]}
-												defaultValue={loaderData.query.sortBy}
-												onChange={(v) => setP("sortBy", v)}
-											/>
-											<ActionIcon
-												onClick={() => {
-													if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
-														setP("orderBy", GraphqlSortOrder.Desc);
-													else setP("orderBy", GraphqlSortOrder.Asc);
-												}}
-											>
-												{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
-													<IconSortAscending />
-												) : (
-													<IconSortDescending />
-												)}
-											</ActionIcon>
-										</Flex>
-										<Select
-											placeholder="Select an entity type"
-											defaultValue={loaderData.query.entityLot}
-											data={Object.values(EntityLot)
-												.filter((o) => o !== EntityLot.Collection)
-												.map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												}))}
-											onChange={(v) => setP("entityLot", v)}
-											clearable
-										/>
-										{loaderData.query.entityLot === EntityLot.Metadata ||
-										loaderData.query.entityLot === EntityLot.MetadataGroup ? (
-											<Select
-												placeholder="Select a media type"
-												defaultValue={loaderData.query.metadataLot}
-												data={Object.values(MediaLot).map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												}))}
-												onChange={(v) => setP("metadataLot", v)}
-												clearable
-											/>
-										) : null}
-									</Stack>
-								</Modal>
+									<FiltersModalForm />
+								</FiltersModal>
 							</Group>
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
-									{loaderData.collectionContents.results.items.map((lm) => (
-										<MediaItemWithoutUpdateModal
-											key={lm.details.identifier}
-											item={{
-												...lm.details,
-												publishYear: lm.details.publishYear?.toString(),
-											}}
-											lot={lm.metadataLot}
-											entityLot={lm.entityLot}
-											reviewScale={userPreferences.general.reviewScale}
-										/>
-									))}
+									{loaderData.collectionContents.results.items.map((lm) => {
+										const atIndex = bulkRemoveItems.findIndex(
+											(i) => i.entityId === lm.details.identifier,
+										);
+										return (
+											<MediaItemWithoutUpdateModal
+												key={lm.details.identifier}
+												item={{
+													...lm.details,
+													publishYear: lm.details.publishYear?.toString(),
+												}}
+												lot={lm.metadataLot}
+												entityLot={lm.entityLot}
+												reviewScale={userPreferences.general.reviewScale}
+												topRight={
+													isBulkRemoving ? (
+														<ActionIcon
+															variant={
+																atIndex !== -1 ? "filled" : "transparent"
+															}
+															color="red"
+															onClick={(e) => {
+																e.preventDefault();
+																if (atIndex === -1)
+																	addBulkRemoveItem(
+																		lm.details.identifier,
+																		lm.entityLot,
+																	);
+																else bulkRemoveItemsHandler.remove(atIndex);
+															}}
+														>
+															<IconTrashFilled size={18} />
+														</ActionIcon>
+													) : null
+												}
+											/>
+										);
+									})}
 								</ApplicationGrid>
 							) : (
 								<Text>You have not added anything this collection</Text>
@@ -303,6 +410,16 @@ export default function Page() {
 							>
 								Post a review
 							</Button>
+							<Button
+								variant="outline"
+								w="100%"
+								onClick={() => {
+									setIsBulkRemoving(true);
+									setTab("contents");
+								}}
+							>
+								Bulk remove
+							</Button>
 						</SimpleGrid>
 					</Tabs.Panel>
 					{!userPreferences.general.disableReviews ? (
@@ -329,3 +446,67 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const FiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+
+	return (
+		<>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					data={[
+						{
+							group: "Sort by",
+							items: Object.values(CollectionContentsSortBy).map((o) => ({
+								value: o.toString(),
+								label: startCase(o.toLowerCase()),
+							})),
+						},
+					]}
+					defaultValue={loaderData.query.sortBy}
+					onChange={(v) => setP("sortBy", v)}
+				/>
+				<ActionIcon
+					onClick={() => {
+						if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
+							setP("orderBy", GraphqlSortOrder.Desc);
+						else setP("orderBy", GraphqlSortOrder.Asc);
+					}}
+				>
+					{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			</Flex>
+			<Select
+				placeholder="Select an entity type"
+				defaultValue={loaderData.query.entityLot}
+				data={Object.values(EntityLot)
+					.filter((o) => o !== EntityLot.Collection)
+					.map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+				onChange={(v) => setP("entityLot", v)}
+				clearable
+			/>
+			{loaderData.query.entityLot === EntityLot.Metadata ||
+			loaderData.query.entityLot === EntityLot.MetadataGroup ? (
+				<Select
+					placeholder="Select a media type"
+					defaultValue={loaderData.query.metadataLot}
+					data={Object.values(MediaLot).map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+					onChange={(v) => setP("metadataLot", v)}
+					clearable
+				/>
+			) : null}
+		</>
+	);
+};

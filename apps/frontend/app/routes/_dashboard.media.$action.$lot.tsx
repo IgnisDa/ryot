@@ -8,13 +8,11 @@ import {
 	Flex,
 	Group,
 	Menu,
-	Modal,
 	Pagination,
 	Select,
 	Stack,
 	Tabs,
 	Text,
-	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
@@ -42,7 +40,6 @@ import {
 	IconBoxMultiple,
 	IconDotsVertical,
 	IconFilter,
-	IconFilterOff,
 	IconListCheck,
 	IconPhotoPlus,
 	IconSearch,
@@ -50,14 +47,17 @@ import {
 	IconSortDescending,
 	IconStarFilled,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common";
 import {
 	type Item,
 	MediaItemWithoutUpdateModal,
@@ -219,7 +219,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const collections = useUserCollections();
 	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
@@ -290,95 +289,13 @@ export default function Page() {
 							>
 								<IconFilter size={24} />
 							</ActionIcon>
-							<Modal
+							<FiltersModal
+								closeFiltersModal={closeFiltersModal}
+								cookieName={loaderData.cookieName}
 								opened={filtersModalOpened}
-								onClose={closeFiltersModal}
-								centered
-								withCloseButton={false}
 							>
-								<Stack>
-									<Group justify="space-between">
-										<Title order={3}>Filters</Title>
-										<ActionIcon
-											onClick={() => {
-												navigate(".");
-												closeFiltersModal();
-												Cookies.remove(loaderData.cookieName);
-											}}
-										>
-											<IconFilterOff size={24} />
-										</ActionIcon>
-									</Group>
-									<Select
-										defaultValue={loaderData.mediaList.url.generalFilter}
-										data={[
-											{
-												group: "General filters",
-												items: Object.values(MediaGeneralFilter).map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												})),
-											},
-										]}
-										onChange={(v) => {
-											if (v) setP("generalFilter", v);
-										}}
-									/>
-									<Flex gap="xs" align="center">
-										<Select
-											w="100%"
-											data={[
-												{
-													group: "Sort by",
-													items: Object.values(MediaSortBy).map((o) => ({
-														value: o.toString(),
-														label: startCase(o.toLowerCase()),
-													})),
-												},
-											]}
-											defaultValue={loaderData.mediaList.url.sortBy}
-											onChange={(v) => {
-												if (v) setP("sortBy", v);
-											}}
-										/>
-										<ActionIcon
-											onClick={() => {
-												if (
-													loaderData.mediaList?.url.sortOrder ===
-													GraphqlSortOrder.Asc
-												)
-													setP("sortOrder", GraphqlSortOrder.Desc);
-												else setP("sortOrder", GraphqlSortOrder.Asc);
-											}}
-										>
-											{loaderData.mediaList.url.sortOrder ===
-											GraphqlSortOrder.Asc ? (
-												<IconSortAscending />
-											) : (
-												<IconSortDescending />
-											)}
-										</ActionIcon>
-									</Flex>
-									{collections.length > 0 ? (
-										<Select
-											placeholder="Select a collection"
-											defaultValue={loaderData.mediaList.url.collection?.toString()}
-											data={[
-												{
-													group: "My collections",
-													items: collections.map((c) => ({
-														value: c.id.toString(),
-														label: c.name,
-													})),
-												},
-											]}
-											onChange={(v) => setP("collection", v)}
-											clearable
-											searchable
-										/>
-									) : null}
-								</Stack>
-							</Modal>
+								<FiltersModalForm />
+							</FiltersModal>
 						</Group>
 						{loaderData.mediaList.list.details.total > 0 ? (
 							<>
@@ -648,5 +565,82 @@ const MediaSearchItem = (props: {
 				</Button>
 			</>
 		</MediaItemWithoutUpdateModal>
+	);
+};
+
+const FiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const collections = useUserCollections();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+
+	if (!loaderData.mediaList) return null;
+
+	return (
+		<>
+			<Select
+				defaultValue={loaderData.mediaList.url.generalFilter}
+				data={[
+					{
+						group: "General filters",
+						items: Object.values(MediaGeneralFilter).map((o) => ({
+							value: o.toString(),
+							label: startCase(o.toLowerCase()),
+						})),
+					},
+				]}
+				onChange={(v) => {
+					if (v) setP("generalFilter", v);
+				}}
+			/>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					data={[
+						{
+							group: "Sort by",
+							items: Object.values(MediaSortBy).map((o) => ({
+								value: o.toString(),
+								label: startCase(o.toLowerCase()),
+							})),
+						},
+					]}
+					defaultValue={loaderData.mediaList.url.sortBy}
+					onChange={(v) => {
+						if (v) setP("sortBy", v);
+					}}
+				/>
+				<ActionIcon
+					onClick={() => {
+						if (loaderData.mediaList?.url.sortOrder === GraphqlSortOrder.Asc)
+							setP("sortOrder", GraphqlSortOrder.Desc);
+						else setP("sortOrder", GraphqlSortOrder.Asc);
+					}}
+				>
+					{loaderData.mediaList.url.sortOrder === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			</Flex>
+			{collections.length > 0 ? (
+				<Select
+					placeholder="Select a collection"
+					defaultValue={loaderData.mediaList.url.collection?.toString()}
+					data={[
+						{
+							group: "My collections",
+							items: collections.map((c) => ({
+								value: c.id.toString(),
+								label: c.name,
+							})),
+						},
+					]}
+					onChange={(v) => setP("collection", v)}
+					clearable
+					searchable
+				/>
+			) : null}
+		</>
 	);
 };

@@ -27,7 +27,10 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
+import {
+	convertEntityToIndividualId,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
@@ -322,6 +325,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				getAuthorizationHeader(request),
 			);
 			await sleepForHalfSecond();
+			await removeCachedUserCollectionsList(request);
 			response.headers = extendResponseHeaders(
 				response.headers,
 				await createToastHeaders({
@@ -341,6 +345,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				getAuthorizationHeader(request),
 			);
 			await sleepForHalfSecond();
+			await removeCachedUserCollectionsList(request);
 			response.headers = extendResponseHeaders(
 				response.headers,
 				await createToastHeaders({
@@ -427,24 +432,11 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 		formData,
 		changeCollectionToEntitySchema.passthrough(),
 	);
-	const metadataId =
-		submission.entityLot === EntityLot.Metadata
-			? submission.entityId
-			: undefined;
-	const metadataGroupId =
-		submission.entityLot === EntityLot.MetadataGroup
-			? submission.entityId
-			: undefined;
-	const personId =
-		submission.entityLot === EntityLot.Person ? submission.entityId : undefined;
-	const exerciseId =
-		submission.entityLot === EntityLot.Exercise
-			? submission.entityId
-			: undefined;
-	return [
-		submission,
-		{ metadataId, metadataGroupId, exerciseId, personId },
-	] as const;
+	const individualIds = convertEntityToIndividualId(
+		submission.entityId,
+		submission.entityLot,
+	);
+	return [submission, individualIds] as const;
 };
 
 const progressUpdateSchema = z
