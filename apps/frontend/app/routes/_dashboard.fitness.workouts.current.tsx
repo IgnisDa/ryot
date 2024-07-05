@@ -862,7 +862,10 @@ const ExerciseDisplay = (props: {
 					)}
 				</Stack>
 			</Modal>
-			<Paper px={{ base: 4, md: "xs", lg: "sm" }}>
+			<Paper
+				id={props.exerciseIdx.toString()}
+				px={{ base: 4, md: "xs", lg: "sm" }}
+			>
 				<Stack>
 					<Menu shadow="md" width={200} position="left-end">
 						<Stack ref={parent}>
