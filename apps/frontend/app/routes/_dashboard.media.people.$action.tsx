@@ -7,7 +7,6 @@ import {
 	Container,
 	Flex,
 	Group,
-	Modal,
 	Pagination,
 	Select,
 	Stack,
@@ -32,19 +31,21 @@ import {
 import { changeCase, getInitials, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
-	IconFilterOff,
 	IconListCheck,
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common";
 import {
 	BaseDisplayItem,
 	type Item,
@@ -216,55 +217,13 @@ export default function Page() {
 							>
 								<IconFilter size={24} />
 							</ActionIcon>
-							<Modal
+							<FiltersModal
+								closeFiltersModal={closeFiltersModal}
+								cookieName={loaderData.cookieName}
 								opened={filtersModalOpened}
-								onClose={closeFiltersModal}
-								centered
-								withCloseButton={false}
 							>
-								<Stack>
-									<Group justify="space-between">
-										<Title order={3}>Sort by</Title>
-										<ActionIcon
-											onClick={() => {
-												navigate(".");
-												closeFiltersModal();
-												Cookies.remove(loaderData.cookieName);
-											}}
-										>
-											<IconFilterOff size={24} />
-										</ActionIcon>
-									</Group>
-									<Flex gap="xs" align="center">
-										<Select
-											w="100%"
-											data={Object.values(PersonSortBy).map((o) => ({
-												value: o.toString(),
-												label: startCase(o.toLowerCase()),
-											}))}
-											defaultValue={loaderData.peopleList?.url.sortBy}
-											onChange={(v) => setEnhancedP("sortBy", v)}
-										/>
-										<ActionIcon
-											onClick={() => {
-												if (
-													loaderData.peopleList?.url.orderBy ===
-													GraphqlSortOrder.Asc
-												)
-													setEnhancedP("orderBy", GraphqlSortOrder.Desc);
-												else setEnhancedP("orderBy", GraphqlSortOrder.Asc);
-											}}
-										>
-											{loaderData.peopleList?.url.orderBy ===
-											GraphqlSortOrder.Asc ? (
-												<IconSortAscending />
-											) : (
-												<IconSortDescending />
-											)}
-										</ActionIcon>
-									</Flex>
-								</Stack>
-							</Modal>
+								<FiltersModalForm />
+							</FiltersModal>
 						</>
 					) : null}
 					{loaderData.action === Action.Search ? (
@@ -434,4 +393,36 @@ const commitPerson = async (
 	});
 	const json = await resp.json();
 	return json.commitPerson.id;
+};
+
+const FiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+
+	return (
+		<Flex gap="xs" align="center">
+			<Select
+				w="100%"
+				data={Object.values(PersonSortBy).map((o) => ({
+					value: o.toString(),
+					label: startCase(o.toLowerCase()),
+				}))}
+				defaultValue={loaderData.peopleList?.url.sortBy}
+				onChange={(v) => setP("sortBy", v)}
+			/>
+			<ActionIcon
+				onClick={() => {
+					if (loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc)
+						setP("orderBy", GraphqlSortOrder.Desc);
+					else setP("orderBy", GraphqlSortOrder.Asc);
+				}}
+			>
+				{loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc ? (
+					<IconSortAscending />
+				) : (
+					<IconSortDescending />
+				)}
+			</ActionIcon>
+		</Flex>
+	);
 };
