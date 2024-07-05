@@ -3,6 +3,7 @@ import {
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
 import {
+	EntityLot,
 	MediaLot,
 	MediaSource,
 	SetLot,
@@ -243,8 +244,8 @@ const collectionQueryKeys = createQueryKeys("collections", {
 	userList: (userId: string) => ({
 		queryKey: ["userCollectionsList", userId],
 	}),
-	details: (collectionId: string) => ({
-		queryKey: ["collectionDetails", collectionId],
+	details: (collectionId: string, take?: number) => ({
+		queryKey: ["collectionDetails", collectionId, take],
 	}),
 });
 
@@ -262,3 +263,15 @@ export const queryFactory = mergeQueryKeys(
 	collectionQueryKeys,
 	fitnessQueryKeys,
 );
+
+export const convertEntityToIndividualId = (
+	entityId: string,
+	entityLot: EntityLot,
+) => {
+	const metadataId = entityLot === EntityLot.Metadata ? entityId : undefined;
+	const metadataGroupId =
+		entityLot === EntityLot.MetadataGroup ? entityId : undefined;
+	const personId = entityLot === EntityLot.Person ? entityId : undefined;
+	const exerciseId = entityLot === EntityLot.Exercise ? entityId : undefined;
+	return { metadataId, metadataGroupId, personId, exerciseId };
+};

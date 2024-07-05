@@ -346,7 +346,7 @@ export default function Page() {
 																			$path("/fitness/workouts/:id", {
 																				id: s.workoutId,
 																			}),
-																			`${loaderData.exerciseDetails.id}__${s.exerciseIdx}`,
+																			s.exerciseIdx.toString(),
 																		)}
 																		fw="bold"
 																	>

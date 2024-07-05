@@ -1,4 +1,5 @@
 import { $path } from "@ignisda/remix-routes";
+import type { NavigateFunction } from "@remix-run/react";
 import {
 	type CreateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
@@ -14,6 +15,7 @@ import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
 	CurrentWorkoutKey,
@@ -174,9 +176,10 @@ export const addExerciseToWorkout = async (
 	currentWorkout: InProgressWorkout,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
-	navigate: (path: string) => void,
+	navigate: NavigateFunction,
 ) => {
 	const draft = createDraft(currentWorkout);
+	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		draft.exercises.push({
@@ -201,7 +204,12 @@ export const addExerciseToWorkout = async (
 	}
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
-	navigate($path("/fitness/workouts/current"));
+	navigate(
+		withFragment(
+			$path("/fitness/workouts/current"),
+			idxOfNextExercise.toString(),
+		),
+	);
 };
 
 export const currentWorkoutToCreateWorkoutInput = (
