@@ -66,7 +66,7 @@ export const useCookieEnhancedSearchParam = (cookieKey: string) => {
 	const updateCookieP = (key: string, value?: string | null) => {
 		const cookieValue = Cookies.get(cookieKey);
 		const cookieSearchParams = new URLSearchParams(cookieValue);
-		if (value === undefined || value === null) cookieSearchParams.delete(key);
+		if (!value) cookieSearchParams.delete(key);
 		else cookieSearchParams.set(key, value);
 		Cookies.set(cookieKey, cookieSearchParams.toString());
 	};
