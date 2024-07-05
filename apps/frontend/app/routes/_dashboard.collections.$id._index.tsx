@@ -16,11 +16,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
-import {
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-	useRouteLoaderData,
-} from "@remix-run/react";
+import { type MetaArgs_SingleFetch, useLoaderData } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -261,9 +257,7 @@ export default function Page() {
 }
 
 const FiltersModalForm = () => {
-	const loaderData = useRouteLoaderData<typeof loader>(
-		"routes/_dashboard.collections.$id._index",
-	);
+	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 
 	return (
