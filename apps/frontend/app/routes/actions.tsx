@@ -325,6 +325,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				getAuthorizationHeader(request),
 			);
 			await sleepForHalfSecond();
+			await removeCachedUserCollectionsList(request);
 			response.headers = extendResponseHeaders(
 				response.headers,
 				await createToastHeaders({
@@ -344,6 +345,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				getAuthorizationHeader(request),
 			);
 			await sleepForHalfSecond();
+			await removeCachedUserCollectionsList(request);
 			response.headers = extendResponseHeaders(
 				response.headers,
 				await createToastHeaders({
