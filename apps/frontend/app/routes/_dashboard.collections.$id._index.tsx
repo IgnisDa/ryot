@@ -14,11 +14,11 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
-	useNavigate,
 	useRouteLoaderData,
 } from "@remix-run/react";
 import {
@@ -40,7 +40,11 @@ import {
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common";
 import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
@@ -51,7 +55,6 @@ import {
 	useCoreDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useFiltersModalData } from "~/lib/state/common";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
@@ -112,10 +115,12 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const navigate = useNavigate();
 	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
-	const [_f, setFiltersModalData] = useFiltersModalData();
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
 
 	return (
 		<Container>
@@ -160,13 +165,7 @@ export default function Page() {
 									enhancedQueryParams={loaderData.cookieName}
 								/>
 								<ActionIcon
-									onClick={() =>
-										setFiltersModalData({
-											children: <FiltersModal />,
-											cookieName: loaderData.cookieName,
-											navigate,
-										})
-									}
+									onClick={() => openFiltersModal()}
 									color={
 										loaderData.query.entityLot !== undefined ||
 										loaderData.query.metadataLot !== undefined ||
@@ -178,6 +177,13 @@ export default function Page() {
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
+								<FiltersModal
+									closeFiltersModal={closeFiltersModal}
+									cookieName={loaderData.cookieName}
+									opened={filtersModalOpened}
+								>
+									<FiltersModalForm />
+								</FiltersModal>
 							</Group>
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
@@ -254,7 +260,7 @@ export default function Page() {
 	);
 }
 
-const FiltersModal = () => {
+const FiltersModalForm = () => {
 	const loaderData = useRouteLoaderData<typeof loader>(
 		"routes/_dashboard.collections.$id._index",
 	);
