@@ -70,7 +70,7 @@ const defaultFiltersValue = {
 	force: undefined,
 	level: undefined,
 	mechanic: undefined,
-	sortBy: ExerciseSortBy.NumTimesPerformed,
+	sortBy: ExerciseSortBy.TimesPerformed,
 	collection: undefined,
 };
 
@@ -93,7 +93,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = enhancedCookieName("exercises.list");
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	query.sortBy = query.sortBy ?? ExerciseSortBy.NumTimesPerformed;
+	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query.page = query.page ?? 1;
 	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
 		serverGqlService.request(ExerciseParametersDocument, {}),

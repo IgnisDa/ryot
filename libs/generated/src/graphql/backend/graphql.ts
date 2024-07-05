@@ -506,7 +506,7 @@ export type ExerciseParameters = {
 export enum ExerciseSortBy {
   LastPerformed = 'LAST_PERFORMED',
   Name = 'NAME',
-  NumTimesPerformed = 'NUM_TIMES_PERFORMED'
+  TimesPerformed = 'TIMES_PERFORMED'
 }
 
 export enum ExerciseSource {
