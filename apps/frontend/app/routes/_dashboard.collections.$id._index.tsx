@@ -9,13 +9,13 @@ import {
 	Group,
 	Pagination,
 	Paper,
-	rem,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
 	Title,
+	rem,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
@@ -56,7 +56,13 @@ import {
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media";
-import { dayjsLib, enhancedCookieName } from "~/lib/generals";
+import {
+	clientGqlService,
+	dayjsLib,
+	enhancedCookieName,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
@@ -145,6 +151,7 @@ export default function Page() {
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
 	const [isBulkRemoving, setIsBulkRemoving] = useState(false);
+	const [isSelectAllLoading, setIsSelectAllLoading] = useState(false);
 	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
@@ -152,6 +159,10 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<string>([]);
+
+	const addBulkRemoveItem = (item: string) => {
+		if (!bulkRemoveItems.includes(item)) bulkRemoveItemsHandler.append(item);
+	};
 
 	return (
 		<Container>
@@ -173,7 +184,35 @@ export default function Page() {
 							<Group wrap="nowrap" justify="space-between">
 								<Text>{bulkRemoveItems.length} items selected</Text>
 								<Group wrap="nowrap">
-									<Button color="blue">Select all items</Button>
+									<Button
+										color="blue"
+										loading={isSelectAllLoading}
+										onClick={async () => {
+											setIsSelectAllLoading(true);
+											const { collectionContents } =
+												await queryClient.ensureQueryData({
+													queryKey: queryFactory.collections.details(
+														loaderData.collectionId,
+														Number.MAX_SAFE_INTEGER,
+													).queryKey,
+													queryFn: () =>
+														clientGqlService.request(
+															CollectionContentsDocument,
+															{
+																input: {
+																	collectionId: loaderData.collectionId,
+																	take: Number.MAX_SAFE_INTEGER,
+																},
+															},
+														),
+												});
+											for (const lm of collectionContents.results.items)
+												addBulkRemoveItem(lm.details.identifier);
+											setIsSelectAllLoading(false);
+										}}
+									>
+										Select all items
+									</Button>
 									<Button
 										color="red"
 										type="submit"
@@ -274,9 +313,7 @@ export default function Page() {
 															onClick={(e) => {
 																e.preventDefault();
 																if (atIndex === -1)
-																	bulkRemoveItemsHandler.append(
-																		lm.details.identifier,
-																	);
+																	addBulkRemoveItem(lm.details.identifier);
 																else bulkRemoveItemsHandler.remove(atIndex);
 															}}
 														>
