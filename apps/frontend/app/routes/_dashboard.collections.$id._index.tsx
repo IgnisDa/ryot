@@ -30,6 +30,7 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
+	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import {
@@ -41,7 +42,7 @@ import {
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
@@ -133,14 +134,25 @@ export const action = unstable_defineAction(async ({ request }) => {
 		bulkRemove: async () => {
 			const submission = processSubmission(formData, bulkRemoveSchema);
 			console.log(submission);
+			// await serverGqlService.request(
+			// 	RemoveEntityFromCollectionDocument,
+			// 	{
+			// 		input: {
+			// 			collectionName: submission.collectionName,
+			// 			creatorUserId: submission.creatorUserId,
+			// 		},
+			// 	},
+			// 	getAuthorizationHeader(request),
+			// );
 			return Response.json({});
 		},
 	});
 });
 
 const bulkRemoveSchema = z.object({
-	collectionId: z.string(),
-	items: z.string().transform((v) => v.split(",")),
+	collectionName: z.string(),
+	creatorUserId: z.string(),
+	items: z.array(z.object({ entityId: z.string(), entityLot: z.string() })),
 });
 
 export default function Page() {
@@ -158,10 +170,14 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<string>([]);
+	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<{
+		entityId: string;
+		entityLot: EntityLot;
+	}>([]);
 
-	const addBulkRemoveItem = (item: string) => {
-		if (!bulkRemoveItems.includes(item)) bulkRemoveItemsHandler.append(item);
+	const addBulkRemoveItem = (entityId: string, entityLot: EntityLot) => {
+		if (!bulkRemoveItems.includes({ entityId, entityLot }))
+			bulkRemoveItemsHandler.append({ entityId, entityLot });
 	};
 
 	return (
@@ -171,15 +187,30 @@ export default function Page() {
 					<Form action={withQuery(".", { intent: "bulkRemove" })} method="POST">
 						<input
 							type="hidden"
-							name="collectionId"
-							defaultValue={loaderData.collectionId}
+							name="collectionName"
+							defaultValue={loaderData.collectionContents.details.name}
 						/>
 						<input
 							type="hidden"
-							name="items"
-							readOnly
-							value={bulkRemoveItems.join(",")}
+							name="creatorUserId"
+							defaultValue={loaderData.collectionContents.user.id}
 						/>
+						{bulkRemoveItems.map((item, index) => (
+							<Fragment key={item.entityId}>
+								<input
+									type="hidden"
+									readOnly
+									name={`items[${index}].entityId`}
+									value={item.entityId}
+								/>
+								<input
+									type="hidden"
+									readOnly
+									name={`items[${index}].entityLot`}
+									value={item.entityLot}
+								/>
+							</Fragment>
+						))}
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
 								<Text>{bulkRemoveItems.length} items selected</Text>
@@ -207,7 +238,7 @@ export default function Page() {
 														),
 												});
 											for (const lm of collectionContents.results.items)
-												addBulkRemoveItem(lm.details.identifier);
+												addBulkRemoveItem(lm.details.identifier, lm.entityLot);
 											setIsSelectAllLoading(false);
 										}}
 									>
@@ -291,7 +322,7 @@ export default function Page() {
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
 										const atIndex = bulkRemoveItems.findIndex(
-											(i) => i === lm.details.identifier,
+											(i) => i.entityId === lm.details.identifier,
 										);
 										return (
 											<MediaItemWithoutUpdateModal
@@ -313,7 +344,10 @@ export default function Page() {
 															onClick={(e) => {
 																e.preventDefault();
 																if (atIndex === -1)
-																	addBulkRemoveItem(lm.details.identifier);
+																	addBulkRemoveItem(
+																		lm.details.identifier,
+																		lm.entityLot,
+																	);
 																else bulkRemoveItemsHandler.remove(atIndex);
 															}}
 														>
