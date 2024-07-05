@@ -1,5 +1,6 @@
 import {
 	ActionIcon,
+	Affix,
 	Box,
 	Button,
 	Center,
@@ -7,6 +8,8 @@ import {
 	Flex,
 	Group,
 	Pagination,
+	Paper,
+	rem,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -131,7 +134,19 @@ export default function Page() {
 
 	return (
 		<Container>
-			{JSON.stringify(bulkRemoveItems)}
+			{isBulkRemoving ? (
+				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
+					<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+						<Group wrap="nowrap" justify="space-between">
+							<Text>{bulkRemoveItems.length} items selected</Text>
+							<Group wrap="nowrap">
+								<Button color="blue">Select all items</Button>
+								<Button color="red">Remove</Button>
+							</Group>
+						</Group>
+					</Paper>
+				</Affix>
+			) : null}
 			<Stack>
 				<Box>
 					<Title>{loaderData.collectionContents.details.name}</Title>{" "}
