@@ -59,6 +59,7 @@ import {
 } from "~/components/media";
 import {
 	clientGqlService,
+	convertEntityToIndividualId,
 	dayjsLib,
 	enhancedCookieName,
 	queryClient,
@@ -133,17 +134,23 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		bulkRemove: async () => {
 			const submission = processSubmission(formData, bulkRemoveSchema);
-			console.log(submission);
-			// await serverGqlService.request(
-			// 	RemoveEntityFromCollectionDocument,
-			// 	{
-			// 		input: {
-			// 			collectionName: submission.collectionName,
-			// 			creatorUserId: submission.creatorUserId,
-			// 		},
-			// 	},
-			// 	getAuthorizationHeader(request),
-			// );
+			for (const item of submission.items) {
+				const input = convertEntityToIndividualId(
+					item.entityId,
+					item.entityLot,
+				);
+				await serverGqlService.request(
+					RemoveEntityFromCollectionDocument,
+					{
+						input: {
+							collectionName: submission.collectionName,
+							creatorUserId: submission.creatorUserId,
+							...input,
+						},
+					},
+					getAuthorizationHeader(request),
+				);
+			}
 			return Response.json({});
 		},
 	});
@@ -152,7 +159,12 @@ export const action = unstable_defineAction(async ({ request }) => {
 const bulkRemoveSchema = z.object({
 	collectionName: z.string(),
 	creatorUserId: z.string(),
-	items: z.array(z.object({ entityId: z.string(), entityLot: z.string() })),
+	items: z.array(
+		z.object({
+			entityId: z.string(),
+			entityLot: z.nativeEnum(EntityLot),
+		}),
+	),
 });
 
 export default function Page() {
@@ -184,7 +196,11 @@ export default function Page() {
 		<Container>
 			{isBulkRemoving ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-					<Form action={withQuery(".", { intent: "bulkRemove" })} method="POST">
+					<Form
+						action={withQuery(".", { intent: "bulkRemove" })}
+						method="POST"
+						reloadDocument
+					>
 						<input
 							type="hidden"
 							name="collectionName"
