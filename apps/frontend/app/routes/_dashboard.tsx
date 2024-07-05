@@ -85,7 +85,6 @@ import {
 	IconClock,
 	IconDeviceSpeaker,
 	IconDeviceTv,
-	IconFilterOff,
 	IconHome2,
 	IconLogout,
 	IconMoon,
@@ -134,8 +133,6 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
-import Cookies from "js-cookie";
-import { useFiltersModalData } from "~/lib/state/common";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -290,8 +287,6 @@ export default function Layout() {
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
-	const [filtersModalData, setFiltersModalData] = useFiltersModalData();
-	const closeFiltersModal = () => setFiltersModalData(null);
 
 	return (
 		<>
@@ -359,14 +354,6 @@ export default function Layout() {
 					closeMeasurementModal={closeMeasurementsDrawer}
 				/>
 			</Drawer>
-			<Modal
-				onClose={closeFiltersModal}
-				opened={filtersModalData !== null}
-				withCloseButton={false}
-				centered
-			>
-				<FiltersModal closeFiltersModal={closeFiltersModal} />
-			</Modal>
 			<AppShell
 				w="100%"
 				padding={0}
@@ -1566,31 +1553,5 @@ const CreateMeasurementForm = (props: {
 				<Button type="submit">Submit</Button>
 			</Stack>
 		</Form>
-	);
-};
-
-const FiltersModal = (props: {
-	closeFiltersModal: () => void;
-}) => {
-	const [filtersModalData, _] = useFiltersModalData();
-
-	if (!filtersModalData) return null;
-
-	return (
-		<Stack>
-			<Group justify="space-between">
-				<Title order={3}>{filtersModalData.title || "Filters"}</Title>
-				<ActionIcon
-					onClick={() => {
-						filtersModalData.navigate(".");
-						props.closeFiltersModal();
-						Cookies.remove(filtersModalData.cookieName);
-					}}
-				>
-					<IconFilterOff size={24} />
-				</ActionIcon>
-			</Group>
-			{filtersModalData.children}
-		</Stack>
 	);
 };
