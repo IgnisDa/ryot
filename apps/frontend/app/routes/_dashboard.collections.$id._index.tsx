@@ -18,8 +18,12 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
-import { type MetaArgs_SingleFetch, useLoaderData } from "@remix-run/react";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import {
+	Form,
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+} from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -38,7 +42,9 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -59,6 +65,7 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -114,6 +121,22 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 
+export const action = unstable_defineAction(async ({ request }) => {
+	const formData = await request.clone().formData();
+	return namedAction(request, {
+		bulkRemove: async () => {
+			const submission = processSubmission(formData, bulkRemoveSchema);
+			console.log(submission);
+			return Response.json({});
+		},
+	});
+});
+
+const bulkRemoveSchema = z.object({
+	collectionId: z.string(),
+	items: z.string().transform((v) => v.split(",")),
+});
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -136,15 +159,34 @@ export default function Page() {
 		<Container>
 			{isBulkRemoving ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-					<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-						<Group wrap="nowrap" justify="space-between">
-							<Text>{bulkRemoveItems.length} items selected</Text>
-							<Group wrap="nowrap">
-								<Button color="blue">Select all items</Button>
-								<Button color="red">Remove</Button>
+					<Form action={withQuery(".", { intent: "bulkRemove" })} method="POST">
+						<input
+							type="hidden"
+							name="collectionId"
+							defaultValue={loaderData.collectionId}
+						/>
+						<input
+							type="hidden"
+							name="items"
+							readOnly
+							value={bulkRemoveItems.map((i) => i.id).join(",")}
+						/>
+						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+							<Group wrap="nowrap" justify="space-between">
+								<Text>{bulkRemoveItems.length} items selected</Text>
+								<Group wrap="nowrap">
+									<Button color="blue">Select all items</Button>
+									<Button
+										color="red"
+										type="submit"
+										disabled={bulkRemoveItems.length === 0}
+									>
+										Remove
+									</Button>
+								</Group>
 							</Group>
-						</Group>
-					</Paper>
+						</Paper>
+					</Form>
 				</Affix>
 			) : null}
 			<Stack>
