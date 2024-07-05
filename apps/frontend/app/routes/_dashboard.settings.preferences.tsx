@@ -60,6 +60,7 @@ import {
 	getAuthorizationCookie,
 	getAuthorizationHeader,
 	getCookiesForApplication,
+	isWorkoutActive,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
@@ -70,7 +71,8 @@ const searchSchema = z.object({
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchSchema);
-	return { query };
+	const workoutInProgress = isWorkoutActive(request);
+	return { query, workoutInProgress };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -139,7 +141,12 @@ export default function Page() {
 	return (
 		<Container size="xs">
 			{toUpdatePreferences.length > 0 ? (
-				<Affix position={{ bottom: rem(40), right: rem(30) }}>
+				<Affix
+					position={{
+						bottom: rem(45),
+						right: rem(loaderData.workoutInProgress ? 100 : 40),
+					}}
+				>
 					<Form method="POST" action={`?defaultTab=${defaultTab}`} replace>
 						{toUpdatePreferences.map((pref) => (
 							<input
