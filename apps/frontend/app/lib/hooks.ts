@@ -67,7 +67,10 @@ export const useSearchParam = (replace?: boolean) => {
 };
 
 export const useCookieEnhancedSearchParam = (cookieKey: string) => {
-	const [searchParams, { setP, delP }] = useSearchParam(true);
+	const userPreferences = useUserPreferences();
+	const [searchParams, { setP, delP }] = useSearchParam(
+		userPreferences.general.persistQueries,
+	);
 
 	const updateCookieP = (key: string, value?: string | null) => {
 		const cookieValue = Cookies.get(cookieKey);
