@@ -75,6 +75,7 @@ import {
 	getAuthorizationHeader,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
+	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -151,6 +152,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 					getAuthorizationHeader(request),
 				);
 			}
+			await removeCachedUserCollectionsList(request);
 			return Response.json({});
 		},
 	});
@@ -197,9 +199,9 @@ export default function Page() {
 			{isBulkRemoving ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
-						action={withQuery(".", { intent: "bulkRemove" })}
 						method="POST"
 						reloadDocument
+						action={withQuery(".", { intent: "bulkRemove" })}
 					>
 						<input
 							type="hidden"
