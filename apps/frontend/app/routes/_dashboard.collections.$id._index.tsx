@@ -151,9 +151,7 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<{
-		id: string;
-	}>([]);
+	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<string>([]);
 
 	return (
 		<Container>
@@ -169,7 +167,7 @@ export default function Page() {
 							type="hidden"
 							name="items"
 							readOnly
-							value={bulkRemoveItems.map((i) => i.id).join(",")}
+							value={bulkRemoveItems.join(",")}
 						/>
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
@@ -254,7 +252,7 @@ export default function Page() {
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
 										const atIndex = bulkRemoveItems.findIndex(
-											(i) => i.id === lm.details.identifier,
+											(i) => i === lm.details.identifier,
 										);
 										return (
 											<MediaItemWithoutUpdateModal
@@ -276,9 +274,9 @@ export default function Page() {
 															onClick={(e) => {
 																e.preventDefault();
 																if (atIndex === -1)
-																	bulkRemoveItemsHandler.append({
-																		id: lm.details.identifier,
-																	});
+																	bulkRemoveItemsHandler.append(
+																		lm.details.identifier,
+																	);
 																else bulkRemoveItemsHandler.remove(atIndex);
 															}}
 														>
