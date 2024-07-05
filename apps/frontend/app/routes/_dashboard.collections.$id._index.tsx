@@ -6,7 +6,6 @@ import {
 	Container,
 	Flex,
 	Group,
-	Modal,
 	Pagination,
 	Select,
 	SimpleGrid,
@@ -15,12 +14,12 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
 	useNavigate,
+	useRouteLoaderData,
 } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
@@ -33,13 +32,11 @@ import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
-	IconFilterOff,
 	IconMessageCircle2,
 	IconSortAscending,
 	IconSortDescending,
 	IconUser,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -54,6 +51,7 @@ import {
 	useCoreDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { useFiltersModalData } from "~/lib/state/common";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
@@ -115,12 +113,9 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
+	const [_f, setFiltersModalData] = useFiltersModalData();
 
 	return (
 		<Container>
@@ -165,7 +160,13 @@ export default function Page() {
 									enhancedQueryParams={loaderData.cookieName}
 								/>
 								<ActionIcon
-									onClick={openFiltersModal}
+									onClick={() =>
+										setFiltersModalData({
+											children: <FiltersModal />,
+											cookieName: loaderData.cookieName,
+											navigate,
+										})
+									}
 									color={
 										loaderData.query.entityLot !== undefined ||
 										loaderData.query.metadataLot !== undefined ||
@@ -177,83 +178,6 @@ export default function Page() {
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
-								<Modal
-									opened={filtersModalOpened}
-									onClose={closeFiltersModal}
-									centered
-									withCloseButton={false}
-								>
-									<Stack>
-										<Group justify="space-between">
-											<Title order={3}>Filters</Title>
-											<ActionIcon
-												onClick={() => {
-													navigate(".");
-													closeFiltersModal();
-													Cookies.remove(loaderData.cookieName);
-												}}
-											>
-												<IconFilterOff size={24} />
-											</ActionIcon>
-										</Group>
-										<Flex gap="xs" align="center">
-											<Select
-												w="100%"
-												data={[
-													{
-														group: "Sort by",
-														items: Object.values(CollectionContentsSortBy).map(
-															(o) => ({
-																value: o.toString(),
-																label: startCase(o.toLowerCase()),
-															}),
-														),
-													},
-												]}
-												defaultValue={loaderData.query.sortBy}
-												onChange={(v) => setP("sortBy", v)}
-											/>
-											<ActionIcon
-												onClick={() => {
-													if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
-														setP("orderBy", GraphqlSortOrder.Desc);
-													else setP("orderBy", GraphqlSortOrder.Asc);
-												}}
-											>
-												{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
-													<IconSortAscending />
-												) : (
-													<IconSortDescending />
-												)}
-											</ActionIcon>
-										</Flex>
-										<Select
-											placeholder="Select an entity type"
-											defaultValue={loaderData.query.entityLot}
-											data={Object.values(EntityLot)
-												.filter((o) => o !== EntityLot.Collection)
-												.map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												}))}
-											onChange={(v) => setP("entityLot", v)}
-											clearable
-										/>
-										{loaderData.query.entityLot === EntityLot.Metadata ||
-										loaderData.query.entityLot === EntityLot.MetadataGroup ? (
-											<Select
-												placeholder="Select a media type"
-												defaultValue={loaderData.query.metadataLot}
-												data={Object.values(MediaLot).map((o) => ({
-													value: o.toString(),
-													label: startCase(o.toLowerCase()),
-												}))}
-												onChange={(v) => setP("metadataLot", v)}
-												clearable
-											/>
-										) : null}
-									</Stack>
-								</Modal>
 							</Group>
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
@@ -329,3 +253,69 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const FiltersModal = () => {
+	const loaderData = useRouteLoaderData<typeof loader>(
+		"routes/_dashboard.collections.$id._index",
+	);
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+
+	return (
+		<>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					data={[
+						{
+							group: "Sort by",
+							items: Object.values(CollectionContentsSortBy).map((o) => ({
+								value: o.toString(),
+								label: startCase(o.toLowerCase()),
+							})),
+						},
+					]}
+					defaultValue={loaderData.query.sortBy}
+					onChange={(v) => setP("sortBy", v)}
+				/>
+				<ActionIcon
+					onClick={() => {
+						if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
+							setP("orderBy", GraphqlSortOrder.Desc);
+						else setP("orderBy", GraphqlSortOrder.Asc);
+					}}
+				>
+					{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			</Flex>
+			<Select
+				placeholder="Select an entity type"
+				defaultValue={loaderData.query.entityLot}
+				data={Object.values(EntityLot)
+					.filter((o) => o !== EntityLot.Collection)
+					.map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+				onChange={(v) => setP("entityLot", v)}
+				clearable
+			/>
+			{loaderData.query.entityLot === EntityLot.Metadata ||
+			loaderData.query.entityLot === EntityLot.MetadataGroup ? (
+				<Select
+					placeholder="Select a media type"
+					defaultValue={loaderData.query.metadataLot}
+					data={Object.values(MediaLot).map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+					onChange={(v) => setP("metadataLot", v)}
+					clearable
+				/>
+			) : null}
+		</>
+	);
+};
