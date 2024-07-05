@@ -50,6 +50,7 @@ export type Exercise = {
 	images: Array<Media>;
 	supersetWith: Array<string>;
 	isShowDetailsOpen: boolean;
+	openedDetailsTab?: "images" | "history";
 };
 
 export type InProgressWorkout = {
@@ -202,6 +203,10 @@ export const addExerciseToWorkout = async (
 			notes: [],
 			images: [],
 			videos: [],
+			openedDetailsTab:
+				(exerciseDetails.userDetails.history?.length || 0) > 0
+					? "history"
+					: "images",
 		});
 	}
 	const finishedDraft = finishDraft(draft);

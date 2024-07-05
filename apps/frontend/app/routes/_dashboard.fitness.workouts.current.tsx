@@ -678,10 +678,6 @@ const ExerciseDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const [currentTimer] = useTimerAtom();
-	const [openedDetails, toggleOpenedDetails] = useToggle([
-		"history",
-		"images",
-	] as const);
 	const [detailsParent] = useAutoAnimate();
 	const { data: userExerciseDetails } = useQuery(
 		getUserExerciseDetailsQuery(exercise.exerciseId),
@@ -1015,8 +1011,8 @@ const ExerciseDisplay = (props: {
 					<Box ref={parent}>
 						{exercise.isShowDetailsOpen ? (
 							<Box mb="md" ref={detailsParent} pos="relative">
-								{match(openedDetails)
-									.with("images", () => (
+								{match(exercise.openedDetailsTab)
+									.with("images", undefined, () => (
 										<ScrollArea type="scroll">
 											<Group wrap="nowrap">
 												{exercise.exerciseDetails.images.map((i) => (
@@ -1080,10 +1076,19 @@ const ExerciseDisplay = (props: {
 										size="sm"
 										pos="absolute"
 										p={2}
-										onClick={() => toggleOpenedDetails()}
+										onClick={() => {
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.exercises[props.exerciseIdx].openedDetailsTab =
+														exercise.openedDetailsTab === "images"
+															? "history"
+															: "images";
+												}),
+											);
+										}}
 									>
-										{match(openedDetails)
-											.with("images", () => <IconPhoto />)
+										{match(exercise.openedDetailsTab)
+											.with("images", undefined, () => <IconPhoto />)
 											.with("history", () => <IconClock />)
 											.exhaustive()}
 									</ActionIcon>
@@ -1407,10 +1412,18 @@ const SetDisplay = (props: {
 												newConfirmed ? dayjsLib().toISOString() : null;
 											const isLastSet =
 												props.setIdx === currentExercise.sets.length - 1;
-											const nextExercise =
-												draft.exercises[props.exerciseIdx + 1];
+											const nextExerciseIdx = props.exerciseIdx + 1;
+											const nextExercise = draft.exercises[nextExerciseIdx];
 											if (newConfirmed && isLastSet) {
 												currentExercise.isShowDetailsOpen = false;
+												setTimeout(() => {
+													const nextExerciseElement = document.getElementById(
+														nextExerciseIdx.toString(),
+													);
+													nextExerciseElement?.scrollIntoView({
+														behavior: "smooth",
+													});
+												}, 500);
 												if (
 													nextExercise &&
 													exerciseHasDetailsToShow(nextExercise)
