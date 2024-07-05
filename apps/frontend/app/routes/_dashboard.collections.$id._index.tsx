@@ -14,7 +14,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useListState } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import { type MetaArgs_SingleFetch, useLoaderData } from "@remix-run/react";
 import {
@@ -31,8 +31,10 @@ import {
 	IconMessageCircle2,
 	IconSortAscending,
 	IconSortDescending,
+	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
+import { useState } from "react";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -57,6 +59,8 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+
+const DEFAULT_TAB = "contents";
 
 const defaultFiltersValue = {
 	sort: CollectionContentsSortBy.LastUpdatedOn,
@@ -111,15 +115,23 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
+	const [tab, setTab] = useState<string | null>(
+		loaderData.query.defaultTab || DEFAULT_TAB,
+	);
+	const [isBulkRemoving, setIsBulkRemoving] = useState(false);
 	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<{
+		id: string;
+	}>([]);
 
 	return (
 		<Container>
+			{JSON.stringify(bulkRemoveItems)}
 			<Stack>
 				<Box>
 					<Title>{loaderData.collectionContents.details.name}</Title>{" "}
@@ -132,7 +144,7 @@ export default function Page() {
 					</Text>
 				</Box>
 				<Text>{loaderData.collectionContents.details.description}</Text>
-				<Tabs defaultValue={loaderData.query.defaultTab || "contents"}>
+				<Tabs value={tab} onChange={setTab}>
 					<Tabs.List mb="xs">
 						<Tabs.Tab
 							value="contents"
@@ -183,18 +195,43 @@ export default function Page() {
 							</Group>
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
-									{loaderData.collectionContents.results.items.map((lm) => (
-										<MediaItemWithoutUpdateModal
-											key={lm.details.identifier}
-											item={{
-												...lm.details,
-												publishYear: lm.details.publishYear?.toString(),
-											}}
-											lot={lm.metadataLot}
-											entityLot={lm.entityLot}
-											reviewScale={userPreferences.general.reviewScale}
-										/>
-									))}
+									{loaderData.collectionContents.results.items.map((lm) => {
+										const atIndex = bulkRemoveItems.findIndex(
+											(i) => i.id === lm.details.identifier,
+										);
+										return (
+											<MediaItemWithoutUpdateModal
+												key={lm.details.identifier}
+												item={{
+													...lm.details,
+													publishYear: lm.details.publishYear?.toString(),
+												}}
+												lot={lm.metadataLot}
+												entityLot={lm.entityLot}
+												reviewScale={userPreferences.general.reviewScale}
+												topRight={
+													isBulkRemoving ? (
+														<ActionIcon
+															variant={
+																atIndex !== -1 ? "filled" : "transparent"
+															}
+															color="red"
+															onClick={(e) => {
+																e.preventDefault();
+																if (atIndex === -1)
+																	bulkRemoveItemsHandler.append({
+																		id: lm.details.identifier,
+																	});
+																else bulkRemoveItemsHandler.remove(atIndex);
+															}}
+														>
+															<IconTrashFilled size={18} />
+														</ActionIcon>
+													) : null
+												}
+											/>
+										);
+									})}
 								</ApplicationGrid>
 							) : (
 								<Text>You have not added anything this collection</Text>
@@ -228,6 +265,16 @@ export default function Page() {
 								}}
 							>
 								Post a review
+							</Button>
+							<Button
+								variant="outline"
+								w="100%"
+								onClick={() => {
+									setIsBulkRemoving(true);
+									setTab("contents");
+								}}
+							>
+								Bulk remove
 							</Button>
 						</SimpleGrid>
 					</Tabs.Panel>
