@@ -243,8 +243,8 @@ const collectionQueryKeys = createQueryKeys("collections", {
 	userList: (userId: string) => ({
 		queryKey: ["userCollectionsList", userId],
 	}),
-	details: (collectionId: string) => ({
-		queryKey: ["collectionDetails", collectionId],
+	details: (collectionId: string, take?: number) => ({
+		queryKey: ["collectionDetails", collectionId, take],
 	}),
 });
 
