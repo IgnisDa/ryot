@@ -290,7 +290,7 @@ export default function Page() {
 										value={`${
 											currentWorkout.exercises
 												.map((e) => e.sets.every((s) => s.confirmedAt))
-												.filter((e) => e !== null).length
+												.filter(Boolean).length
 										}/${currentWorkout.exercises.length}`}
 									/>
 									<StatDisplay
