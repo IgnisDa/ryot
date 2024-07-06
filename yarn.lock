@@ -3822,6 +3822,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@paddle/paddle-js@npm:1.2.0":
+  version: 1.2.0
+  resolution: "@paddle/paddle-js@npm:1.2.0"
+  checksum: 10/87bf72de59f6ef728dcba9581c893608c09b8d897414f8fff4544461db3a54231709e723a79c3090768072169b9981f92fbb51b6ea836142328741593c077192
+  languageName: node
+  linkType: hard
+
 "@peculiar/asn1-schema@npm:^2.3.6":
   version: 2.3.6
   resolution: "@peculiar/asn1-schema@npm:2.3.6"
@@ -4292,6 +4299,7 @@ __metadata:
     "@astrojs/sitemap": "npm:3.1.6"
     "@astrojs/tailwind": "npm:5.1.0"
     "@fontsource-variable/rubik": "npm:5.0.22"
+    "@paddle/paddle-js": "npm:1.2.0"
     "@tailwindcss/typography": "npm:0.5.13"
     astro: "npm:4.11.5"
     astro-robots-txt: "npm:1.0.0"
