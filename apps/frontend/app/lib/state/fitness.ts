@@ -164,6 +164,10 @@ export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
 			supersetWith: [],
 			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
 			sets: sets,
+			openedDetailsTab:
+				(exerciseDetails.userDetails.history?.length || 0) > 0
+					? "history"
+					: "images",
 		});
 	}
 	for (const [idx, exercise] of workout.information.exercises.entries()) {
