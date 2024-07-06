@@ -331,7 +331,7 @@ export default function Page() {
 										variant="subtle"
 										onClick={timerDrawerToggle}
 										radius="md"
-										size="compact-md"
+										size="compact-sm"
 									>
 										{currentTimer
 											? dayjsLib
@@ -346,7 +346,7 @@ export default function Page() {
 												variant="subtle"
 												onClick={reorderDrawerToggle}
 												radius="md"
-												size="compact-md"
+												size="compact-sm"
 											>
 												Reorder
 											</Button>
@@ -358,7 +358,7 @@ export default function Page() {
 												color="green"
 												variant="subtle"
 												radius="md"
-												size="compact-md"
+												size="compact-sm"
 												onClick={async () => {
 													if (!currentWorkout.name) {
 														notifications.show({
@@ -410,7 +410,7 @@ export default function Page() {
 										color="red"
 										variant="subtle"
 										radius="md"
-										size="compact-md"
+										size="compact-sm"
 										onClick={async () => {
 											const yes = await confirmWrapper({
 												confirmation:
@@ -422,7 +422,7 @@ export default function Page() {
 													for (const asset of assets)
 														deleteUploadedAsset(asset.key);
 												}
-												navigate(-1);
+												navigate($path("/"), { replace: true });
 												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
 											}
