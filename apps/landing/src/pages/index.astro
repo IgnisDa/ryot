@@ -1,0 +1,23 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Contact from "@/sections/Contact.astro";
+import Footer from "@/sections/Footer.astro";
+import Header from "@/sections/Header.astro";
+import Hero from "@/sections/Hero.astro";
+import Pricing from "@/sections/Pricing.astro";
+import { getLandingData } from "@/services/data.service";
+
+const data = await getLandingData();
+---
+
+<Layout meta={data.meta}>
+  <Header data={data.headerData} />
+  <main class="flex flex-col justify-center items-center">
+    <div class="w-4/5">
+      <Hero data={data.heroData} />
+      <Pricing data={data.pricingData} />
+      <Contact />
+    </div>
+    <Footer data={data.footerData} />
+  </main>
+</Layout>

@@ -1,5 +1,6 @@
 procs:
   Backend: "cargo watch --ignore 'docs/includes' --ignore 'libs/generated' -qx 'run --package ryot'"
   Frontend: "moon run frontend:dev"
+  Landing: "moon run landing:dev"
   Main Reverse Proxy: "caddy run --config ci/Caddyfile"
   Minio Reverse Proxy: "caddy reverse-proxy --from :9000 --to minio:9000"

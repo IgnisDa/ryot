@@ -1,0 +1,54 @@
+---
+import Background from "@/components/Background.astro";
+import type { Meta } from "@/config/landing.interface";
+import "@fontsource-variable/rubik";
+
+interface Props {
+	meta: Meta;
+}
+
+const { meta } = Astro.props;
+
+const ldJson = JSON.stringify(meta.ldJson);
+---
+
+<!doctype html>
+<html
+  class="scrollbar-thin scrollbar-thumb-black scrollbar-track-transparent scroll-smooth"
+  lang={meta.lang ?? "en"}
+>
+  <head>
+    <meta charset={meta.charset ?? "UTF-8"} />
+    <title>{meta.title}</title>
+    <meta name="description" content={meta.description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href={meta.ldJson.logo} />
+    <link rel="canonical" href={import.meta.env.SITE} />
+    <script type="application/ld+json" set:html={ldJson} is:inline />
+    <script
+      defer
+      data-website-id="65cf9bb3-381b-4ea4-b87d-b40a23a0204f"
+      src="https://umami.diptesh.me/script.js"
+      data-domains="ryot.io,www.ryot.io"
+      is:inline></script>
+  </head>
+  <body class="bg-white">
+    <Background />
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  body {
+    font-family:
+      "Rubik Variable",
+      Menlo,
+      Monaco,
+      Lucida Console,
+      Liberation Mono,
+      DejaVu Sans Mono,
+      Bitstream Vera Sans Mono,
+      Courier New,
+      monospace;
+  }
+</style>
