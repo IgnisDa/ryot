@@ -51,11 +51,10 @@ use crate::{
     },
     entities::prelude::Exercise,
     graphql::get_schema,
-    models::CompleteExport,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
-    utils::{create_app_services, BASE_DIR, VERSION},
+    utils::{create_app_services, VERSION},
 };
 
 mod background;
@@ -174,37 +173,6 @@ async fn main() -> Result<()> {
             .exercise_service
             .deploy_update_exercise_library_job()
             .await
-            .unwrap();
-    }
-
-    if cfg!(debug_assertions) {
-        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
-
-        // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
-        let base_dir = PathBuf::from(BASE_DIR)
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("docs")
-            .join("includes");
-
-        let mut generator = SchemaGenerator::default();
-        generator.add::<config::AppConfig>();
-        generator
-            .generate(
-                base_dir.join("backend-config-schema.yaml"),
-                YamlTemplateRenderer::default(),
-            )
-            .unwrap();
-
-        let mut generator = SchemaGenerator::default();
-        generator.add::<CompleteExport>();
-        generator
-            .generate(
-                base_dir.join("export-schema.ts"),
-                TypeScriptRenderer::default(),
-            )
             .unwrap();
     }
 

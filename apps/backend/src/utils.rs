@@ -42,7 +42,6 @@ use crate::{
     traits::TraceOk,
 };
 
-pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 #[cfg(debug_assertions)]
 pub const VERSION: &str = dotenvy_macro::dotenv!("APP_VERSION");
 #[cfg(not(debug_assertions))]
