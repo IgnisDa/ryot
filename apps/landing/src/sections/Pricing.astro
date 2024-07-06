@@ -11,6 +11,42 @@ interface Props {
 const { data } = Astro.props;
 ---
 
+<script>
+  import * as Paddle from "@paddle/paddle-js";
+
+  const isPaddleSanbox = import.meta.env.PUBLIC_PADDLE_SANDBOX === "true";
+  const paddleClientToken = import.meta.env.PUBLIC_PADDLE_CLIENT_TOKEN;
+  let paddlePricings = import.meta.env.PUBLIC_PADDLE_PRICINGS;
+
+  if (!paddleClientToken || !paddlePricings)
+    throw new Error("Paddle client token or pricings are not set");
+
+  const parsedPaddlePricings: Record<string, string> =
+    JSON.parse(paddlePricings);
+
+  const paddle = await Paddle.initializePaddle({
+    token: paddleClientToken,
+    environment: isPaddleSanbox ? "sandbox" : undefined,
+  });
+
+  if (!paddle) throw new Error("Paddle could not be initialized");
+
+  const checkoutButtons = document.querySelectorAll(".checkout-button");
+
+  if (Object.keys(parsedPaddlePricings).length !== checkoutButtons.length)
+    throw new Error("Paddle pricings and buttons do not match");
+
+  for (const button of checkoutButtons) {
+    const tier = button.getAttribute("data-tier")?.toLowerCase();
+    if (!tier) throw new Error("Tier is not set");
+    const priceId = parsedPaddlePricings[tier];
+
+    button.addEventListener("click", () => {
+      paddle.Checkout.open({ items: [{ priceId }] });
+    });
+  }
+</script>
+
 <section class="mt-48" id="pricing-section">
   <SectionTitle>
     {data.title}
@@ -49,11 +85,9 @@ const { data } = Astro.props;
           <footer class="flex justify-center">
             <Action
               as="a"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="bg-primary text-white w-72"
+              class="bg-primary text-white w-72 checkout-button cursor-pointer"
               type="button"
-              href={data.discord}
+              data-tier={tier.title}
             >
               {tier.cta}
             </Action>
