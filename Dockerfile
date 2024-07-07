@@ -64,4 +64,9 @@ COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules .
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
 COPY --from=backend-builder --chown=ryot:ryot /app/ryot /usr/local/bin/ryot
-CMD ["/usr/local/bin/entrypoint.sh"]
+CMD [ \
+    "concurrently", "--names", "frontend,backend,proxy", "--kill-others", \
+    "PORT=3000 npx remix-serve ./build/server/index.js", \
+    "BACKEND_PORT=5000 /usr/local/bin/ryot", \
+    "caddy run --config /etc/caddy/Caddyfile" \
+]
