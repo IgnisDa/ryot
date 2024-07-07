@@ -40,7 +40,6 @@ export const LOGO_IMAGE_URL =
 export const redirectToQueryParam = "redirectTo";
 export const AUTH_COOKIE_NAME = "Auth";
 export const USER_PREFERENCES_COOKIE_NAME = "UserPreferences";
-export const CORE_DETAILS_COOKIE_NAME = "CoreDetails";
 export const USER_DETAILS_COOKIE_NAME = "UserDetails";
 
 const enhancedSearchParamCookie = "SearchParams__";

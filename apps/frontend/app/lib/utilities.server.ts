@@ -26,7 +26,6 @@ import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
-	CORE_DETAILS_COOKIE_NAME,
 	CurrentWorkoutKey,
 	USER_DETAILS_COOKIE_NAME,
 	USER_PREFERENCES_COOKIE_NAME,
@@ -320,7 +319,7 @@ export const getToast = async (request: Request) => {
 export const getCookiesForApplication = async (token: string) => {
 	const [{ coreDetails }, { userPreferences }, { userDetails }] =
 		await Promise.all([
-			serverGqlService.request(CoreDetailsDocument),
+			getCachedCoreDetails(),
 			serverGqlService.request(
 				UserPreferencesDocument,
 				undefined,
@@ -335,13 +334,6 @@ export const getCookiesForApplication = async (token: string) => {
 	const maxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies CookieSerializeOptions;
 	return combineHeaders(
-		{
-			"set-cookie": serialize(
-				CORE_DETAILS_COOKIE_NAME,
-				JSON.stringify(coreDetails),
-				options,
-			),
-		},
 		{
 			"set-cookie": serialize(
 				USER_PREFERENCES_COOKIE_NAME,
@@ -363,11 +355,6 @@ export const getCookiesForApplication = async (token: string) => {
 export const getLogoutCookies = () => {
 	return combineHeaders(
 		{ "set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }) },
-		{
-			"set-cookie": serialize(CORE_DETAILS_COOKIE_NAME, "", {
-				expires: new Date(0),
-			}),
-		},
 		{
 			"set-cookie": serialize(USER_PREFERENCES_COOKIE_NAME, "", {
 				expires: new Date(0),
