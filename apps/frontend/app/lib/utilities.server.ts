@@ -176,7 +176,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 					getAuthorizationHeader(request),
 				)
 				.then((data) => data.userCollectionsList),
-		gcTime: dayjsLib.duration(1, "hour").asMilliseconds(),
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
 };
 
