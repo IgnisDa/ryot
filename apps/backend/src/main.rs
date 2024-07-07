@@ -166,6 +166,13 @@ async fn main() -> Result<()> {
     )
     .await;
 
+    if let Some(_arg) = env::args().nth(1) {
+        let core_details_dump_path = PathBuf::new().join(TEMP_DIR).join("core-details.json");
+        let details = app_services.media_service.core_details().await;
+        fs::write(core_details_dump_path, serde_json::to_string(&details)?)?;
+        return Ok(());
+    }
+
     if Exercise::find().count(&db).await? == 0 {
         tracing::info!("Instance does not have exercises data. Deploying job to download them...");
         app_services
