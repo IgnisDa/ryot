@@ -335,9 +335,6 @@ pub struct ServerConfig {
     /// The OIDC related settings.
     #[setting(nested)]
     pub oidc: OidcConfig,
-    /// The path where the config file will be written once the server boots up.
-    #[setting(default = format!("tmp/{}-config.json", PROJECT_NAME))]
-    pub config_dump_path: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
@@ -454,7 +451,6 @@ impl AppConfig {
         cl.podcasts.listennotes.api_token = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
-        cl.server.config_dump_path = gt();
         cl.server.cors_origins = vec![gt()];
         cl.users.jwt_secret = gt();
         cl.server.smtp.server = gt();

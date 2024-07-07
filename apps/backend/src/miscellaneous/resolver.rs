@@ -542,7 +542,7 @@ struct MediaConsumedInput {
 }
 
 #[derive(SimpleObject)]
-struct CoreDetails {
+pub struct CoreDetails {
     is_pro: bool,
     page_limit: i32,
     timezone: String,
@@ -1441,7 +1441,7 @@ impl MiscellaneousService {
 type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 
 impl MiscellaneousService {
-    async fn core_details(&self) -> Result<CoreDetails> {
+    pub async fn core_details(&self) -> Result<CoreDetails> {
         Ok(CoreDetails {
             is_pro: false,
             author_name: AUTHOR.to_owned(),

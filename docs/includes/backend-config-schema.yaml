@@ -145,10 +145,6 @@ scheduler:
 
 # Settings related to server.
 server:
-  # The path where the config file will be written once the server boots up.
-  # @envvar SERVER_CONFIG_DUMP_PATH
-  config_dump_path: ""
-
   # An array of URLs for CORS.
   # @envvar SERVER_CORS_ORIGINS
   cors_origins: []
