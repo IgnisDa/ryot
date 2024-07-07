@@ -125,7 +125,7 @@ import {
 	serverVariables as envData,
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
-	getUserPreferences,
+	getCachedUserPreferences,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
@@ -137,7 +137,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections, { coreDetails }] = await Promise.all(
 		[
-			getUserPreferences(request),
+			getCachedUserPreferences(request),
 			getCachedUserCollectionsList(request),
 			getCachedCoreDetails(),
 		],
