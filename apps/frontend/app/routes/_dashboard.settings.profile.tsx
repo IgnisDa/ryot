@@ -14,11 +14,8 @@ import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
 import { useUserDetails } from "~/lib/hooks";
 import {
-	combineHeaders,
 	createToastHeaders,
-	getAuthorizationCookie,
 	getAuthorizationHeader,
-	getCookiesForApplication,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
@@ -35,13 +32,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 		{ input: submission },
 		getAuthorizationHeader(request),
 	);
-	const token = getAuthorizationCookie(request);
-	const applicationHeaders = await getCookiesForApplication(token);
 	const toastHeaders = await createToastHeaders({
 		message: "Profile updated. Please login again for changes to take effect.",
 	});
 	return Response.json({ status: "success", submission } as const, {
-		headers: combineHeaders(toastHeaders, applicationHeaders),
+		headers: toastHeaders,
 	});
 });
 
