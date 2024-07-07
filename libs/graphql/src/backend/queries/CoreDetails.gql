@@ -1,6 +1,7 @@
 query CoreDetails {
   coreDetails {
     isPro
+    version
     timezone
     docsLink
     pageLimit
