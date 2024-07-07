@@ -650,7 +650,7 @@ const Footer = () => {
 					</Text>
 				</Anchor>
 				<Text c="grape" fw="bold" visibleFrom="md">
-					{loaderData.coreDetails.timezone}
+					{loaderData.coreDetails.version}
 				</Text>
 				<Anchor href={loaderData.coreDetails.repositoryLink} target="_blank">
 					<Text c="orange" fw="bold">
