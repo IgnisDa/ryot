@@ -541,7 +541,7 @@ struct MediaConsumedInput {
     lot: MediaLot,
 }
 
-#[derive(SimpleObject)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     is_pro: bool,
     page_limit: i32,
@@ -761,7 +761,7 @@ pub struct MiscellaneousQuery;
 #[Object]
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
-    async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_details().await
     }
@@ -1441,8 +1441,8 @@ impl MiscellaneousService {
 type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 
 impl MiscellaneousService {
-    pub async fn core_details(&self) -> Result<CoreDetails> {
-        Ok(CoreDetails {
+    pub async fn core_details(&self) -> CoreDetails {
+        CoreDetails {
             is_pro: false,
             author_name: AUTHOR.to_owned(),
             timezone: self.timezone.to_string(),
@@ -1453,7 +1453,7 @@ impl MiscellaneousService {
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
-        })
+        }
     }
 
     fn get_integration_service(&self) -> IntegrationService {
