@@ -258,10 +258,17 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
+const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
+	coreDetails: () => ({
+		queryKey: ["coreDetails"],
+	}),
+});
+
 export const queryFactory = mergeQueryKeys(
 	mediaQueryKeys,
 	collectionQueryKeys,
 	fitnessQueryKeys,
+	miscellaneousQueryKeys,
 );
 
 export const convertEntityToIndividualId = (

@@ -57,7 +57,7 @@ import {
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
-	type CoreDetails,
+	CoreDetailsDocument,
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
@@ -101,7 +101,6 @@ import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import {
-	CORE_DETAILS_COOKIE_NAME,
 	LOGO_IMAGE_URL,
 	Verb,
 	getLot,
@@ -126,10 +125,10 @@ import {
 import {
 	serverVariables as envData,
 	getCachedUserCollectionsList,
-	getCookieValue,
 	getUserPreferences,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
@@ -137,12 +136,17 @@ import classes from "~/styles/dashboard.module.css";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userPreferences, userCollections] = await Promise.all([
-		getUserPreferences(request),
-		getCachedUserCollectionsList(request),
-	]);
-	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
-	const coreDetails = JSON.parse(details) as CoreDetails;
+	const [userPreferences, userCollections, { coreDetails }] = await Promise.all(
+		[
+			getUserPreferences(request),
+			getCachedUserCollectionsList(request),
+			queryClient.ensureQueryData({
+				queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
+				queryFn: () => serverGqlService.request(CoreDetailsDocument),
+				staleTime: Number.POSITIVE_INFINITY,
+			}),
+		],
+	);
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
