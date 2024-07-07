@@ -57,7 +57,6 @@ import {
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
-	CoreDetailsDocument,
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
@@ -124,11 +123,11 @@ import {
 } from "~/lib/state/media";
 import {
 	serverVariables as envData,
+	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getUserPreferences,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
-	serverGqlService,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
@@ -140,11 +139,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		[
 			getUserPreferences(request),
 			getCachedUserCollectionsList(request),
-			queryClient.ensureQueryData({
-				queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
-				queryFn: () => serverGqlService.request(CoreDetailsDocument),
-				staleTime: Number.POSITIVE_INFINITY,
-			}),
+			getCachedCoreDetails(),
 		],
 	);
 

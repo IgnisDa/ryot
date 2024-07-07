@@ -138,6 +138,14 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 	return submission.value;
 };
 
+export const getCachedCoreDetails = async () => {
+	return await queryClient.ensureQueryData({
+		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
+		queryFn: () => serverGqlService.request(CoreDetailsDocument),
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+};
+
 export const getCachedUserCollectionsList = async (request: Request) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	return queryClient.ensureQueryData({
