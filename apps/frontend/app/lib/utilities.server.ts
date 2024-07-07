@@ -12,7 +12,6 @@ import {
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
-	type User,
 	UserCollectionsListDocument,
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -26,7 +25,6 @@ import { type ZodTypeAny, type output, z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CurrentWorkoutKey,
-	USER_DETAILS_COOKIE_NAME,
 	dayjsLib,
 	queryClient,
 	queryFactory,
@@ -55,16 +53,9 @@ export const getAuthorizationHeader = (request?: Request, token?: string) => {
 	return { Authorization: `Bearer ${cookie}` };
 };
 
-export const getIsAuthenticated = (request: Request) => {
-	const cookie = getAuthorizationCookie(request);
-	if (!cookie) return [false, null] as const;
-	const value = getCookieValue(request, USER_DETAILS_COOKIE_NAME);
-	return [true, JSON.parse(value) as User] as const;
-};
-
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
-	const [isAuthenticated, userDetails] = getIsAuthenticated(request);
-	if (!isAuthenticated) {
+	const { userDetails } = await getCachedUserDetails(request);
+	if (!userDetails || userDetails.__typename === "UserDetailsError") {
 		const nextUrl = withoutHost(request.url);
 		throw redirect($path("/auth", { [redirectToQueryParam]: nextUrl }), {
 			status: 302,
@@ -139,6 +130,20 @@ export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
 		queryFn: () => serverGqlService.request(CoreDetailsDocument),
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+};
+
+export const getCachedUserDetails = async (request: Request) => {
+	const token = getAuthorizationCookie(request);
+	return await queryClient.ensureQueryData({
+		queryKey: queryFactory.users.details(token).queryKey,
+		queryFn: () =>
+			serverGqlService.request(
+				UserDetailsDocument,
+				undefined,
+				getAuthorizationHeader(request),
+			),
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 };
@@ -325,37 +330,18 @@ export const getToast = async (request: Request) => {
 };
 
 export const getCookiesForApplication = async (token: string) => {
-	const [{ coreDetails }, { userDetails }] = await Promise.all([
-		getCachedCoreDetails(),
-		serverGqlService.request(
-			UserDetailsDocument,
-			undefined,
-			getAuthorizationHeader(undefined, token),
-		),
-	]);
+	const [{ coreDetails }] = await Promise.all([getCachedCoreDetails()]);
 	const maxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies CookieSerializeOptions;
-	return combineHeaders(
-		{
-			"set-cookie": serialize(
-				USER_DETAILS_COOKIE_NAME,
-				JSON.stringify(userDetails),
-				options,
-			),
-		},
-		{ "set-cookie": serialize(AUTH_COOKIE_NAME, token, options) },
-	);
+	return combineHeaders({
+		"set-cookie": serialize(AUTH_COOKIE_NAME, token, options),
+	});
 };
 
 export const getLogoutCookies = () => {
-	return combineHeaders(
-		{ "set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }) },
-		{
-			"set-cookie": serialize(USER_DETAILS_COOKIE_NAME, "", {
-				expires: new Date(0),
-			}),
-		},
-	);
+	return combineHeaders({
+		"set-cookie": serialize(AUTH_COOKIE_NAME, "", { expires: new Date(0) }),
+	});
 };
 
 export const extendResponseHeaders = (
