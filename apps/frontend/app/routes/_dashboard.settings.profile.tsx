@@ -12,13 +12,12 @@ import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useRef } from "react";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
+import { queryClient, queryFactory } from "~/lib/generals";
 import { useUserDetails } from "~/lib/hooks";
 import {
-	combineHeaders,
 	createToastHeaders,
 	getAuthorizationCookie,
 	getAuthorizationHeader,
-	getCookiesForApplication,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
@@ -28,6 +27,7 @@ export const meta = (_args: MetaArgs_SingleFetch) => {
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
+	const token = getAuthorizationCookie(request);
 	const formData = await request.formData();
 	const submission = processSubmission(formData, updateProfileFormSchema);
 	await serverGqlService.request(
@@ -35,13 +35,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 		{ input: submission },
 		getAuthorizationHeader(request),
 	);
-	const token = getAuthorizationCookie(request);
-	const applicationHeaders = await getCookiesForApplication(token);
-	const toastHeaders = await createToastHeaders({
-		message: "Profile updated. Please login again for changes to take effect.",
+	queryClient.removeQueries({
+		queryKey: queryFactory.users.details(token).queryKey,
 	});
 	return Response.json({ status: "success", submission } as const, {
-		headers: combineHeaders(toastHeaders, applicationHeaders),
+		headers: await createToastHeaders({
+			message: "Profile updated successfully",
+		}),
 	});
 });
 

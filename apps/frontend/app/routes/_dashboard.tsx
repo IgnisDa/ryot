@@ -57,7 +57,6 @@ import {
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
-	type CoreDetails,
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
@@ -101,7 +100,6 @@ import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
 import events from "~/lib/events";
 import {
-	CORE_DETAILS_COOKIE_NAME,
 	LOGO_IMAGE_URL,
 	Verb,
 	getLot,
@@ -125,9 +123,9 @@ import {
 } from "~/lib/state/media";
 import {
 	serverVariables as envData,
+	getCachedCoreDetails,
 	getCachedUserCollectionsList,
-	getCookieValue,
-	getUserPreferences,
+	getCachedUserPreferences,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
@@ -137,12 +135,13 @@ import classes from "~/styles/dashboard.module.css";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userPreferences, userCollections] = await Promise.all([
-		getUserPreferences(request),
-		getCachedUserCollectionsList(request),
-	]);
-	const details = getCookieValue(request, CORE_DETAILS_COOKIE_NAME);
-	const coreDetails = JSON.parse(details) as CoreDetails;
+	const [userPreferences, userCollections, { coreDetails }] = await Promise.all(
+		[
+			getCachedUserPreferences(request),
+			getCachedUserCollectionsList(request),
+			getCachedCoreDetails(),
+		],
+	);
 
 	const mediaLinks = [
 		...(Object.entries(userPreferences.featuresEnabled.media || {})
@@ -651,7 +650,7 @@ const Footer = () => {
 					</Text>
 				</Anchor>
 				<Text c="grape" fw="bold" visibleFrom="md">
-					{loaderData.coreDetails.timezone}
+					{loaderData.coreDetails.version}
 				</Text>
 				<Anchor href={loaderData.coreDetails.repositoryLink} target="_blank">
 					<Text c="orange" fw="bold">

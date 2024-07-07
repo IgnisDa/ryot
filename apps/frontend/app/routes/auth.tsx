@@ -42,9 +42,9 @@ import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
+	getAuthorizationCookie,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
-	getIsAuthenticated,
 	processSubmission,
 	redirectWithToast,
 	serverGqlService,
@@ -59,7 +59,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema> &
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [isAuthenticated, _] = await getIsAuthenticated(request);
+	const isAuthenticated = !!getAuthorizationCookie(request);
 	if (isAuthenticated)
 		throw await redirectWithToast($path("/"), {
 			message: "You were already logged in",

@@ -54,7 +54,7 @@ import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
 	getCachedUserCollectionsList,
-	getUserPreferences,
+	getCachedUserPreferences,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -67,7 +67,7 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 };
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const preferences = await getUserPreferences(request);
+	const preferences = await getCachedUserPreferences(request);
 	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
 	const userCollectionsList = await getCachedUserCollectionsList(request);

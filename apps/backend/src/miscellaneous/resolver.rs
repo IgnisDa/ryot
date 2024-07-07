@@ -120,7 +120,7 @@ use crate::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
         get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
         partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES,
-        TEMP_DIR,
+        TEMP_DIR, VERSION,
     },
 };
 
@@ -541,10 +541,11 @@ struct MediaConsumedInput {
     lot: MediaLot,
 }
 
-#[derive(SimpleObject)]
+#[derive(Debug, SimpleObject, Serialize, Deserialize)]
 struct CoreDetails {
     is_pro: bool,
     page_limit: i32,
+    version: String,
     timezone: String,
     docs_link: String,
     oidc_enabled: bool,
@@ -761,7 +762,7 @@ pub struct MiscellaneousQuery;
 #[Object]
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
-    async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_details().await
     }
@@ -1441,9 +1442,10 @@ impl MiscellaneousService {
 type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 
 impl MiscellaneousService {
-    async fn core_details(&self) -> Result<CoreDetails> {
-        Ok(CoreDetails {
+    async fn core_details(&self) -> CoreDetails {
+        CoreDetails {
             is_pro: false,
+            version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             timezone: self.timezone.to_string(),
             oidc_enabled: self.oidc_client.is_some(),
@@ -1453,7 +1455,7 @@ impl MiscellaneousService {
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
-        })
+        }
     }
 
     fn get_integration_service(&self) -> IntegrationService {

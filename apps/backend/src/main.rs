@@ -104,10 +104,9 @@ async fn main() -> Result<()> {
     let pull_every_minutes = config.integration.pull_every_minutes;
     let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
-    fs::write(
-        &config.server.config_dump_path,
-        serde_json::to_string_pretty(&config)?,
-    )?;
+
+    let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
+    fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))

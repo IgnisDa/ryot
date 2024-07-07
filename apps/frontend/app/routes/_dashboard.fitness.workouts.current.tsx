@@ -1,4 +1,3 @@
-// biome-ignore lint/style/useNodejsImportProtocol: This is a browser import
 import { Buffer } from "buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
