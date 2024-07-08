@@ -46,6 +46,7 @@ use crate::{
 pub const VERSION: &str = dotenvy_macro::dotenv!("APP_VERSION");
 #[cfg(not(debug_assertions))]
 pub const VERSION: &str = env!("APP_VERSION");
+pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const USER_AGENT_STR: &str = const_str::concat!(

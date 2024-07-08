@@ -39,9 +39,6 @@ export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 export const redirectToQueryParam = "redirectTo";
 export const AUTH_COOKIE_NAME = "Auth";
-export const USER_PREFERENCES_COOKIE_NAME = "UserPreferences";
-export const CORE_DETAILS_COOKIE_NAME = "CoreDetails";
-export const USER_DETAILS_COOKIE_NAME = "UserDetails";
 
 const enhancedSearchParamCookie = "SearchParams__";
 export const enhancedCookieName = (name: string) =>
@@ -231,6 +228,15 @@ export const getSurroundingElements = <T>(
 	return [elementIndex - 1, elementIndex, elementIndex + 1];
 };
 
+const usersQueryKeys = createQueryKeys("users", {
+	details: (token: string) => ({
+		queryKey: ["userDetails", token],
+	}),
+	preferences: (userId: string) => ({
+		queryKey: ["userPreferences", userId],
+	}),
+});
+
 const mediaQueryKeys = createQueryKeys("media", {
 	metadataDetails: (metadataId: string) => ({
 		queryKey: ["metadataDetails", metadataId],
@@ -258,10 +264,18 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 });
 
+const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
+	coreDetails: () => ({
+		queryKey: ["coreDetails"],
+	}),
+});
+
 export const queryFactory = mergeQueryKeys(
+	usersQueryKeys,
 	mediaQueryKeys,
 	collectionQueryKeys,
 	fitnessQueryKeys,
+	miscellaneousQueryKeys,
 );
 
 export const convertEntityToIndividualId = (

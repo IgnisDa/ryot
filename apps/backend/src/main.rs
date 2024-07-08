@@ -23,6 +23,7 @@ use axum::{
     routing::{get, post, Router},
     Extension,
 };
+use chrono::{TimeZone, Utc};
 use database::Migrator;
 use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
@@ -42,7 +43,7 @@ use tower_http::{
     trace::TraceLayer as TowerTraceLayer,
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::TEMP_DIR;
+use utils::{COMPILATION_TIMESTAMP, TEMP_DIR};
 
 use crate::{
     background::{
@@ -103,10 +104,9 @@ async fn main() -> Result<()> {
     let pull_every_minutes = config.integration.pull_every_minutes;
     let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
-    fs::write(
-        &config.server.config_dump_path,
-        serde_json::to_string_pretty(&config)?,
-    )?;
+
+    let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
+    fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
     verify_pro_key(&config.server.pro_key).await?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
@@ -152,10 +152,11 @@ async fn main() -> Result<()> {
     let perform_application_job_storage = MemoryStorage::new();
     let perform_core_application_job_storage = MemoryStorage::new();
 
+    let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    tracing::info!("Using timezone: {}", tz);
+    tracing::info!("Compiled at: {}, using timezone: {}", compile_timestamp, tz);
 
     let app_services = create_app_services(
         db.clone(),

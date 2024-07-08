@@ -53,14 +53,13 @@ import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { queryClient, queryFactory } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import {
-	combineHeaders,
 	createToastHeaders,
-	getAuthorizationCookie,
 	getAuthorizationHeader,
-	getCookiesForApplication,
 	isWorkoutActive,
+	redirectIfNotAuthenticatedOrUpdated,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
@@ -87,6 +86,7 @@ const notificationContent = {
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const entries = Object.entries(Object.fromEntries(await request.formData()));
 	const submission = [];
 	for (let [property, value] of entries) {
@@ -106,16 +106,14 @@ export const action = unstable_defineAction(async ({ request }) => {
 			getAuthorizationHeader(request),
 		);
 	}
-	const token = getAuthorizationCookie(request);
-	const applicationHeaders = await getCookiesForApplication(token);
+	queryClient.removeQueries({
+		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
+	});
 	const toastHeaders = await createToastHeaders({
 		message: "Preferences updated",
 		type: "success",
 	});
-	return Response.json(
-		{},
-		{ headers: combineHeaders(applicationHeaders, toastHeaders) },
-	);
+	return Response.json({}, { headers: toastHeaders });
 });
 
 export default function Page() {
