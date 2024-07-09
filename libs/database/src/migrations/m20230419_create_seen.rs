@@ -28,6 +28,7 @@ pub enum Seen {
     MangaExtraInformation,
     ProviderWatchedOn,
     TotalTimeSpent,
+    ManualTimeSpent,
 }
 
 #[async_trait::async_trait]
@@ -82,6 +83,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Seen::MetadataId).text().not_null())
                     .col(ColumnDef::new(Seen::UserId).text().not_null())
+                    .col(ColumnDef::new(Seen::ManualTimeSpent).decimal())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")

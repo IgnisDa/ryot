@@ -31,6 +31,7 @@ mod m20240620_add_minimum_and_maximum_progress_columns_to_integration;
 mod m20240620_delete_invalid_calendar_events;
 mod m20240621_add_sync_to_owned_collection_to_integration;
 mod m20240704_add_new_preference_for_persisted_queries;
+mod m20240709_add_manual_time_spent_column_to_seen;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -83,6 +84,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240621_add_sync_to_owned_collection_to_integration::Migration),
             Box::new(m20240620_add_minimum_and_maximum_progress_columns_to_integration::Migration),
             Box::new(m20240704_add_new_preference_for_persisted_queries::Migration),
+            Box::new(m20240709_add_manual_time_spent_column_to_seen::Migration),
         ]
     }
 }

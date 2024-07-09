@@ -636,6 +636,7 @@ struct EditSeenItemInput {
     seen_id: String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
+    manual_time_spent: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -3169,6 +3170,9 @@ impl MiscellaneousService {
         }
         if let Some(finished_on) = input.finished_on {
             seen.finished_on = ActiveValue::Set(Some(finished_on));
+        }
+        if let Some(manual_time_spent) = input.manual_time_spent {
+            seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
         }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;

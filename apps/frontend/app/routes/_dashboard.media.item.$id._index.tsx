@@ -14,11 +14,14 @@ import {
 	Group,
 	Image,
 	Indicator,
+	Input,
 	Menu,
 	Modal,
+	NumberInput,
 	Paper,
 	ScrollArea,
 	SimpleGrid,
+	Slider,
 	Stack,
 	Tabs,
 	Text,
@@ -229,6 +232,7 @@ const editSeenItem = z.object({
 	seenId: z.string(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
+	manualTimeSpent: z.string().optional(),
 });
 
 export default function Page() {
@@ -1190,12 +1194,26 @@ const MetadataCreator = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
+const DEFAULT_STATES = [0, 3];
+
 const AdjustSeenTimesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
 }) => {
-	const { startedOn, finishedOn, id } = props.seen;
+	const { startedOn, finishedOn, id, manualTimeSpent } = props.seen;
+	const [mtv, mts] = manualTimeSpent
+		? (() => {
+				for (let i = 1; i <= 10; i++) {
+					const v = Number(manualTimeSpent) ** (1 / i);
+					if (v < 100) return [v, i];
+				}
+				return DEFAULT_STATES;
+			})()
+		: DEFAULT_STATES;
+	const [manualTimeSpentValue, setManualTimeSpentValue] = useState(mtv);
+	const [manualTimeSpentScale, setManualTimeSpentScale] = useState(mts);
+	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
 
 	return (
 		<Modal
@@ -1223,6 +1241,37 @@ const AdjustSeenTimesModal = (props: {
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 					/>
+					<Input.Wrapper
+						label="Time spent"
+						description="How much time did you actually spend on this media? You can also adjust the scale"
+					>
+						<Group mt="xs">
+							<Slider
+								flex={1}
+								label={null}
+								value={manualTimeSpentValue}
+								onChange={setManualTimeSpentValue}
+							/>
+							<NumberInput
+								w="20%"
+								max={10}
+								size="xs"
+								value={manualTimeSpentScale}
+								onChange={(v) => setManualTimeSpentScale(Number(v))}
+							/>
+						</Group>
+						<Text c="dimmed" size="sm" ta="center" mt="xs">
+							{humanizeDuration(manualTimeSpentInMinutes * 1000)}
+						</Text>
+						{manualTimeSpentInMinutes > 0 ? (
+							<input
+								hidden
+								readOnly
+								name="manualTimeSpent"
+								value={manualTimeSpentInMinutes}
+							/>
+						) : null}
+					</Input.Wrapper>
 					<Button variant="outline" type="submit" name="seenId" value={id}>
 						Submit
 					</Button>
@@ -1361,7 +1410,10 @@ const SeenItem = (props: {
 					.reduce((prev, curr) => [prev, " • ", curr])
 			: null;
 
-	const timeSpentInMilliseconds = (props.history.totalTimeSpent || 0) * 1000;
+	const timeSpentInMilliseconds =
+		(props.history.manualTimeSpent
+			? Number(props.history.manualTimeSpent)
+			: props.history.totalTimeSpent || 0) * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
 	const isLessThanAnHour =
 		timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
