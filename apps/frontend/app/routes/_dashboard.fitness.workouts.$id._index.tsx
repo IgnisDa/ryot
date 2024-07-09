@@ -35,12 +35,7 @@ import {
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	displayDistanceWithUnit,
-	displayWeightWithUnit,
-	humanizeDuration,
-	startCase,
-} from "@ryot/ts-utils";
+import { humanizeDuration, startCase } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconClock,
@@ -62,7 +57,11 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import { DisplaySetStatistics } from "~/components/fitness";
+import {
+	DisplaySetStatistics,
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+} from "~/components/fitness";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	getWorkoutStarter,

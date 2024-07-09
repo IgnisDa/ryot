@@ -5,14 +5,10 @@ import {
 	ExerciseLot,
 	SetLot,
 	type UserExerciseDetailsQuery,
-	type UserUnitSystem,
+	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	displayDistanceWithUnit,
-	displayWeightWithUnit,
-	truncate,
-} from "@ryot/ts-utils";
+import { truncate } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { dayjsLib, getSetColor } from "~/lib/generals";
@@ -42,6 +38,34 @@ export const getSetStatisticsTextToDisplay = (
 			statistic.oneRm ? `${Number(statistic.oneRm).toFixed(1)} RM` : null,
 		])
 		.exhaustive();
+};
+
+/**
+ * Display the correct weight unit for a given unit.
+ */
+export const displayWeightWithUnit = (
+	unit: UserUnitSystem,
+	data: string | number | null | undefined,
+	compactNotation?: boolean,
+) => {
+	return new Intl.NumberFormat("en-us", {
+		style: "unit",
+		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
+		notation: compactNotation ? "compact" : undefined,
+	}).format(Number((data || 0).toString()));
+};
+
+/**
+ * Display the correct distance unit for a given unit.
+ */
+export const displayDistanceWithUnit = (
+	unit: UserUnitSystem,
+	data: string | number | null | undefined,
+) => {
+	return new Intl.NumberFormat("en-us", {
+		style: "unit",
+		unit: unit === UserUnitSystem.Metric ? "kilometer" : "mile",
+	}).format(Number((data || 0).toString()));
 };
 
 /**

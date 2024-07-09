@@ -23,11 +23,7 @@ import {
 	UserWorkoutListDocument,
 	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	displayWeightWithUnit,
-	humanizeDuration,
-	truncate,
-} from "@ryot/ts-utils";
+import { humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
@@ -39,7 +35,10 @@ import type { ReactElement } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
-import { getSetStatisticsTextToDisplay } from "~/components/fitness";
+import {
+	displayWeightWithUnit,
+	getSetStatisticsTextToDisplay,
+} from "~/components/fitness";
 import { dayjsLib } from "~/lib/generals";
 import {
 	getWorkoutStarter,

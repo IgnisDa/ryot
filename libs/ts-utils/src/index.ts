@@ -1,4 +1,3 @@
-import { UserUnitSystem } from "@ryot/generated/graphql/backend/graphql";
 import dayjs from "dayjs";
 import {
 	HumanizeDuration,
@@ -29,34 +28,6 @@ export const humanizeDuration = (
 	const service = new HumanizeDurationLanguage();
 	const humanizer = new HumanizeDuration(service);
 	return humanizer.humanize(duration, options);
-};
-
-/**
- * Display the correct weight unit for a given unit.
- */
-export const displayWeightWithUnit = (
-	unit: UserUnitSystem,
-	data: string | number | null | undefined,
-	compactNotation?: boolean,
-) => {
-	return new Intl.NumberFormat("en-us", {
-		style: "unit",
-		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
-		notation: compactNotation ? "compact" : undefined,
-	}).format(Number((data || 0).toString()));
-};
-
-/**
- * Display the correct distance unit for a given unit.
- */
-export const displayDistanceWithUnit = (
-	unit: UserUnitSystem,
-	data: string | number | null | undefined,
-) => {
-	return new Intl.NumberFormat("en-us", {
-		style: "unit",
-		unit: unit === UserUnitSystem.Metric ? "kilometer" : "mile",
-	}).format(Number((data || 0).toString()));
 };
 
 /**
