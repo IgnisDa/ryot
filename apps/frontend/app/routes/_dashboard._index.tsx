@@ -30,11 +30,7 @@ import {
 	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	displayWeightWithUnit,
-	humanizeDuration,
-	isNumber,
-} from "@ryot/ts-utils";
+import { humanizeDuration, isNumber } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconFriends,
@@ -46,6 +42,7 @@ import { Fragment, type ReactNode } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
+import { displayWeightWithUnit } from "~/components/fitness";
 import {
 	MediaItemWithoutUpdateModal,
 	NewUserGuideAlert,

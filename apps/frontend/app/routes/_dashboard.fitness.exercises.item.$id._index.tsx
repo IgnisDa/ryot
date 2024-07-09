@@ -29,13 +29,7 @@ import {
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	displayDistanceWithUnit,
-	displayWeightWithUnit,
-	isString,
-	startCase,
-} from "@ryot/ts-utils";
+import { changeCase, isString, startCase } from "@ryot/ts-utils";
 import { IconCheck, IconExternalLink } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
@@ -49,7 +43,11 @@ import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ExerciseHistory } from "~/components/fitness";
+import {
+	ExerciseHistory,
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+} from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";

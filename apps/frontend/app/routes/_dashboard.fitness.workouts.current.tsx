@@ -58,7 +58,6 @@ import {
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	displayWeightWithUnit,
 	isEqual,
 	isNumber,
 	isString,
@@ -95,8 +94,11 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { confirmWrapper } from "~/components/confirmation";
-import { DisplayExerciseStats, ExerciseHistory } from "~/components/fitness";
-import events from "~/lib/events";
+import {
+	DisplaySetStatistics,
+	ExerciseHistory,
+	displayWeightWithUnit,
+} from "~/components/fitness";
 import {
 	CurrentWorkoutKey,
 	dayjsLib,
