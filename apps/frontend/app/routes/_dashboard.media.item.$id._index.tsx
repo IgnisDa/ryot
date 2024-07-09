@@ -1186,13 +1186,16 @@ const MetadataCreator = (props: {
 	);
 };
 
+type History =
+	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
+
 const AdjustSeenTimesModal = (props: {
 	opened: boolean;
 	onClose: () => void;
-	seenId: string;
-	startedAt?: string | null;
-	endedAt?: string | null;
+	seen: History;
 }) => {
+	const { startedOn, finishedOn, id } = props.seen;
+
 	return (
 		<Modal
 			opened={props.opened}
@@ -1212,22 +1215,15 @@ const AdjustSeenTimesModal = (props: {
 						label="Start time"
 						required
 						name="startedOn"
-						defaultValue={
-							props.startedAt ? new Date(props.startedAt) : undefined
-						}
+						defaultValue={startedOn ? new Date(startedOn) : undefined}
 					/>
 					<DateInput
 						label="End time"
 						required
 						name="finishedOn"
-						defaultValue={props.endedAt ? new Date(props.endedAt) : undefined}
+						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 					/>
-					<Button
-						variant="outline"
-						type="submit"
-						name="seenId"
-						value={props.seenId}
-					>
+					<Button variant="outline" type="submit" name="seenId" value={id}>
 						Submit
 					</Button>
 				</Stack>
@@ -1269,9 +1265,6 @@ const MergeMetadataModal = (props: {
 		</Modal>
 	);
 };
-
-type History =
-	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
 type PossibleTab = "showSeasons" | "podcastEpisodes";
 
@@ -1470,9 +1463,7 @@ const SeenItem = (props: {
 			<AdjustSeenTimesModal
 				opened={opened}
 				onClose={close}
-				seenId={props.history.id}
-				startedAt={props.history.startedOn}
-				endedAt={props.history.finishedOn}
+				seen={props.history}
 			/>
 		</>
 	);
