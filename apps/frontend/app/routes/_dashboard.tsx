@@ -98,7 +98,6 @@ import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { HiddenLocationInput } from "~/components/common";
-import events from "~/lib/events";
 import {
 	LOGO_IMAGE_URL,
 	Verb,
@@ -108,6 +107,7 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
+	useApplicationEvents,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -673,6 +673,7 @@ const MetadataProgressUpdateForm = ({
 }: {
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
+	const events = useApplicationEvents();
 	const [metadataToUpdate] = useMetadataProgressUpdate();
 
 	const { data: metadataDetails } = useMetadataDetails(
@@ -1100,6 +1101,7 @@ const ReviewEntityForm = ({
 	closeReviewEntityModal: () => void;
 }) => {
 	const userPreferences = useUserPreferences();
+	const events = useApplicationEvents();
 	const [entityToReview] = useReviewEntity();
 
 	if (!entityToReview) return null;
@@ -1305,6 +1307,7 @@ const AddEntityToCollectionForm = ({
 }) => {
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
+	const events = useApplicationEvents();
 	const [selectedCollection, setSelectedCollection] =
 		useState<Collection | null>(null);
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
@@ -1504,6 +1507,7 @@ const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;
 }) => {
 	const userPreferences = useUserPreferences();
+	const events = useApplicationEvents();
 
 	return (
 		<Form

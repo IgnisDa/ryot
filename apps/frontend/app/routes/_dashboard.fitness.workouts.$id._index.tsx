@@ -62,7 +62,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import { DisplayExerciseStats } from "~/components/fitness";
+import { DisplaySetStatistics } from "~/components/fitness";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import {
 	getWorkoutStarter,
@@ -557,12 +557,16 @@ const DisplaySet = (props: {
 						</Popover.Dropdown>
 					</Popover>
 				) : null}
-				<DisplayExerciseStats
+				<DisplaySetStatistics
 					lot={props.exerciseLot}
 					statistic={props.set.statistic}
 				/>
 			</Flex>
-			{props.set.note ? <Text c="dimmed">{props.set.note}</Text> : null}
+			{props.set.note ? (
+				<Text c="dimmed" size="xs">
+					{props.set.note}
+				</Text>
+			) : null}
 		</Box>
 	);
 };

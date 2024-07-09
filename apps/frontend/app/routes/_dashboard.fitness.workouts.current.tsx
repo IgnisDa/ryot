@@ -105,7 +105,7 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
-import { useUserPreferences } from "~/lib/hooks";
+import { useApplicationEvents, useUserPreferences } from "~/lib/hooks";
 import {
 	type InProgressWorkout,
 	convertHistorySetToCurrentSet,
@@ -182,6 +182,7 @@ const deleteUploadedAsset = (key: string) => {
 export default function Page() {
 	const userPreferences = useUserPreferences();
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const events = useApplicationEvents();
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
 	const [time, setTime] = useState(0);
@@ -1306,7 +1307,7 @@ const SetDisplay = (props: {
 							}}
 							style={!set.confirmedAt ? { cursor: "pointer" } : undefined}
 						>
-							<DisplayExerciseStats
+							<DisplaySetStatistics
 								statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
 								lot={exercise.lot}
 								hideExtras
