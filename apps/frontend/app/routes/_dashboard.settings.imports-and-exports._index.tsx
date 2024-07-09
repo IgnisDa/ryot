@@ -49,9 +49,12 @@ import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { confirmWrapper } from "~/components/confirmation";
-import events from "~/lib/events";
 import { dayjsLib } from "~/lib/generals";
-import { useCoreDetails, useUserCollections } from "~/lib/hooks";
+import {
+	useApplicationEvents,
+	useCoreDetails,
+	useUserCollections,
+} from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -215,6 +218,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userCollections = useUserCollections();
+	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
 	const fetcher = useFetcher<typeof action>();

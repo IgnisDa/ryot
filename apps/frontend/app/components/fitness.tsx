@@ -45,9 +45,9 @@ export const getSetStatisticsTextToDisplay = (
 };
 
 /**
- * Display statistics for an exercise set.
+ * Display statistics for a set.
  **/
-export const DisplayExerciseStats = (props: {
+export const DisplaySetStatistics = (props: {
 	lot: ExerciseLot;
 	statistic: WorkoutSetStatistic;
 	hideExtras?: boolean;
@@ -111,7 +111,7 @@ export const ExerciseHistory = (props: {
 							.with(SetLot.Normal, () => idx + 1)
 							.otherwise(() => s.lot.at(0))}
 					</Text>
-					<DisplayExerciseStats
+					<DisplaySetStatistics
 						lot={props.exerciseLot}
 						statistic={s.statistic}
 					/>

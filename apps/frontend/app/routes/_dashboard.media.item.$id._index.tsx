@@ -91,7 +91,6 @@ import {
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import events from "~/lib/events";
 import {
 	Verb,
 	dayjsLib,
@@ -99,7 +98,11 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
-import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
+import {
+	useApplicationEvents,
+	useGetMantineColor,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
@@ -224,6 +227,7 @@ const editSeenItem = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
+	const events = useApplicationEvents();
 	const getMantineColor = useGetMantineColor();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",

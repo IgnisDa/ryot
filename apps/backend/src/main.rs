@@ -106,6 +106,9 @@ async fn main() -> Result<()> {
     let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
 
+    let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
+    tracing::debug!("Compiled at: {}", compile_timestamp);
+
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
 
@@ -152,11 +155,10 @@ async fn main() -> Result<()> {
     let perform_application_job_storage = MemoryStorage::new();
     let perform_core_application_job_storage = MemoryStorage::new();
 
-    let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    tracing::info!("Compiled at: {}, using timezone: {}", compile_timestamp, tz);
+    tracing::info!("Timezone: {}", tz);
 
     let app_services = create_app_services(
         db.clone(),

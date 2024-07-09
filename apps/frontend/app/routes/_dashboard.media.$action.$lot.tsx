@@ -64,9 +64,9 @@ import {
 	NewUserGuideAlert,
 	commitMedia,
 } from "~/components/media";
-import events from "~/lib/events";
 import { Verb, enhancedCookieName, getLot, getVerb } from "~/lib/generals";
 import {
+	useApplicationEvents,
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
 	useUserCollections,
@@ -474,6 +474,7 @@ const MediaSearchItem = (props: {
 	const userDetails = useUserDetails();
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
+	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const basicCommit = async (e: React.MouseEvent) => {
