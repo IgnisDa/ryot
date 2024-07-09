@@ -10,6 +10,7 @@ import {
 	Container,
 	Divider,
 	Flex,
+	FocusTrap,
 	Group,
 	Image,
 	Indicator,
@@ -1198,11 +1199,12 @@ const AdjustSeenTimesModal = (props: {
 
 	return (
 		<Modal
+			centered
 			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
-			centered
 		>
+			<FocusTrap.InitialFocus />
 			<Form
 				replace
 				method="POST"
@@ -1213,13 +1215,11 @@ const AdjustSeenTimesModal = (props: {
 					<Title order={3}>Adjust seen times</Title>
 					<DateInput
 						label="Start time"
-						required
 						name="startedOn"
 						defaultValue={startedOn ? new Date(startedOn) : undefined}
 					/>
 					<DateInput
 						label="End time"
-						required
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 					/>
