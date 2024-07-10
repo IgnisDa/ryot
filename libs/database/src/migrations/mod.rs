@@ -1,6 +1,7 @@
 use sea_orm::entity::prelude::*;
 use sea_orm_migration::prelude::*;
 
+mod m20230409_create_extensions;
 mod m20230410_create_metadata;
 mod m20230413_create_person;
 mod m20230417_create_user;
@@ -50,6 +51,7 @@ pub struct Migrator;
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
         vec![
+            Box::new(m20230409_create_extensions::Migration),
             Box::new(m20230410_create_metadata::Migration),
             Box::new(m20230413_create_person::Migration),
             Box::new(m20230417_create_user::Migration),
