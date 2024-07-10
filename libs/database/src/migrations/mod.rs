@@ -1,6 +1,7 @@
 use sea_orm::entity::prelude::*;
 use sea_orm_migration::prelude::*;
 
+mod m20230409_create_extensions;
 mod m20230410_create_metadata;
 mod m20230413_create_person;
 mod m20230417_create_user;
@@ -28,6 +29,7 @@ mod m20240619_remove_seen_from_media_reason_of_user_to_entity;
 mod m20240620_add_minimum_and_maximum_progress_columns_to_integration;
 mod m20240620_delete_invalid_calendar_events;
 mod m20240704_add_new_preference_for_persisted_queries;
+mod m20240710_remove_sequences_completely;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -50,6 +52,7 @@ pub struct Migrator;
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
         vec![
+            Box::new(m20230409_create_extensions::Migration),
             Box::new(m20230410_create_metadata::Migration),
             Box::new(m20230413_create_person::Migration),
             Box::new(m20230417_create_user::Migration),
@@ -77,6 +80,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240620_delete_invalid_calendar_events::Migration),
             Box::new(m20240620_add_minimum_and_maximum_progress_columns_to_integration::Migration),
             Box::new(m20240704_add_new_preference_for_persisted_queries::Migration),
+            Box::new(m20240710_remove_sequences_completely::Migration),
         ]
     }
 }

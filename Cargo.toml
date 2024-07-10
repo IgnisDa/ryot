@@ -33,6 +33,7 @@ sea-orm = { version = "=1.0.0-rc.5", features = [
     "with-chrono",
     "with-json",
     "with-rust_decimal",
+    "with-uuid",
 ], default-features = false }
 sea-orm-migration = "=1.0.0-rc.5"
 serde = { version = "=1.0.202", features = ["derive"] }

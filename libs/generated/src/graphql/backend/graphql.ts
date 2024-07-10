@@ -2238,7 +2238,6 @@ export type UserToEntity = {
   exerciseExtraInformation?: Maybe<UserToExerciseExtraInformation>;
   exerciseId?: Maybe<Scalars['String']['output']>;
   exerciseNumTimesInteracted?: Maybe<Scalars['Int']['output']>;
-  id: Scalars['Int']['output'];
   lastUpdatedOn: Scalars['DateTime']['output'];
   metadataGroupId?: Maybe<Scalars['String']['output']>;
   metadataId?: Maybe<Scalars['String']['output']>;

@@ -62,21 +62,14 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserToEntity::Table)
                     .col(
-                        ColumnDef::new(UserToEntity::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
                         ColumnDef::new(UserToEntity::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
-                    .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
+                    .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
                     .col(ColumnDef::new(UserToEntity::MediaReason).array(ColumnType::Text))
                     .col(
@@ -90,6 +83,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::PersonId).text())
                     .col(ColumnDef::new(UserToEntity::MetadataId).text())
                     .col(ColumnDef::new(UserToEntity::UserId).text().not_null())
+                    .col(
+                        ColumnDef::new(UserToEntity::Id)
+                            .uuid()
+                            .not_null()
+                            .default(PgFunc::gen_random_uuid())
+                            .primary_key(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")
