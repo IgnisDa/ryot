@@ -68,8 +68,8 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
-                    .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
+                    .col(ColumnDef::new(UserToEntity::ExerciseId).text())
                     .col(ColumnDef::new(UserToEntity::MetadataUnitsConsumed).integer())
                     .col(ColumnDef::new(UserToEntity::MediaReason).array(ColumnType::Text))
                     .col(

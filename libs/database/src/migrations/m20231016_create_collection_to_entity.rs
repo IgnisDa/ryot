@@ -37,12 +37,6 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(CollectionToEntity::Table)
                     .col(
-                        ColumnDef::new(CollectionToEntity::CreatedOn)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
                         ColumnDef::new(CollectionToEntity::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
@@ -58,6 +52,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).text())
                     .col(ColumnDef::new(CollectionToEntity::PersonId).text())
                     .col(ColumnDef::new(CollectionToEntity::MetadataId).text())
+                    .col(
+                        ColumnDef::new(CollectionToEntity::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .col(
                         ColumnDef::new(CollectionToEntity::Id)
                             .uuid()
