@@ -2,12 +2,14 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: usize,
     pub iat: usize,
+    pub jti: Uuid,
 }
 
 impl Claims {
@@ -19,6 +21,7 @@ impl Claims {
             sub,
             iat: iat.timestamp().try_into().unwrap(),
             exp: exp.timestamp().try_into().unwrap(),
+            jti: Uuid::new_v4(),
         }
     }
 }
