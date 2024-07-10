@@ -48,6 +48,7 @@ import {
 	processSubmission,
 	redirectWithToast,
 	serverGqlService,
+	serverVariables,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -71,6 +72,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	return {
 		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
+		oidcButtonLabel: serverVariables.FRONTEND_OIDC_BUTTON_LABEL,
 		localAuthDisabled: coreDetails.localAuthDisabled,
 		tokenValidForDays: coreDetails.tokenValidForDays,
 		signupAllowed: enabledFeatures.signupAllowed,
@@ -270,7 +272,7 @@ export default function Page() {
 							type="submit"
 							leftSection={<IconAt size={16} />}
 						>
-							Continue with OpenID Connect
+							{loaderData.oidcButtonLabel}
 						</Button>
 					</Form>
 				</>
