@@ -30,13 +30,6 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(MetadataToMetadata::Table)
                     .col(
-                        ColumnDef::new(MetadataToMetadata::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
                         ColumnDef::new(MetadataToMetadata::Relation)
                             .text()
                             .not_null(),
@@ -50,6 +43,13 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(MetadataToMetadata::ToMetadataId)
                             .text()
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(MetadataToMetadata::Id)
+                            .uuid()
+                            .not_null()
+                            .default(PgFunc::gen_random_uuid())
+                            .primary_key(),
                     )
                     .foreign_key(
                         ForeignKey::create()

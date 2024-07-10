@@ -79,6 +79,9 @@ const expectedServerVariables = z.object({
 	FRONTEND_UMAMI_SCRIPT_URL: z.string().optional(),
 	FRONTEND_UMAMI_WEBSITE_ID: z.string().optional(),
 	FRONTEND_UMAMI_DOMAINS: z.string().optional(),
+	FRONTEND_OIDC_BUTTON_LABEL: z
+		.string()
+		.default("Continue with OpenID Connect"),
 });
 
 /**

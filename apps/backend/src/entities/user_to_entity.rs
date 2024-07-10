@@ -4,6 +4,7 @@ use async_graphql::SimpleObject;
 use database::UserToMediaReason;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::models::fitness::UserToExerciseExtraInformation;
 
@@ -12,7 +13,8 @@ use crate::models::fitness::UserToExerciseExtraInformation;
 #[graphql(name = "UserToEntity")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    #[graphql(skip)]
+    pub id: Uuid,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub user_id: String,

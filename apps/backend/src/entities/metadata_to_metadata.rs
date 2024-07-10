@@ -3,12 +3,13 @@
 use database::MetadataToMetadataRelation;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "metadata_to_metadata")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: Uuid,
     pub from_metadata_id: String,
     pub relation: MetadataToMetadataRelation,
     pub to_metadata_id: String,
