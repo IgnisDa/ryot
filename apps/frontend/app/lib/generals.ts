@@ -44,7 +44,9 @@ const enhancedSearchParamCookie = "SearchParams__";
 export const enhancedCookieName = (name: string) =>
 	`${enhancedSearchParamCookie}${name}`;
 
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+});
 
 export const getSetColor = (l: SetLot) =>
 	match(l)

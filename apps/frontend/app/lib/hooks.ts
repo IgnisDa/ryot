@@ -143,7 +143,6 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 						.request(UserMetadataDetailsDocument, { metadataId })
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 export const useUserMetadataDetails = (metadataId?: string | null) => {
