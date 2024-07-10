@@ -62,13 +62,6 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserToEntity::Table)
                     .col(
-                        ColumnDef::new(UserToEntity::Id)
-                            .uuid()
-                            .not_null()
-                            .default(PgFunc::gen_random_uuid())
-                            .primary_key(),
-                    )
-                    .col(
                         ColumnDef::new(UserToEntity::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
@@ -90,6 +83,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::PersonId).text())
                     .col(ColumnDef::new(UserToEntity::MetadataId).text())
                     .col(ColumnDef::new(UserToEntity::UserId).text().not_null())
+                    .col(
+                        ColumnDef::new(UserToEntity::Id)
+                            .uuid()
+                            .not_null()
+                            .default(PgFunc::gen_random_uuid())
+                            .primary_key(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")

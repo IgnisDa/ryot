@@ -37,13 +37,6 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(CollectionToEntity::Table)
                     .col(
-                        ColumnDef::new(CollectionToEntity::Id)
-                            .uuid()
-                            .not_null()
-                            .default(PgFunc::gen_random_uuid())
-                            .primary_key(),
-                    )
-                    .col(
                         ColumnDef::new(CollectionToEntity::CreatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
@@ -65,6 +58,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(CollectionToEntity::MetadataGroupId).text())
                     .col(ColumnDef::new(CollectionToEntity::PersonId).text())
                     .col(ColumnDef::new(CollectionToEntity::MetadataId).text())
+                    .col(
+                        ColumnDef::new(CollectionToEntity::Id)
+                            .uuid()
+                            .not_null()
+                            .default(PgFunc::gen_random_uuid())
+                            .primary_key(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk1")
