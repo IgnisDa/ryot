@@ -38,9 +38,9 @@ impl MigrationTrait for Migration {
                     .table(CollectionToEntity::Table)
                     .col(
                         ColumnDef::new(CollectionToEntity::Id)
-                            .integer()
+                            .uuid()
                             .not_null()
-                            .auto_increment()
+                            .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
                     .col(

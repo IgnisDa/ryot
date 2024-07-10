@@ -31,9 +31,9 @@ impl MigrationTrait for Migration {
                     .table(MetadataToMetadata::Table)
                     .col(
                         ColumnDef::new(MetadataToMetadata::Id)
-                            .integer()
+                            .uuid()
                             .not_null()
-                            .auto_increment()
+                            .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
                     .col(

@@ -63,9 +63,9 @@ impl MigrationTrait for Migration {
                     .table(UserToEntity::Table)
                     .col(
                         ColumnDef::new(UserToEntity::Id)
-                            .integer()
+                            .uuid()
                             .not_null()
-                            .auto_increment()
+                            .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
                     .col(
