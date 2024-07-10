@@ -13,6 +13,7 @@ use crate::models::fitness::UserToExerciseExtraInformation;
 #[graphql(name = "UserToEntity")]
 pub struct Model {
     #[sea_orm(primary_key)]
+    #[graphql(skip)]
     pub id: Uuid,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
