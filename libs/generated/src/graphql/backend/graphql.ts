@@ -35,6 +35,17 @@ export type Scalars = {
    * * `2000-02-24`
    */
   NaiveDate: { input: string; output: string; }
+  /**
+   * A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
+   * Strings within GraphQL. UUIDs are used to assign unique identifiers to
+   * entities without requiring a central allocating authority.
+   *
+   * # References
+   *
+   * * [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
+   * * [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+   */
+  UUID: { input: string; output: string; }
 };
 
 export type AnimeSpecifics = {
@@ -2238,7 +2249,7 @@ export type UserToEntity = {
   exerciseExtraInformation?: Maybe<UserToExerciseExtraInformation>;
   exerciseId?: Maybe<Scalars['String']['output']>;
   exerciseNumTimesInteracted?: Maybe<Scalars['Int']['output']>;
-  id: Scalars['Int']['output'];
+  id: Scalars['UUID']['output'];
   lastUpdatedOn: Scalars['DateTime']['output'];
   metadataGroupId?: Maybe<Scalars['String']['output']>;
   metadataId?: Maybe<Scalars['String']['output']>;
