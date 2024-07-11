@@ -39,13 +39,20 @@ import {
 	EntityLot,
 	type MediaLot,
 	type MediaSource,
+	MetadataGroupDetailsDocument,
 	MetadataPartialDetailsDocument,
 	type PartialMetadata,
 	type ReviewItem,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, isNumber, isString } from "@ryot/ts-utils";
+import {
+	changeCase,
+	getInitials,
+	isNumber,
+	isString,
+	snakeCase,
+} from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconArrowsRight,
@@ -784,6 +791,40 @@ export const MetadataDisplayItem = (props: {
 					</ActionIcon>
 				),
 			}}
+		/>
+	);
+};
+
+export const MetadataGroupDisplayItem = (props: {
+	metadataGroupId: string;
+}) => {
+	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
+		useQuery({
+			queryKey: queryFactory.media.metadataGroupDetails(props.metadataGroupId)
+				.queryKey,
+			queryFn: async () => {
+				return clientGqlService
+					.request(MetadataGroupDetailsDocument, props)
+					.then((data) => data.metadataGroupDetails);
+			},
+		});
+
+	return (
+		<BaseMediaDisplayItem
+			name={metadataDetails?.details.title}
+			isLoading={isMetadataDetailsLoading}
+			onImageClickBehavior={$path("/media/groups/item/:id", {
+				id: props.metadataGroupId,
+			})}
+			imageUrl={metadataDetails?.details.displayImages.at(0)}
+			labels={
+				metadataDetails?.details.parts
+					? {
+							left: `${metadataDetails.details.parts} items`,
+							right: changeCase(snakeCase(metadataDetails.details.lot)),
+						}
+					: undefined
+			}
 		/>
 	);
 };

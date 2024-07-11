@@ -23,7 +23,7 @@ import {
 	MetadataGroupSearchDocument,
 	MetadataGroupsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, snakeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, startCase } from "@ryot/ts-utils";
 import { IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
@@ -33,9 +33,9 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import {
-	BaseDisplayItem,
 	type Item,
 	MediaItemWithoutUpdateModal,
+	MetadataGroupDisplayItem,
 } from "~/components/media";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
@@ -169,14 +169,9 @@ export default function Page() {
 							<>
 								<ApplicationGrid>
 									{loaderData.list.list.items.map((group) => (
-										<BaseDisplayItem
-											name={group.title}
-											bottomLeft={`${group.parts} items`}
-											bottomRight={changeCase(snakeCase(group.lot))}
-											imageUrl={group.image}
-											imagePlaceholder={getInitials(group.title)}
+										<MetadataGroupDisplayItem
 											key={group.id}
-											href={$path("/media/groups/item/:id", { id: group.id })}
+											metadataGroupId={group.id}
 										/>
 									))}
 								</ApplicationGrid>
