@@ -401,10 +401,10 @@ struct PersonDetailsGroupedByRole {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MetadataBaseData {
     model: metadata::Model,
-    creators: Vec<MetadataCreatorGroupedByRole>,
-    assets: GraphqlMediaAssets,
+    suggestions: Vec<String>,
     genres: Vec<GenreListItem>,
-    suggestions: Vec<PartialMetadata>,
+    assets: GraphqlMediaAssets,
+    creators: Vec<MetadataCreatorGroupedByRole>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -455,7 +455,7 @@ struct GraphqlMetadataDetails {
     manga_specifics: Option<MangaSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     source_url: Option<String>,
-    suggestions: Vec<PartialMetadata>,
+    suggestions: Vec<String>,
     group: Option<GraphqlMetadataGroup>,
 }
 
@@ -1578,7 +1578,7 @@ impl MiscellaneousService {
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
             .collect_vec();
-        let partial_metadata_ids = MetadataToMetadata::find()
+        let suggestions = MetadataToMetadata::find()
             .select_only()
             .column(metadata_to_metadata::Column::ToMetadataId)
             .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
@@ -1588,22 +1588,6 @@ impl MiscellaneousService {
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
-        let suggestions_temp = Metadata::find()
-            .filter(metadata::Column::Id.is_in(partial_metadata_ids))
-            .order_by_asc(metadata::Column::Id)
-            .all(&self.db)
-            .await?;
-        let mut suggestions = vec![];
-        for s in suggestions_temp {
-            suggestions.push(PartialMetadata {
-                id: s.id,
-                title: s.title,
-                identifier: s.identifier,
-                lot: s.lot,
-                source: s.source,
-                image: s.images.first_as_url(&self.file_storage_service).await,
-            })
-        }
         let assets = self.metadata_assets(&meta).await.unwrap();
         Ok(MetadataBaseData {
             model: meta,

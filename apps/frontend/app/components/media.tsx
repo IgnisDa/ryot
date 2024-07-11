@@ -109,6 +109,7 @@ export const commitMedia = async (
 	return json.commitMedia.id;
 };
 
+// FIXME: Use react query here
 export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
 	const navigate = useNavigate();
 

@@ -1219,9 +1219,9 @@ pub mod media {
     #[boilermates("PartialMetadataWithoutId")]
     #[boilermates(attr_for(
         "PartialMetadataWithoutId",
-        "#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]"
+        "#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
     ))]
-    #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]
+    #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]
     pub struct PartialMetadata {
         #[boilermates(not_in("PartialMetadataWithoutId"))]
         pub id: String,

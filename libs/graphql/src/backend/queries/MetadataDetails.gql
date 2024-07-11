@@ -9,6 +9,7 @@ query MetadataDetails($metadataId: String!) {
     sourceUrl
     identifier
     description
+    suggestions
     publishYear
     publishDate
     providerRating
@@ -38,9 +39,6 @@ query MetadataDetails($metadataId: String!) {
         image
         character
       }
-    }
-    suggestions {
-      ...PartialMetadataPart
     }
     watchProviders {
       name

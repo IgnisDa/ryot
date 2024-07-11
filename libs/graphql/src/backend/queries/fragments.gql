@@ -61,15 +61,6 @@ fragment MetadataSearchItemPart on MetadataSearchItem {
   publishYear
 }
 
-fragment PartialMetadataPart on PartialMetadata {
-  id
-  lot
-  source
-  identifier
-  title
-  image
-}
-
 fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
   personalBestsAchieved
   weight
