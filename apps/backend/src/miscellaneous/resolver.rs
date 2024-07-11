@@ -600,6 +600,8 @@ struct UserMetadataDetailsShowSeasonProgress {
 
 #[derive(SimpleObject)]
 struct UserMetadataDetails {
+    /// The reasons why this metadata is related to this user
+    media_reason: Option<Vec<UserToMediaReason>>,
     /// The collections in which this media is present.
     collections: Vec<collection::Model>,
     /// The public reviews of this media.
@@ -1936,6 +1938,7 @@ impl MiscellaneousService {
             None
         };
         Ok(UserMetadataDetails {
+            media_reason: user_to_meta.and_then(|n| n.media_reason),
             collections,
             reviews,
             history,
