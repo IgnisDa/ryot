@@ -112,3 +112,13 @@ query MetadataPartialDetails($metadataId: String!) {
     publishYear
   }
 }
+
+query MetadataGroupsList($input: SearchInput!) {
+  metadataGroupsList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items
+  }
+}

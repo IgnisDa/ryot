@@ -79,7 +79,7 @@ use crate::{
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
             MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails,
-            MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
+            MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataImageLot, MetadataPartialDetails,
             MetadataSearchItem, MetadataSearchItemResponse, MetadataSearchItemWithLot,
             MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
@@ -888,7 +888,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
-    ) -> Result<SearchResults<MetadataGroupListItem>> {
+    ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.metadata_groups_list(user_id, input).await
@@ -6154,7 +6154,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: SearchInput,
-    ) -> Result<SearchResults<MetadataGroupListItem>> {
+    ) -> Result<SearchResults<String>> {
         let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
         let query = MetadataGroup::find()
             .apply_if(input.query, |query, v| {
@@ -6167,8 +6167,9 @@ impl MiscellaneousService {
             .inner_join(UserToEntity)
             .order_by_asc(metadata_group::Column::Title);
         let paginator = query
+            .column(metadata_group::Column::Id)
             .clone()
-            .into_model::<MetadataGroupListItem>()
+            .into_tuple::<String>()
             .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let ItemsAndPagesNumber {
             number_of_items,
@@ -6176,12 +6177,6 @@ impl MiscellaneousService {
         } = paginator.num_items_and_pages().await?;
         let mut items = vec![];
         for c in paginator.fetch_page(page - 1).await? {
-            let mut c = c;
-            let mut image = None;
-            if let Some(i) = c.images.iter().find(|i| i.lot == MetadataImageLot::Poster) {
-                image = Some(get_stored_asset(i.url.clone(), &self.file_storage_service).await);
-            }
-            c.image = image;
             items.push(c);
         }
         Ok(SearchResults {
