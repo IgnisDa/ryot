@@ -27,13 +27,7 @@ import {
 } from "@mantine/core";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	Form,
-	Link,
-	useFetcher,
-	useNavigate,
-	useSubmit,
-} from "@remix-run/react";
+import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	type MediaLot,
@@ -72,7 +66,7 @@ import type { ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
-import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
+import { MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
@@ -81,6 +75,7 @@ import {
 	redirectToQueryParam,
 } from "~/lib/generals";
 import {
+	useActionsSubmit,
 	useFallbackImageUrl,
 	useGetMantineColor,
 	useUserDetails,
@@ -170,14 +165,13 @@ export const ReviewItemDisplay = (props: {
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
+	const submit = useActionsSubmit();
 	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
 	const deleteReviewFetcher = useFetcher<typeof action>();
 	const [_, setEntityToReview] = useReviewEntity();
-
-	const submit = useSubmit();
 
 	return (
 		<>
@@ -300,11 +294,13 @@ export const ReviewItemDisplay = (props: {
 					{openedLeaveComment ? (
 						<Form
 							method="POST"
-							onSubmit={() => toggleLeaveComment()}
+							onSubmit={(e) => {
+								submit(e);
+								toggleLeaveComment();
+							}}
 							action={withQuery("/actions", { intent: "createReviewComment" })}
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
-							<HiddenLocationInput />
 							<Group>
 								<TextInput
 									name="text"
@@ -365,7 +361,6 @@ export const ReviewItemDisplay = (props: {
 																name="shouldDelete"
 																defaultValue="true"
 															/>
-															<HiddenLocationInput />
 															<ActionIcon
 																color="red"
 																type="submit"
@@ -376,7 +371,7 @@ export const ReviewItemDisplay = (props: {
 																		confirmation:
 																			"Are you sure you want to delete this comment?",
 																	});
-																	if (conf) submit(form);
+																	if (conf && form) submit(form);
 																}}
 															>
 																<IconTrash size={16} />
@@ -388,8 +383,8 @@ export const ReviewItemDisplay = (props: {
 														action={withQuery("/actions", {
 															intent: "createReviewComment",
 														})}
+														onSubmit={submit}
 													>
-														<HiddenLocationInput />
 														<input
 															hidden
 															name="reviewId"
@@ -835,7 +830,7 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const submit = useSubmit();
+	const submit = useActionsSubmit();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
@@ -863,7 +858,6 @@ export const DisplayCollection = (props: {
 						name="creatorUserId"
 						value={props.creatorUserId}
 					/>
-					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
 						onClick={async (e) => {
@@ -873,7 +867,7 @@ export const DisplayCollection = (props: {
 								confirmation:
 									"Are you sure you want to remove this media from this collection?",
 							});
-							if (conf) submit(form);
+							if (conf && form) submit(form);
 						}}
 					>
 						<IconX />
@@ -919,6 +913,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 		? "removeEntityFromCollection"
 		: "addEntityToCollection";
 	const userDetails = useUserDetails();
+	const submit = useActionsSubmit();
 
 	return (
 		<Form
@@ -926,19 +921,26 @@ export const ToggleMediaMonitorMenuItem = (props: {
 			method="POST"
 			action={withQuery("/actions", { intent: action })}
 		>
-			<HiddenLocationInput />
 			<input hidden name="collectionName" defaultValue="Monitoring" />
+			<input readOnly hidden name="entityId" value={props.formValue} />
 			<input readOnly hidden name="entityLot" value={props.entityLot} />
 			<input readOnly hidden name="creatorUserId" value={userDetails.id} />
 			<Menu.Item
 				type="submit"
 				color={isMonitored ? "red" : undefined}
-				name="entityId"
-				value={props.formValue}
-				onClick={(e) => {
-					if (isMonitored)
-						if (!confirm("Are you sure you want to stop monitoring?"))
-							e.preventDefault();
+				onClick={async (e) => {
+					const form = e.currentTarget.form;
+					if (form) {
+						e.preventDefault();
+						if (isMonitored) {
+							const conf = await confirmWrapper({
+								confirmation: "Are you sure you want to stop monitoring?",
+							});
+							if (conf) submit(form);
+						} else {
+							submit(form);
+						}
+					}
 				}}
 			>
 				{isMonitored ? "Stop" : "Start"} monitoring

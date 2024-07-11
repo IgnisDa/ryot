@@ -79,11 +79,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	HiddenLocationInput,
-	MEDIA_DETAILS_HEIGHT,
-	MediaDetailsLayout,
-} from "~/components/common";
+import { MEDIA_DETAILS_HEIGHT, MediaDetailsLayout } from "~/components/common";
 import {
 	DisplayCollection,
 	MediaIsPartial,
@@ -100,6 +96,7 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
+	useActionsSubmit,
 	useApplicationEvents,
 	useGetMantineColor,
 	useUserPreferences,
@@ -230,6 +227,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
 	const getMantineColor = useGetMantineColor();
+	const submit = useActionsSubmit();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -249,11 +247,11 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={() => {
+				onSubmit={(e) => {
+					submit(e);
 					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
-				<HiddenLocationInput />
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
@@ -268,11 +266,11 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={() => {
+				onSubmit={(e) => {
+					submit(e);
 					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
-				<HiddenLocationInput />
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
@@ -739,26 +737,25 @@ export default function Page() {
 													})}
 													method="POST"
 													replace
-													onSubmit={() => {
+													onSubmit={(e) => {
+														submit(e);
 														events.updateProgress(
 															loaderData.metadataDetails.title,
 														);
 													}}
 												>
-													<HiddenLocationInput />
 													<input hidden name="progress" defaultValue={100} />
 													<input
 														hidden
 														name="date"
 														defaultValue={formatDateToNaiveDate(new Date())}
 													/>
-													<Menu.Item
-														type="submit"
+													<input
+														hidden
 														name="metadataId"
-														value={loaderData.metadataId}
-													>
-														I finished it
-													</Menu.Item>
+														defaultValue={loaderData.metadataId}
+													/>
+													<Menu.Item type="submit">I finished it</Menu.Item>
 												</Form>
 											</>
 										) : loaderData.metadataDetails.lot !== MediaLot.Show &&
@@ -771,22 +768,23 @@ export default function Page() {
 													})}
 													method="POST"
 													replace
-													onSubmit={() => {
+													onSubmit={(e) => {
+														submit(e);
 														events.updateProgress(
 															loaderData.metadataDetails.title,
 														);
 													}}
 												>
-													<HiddenLocationInput />
 													<input hidden name="progress" defaultValue={0} />
+													<input
+														hidden
+														name="metadataId"
+														defaultValue={loaderData.metadataId}
+													/>
 													{![MediaLot.Anime, MediaLot.Manga].includes(
 														loaderData.metadataDetails.lot,
 													) ? (
-														<Menu.Item
-															type="submit"
-															name="metadataId"
-															value={loaderData.metadataId}
-														>
+														<Menu.Item type="submit">
 															I'm{" "}
 															{getVerb(
 																Verb.Read,
@@ -897,13 +895,12 @@ export default function Page() {
 													});
 												}}
 											>
-												<Menu.Item
-													type="submit"
+												<input
+													hidden
 													name="metadataId"
-													value={loaderData.metadataId}
-												>
-													Update metadata
-												</Menu.Item>
+													defaultValue={loaderData.metadataId}
+												/>
+												<Menu.Item type="submit">Update metadata</Menu.Item>
 											</Form>
 										) : null}
 										<Menu.Item onClick={mergeMetadataModalOpen}>

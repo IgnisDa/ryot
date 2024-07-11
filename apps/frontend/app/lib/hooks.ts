@@ -5,6 +5,7 @@ import {
 	useNavigate,
 	useRouteLoaderData,
 	useSearchParams,
+	useSubmit,
 } from "@remix-run/react";
 import {
 	MetadataDetailsDocument,
@@ -13,6 +14,7 @@ import {
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { queryOptions, skipToken, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
+import type { FormEvent } from "react";
 import {
 	CurrentWorkoutKey,
 	clientGqlService,
@@ -101,6 +103,15 @@ export const useCookieEnhancedSearchParam = (cookieKey: string) => {
 	};
 
 	return [searchParams, { setP: setCookieP, delP: delCookieP }] as const;
+};
+
+export const useActionsSubmit = () => {
+	const submit = useSubmit();
+	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement) => {
+		if (e.preventDefault) e.preventDefault();
+		submit(e.currentTarget || e, { navigate: false });
+	};
+	return fn;
 };
 
 export const getWorkoutStarter = () => {
