@@ -303,11 +303,8 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{loaderData.mediaList.list.items.map((lm) => (
-										<MetadataDisplayItem
-											key={lm.data.identifier}
-											metadataId={lm.data.identifier}
-										/>
+									{loaderData.mediaList.list.items.map((item) => (
+										<MetadataDisplayItem key={item} metadataId={item} />
 									))}
 								</ApplicationGrid>
 							</>
