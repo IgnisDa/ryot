@@ -563,7 +563,7 @@ export const BaseDisplayItem = (props: {
 	);
 };
 
-export const BaseMediaDisplayItem = (props: {
+const BaseMediaDisplayItem = (props: {
 	isLoading: boolean;
 	name?: string;
 	imageUrl?: string | null;
@@ -639,28 +639,35 @@ export const BaseMediaDisplayItem = (props: {
 					</Center>
 				) : null}
 			</Box>
-			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
-				{props.isLoading ? <Skeleton height={30} mt="xs" /> : null}
-				<Flex justify="space-between" direction="row" w="100%">
-					<Text c="dimmed" size="sm">
-						{props.labels?.left}
-					</Text>
-					<Text c="dimmed" size="sm">
-						{props.labels?.right}
-					</Text>
+			{props.isLoading ? (
+				<Skeleton height={27} mt="xs" />
+			) : (
+				<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
+					<Flex justify="space-between" direction="row" w="100%">
+						<Text c="dimmed" size="sm">
+							{props.labels?.left}
+						</Text>
+						<Text c="dimmed" size="sm">
+							{props.labels?.right}
+						</Text>
+					</Flex>
+					<Flex justify="space-between" align="center" mb="xs">
+						<Text w="100%" truncate fw="bold">
+							{props.name}
+						</Text>
+						{props.nameRight}
+					</Flex>
 				</Flex>
-				<Flex justify="space-between" align="center" mb="xs">
-					<Text w="100%" truncate fw="bold">
-						{props.name}
-					</Text>
-					{props.nameRight}
-				</Flex>
-			</Flex>
+			)}
 		</Flex>
 	);
 };
 
-export const MetadataDisplayItem = (props: { metadataId: string }) => {
+export const MetadataDisplayItem = (props: {
+	metadataId: string;
+	rightLabel?: ReactNode;
+	noLeftLabel?: boolean;
+}) => {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
@@ -700,9 +707,11 @@ export const MetadataDisplayItem = (props: { metadataId: string }) => {
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			imageUrl={metadataDetails?.image}
 			labels={{
-				left: metadataDetails?.publishYear,
-				right:
-					history.length > 0
+				left:
+					props.noLeftLabel !== true ? metadataDetails?.publishYear : undefined,
+				right: props.rightLabel
+					? props.rightLabel
+					: history.length > 0
 						? `${history.length} time${history.length === 1 ? "" : "s"}`
 						: undefined,
 			}}

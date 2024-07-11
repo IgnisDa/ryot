@@ -37,11 +37,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
-import {
-	MediaItemWithoutUpdateModal,
-	MetadataDisplayItem,
-	NewUserGuideAlert,
-} from "~/components/media";
+import { MetadataDisplayItem, NewUserGuideAlert } from "~/components/media";
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import {
@@ -491,35 +487,28 @@ export default function Page() {
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
 	const numDaysLeft = dayjsLib(um.date).diff(today, "day");
-	const loaderData = useLoaderData<typeof loader>();
 
 	return (
-		<MediaItemWithoutUpdateModal
-			reviewScale={loaderData.userPreferences.reviewScale}
-			item={{
-				identifier: um.metadataId,
-				title: um.metadataTitle,
-				image: um.metadataImage,
-				publishYear: `${match(um.metadataLot)
-					.with(
-						MediaLot.Show,
-						() =>
-							`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
-					)
-					.with(
-						MediaLot.Podcast,
-						() => `EP-${um.podcastExtraInformation?.episode}`,
-					)
-					.otherwise(() => "")} ${
-					numDaysLeft === 0
-						? "Today"
-						: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
-								numDaysLeft === 1 ? "" : "s"
-							}`
-				}`,
-			}}
-			lot={um.metadataLot}
-			noBottomRight
+		<MetadataDisplayItem
+			metadataId={um.metadataId}
+			noLeftLabel
+			rightLabel={`${match(um.metadataLot)
+				.with(
+					MediaLot.Show,
+					() =>
+						`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
+				)
+				.with(
+					MediaLot.Podcast,
+					() => `EP-${um.podcastExtraInformation?.episode}`,
+				)
+				.otherwise(() => "")} ${
+				numDaysLeft === 0
+					? "Today"
+					: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
+							numDaysLeft === 1 ? "" : "s"
+						}`
+			}`}
 		/>
 	);
 };
