@@ -375,7 +375,7 @@ struct PersonDetails {
 struct MetadataGroupDetails {
     details: metadata_group::Model,
     source_url: Option<String>,
-    contents: Vec<PartialMetadata>,
+    contents: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -386,7 +386,7 @@ struct GenreDetails {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct PersonDetailsItemWithCharacter {
-    media: PartialMetadata,
+    media_id: PartialMetadata,
     character: Option<String>,
 }
 
@@ -6241,7 +6241,7 @@ impl MiscellaneousService {
             };
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
-                media: metadata,
+                media_id: metadata,
             };
             contents
                 .entry(assoc.role)
@@ -6356,33 +6356,14 @@ impl MiscellaneousService {
             MediaSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
         };
 
-        let associations = MetadataToMetadataGroup::find()
+        let contents = MetadataToMetadataGroup::find()
             .select_only()
             .column(metadata_to_metadata_group::Column::MetadataId)
-            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id.clone()))
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
             .order_by_asc(metadata_to_metadata_group::Column::Part)
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
-        let contents_temp = Metadata::find()
-            .filter(metadata::Column::Id.is_in(associations))
-            .left_join(MetadataToMetadataGroup)
-            .order_by_asc(metadata_to_metadata_group::Column::Part)
-            .all(&self.db)
-            .await?;
-        let mut contents = vec![];
-        for m in contents_temp {
-            let image = m.images.first_as_url(&self.file_storage_service).await;
-            let metadata = PartialMetadata {
-                identifier: m.identifier,
-                title: m.title,
-                image,
-                lot: m.lot,
-                source: m.source,
-                id: m.id,
-            };
-            contents.push(metadata);
-        }
         Ok(MetadataGroupDetails {
             details: group,
             source_url,
