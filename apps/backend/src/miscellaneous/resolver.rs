@@ -386,7 +386,7 @@ struct GenreDetails {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct PersonDetailsItemWithCharacter {
-    media_id: PartialMetadata,
+    media_id: String,
     character: Option<String>,
 }
 
@@ -6223,25 +6223,14 @@ impl MiscellaneousService {
         details.display_images = details.images.as_urls(&self.file_storage_service).await;
         let associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(person_id))
-            .find_also_related(Metadata)
             .order_by_asc(metadata_to_person::Column::Index)
             .all(&self.db)
             .await?;
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
-        for (assoc, metadata) in associations {
-            let m = metadata.unwrap();
-            let image = m.images.first_as_url(&self.file_storage_service).await;
-            let metadata = PartialMetadata {
-                identifier: m.identifier,
-                title: m.title,
-                image,
-                lot: m.lot,
-                source: m.source,
-                id: m.id,
-            };
+        for assoc in associations {
             let to_push = PersonDetailsItemWithCharacter {
                 character: assoc.character,
-                media_id: metadata,
+                media_id: assoc.metadata_id,
             };
             contents
                 .entry(assoc.role)
@@ -6359,7 +6348,7 @@ impl MiscellaneousService {
         let contents = MetadataToMetadataGroup::find()
             .select_only()
             .column(metadata_to_metadata_group::Column::MetadataId)
-            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id))
+            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id.clone()))
             .order_by_asc(metadata_to_metadata_group::Column::Part)
             .into_tuple::<String>()
             .all(&self.db)
