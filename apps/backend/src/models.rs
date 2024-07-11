@@ -892,7 +892,6 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct MetadataImageForMediaDetails {
         pub image: String,
-        pub lot: MetadataImageLot,
     }
 
     #[derive(
@@ -1070,31 +1069,10 @@ pub mod media {
     }
 
     #[derive(
-        Debug,
-        Clone,
-        Copy,
-        PartialEq,
-        Eq,
-        EnumIter,
-        FromJsonQueryResult,
-        Deserialize,
-        Serialize,
-        Default,
-        Hash,
-        Enum,
-    )]
-    pub enum MetadataImageLot {
-        Backdrop,
-        #[default]
-        Poster,
-    }
-
-    #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataImage {
         pub url: StoredUrl,
-        pub lot: MetadataImageLot,
     }
 
     #[derive(

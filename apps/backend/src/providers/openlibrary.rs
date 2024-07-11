@@ -12,9 +12,9 @@ use serde_json::json;
 use crate::{
     models::{
         media::{
-            BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-            PeopleSearchItem, PersonSourceSpecifics,
+            BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
+            MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -378,7 +378,6 @@ impl MediaProvider for OpenlibraryService {
             .filter(|c| c > &0)
             .map(|c| MetadataImageForMediaDetails {
                 image: self.get_book_cover_image_url(c),
-                lot: MetadataImageLot::Poster,
             })
             .unique()
             .collect();

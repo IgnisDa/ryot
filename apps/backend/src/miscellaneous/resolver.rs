@@ -79,7 +79,7 @@ use crate::{
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
             MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
-            MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
             MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
             PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics, PostReviewInput,
@@ -2887,11 +2887,9 @@ impl MiscellaneousService {
         let mut images = vec![];
         images.extend(input.url_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::Url(i.image),
-            lot: i.lot,
         }));
         images.extend(input.s3_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::S3(i.image),
-            lot: i.lot,
         }));
         let free_creators = if input.creators.is_empty() {
             None
@@ -3045,7 +3043,6 @@ impl MiscellaneousService {
             let image = data.image.clone().map(|i| {
                 vec![MetadataImage {
                     url: StoredUrl::Url(i),
-                    lot: MetadataImageLot::Poster,
                 }]
             });
             let c = metadata::ActiveModel {
@@ -3121,11 +3118,9 @@ impl MiscellaneousService {
         let mut images = vec![];
         images.extend(details.url_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::Url(i.image),
-            lot: i.lot,
         }));
         images.extend(details.s3_images.into_iter().map(|i| MetadataImage {
             url: StoredUrl::S3(i.image),
-            lot: i.lot,
         }));
         let metadata = metadata::ActiveModel {
             lot: ActiveValue::Set(details.lot),
@@ -4983,10 +4978,7 @@ impl MiscellaneousService {
             .images
             .unwrap_or_default()
             .into_iter()
-            .map(|i| MetadataImageForMediaDetails {
-                image: i,
-                lot: MetadataImageLot::Poster,
-            })
+            .map(|i| MetadataImageForMediaDetails { image: i })
             .collect();
         let videos = input
             .videos
@@ -6867,7 +6859,6 @@ impl MiscellaneousService {
                 .into_iter()
                 .map(|i| MetadataImage {
                     url: StoredUrl::Url(i),
-                    lot: MetadataImageLot::Poster,
                 })
                 .collect()
         });

@@ -11,7 +11,7 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
+             MetadataPerson, MetadataSearchItem, MetadataVideo,
             MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics,
         },
@@ -542,7 +542,6 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         .into_iter()
         .map(|i| MetadataImageForMediaDetails {
             image: i,
-            lot: MetadataImageLot::Poster,
         })
         .unique()
         .collect();

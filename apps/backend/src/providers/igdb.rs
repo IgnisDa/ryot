@@ -20,10 +20,9 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, VideoGameSpecifics,
+            MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
+            MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -514,7 +513,6 @@ impl IgdbService {
     fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MediaDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| MetadataImageForMediaDetails {
             image: self.get_cover_image_url(a.image_id),
-            lot: MetadataImageLot::Poster,
         }));
         let additional_images =
             item.artworks
@@ -522,7 +520,6 @@ impl IgdbService {
                 .into_iter()
                 .map(|a| MetadataImageForMediaDetails {
                     image: self.get_cover_image_url(a.image_id),
-                    lot: MetadataImageLot::Poster,
                 });
         images.extend(additional_images);
         let people = item
