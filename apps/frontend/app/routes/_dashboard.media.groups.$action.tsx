@@ -4,6 +4,7 @@ import {
 	Center,
 	Container,
 	Group,
+	Loader,
 	Pagination,
 	Select,
 	Stack,
@@ -21,6 +22,7 @@ import {
 	MediaLot,
 	MediaSource,
 	MetadataGroupSearchDocument,
+	type MetadataGroupSearchQuery,
 	MetadataGroupsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
@@ -33,16 +35,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import {
-	type Item,
-	MediaItemWithoutUpdateModal,
+	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
 import { redirectToQueryParam } from "~/lib/generals";
-import {
-	useCoreDetails,
-	useSearchParam,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useCoreDetails, useSearchParam } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -202,14 +199,7 @@ export default function Page() {
 							<>
 								<ApplicationGrid>
 									{loaderData.search.search.items.map((group) => (
-										<GroupSearchItem
-											item={{
-												...group,
-												title: group.name,
-												publishYear: group.parts ? `${group.parts} items` : "",
-											}}
-											key={group.identifier}
-										/>
+										<GroupSearchItem item={group} key={group.identifier} />
 									))}
 								</ApplicationGrid>
 								<Center>
@@ -235,20 +225,26 @@ export default function Page() {
 }
 
 const GroupSearchItem = (props: {
-	item: Item;
+	item: MetadataGroupSearchQuery["metadataGroupSearch"]["items"][number];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
 	const [isLoading, setIsLoading] = useState(false);
 
 	return (
-		<MediaItemWithoutUpdateModal
-			item={props.item}
-			noHref
-			reviewScale={userPreferences.general.reviewScale}
-			imageOverlayForLoadingIndicator={isLoading}
-			onClick={async (_) => {
+		<BaseMediaDisplayItem
+			isLoading={false}
+			name={props.item.name}
+			imageUrl={props.item.image}
+			imageOverlay={{
+				topLeft: isLoading ? (
+					<Loader color="red" variant="bars" size="sm" m={2} />
+				) : null,
+			}}
+			labels={{
+				left: props.item.parts ? `${props.item.parts} items` : undefined,
+			}}
+			onImageClickBehavior={async () => {
 				if (loaderData.search) {
 					setIsLoading(true);
 					const id = await commitGroup(
