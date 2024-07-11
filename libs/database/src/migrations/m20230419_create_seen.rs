@@ -4,8 +4,6 @@ use crate::SeenState;
 
 use super::{m20230410_create_metadata::Metadata, m20230417_create_user::User};
 
-pub static TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL: &str = "GENERATED ALWAYS AS (CASE WHEN array_length(updated_at, 1) < 2 THEN NULL ELSE EXTRACT(EPOCH FROM (updated_at[array_length(updated_at, 1)] - updated_at[1])) END) STORED";
-
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -27,7 +25,6 @@ pub enum Seen {
     AnimeExtraInformation,
     MangaExtraInformation,
     ProviderWatchedOn,
-    TotalTimeSpent,
 }
 
 #[async_trait::async_trait]
@@ -74,11 +71,6 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null()
                             .extra("GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED")
-                    )
-                    .col(
-                        ColumnDef::new(Seen::TotalTimeSpent)
-                        .integer()
-                        .extra(TOTAL_TIME_SPENT_COLUMN_EXTRA_SQL)
                     )
                     .col(ColumnDef::new(Seen::MetadataId).text().not_null())
                     .col(ColumnDef::new(Seen::UserId).text().not_null())
