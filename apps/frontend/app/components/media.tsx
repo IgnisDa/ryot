@@ -771,13 +771,7 @@ export const MetadataDisplayItem = (props: {
 				),
 				bottomLeft:
 					reasons && reasons.length > 0 ? (
-						<Group
-							style={blackBgStyles}
-							pos="absolute"
-							bottom={5}
-							left={5}
-							gap={3}
-						>
+						<Group gap={3}>
 							{reasons
 								.map((r) =>
 									match(r)
@@ -833,7 +827,7 @@ export const MetadataGroupDisplayItem = (props: {
 			})}
 			imageUrl={metadataDetails?.details.displayImages.at(0)}
 			labels={
-				metadataDetails?.details.parts
+				metadataDetails
 					? {
 							left: `${metadataDetails.details.parts} items`,
 							right: changeCase(snakeCase(metadataDetails.details.lot)),
