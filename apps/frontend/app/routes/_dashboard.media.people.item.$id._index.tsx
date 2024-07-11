@@ -199,6 +199,9 @@ export default function Page() {
 												<PartialMetadataDisplay
 													key={item.mediaId}
 													metadataId={item.mediaId}
+													extraText={
+														item.character ? `as ${item.character}` : undefined
+													}
 												/>
 											))}
 										</SimpleGrid>

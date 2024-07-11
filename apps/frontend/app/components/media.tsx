@@ -108,7 +108,10 @@ export const commitMedia = async (
 	return json.commitMedia.id;
 };
 
-export const PartialMetadataDisplay = (props: { metadataId: string }) => {
+export const PartialMetadataDisplay = (props: {
+	metadataId: string;
+	extraText?: string;
+}) => {
 	const { data: metadataDetails } = useQuery(
 		getPartialMetadataDetailsQuery(props.metadataId),
 	);
@@ -139,7 +142,7 @@ export const PartialMetadataDisplay = (props: { metadataId: string }) => {
 				lineClamp={1}
 				c={(userMetadataDetails?.history.length || 0) > 0 ? "yellow" : "dimmed"}
 			>
-				{metadataDetails?.title}
+				{metadataDetails?.title} {props.extraText}
 			</Text>
 		</Anchor>
 	);
