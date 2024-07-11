@@ -1620,6 +1620,14 @@ impl MiscellaneousService {
         metadata_id: &String,
     ) -> Result<MetadataPartialDetails> {
         let metadata = Metadata::find_by_id(metadata_id)
+            .select_only()
+            .columns([
+                metadata::Column::Id,
+                metadata::Column::Lot,
+                metadata::Column::Title,
+                metadata::Column::Images,
+                metadata::Column::PublishYear,
+            ])
             .one(&self.db)
             .await
             .unwrap()
