@@ -88,6 +88,10 @@ import {
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import {
+	getExerciseDetailsQuery,
+	getUserExerciseDetailsQuery,
+} from "~/lib/state/fitness";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -867,6 +871,34 @@ export const PersonDisplayItem = (props: {
 		/>
 	);
 };
+
+export const ExerciseDisplayItem = (props: {
+	exerciseId: string;
+}) => {
+	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
+		useQuery(getExerciseDetailsQuery(props.exerciseId));
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(props.exerciseId),
+	);
+	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
+
+	return (
+		<BaseMediaDisplayItem
+			name={exerciseDetails?.id}
+			isLoading={isExerciseDetailsLoading}
+			onImageClickBehavior={$path("/fitness/exercises/item/:id", {
+				id: props.exerciseId,
+			})}
+			imageUrl={exerciseDetails?.attributes.images.at(0)}
+			labels={
+				isNumber(times)
+					? { left: `${times} time${times > 1 ? "s" : ""}` }
+					: undefined
+			}
+		/>
+	);
+};
+
 export type Item = {
 	identifier: string;
 	title: string;
