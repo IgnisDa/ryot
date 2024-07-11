@@ -687,6 +687,8 @@ export const MetadataDisplayItem = (props: {
 export const MetadataGroupDisplayItem = (props: {
 	metadataGroupId: string;
 	topRight?: ReactNode;
+	rightLabel?: ReactNode;
+	noLeftLabel?: boolean;
 }) => {
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useQuery({
@@ -710,8 +712,13 @@ export const MetadataGroupDisplayItem = (props: {
 			labels={
 				metadataDetails
 					? {
-							left: `${metadataDetails.details.parts} items`,
-							right: changeCase(snakeCase(metadataDetails.details.lot)),
+							left:
+								props.noLeftLabel !== true
+									? `${metadataDetails.details.parts} items`
+									: undefined,
+							right:
+								props.rightLabel ||
+								changeCase(snakeCase(metadataDetails.details.lot)),
 						}
 					: undefined
 			}
@@ -723,6 +730,7 @@ export const MetadataGroupDisplayItem = (props: {
 export const PersonDisplayItem = (props: {
 	personId: string;
 	topRight?: ReactNode;
+	rightLabel?: ReactNode;
 }) => {
 	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
 		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
@@ -741,11 +749,12 @@ export const PersonDisplayItem = (props: {
 				id: props.personId,
 			})}
 			imageUrl={personDetails?.details.displayImages.at(0)}
-			labels={
-				personDetails
-					? { left: `${personDetails.contents.length} items` }
-					: undefined
-			}
+			labels={{
+				left: personDetails
+					? `${personDetails.contents.length} items`
+					: undefined,
+				right: props.rightLabel,
+			}}
 			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
@@ -754,6 +763,7 @@ export const PersonDisplayItem = (props: {
 export const ExerciseDisplayItem = (props: {
 	exerciseId: string;
 	topRight?: ReactNode;
+	rightLabel?: ReactNode;
 }) => {
 	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
 		useQuery(getExerciseDetailsQuery(props.exerciseId));
@@ -770,11 +780,12 @@ export const ExerciseDisplayItem = (props: {
 				id: props.exerciseId,
 			})}
 			imageUrl={exerciseDetails?.attributes.images.at(0)}
-			labels={
-				isNumber(times)
-					? { left: `${times} time${times > 1 ? "s" : ""}` }
-					: undefined
-			}
+			labels={{
+				left: isNumber(times)
+					? `${times} time${times > 1 ? "s" : ""}`
+					: undefined,
+				right: props.rightLabel,
+			}}
 			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
@@ -797,15 +808,22 @@ export const DisplayCollectionEntity = (props: {
 			<MetadataGroupDisplayItem
 				metadataGroupId={props.entityId}
 				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+				noLeftLabel
 			/>
 		))
 		.with(EntityLot.Person, () => (
-			<PersonDisplayItem personId={props.entityId} topRight={props.topRight} />
+			<PersonDisplayItem
+				personId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
 				exerciseId={props.entityId}
 				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
 			/>
 		))
 		.run();
