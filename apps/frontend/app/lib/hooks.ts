@@ -9,6 +9,7 @@ import {
 } from "@remix-run/react";
 import {
 	MetadataDetailsDocument,
+	MetadataPartialDetailsDocument,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
@@ -128,6 +129,15 @@ export const getWorkoutStarter = () => {
 	};
 	return fn;
 };
+
+export const getPartialMetadataDetailsQuery = (metadataId: string) =>
+	queryOptions({
+		queryKey: queryFactory.media.metadataPartialDetails(metadataId).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(MetadataPartialDetailsDocument, { metadataId })
+				.then((data) => data.metadataPartialDetails),
+	});
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 	queryOptions({

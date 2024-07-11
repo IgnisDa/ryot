@@ -33,7 +33,6 @@ import {
 	type MediaLot,
 	type MediaSource,
 	MetadataGroupDetailsDocument,
-	MetadataPartialDetailsDocument,
 	type PartialMetadata,
 	PersonDetailsDocument,
 	type ReviewItem,
@@ -75,6 +74,7 @@ import {
 	redirectToQueryParam,
 } from "~/lib/generals";
 import {
+	getPartialMetadataDetailsQuery,
 	useActionsSubmit,
 	useFallbackImageUrl,
 	useGetMantineColor,
@@ -553,15 +553,7 @@ export const MetadataDisplayItem = (props: {
 		useMetadataProgressUpdate();
 	const userPreferences = useUserPreferences();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useQuery({
-			queryKey: queryFactory.media.metadataPartialDetails(props.metadataId)
-				.queryKey,
-			queryFn: async () => {
-				return clientGqlService
-					.request(MetadataPartialDetailsDocument, props)
-					.then((data) => data.metadataPartialDetails);
-			},
-		});
+		useQuery(getPartialMetadataDetailsQuery(props.metadataId));
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
 	);
