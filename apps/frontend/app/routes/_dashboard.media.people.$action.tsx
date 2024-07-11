@@ -272,7 +272,7 @@ export default function Page() {
 										<BaseDisplayItem
 											name={person.name}
 											bottomLeft={`${person.mediaCount} items`}
-											imageLink={person.image}
+											imageUrl={person.image}
 											imagePlaceholder={getInitials(person.name)}
 											key={person.id}
 											href={$path("/media/people/item/:id", { id: person.id })}

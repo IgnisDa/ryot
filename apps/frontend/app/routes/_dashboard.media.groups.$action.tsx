@@ -173,7 +173,7 @@ export default function Page() {
 											name={group.title}
 											bottomLeft={`${group.parts} items`}
 											bottomRight={changeCase(snakeCase(group.lot))}
-											imageLink={group.image}
+											imageUrl={group.image}
 											imagePlaceholder={getInitials(group.title)}
 											key={group.id}
 											href={$path("/media/groups/item/:id", { id: group.id })}

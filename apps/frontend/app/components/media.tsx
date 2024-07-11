@@ -423,8 +423,7 @@ const blackBgStyles = {
 export const BaseDisplayItem = (props: {
 	name: string;
 	onClick?: (e: React.MouseEvent) => Promise<void>;
-	imageLink?: string | null;
-	imagePlaceholder: string;
+	imageUrl?: string | null;
 	topRight?: ReactNode;
 	topLeft?: ReactNode;
 	bottomLeft?: string | number | null;
@@ -480,7 +479,7 @@ export const BaseDisplayItem = (props: {
 		>
 			<SurroundingElement style={{ flex: "none" }} pos="relative">
 				<Image
-					src={props.imageLink}
+					src={props.imageUrl}
 					radius="md"
 					style={{ cursor: "pointer" }}
 					alt={`Image for ${props.name}`}
@@ -604,8 +603,7 @@ export const MediaItemWithoutUpdateModal = (props: {
 								.exhaustive()
 					: undefined
 			}
-			imageLink={props.item.image}
-			imagePlaceholder={getInitials(props.item?.title || "")}
+			imageUrl={props.item.image}
 			topLeft={
 				props.imageOverlayForLoadingIndicator ? (
 					<Loader color="red" variant="bars" size="sm" />

@@ -62,7 +62,7 @@ export default function Page() {
 							name={media.details.title}
 							bottomLeft={media.details.publishYear}
 							bottomRight={changeCase(snakeCase(media.metadataLot || ""))}
-							imageLink={media.details.image}
+							imageUrl={media.details.image}
 							imagePlaceholder={getInitials(media.details.title)}
 							href={$path("/media/item/:id", { id: media.details.identifier })}
 						/>
