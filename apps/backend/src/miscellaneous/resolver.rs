@@ -79,9 +79,9 @@ use crate::{
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
-            MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails, MediaListItem,
+            MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails,
             MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataSearchItem,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataListItem, MetadataSearchItem,
             MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
             MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
             PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
@@ -832,7 +832,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataListInput,
-    ) -> Result<SearchResults<MediaListItem>> {
+    ) -> Result<SearchResults<MetadataListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.metadata_list(user_id, input).await
@@ -2120,7 +2120,7 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: MetadataListInput,
-    ) -> Result<SearchResults<MediaListItem>> {
+    ) -> Result<SearchResults<MetadataListItem>> {
         let avg_rating_col = "average_rating";
         let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, &user_id)
             .await?
@@ -2258,7 +2258,7 @@ impl MiscellaneousService {
 
         let mut items = vec![];
         for met in m_items {
-            let m_small = MediaListItem {
+            let m_small = MetadataListItem {
                 data: MetadataSearchItem {
                     identifier: met.id.to_string(),
                     title: met.title,
