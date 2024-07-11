@@ -56,7 +56,7 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
@@ -439,8 +439,8 @@ export const BaseDisplayItem = (props: {
 
 	const SurroundingElement = (iProps: {
 		children: ReactNode;
-		style: React.CSSProperties;
-		pos: StyleProp<React.CSSProperties["position"]>;
+		style: CSSProperties;
+		pos: StyleProp<CSSProperties["position"]>;
 	}) =>
 		props.href ? (
 			<Anchor
