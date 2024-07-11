@@ -7,6 +7,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Loader,
 	Pagination,
 	Select,
 	Stack,
@@ -26,6 +27,7 @@ import {
 	MediaSource,
 	PeopleListDocument,
 	PeopleSearchDocument,
+	type PeopleSearchQuery,
 	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
@@ -46,17 +48,12 @@ import {
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common";
-import {
-	type Item,
-	MediaItemWithoutUpdateModal,
-	PersonDisplayItem,
-} from "~/components/media";
+import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
 import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
 	useSearchParam,
-	useUserPreferences,
 } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
@@ -301,14 +298,7 @@ export default function Page() {
 							<>
 								<ApplicationGrid>
 									{loaderData.peopleSearch.search.items.map((person) => (
-										<PersonSearchItem
-											item={{
-												...person,
-												title: person.name,
-												publishYear: person.birthYear?.toString(),
-											}}
-											key={person.identifier}
-										/>
+										<PersonSearchItem item={person} key={person.identifier} />
 									))}
 								</ApplicationGrid>
 								<Center>
@@ -334,31 +324,34 @@ export default function Page() {
 }
 
 const PersonSearchItem = (props: {
-	item: Item;
+	item: PeopleSearchQuery["peopleSearch"]["items"][number];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
 	const [isLoading, setIsLoading] = useState(false);
 
 	return (
-		<MediaItemWithoutUpdateModal
-			item={props.item}
-			noHref
-			reviewScale={userPreferences.general.reviewScale}
-			imageOverlayForLoadingIndicator={isLoading}
-			onClick={async (_) => {
+		<BaseMediaDisplayItem
+			isLoading={false}
+			name={props.item.name}
+			imageUrl={props.item.image}
+			imageOverlay={{
+				topLeft: isLoading ? (
+					<Loader color="red" variant="bars" size="sm" m={2} />
+				) : null,
+			}}
+			onImageClickBehavior={async () => {
 				if (loaderData.peopleSearch) {
 					setIsLoading(true);
 					const id = await commitPerson(
 						props.item.identifier,
 						loaderData.peopleSearch.url.source,
-						props.item.title,
+						props.item.name,
 						loaderData.peopleSearch.url.isTmdbCompany,
 						loaderData.peopleSearch.url.isAnilistStudio,
 					);
 					setIsLoading(false);
-					return navigate($path("/media/people/item/:id", { id }));
+					return navigate($path("/media/groups/item/:id", { id }));
 				}
 			}}
 		/>
