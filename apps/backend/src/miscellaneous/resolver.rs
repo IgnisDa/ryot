@@ -1619,7 +1619,7 @@ impl MiscellaneousService {
         &self,
         metadata_id: &String,
     ) -> Result<MetadataPartialDetails> {
-        let metadata = Metadata::find_by_id(metadata_id)
+        let mut metadata = Metadata::find_by_id(metadata_id)
             .select_only()
             .columns([
                 metadata::Column::Id,
@@ -1628,21 +1628,16 @@ impl MiscellaneousService {
                 metadata::Column::Images,
                 metadata::Column::PublishYear,
             ])
+            .into_model::<MetadataPartialDetails>()
             .one(&self.db)
             .await
             .unwrap()
             .unwrap();
-        let image = metadata
+        metadata.image = metadata
             .images
             .first_as_url(&self.file_storage_service)
             .await;
-        Ok(MetadataPartialDetails {
-            image,
-            id: metadata.id,
-            lot: metadata.lot,
-            title: metadata.title,
-            publish_year: metadata.publish_year,
-        })
+        Ok(metadata)
     }
 
     async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {

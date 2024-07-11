@@ -1293,12 +1293,17 @@ pub mod media {
         pub source: MediaSource,
     }
 
-    #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject)]
+    #[derive(
+        Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult,
+    )]
     pub struct MetadataPartialDetails {
         pub id: String,
         pub title: String,
         pub lot: MediaLot,
+        #[sea_orm(ignore)]
         pub image: Option<String>,
+        #[graphql(skip)]
+        pub images: Option<Vec<MetadataImage>>,
         pub publish_year: Option<i32>,
     }
 
