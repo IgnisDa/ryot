@@ -33,7 +33,7 @@ import {
 	MediaSource,
 	MetadataListDocument,
 	MetadataSearchDocument,
-	UserReviewScale,
+	type UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -45,7 +45,6 @@ import {
 	IconSearch,
 	IconSortAscending,
 	IconSortDescending,
-	IconStarFilled,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import invariant from "tiny-invariant";
@@ -61,6 +60,7 @@ import {
 import {
 	type Item,
 	MediaItemWithoutUpdateModal,
+	MetadataDisplayItem,
 	NewUserGuideAlert,
 	commitMedia,
 } from "~/components/media";
@@ -76,14 +76,12 @@ import {
 import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
-	useReviewEntity,
 } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import classes from "~/styles/common.module.css";
 
 export type SearchParams = {
 	query?: string;
@@ -220,7 +218,6 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
-	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -306,65 +303,12 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{loaderData.mediaList.list.items.map((lm) => {
-										const averageRating = lm.averageRating;
-										return (
-											<MediaItemWithoutUpdateModal
-												key={lm.data.identifier}
-												item={{
-													...lm.data,
-													publishYear: lm.data.publishYear?.toString(),
-												}}
-												topRight={
-													averageRating ? (
-														<>
-															<IconStarFilled
-																size={12}
-																style={{ color: "#EBE600FF" }}
-															/>
-															<Text c="white" size="xs" fw="bold" pr={4}>
-																{match(userPreferences.general.reviewScale)
-																	.with(UserReviewScale.OutOfFive, () =>
-																		Number.parseFloat(
-																			averageRating.toString(),
-																		).toFixed(1),
-																	)
-																	.with(
-																		UserReviewScale.OutOfHundred,
-																		() => averageRating,
-																	)
-																	.exhaustive()}{" "}
-																{userPreferences.general.reviewScale ===
-																UserReviewScale.OutOfFive
-																	? undefined
-																	: "%"}
-															</Text>
-														</>
-													) : (
-														<IconStarFilled
-															onClick={(e) => {
-																e.preventDefault();
-																setEntityToReview({
-																	entityId: lm.data.identifier,
-																	entityLot: EntityLot.Metadata,
-																	entityTitle: lm.data.title,
-																	metadataLot: loaderData.lot,
-																});
-															}}
-															size={16}
-															className={classes.starIcon}
-														/>
-													)
-												}
-												mediaReason={lm.mediaReason}
-												lot={loaderData.lot}
-												href={$path("/media/item/:id", {
-													id: lm.data.identifier,
-												})}
-												reviewScale={userPreferences.general.reviewScale}
-											/>
-										);
-									})}
+									{loaderData.mediaList.list.items.map((lm) => (
+										<MetadataDisplayItem
+											key={lm.data.identifier}
+											metadataId={lm.data.identifier}
+										/>
+									))}
 								</ApplicationGrid>
 							</>
 						) : (

@@ -7,6 +7,7 @@ import {
 	Badge,
 	Box,
 	Button,
+	Center,
 	Collapse,
 	Divider,
 	Flex,
@@ -17,6 +18,7 @@ import {
 	Menu,
 	Paper,
 	ScrollArea,
+	Skeleton,
 	Stack,
 	type StyleProp,
 	Text,
@@ -37,6 +39,7 @@ import {
 	EntityLot,
 	type MediaLot,
 	type MediaSource,
+	MetadataPartialDetailsDocument,
 	type PartialMetadata,
 	type ReviewItem,
 	UserReviewScale,
@@ -56,17 +59,24 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
 import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
+import {
+	clientGqlService,
+	dayjsLib,
+	queryFactory,
+	redirectToQueryParam,
+} from "~/lib/generals";
 import {
 	useFallbackImageUrl,
 	useGetMantineColor,
 	useUserDetails,
+	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
@@ -553,7 +563,8 @@ export const BaseDisplayItem = (props: {
 };
 
 export const BaseMediaDisplayItem = (props: {
-	name: string;
+	isLoading: boolean;
+	name?: string;
 	imageUrl?: string | null;
 	imageOverlay?: {
 		topRight?: ReactNode;
@@ -561,7 +572,7 @@ export const BaseMediaDisplayItem = (props: {
 		bottomRight?: ReactNode;
 		bottomLeft?: ReactNode;
 	};
-	labels?: { right?: string; left?: string };
+	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: string | (() => void);
 	nameRight?: ReactNode;
 }) => {
@@ -579,8 +590,8 @@ export const BaseMediaDisplayItem = (props: {
 	} as const;
 
 	return (
-		<Flex align="center" justify="center" direction="column">
-			<Box pos="relative">
+		<Flex justify="space-between" direction="column">
+			<Box pos="relative" w="100%">
 				<SurroundingElement>
 					<Tooltip label={props.name} position="top">
 						<Image
@@ -596,32 +607,39 @@ export const BaseMediaDisplayItem = (props: {
 									transitionDuration: "150ms",
 								},
 							}}
-							fallbackSrc={useFallbackImageUrl(getInitials(props.name))}
+							fallbackSrc={useFallbackImageUrl(
+								props.isLoading
+									? "Loading..."
+									: props.name
+										? getInitials(props.name)
+										: undefined,
+							)}
 						/>
 					</Tooltip>
 				</SurroundingElement>
 				{props.imageOverlay?.topLeft ? (
-					<Box top={5} left={5} {...defaultOverlayProps}>
+					<Center top={5} left={5} {...defaultOverlayProps}>
 						{props.imageOverlay.topLeft}
-					</Box>
+					</Center>
 				) : null}
 				{props.imageOverlay?.topRight ? (
-					<Box top={5} right={5} {...defaultOverlayProps}>
+					<Center top={5} right={5} {...defaultOverlayProps}>
 						{props.imageOverlay.topRight}
-					</Box>
+					</Center>
 				) : null}
 				{props.imageOverlay?.bottomLeft ? (
-					<Box bottom={5} left={5} {...defaultOverlayProps}>
+					<Center bottom={5} left={5} {...defaultOverlayProps}>
 						{props.imageOverlay.bottomLeft}
-					</Box>
+					</Center>
 				) : null}
 				{props.imageOverlay?.bottomRight ? (
-					<Box bottom={5} right={5} {...defaultOverlayProps}>
+					<Center bottom={5} right={5} {...defaultOverlayProps}>
 						{props.imageOverlay.bottomRight}
-					</Box>
+					</Center>
 				) : null}
 			</Box>
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
+				{props.isLoading ? <Skeleton height={30} mt="xs" /> : null}
 				<Flex justify="space-between" direction="row" w="100%">
 					{props.labels?.left ? (
 						<Text c="dimmed" size="sm">
@@ -642,6 +660,102 @@ export const BaseMediaDisplayItem = (props: {
 				</Flex>
 			</Flex>
 		</Flex>
+	);
+};
+
+export const MetadataDisplayItem = (props: { metadataId: string }) => {
+	const [_r, setEntityToReview] = useReviewEntity();
+	const userPreferences = useUserPreferences();
+	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
+		useQuery({
+			queryKey: queryFactory.media.metadataPartialDetails(props.metadataId)
+				.queryKey,
+			queryFn: async () => {
+				return clientGqlService
+					.request(MetadataPartialDetailsDocument, props)
+					.then((data) => data.metadataPartialDetails);
+			},
+		});
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
+	const averageRating = userMetadataDetails?.averageRating;
+	const themeIconSurround = (idx: number, icon?: ReactNode) => (
+		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
+			{icon}
+		</ThemeIcon>
+	);
+	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
+		[
+			UserToMediaReason.Finished,
+			UserToMediaReason.Watchlist,
+			UserToMediaReason.Owned,
+		].includes(r),
+	);
+
+	return (
+		<BaseMediaDisplayItem
+			name={metadataDetails?.title}
+			isLoading={isMetadataDetailsLoading}
+			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
+			imageUrl={metadataDetails?.image}
+			labels={{ left: metadataDetails?.publishYear }}
+			imageOverlay={{
+				topRight: averageRating ? (
+					<Group gap={4}>
+						<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
+						<Text c="white" size="xs" fw="bold" pr={4}>
+							{match(userPreferences.general.reviewScale)
+								.with(UserReviewScale.OutOfFive, () =>
+									Number.parseFloat(averageRating.toString()).toFixed(1),
+								)
+								.with(UserReviewScale.OutOfHundred, () => averageRating)
+								.exhaustive()}
+							{userPreferences.general.reviewScale === UserReviewScale.OutOfFive
+								? undefined
+								: " %"}
+						</Text>
+					</Group>
+				) : (
+					<IconStarFilled
+						cursor="pointer"
+						onClick={() => {
+							if (metadataDetails)
+								setEntityToReview({
+									entityId: props.metadataId,
+									entityLot: EntityLot.Metadata,
+									metadataLot: metadataDetails.lot,
+									entityTitle: metadataDetails.title,
+								});
+						}}
+						size={16}
+						className={classes.starIcon}
+					/>
+				),
+				bottomLeft:
+					reasons && reasons.length > 0 ? (
+						<Group
+							style={blackBgStyles}
+							pos="absolute"
+							bottom={5}
+							left={5}
+							gap={3}
+						>
+							{reasons
+								.map((r) =>
+									match(r)
+										.with(UserToMediaReason.Finished, () => (
+											<IconRosetteDiscountCheck />
+										))
+										.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
+										.with(UserToMediaReason.Owned, () => <IconBackpack />)
+										.run(),
+								)
+								.map((icon, idx) => themeIconSurround(idx, icon))}
+						</Group>
+					) : null,
+			}}
+		/>
 	);
 };
 

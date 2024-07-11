@@ -240,6 +240,9 @@ const usersQueryKeys = createQueryKeys("users", {
 });
 
 const mediaQueryKeys = createQueryKeys("media", {
+	metadataPartialDetails: (metadataId: string) => ({
+		queryKey: ["metadataPartialDetails", metadataId],
+	}),
 	metadataDetails: (metadataId: string) => ({
 		queryKey: ["metadataDetails", metadataId],
 	}),
