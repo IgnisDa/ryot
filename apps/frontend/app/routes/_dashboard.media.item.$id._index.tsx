@@ -1305,7 +1305,7 @@ const SeenItem = (props: { history: History; index: number }) => {
 					.reduce((prev, curr) => [prev, " • ", curr])
 			: null;
 
-	const timeSpentInMilliseconds = (props.history.totalTimeSpent || 0) * 1000;
+	const timeSpentInMilliseconds = 0 * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
 	const isLessThanAnHour =
 		timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
