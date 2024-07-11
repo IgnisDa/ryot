@@ -27,13 +27,12 @@ import {
 } from "@mantine/core";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
-import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
+import { Form, Link, useFetcher } from "@remix-run/react";
 import {
 	EntityLot,
 	type MediaLot,
 	type MediaSource,
 	MetadataGroupDetailsDocument,
-	type PartialMetadata,
 	PersonDetailsDocument,
 	type ReviewItem,
 	UserReviewScale,
@@ -109,41 +108,38 @@ export const commitMedia = async (
 	return json.commitMedia.id;
 };
 
-// FIXME: Use react query here
-export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
-	const navigate = useNavigate();
+export const PartialMetadataDisplay = (props: { metadataId: string }) => {
+	const { data: metadataDetails } = useQuery(
+		getPartialMetadataDetailsQuery(props.metadataId),
+	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 
 	return (
 		<Anchor
 			component={Link}
-			data-media-id={props.media.identifier}
-			to={
-				props.media.id
-					? $path("/media/item/:id", { id: props.media.id })
-					: $path("/")
-			}
-			onClick={async (e) => {
-				e.preventDefault();
-				const id = await commitMedia(
-					props.media.identifier,
-					props.media.lot,
-					props.media.source,
-				);
-				return navigate($path("/media/item/:id", { id }));
-			}}
+			data-media-id={props.metadataId}
+			to={$path("/media/item/:id", { id: props.metadataId })}
 		>
 			<Avatar
 				imageProps={{ loading: "lazy" }}
 				radius="sm"
-				src={props.media.image}
+				src={metadataDetails?.image}
 				h={100}
 				w={85}
 				mx="auto"
-				alt={`${props.media.title} picture`}
+				name={metadataDetails?.title}
 				styles={{ image: { objectPosition: "top" } }}
 			/>
-			<Text c="dimmed" size="xs" ta="center" lineClamp={1} mt={4}>
-				{props.media.title}
+			<Text
+				mt={4}
+				size="xs"
+				ta="center"
+				lineClamp={1}
+				c={(userMetadataDetails?.history.length || 0) > 0 ? "yellow" : "dimmed"}
+			>
+				{metadataDetails?.title}
 			</Text>
 		</Anchor>
 	);

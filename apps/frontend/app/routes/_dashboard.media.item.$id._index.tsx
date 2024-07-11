@@ -1060,7 +1060,7 @@ export default function Page() {
 							<MediaScrollArea>
 								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 									{loaderData.metadataDetails.suggestions.map((sug) => (
-										<PartialMetadataDisplay key={sug.identifier} media={sug} />
+										<PartialMetadataDisplay key={sug} metadataId={sug} />
 									))}
 								</SimpleGrid>
 							</MediaScrollArea>
