@@ -680,6 +680,7 @@ export const BaseMediaDisplayItem = (props: {
 
 export const MetadataDisplayItem = (props: {
 	metadataId: string;
+	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 	rightLabelHistory?: boolean;
 	noLeftLabel?: boolean;
@@ -743,7 +744,9 @@ export const MetadataDisplayItem = (props: {
 					: undefined
 			}
 			imageOverlay={{
-				topRight: averageRating ? (
+				topRight: props.topRight ? (
+					props.topRight
+				) : averageRating ? (
 					<Group gap={4}>
 						<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 						<Text c="white" size="xs" fw="bold" pr={4}>
@@ -811,6 +814,7 @@ export const MetadataDisplayItem = (props: {
 
 export const MetadataGroupDisplayItem = (props: {
 	metadataGroupId: string;
+	topRight?: ReactNode;
 }) => {
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useQuery({
@@ -839,12 +843,14 @@ export const MetadataGroupDisplayItem = (props: {
 						}
 					: undefined
 			}
+			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
 };
 
 export const PersonDisplayItem = (props: {
 	personId: string;
+	topRight?: ReactNode;
 }) => {
 	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
 		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
@@ -868,12 +874,14 @@ export const PersonDisplayItem = (props: {
 					? { left: `${personDetails.contents.length} items` }
 					: undefined
 			}
+			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
 };
 
 export const ExerciseDisplayItem = (props: {
 	exerciseId: string;
+	topRight?: ReactNode;
 }) => {
 	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
 		useQuery(getExerciseDetailsQuery(props.exerciseId));
@@ -895,6 +903,7 @@ export const ExerciseDisplayItem = (props: {
 					? { left: `${times} time${times > 1 ? "s" : ""}` }
 					: undefined
 			}
+			imageOverlay={{ topRight: props.topRight }}
 		/>
 	);
 };
@@ -902,19 +911,30 @@ export const ExerciseDisplayItem = (props: {
 export const DisplayCollectionEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
+	topRight?: ReactNode;
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
-			<MetadataDisplayItem metadataId={props.entityId} rightLabelHistory />
+			<MetadataDisplayItem
+				metadataId={props.entityId}
+				topRight={props.topRight}
+				rightLabelHistory
+			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
-			<MetadataGroupDisplayItem metadataGroupId={props.entityId} />
+			<MetadataGroupDisplayItem
+				metadataGroupId={props.entityId}
+				topRight={props.topRight}
+			/>
 		))
 		.with(EntityLot.Person, () => (
-			<PersonDisplayItem personId={props.entityId} />
+			<PersonDisplayItem personId={props.entityId} topRight={props.topRight} />
 		))
 		.with(EntityLot.Exercise, () => (
-			<ExerciseDisplayItem exerciseId={props.entityId} />
+			<ExerciseDisplayItem
+				exerciseId={props.entityId}
+				topRight={props.topRight}
+			/>
 		))
 		.run();
 

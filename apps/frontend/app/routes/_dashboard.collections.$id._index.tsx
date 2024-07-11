@@ -54,6 +54,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
+	DisplayCollectionEntity,
 	MediaItemWithoutUpdateModal,
 	ReviewItemDisplay,
 } from "~/components/media";
@@ -343,15 +344,10 @@ export default function Page() {
 											(i) => i.entityId === lm.details.identifier,
 										);
 										return (
-											<MediaItemWithoutUpdateModal
+											<DisplayCollectionEntity
 												key={lm.details.identifier}
-												item={{
-													...lm.details,
-													publishYear: lm.details.publishYear?.toString(),
-												}}
-												lot={lm.metadataLot}
+												entityId={lm.details.identifier}
 												entityLot={lm.entityLot}
-												reviewScale={userPreferences.general.reviewScale}
 												topRight={
 													isBulkRemoving ? (
 														<ActionIcon
