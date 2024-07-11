@@ -3272,7 +3272,6 @@ impl MiscellaneousService {
             let new_seen = seen::ActiveModel {
                 id: ActiveValue::NotSet,
                 last_updated_on: ActiveValue::NotSet,
-                total_time_spent: ActiveValue::NotSet,
                 num_times_updated: ActiveValue::NotSet,
                 metadata_id: ActiveValue::Set(merge_into.clone()),
                 ..old_seen_active

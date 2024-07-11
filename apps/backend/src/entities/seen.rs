@@ -47,7 +47,6 @@ pub struct Model {
     // Generated columns
     pub last_updated_on: DateTimeUtc,
     pub num_times_updated: i32,
-    pub total_time_spent: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
