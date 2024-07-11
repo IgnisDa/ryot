@@ -680,6 +680,7 @@ export const MetadataDisplayItem = (props: { metadataId: string }) => {
 		props.metadataId,
 	);
 	const averageRating = userMetadataDetails?.averageRating;
+	const history = userMetadataDetails?.history || [];
 	const themeIconSurround = (idx: number, icon?: ReactNode) => (
 		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
 			{icon}
@@ -699,7 +700,10 @@ export const MetadataDisplayItem = (props: { metadataId: string }) => {
 			isLoading={isMetadataDetailsLoading}
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			imageUrl={metadataDetails?.image}
-			labels={{ left: metadataDetails?.publishYear }}
+			labels={{
+				left: metadataDetails?.publishYear,
+				right: history.length > 0 ? `${history.length} time` : undefined,
+			}}
 			imageOverlay={{
 				topRight: averageRating ? (
 					<Group gap={4}>
