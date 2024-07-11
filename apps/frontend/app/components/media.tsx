@@ -42,6 +42,7 @@ import {
 	MetadataGroupDetailsDocument,
 	MetadataPartialDetailsDocument,
 	type PartialMetadata,
+	PersonDetailsDocument,
 	type ReviewItem,
 	UserReviewScale,
 	UserToMediaReason,
@@ -838,6 +839,34 @@ export const MetadataGroupDisplayItem = (props: {
 	);
 };
 
+export const PersonDisplayItem = (props: {
+	personId: string;
+}) => {
+	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
+		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
+		queryFn: async () => {
+			return clientGqlService
+				.request(PersonDetailsDocument, props)
+				.then((data) => data.personDetails);
+		},
+	});
+
+	return (
+		<BaseMediaDisplayItem
+			name={personDetails?.details.name}
+			isLoading={isPersonDetailsLoading}
+			onImageClickBehavior={$path("/media/people/item/:id", {
+				id: props.personId,
+			})}
+			imageUrl={personDetails?.details.displayImages.at(0)}
+			labels={
+				personDetails
+					? { left: `${personDetails.contents.length} items` }
+					: undefined
+			}
+		/>
+	);
+};
 export type Item = {
 	identifier: string;
 	title: string;

@@ -28,7 +28,7 @@ import {
 	PeopleSearchDocument,
 	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, startCase } from "@ryot/ts-utils";
+import { changeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
 	IconListCheck,
@@ -47,9 +47,9 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
-	BaseDisplayItem,
 	type Item,
 	MediaItemWithoutUpdateModal,
+	PersonDisplayItem,
 } from "~/components/media";
 import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
 import {
@@ -269,14 +269,7 @@ export default function Page() {
 							<>
 								<ApplicationGrid>
 									{loaderData.peopleList?.list.items.map((person) => (
-										<BaseDisplayItem
-											name={person.name}
-											bottomLeft={`${person.mediaCount} items`}
-											imageUrl={person.image}
-											imagePlaceholder={getInitials(person.name)}
-											key={person.id}
-											href={$path("/media/people/item/:id", { id: person.id })}
-										/>
+										<PersonDisplayItem key={person} personId={person} />
 									))}
 								</ApplicationGrid>
 								<Center>

@@ -252,6 +252,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	metadataGroupDetails: (metadataGroupId: string) => ({
 		queryKey: ["metadataGroupDetails", metadataGroupId],
 	}),
+	personDetails: (personId: string) => ({
+		queryKey: ["personDetails", personId],
+	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
