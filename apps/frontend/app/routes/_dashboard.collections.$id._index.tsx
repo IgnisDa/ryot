@@ -253,7 +253,7 @@ export default function Page() {
 														),
 												});
 											for (const lm of collectionContents.results.items)
-												addBulkRemoveItem(lm.details.identifier, lm.entityLot);
+												addBulkRemoveItem(lm.entityId, lm.entityLot);
 											setIsSelectAllLoading(false);
 										}}
 									>
@@ -337,12 +337,12 @@ export default function Page() {
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
 										const atIndex = bulkRemoveItems.findIndex(
-											(i) => i.entityId === lm.details.identifier,
+											(i) => i.entityId === lm.entityId,
 										);
 										return (
 											<DisplayCollectionEntity
-												key={lm.details.identifier}
-												entityId={lm.details.identifier}
+												key={lm.entityId}
+												entityId={lm.entityId}
 												entityLot={lm.entityLot}
 												topRight={
 													isBulkRemoving ? (
@@ -354,10 +354,7 @@ export default function Page() {
 															onClick={(e) => {
 																e.preventDefault();
 																if (atIndex === -1)
-																	addBulkRemoveItem(
-																		lm.details.identifier,
-																		lm.entityLot,
-																	);
+																	addBulkRemoveItem(lm.entityId, lm.entityLot);
 																else bulkRemoveItemsHandler.remove(atIndex);
 															}}
 														>

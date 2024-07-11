@@ -154,9 +154,9 @@ export default function Page() {
 										{loaderData.inProgressCollectionContents.results.items.map(
 											(lm) => (
 												<DisplayCollectionEntity
+													key={lm.entityId}
+													entityId={lm.entityId}
 													entityLot={lm.entityLot}
-													key={lm.details.identifier}
-													entityId={lm.details.identifier}
 												/>
 											),
 										)}
