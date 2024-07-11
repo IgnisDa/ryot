@@ -45,7 +45,7 @@ import {
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, isNumber } from "@ryot/ts-utils";
+import { changeCase, getInitials, isNumber, isString } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconArrowsRight,
@@ -578,7 +578,7 @@ export const BaseMediaDisplayItem = (props: {
 	nameRight?: ReactNode;
 }) => {
 	const SurroundingElement = (iProps: { children: ReactNode }) =>
-		typeof props.onImageClickBehavior === "string" ? (
+		isString(props.onImageClickBehavior) ? (
 			<Anchor component={Link} to={props.onImageClickBehavior}>
 				{iProps.children}
 			</Anchor>
