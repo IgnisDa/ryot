@@ -899,6 +899,25 @@ export const ExerciseDisplayItem = (props: {
 	);
 };
 
+export const DisplayCollectionEntity = (props: {
+	entityId: string;
+	entityLot: EntityLot;
+}) =>
+	match(props.entityLot)
+		.with(EntityLot.Metadata, () => (
+			<MetadataDisplayItem metadataId={props.entityId} rightLabelHistory />
+		))
+		.with(EntityLot.MetadataGroup, () => (
+			<MetadataGroupDisplayItem metadataGroupId={props.entityId} />
+		))
+		.with(EntityLot.Person, () => (
+			<PersonDisplayItem personId={props.entityId} />
+		))
+		.with(EntityLot.Exercise, () => (
+			<ExerciseDisplayItem exerciseId={props.entityId} />
+		))
+		.run();
+
 export type Item = {
 	identifier: string;
 	title: string;

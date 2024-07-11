@@ -37,7 +37,11 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
-import { MetadataDisplayItem, NewUserGuideAlert } from "~/components/media";
+import {
+	DisplayCollectionEntity,
+	MetadataDisplayItem,
+	NewUserGuideAlert,
+} from "~/components/media";
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import {
@@ -149,10 +153,10 @@ export default function Page() {
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
 											(lm) => (
-												<MetadataDisplayItem
+												<DisplayCollectionEntity
+													entityLot={lm.entityLot}
 													key={lm.details.identifier}
-													metadataId={lm.details.identifier}
-													rightLabelHistory
+													entityId={lm.details.identifier}
 												/>
 											),
 										)}
