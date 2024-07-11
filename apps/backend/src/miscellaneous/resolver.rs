@@ -13,7 +13,7 @@ use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
 use cached::{DiskCache, IOCached};
-use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
@@ -74,20 +74,19 @@ use crate::{
         fitness::UserUnitSystem,
         media::{
             AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
-            CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportItemRating,
+            CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
             MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
             MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPartialDetails, MetadataSearchItem, MetadataSearchItemResponse,
-            MetadataSearchItemWithLot, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
-            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UserSummary,
-            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
+            MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+            PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, UserSummary, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
@@ -311,7 +310,7 @@ struct CollectionContentsInput {
 #[derive(Debug, SimpleObject)]
 struct CollectionContents {
     details: collection::Model,
-    results: SearchResults<MetadataSearchItemWithLot>,
+    results: SearchResults<EntityWithLot>,
     reviews: Vec<ReviewItem>,
     user: user::Model,
 }
@@ -4089,58 +4088,23 @@ impl MiscellaneousService {
             } = paginator.num_items_and_pages().await?;
             for cte in paginator.fetch_page(page - 1).await? {
                 let item = if let Some(id) = cte.metadata_id {
-                    let m = Metadata::find_by_id(id).one(&self.db).await?.unwrap();
-                    MetadataSearchItemWithLot {
-                        details: MetadataSearchItem {
-                            identifier: m.id.to_string(),
-                            title: m.title,
-                            image: m.images.first_as_url(&self.file_storage_service).await,
-                            publish_year: m.publish_year,
-                        },
-                        metadata_lot: Some(m.lot),
+                    EntityWithLot {
+                        entity_id: id,
                         entity_lot: EntityLot::Metadata,
                     }
                 } else if let Some(id) = cte.person_id {
-                    let p = Person::find_by_id(id).one(&self.db).await?.unwrap();
-                    MetadataSearchItemWithLot {
-                        details: MetadataSearchItem {
-                            identifier: p.id.to_string(),
-                            title: p.name,
-                            image: p.images.first_as_url(&self.file_storage_service).await,
-                            publish_year: p.birth_date.map(|d| d.year()),
-                        },
-                        metadata_lot: None,
+                    EntityWithLot {
+                        entity_id: id,
                         entity_lot: EntityLot::Person,
                     }
                 } else if let Some(id) = cte.metadata_group_id {
-                    let g = MetadataGroup::find_by_id(id).one(&self.db).await?.unwrap();
-                    MetadataSearchItemWithLot {
-                        details: MetadataSearchItem {
-                            identifier: g.id.to_string(),
-                            title: g.title,
-                            image: Some(g.images)
-                                .first_as_url(&self.file_storage_service)
-                                .await,
-                            publish_year: None,
-                        },
-                        metadata_lot: None,
+                    EntityWithLot {
+                        entity_id: id,
                         entity_lot: EntityLot::MetadataGroup,
                     }
                 } else if let Some(id) = cte.exercise_id {
-                    let e = Exercise::find_by_id(id).one(&self.db).await?.unwrap();
-                    let image = if let Some(i) = e.attributes.internal_images.first().cloned() {
-                        Some(get_stored_asset(i, &self.file_storage_service).await)
-                    } else {
-                        None
-                    };
-                    MetadataSearchItemWithLot {
-                        details: MetadataSearchItem {
-                            identifier: e.id.to_string(),
-                            title: e.id,
-                            image,
-                            publish_year: None,
-                        },
-                        metadata_lot: None,
+                    EntityWithLot {
+                        entity_id: id,
                         entity_lot: EntityLot::Exercise,
                     }
                 } else {

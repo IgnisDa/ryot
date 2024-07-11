@@ -85,10 +85,7 @@ pub struct SearchDetails {
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
-#[graphql(concrete(
-    name = "MediaCollectionContentsResults",
-    params(media::MetadataSearchItemWithLot)
-))]
+#[graphql(concrete(name = "MediaCollectionContentsResults", params(media::EntityWithLot)))]
 #[graphql(concrete(
     name = "MetadataSearchResults",
     params(media::MetadataSearchItemResponse)
@@ -190,9 +187,8 @@ pub mod media {
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
-    pub struct MetadataSearchItemWithLot {
-        pub details: MetadataSearchItem,
-        pub metadata_lot: Option<MediaLot>,
+    pub struct EntityWithLot {
+        pub entity_id: String,
         pub entity_lot: EntityLot,
     }
 
