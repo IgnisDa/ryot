@@ -10,7 +10,7 @@ use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaLot, MediaSource, SeenState, UserToMediaReason, Visibility,
+    MediaLot, MediaSource, SeenState, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::Decimal;
@@ -102,13 +102,13 @@ pub struct SearchDetails {
     name = "MediaCreatorSearchResults",
     params(media::MediaCreatorSearchItem)
 ))]
-#[graphql(concrete(name = "MediaListResults", params(media::MetadataListItem)))]
 #[graphql(concrete(name = "GenreListResults", params(media::GenreListItem)))]
 #[graphql(concrete(
     name = "MetadataGroupListResults",
     params(media::MetadataGroupListItem)
 ))]
 #[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
+#[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
@@ -227,13 +227,6 @@ pub mod media {
         pub update_id: Option<String>,
         #[graphql(skip_input)]
         pub information_template: Option<Vec<CollectionExtraInformation>>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct MetadataListItem {
-        pub data: MetadataSearchItem,
-        pub average_rating: Option<Decimal>,
-        pub media_reason: Option<Vec<UserToMediaReason>>,
     }
 
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]

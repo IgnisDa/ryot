@@ -16,10 +16,9 @@ use cached::{DiskCache, IOCached};
 use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedSeen,
-    AliasedUser, AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource,
-    MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason,
-    Visibility,
+    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
+    AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
+    MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -81,10 +80,10 @@ use crate::{
             ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
             MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails,
             MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataListItem,
-            MetadataPartialDetails, MetadataSearchItem, MetadataSearchItemResponse,
-            MetadataSearchItemWithLot, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataPartialDetails,
+            MetadataSearchItem, MetadataSearchItemResponse, MetadataSearchItemWithLot,
+            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
@@ -845,7 +844,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataListInput,
-    ) -> Result<SearchResults<MetadataListItem>> {
+    ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.metadata_list(user_id, input).await
@@ -2159,21 +2158,13 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: MetadataListInput,
-    ) -> Result<SearchResults<MetadataListItem>> {
+    ) -> Result<SearchResults<String>> {
         let avg_rating_col = "average_rating";
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, &user_id)
-            .await?
-            .preferences;
         let cloned_user_id_1 = user_id.clone();
         let cloned_user_id_2 = user_id.clone();
         #[derive(Debug, FromQueryResult)]
         struct InnerMediaSearchItem {
             id: String,
-            title: String,
-            publish_year: Option<i32>,
-            images: Option<Vec<MetadataImage>>,
-            media_reason: Option<Vec<UserToMediaReason>>,
-            average_rating: Option<Decimal>,
         }
 
         let order_by = input
@@ -2185,27 +2176,6 @@ impl MiscellaneousService {
         let select = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
-            .column(metadata::Column::Title)
-            .column(metadata::Column::PublishYear)
-            .column(metadata::Column::Images)
-            .column(user_to_entity::Column::MediaReason)
-            .expr_as_(
-                Func::round_with_precision(
-                    Func::avg(
-                        Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(
-                            match preferences.general.review_scale {
-                                UserReviewScale::OutOfFive => 20,
-                                UserReviewScale::OutOfHundred => 1,
-                            },
-                        ),
-                    ),
-                    match preferences.general.review_scale {
-                        UserReviewScale::OutOfFive => 1,
-                        UserReviewScale::OutOfHundred => 0,
-                    },
-                ),
-                avg_rating_col,
-            )
             .group_by(metadata::Column::Id)
             .group_by(user_to_entity::Column::MediaReason)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
@@ -2288,27 +2258,16 @@ impl MiscellaneousService {
             });
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
 
-        let m_items = select
+        let items = select
             .limit(self.config.frontend.page_size as u64)
             .offset(((input.search.page.unwrap() - 1) * self.config.frontend.page_size) as u64)
             .into_model::<InnerMediaSearchItem>()
             .all(&self.db)
-            .await?;
+            .await?
+            .into_iter()
+            .map(|m| m.id)
+            .collect_vec();
 
-        let mut items = vec![];
-        for met in m_items {
-            let m_small = MetadataListItem {
-                data: MetadataSearchItem {
-                    identifier: met.id.to_string(),
-                    title: met.title,
-                    image: met.images.first_as_url(&self.file_storage_service).await,
-                    publish_year: met.publish_year,
-                },
-                average_rating: met.average_rating,
-                media_reason: met.media_reason,
-            };
-            items.push(m_small);
-        }
         let next_page =
             if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
                 Some(input.search.page.unwrap() + 1)
