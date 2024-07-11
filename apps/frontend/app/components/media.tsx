@@ -683,6 +683,7 @@ export const MetadataDisplayItem = (props: {
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 	rightLabelHistory?: boolean;
+	rightLabelLot?: boolean;
 	noLeftLabel?: boolean;
 }) => {
 	const [_r, setEntityToReview] = useReviewEntity();
@@ -731,7 +732,11 @@ export const MetadataDisplayItem = (props: {
 									? metadataDetails.publishYear
 									: undefined,
 							right:
-								props.rightLabel || props.rightLabelHistory ? (
+								props.rightLabel ||
+								(props.rightLabelLot
+									? changeCase(snakeCase(metadataDetails.lot))
+									: undefined) ||
+								(props.rightLabelHistory ? (
 									history.length > 0 ? (
 										`${history.length} time${history.length === 1 ? "" : "s"}`
 									) : null
@@ -739,7 +744,7 @@ export const MetadataDisplayItem = (props: {
 									<Text c={history.length > 0 ? "yellow" : undefined}>
 										{changeCase(snakeCase(metadataDetails.lot))}
 									</Text>
-								),
+								)),
 						}
 					: undefined
 			}
@@ -918,7 +923,7 @@ export const DisplayCollectionEntity = (props: {
 			<MetadataDisplayItem
 				metadataId={props.entityId}
 				topRight={props.topRight}
-				rightLabelHistory
+				rightLabelLot
 			/>
 		))
 		.with(EntityLot.MetadataGroup, () => (
