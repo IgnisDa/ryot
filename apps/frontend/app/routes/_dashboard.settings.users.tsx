@@ -24,7 +24,7 @@ import {
 	RegisterUserDocument,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, randomString } from "@ryot/ts-utils";
+import { changeCase, randomString, truncate } from "@ryot/ts-utils";
 import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
 import { forwardRef, useRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
@@ -205,7 +205,7 @@ const UserDisplay = (props: { index: number }) => {
 					<Avatar name={user.name} />
 					<Box>
 						<Text lineClamp={1} fw="bold">
-							{user.name}
+							{truncate(user.name, { length: 20 })}
 						</Text>
 						<Text size="xs">Role: {changeCase(user.lot)}</Text>
 					</Box>
