@@ -565,46 +565,41 @@ export const BaseMediaDisplayItem = (props: {
 	onImageClickBehavior: string | (() => void);
 	nameRight?: ReactNode;
 }) => {
-	const SurroundingElement = (iProps: { children: ReactNode }) => {
-		const defaultProps = { flex: "none", pos: "relative" } as const;
-		return typeof props.onImageClickBehavior === "string" ? (
-			<Anchor
-				component={Link}
-				to={props.onImageClickBehavior}
-				{...defaultProps}
-			>
+	const SurroundingElement = (iProps: { children: ReactNode }) =>
+		typeof props.onImageClickBehavior === "string" ? (
+			<Anchor component={Link} to={props.onImageClickBehavior}>
 				{iProps.children}
 			</Anchor>
 		) : (
-			<Box onClick={props.onImageClickBehavior} {...defaultProps}>
-				{iProps.children}
-			</Box>
+			<Box onClick={props.onImageClickBehavior}>{iProps.children}</Box>
 		);
-	};
 	const defaultOverlayProps = {
 		style: { zIndex: 10, ...blackBgStyles },
 		pos: "absolute",
 	} as const;
+
 	return (
 		<Flex align="center" justify="center" direction="column">
-			<SurroundingElement>
-				<Tooltip label={props.name} position="top">
-					<Image
-						src={props.imageUrl}
-						radius="md"
-						style={{ cursor: "pointer", height: 260, w: 170 }}
-						alt={`Image for ${props.name}`}
-						className={classes.mediaImage}
-						styles={{
-							root: {
-								transitionProperty: "transform",
-								transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-								transitionDuration: "150ms",
-							},
-						}}
-						fallbackSrc={useFallbackImageUrl(getInitials(props.name))}
-					/>
-				</Tooltip>
+			<Box pos="relative">
+				<SurroundingElement>
+					<Tooltip label={props.name} position="top">
+						<Image
+							src={props.imageUrl}
+							radius="md"
+							style={{ cursor: "pointer", height: 260, w: 170 }}
+							alt={`Image for ${props.name}`}
+							className={classes.mediaImage}
+							styles={{
+								root: {
+									transitionProperty: "transform",
+									transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+									transitionDuration: "150ms",
+								},
+							}}
+							fallbackSrc={useFallbackImageUrl(getInitials(props.name))}
+						/>
+					</Tooltip>
+				</SurroundingElement>
 				{props.imageOverlay?.topLeft ? (
 					<Box top={5} left={5} {...defaultOverlayProps}>
 						{props.imageOverlay.topLeft}
@@ -625,7 +620,7 @@ export const BaseMediaDisplayItem = (props: {
 						{props.imageOverlay.bottomRight}
 					</Box>
 				) : null}
-			</SurroundingElement>
+			</Box>
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				<Flex justify="space-between" direction="row" w="100%">
 					{props.labels?.left ? (
