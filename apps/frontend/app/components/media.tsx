@@ -642,16 +642,12 @@ export const BaseMediaDisplayItem = (props: {
 			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 				{props.isLoading ? <Skeleton height={30} mt="xs" /> : null}
 				<Flex justify="space-between" direction="row" w="100%">
-					{props.labels?.left ? (
-						<Text c="dimmed" size="sm">
-							{props.labels?.left}
-						</Text>
-					) : null}
-					{props.labels?.right ? (
-						<Text c="dimmed" size="sm">
-							{props.labels?.right}
-						</Text>
-					) : null}
+					<Text c="dimmed" size="sm">
+						{props.labels?.left}
+					</Text>
+					<Text c="dimmed" size="sm">
+						{props.labels?.right}
+					</Text>
 				</Flex>
 				<Flex justify="space-between" align="center" mb="xs">
 					<Text w="100%" truncate fw="bold">
@@ -705,7 +701,10 @@ export const MetadataDisplayItem = (props: { metadataId: string }) => {
 			imageUrl={metadataDetails?.image}
 			labels={{
 				left: metadataDetails?.publishYear,
-				right: history.length > 0 ? `${history.length} time` : undefined,
+				right:
+					history.length > 0
+						? `${history.length} time${history.length === 1 ? "" : "s"}`
+						: undefined,
 			}}
 			imageOverlay={{
 				topRight: averageRating ? (
