@@ -571,7 +571,7 @@ export const BaseDisplayItem = (props: {
 	);
 };
 
-const BaseMediaDisplayItem = (props: {
+export const BaseMediaDisplayItem = (props: {
 	isLoading: boolean;
 	name?: string;
 	imageUrl?: string | null;
@@ -582,7 +582,7 @@ const BaseMediaDisplayItem = (props: {
 		bottomLeft?: ReactNode;
 	};
 	labels?: { right?: ReactNode; left?: ReactNode };
-	onImageClickBehavior: string | (() => void);
+	onImageClickBehavior: string | (() => Promise<void>);
 	nameRight?: ReactNode;
 }) => {
 	const SurroundingElement = (iProps: { children: ReactNode }) =>
@@ -653,7 +653,7 @@ const BaseMediaDisplayItem = (props: {
 					<Skeleton height={22} mt={8} />
 				</>
 			) : (
-				<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
+				<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} pt={4}>
 					<Flex justify="space-between" direction="row" w="100%">
 						<Text c="dimmed" size="sm">
 							{props.labels?.left}

@@ -7,6 +7,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Loader,
 	Menu,
 	Pagination,
 	Select,
@@ -33,9 +34,10 @@ import {
 	MediaSource,
 	MetadataListDocument,
 	MetadataSearchDocument,
+	type MetadataSearchQuery,
 	type UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconBoxMultiple,
 	IconDotsVertical,
@@ -58,8 +60,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
-	type Item,
-	MediaItemWithoutUpdateModal,
+	BaseMediaDisplayItem,
 	MetadataDisplayItem,
 	NewUserGuideAlert,
 	commitMedia,
@@ -366,10 +367,7 @@ export default function Page() {
 											idx={idx}
 											action={Action.Search}
 											key={b.item.identifier}
-											item={{
-												...b.item,
-												publishYear: b.item.publishYear?.toString(),
-											}}
+											item={b}
 											maybeItemId={b.databaseId ?? undefined}
 											hasInteracted={b.hasInteracted}
 											lot={loaderData.lot}
@@ -406,7 +404,7 @@ export default function Page() {
 }
 
 const MediaSearchItem = (props: {
-	item: Item;
+	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 	idx: number;
 	lot: MediaLot;
 	source: MediaSource;
@@ -422,12 +420,11 @@ const MediaSearchItem = (props: {
 	const events = useApplicationEvents();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
-	const basicCommit = async (e: React.MouseEvent) => {
+	const basicCommit = async () => {
 		if (props.maybeItemId) return props.maybeItemId;
-		e.preventDefault();
 		setIsLoading(true);
 		const response = await commitMedia(
-			props.item.identifier,
+			props.item.item.identifier,
 			props.lot,
 			props.source,
 		);
@@ -436,50 +433,61 @@ const MediaSearchItem = (props: {
 	};
 
 	return (
-		<MediaItemWithoutUpdateModal
-			item={props.item}
-			lot={props.lot}
-			reviewScale={props.reviewScale}
-			hasInteracted={props.hasInteracted}
-			imageOverlayForLoadingIndicator={isLoading}
-			noHref
-			onClick={async (e) => {
-				setIsLoading(true);
-				const id = await basicCommit(e);
-				setIsLoading(false);
-				return navigate($path("/media/item/:id", { id }));
-			}}
-			nameRight={
-				<Menu shadow="md">
-					<Menu.Target>
-						<ActionIcon size="xs">
-							<IconDotsVertical />
-						</ActionIcon>
-					</Menu.Target>
-					<Menu.Dropdown>
-						<Menu.Item
-							leftSection={<IconBoxMultiple size={14} />}
-							onClick={async (e) => {
-								const id = await basicCommit(e);
-								setAddEntityToCollectionData({
-									entityId: id,
-									entityLot: EntityLot.Metadata,
-								});
-							}}
-						>
-							Add to collection
-						</Menu.Item>
-					</Menu.Dropdown>
-				</Menu>
-			}
-		>
-			<>
+		<Box>
+			<BaseMediaDisplayItem
+				isLoading={false}
+				name={props.item.item.title}
+				onImageClickBehavior={async () => {
+					setIsLoading(true);
+					const id = await basicCommit();
+					setIsLoading(false);
+					navigate($path("/media/item/:id", { id }));
+				}}
+				labels={{
+					left: props.item.item.publishYear,
+					right: (
+						<Text c={props.hasInteracted ? "yellow" : undefined}>
+							{changeCase(snakeCase(props.lot))}
+						</Text>
+					),
+				}}
+				imageUrl={props.item.item.image}
+				imageOverlay={{
+					topLeft: isLoading ? (
+						<Loader color="red" variant="bars" size="sm" m={2} />
+					) : null,
+				}}
+				nameRight={
+					<Menu shadow="md">
+						<Menu.Target>
+							<ActionIcon size="xs">
+								<IconDotsVertical />
+							</ActionIcon>
+						</Menu.Target>
+						<Menu.Dropdown>
+							<Menu.Item
+								leftSection={<IconBoxMultiple size={14} />}
+								onClick={async () => {
+									const id = await basicCommit();
+									setAddEntityToCollectionData({
+										entityId: id,
+										entityLot: EntityLot.Metadata,
+									});
+								}}
+							>
+								Add to collection
+							</Menu.Item>
+						</Menu.Dropdown>
+					</Menu>
+				}
+			/>
+			<Box px={4}>
 				<Button
 					variant="outline"
 					w="100%"
 					size="compact-md"
-					onClick={async (e) => {
-						const metadataId = await basicCommit(e);
+					onClick={async () => {
+						const metadataId = await basicCommit();
 						setMetadataToUpdate({ metadataId });
 					}}
 				>
@@ -490,9 +498,9 @@ const MediaSearchItem = (props: {
 					variant="outline"
 					w="100%"
 					size="compact-md"
-					onClick={async (e) => {
+					onClick={async () => {
 						setIsLoading(true);
-						const id = await basicCommit(e);
+						const id = await basicCommit();
 						const form = new FormData();
 						form.append("entityId", id);
 						form.append("entityLot", EntityLot.Metadata);
@@ -500,7 +508,11 @@ const MediaSearchItem = (props: {
 						form.append("collectionName", "Watchlist");
 						await fetch(
 							$path("/actions", { intent: "addEntityToCollection" }),
-							{ body: form, method: "POST", credentials: "include" },
+							{
+								body: form,
+								method: "POST",
+								credentials: "include",
+							},
 						);
 						events.addToCollection(EntityLot.Metadata);
 						setIsLoading(false);
@@ -509,8 +521,8 @@ const MediaSearchItem = (props: {
 				>
 					Add to Watchlist
 				</Button>
-			</>
-		</MediaItemWithoutUpdateModal>
+			</Box>
+		</Box>
 	);
 };
 
