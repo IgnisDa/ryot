@@ -446,7 +446,7 @@ const MediaSearchItem = (props: {
 				labels={{
 					left: props.item.item.publishYear,
 					right: (
-						<Text c={props.hasInteracted ? "yellow" : undefined}>
+						<Text c={props.hasInteracted ? "bright" : undefined}>
 							{changeCase(snakeCase(props.lot))}
 						</Text>
 					),
