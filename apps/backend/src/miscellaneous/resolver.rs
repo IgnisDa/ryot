@@ -383,7 +383,7 @@ struct MetadataGroupDetails {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct GenreDetails {
     details: GenreListItem,
-    contents: SearchResults<MetadataSearchItemWithLot>,
+    contents: SearchResults<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -6345,7 +6345,6 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        let mut contents = vec![];
         let paginator = MetadataToGenre::find()
             .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
             .paginate(&self.db, self.config.frontend.page_size as u64);
@@ -6353,24 +6352,9 @@ impl MiscellaneousService {
             number_of_items,
             number_of_pages,
         } = paginator.num_items_and_pages().await?;
+        let mut contents = vec![];
         for association_items in paginator.fetch_page(page - 1).await? {
-            let m = association_items
-                .find_related(Metadata)
-                .one(&self.db)
-                .await?
-                .unwrap();
-            let image = m.images.first_as_url(&self.file_storage_service).await;
-            let metadata = MetadataSearchItemWithLot {
-                details: MetadataSearchItem {
-                    image,
-                    title: m.title,
-                    publish_year: m.publish_year,
-                    identifier: m.id.to_string(),
-                },
-                metadata_lot: Some(m.lot),
-                entity_lot: EntityLot::Metadata,
-            };
-            contents.push(metadata);
+            contents.push(association_items.metadata_id);
         }
         Ok(GenreDetails {
             details: GenreListItem {
