@@ -78,12 +78,11 @@ use crate::{
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
             ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
-            MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails,
-            MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataPartialDetails,
-            MetadataSearchItem, MetadataSearchItemResponse, MetadataSearchItemWithLot,
-            MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadata,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
+            MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataImageLot,
+            MetadataPartialDetails, MetadataSearchItem, MetadataSearchItemResponse,
+            MetadataSearchItemWithLot, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
             ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
             ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
@@ -1013,7 +1012,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleListInput,
-    ) -> Result<SearchResults<MediaCreatorSearchItem>> {
+    ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.people_list(user_id, input).await
@@ -6196,13 +6195,10 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: PeopleListInput,
-    ) -> Result<SearchResults<MediaCreatorSearchItem>> {
+    ) -> Result<SearchResults<String>> {
         #[derive(Debug, FromQueryResult)]
         struct PartialCreator {
             id: String,
-            name: String,
-            images: Option<Vec<MetadataImage>>,
-            media_count: i64,
         }
         let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
         let alias = "media_count";
@@ -6223,7 +6219,6 @@ impl MiscellaneousService {
                     Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
                 )
             })
-            .filter(user_to_entity::Column::UserId.eq(user_id))
             .column_as(
                 Expr::expr(Func::count(Expr::col((
                     Alias::new("metadata_to_person"),
@@ -6231,6 +6226,7 @@ impl MiscellaneousService {
                 )))),
                 alias,
             )
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .left_join(MetadataToPerson)
             .inner_join(UserToEntity)
             .group_by(person::Column::Id)
@@ -6246,13 +6242,7 @@ impl MiscellaneousService {
         } = creators_paginator.num_items_and_pages().await?;
         let mut creators = vec![];
         for cr in creators_paginator.fetch_page(page - 1).await? {
-            let image = cr.images.first_as_url(&self.file_storage_service).await;
-            creators.push(MediaCreatorSearchItem {
-                id: cr.id,
-                name: cr.name,
-                image,
-                media_count: cr.media_count,
-            });
+            creators.push(cr.id);
         }
         Ok(SearchResults {
             details: SearchDetails {

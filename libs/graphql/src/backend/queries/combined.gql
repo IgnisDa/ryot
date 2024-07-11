@@ -122,3 +122,13 @@ query MetadataGroupsList($input: SearchInput!) {
     items
   }
 }
+
+query PeopleList($input: PeopleListInput!) {
+  peopleList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items
+  }
+}

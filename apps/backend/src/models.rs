@@ -98,10 +98,6 @@ pub struct SearchDetails {
     name = "MetadataGroupSearchResults",
     params(media::MetadataGroupSearchItem)
 ))]
-#[graphql(concrete(
-    name = "MediaCreatorSearchResults",
-    params(media::MediaCreatorSearchItem)
-))]
 #[graphql(concrete(name = "GenreListResults", params(media::GenreListItem)))]
 #[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
 #[graphql(concrete(name = "IdResults", params(String)))]
@@ -206,14 +202,6 @@ pub mod media {
         /// Whether the user has interacted with this media item.
         pub has_interacted: bool,
         pub database_id: Option<String>,
-    }
-
-    #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
-    pub struct MediaCreatorSearchItem {
-        pub id: String,
-        pub name: String,
-        pub image: Option<String>,
-        pub media_count: i64,
     }
 
     #[derive(Debug, InputObject, Default, Clone)]
