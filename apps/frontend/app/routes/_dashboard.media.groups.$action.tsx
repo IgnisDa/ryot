@@ -168,11 +168,8 @@ export default function Page() {
 						{loaderData.list.list.details.total > 0 ? (
 							<>
 								<ApplicationGrid>
-									{loaderData.list.list.items.map((group) => (
-										<MetadataGroupDisplayItem
-											key={group.id}
-											metadataGroupId={group.id}
-										/>
+									{loaderData.list.list.items.map((gr) => (
+										<MetadataGroupDisplayItem key={gr} metadataGroupId={gr} />
 									))}
 								</ApplicationGrid>
 								<Center>
