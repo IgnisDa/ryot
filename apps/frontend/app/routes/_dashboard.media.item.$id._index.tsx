@@ -71,8 +71,8 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
-import { Fragment, type ReactNode, useState } from "react";
-import { GroupedVirtuoso, Virtuoso } from "react-virtuoso";
+import { Fragment, type ReactNode, forwardRef, useState } from "react";
+import { GroupedVirtuoso, Virtuoso, VirtuosoGrid } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -1055,15 +1055,25 @@ export default function Page() {
 							)}
 						</Tabs.Panel>
 					) : null}
-					<Tabs.Panel value="suggestions">
+					<Tabs.Panel value="suggestions" h={MEDIA_DETAILS_HEIGHT}>
 						{loaderData.metadataDetails.suggestions.length > 0 ? (
-							<MediaScrollArea>
-								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-									{loaderData.metadataDetails.suggestions.map((sug) => (
-										<PartialMetadataDisplay key={sug} metadataId={sug} />
-									))}
-								</SimpleGrid>
-							</MediaScrollArea>
+							<VirtuosoGrid
+								components={{
+									List: forwardRef((props, ref) => (
+										<SimpleGrid
+											ref={ref}
+											{...props}
+											cols={{ base: 3, md: 4, lg: 5 }}
+										/>
+									)),
+								}}
+								totalCount={loaderData.metadataDetails.suggestions.length}
+								itemContent={(index) => (
+									<PartialMetadataDisplay
+										metadataId={loaderData.metadataDetails.suggestions[index]}
+									/>
+								)}
+							/>
 						) : (
 							<Text>No suggestions</Text>
 						)}
