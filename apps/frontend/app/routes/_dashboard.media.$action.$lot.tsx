@@ -304,7 +304,11 @@ export default function Page() {
 								</Box>
 								<ApplicationGrid>
 									{loaderData.mediaList.list.items.map((item) => (
-										<MetadataDisplayItem key={item} metadataId={item} />
+										<MetadataDisplayItem
+											key={item}
+											metadataId={item}
+											rightLabelHistory
+										/>
 									))}
 								</ApplicationGrid>
 							</>

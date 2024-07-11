@@ -673,6 +673,7 @@ const BaseMediaDisplayItem = (props: {
 export const MetadataDisplayItem = (props: {
 	metadataId: string;
 	rightLabel?: ReactNode;
+	rightLabelHistory?: boolean;
 	noLeftLabel?: boolean;
 }) => {
 	const [_r, setEntityToReview] = useReviewEntity();
@@ -713,15 +714,26 @@ export const MetadataDisplayItem = (props: {
 			isLoading={isMetadataDetailsLoading}
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			imageUrl={metadataDetails?.image}
-			labels={{
-				left:
-					props.noLeftLabel !== true ? metadataDetails?.publishYear : undefined,
-				right: props.rightLabel
-					? props.rightLabel
-					: history.length > 0
-						? `${history.length} time${history.length === 1 ? "" : "s"}`
-						: undefined,
-			}}
+			labels={
+				metadataDetails
+					? {
+							left:
+								props.noLeftLabel !== true
+									? metadataDetails.publishYear
+									: undefined,
+							right:
+								props.rightLabel || props.rightLabelHistory ? (
+									history.length > 0 ? (
+										`${history.length} time${history.length === 1 ? "" : "s"}`
+									) : null
+								) : (
+									<Text c={history.length > 0 ? "yellow" : undefined}>
+										{changeCase(snakeCase(metadataDetails.lot))}
+									</Text>
+								),
+						}
+					: undefined
+			}
 			imageOverlay={{
 				topRight: averageRating ? (
 					<Group gap={4}>

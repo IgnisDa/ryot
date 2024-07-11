@@ -691,12 +691,13 @@ const MetadataProgressUpdateForm = ({
 		);
 
 	const onSubmit = () => {
-		queryClient.removeQueries({
-			queryKey: queryFactory.media.userMetadataDetails(
-				metadataToUpdate.metadataId,
-			).queryKey,
-		});
+		const metadataId = metadataToUpdate.metadataId;
 		events.updateProgress(metadataDetails.title);
+		setTimeout(async () => {
+			await queryClient.invalidateQueries({
+				queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
+			});
+		}, 1500);
 		closeMetadataProgressUpdateModal();
 	};
 

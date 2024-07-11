@@ -152,6 +152,7 @@ export default function Page() {
 												<MetadataDisplayItem
 													key={lm.details.identifier}
 													metadataId={lm.details.identifier}
+													rightLabelHistory
 												/>
 											),
 										)}
