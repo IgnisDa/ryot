@@ -20,7 +20,6 @@ import {
 	ScrollArea,
 	Skeleton,
 	Stack,
-	type StyleProp,
 	Text,
 	TextInput,
 	ThemeIcon,
@@ -69,7 +68,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
@@ -442,138 +441,6 @@ const blackBgStyles = {
 	borderRadius: 3,
 	padding: 2,
 } satisfies MantineStyleProp;
-
-export const BaseDisplayItem = (props: {
-	name: string;
-	onClick?: (e: React.MouseEvent) => Promise<void>;
-	imageUrl?: string | null;
-	topRight?: ReactNode;
-	topLeft?: ReactNode;
-	bottomLeft?: string | number | null;
-	bottomRight?: string | number | null;
-	href?: string;
-	highlightRightText?: string;
-	children?: ReactNode;
-	nameRight?: ReactNode;
-	mediaReason?: Array<UserToMediaReason> | null;
-}) => {
-	const fallbackImageUrl = useFallbackImageUrl(getInitials(props.name));
-
-	const SurroundingElement = (iProps: {
-		children: ReactNode;
-		style: CSSProperties;
-		pos: StyleProp<CSSProperties["position"]>;
-	}) =>
-		props.href ? (
-			<Anchor
-				component={Link}
-				to={props.href}
-				style={iProps.style}
-				pos={iProps.pos}
-			>
-				{iProps.children}
-			</Anchor>
-		) : (
-			<Box onClick={props.onClick} style={iProps.style} pos={iProps.pos}>
-				{iProps.children}
-			</Box>
-		);
-
-	const reasons = props.mediaReason?.filter((r) =>
-		[
-			UserToMediaReason.Finished,
-			UserToMediaReason.Watchlist,
-			UserToMediaReason.Owned,
-		].includes(r),
-	);
-
-	const themeIconSurround = (idx: number, icon?: ReactNode) => (
-		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
-			{icon}
-		</ThemeIcon>
-	);
-
-	return (
-		<Flex
-			key={`${props.bottomLeft}-${props.bottomRight}-${props.name}`}
-			align="center"
-			justify="center"
-			direction="column"
-		>
-			<SurroundingElement style={{ flex: "none" }} pos="relative">
-				<Image
-					src={props.imageUrl}
-					radius="md"
-					style={{ cursor: "pointer" }}
-					alt={`Image for ${props.name}`}
-					className={classes.mediaImage}
-					styles={{
-						root: {
-							transitionProperty: "transform",
-							transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-							transitionDuration: "150ms",
-						},
-					}}
-					h={260}
-					w={170}
-					fallbackSrc={fallbackImageUrl}
-				/>
-				<Box pos="absolute" style={{ zIndex: 999 }} top={10} left={10}>
-					{props.topLeft}
-				</Box>
-				<Box pos="absolute" top={5} right={5}>
-					{props.topRight}
-				</Box>
-				{reasons && reasons.length > 0 ? (
-					<Group
-						style={blackBgStyles}
-						pos="absolute"
-						bottom={5}
-						left={5}
-						gap={3}
-					>
-						{reasons
-							.map((r) =>
-								match(r)
-									.with(UserToMediaReason.Finished, () => (
-										<IconRosetteDiscountCheck />
-									))
-									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
-									.with(UserToMediaReason.Owned, () => <IconBackpack />)
-									.run(),
-							)
-							.map((icon, idx) => themeIconSurround(idx, icon))}
-					</Group>
-				) : null}
-			</SurroundingElement>
-			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
-				<Flex justify="space-between" direction="row" w="100%">
-					<Text c="dimmed" size="sm">
-						{props.bottomLeft}
-					</Text>
-					<Tooltip
-						label={props.highlightRightText}
-						disabled={!props.highlightRightText}
-						position="right"
-					>
-						<Text c={props.highlightRightText ? "yellow" : "dimmed"} size="sm">
-							{props.bottomRight}
-						</Text>
-					</Tooltip>
-				</Flex>
-				<Flex justify="space-between" align="center" mb="xs">
-					<Tooltip label={props.name} position="top">
-						<Text w="100%" truncate fw="bold">
-							{props.name}
-						</Text>
-					</Tooltip>
-					{props.nameRight}
-				</Flex>
-				{props.children}
-			</Flex>
-		</Flex>
-	);
-};
 
 export const BaseMediaDisplayItem = (props: {
 	isLoading: boolean;
