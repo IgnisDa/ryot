@@ -53,11 +53,7 @@ import {
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common";
-import {
-	DisplayCollectionEntity,
-	MediaItemWithoutUpdateModal,
-	ReviewItemDisplay,
-} from "~/components/media";
+import { DisplayCollectionEntity, ReviewItemDisplay } from "~/components/media";
 import {
 	clientGqlService,
 	convertEntityToIndividualId,
