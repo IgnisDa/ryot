@@ -54,6 +54,7 @@ import {
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
+	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
 	IconTrash,
@@ -79,7 +80,7 @@ import {
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useReviewEntity } from "~/lib/state/media";
+import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
@@ -665,6 +666,8 @@ export const BaseMediaDisplayItem = (props: {
 
 export const MetadataDisplayItem = (props: { metadataId: string }) => {
 	const [_r, setEntityToReview] = useReviewEntity();
+	const [_, setMetadataToUpdate, isMetadataToUpdateLoading] =
+		useMetadataProgressUpdate();
 	const userPreferences = useUserPreferences();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useQuery({
@@ -758,6 +761,20 @@ export const MetadataDisplayItem = (props: { metadataId: string }) => {
 								.map((icon, idx) => themeIconSurround(idx, icon))}
 						</Group>
 					) : null,
+				bottomRight: isMetadataToUpdateLoading ? (
+					<Loader color="red" size="xs" m={2} />
+				) : (
+					<ActionIcon
+						variant="transparent"
+						color="blue"
+						size="compact-md"
+						onClick={() =>
+							setMetadataToUpdate({ metadataId: props.metadataId }, true)
+						}
+					>
+						<IconPlayerPlay size={20} />
+					</ActionIcon>
+				),
 			}}
 		/>
 	);
