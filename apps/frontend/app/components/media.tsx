@@ -647,7 +647,10 @@ const BaseMediaDisplayItem = (props: {
 				) : null}
 			</Box>
 			{props.isLoading ? (
-				<Skeleton height={27} mt="xs" />
+				<>
+					<Skeleton height={22} mt={10} />
+					<Skeleton height={22} mt={8} />
+				</>
 			) : (
 				<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
 					<Flex justify="space-between" direction="row" w="100%">
