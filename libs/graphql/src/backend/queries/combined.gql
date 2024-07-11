@@ -102,3 +102,13 @@ query UserCalendarEvents($input: UserCalendarEventInput!) {
     }
   }
 }
+
+query MetadataPartialDetails($metadataId: String!) {
+  metadataPartialDetails(metadataId: $metadataId) {
+    id
+    lot
+    title
+    image
+    publishYear
+  }
+}

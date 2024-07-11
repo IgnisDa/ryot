@@ -1293,6 +1293,15 @@ pub mod media {
         pub source: MediaSource,
     }
 
+    #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject)]
+    pub struct MetadataPartialDetails {
+        pub id: String,
+        pub title: String,
+        pub lot: MediaLot,
+        pub image: Option<String>,
+        pub publish_year: Option<i32>,
+    }
+
     #[derive(Debug, InputObject)]
     pub struct CommitPersonInput {
         pub name: String,

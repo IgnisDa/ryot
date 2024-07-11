@@ -81,14 +81,15 @@ use crate::{
             ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
             MediaAssociatedPersonStateChanges, MediaCreatorSearchItem, MediaDetails,
             MetadataFreeCreator, MetadataGroupListItem, MetadataGroupSearchItem, MetadataImage,
-            MetadataImageForMediaDetails, MetadataImageLot, MetadataListItem, MetadataSearchItem,
-            MetadataSearchItemResponse, MetadataSearchItemWithLot, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadata, PartialMetadataPerson,
-            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
-            PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserSummary, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            MetadataImageForMediaDetails, MetadataImageLot, MetadataListItem,
+            MetadataPartialDetails, MetadataSearchItem, MetadataSearchItemResponse,
+            MetadataSearchItemWithLot, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+            ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+            ReviewPostedEvent, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+            SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UserSummary,
+            VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
@@ -785,6 +786,16 @@ impl MiscellaneousQuery {
     ) -> Result<CollectionContents> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.collection_contents(input).await
+    }
+
+    /// Get partial details about a media present in the database.
+    async fn metadata_partial_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: String,
+    ) -> Result<MetadataPartialDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_partial_details(&metadata_id).await
     }
 
     /// Get details about a media present in the database.
@@ -1601,6 +1612,28 @@ impl MiscellaneousService {
             assets,
             genres,
             suggestions,
+        })
+    }
+
+    async fn metadata_partial_details(
+        &self,
+        metadata_id: &String,
+    ) -> Result<MetadataPartialDetails> {
+        let metadata = Metadata::find_by_id(metadata_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let image = metadata
+            .images
+            .first_as_url(&self.file_storage_service)
+            .await;
+        Ok(MetadataPartialDetails {
+            image,
+            id: metadata.id,
+            lot: metadata.lot,
+            title: metadata.title,
+            publish_year: metadata.publish_year,
         })
     }
 
