@@ -28,13 +28,19 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
             r#"
-INSERT INTO notification_platform (user_id, id, platform_specifics, created_on, description)
+INSERT INTO notification_platform (user_id, id, platform_specifics, platform, created_on, description)
 SELECT
     u.id AS user_id,
     (u.id || '_' || (n->>'id')) as id,
     (n->'settings') AS platform_specifics,
+    CASE lower(n->'settings'->>'t')
+        WHEN 'pushbullet' THEN 'push_bullet'
+        WHEN 'pushover' THEN 'push_over'
+        WHEN 'pushsafer' THEN 'push_safer'
+        ELSE lower(n->'settings'->>'t')
+    END AS platform,
     (n->>'timestamp')::timestamp with time zone AS created_on,
-    lower(n->'settings'->>'t') || ': ' || (
+    (
     CASE lower(n->'settings'->>'t')
         WHEN 'apprise' THEN n->'settings'->'d'->>'url'
         WHEN 'discord' THEN n->'settings'->'d'->>'url'
