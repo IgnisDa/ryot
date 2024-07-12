@@ -1,6 +1,5 @@
 use async_graphql::{Enum, SimpleObject};
-use kinded::Kinded;
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, Iterable};
+use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
@@ -339,10 +338,8 @@ pub struct UserPreferences {
     pub general: UserGeneralPreferences,
 }
 
-// FIXME: Remove kinded from this
-#[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
-#[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
 pub enum NotificationPlatformSpecifics {
     Apprise {
         url: String,
@@ -379,12 +376,4 @@ pub enum NotificationPlatformSpecifics {
         bot_token: String,
         chat_id: String,
     },
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-pub struct UserNotification {
-    pub id: usize,
-    pub settings: NotificationPlatformSpecifics,
-    /// the date and time it was added on
-    pub timestamp: DateTimeUtc,
 }

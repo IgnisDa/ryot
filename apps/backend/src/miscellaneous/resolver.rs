@@ -18,7 +18,8 @@ use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
     AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
-    MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
+    MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
+    UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -54,15 +55,16 @@ use crate::{
     entities::{
         calendar_event, collection, collection_to_entity, genre, import_report, integration,
         metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-        metadata_to_metadata_group, metadata_to_person, person,
+        metadata_to_metadata_group, metadata_to_person, notification_platform, person,
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
             Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-            MetadataToMetadataGroup, MetadataToPerson, Person, QueuedNotification, Review, Seen,
-            User, UserMeasurement, UserToCollection, UserToEntity, Workout,
+            MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
+            QueuedNotification, Review, Seen, User, UserMeasurement, UserToCollection,
+            UserToEntity, Workout,
         },
         queued_notification, review, seen,
-        user::{self, UserWithOnlyNotifications, UserWithOnlyPreferences, UserWithOnlySummary},
+        user::{self, UserWithOnlyPreferences, UserWithOnlySummary},
         user_measurement, user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
@@ -111,9 +113,8 @@ use crate::{
         MediaProviderLanguages, TraceOk,
     },
     users::{
-        NotificationPlatformSpecifics, NotificationPlatformSpecificsKind,
-        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification, UserPreferences,
-        UserReviewScale,
+        NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
+        UserPreferences, UserReviewScale,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -157,16 +158,9 @@ struct CreateIntegrationInput {
     maximum_progress: Decimal,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserNotificationPlatform {
-    id: usize,
-    description: String,
-    timestamp: DateTimeUtc,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserNotificationPlatformInput {
-    lot: NotificationPlatformSpecificsKind,
+    lot: NotificationPlatformLot,
     base_url: Option<String>,
     #[graphql(secret)]
     api_token: Option<String>,
@@ -958,7 +952,7 @@ impl MiscellaneousQuery {
     async fn user_notification_platforms(
         &self,
         gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
+    ) -> Result<Vec<notification_platform::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_notification_platforms(&user_id).await
@@ -1294,7 +1288,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CreateUserNotificationPlatformInput,
-    ) -> Result<usize> {
+    ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
@@ -1313,7 +1307,7 @@ impl MiscellaneousMutation {
     async fn delete_user_notification_platform(
         &self,
         gql_ctx: &Context<'_>,
-        notification_id: usize,
+        notification_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -4859,7 +4853,6 @@ impl MiscellaneousService {
             oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
-            notifications: ActiveValue::Set(vec![]),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
@@ -5344,8 +5337,8 @@ impl MiscellaneousService {
                                 &input.value,
                             )
                             .unwrap();
-                            let default_general_prefs = UserGeneralPreferences::default();
-                            if value.len() != default_general_prefs.dashboard.len() {
+                            let default_general_preferences = UserGeneralPreferences::default();
+                            if value.len() != default_general_preferences.dashboard.len() {
                                 return Err(err());
                             }
                             preferences.general.dashboard = value;
@@ -5395,45 +5388,11 @@ impl MiscellaneousService {
     async fn user_notification_platforms(
         &self,
         user_id: &String,
-    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
-        let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
-        let mut all_notifications = vec![];
-        user.notifications.into_iter().for_each(|n| {
-            let description = match n.settings {
-                NotificationPlatformSpecifics::Apprise { url, key } => {
-                    format!("Apprise URL: {}, Key: {}", url, key)
-                }
-                NotificationPlatformSpecifics::Discord { url } => {
-                    format!("Discord webhook: {}", url)
-                }
-                NotificationPlatformSpecifics::Gotify { url, token, .. } => {
-                    format!("Gotify URL: {}, Token: {}", url, token)
-                }
-                NotificationPlatformSpecifics::Ntfy { url, topic, .. } => {
-                    format!("Ntfy URL: {:?}, Topic: {}", url, topic)
-                }
-                NotificationPlatformSpecifics::PushBullet { api_token } => {
-                    format!("Pushbullet API Token: {}", api_token)
-                }
-                NotificationPlatformSpecifics::PushOver { key, app_key } => {
-                    format!("PushOver Key: {}, App Key: {:?}", key, app_key)
-                }
-                NotificationPlatformSpecifics::PushSafer { key } => {
-                    format!("PushSafer Key: {}", key)
-                }
-                NotificationPlatformSpecifics::Email { email } => {
-                    format!("Email: {}", email)
-                }
-                NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
-                    format!("Telegram Chat ID: {}", chat_id)
-                }
-            };
-            all_notifications.push(GraphqlUserNotificationPlatform {
-                id: n.id,
-                description,
-                timestamp: n.timestamp,
-            })
-        });
+    ) -> Result<Vec<notification_platform::Model>> {
+        let all_notifications = NotificationPlatform::find()
+            .filter(notification_platform::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
         Ok(all_notifications)
     }
 
@@ -5484,88 +5443,99 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: CreateUserNotificationPlatformInput,
-    ) -> Result<usize> {
-        let user = user_by_id(&self.db, &user_id).await?;
-        let mut notifications = user.notifications.clone();
-        let new_notification_id = notifications.len() + 1;
-        let new_notification = UserNotification {
-            id: new_notification_id,
-            timestamp: Utc::now(),
-            settings: match input.lot {
-                NotificationPlatformSpecificsKind::Apprise => {
-                    NotificationPlatformSpecifics::Apprise {
-                        url: input.base_url.unwrap(),
-                        key: input.api_token.unwrap(),
-                    }
-                }
-                NotificationPlatformSpecificsKind::Discord => {
-                    NotificationPlatformSpecifics::Discord {
-                        url: input.base_url.unwrap(),
-                    }
-                }
-                NotificationPlatformSpecificsKind::Gotify => {
-                    NotificationPlatformSpecifics::Gotify {
-                        url: input.base_url.unwrap(),
-                        token: input.api_token.unwrap(),
-                        priority: input.priority,
-                    }
-                }
-                NotificationPlatformSpecificsKind::Ntfy => NotificationPlatformSpecifics::Ntfy {
-                    url: input.base_url,
-                    topic: input.api_token.unwrap(),
-                    priority: input.priority,
-                    auth_header: input.auth_header,
-                },
-                NotificationPlatformSpecificsKind::PushBullet => {
-                    NotificationPlatformSpecifics::PushBullet {
-                        api_token: input.api_token.unwrap(),
-                    }
-                }
-                NotificationPlatformSpecificsKind::PushOver => {
-                    NotificationPlatformSpecifics::PushOver {
-                        key: input.api_token.unwrap(),
-                        app_key: input.auth_header,
-                    }
-                }
-                NotificationPlatformSpecificsKind::PushSafer => {
-                    NotificationPlatformSpecifics::PushSafer {
-                        key: input.api_token.unwrap(),
-                    }
-                }
-                NotificationPlatformSpecificsKind::Email => NotificationPlatformSpecifics::Email {
-                    email: input.api_token.unwrap(),
-                },
-                NotificationPlatformSpecificsKind::Telegram => {
-                    NotificationPlatformSpecifics::Telegram {
-                        bot_token: input.api_token.unwrap(),
-                        chat_id: input.chat_id.unwrap(),
-                    }
-                }
+    ) -> Result<String> {
+        let specifics = match input.lot {
+            NotificationPlatformLot::Apprise => NotificationPlatformSpecifics::Apprise {
+                url: input.base_url.unwrap(),
+                key: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::Discord => NotificationPlatformSpecifics::Discord {
+                url: input.base_url.unwrap(),
+            },
+            NotificationPlatformLot::Gotify => NotificationPlatformSpecifics::Gotify {
+                url: input.base_url.unwrap(),
+                token: input.api_token.unwrap(),
+                priority: input.priority,
+            },
+            NotificationPlatformLot::Ntfy => NotificationPlatformSpecifics::Ntfy {
+                url: input.base_url,
+                topic: input.api_token.unwrap(),
+                priority: input.priority,
+                auth_header: input.auth_header,
+            },
+            NotificationPlatformLot::PushBullet => NotificationPlatformSpecifics::PushBullet {
+                api_token: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::PushOver => NotificationPlatformSpecifics::PushOver {
+                key: input.api_token.unwrap(),
+                app_key: input.auth_header,
+            },
+            NotificationPlatformLot::PushSafer => NotificationPlatformSpecifics::PushSafer {
+                key: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::Email => NotificationPlatformSpecifics::Email {
+                email: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::Telegram => NotificationPlatformSpecifics::Telegram {
+                bot_token: input.api_token.unwrap(),
+                chat_id: input.chat_id.unwrap(),
             },
         };
-
-        notifications.insert(0, new_notification);
-        let mut user: user::ActiveModel = user.into();
-        user.notifications = ActiveValue::Set(notifications);
-        user.update(&self.db).await?;
+        let description = match &specifics {
+            NotificationPlatformSpecifics::Apprise { url, key } => {
+                format!("Apprise URL: {}, Key: {}", url, key)
+            }
+            NotificationPlatformSpecifics::Discord { url } => {
+                format!("Discord webhook: {}", url)
+            }
+            NotificationPlatformSpecifics::Gotify { url, token, .. } => {
+                format!("Gotify URL: {}, Token: {}", url, token)
+            }
+            NotificationPlatformSpecifics::Ntfy { url, topic, .. } => {
+                format!("Ntfy URL: {:?}, Topic: {}", url, topic)
+            }
+            NotificationPlatformSpecifics::PushBullet { api_token } => {
+                format!("PushBullet API Token: {}", api_token)
+            }
+            NotificationPlatformSpecifics::PushOver { key, app_key } => {
+                format!("PushOver Key: {}, App Key: {:?}", key, app_key)
+            }
+            NotificationPlatformSpecifics::PushSafer { key } => {
+                format!("PushSafer Key: {}", key)
+            }
+            NotificationPlatformSpecifics::Email { email } => {
+                format!("Email: {}", email)
+            }
+            NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
+                format!("Telegram Chat ID: {}", chat_id)
+            }
+        };
+        let notification = notification_platform::ActiveModel {
+            lot: ActiveValue::Set(input.lot),
+            user_id: ActiveValue::Set(user_id),
+            platform_specifics: ActiveValue::Set(specifics),
+            description: ActiveValue::Set(description),
+            ..Default::default()
+        };
+        let new_notification_id = notification.insert(&self.db).await?.id;
         Ok(new_notification_id)
     }
 
     async fn delete_user_notification_platform(
         &self,
         user_id: String,
-        notification_id: usize,
+        notification_id: String,
     ) -> Result<bool> {
-        let user = user_by_id(&self.db, &user_id).await?;
-        let mut user_db: user::ActiveModel = user.clone().into();
-        let notifications = user.notifications.clone();
-        let remaining_notifications = notifications
-            .into_iter()
-            .filter(|i| i.id != notification_id)
-            .collect_vec();
-        let update_value = remaining_notifications;
-        user_db.notifications = ActiveValue::Set(update_value);
-        user_db.update(&self.db).await?;
+        let notification = NotificationPlatform::find_by_id(notification_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        if notification.user_id != user_id {
+            return Err(Error::new(
+                "Notification platform does not belong to the user",
+            ));
+        }
+        notification.delete(&self.db).await?;
         Ok(true)
     }
 
@@ -7168,27 +7138,27 @@ GROUP BY m.id;
     }
 
     async fn test_user_notification_platforms(&self, user_id: &String) -> Result<bool> {
-        let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
-        for platform in user.notifications {
-            let msg = format!(
-                "This is a test notification for platform: {}",
-                platform.settings.kind()
-            );
-            platform.settings.send_message(&self.config, &msg).await?;
+        let notifications = NotificationPlatform::find()
+            .filter(notification_platform::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        for platform in notifications {
+            let msg = format!("This is a test notification for platform: {}", platform.lot);
+            platform
+                .platform_specifics
+                .send_message(&self.config, &msg)
+                .await?;
         }
         Ok(true)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
-        let users = User::find()
-            .into_partial_model::<UserWithOnlyNotifications>()
-            .all(&self.db)
-            .await?;
+        let users = User::find().all(&self.db).await?;
         for user_details in users {
             tracing::debug!("Sending notification to user: {:?}", user_details.id);
             let notifications = QueuedNotification::find()
-                .filter(queued_notification::Column::UserId.eq(user_details.id))
+                .filter(queued_notification::Column::UserId.eq(&user_details.id))
                 .all(&self.db)
                 .await?;
             if notifications.is_empty() {
@@ -7199,8 +7169,16 @@ GROUP BY m.id;
                 .map(|n| n.message)
                 .collect::<Vec<String>>()
                 .join("\n");
-            for notification in user_details.notifications {
-                if let Err(err) = notification.settings.send_message(&self.config, &msg).await {
+            let platforms = NotificationPlatform::find()
+                .filter(notification_platform::Column::UserId.eq(&user_details.id))
+                .all(&self.db)
+                .await?;
+            for notification in platforms {
+                if let Err(err) = notification
+                    .platform_specifics
+                    .send_message(&self.config, &msg)
+                    .await
+                {
                     tracing::trace!("Error sending notification: {:?}", err);
                 }
             }

@@ -10,10 +10,7 @@ use database::UserLot;
 use sea_orm::{entity::prelude::*, ActiveValue, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    models::media::UserSummary,
-    users::{UserNotification, UserPreferences},
-};
+use crate::{models::media::UserSummary, users::UserPreferences};
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
@@ -25,15 +22,6 @@ fn get_hasher() -> Argon2<'static> {
 #[sea_orm(entity = "Entity")]
 pub struct UserWithOnlyPreferences {
     pub preferences: UserPreferences,
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
-)]
-#[sea_orm(entity = "Entity")]
-pub struct UserWithOnlyNotifications {
-    pub id: String,
-    pub notifications: Vec<UserNotification>,
 }
 
 #[derive(
@@ -58,9 +46,6 @@ pub struct Model {
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,
-    #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
-    pub notifications: Vec<UserNotification>,
     #[graphql(skip)]
     pub summary: Option<UserSummary>,
 }
