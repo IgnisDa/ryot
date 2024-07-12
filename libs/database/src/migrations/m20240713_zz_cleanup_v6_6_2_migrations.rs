@@ -83,7 +83,7 @@ INSERT INTO user_statistic (user_id, lot, data)
 SELECT
     u.id AS user_id,
     'summary' as lot,
-    JSON_BUILD_OBJECT('d', u.summary, 't', 'summary') AS data
+    JSON_BUILD_OBJECT('d', u.summary, 't', 'Summary') AS data
 FROM
     "user" u;
         "#,
