@@ -972,7 +972,7 @@ export default function Page() {
 								<Virtuoso
 									data={loaderData.userMetadataDetails.history}
 									itemContent={(index, history) => (
-										<SeenItem
+										<HistoryItem
 											history={history}
 											key={history.id}
 											index={index}
@@ -1185,7 +1185,7 @@ const MetadataCreator = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
-const AdjustSeenTimesModal = (props: {
+const EditHistoryRecordModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
@@ -1261,7 +1261,7 @@ const MergeMetadataModal = (props: {
 	);
 };
 
-const SeenItem = (props: { history: History; index: number }) => {
+const HistoryItem = (props: { history: History; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const submit = useConfirmSubmit();
 	const [opened, { open, close }] = useDisclosure(false);
@@ -1414,7 +1414,7 @@ const SeenItem = (props: { history: History; index: number }) => {
 					</SimpleGrid>
 				</Stack>
 			</Flex>
-			<AdjustSeenTimesModal
+			<EditHistoryRecordModal
 				opened={opened}
 				onClose={close}
 				seen={props.history}
