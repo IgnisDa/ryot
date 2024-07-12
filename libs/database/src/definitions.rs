@@ -424,3 +424,35 @@ pub enum IntegrationSource {
     Plex,
     Kodi,
 }
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Enum,
+    Hash,
+    ConfigEnum,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationPlatform {
+    Apprise,
+    Discord,
+    Gotify,
+    Ntfy,
+    PushBullet,
+    PushOver,
+    PushSafer,
+    Email,
+    Telegram,
+}
