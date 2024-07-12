@@ -25,9 +25,10 @@ mod notification_platform {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let db = manager.get_connection();
-        db.execute_unprepared(
-            r#"
+        if manager.has_column("user", "notifications").await? {
+            let db = manager.get_connection();
+            db.execute_unprepared(
+                r#"
 INSERT INTO notification_platform (user_id, id, platform_specifics, lot, created_on, description)
 SELECT
     u.id AS user_id,
@@ -52,26 +53,30 @@ FROM
     "user" u,
     jsonb_array_elements(u.notifications) AS n;
         "#,
-        )
-        .await?;
+            )
+            .await?;
 
-        db.execute_unprepared(
-            r#"ALTER TABLE "notification_platform" ADD COLUMN temp_id TEXT DEFAULT 'testing';"#,
-        )
-        .await?;
+            db.execute_unprepared(
+                r#"ALTER TABLE "notification_platform" ADD COLUMN temp_id TEXT DEFAULT 'testing';"#,
+            )
+            .await?;
 
-        for ntf in notification_platform::Entity::find().all(db).await? {
-            let new_id = format!("ntf_{}", nanoid!(12));
-            let mut user: notification_platform::ActiveModel = ntf.into();
-            user.temp_id = ActiveValue::Set(new_id);
-            user.update(db).await?;
+            for ntf in notification_platform::Entity::find().all(db).await? {
+                let new_id = format!("ntf_{}", nanoid!(12));
+                let mut user: notification_platform::ActiveModel = ntf.into();
+                user.temp_id = ActiveValue::Set(new_id);
+                user.update(db).await?;
+            }
+
+            db.execute_unprepared(r#"UPDATE "notification_platform" SET id = temp_id;"#)
+                .await?;
+
+            db.execute_unprepared(r#"ALTER TABLE "notification_platform" DROP COLUMN temp_id;"#)
+                .await?;
+
+            db.execute_unprepared(r#"ALTER TABLE "user" DROP COLUMN notifications;"#)
+                .await?;
         }
-
-        db.execute_unprepared(r#"UPDATE "notification_platform" SET id = temp_id;"#)
-            .await?;
-
-        db.execute_unprepared(r#"ALTER TABLE "notification_platform" DROP COLUMN temp_id;"#)
-            .await?;
 
         Ok(())
     }
