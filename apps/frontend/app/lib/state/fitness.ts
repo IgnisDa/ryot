@@ -116,7 +116,6 @@ export const getUserExerciseDetailsQuery = (exerciseId: string) =>
 			clientGqlService
 				.request(UserExerciseDetailsDocument, { exerciseId })
 				.then((data) => data.userExerciseDetails),
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 const getExerciseDetails = async (exerciseId: string) => {

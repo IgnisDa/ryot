@@ -4,12 +4,6 @@ query MetadataList($input: MetadataListInput!) {
       total
       nextPage
     }
-    items {
-      averageRating
-      mediaReason
-      data {
-        ...MetadataSearchItemPart
-      }
-    }
+    items
   }
 }

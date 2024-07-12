@@ -7,6 +7,7 @@ import {
 	Badge,
 	Box,
 	Button,
+	Center,
 	Collapse,
 	Divider,
 	Flex,
@@ -17,8 +18,8 @@ import {
 	Menu,
 	Paper,
 	ScrollArea,
+	Skeleton,
 	Stack,
-	type StyleProp,
 	Text,
 	TextInput,
 	ThemeIcon,
@@ -26,23 +27,24 @@ import {
 } from "@mantine/core";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
-import {
-	Form,
-	Link,
-	useFetcher,
-	useNavigate,
-	useSubmit,
-} from "@remix-run/react";
+import { Form, Link, useFetcher } from "@remix-run/react";
 import {
 	EntityLot,
 	type MediaLot,
 	type MediaSource,
-	type PartialMetadata,
+	MetadataGroupDetailsDocument,
+	PersonDetailsDocument,
 	type ReviewItem,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, isNumber } from "@ryot/ts-utils";
+import {
+	changeCase,
+	getInitials,
+	isNumber,
+	isString,
+	snakeCase,
+} from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconArrowsRight,
@@ -51,25 +53,39 @@ import {
 	IconCheck,
 	IconCloudDownload,
 	IconEdit,
+	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
-import { HiddenLocationInput, MEDIA_DETAILS_HEIGHT } from "~/components/common";
+import { MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import {
+	clientGqlService,
+	dayjsLib,
+	queryFactory,
+	redirectToQueryParam,
+} from "~/lib/generals";
+import {
+	getPartialMetadataDetailsQuery,
+	useConfirmSubmit,
 	useFallbackImageUrl,
 	useGetMantineColor,
 	useUserDetails,
+	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useReviewEntity } from "~/lib/state/media";
+import {
+	getExerciseDetailsQuery,
+	getUserExerciseDetailsQuery,
+} from "~/lib/state/fitness";
+import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
@@ -92,40 +108,41 @@ export const commitMedia = async (
 	return json.commitMedia.id;
 };
 
-export const PartialMetadataDisplay = (props: { media: PartialMetadata }) => {
-	const navigate = useNavigate();
+export const PartialMetadataDisplay = (props: {
+	metadataId: string;
+	extraText?: string;
+}) => {
+	const { data: metadataDetails } = useQuery(
+		getPartialMetadataDetailsQuery(props.metadataId),
+	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
 
 	return (
 		<Anchor
 			component={Link}
-			data-media-id={props.media.identifier}
-			to={
-				props.media.id
-					? $path("/media/item/:id", { id: props.media.id })
-					: $path("/")
-			}
-			onClick={async (e) => {
-				e.preventDefault();
-				const id = await commitMedia(
-					props.media.identifier,
-					props.media.lot,
-					props.media.source,
-				);
-				return navigate($path("/media/item/:id", { id }));
-			}}
+			data-media-id={props.metadataId}
+			to={$path("/media/item/:id", { id: props.metadataId })}
 		>
 			<Avatar
 				imageProps={{ loading: "lazy" }}
 				radius="sm"
-				src={props.media.image}
+				src={metadataDetails?.image}
 				h={100}
 				w={85}
 				mx="auto"
-				alt={`${props.media.title} picture`}
+				name={metadataDetails?.title}
 				styles={{ image: { objectPosition: "top" } }}
 			/>
-			<Text c="dimmed" size="xs" ta="center" lineClamp={1} mt={4}>
-				{props.media.title}
+			<Text
+				mt={4}
+				size="xs"
+				ta="center"
+				lineClamp={1}
+				c={(userMetadataDetails?.history.length || 0) > 0 ? "bright" : "dimmed"}
+			>
+				{metadataDetails?.title} {props.extraText}
 			</Text>
 		</Anchor>
 	);
@@ -148,14 +165,13 @@ export const ReviewItemDisplay = (props: {
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
+	const submit = useConfirmSubmit();
 	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
 		useDisclosure(false);
 	const deleteReviewFetcher = useFetcher<typeof action>();
 	const [_, setEntityToReview] = useReviewEntity();
-
-	const submit = useSubmit();
 
 	return (
 		<>
@@ -278,11 +294,13 @@ export const ReviewItemDisplay = (props: {
 					{openedLeaveComment ? (
 						<Form
 							method="POST"
-							onSubmit={() => toggleLeaveComment()}
+							onSubmit={(e) => {
+								submit(e);
+								toggleLeaveComment();
+							}}
 							action={withQuery("/actions", { intent: "createReviewComment" })}
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
-							<HiddenLocationInput />
 							<Group>
 								<TextInput
 									name="text"
@@ -343,7 +361,6 @@ export const ReviewItemDisplay = (props: {
 																name="shouldDelete"
 																defaultValue="true"
 															/>
-															<HiddenLocationInput />
 															<ActionIcon
 																color="red"
 																type="submit"
@@ -354,7 +371,7 @@ export const ReviewItemDisplay = (props: {
 																		confirmation:
 																			"Are you sure you want to delete this comment?",
 																	});
-																	if (conf) submit(form);
+																	if (conf && form) submit(form);
 																}}
 															>
 																<IconTrash size={16} />
@@ -366,8 +383,8 @@ export const ReviewItemDisplay = (props: {
 														action={withQuery("/actions", {
 															intent: "createReviewComment",
 														})}
+														onSubmit={submit}
 													>
-														<HiddenLocationInput />
 														<input
 															hidden
 															name="reviewId"
@@ -420,44 +437,134 @@ const blackBgStyles = {
 	padding: 2,
 } satisfies MantineStyleProp;
 
-export const BaseDisplayItem = (props: {
-	name: string;
-	onClick?: (e: React.MouseEvent) => Promise<void>;
-	imageLink?: string | null;
-	imagePlaceholder: string;
-	topRight?: ReactNode;
-	topLeft?: ReactNode;
-	bottomLeft?: string | number | null;
-	bottomRight?: string | number | null;
-	href?: string;
-	highlightRightText?: string;
-	children?: ReactNode;
+export const BaseMediaDisplayItem = (props: {
+	isLoading: boolean;
+	name?: string;
+	imageUrl?: string | null;
+	imageOverlay?: {
+		topRight?: ReactNode;
+		topLeft?: ReactNode;
+		bottomRight?: ReactNode;
+		bottomLeft?: ReactNode;
+	};
+	labels?: { right?: ReactNode; left?: ReactNode };
+	onImageClickBehavior: string | (() => Promise<void>);
 	nameRight?: ReactNode;
-	mediaReason?: Array<UserToMediaReason> | null;
 }) => {
-	const fallbackImageUrl = useFallbackImageUrl(getInitials(props.name));
-
-	const SurroundingElement = (iProps: {
-		children: ReactNode;
-		style: React.CSSProperties;
-		pos: StyleProp<React.CSSProperties["position"]>;
-	}) =>
-		props.href ? (
-			<Anchor
-				component={Link}
-				to={props.href}
-				style={iProps.style}
-				pos={iProps.pos}
-			>
+	const SurroundingElement = (iProps: { children: ReactNode }) =>
+		isString(props.onImageClickBehavior) ? (
+			<Anchor component={Link} to={props.onImageClickBehavior}>
 				{iProps.children}
 			</Anchor>
 		) : (
-			<Box onClick={props.onClick} style={iProps.style} pos={iProps.pos}>
-				{iProps.children}
-			</Box>
+			<Box onClick={props.onImageClickBehavior}>{iProps.children}</Box>
 		);
+	const defaultOverlayProps = {
+		style: { zIndex: 10, ...blackBgStyles },
+		pos: "absolute",
+	} as const;
 
-	const reasons = props.mediaReason?.filter((r) =>
+	return (
+		<Flex justify="space-between" direction="column">
+			<Box pos="relative" w="100%">
+				<SurroundingElement>
+					<Tooltip label={props.name} position="top">
+						<Image
+							src={props.imageUrl}
+							radius="md"
+							style={{ cursor: "pointer", height: 260, w: 170 }}
+							alt={`Image for ${props.name}`}
+							className={classes.mediaImage}
+							styles={{
+								root: {
+									transitionProperty: "transform",
+									transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+									transitionDuration: "150ms",
+								},
+							}}
+							fallbackSrc={useFallbackImageUrl(
+								props.isLoading
+									? "Loading..."
+									: props.name
+										? getInitials(props.name)
+										: undefined,
+							)}
+						/>
+					</Tooltip>
+				</SurroundingElement>
+				{props.imageOverlay?.topLeft ? (
+					<Center top={5} left={5} {...defaultOverlayProps}>
+						{props.imageOverlay.topLeft}
+					</Center>
+				) : null}
+				{props.imageOverlay?.topRight ? (
+					<Center top={5} right={5} {...defaultOverlayProps}>
+						{props.imageOverlay.topRight}
+					</Center>
+				) : null}
+				{props.imageOverlay?.bottomLeft ? (
+					<Center bottom={5} left={5} {...defaultOverlayProps}>
+						{props.imageOverlay.bottomLeft}
+					</Center>
+				) : null}
+				{props.imageOverlay?.bottomRight ? (
+					<Center bottom={5} right={5} {...defaultOverlayProps}>
+						{props.imageOverlay.bottomRight}
+					</Center>
+				) : null}
+			</Box>
+			{props.isLoading ? (
+				<>
+					<Skeleton height={22} mt={10} />
+					<Skeleton height={22} mt={8} />
+				</>
+			) : (
+				<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} pt={4}>
+					<Flex justify="space-between" direction="row" w="100%">
+						<Text c="dimmed" size="sm">
+							{props.labels?.left}
+						</Text>
+						<Text c="dimmed" size="sm">
+							{props.labels?.right}
+						</Text>
+					</Flex>
+					<Flex justify="space-between" align="center" mb="xs">
+						<Text w="100%" truncate fw="bold">
+							{props.name}
+						</Text>
+						{props.nameRight}
+					</Flex>
+				</Flex>
+			)}
+		</Flex>
+	);
+};
+
+export const MetadataDisplayItem = (props: {
+	metadataId: string;
+	topRight?: ReactNode;
+	rightLabel?: ReactNode;
+	rightLabelHistory?: boolean;
+	rightLabelLot?: boolean;
+	noLeftLabel?: boolean;
+}) => {
+	const [_r, setEntityToReview] = useReviewEntity();
+	const [_, setMetadataToUpdate, isMetadataToUpdateLoading] =
+		useMetadataProgressUpdate();
+	const userPreferences = useUserPreferences();
+	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
+		useQuery(getPartialMetadataDetailsQuery(props.metadataId));
+	const { data: userMetadataDetails } = useUserMetadataDetails(
+		props.metadataId,
+	);
+	const averageRating = userMetadataDetails?.averageRating;
+	const history = userMetadataDetails?.history || [];
+	const themeIconSurround = (idx: number, icon?: ReactNode) => (
+		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
+			{icon}
+		</ThemeIcon>
+	);
+	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
 		[
 			UserToMediaReason.Finished,
 			UserToMediaReason.Watchlist,
@@ -465,180 +572,248 @@ export const BaseDisplayItem = (props: {
 		].includes(r),
 	);
 
-	const themeIconSurround = (idx: number, icon?: ReactNode) => (
-		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
-			{icon}
-		</ThemeIcon>
-	);
-
 	return (
-		<Flex
-			key={`${props.bottomLeft}-${props.bottomRight}-${props.name}`}
-			align="center"
-			justify="center"
-			direction="column"
-		>
-			<SurroundingElement style={{ flex: "none" }} pos="relative">
-				<Image
-					src={props.imageLink}
-					radius="md"
-					style={{ cursor: "pointer" }}
-					alt={`Image for ${props.name}`}
-					className={classes.mediaImage}
-					styles={{
-						root: {
-							transitionProperty: "transform",
-							transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
-							transitionDuration: "150ms",
-						},
-					}}
-					h={260}
-					w={170}
-					fallbackSrc={fallbackImageUrl}
-				/>
-				<Box pos="absolute" style={{ zIndex: 999 }} top={10} left={10}>
-					{props.topLeft}
-				</Box>
-				<Box pos="absolute" top={5} right={5}>
-					{props.topRight}
-				</Box>
-				{reasons && reasons.length > 0 ? (
-					<Group
-						style={blackBgStyles}
-						pos="absolute"
-						bottom={5}
-						left={5}
-						gap={3}
-					>
-						{reasons
-							.map((r) =>
-								match(r)
-									.with(UserToMediaReason.Finished, () => (
-										<IconRosetteDiscountCheck />
-									))
-									.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
-									.with(UserToMediaReason.Owned, () => <IconBackpack />)
-									.run(),
-							)
-							.map((icon, idx) => themeIconSurround(idx, icon))}
-					</Group>
-				) : null}
-			</SurroundingElement>
-			<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} py={4}>
-				<Flex justify="space-between" direction="row" w="100%">
-					<Text c="dimmed" size="sm">
-						{props.bottomLeft}
-					</Text>
-					<Tooltip
-						label={props.highlightRightText}
-						disabled={!props.highlightRightText}
-						position="right"
-					>
-						<Text c={props.highlightRightText ? "yellow" : "dimmed"} size="sm">
-							{props.bottomRight}
-						</Text>
-					</Tooltip>
-				</Flex>
-				<Flex justify="space-between" align="center" mb="xs">
-					<Tooltip label={props.name} position="top">
-						<Text w="100%" truncate fw="bold">
-							{props.name}
-						</Text>
-					</Tooltip>
-					{props.nameRight}
-				</Flex>
-				{props.children}
-			</Flex>
-		</Flex>
-	);
-};
-
-export type Item = {
-	identifier: string;
-	title: string;
-	image?: string | null;
-	publishYear?: string | null;
-};
-
-export const MediaItemWithoutUpdateModal = (props: {
-	item: Item;
-	reviewScale: UserReviewScale;
-	entityLot?: EntityLot | null;
-	href?: string;
-	lot?: MediaLot | null;
-	children?: ReactNode;
-	imageOverlayForLoadingIndicator?: boolean;
-	hasInteracted?: boolean;
-	topRight?: ReactNode;
-	noBottomRight?: boolean;
-	noHref?: boolean;
-	onClick?: (e: React.MouseEvent) => Promise<void>;
-	nameRight?: ReactNode;
-	mediaReason?: Array<UserToMediaReason> | null;
-}) => {
-	const id = props.item.identifier;
-
-	return (
-		<BaseDisplayItem
-			onClick={props.onClick}
-			href={
-				!props.noHref
-					? props.href
-						? props.href
-						: match(props.entityLot)
-								.with(EntityLot.Metadata, undefined, null, () =>
-									$path("/media/item/:id", { id }),
-								)
-								.with(EntityLot.MetadataGroup, () =>
-									$path("/media/groups/item/:id", { id }),
-								)
-								.with(EntityLot.Person, () =>
-									$path("/media/people/item/:id", { id }),
-								)
-								.with(EntityLot.Exercise, () =>
-									$path("/fitness/exercises/item/:id", { id }),
-								)
-								.with(EntityLot.Collection, () =>
-									$path("/collections/:id", { id }),
-								)
-								.exhaustive()
+		<BaseMediaDisplayItem
+			name={metadataDetails?.title}
+			isLoading={isMetadataDetailsLoading}
+			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
+			imageUrl={metadataDetails?.image}
+			labels={
+				metadataDetails
+					? {
+							left:
+								props.noLeftLabel !== true
+									? metadataDetails.publishYear
+									: undefined,
+							right:
+								props.rightLabel ||
+								(props.rightLabelLot
+									? changeCase(snakeCase(metadataDetails.lot))
+									: undefined) ||
+								(props.rightLabelHistory ? (
+									history.length > 0 ? (
+										`${history.length} time${history.length === 1 ? "" : "s"}`
+									) : null
+								) : (
+									<Text c={history.length > 0 ? "bright" : undefined}>
+										{changeCase(snakeCase(metadataDetails.lot))}
+									</Text>
+								)),
+						}
 					: undefined
 			}
-			imageLink={props.item.image}
-			imagePlaceholder={getInitials(props.item?.title || "")}
-			topLeft={
-				props.imageOverlayForLoadingIndicator ? (
-					<Loader color="red" variant="bars" size="sm" />
-				) : null
-			}
-			mediaReason={props.mediaReason}
-			topRight={
-				props.topRight ? (
-					<Box style={blackBgStyles}>
-						<Flex align="center" gap={4}>
-							{props.topRight}
-						</Flex>
-					</Box>
-				) : undefined
-			}
-			bottomLeft={props.item.publishYear}
-			bottomRight={
-				props.noBottomRight
-					? undefined
-					: changeCase(
-							props.lot ? props.lot : props.entityLot ? props.entityLot : "",
-						)
-			}
-			highlightRightText={
-				props.hasInteracted ? "You have interacted with this before" : undefined
-			}
-			name={props.item.title}
-			nameRight={props.nameRight}
-		>
-			{props.children}
-		</BaseDisplayItem>
+			imageOverlay={{
+				topRight: props.topRight ? (
+					props.topRight
+				) : averageRating ? (
+					<Group gap={4}>
+						<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
+						<Text c="white" size="xs" fw="bold" pr={4}>
+							{match(userPreferences.general.reviewScale)
+								.with(UserReviewScale.OutOfFive, () =>
+									Number.parseFloat(averageRating.toString()).toFixed(1),
+								)
+								.with(UserReviewScale.OutOfHundred, () => averageRating)
+								.exhaustive()}
+							{userPreferences.general.reviewScale === UserReviewScale.OutOfFive
+								? undefined
+								: " %"}
+						</Text>
+					</Group>
+				) : (
+					<IconStarFilled
+						cursor="pointer"
+						onClick={() => {
+							if (metadataDetails)
+								setEntityToReview({
+									entityId: props.metadataId,
+									entityLot: EntityLot.Metadata,
+									metadataLot: metadataDetails.lot,
+									entityTitle: metadataDetails.title,
+								});
+						}}
+						size={16}
+						className={classes.starIcon}
+					/>
+				),
+				bottomLeft:
+					reasons && reasons.length > 0 ? (
+						<Group gap={3}>
+							{reasons
+								.map((r) =>
+									match(r)
+										.with(UserToMediaReason.Finished, () => (
+											<IconRosetteDiscountCheck />
+										))
+										.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
+										.with(UserToMediaReason.Owned, () => <IconBackpack />)
+										.run(),
+								)
+								.map((icon, idx) => themeIconSurround(idx, icon))}
+						</Group>
+					) : null,
+				bottomRight: isMetadataToUpdateLoading ? (
+					<Loader color="red" size="xs" m={2} />
+				) : (
+					<ActionIcon
+						variant="transparent"
+						color="blue"
+						size="compact-md"
+						onClick={() =>
+							setMetadataToUpdate({ metadataId: props.metadataId }, true)
+						}
+					>
+						<IconPlayerPlay size={20} />
+					</ActionIcon>
+				),
+			}}
+		/>
 	);
 };
+
+export const MetadataGroupDisplayItem = (props: {
+	metadataGroupId: string;
+	topRight?: ReactNode;
+	rightLabel?: ReactNode;
+	noLeftLabel?: boolean;
+}) => {
+	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
+		useQuery({
+			queryKey: queryFactory.media.metadataGroupDetails(props.metadataGroupId)
+				.queryKey,
+			queryFn: async () => {
+				return clientGqlService
+					.request(MetadataGroupDetailsDocument, props)
+					.then((data) => data.metadataGroupDetails);
+			},
+		});
+
+	return (
+		<BaseMediaDisplayItem
+			name={metadataDetails?.details.title}
+			isLoading={isMetadataDetailsLoading}
+			onImageClickBehavior={$path("/media/groups/item/:id", {
+				id: props.metadataGroupId,
+			})}
+			imageUrl={metadataDetails?.details.displayImages.at(0)}
+			labels={
+				metadataDetails
+					? {
+							left:
+								props.noLeftLabel !== true
+									? `${metadataDetails.details.parts} items`
+									: undefined,
+							right:
+								props.rightLabel ||
+								changeCase(snakeCase(metadataDetails.details.lot)),
+						}
+					: undefined
+			}
+			imageOverlay={{ topRight: props.topRight }}
+		/>
+	);
+};
+
+export const PersonDisplayItem = (props: {
+	personId: string;
+	topRight?: ReactNode;
+	rightLabel?: ReactNode;
+}) => {
+	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
+		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
+		queryFn: async () => {
+			return clientGqlService
+				.request(PersonDetailsDocument, props)
+				.then((data) => data.personDetails);
+		},
+	});
+
+	return (
+		<BaseMediaDisplayItem
+			name={personDetails?.details.name}
+			isLoading={isPersonDetailsLoading}
+			onImageClickBehavior={$path("/media/people/item/:id", {
+				id: props.personId,
+			})}
+			imageUrl={personDetails?.details.displayImages.at(0)}
+			labels={{
+				left: personDetails
+					? `${personDetails.contents.length} items`
+					: undefined,
+				right: props.rightLabel,
+			}}
+			imageOverlay={{ topRight: props.topRight }}
+		/>
+	);
+};
+
+export const ExerciseDisplayItem = (props: {
+	exerciseId: string;
+	topRight?: ReactNode;
+	rightLabel?: ReactNode;
+}) => {
+	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
+		useQuery(getExerciseDetailsQuery(props.exerciseId));
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(props.exerciseId),
+	);
+	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
+
+	return (
+		<BaseMediaDisplayItem
+			name={exerciseDetails?.id}
+			isLoading={isExerciseDetailsLoading}
+			onImageClickBehavior={$path("/fitness/exercises/item/:id", {
+				id: props.exerciseId,
+			})}
+			imageUrl={exerciseDetails?.attributes.images.at(0)}
+			labels={{
+				left: isNumber(times)
+					? `${times} time${times > 1 ? "s" : ""}`
+					: undefined,
+				right: props.rightLabel,
+			}}
+			imageOverlay={{ topRight: props.topRight }}
+		/>
+	);
+};
+
+export const DisplayCollectionEntity = (props: {
+	entityId: string;
+	entityLot: EntityLot;
+	topRight?: ReactNode;
+}) =>
+	match(props.entityLot)
+		.with(EntityLot.Metadata, () => (
+			<MetadataDisplayItem
+				metadataId={props.entityId}
+				topRight={props.topRight}
+				rightLabelLot
+			/>
+		))
+		.with(EntityLot.MetadataGroup, () => (
+			<MetadataGroupDisplayItem
+				metadataGroupId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+				noLeftLabel
+			/>
+		))
+		.with(EntityLot.Person, () => (
+			<PersonDisplayItem
+				personId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.Exercise, () => (
+			<ExerciseDisplayItem
+				exerciseId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.run();
 
 export const DisplayCollection = (props: {
 	creatorUserId: string;
@@ -647,7 +822,7 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const submit = useSubmit();
+	const submit = useConfirmSubmit();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
@@ -675,7 +850,6 @@ export const DisplayCollection = (props: {
 						name="creatorUserId"
 						value={props.creatorUserId}
 					/>
-					<HiddenLocationInput />
 					<ActionIcon
 						size={16}
 						onClick={async (e) => {
@@ -685,7 +859,7 @@ export const DisplayCollection = (props: {
 								confirmation:
 									"Are you sure you want to remove this media from this collection?",
 							});
-							if (conf) submit(form);
+							if (conf && form) submit(form);
 						}}
 					>
 						<IconX />
@@ -731,6 +905,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 		? "removeEntityFromCollection"
 		: "addEntityToCollection";
 	const userDetails = useUserDetails();
+	const submit = useConfirmSubmit();
 
 	return (
 		<Form
@@ -738,19 +913,26 @@ export const ToggleMediaMonitorMenuItem = (props: {
 			method="POST"
 			action={withQuery("/actions", { intent: action })}
 		>
-			<HiddenLocationInput />
 			<input hidden name="collectionName" defaultValue="Monitoring" />
+			<input readOnly hidden name="entityId" value={props.formValue} />
 			<input readOnly hidden name="entityLot" value={props.entityLot} />
 			<input readOnly hidden name="creatorUserId" value={userDetails.id} />
 			<Menu.Item
 				type="submit"
 				color={isMonitored ? "red" : undefined}
-				name="entityId"
-				value={props.formValue}
-				onClick={(e) => {
-					if (isMonitored)
-						if (!confirm("Are you sure you want to stop monitoring?"))
-							e.preventDefault();
+				onClick={async (e) => {
+					const form = e.currentTarget.form;
+					if (form) {
+						e.preventDefault();
+						if (isMonitored) {
+							const conf = await confirmWrapper({
+								confirmation: "Are you sure you want to stop monitoring?",
+							});
+							if (conf) submit(form);
+						} else {
+							submit(form);
+						}
+					}
 				}}
 			>
 				{isMonitored ? "Stop" : "Start"} monitoring

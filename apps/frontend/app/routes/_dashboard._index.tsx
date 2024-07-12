@@ -1,11 +1,9 @@
 import { $path } from "@ignisda/remix-routes";
 import {
-	ActionIcon,
 	Box,
 	Center,
 	Container,
 	Flex,
-	Loader,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -19,7 +17,6 @@ import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
-	type CollectionContentsQuery,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
@@ -32,7 +29,6 @@ import { humanizeDuration, isNumber } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconFriends,
-	IconPlayerPlay,
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
@@ -42,12 +38,12 @@ import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import {
-	MediaItemWithoutUpdateModal,
+	DisplayCollectionEntity,
+	MetadataDisplayItem,
 	NewUserGuideAlert,
 } from "~/components/media";
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
-import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
 	getCachedUserCollectionsList,
@@ -157,7 +153,11 @@ export default function Page() {
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
 											(lm) => (
-												<InProgressItem key={lm.details.identifier} lm={lm} />
+												<DisplayCollectionEntity
+													key={lm.entityId}
+													entityId={lm.entityId}
+													entityLot={lm.entityLot}
+												/>
 											),
 										)}
 									</ApplicationGrid>
@@ -492,35 +492,28 @@ export default function Page() {
 const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
 	const numDaysLeft = dayjsLib(um.date).diff(today, "day");
-	const loaderData = useLoaderData<typeof loader>();
 
 	return (
-		<MediaItemWithoutUpdateModal
-			reviewScale={loaderData.userPreferences.reviewScale}
-			item={{
-				identifier: um.metadataId,
-				title: um.metadataTitle,
-				image: um.metadataImage,
-				publishYear: `${match(um.metadataLot)
-					.with(
-						MediaLot.Show,
-						() =>
-							`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
-					)
-					.with(
-						MediaLot.Podcast,
-						() => `EP-${um.podcastExtraInformation?.episode}`,
-					)
-					.otherwise(() => "")} ${
-					numDaysLeft === 0
-						? "Today"
-						: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
-								numDaysLeft === 1 ? "" : "s"
-							}`
-				}`,
-			}}
-			lot={um.metadataLot}
-			noBottomRight
+		<MetadataDisplayItem
+			metadataId={um.metadataId}
+			noLeftLabel
+			rightLabel={`${match(um.metadataLot)
+				.with(
+					MediaLot.Show,
+					() =>
+						`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
+				)
+				.with(
+					MediaLot.Podcast,
+					() => `EP-${um.podcastExtraInformation?.episode}`,
+				)
+				.otherwise(() => "")} ${
+				numDaysLeft === 0
+					? "Today"
+					: `In ${numDaysLeft === 1 ? "a" : numDaysLeft} day${
+							numDaysLeft === 1 ? "" : "s"
+						}`
+			}`}
 		/>
 	);
 };
@@ -639,49 +632,5 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
-	);
-};
-
-type InProgressItem =
-	CollectionContentsQuery["collectionContents"]["results"]["items"][number];
-
-const InProgressItem = ({ lm }: { lm: InProgressItem }) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, setMetadataToUpdate, isLoading] = useMetadataProgressUpdate();
-
-	return (
-		<MediaItemWithoutUpdateModal
-			key={lm.details.identifier}
-			reviewScale={loaderData.userPreferences.reviewScale}
-			item={{
-				...lm.details,
-				publishYear: lm.details.publishYear?.toString(),
-			}}
-			lot={lm.metadataLot}
-			entityLot={lm.entityLot}
-			topRight={
-				isLoading ? (
-					<Loader color="red" size="xs" m={2} />
-				) : (
-					<ActionIcon
-						variant="transparent"
-						color="blue"
-						size="compact-md"
-						onClick={async (e) => {
-							e.preventDefault();
-							await setMetadataToUpdate(
-								{
-									metadataId: lm.details.identifier,
-									pageFragment: DashboardElementLot.InProgress,
-								},
-								true,
-							);
-						}}
-					>
-						<IconPlayerPlay size={20} />
-					</ActionIcon>
-				)
-			}
-		/>
 	);
 };

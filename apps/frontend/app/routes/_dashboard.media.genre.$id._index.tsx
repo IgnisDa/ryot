@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	Box,
 	Center,
@@ -12,12 +11,11 @@ import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
-import { BaseDisplayItem } from "~/components/media";
+import { MetadataDisplayItem } from "~/components/media";
 import { useCoreDetails, useSearchParam } from "~/lib/hooks";
 import { serverGqlService } from "~/lib/utilities.server";
 
@@ -57,15 +55,7 @@ export default function Page() {
 				</Box>
 				<ApplicationGrid>
 					{loaderData.genreDetails.contents.items.map((media) => (
-						<BaseDisplayItem
-							key={media.details.identifier}
-							name={media.details.title}
-							bottomLeft={media.details.publishYear}
-							bottomRight={changeCase(snakeCase(media.metadataLot || ""))}
-							imageLink={media.details.image}
-							imagePlaceholder={getInitials(media.details.title)}
-							href={$path("/media/item/:id", { id: media.details.identifier })}
-						/>
+						<MetadataDisplayItem key={media} metadataId={media} />
 					))}
 				</ApplicationGrid>
 				<Center>

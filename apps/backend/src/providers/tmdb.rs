@@ -27,10 +27,9 @@ use crate::{
     models::{
         media::{
             MediaDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, MetadataSearchItem, MetadataVideo,
-            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-            PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
-            WatchProvider,
+            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -791,7 +790,6 @@ impl MediaProvider for TmdbMovieService {
                 .unique()
                 .map(|p| MetadataImageForMediaDetails {
                     image: self.base.get_image_url(p),
-                    lot: MetadataImageLot::Poster,
                 })
                 .collect(),
             videos,
@@ -931,7 +929,6 @@ impl MediaProvider for TmdbMovieService {
                     .unique()
                     .map(|p| MetadataImage {
                         url: StoredUrl::Url(self.base.get_image_url(p)),
-                        lot: MetadataImageLot::Poster,
                     })
                     .collect(),
                 lot: MediaLot::Movie,
@@ -1152,7 +1149,6 @@ impl MediaProvider for TmdbShowService {
                 .unique()
                 .map(|p| MetadataImageForMediaDetails {
                     image: self.base.get_image_url(p),
-                    lot: MetadataImageLot::Poster,
                 })
                 .collect(),
             videos,

@@ -10,12 +10,7 @@ query GenreDetails($input: GenreDetailsInput!) {
         total
         nextPage
       }
-      items {
-        details {
-          ...MetadataSearchItemPart
-        }
-        metadataLot
-      }
+      items
     }
   }
 }

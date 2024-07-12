@@ -1,7 +1,5 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
-	Avatar,
 	Box,
 	Button,
 	Container,
@@ -16,7 +14,6 @@ import {
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
-	Link,
 	type MetaArgs_SingleFetch,
 	useLoaderData,
 } from "@remix-run/react";
@@ -42,6 +39,7 @@ import {
 	DisplayCollection,
 	MediaIsPartial,
 	MediaScrollArea,
+	PartialMetadataDisplay,
 	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
@@ -198,35 +196,13 @@ export default function Page() {
 										</Title>
 										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 											{role.items.map((item) => (
-												<Anchor
-													key={item.media.id}
-													data-media-id={item.media.id}
-													component={Link}
-													to={$path("/media/item/:id", {
-														id: item.media.id || "",
-													})}
-												>
-													<Avatar
-														imageProps={{ loading: "lazy" }}
-														src={item.media.image}
-														radius="sm"
-														h={100}
-														w={85}
-														mx="auto"
-														alt={item.media.title}
-														styles={{ image: { objectPosition: "top" } }}
-													/>
-													<Text
-														c="dimmed"
-														size="xs"
-														ta="center"
-														lineClamp={2}
-														mt={4}
-													>
-														{item.media.title}{" "}
-														{item.character ? `as ${item.character}` : ""}
-													</Text>
-												</Anchor>
+												<PartialMetadataDisplay
+													key={item.mediaId}
+													metadataId={item.mediaId}
+													extraText={
+														item.character ? `as ${item.character}` : undefined
+													}
+												/>
 											))}
 										</SimpleGrid>
 									</Box>

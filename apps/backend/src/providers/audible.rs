@@ -16,8 +16,8 @@ use crate::{
     models::{
         media::{
             AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataPerson, MetadataSearchItem, PartialMetadataPerson,
-            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+            MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+            PeopleSearchItem, PersonSourceSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -424,12 +424,12 @@ impl MediaProvider for AudibleService {
 
 impl AudibleService {
     fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
-        let images = Vec::from_iter(item.product_images.unwrap().image_2400.map(|a| {
-            MetadataImageForMediaDetails {
-                image: a,
-                lot: MetadataImageLot::Poster,
-            }
-        }));
+        let images = Vec::from_iter(
+            item.product_images
+                .unwrap()
+                .image_2400
+                .map(|a| MetadataImageForMediaDetails { image: a }),
+        );
         let release_date = item.release_date.unwrap_or_default();
         let people = item
             .authors

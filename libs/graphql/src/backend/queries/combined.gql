@@ -102,3 +102,33 @@ query UserCalendarEvents($input: UserCalendarEventInput!) {
     }
   }
 }
+
+query MetadataPartialDetails($metadataId: String!) {
+  metadataPartialDetails(metadataId: $metadataId) {
+    id
+    lot
+    title
+    image
+    publishYear
+  }
+}
+
+query MetadataGroupsList($input: SearchInput!) {
+  metadataGroupsList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items
+  }
+}
+
+query PeopleList($input: PeopleListInput!) {
+  peopleList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items
+  }
+}
