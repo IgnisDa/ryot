@@ -12,6 +12,7 @@ pub enum NotificationPlatform {
     Platform,
     CreatedOn,
     PlatformSpecifics,
+    Description,
     UserId,
 }
 
@@ -42,6 +43,11 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(NotificationPlatform::PlatformSpecifics)
                             .json_binary()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(NotificationPlatform::Description)
+                            .text()
                             .not_null(),
                     )
                     .col(
