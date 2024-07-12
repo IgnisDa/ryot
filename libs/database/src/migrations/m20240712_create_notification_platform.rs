@@ -1,0 +1,78 @@
+use sea_orm_migration::prelude::*;
+
+use super::m20230417_create_user::User;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[derive(Iden)]
+pub enum NotificationPlatform {
+    Table,
+    Id,
+    Platform,
+    CreatedOn,
+    PlatformSpecifics,
+    UserId,
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(NotificationPlatform::Table)
+                    .col(
+                        ColumnDef::new(NotificationPlatform::Id)
+                            .text()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(NotificationPlatform::Platform)
+                            .text()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(NotificationPlatform::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(NotificationPlatform::PlatformSpecifics)
+                            .json_binary()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(NotificationPlatform::UserId)
+                            .text()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("notification_platform_to_user_foreign_key")
+                            .from(NotificationPlatform::Table, NotificationPlatform::UserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("notification_platform__user_id")
+                    .table(NotificationPlatform::Table)
+                    .col(NotificationPlatform::UserId)
+                    .to_owned(),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+        Ok(())
+    }
+}

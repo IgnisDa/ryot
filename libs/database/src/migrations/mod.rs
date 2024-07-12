@@ -31,6 +31,7 @@ mod m20240620_delete_invalid_calendar_events;
 mod m20240704_add_new_preference_for_persisted_queries;
 mod m20240710_remove_sequences_completely;
 mod m20240711_remove_total_time_spent_from_seen;
+mod m20240712_create_notification_platform;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -83,6 +84,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240704_add_new_preference_for_persisted_queries::Migration),
             Box::new(m20240710_remove_sequences_completely::Migration),
             Box::new(m20240711_remove_total_time_spent_from_seen::Migration),
+            Box::new(m20240712_create_notification_platform::Migration),
         ]
     }
 }
