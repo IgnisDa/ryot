@@ -10,7 +10,7 @@ use database::UserLot;
 use sea_orm::{entity::prelude::*, ActiveValue, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
-use crate::{models::UserSummary, users::UserPreferences};
+use crate::users::UserPreferences;
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
@@ -22,14 +22,6 @@ fn get_hasher() -> Argon2<'static> {
 #[sea_orm(entity = "Entity")]
 pub struct UserWithOnlyPreferences {
     pub preferences: UserPreferences,
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
-)]
-#[sea_orm(entity = "Entity")]
-pub struct UserWithOnlySummary {
-    pub summary: Option<UserSummary>,
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
@@ -46,8 +38,6 @@ pub struct Model {
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,
-    #[graphql(skip)]
-    pub summary: Option<UserSummary>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

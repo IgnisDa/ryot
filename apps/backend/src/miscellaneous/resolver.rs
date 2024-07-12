@@ -19,7 +19,7 @@ use database::{
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
     AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
     MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
-    UserToMediaReason, Visibility,
+    UserStatisticLot, UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -60,12 +60,12 @@ use crate::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
             Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
             MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
-            QueuedNotification, Review, Seen, User, UserMeasurement, UserToCollection,
-            UserToEntity, Workout,
+            QueuedNotification, Review, Seen, User, UserMeasurement, UserStatistic,
+            UserToCollection, UserToEntity, Workout,
         },
         queued_notification, review, seen,
-        user::{self, UserWithOnlyPreferences, UserWithOnlySummary},
-        user_measurement, user_to_collection, user_to_entity, workout,
+        user::{self, UserWithOnlyPreferences},
+        user_measurement, user_statistic, user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
@@ -92,7 +92,7 @@ use crate::{
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
-        UserSummary,
+        UserStatisticData, UserSummary,
     },
     providers::{
         anilist::{
@@ -4531,8 +4531,13 @@ impl MiscellaneousService {
     }
 
     async fn latest_user_summary(&self, user_id: &String) -> Result<UserSummary> {
-        let ls = partial_user_by_id::<UserWithOnlySummary>(&self.db, user_id).await?;
-        Ok(ls.summary.unwrap_or_default())
+        let ls = UserStatistic::find_by_id((user_id.to_owned(), UserStatisticLot::Summary))
+            .one(&self.db)
+            .await?
+            .unwrap();
+        Ok(match ls.data {
+            UserStatisticData::Summary(s) => s,
+        })
     }
 
     #[tracing::instrument(skip(self))]
@@ -4805,13 +4810,13 @@ impl MiscellaneousService {
 
         ls.calculated_on = Utc::now();
 
-        let user_model = user::ActiveModel {
-            id: ActiveValue::Unchanged(user_id.to_owned()),
-            summary: ActiveValue::Set(Some(ls)),
-            ..Default::default()
+        let user_model = user_statistic::ActiveModel {
+            user_id: ActiveValue::Unchanged(user_id.to_owned()),
+            lot: ActiveValue::Unchanged(UserStatisticLot::Summary),
+            data: ActiveValue::Set(UserStatisticData::Summary(ls)),
         };
         let usr = user_model.update(&self.db).await.unwrap();
-        tracing::debug!("Calculated summary for user: {:?}", usr.name);
+        tracing::debug!("Calculated summary for user: {:?}", usr.user_id);
         Ok(())
     }
 
