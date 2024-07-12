@@ -53,8 +53,13 @@ import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { confirmWrapper } from "~/components/confirmation";
 import { queryClient, queryFactory } from "~/lib/generals";
-import { useUserDetails, useUserPreferences } from "~/lib/hooks";
+import {
+	useConfirmSubmit,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
@@ -120,6 +125,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const userDetails = useUserDetails();
+	const submit = useConfirmSubmit();
 	const [dashboardElements, setDashboardElements] = useState(
 		userPreferences.general.dashboard,
 	);
@@ -170,18 +176,21 @@ export default function Page() {
 				<Group justify="space-between">
 					<Title>Preferences</Title>
 					<Form method="POST" reloadDocument>
+						<input type="hidden" name="reset" defaultValue="reset" />
 						<Tooltip label="Reset preferences">
 							<ActionIcon
 								color="red"
+								type="submit"
 								variant="outline"
 								onClick={async (e) => {
 									if (!userDetails.isDemo) {
-										if (
-											!confirm(
+										const form = e.currentTarget.form;
+										e.preventDefault();
+										const conf = await confirmWrapper({
+											confirmation:
 												"This will reset all your preferences to default. Are you sure you want to continue?",
-											)
-										)
-											e.preventDefault();
+										});
+										if (conf && form) submit(form);
 										else
 											notifications.show({
 												message:
@@ -190,9 +199,6 @@ export default function Page() {
 											});
 									} else notifications.show(notificationContent);
 								}}
-								type="submit"
-								name="reset"
-								value="reset"
 							>
 								<IconRotate360 size={20} />
 							</ActionIcon>

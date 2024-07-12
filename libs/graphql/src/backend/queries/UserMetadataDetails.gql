@@ -1,5 +1,6 @@
 query UserMetadataDetails($metadataId: String!) {
   userMetadataDetails(metadataId: $metadataId) {
+    mediaReason
     collections {
       ...CollectionPart
     }

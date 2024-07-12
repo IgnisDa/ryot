@@ -38,7 +38,6 @@ fragment SeenPart on Seen {
   startedOn
   finishedOn
   lastUpdatedOn
-  totalTimeSpent
   manualTimeSpent
   numTimesUpdated
   providerWatchedOn
@@ -61,15 +60,6 @@ fragment MetadataSearchItemPart on MetadataSearchItem {
   title
   image
   publishYear
-}
-
-fragment PartialMetadataPart on PartialMetadata {
-  id
-  lot
-  source
-  identifier
-  title
-  image
 }
 
 fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {

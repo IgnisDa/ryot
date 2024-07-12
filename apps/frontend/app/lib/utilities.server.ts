@@ -133,7 +133,6 @@ export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
 		queryFn: () => serverGqlService.request(CoreDetailsDocument),
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 };
 
@@ -147,7 +146,6 @@ export const getCachedUserDetails = async (request: Request) => {
 				undefined,
 				getAuthorizationHeader(request),
 			),
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 };
 
@@ -163,7 +161,6 @@ export const getCachedUserPreferences = async (request: Request) => {
 					getAuthorizationHeader(request),
 				)
 				.then((data) => data.userPreferences),
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 };
 

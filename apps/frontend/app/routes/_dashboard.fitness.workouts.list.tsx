@@ -41,8 +41,8 @@ import {
 } from "~/components/fitness";
 import { dayjsLib } from "~/lib/generals";
 import {
-	getWorkoutStarter,
 	useCoreDetails,
+	useGetWorkoutStarter,
 	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -80,7 +80,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useSearchParam();
-	const startWorkout = getWorkoutStarter();
+	const startWorkout = useGetWorkoutStarter();
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 
 	return (

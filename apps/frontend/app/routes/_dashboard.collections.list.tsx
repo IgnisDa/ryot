@@ -44,6 +44,7 @@ import {
 	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
+	EntityLot,
 	GraphqlSortOrder,
 	type UserCollectionsListQuery,
 	UsersListDocument,
@@ -65,8 +66,14 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { clientGqlService, dayjsLib, queryFactory } from "~/lib/generals";
 import {
+	clientGqlService,
+	dayjsLib,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
+import {
+	getPartialMetadataDetailsQuery,
 	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,
@@ -278,11 +285,12 @@ const DisplayCollection = (props: {
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
 
-	const { data: collectionContents } = useQuery({
+	const { data: collectionImages } = useQuery({
 		queryKey: queryFactory.collections.details(props.collection.id).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(CollectionContentsDocument, {
+		queryFn: async () => {
+			const { collectionContents } = await clientGqlService.request(
+				CollectionContentsDocument,
+				{
 					input: {
 						collectionId: props.collection.id,
 						take: 10,
@@ -291,20 +299,22 @@ const DisplayCollection = (props: {
 							order: GraphqlSortOrder.Desc,
 						},
 					},
-				})
-				.then((data) => data.collectionContents),
+				},
+			);
+			const images = [];
+			for (const content of collectionContents.results.items) {
+				if (content.entityLot !== EntityLot.Metadata) continue;
+				const { image } = await queryClient.ensureQueryData(
+					getPartialMetadataDetailsQuery(content.entityId),
+				);
+				images.push(image);
+			}
+			return images.filter(isString).splice(0, 5);
+		},
 		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
 
-	const collectionImages = (
-		collectionContents?.results.items
-			.flatMap((o) => o.details.image)
-			.filter((i) => isString(i)) || []
-	).splice(0, 5);
-
-	const [hoveredStates, setHoveredStates] = useListState(
-		collectionImages.map(() => false),
-	);
+	const [hoveredStates, setHoveredStates] = useListState<boolean>([]);
 
 	const setHoveredState = (index: number, state: boolean) => {
 		setHoveredStates.setItem(index, state);
@@ -338,7 +348,7 @@ const DisplayCollection = (props: {
 					pos="relative"
 					style={{ overflow: "hidden" }}
 				>
-					{collectionImages.length > 0 ? (
+					{collectionImages && collectionImages.length > 0 ? (
 						collectionImages.map((image, index) => {
 							const shouldCollapse = index < currentlyHovered;
 							return (

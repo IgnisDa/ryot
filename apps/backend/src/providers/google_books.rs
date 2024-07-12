@@ -12,7 +12,7 @@ use crate::{
     models::{
         media::{
             BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataImageLot, MetadataSearchItem, PartialMetadataWithoutId,
+            MetadataSearchItem, PartialMetadataWithoutId,
         },
         SearchDetails, SearchResults,
     },
@@ -198,10 +198,9 @@ impl GoogleBooksService {
                 images.push(a);
             }
         };
-        let images = images.into_iter().map(|a| MetadataImageForMediaDetails {
-            image: a,
-            lot: MetadataImageLot::Poster,
-        });
+        let images = images
+            .into_iter()
+            .map(|a| MetadataImageForMediaDetails { image: a });
         let mut creators = item
             .authors
             .unwrap_or_default()

@@ -84,4 +84,4 @@ tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
 logs-wheel = "=0.3.1"
 unkey = "=0.3.0"
-uuid = "=1.10.0"
+uuid = { version = "=1.10.0", features = ["v4"], default-features = false }

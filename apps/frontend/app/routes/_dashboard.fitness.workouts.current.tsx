@@ -589,7 +589,9 @@ const ImageDisplay = (props: {
 				color="red"
 				size="xs"
 				onClick={async () => {
-					const yes = confirm("Are you sure you want to remove this image?");
+					const yes = await confirmWrapper({
+						confirmation: "Are you sure you want to remove this image?",
+					});
 					if (yes) props.removeImage();
 				}}
 			>
@@ -991,10 +993,10 @@ const ExerciseDisplay = (props: {
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
-								onClick={() => {
-									const yes = confirm(
-										`This removes '${exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
-									);
+								onClick={async () => {
+									const yes = await confirmWrapper({
+										confirmation: `This removes '${exercise.exerciseId}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
+									});
 									if (yes) {
 										const assets = [...exercise.images, ...exercise.videos];
 										for (const asset of assets) deleteUploadedAsset(asset.key);
@@ -1271,10 +1273,12 @@ const SetDisplay = (props: {
 							color="red"
 							fz="xs"
 							leftSection={<IconTrash size={14} />}
-							onClick={() => {
-								const yes = match(!!set.confirmedAt)
-									.with(true, () => {
-										return confirm("Are you sure you want to delete this set?");
+							onClick={async () => {
+								const yes = await match(!!set.confirmedAt)
+									.with(true, async () => {
+										return confirmWrapper({
+											confirmation: "Are you sure you want to delete this set?",
+										});
 									})
 									.with(false, () => true)
 									.exhaustive();
@@ -1733,10 +1737,11 @@ const NoteInput = (props: {
 			/>
 			<ActionIcon
 				color="red"
-				onClick={() => {
-					const yes = confirm(
-						"This note will be deleted. Are you sure you want to continue?",
-					);
+				onClick={async () => {
+					const yes = await confirmWrapper({
+						confirmation:
+							"This note will be deleted. Are you sure you want to continue?",
+					});
 					if (yes && currentWorkout)
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {

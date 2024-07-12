@@ -3,4 +3,4 @@ procs:
   Frontend: "moon run frontend:dev"
   Landing: "moon run landing:dev"
   Main Reverse Proxy: "caddy run --config ci/Caddyfile"
-  Minio Reverse Proxy: "caddy reverse-proxy --from :9000 --to minio:9000"
+  Minio Reverse Proxy: "caddy reverse-proxy --from :9000 --to ryot-minio:9000"

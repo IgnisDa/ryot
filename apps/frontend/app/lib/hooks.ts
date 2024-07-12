@@ -5,14 +5,17 @@ import {
 	useNavigate,
 	useRouteLoaderData,
 	useSearchParams,
+	useSubmit,
 } from "@remix-run/react";
 import {
 	MetadataDetailsDocument,
+	MetadataPartialDetailsDocument,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { queryOptions, skipToken, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
+import type { FormEvent } from "react";
 import {
 	CurrentWorkoutKey,
 	clientGqlService,
@@ -103,7 +106,16 @@ export const useCookieEnhancedSearchParam = (cookieKey: string) => {
 	return [searchParams, { setP: setCookieP, delP: delCookieP }] as const;
 };
 
-export const getWorkoutStarter = () => {
+export const useConfirmSubmit = () => {
+	const submit = useSubmit();
+	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement) => {
+		if (e.preventDefault) e.preventDefault();
+		submit(e.currentTarget || e, { navigate: false });
+	};
+	return fn;
+};
+
+export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
@@ -117,6 +129,15 @@ export const getWorkoutStarter = () => {
 	};
 	return fn;
 };
+
+export const getPartialMetadataDetailsQuery = (metadataId: string) =>
+	queryOptions({
+		queryKey: queryFactory.media.metadataPartialDetails(metadataId).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(MetadataPartialDetailsDocument, { metadataId })
+				.then((data) => data.metadataPartialDetails),
+	});
 
 export const getMetadataDetailsQuery = (metadataId?: string | null) =>
 	queryOptions({
@@ -143,7 +164,6 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 						.request(UserMetadataDetailsDocument, { metadataId })
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 export const useUserMetadataDetails = (metadataId?: string | null) => {

@@ -78,21 +78,24 @@ import {
 	Fragment,
 	type ReactNode,
 	type RefObject,
+	forwardRef,
 	useRef,
 	useState,
 } from "react";
-import { GroupedVirtuoso, Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import {
+	GroupedVirtuoso,
+	Virtuoso,
+	VirtuosoGrid,
+	type VirtuosoHandle,
+} from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	HiddenLocationInput,
-	MEDIA_DETAILS_HEIGHT,
-	MediaDetailsLayout,
-} from "~/components/common";
+import { MEDIA_DETAILS_HEIGHT, MediaDetailsLayout } from "~/components/common";
+import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplayCollection,
 	MediaIsPartial,
@@ -110,6 +113,7 @@ import {
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
+	useConfirmSubmit,
 	useGetMantineColor,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -240,6 +244,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
 	const getMantineColor = useGetMantineColor();
+	const submit = useConfirmSubmit();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -261,11 +266,11 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={() => {
+				onSubmit={(e) => {
+					submit(e);
 					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
-				<HiddenLocationInput />
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
 				<Menu.Item type="submit">Put on hold</Menu.Item>
@@ -280,11 +285,11 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={() => {
+				onSubmit={(e) => {
+					submit(e);
 					events.updateProgress(loaderData.metadataDetails.title);
 				}}
 			>
-				<HiddenLocationInput />
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
 				<Menu.Item type="submit">Mark as dropped</Menu.Item>
@@ -751,26 +756,25 @@ export default function Page() {
 													})}
 													method="POST"
 													replace
-													onSubmit={() => {
+													onSubmit={(e) => {
+														submit(e);
 														events.updateProgress(
 															loaderData.metadataDetails.title,
 														);
 													}}
 												>
-													<HiddenLocationInput />
 													<input hidden name="progress" defaultValue={100} />
 													<input
 														hidden
 														name="date"
 														defaultValue={formatDateToNaiveDate(new Date())}
 													/>
-													<Menu.Item
-														type="submit"
+													<input
+														hidden
 														name="metadataId"
-														value={loaderData.metadataId}
-													>
-														I finished it
-													</Menu.Item>
+														defaultValue={loaderData.metadataId}
+													/>
+													<Menu.Item type="submit">I finished it</Menu.Item>
 												</Form>
 											</>
 										) : loaderData.metadataDetails.lot !== MediaLot.Show &&
@@ -783,22 +787,23 @@ export default function Page() {
 													})}
 													method="POST"
 													replace
-													onSubmit={() => {
+													onSubmit={(e) => {
+														submit(e);
 														events.updateProgress(
 															loaderData.metadataDetails.title,
 														);
 													}}
 												>
-													<HiddenLocationInput />
 													<input hidden name="progress" defaultValue={0} />
+													<input
+														hidden
+														name="metadataId"
+														defaultValue={loaderData.metadataId}
+													/>
 													{![MediaLot.Anime, MediaLot.Manga].includes(
 														loaderData.metadataDetails.lot,
 													) ? (
-														<Menu.Item
-															type="submit"
-															name="metadataId"
-															value={loaderData.metadataId}
-														>
+														<Menu.Item type="submit">
 															I'm{" "}
 															{getVerb(
 																Verb.Read,
@@ -909,13 +914,12 @@ export default function Page() {
 													});
 												}}
 											>
-												<Menu.Item
-													type="submit"
+												<input
+													hidden
 													name="metadataId"
-													value={loaderData.metadataId}
-												>
-													Update metadata
-												</Menu.Item>
+													defaultValue={loaderData.metadataId}
+												/>
+												<Menu.Item type="submit">Update metadata</Menu.Item>
 											</Form>
 										) : null}
 										<Menu.Item onClick={mergeMetadataModalOpen}>
@@ -1075,15 +1079,25 @@ export default function Page() {
 							)}
 						</Tabs.Panel>
 					) : null}
-					<Tabs.Panel value="suggestions">
+					<Tabs.Panel value="suggestions" h={MEDIA_DETAILS_HEIGHT}>
 						{loaderData.metadataDetails.suggestions.length > 0 ? (
-							<MediaScrollArea>
-								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-									{loaderData.metadataDetails.suggestions.map((sug) => (
-										<PartialMetadataDisplay key={sug.identifier} media={sug} />
-									))}
-								</SimpleGrid>
-							</MediaScrollArea>
+							<VirtuosoGrid
+								components={{
+									List: forwardRef((props, ref) => (
+										<SimpleGrid
+											ref={ref}
+											{...props}
+											cols={{ base: 3, md: 4, lg: 5 }}
+										/>
+									)),
+								}}
+								totalCount={loaderData.metadataDetails.suggestions.length}
+								itemContent={(index) => (
+									<PartialMetadataDisplay
+										metadataId={loaderData.metadataDetails.suggestions[index]}
+									/>
+								)}
+							/>
 						) : (
 							<Text>No suggestions</Text>
 						)}
@@ -1325,6 +1339,7 @@ const SeenItem = (props: {
 	setTab: (tab: PossibleTab) => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const submit = useConfirmSubmit();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
 		? loaderData.metadataDetails.showSpecifics?.seasons
@@ -1413,7 +1428,7 @@ const SeenItem = (props: {
 	const timeSpentInMilliseconds =
 		(props.history.manualTimeSpent
 			? Number(props.history.manualTimeSpent)
-			: props.history.totalTimeSpent || 0) * 1000;
+			: 0) * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
 	const isLessThanAnHour =
 		timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
@@ -1439,13 +1454,14 @@ const SeenItem = (props: {
 						<ActionIcon
 							color="red"
 							type="submit"
-							onClick={(e) => {
-								if (
-									!confirm(
+							onClick={async (e) => {
+								const form = e.currentTarget.form;
+								e.preventDefault();
+								const conf = await confirmWrapper({
+									confirmation:
 										"Are you sure you want to delete this record from history?",
-									)
-								)
-									e.preventDefault();
+								});
+								if (conf && form) submit(form);
 							}}
 						>
 							<IconX size={20} />

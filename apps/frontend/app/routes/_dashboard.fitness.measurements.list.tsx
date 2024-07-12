@@ -36,8 +36,13 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
-import { useSearchParam, useUserPreferences } from "~/lib/hooks";
+import {
+	useConfirmSubmit,
+	useSearchParam,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
@@ -116,6 +121,7 @@ const deleteSchema = z.object({ timestamp: z.string() });
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
+	const submit = useConfirmSubmit();
 	const formattedData = loaderData.userMeasurementsList.map((m) => {
 		const customStats = Object.fromEntries(
 			Object.entries(m.stats.custom || {})
@@ -260,19 +266,23 @@ export default function Page() {
 												name="intent"
 												defaultValue="delete"
 											/>
+											<input
+												type="hidden"
+												name="timestamp"
+												defaultValue={timestamp}
+											/>
 											<ActionIcon
 												color="red"
-												onClick={(e) => {
-													if (
-														!confirm(
-															"This action can not be undone. Are you sure you want to delete this measurement?",
-														)
-													)
-														e.preventDefault();
-												}}
 												type="submit"
-												value={timestamp}
-												name="timestamp"
+												onClick={async (e) => {
+													const form = e.currentTarget.form;
+													e.preventDefault();
+													const conf = await confirmWrapper({
+														confirmation:
+															"This action can not be undone. Are you sure you want to delete this measurement?",
+													});
+													if (conf && form) submit(form);
+												}}
 											>
 												<IconTrash />
 											</ActionIcon>

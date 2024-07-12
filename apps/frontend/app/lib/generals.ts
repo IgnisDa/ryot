@@ -44,7 +44,9 @@ const enhancedSearchParamCookie = "SearchParams__";
 export const enhancedCookieName = (name: string) =>
 	`${enhancedSearchParamCookie}${name}`;
 
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+});
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
@@ -238,11 +240,20 @@ const usersQueryKeys = createQueryKeys("users", {
 });
 
 const mediaQueryKeys = createQueryKeys("media", {
+	metadataPartialDetails: (metadataId: string) => ({
+		queryKey: ["metadataPartialDetails", metadataId],
+	}),
 	metadataDetails: (metadataId: string) => ({
 		queryKey: ["metadataDetails", metadataId],
 	}),
 	userMetadataDetails: (metadataId: string) => ({
 		queryKey: ["userMetadataDetails", metadataId],
+	}),
+	metadataGroupDetails: (metadataGroupId: string) => ({
+		queryKey: ["metadataGroupDetails", metadataGroupId],
+	}),
+	personDetails: (personId: string) => ({
+		queryKey: ["personDetails", personId],
 	}),
 });
 

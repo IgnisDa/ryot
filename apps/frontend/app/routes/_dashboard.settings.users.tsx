@@ -24,10 +24,10 @@ import {
 	RegisterUserDocument,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, randomString } from "@ryot/ts-utils";
+import { changeCase, randomString, truncate } from "@ryot/ts-utils";
 import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
 import { forwardRef, useRef, useState } from "react";
-import { type Components, VirtuosoGrid } from "react-virtuoso";
+import { VirtuosoGrid } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -177,7 +177,11 @@ export default function Page() {
 				/>
 
 				<VirtuosoGrid
-					components={{ List }}
+					components={{
+						List: forwardRef((props, ref) => (
+							<SimpleGrid ref={ref} {...props} cols={{ md: 2, xl: 3 }} />
+						)),
+					}}
 					style={{ height: "70vh" }}
 					totalCount={loaderData.usersList.length}
 					itemContent={(index) => <UserDisplay index={index} />}
@@ -186,16 +190,6 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const List: Components["List"] = forwardRef(
-	({ style, children, ...props }, ref) => {
-		return (
-			<SimpleGrid ref={ref} {...props} style={style} cols={{ md: 2, xl: 3 }}>
-				{children}
-			</SimpleGrid>
-		);
-	},
-);
 
 const UserDisplay = (props: { index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
@@ -211,7 +205,7 @@ const UserDisplay = (props: { index: number }) => {
 					<Avatar name={user.name} />
 					<Box>
 						<Text lineClamp={1} fw="bold">
-							{user.name}
+							{truncate(user.name, { length: 20 })}
 						</Text>
 						<Text size="xs">Role: {changeCase(user.lot)}</Text>
 					</Box>

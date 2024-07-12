@@ -34,6 +34,7 @@ mod m20240621_add_sync_to_owned_collection_to_integration;
 mod m20240704_add_new_preference_for_persisted_queries;
 mod m20240709_add_manual_time_spent_column_to_seen;
 mod m20240710_remove_sequences_completely;
+mod m20240711_remove_total_time_spent_from_seen;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -89,6 +90,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240704_add_new_preference_for_persisted_queries::Migration),
             Box::new(m20240709_add_manual_time_spent_column_to_seen::Migration),
             Box::new(m20240710_remove_sequences_completely::Migration),
+            Box::new(m20240711_remove_total_time_spent_from_seen::Migration),
         ]
     }
 }

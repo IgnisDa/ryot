@@ -89,6 +89,10 @@ query UsersList($query: String) {
   }
 }
 
+query UserRecommendations {
+  userRecommendations
+}
+
 query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
   userUpcomingCalendarEvents(input: $input) {
     ...CalendarEventPart
@@ -104,8 +108,32 @@ query UserCalendarEvents($input: UserCalendarEventInput!) {
   }
 }
 
-query UserRecommendations {
-  userRecommendations {
-    ...PartialMetadataPart
+query MetadataPartialDetails($metadataId: String!) {
+  metadataPartialDetails(metadataId: $metadataId) {
+    id
+    lot
+    title
+    image
+    publishYear
+  }
+}
+
+query MetadataGroupsList($input: SearchInput!) {
+  metadataGroupsList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items
+  }
+}
+
+query PeopleList($input: PeopleListInput!) {
+  peopleList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items
   }
 }

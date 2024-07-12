@@ -10,7 +10,7 @@ use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaLot, MediaSource, SeenState, UserToMediaReason, Visibility,
+    MediaLot, MediaSource, SeenState, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use rust_decimal::Decimal;
@@ -85,10 +85,7 @@ pub struct SearchDetails {
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
-#[graphql(concrete(
-    name = "MediaCollectionContentsResults",
-    params(media::MetadataSearchItemWithLot)
-))]
+#[graphql(concrete(name = "MediaCollectionContentsResults", params(media::EntityWithLot)))]
 #[graphql(concrete(
     name = "MetadataSearchResults",
     params(media::MetadataSearchItemResponse)
@@ -98,17 +95,9 @@ pub struct SearchDetails {
     name = "MetadataGroupSearchResults",
     params(media::MetadataGroupSearchItem)
 ))]
-#[graphql(concrete(
-    name = "MediaCreatorSearchResults",
-    params(media::MediaCreatorSearchItem)
-))]
-#[graphql(concrete(name = "MediaListResults", params(media::MediaListItem)))]
 #[graphql(concrete(name = "GenreListResults", params(media::GenreListItem)))]
-#[graphql(concrete(
-    name = "MetadataGroupListResults",
-    params(media::MetadataGroupListItem)
-))]
 #[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
+#[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
     pub items: Vec<T>,
@@ -198,9 +187,8 @@ pub mod media {
     use super::*;
 
     #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
-    pub struct MetadataSearchItemWithLot {
-        pub details: MetadataSearchItem,
-        pub metadata_lot: Option<MediaLot>,
+    pub struct EntityWithLot {
+        pub entity_id: String,
         pub entity_lot: EntityLot,
     }
 
@@ -212,14 +200,6 @@ pub mod media {
         pub database_id: Option<String>,
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
-    pub struct MediaCreatorSearchItem {
-        pub id: String,
-        pub name: String,
-        pub image: Option<String>,
-        pub media_count: i64,
-    }
-
     #[derive(Debug, InputObject, Default, Clone)]
     pub struct CreateOrUpdateCollectionInput {
         pub name: String,
@@ -229,30 +209,11 @@ pub mod media {
         pub information_template: Option<Vec<CollectionExtraInformation>>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-    pub struct MediaListItem {
-        pub data: MetadataSearchItem,
-        pub average_rating: Option<Decimal>,
-        pub media_reason: Option<Vec<UserToMediaReason>>,
-    }
-
     #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
     pub struct GenreListItem {
         pub id: String,
         pub name: String,
         pub num_items: Option<i64>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, FromQueryResult)]
-    pub struct MetadataGroupListItem {
-        pub id: String,
-        pub title: String,
-        pub description: Option<String>,
-        pub lot: MediaLot,
-        pub image: Option<String>,
-        #[graphql(skip)]
-        pub images: Vec<MetadataImage>,
-        pub parts: i32,
     }
 
     #[derive(
@@ -931,7 +892,6 @@ pub mod media {
     #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, SimpleObject, Hash)]
     pub struct MetadataImageForMediaDetails {
         pub image: String,
-        pub lot: MetadataImageLot,
     }
 
     #[derive(
@@ -1109,31 +1069,10 @@ pub mod media {
     }
 
     #[derive(
-        Debug,
-        Clone,
-        Copy,
-        PartialEq,
-        Eq,
-        EnumIter,
-        FromJsonQueryResult,
-        Deserialize,
-        Serialize,
-        Default,
-        Hash,
-        Enum,
-    )]
-    pub enum MetadataImageLot {
-        Backdrop,
-        #[default]
-        Poster,
-    }
-
-    #[derive(
         Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
     )]
     pub struct MetadataImage {
         pub url: StoredUrl,
-        pub lot: MetadataImageLot,
     }
 
     #[derive(
@@ -1280,9 +1219,9 @@ pub mod media {
     #[boilermates("PartialMetadataWithoutId")]
     #[boilermates(attr_for(
         "PartialMetadataWithoutId",
-        "#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]"
+        "#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]"
     ))]
-    #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, Hash)]
+    #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, Hash)]
     pub struct PartialMetadata {
         #[boilermates(not_in("PartialMetadataWithoutId"))]
         pub id: String,
@@ -1291,8 +1230,21 @@ pub mod media {
         pub image: Option<String>,
         pub lot: MediaLot,
         pub source: MediaSource,
-        #[graphql(skip)]
         pub is_recommendation: Option<bool>,
+    }
+
+    #[derive(
+        Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult,
+    )]
+    pub struct MetadataPartialDetails {
+        pub id: String,
+        pub title: String,
+        pub lot: MediaLot,
+        #[sea_orm(ignore)]
+        pub image: Option<String>,
+        #[graphql(skip)]
+        pub images: Option<Vec<MetadataImage>>,
+        pub publish_year: Option<i32>,
     }
 
     #[derive(Debug, InputObject)]

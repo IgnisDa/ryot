@@ -93,11 +93,10 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
-import { HiddenLocationInput } from "~/components/common";
 import {
 	LOGO_IMAGE_URL,
 	Verb,
@@ -108,6 +107,7 @@ import {
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
+	useConfirmSubmit,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -252,6 +252,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [parent] = useAutoAnimate();
+	const submit = useConfirmSubmit();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -452,8 +453,8 @@ export default function Layout() {
 							<Form
 								method="POST"
 								action={withQuery("/actions", { intent: "toggleColorScheme" })}
+								onSubmit={submit}
 							>
-								<HiddenLocationInput />
 								<Group justify="center">
 									<UnstyledButton
 										aria-label="Toggle theme"
@@ -673,6 +674,7 @@ const MetadataProgressUpdateForm = ({
 }: {
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
+	const submit = useConfirmSubmit();
 	const events = useApplicationEvents();
 	const [metadataToUpdate] = useMetadataProgressUpdate();
 
@@ -690,13 +692,15 @@ const MetadataProgressUpdateForm = ({
 			</Center>
 		);
 
-	const onSubmit = () => {
-		queryClient.removeQueries({
-			queryKey: queryFactory.media.userMetadataDetails(
-				metadataToUpdate.metadataId,
-			).queryKey,
-		});
+	const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+		submit(e);
+		const metadataId = metadataToUpdate.metadataId;
 		events.updateProgress(metadataDetails.title);
+		setTimeout(async () => {
+			await queryClient.invalidateQueries({
+				queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
+			});
+		}, 1500);
 		closeMetadataProgressUpdateModal();
 	};
 
@@ -724,7 +728,7 @@ const MetadataInProgressUpdateForm = ({
 	metadataDetails,
 	metadataToUpdate,
 }: {
-	onSubmit: () => void;
+	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	inProgress: NonNullable<InProgress>;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
@@ -764,7 +768,6 @@ const MetadataInProgressUpdateForm = ({
 				intent: "individualProgressUpdate",
 			})}
 		>
-			<HiddenLocationInput hash={metadataToUpdate.pageFragment} />
 			<input
 				hidden
 				name="metadataId"
@@ -842,7 +845,7 @@ const NewProgressUpdateForm = ({
 	metadataDetails,
 	metadataToUpdate,
 }: {
-	onSubmit: () => void;
+	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }) => {
@@ -880,7 +883,6 @@ const NewProgressUpdateForm = ({
 					) : null}
 				</Fragment>
 			))}
-			<HiddenLocationInput hash={metadataToUpdate.pageFragment} />
 			<Stack>
 				{metadataDetails.lot === MediaLot.Anime ? (
 					<>
@@ -1102,6 +1104,7 @@ const ReviewEntityForm = ({
 }) => {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
+	const submit = useConfirmSubmit();
 	const [entityToReview] = useReviewEntity();
 
 	if (!entityToReview) return null;
@@ -1111,7 +1114,8 @@ const ReviewEntityForm = ({
 			replace
 			method="POST"
 			action={withQuery("/actions", { intent: "performReviewAction" })}
-			onSubmit={() => {
+			onSubmit={(e) => {
+				submit(e);
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
 			}}
@@ -1127,7 +1131,6 @@ const ReviewEntityForm = ({
 				value={entityToReview.entityId}
 				readOnly
 			/>
-			<HiddenLocationInput />
 			{entityToReview.existingReview?.id ? (
 				<input
 					hidden
@@ -1308,6 +1311,7 @@ const AddEntityToCollectionForm = ({
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const events = useApplicationEvents();
+	const submit = useConfirmSubmit();
 	const [selectedCollection, setSelectedCollection] =
 		useState<Collection | null>(null);
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
@@ -1334,7 +1338,10 @@ const AddEntityToCollectionForm = ({
 	return (
 		<Form
 			method="POST"
-			onSubmit={() => closeAddEntityToCollectionModal()}
+			onSubmit={(e) => {
+				submit(e);
+				closeAddEntityToCollectionModal();
+			}}
 			action={withQuery("/actions", { intent: "addEntityToCollection" })}
 		>
 			<input
@@ -1349,7 +1356,6 @@ const AddEntityToCollectionForm = ({
 				name="entityLot"
 				value={addEntityToCollectionData.entityLot}
 			/>
-			<HiddenLocationInput />
 			<Stack>
 				<Title order={3}>Select collection</Title>
 				<Select
@@ -1508,13 +1514,15 @@ const CreateMeasurementForm = (props: {
 }) => {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
+	const submit = useConfirmSubmit();
 
 	return (
 		<Form
 			replace
 			method="POST"
 			action={withQuery($path("/actions"), { intent: "createMeasurement" })}
-			onSubmit={() => {
+			onSubmit={(e) => {
+				submit(e);
 				events.createMeasurement();
 				props.closeMeasurementModal();
 			}}
@@ -1526,7 +1534,6 @@ const CreateMeasurementForm = (props: {
 					name="timestamp"
 					required
 				/>
-				<HiddenLocationInput />
 				<TextInput label="Name" name="name" />
 				<SimpleGrid cols={2} style={{ alignItems: "end" }}>
 					{Object.keys(userPreferences.fitness.measurements.inbuilt)

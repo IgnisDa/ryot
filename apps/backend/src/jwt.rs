@@ -2,12 +2,14 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: usize,
     pub iat: usize,
+    pub jti: Uuid,
 }
 
 impl Claims {
@@ -19,14 +21,15 @@ impl Claims {
             sub,
             iat: iat.timestamp().try_into().unwrap(),
             exp: exp.timestamp().try_into().unwrap(),
+            jti: Uuid::new_v4(),
         }
     }
 }
 
-pub fn sign(id: String, jwt_secret: &str, token_valid_for_days: i64) -> Result<String> {
+pub fn sign(user_id: String, jwt_secret: &str, token_valid_for_days: i64) -> Result<String> {
     let tokens = encode(
         &Header::default(),
-        &Claims::new(id, token_valid_for_days),
+        &Claims::new(user_id, token_valid_for_days),
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )?;
     Ok(tokens)

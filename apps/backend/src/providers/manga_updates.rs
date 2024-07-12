@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     models::{
         media::{
-            MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-            PeopleSearchItem, PersonSourceSpecifics,
+            MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
+            MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            PersonSourceSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -335,10 +335,7 @@ impl MediaProvider for MangaUpdatesService {
                 .collect(),
             url_images: Vec::from_iter(data.image.unwrap().url.original)
                 .into_iter()
-                .map(|i| MetadataImageForMediaDetails {
-                    image: i,
-                    lot: MetadataImageLot::Poster,
-                })
+                .map(|i| MetadataImageForMediaDetails { image: i })
                 .collect(),
             publish_year: data.year.and_then(|y| y.parse().ok()),
             manga_specifics: Some(MangaSpecifics {

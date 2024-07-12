@@ -57,6 +57,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
+import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplaySetStatistics,
 	displayDistanceWithUnit,
@@ -64,8 +65,9 @@ import {
 } from "~/components/fitness";
 import { dayjsLib, getSetColor } from "~/lib/generals";
 import {
-	getWorkoutStarter,
+	useConfirmSubmit,
 	useGetMantineColor,
+	useGetWorkoutStarter,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
@@ -154,13 +156,14 @@ const editWorkoutSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
+	const submit = useConfirmSubmit();
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 	const [
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
 	] = useDisclosure(false);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
-	const startWorkout = getWorkoutStarter();
+	const startWorkout = useGetWorkoutStarter();
 
 	return (
 		<>
@@ -235,20 +238,24 @@ export default function Page() {
 									method="POST"
 									action={withQuery("", { intent: "delete" })}
 								>
+									<input
+										type="hidden"
+										name="workoutId"
+										value={loaderData.workoutId}
+									/>
 									<Menu.Item
-										onClick={(e) => {
-											if (
-												!confirm(
+										onClick={async (e) => {
+											const form = e.currentTarget.form;
+											e.preventDefault();
+											const conf = await confirmWrapper({
+												confirmation:
 													"Are you sure you want to delete this workout? This action is not reversible.",
-												)
-											)
-												e.preventDefault();
+											});
+											if (conf && form) submit(form);
 										}}
 										color="red"
 										leftSection={<IconTrash size={14} />}
 										type="submit"
-										value={loaderData.workoutId}
-										name="workoutId"
 									>
 										Delete
 									</Menu.Item>

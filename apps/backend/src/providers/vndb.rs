@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     models::{
         media::{
-            MediaDetails, MetadataImageForMediaDetails, MetadataImageLot, MetadataPerson,
-            MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics, VisualNovelSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
@@ -256,10 +256,9 @@ impl VndbService {
         for i in item.screenshots.unwrap_or_default() {
             images.push(i.url);
         }
-        let images = images.into_iter().map(|a| MetadataImageForMediaDetails {
-            image: a,
-            lot: MetadataImageLot::Poster,
-        });
+        let images = images
+            .into_iter()
+            .map(|a| MetadataImageForMediaDetails { image: a });
         let people = item
             .developers
             .unwrap_or_default()

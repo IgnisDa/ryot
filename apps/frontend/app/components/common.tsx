@@ -33,8 +33,7 @@ import {
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { withFragment, withoutHost } from "ufo";
-import { getSurroundingElements, redirectToQueryParam } from "~/lib/generals";
+import { getSurroundingElements } from "~/lib/generals";
 import {
 	useCookieEnhancedSearchParam,
 	useCoreDetails,
@@ -128,21 +127,6 @@ export const MediaDetailsLayout = (props: {
 };
 
 export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
-
-export const HiddenLocationInput = (props: { hash?: string }) => {
-	const value = withoutHost(
-		typeof window !== "undefined" ? window.location.href : "",
-	);
-
-	return (
-		<input
-			type="hidden"
-			name={redirectToQueryParam}
-			value={withFragment(value, props.hash || "")}
-			readOnly
-		/>
-	);
-};
 
 export const DebouncedSearchInput = (props: {
 	initialValue?: string;

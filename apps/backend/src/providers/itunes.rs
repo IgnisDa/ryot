@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     models::{
         media::{
-            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataSearchItem, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
+            PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
         },
         NamedObject, SearchDetails, SearchResults,
     },
@@ -135,10 +135,7 @@ impl MediaProvider for ITunesService {
         let url_images = details
             .image
             .into_iter()
-            .map(|a| MetadataImageForMediaDetails {
-                image: a,
-                lot: MetadataImageLot::Poster,
-            })
+            .map(|a| MetadataImageForMediaDetails { image: a })
             .collect();
         let episodes: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         let episodes = episodes.results.unwrap_or_default();

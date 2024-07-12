@@ -19,8 +19,8 @@ use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use crate::{
     models::{
         media::{
-            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataImageLot,
-            MetadataSearchItem, PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
+            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
+            PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
         },
         SearchDetails, SearchResults,
     },
@@ -244,10 +244,11 @@ impl ListennotesService {
                 .filter_map(|g| self.settings.genres.get(&g).cloned())
                 .unique()
                 .collect(),
-            url_images: Vec::from_iter(podcast_data.image.map(|a| MetadataImageForMediaDetails {
-                image: a,
-                lot: MetadataImageLot::Poster,
-            })),
+            url_images: Vec::from_iter(
+                podcast_data
+                    .image
+                    .map(|a| MetadataImageForMediaDetails { image: a }),
+            ),
             publish_year: podcast_data.publish_date.map(|r| r.year()),
             publish_date: podcast_data.publish_date.map(|d| d.date_naive()),
             podcast_specifics: Some(PodcastSpecifics {
