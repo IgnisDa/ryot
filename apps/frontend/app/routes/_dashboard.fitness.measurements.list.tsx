@@ -37,7 +37,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib, enhancedCookieName } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -47,6 +47,7 @@ import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -69,7 +70,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 const defaultTimeSpan = TimeSpan.Last30Days;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookieName = enhancedCookieName("measurements.list");
+	const cookieName = await getEnhancedCookieName("measurements.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();

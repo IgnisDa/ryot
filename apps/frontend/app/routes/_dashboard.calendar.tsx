@@ -25,10 +25,11 @@ import { isNumber, snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { dayjsLib, enhancedCookieName } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -40,7 +41,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookieName = enhancedCookieName("calendar");
+	const cookieName = await getEnhancedCookieName("calendar", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const date = dayjsLib(query.date);

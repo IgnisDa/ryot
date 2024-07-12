@@ -58,7 +58,6 @@ import {
 	clientGqlService,
 	convertEntityToIndividualId,
 	dayjsLib,
-	enhancedCookieName,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
@@ -70,6 +69,7 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
@@ -100,7 +100,10 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const collectionId = params.id;
 	invariant(collectionId);
-	const cookieName = enhancedCookieName(`collections.details.${collectionId}`);
+	const cookieName = await getEnhancedCookieName(
+		`collections.details.${collectionId}`,
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([

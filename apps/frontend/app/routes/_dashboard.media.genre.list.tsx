@@ -23,13 +23,13 @@ import { truncate } from "@ryot/ts-utils";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
-import { enhancedCookieName } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
 	useGetMantineColor,
 } from "~/lib/hooks";
 import {
+	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -42,7 +42,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookieName = enhancedCookieName("genre.list");
+	const cookieName = await getEnhancedCookieName("genre.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([

@@ -65,7 +65,7 @@ import {
 	NewUserGuideAlert,
 	commitMedia,
 } from "~/components/media";
-import { Verb, enhancedCookieName, getLot, getVerb } from "~/lib/generals";
+import { Verb, getLot, getVerb } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useApplicationEvents,
@@ -80,6 +80,7 @@ import {
 } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -121,7 +122,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	invariant(lot);
 	const action = params.action as Action;
 	invariant(action && Object.values(Action).includes(action as Action));
-	const cookieName = enhancedCookieName(`media.${action}.${lot}`);
+	const cookieName = await getEnhancedCookieName(
+		`media.${action}.${lot}`,
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ latestUserSummary }] = await Promise.all([
 		serverGqlService.request(

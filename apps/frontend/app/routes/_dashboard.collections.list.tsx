@@ -43,7 +43,6 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { enhancedCookieName } from "~/lib/generals";
 import {
 	useFallbackImageUrl,
 	useUserCollections,
@@ -52,6 +51,7 @@ import {
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
@@ -59,7 +59,7 @@ import {
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookieName = enhancedCookieName("collections.list");
+	const cookieName = await getEnhancedCookieName("collections.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	return { cookieName };
 });

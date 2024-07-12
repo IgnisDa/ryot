@@ -39,7 +39,7 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
-import { dayjsLib, enhancedCookieName } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -49,6 +49,7 @@ import {
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -61,7 +62,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookieName = enhancedCookieName("workouts.list");
+	const cookieName = await getEnhancedCookieName("workouts.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ userWorkoutList }] = await Promise.all([

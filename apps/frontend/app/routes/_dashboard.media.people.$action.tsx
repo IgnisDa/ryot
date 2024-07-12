@@ -49,10 +49,11 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
-import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -83,7 +84,7 @@ const SEARCH_SOURCES_ALLOWED = [
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const action = params.action as Action;
-	const cookieName = enhancedCookieName(`people.${action}`);
+	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
