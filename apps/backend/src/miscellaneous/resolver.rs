@@ -111,8 +111,8 @@ use crate::{
         MediaProviderLanguages, TraceOk,
     },
     users::{
-        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
-        UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
+        NotificationPlatform, UserGeneralDashboardElement, UserGeneralPreferences,
+        UserNotification, UserNotificationSettingKind, UserPreferences, UserReviewScale,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -5399,31 +5399,31 @@ impl MiscellaneousService {
         let mut all_notifications = vec![];
         user.notifications.into_iter().for_each(|n| {
             let description = match n.settings {
-                UserNotificationSetting::Apprise { url, key } => {
+                NotificationPlatform::Apprise { url, key } => {
                     format!("Apprise URL: {}, Key: {}", url, key)
                 }
-                UserNotificationSetting::Discord { url } => {
+                NotificationPlatform::Discord { url } => {
                     format!("Discord webhook: {}", url)
                 }
-                UserNotificationSetting::Gotify { url, token, .. } => {
+                NotificationPlatform::Gotify { url, token, .. } => {
                     format!("Gotify URL: {}, Token: {}", url, token)
                 }
-                UserNotificationSetting::Ntfy { url, topic, .. } => {
+                NotificationPlatform::Ntfy { url, topic, .. } => {
                     format!("Ntfy URL: {:?}, Topic: {}", url, topic)
                 }
-                UserNotificationSetting::PushBullet { api_token } => {
+                NotificationPlatform::PushBullet { api_token } => {
                     format!("Pushbullet API Token: {}", api_token)
                 }
-                UserNotificationSetting::PushOver { key, app_key } => {
+                NotificationPlatform::PushOver { key, app_key } => {
                     format!("PushOver Key: {}, App Key: {:?}", key, app_key)
                 }
-                UserNotificationSetting::PushSafer { key } => {
+                NotificationPlatform::PushSafer { key } => {
                     format!("PushSafer Key: {}", key)
                 }
-                UserNotificationSetting::Email { email } => {
+                NotificationPlatform::Email { email } => {
                     format!("Email: {}", email)
                 }
-                UserNotificationSetting::Telegram { chat_id, .. } => {
+                NotificationPlatform::Telegram { chat_id, .. } => {
                     format!("Telegram Chat ID: {}", chat_id)
                 }
             };
@@ -5491,38 +5491,38 @@ impl MiscellaneousService {
             id: new_notification_id,
             timestamp: Utc::now(),
             settings: match input.lot {
-                UserNotificationSettingKind::Apprise => UserNotificationSetting::Apprise {
+                UserNotificationSettingKind::Apprise => NotificationPlatform::Apprise {
                     url: input.base_url.unwrap(),
                     key: input.api_token.unwrap(),
                 },
-                UserNotificationSettingKind::Discord => UserNotificationSetting::Discord {
+                UserNotificationSettingKind::Discord => NotificationPlatform::Discord {
                     url: input.base_url.unwrap(),
                 },
-                UserNotificationSettingKind::Gotify => UserNotificationSetting::Gotify {
+                UserNotificationSettingKind::Gotify => NotificationPlatform::Gotify {
                     url: input.base_url.unwrap(),
                     token: input.api_token.unwrap(),
                     priority: input.priority,
                 },
-                UserNotificationSettingKind::Ntfy => UserNotificationSetting::Ntfy {
+                UserNotificationSettingKind::Ntfy => NotificationPlatform::Ntfy {
                     url: input.base_url,
                     topic: input.api_token.unwrap(),
                     priority: input.priority,
                     auth_header: input.auth_header,
                 },
-                UserNotificationSettingKind::PushBullet => UserNotificationSetting::PushBullet {
+                UserNotificationSettingKind::PushBullet => NotificationPlatform::PushBullet {
                     api_token: input.api_token.unwrap(),
                 },
-                UserNotificationSettingKind::PushOver => UserNotificationSetting::PushOver {
+                UserNotificationSettingKind::PushOver => NotificationPlatform::PushOver {
                     key: input.api_token.unwrap(),
                     app_key: input.auth_header,
                 },
-                UserNotificationSettingKind::PushSafer => UserNotificationSetting::PushSafer {
+                UserNotificationSettingKind::PushSafer => NotificationPlatform::PushSafer {
                     key: input.api_token.unwrap(),
                 },
-                UserNotificationSettingKind::Email => UserNotificationSetting::Email {
+                UserNotificationSettingKind::Email => NotificationPlatform::Email {
                     email: input.api_token.unwrap(),
                 },
-                UserNotificationSettingKind::Telegram => UserNotificationSetting::Telegram {
+                UserNotificationSettingKind::Telegram => NotificationPlatform::Telegram {
                     bot_token: input.api_token.unwrap(),
                     chat_id: input.chat_id.unwrap(),
                 },

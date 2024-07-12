@@ -342,7 +342,7 @@ pub struct UserPreferences {
 #[derive(Kinded, Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 #[serde(tag = "t", content = "d")]
 #[kinded(derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq))]
-pub enum UserNotificationSetting {
+pub enum NotificationPlatform {
     Apprise {
         url: String,
         key: String,
@@ -383,7 +383,7 @@ pub enum UserNotificationSetting {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
 pub struct UserNotification {
     pub id: usize,
-    pub settings: UserNotificationSetting,
+    pub settings: NotificationPlatform,
     /// the date and time it was added on
     pub timestamp: DateTimeUtc,
 }
