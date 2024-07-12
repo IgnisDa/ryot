@@ -6,7 +6,10 @@ import {
 	EntityLot,
 	MediaLot,
 	MediaSource,
+	MetadataDetailsDocument,
+	MetadataPartialDetailsDocument,
 	SetLot,
+	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconBook,
@@ -19,7 +22,7 @@ import {
 	IconHeadphones,
 	IconMicrophone,
 } from "@tabler/icons-react";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
@@ -300,3 +303,35 @@ export const convertEntityToIndividualId = (
 	const exerciseId = entityLot === EntityLot.Exercise ? entityId : undefined;
 	return { metadataId, metadataGroupId, personId, exerciseId };
 };
+
+export const getPartialMetadataDetailsQuery = (metadataId: string) =>
+	queryOptions({
+		queryKey: queryFactory.media.metadataPartialDetails(metadataId).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(MetadataPartialDetailsDocument, { metadataId })
+				.then((data) => data.metadataPartialDetails),
+	});
+
+export const getMetadataDetailsQuery = (metadataId?: string | null) =>
+	queryOptions({
+		queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
+		queryFn: metadataId
+			? () =>
+					clientGqlService
+						.request(MetadataDetailsDocument, { metadataId })
+						.then((data) => data.metadataDetails)
+			: skipToken,
+		staleTime: dayjs.duration(1, "day").asMilliseconds(),
+	});
+
+export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
+	queryOptions({
+		queryKey: queryFactory.media.userMetadataDetails(metadataId || "").queryKey,
+		queryFn: metadataId
+			? () =>
+					clientGqlService
+						.request(UserMetadataDetailsDocument, { metadataId })
+						.then((data) => data.userMetadataDetails)
+			: skipToken,
+	});

@@ -7,21 +7,15 @@ import {
 	useSearchParams,
 	useSubmit,
 } from "@remix-run/react";
-import {
-	MetadataDetailsDocument,
-	MetadataPartialDetailsDocument,
-	UserMetadataDetailsDocument,
-} from "@ryot/generated/graphql/backend/graphql";
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
-import { queryOptions, skipToken, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
 import {
 	CurrentWorkoutKey,
-	clientGqlService,
-	dayjsLib,
+	getMetadataDetailsQuery,
 	getStringAsciiValue,
-	queryFactory,
+	getUserMetadataDetailsQuery,
 } from "~/lib/generals";
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import type { loader } from "~/routes/_dashboard";
@@ -130,41 +124,9 @@ export const useGetWorkoutStarter = () => {
 	return fn;
 };
 
-export const getPartialMetadataDetailsQuery = (metadataId: string) =>
-	queryOptions({
-		queryKey: queryFactory.media.metadataPartialDetails(metadataId).queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(MetadataPartialDetailsDocument, { metadataId })
-				.then((data) => data.metadataPartialDetails),
-	});
-
-export const getMetadataDetailsQuery = (metadataId?: string | null) =>
-	queryOptions({
-		queryKey: queryFactory.media.metadataDetails(metadataId || "").queryKey,
-		queryFn: metadataId
-			? () =>
-					clientGqlService
-						.request(MetadataDetailsDocument, { metadataId })
-						.then((data) => data.metadataDetails)
-			: skipToken,
-		staleTime: dayjsLib.duration(1, "day").asMilliseconds(),
-	});
-
 export const useMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getMetadataDetailsQuery(metadataId));
 };
-
-export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
-	queryOptions({
-		queryKey: queryFactory.media.userMetadataDetails(metadataId || "").queryKey,
-		queryFn: metadataId
-			? () =>
-					clientGqlService
-						.request(UserMetadataDetailsDocument, { metadataId })
-						.then((data) => data.userMetadataDetails)
-			: skipToken,
-	});
 
 export const useUserMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getUserMetadataDetailsQuery(metadataId));
