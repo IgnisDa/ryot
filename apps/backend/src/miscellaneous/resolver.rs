@@ -5483,31 +5483,31 @@ impl MiscellaneousService {
         };
         let description = match &specifics {
             NotificationPlatformSpecifics::Apprise { url, key } => {
-                format!("Apprise URL: {}, Key: {}", url, key)
+                format!("URL: {}, Key: {}", url, key)
             }
             NotificationPlatformSpecifics::Discord { url } => {
-                format!("Discord webhook: {}", url)
+                format!("Webhook: {}", url)
             }
             NotificationPlatformSpecifics::Gotify { url, token, .. } => {
-                format!("Gotify URL: {}, Token: {}", url, token)
+                format!("URL: {}, Token: {}", url, token)
             }
             NotificationPlatformSpecifics::Ntfy { url, topic, .. } => {
-                format!("Ntfy URL: {:?}, Topic: {}", url, topic)
+                format!("URL: {:?}, Topic: {}", url, topic)
             }
             NotificationPlatformSpecifics::PushBullet { api_token } => {
-                format!("PushBullet API Token: {}", api_token)
+                format!("API Token: {}", api_token)
             }
             NotificationPlatformSpecifics::PushOver { key, app_key } => {
-                format!("PushOver Key: {}, App Key: {:?}", key, app_key)
+                format!("Key: {}, App Key: {:?}", key, app_key)
             }
             NotificationPlatformSpecifics::PushSafer { key } => {
-                format!("PushSafer Key: {}", key)
+                format!("Key: {}", key)
             }
             NotificationPlatformSpecifics::Email { email } => {
-                format!("Email: {}", email)
+                format!("ID: {}", email)
             }
             NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
-                format!("Telegram Chat ID: {}", chat_id)
+                format!("Chat ID: {}", chat_id)
             }
         };
         let notification = notification_platform::ActiveModel {
