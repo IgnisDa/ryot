@@ -88,10 +88,11 @@ use crate::{
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserSummary, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
+        UserSummary,
     },
     providers::{
         anilist::{

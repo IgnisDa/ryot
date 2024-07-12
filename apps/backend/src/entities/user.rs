@@ -10,7 +10,7 @@ use database::UserLot;
 use sea_orm::{entity::prelude::*, ActiveValue, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
-use crate::{models::media::UserSummary, users::UserPreferences};
+use crate::{models::UserSummary, users::UserPreferences};
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
