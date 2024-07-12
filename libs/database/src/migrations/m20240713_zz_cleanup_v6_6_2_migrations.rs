@@ -76,6 +76,22 @@ FROM
 
             db.execute_unprepared(r#"ALTER TABLE "user" DROP COLUMN notifications;"#)
                 .await?;
+
+            db.execute_unprepared(
+                r#"
+INSERT INTO user_statistic (user_id, lot, data)
+SELECT
+    u.id AS user_id,
+    'summary' as lot,
+    JSON_BUILD_OBJECT('d', u.summary, 't', 'summary') AS data
+FROM
+    "user" u;
+        "#,
+            )
+            .await?;
+
+            db.execute_unprepared(r#"ALTER TABLE "user" DROP COLUMN summary;"#)
+                .await?;
         }
 
         Ok(())

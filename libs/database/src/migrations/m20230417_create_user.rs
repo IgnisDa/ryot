@@ -16,7 +16,6 @@ pub enum User {
     YankIntegrations,
     // This field can be `NULL` if the user has not enabled any sink integration
     SinkIntegrations,
-    Summary,
     OidcIssuerId,
 }
 
@@ -34,7 +33,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Preferences).json_binary().not_null())
                     .col(ColumnDef::new(User::YankIntegrations).json_binary())
                     .col(ColumnDef::new(User::SinkIntegrations).json_binary())
-                    .col(ColumnDef::new(User::Summary).json_binary())
                     .col(ColumnDef::new(User::IsDemo).boolean())
                     .col(ColumnDef::new(User::OidcIssuerId).text())
                     .to_owned(),
