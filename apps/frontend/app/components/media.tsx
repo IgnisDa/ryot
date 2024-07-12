@@ -69,11 +69,11 @@ import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
 	dayjsLib,
+	getPartialMetadataDetailsQuery,
 	queryFactory,
 	redirectToQueryParam,
 } from "~/lib/generals";
 import {
-	getPartialMetadataDetailsQuery,
 	useConfirmSubmit,
 	useFallbackImageUrl,
 	useGetMantineColor,
@@ -559,10 +559,15 @@ export const MetadataDisplayItem = (props: {
 	);
 	const averageRating = userMetadataDetails?.averageRating;
 	const history = userMetadataDetails?.history || [];
-	const themeIconSurround = (idx: number, icon?: ReactNode) => (
-		<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
-			{icon}
-		</ThemeIcon>
+	const surroundReason = (
+		idx: number,
+		data: readonly [UserToMediaReason, ReactNode],
+	) => (
+		<Tooltip label={changeCase(data[0])}>
+			<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
+				{data[1]}
+			</ThemeIcon>
+		</Tooltip>
 	);
 	const reasons = userMetadataDetails?.mediaReason?.filter((r) =>
 		[
@@ -642,14 +647,21 @@ export const MetadataDisplayItem = (props: {
 							{reasons
 								.map((r) =>
 									match(r)
-										.with(UserToMediaReason.Finished, () => (
-											<IconRosetteDiscountCheck />
-										))
-										.with(UserToMediaReason.Watchlist, () => <IconBookmarks />)
-										.with(UserToMediaReason.Owned, () => <IconBackpack />)
+										.with(
+											UserToMediaReason.Finished,
+											() => [r, <IconRosetteDiscountCheck key={r} />] as const,
+										)
+										.with(
+											UserToMediaReason.Watchlist,
+											() => [r, <IconBookmarks key={r} />] as const,
+										)
+										.with(
+											UserToMediaReason.Owned,
+											() => [r, <IconBackpack key={r} />] as const,
+										)
 										.run(),
 								)
-								.map((icon, idx) => themeIconSurround(idx, icon))}
+								.map((data, idx) => surroundReason(idx, data))}
 						</Group>
 					) : null,
 				bottomRight: isMetadataToUpdateLoading ? (
