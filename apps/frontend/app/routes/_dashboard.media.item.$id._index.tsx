@@ -80,6 +80,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { MEDIA_DETAILS_HEIGHT, MediaDetailsLayout } from "~/components/common";
+import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplayCollection,
 	MediaIsPartial,
@@ -96,8 +97,8 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
-	useActionsSubmit,
 	useApplicationEvents,
+	useConfirmSubmit,
 	useGetMantineColor,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -227,7 +228,7 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
 	const getMantineColor = useGetMantineColor();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
@@ -1262,6 +1263,7 @@ const MergeMetadataModal = (props: {
 
 const SeenItem = (props: { history: History; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const submit = useConfirmSubmit();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
 		? loaderData.metadataDetails.showSpecifics?.seasons
@@ -1338,13 +1340,14 @@ const SeenItem = (props: { history: History; index: number }) => {
 						<ActionIcon
 							color="red"
 							type="submit"
-							onClick={(e) => {
-								if (
-									!confirm(
+							onClick={async (e) => {
+								const form = e.currentTarget.form;
+								e.preventDefault();
+								const conf = await confirmWrapper({
+									confirmation:
 										"Are you sure you want to delete this record from history?",
-									)
-								)
-									e.preventDefault();
+								});
+								if (conf && form) submit(form);
 							}}
 						>
 							<IconX size={20} />

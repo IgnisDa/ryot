@@ -106,7 +106,7 @@ export const useCookieEnhancedSearchParam = (cookieKey: string) => {
 	return [searchParams, { setP: setCookieP, delP: delCookieP }] as const;
 };
 
-export const useActionsSubmit = () => {
+export const useConfirmSubmit = () => {
 	const submit = useSubmit();
 	const fn = (e: FormEvent<HTMLFormElement> | HTMLFormElement) => {
 		if (e.preventDefault) e.preventDefault();
@@ -115,7 +115,7 @@ export const useActionsSubmit = () => {
 	return fn;
 };
 
-export const getWorkoutStarter = () => {
+export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 

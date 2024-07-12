@@ -106,8 +106,8 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
-	useActionsSubmit,
 	useApplicationEvents,
+	useConfirmSubmit,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -252,7 +252,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [parent] = useAutoAnimate();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
 		| {
 				media: boolean;
@@ -674,7 +674,7 @@ const MetadataProgressUpdateForm = ({
 }: {
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 	const events = useApplicationEvents();
 	const [metadataToUpdate] = useMetadataProgressUpdate();
 
@@ -1104,7 +1104,7 @@ const ReviewEntityForm = ({
 }) => {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 	const [entityToReview] = useReviewEntity();
 
 	if (!entityToReview) return null;
@@ -1311,7 +1311,7 @@ const AddEntityToCollectionForm = ({
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const events = useApplicationEvents();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 	const [selectedCollection, setSelectedCollection] =
 		useState<Collection | null>(null);
 	const [ownedOn, setOwnedOn] = useState<Date | null>();
@@ -1514,7 +1514,7 @@ const CreateMeasurementForm = (props: {
 }) => {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 
 	return (
 		<Form

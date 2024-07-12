@@ -74,7 +74,7 @@ import {
 } from "~/lib/generals";
 import {
 	getPartialMetadataDetailsQuery,
-	useActionsSubmit,
+	useConfirmSubmit,
 	useFallbackImageUrl,
 	useGetMantineColor,
 	useUserDetails,
@@ -165,7 +165,7 @@ export const ReviewItemDisplay = (props: {
 }) => {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 	const reviewScale = userPreferences.general.reviewScale;
 	const [opened, { toggle }] = useDisclosure(false);
 	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
@@ -822,7 +822,7 @@ export const DisplayCollection = (props: {
 	entityLot: EntityLot;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 
 	return (
 		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
@@ -905,7 +905,7 @@ export const ToggleMediaMonitorMenuItem = (props: {
 		? "removeEntityFromCollection"
 		: "addEntityToCollection";
 	const userDetails = useUserDetails();
-	const submit = useActionsSubmit();
+	const submit = useConfirmSubmit();
 
 	return (
 		<Form
