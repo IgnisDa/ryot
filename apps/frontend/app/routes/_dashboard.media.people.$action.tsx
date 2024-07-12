@@ -50,11 +50,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
 import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
-import {
-	useCookieEnhancedSearchParam,
-	useCoreDetails,
-	useSearchParam,
-} from "~/lib/hooks";
+import { useCookieEnhancedSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	redirectUsingEnhancedCookieSearchParams,
@@ -86,15 +82,15 @@ const SEARCH_SOURCES_ALLOWED = [
 ] as const;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const cookieName = enhancedCookieName("people.action");
 	const action = params.action as Action;
+	const cookieName = enhancedCookieName(`people.${action}`);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
 	});
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
-			await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 			const urlParse = zx.parseQuery(
 				request,
 				z.object({
@@ -153,10 +149,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_p, { setP }] = useSearchParam();
-	const [_e, { setP: setEnhancedP }] = useCookieEnhancedSearchParam(
-		loaderData.cookieName,
-	);
+	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -194,11 +187,7 @@ export default function Page() {
 					<DebouncedSearchInput
 						placeholder="Search for people"
 						initialValue={loaderData.query}
-						enhancedQueryParams={
-							loaderData.action === Action.List
-								? loaderData.cookieName
-								: undefined
-						}
+						enhancedQueryParams={loaderData.cookieName}
 					/>
 					{loaderData.action === Action.List ? (
 						<>
@@ -273,7 +262,7 @@ export default function Page() {
 									<Pagination
 										size="sm"
 										value={loaderData.page}
-										onChange={(v) => setEnhancedP("page", v.toString())}
+										onChange={(v) => setP("page", v.toString())}
 										total={Math.ceil(
 											loaderData.peopleList.list.details.total /
 												coreDetails.pageLimit,
