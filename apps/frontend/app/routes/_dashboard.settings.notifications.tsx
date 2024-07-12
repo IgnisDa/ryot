@@ -27,10 +27,10 @@ import {
 import {
 	CreateUserNotificationPlatformDocument,
 	DeleteUserNotificationPlatformDocument,
+	NotificationPlatformLot,
 	TestUserNotificationPlatformsDocument,
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
-	UserNotificationSettingKind,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconTrash } from "@tabler/icons-react";
@@ -39,7 +39,6 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
@@ -109,10 +108,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	});
 });
 
-const deleteSchema = z.object({ notificationId: zx.NumAsString });
+const deleteSchema = z.object({ notificationId: z.string() });
 
 const createSchema = z.object({
-	lot: z.nativeEnum(UserNotificationSettingKind),
+	lot: z.nativeEnum(NotificationPlatformLot),
 	chatId: z.string().optional(),
 	baseUrl: z.string().optional(),
 	apiToken: z.string().optional(),
@@ -133,7 +132,7 @@ export default function Page() {
 	const [
 		createUserNotificationPlatformLot,
 		setCreateUserNotificationPlatformLot,
-	] = useState<UserNotificationSettingKind>();
+	] = useState<NotificationPlatformLot>();
 
 	return (
 		<Container size="xs">
@@ -196,26 +195,26 @@ export default function Page() {
 								<Select
 									label="Select a platform"
 									required
-									data={Object.values(UserNotificationSettingKind).map((v) => ({
+									data={Object.values(NotificationPlatformLot).map((v) => ({
 										label: changeCase(v),
 										value: v,
 									}))}
 									onChange={(v) => {
 										if (v)
 											setCreateUserNotificationPlatformLot(
-												v as UserNotificationSettingKind,
+												v as NotificationPlatformLot,
 											);
 									}}
 								/>
 								{createUserNotificationPlatformLot
 									? match(createUserNotificationPlatformLot)
-											.with(UserNotificationSettingKind.Apprise, () => (
+											.with(NotificationPlatformLot.Apprise, () => (
 												<>
 													<TextInput label="Base Url" required name="baseUrl" />
 													<TextInput label="Key" required name="apiToken" />
 												</>
 											))
-											.with(UserNotificationSettingKind.Discord, () => (
+											.with(NotificationPlatformLot.Discord, () => (
 												<>
 													<TextInput
 														label="Webhook Url"
@@ -224,7 +223,7 @@ export default function Page() {
 													/>
 												</>
 											))
-											.with(UserNotificationSettingKind.Gotify, () => (
+											.with(NotificationPlatformLot.Gotify, () => (
 												<>
 													<TextInput
 														label="Server Url"
@@ -235,7 +234,7 @@ export default function Page() {
 													<NumberInput label="Priority" name="priority" />
 												</>
 											))
-											.with(UserNotificationSettingKind.Ntfy, () => (
+											.with(NotificationPlatformLot.Ntfy, () => (
 												<>
 													<TextInput label="Topic" required name="apiToken" />
 													<TextInput label="Server Url" name="baseUrl" />
@@ -258,12 +257,12 @@ export default function Page() {
 													<NumberInput label="Priority" name="priority" />
 												</>
 											))
-											.with(UserNotificationSettingKind.PushBullet, () => (
+											.with(NotificationPlatformLot.PushBullet, () => (
 												<>
 													<TextInput label="Token" required name="apiToken" />
 												</>
 											))
-											.with(UserNotificationSettingKind.PushOver, () => (
+											.with(NotificationPlatformLot.PushOver, () => (
 												<>
 													<TextInput
 														label="User Key"
@@ -273,12 +272,12 @@ export default function Page() {
 													<TextInput label="App Key" name="authHeader" />
 												</>
 											))
-											.with(UserNotificationSettingKind.PushSafer, () => (
+											.with(NotificationPlatformLot.PushSafer, () => (
 												<>
 													<TextInput label="Key" required name="apiToken" />
 												</>
 											))
-											.with(UserNotificationSettingKind.Telegram, () => (
+											.with(NotificationPlatformLot.Telegram, () => (
 												<>
 													<TextInput
 														label="Bot Token"
@@ -288,7 +287,7 @@ export default function Page() {
 													<TextInput label="Chat ID" required name="chatId" />
 												</>
 											))
-											.with(UserNotificationSettingKind.Email, () => (
+											.with(NotificationPlatformLot.Email, () => (
 												<>
 													<TextInput
 														type="email"
@@ -333,11 +332,14 @@ const DisplayNotification = (props: {
 		<Paper p="xs" withBorder>
 			<Flex align="center" justify="space-between">
 				<Box w="80%">
-					<Text size="sm" fw="bold" truncate>
-						{props.notification.description}
+					<Text size="sm" truncate>
+						<Text span fw="bold">
+							{changeCase(props.notification.lot)}:
+						</Text>{" "}
+						<Text span>{props.notification.description}</Text>
 					</Text>
 					<Text size="xs">
-						Created: {dayjsLib(props.notification.timestamp).fromNow()}
+						Created: {dayjsLib(props.notification.createdOn).fromNow()}
 					</Text>
 				</Box>
 				<Group>
