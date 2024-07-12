@@ -33,18 +33,23 @@ SELECT
     u.id AS user_id,
     (u.id || '_' || (n->>'id')) as id,
     (n->'settings') AS platform_specifics,
-    lower(n->'settings'->>'t') AS platform,
+    CASE lower(n->'settings'->>'t')
+        WHEN 'pushbullet' THEN 'push_bullet'
+        WHEN 'pushover' THEN 'push_over'
+        WHEN 'pushsafer' THEN 'push_safer'
+        ELSE lower(n->'settings'->>'t')
+    END AS platform,
     (n->>'timestamp')::timestamp with time zone AS created_on,
     (
-        CASE lower(n->'settings'->>'t')
-            WHEN 'apprise' THEN n->'settings'->'d'->>'url'
-            WHEN 'discord' THEN n->'settings'->'d'->>'url'
-            WHEN 'gotify' THEN n->'settings'->'d'->>'url'
-            WHEN 'ntfy' THEN n->'settings'->'d'->>'url'
-            WHEN 'email' THEN n->'settings'->'d'->>'email'
-            WHEN 'telegram' THEN n->'settings'->'d'->>'chat_id'
-            ELSE 'N/A'
-        END
+    CASE lower(n->'settings'->>'t')
+        WHEN 'apprise' THEN n->'settings'->'d'->>'url'
+        WHEN 'discord' THEN n->'settings'->'d'->>'url'
+        WHEN 'gotify' THEN n->'settings'->'d'->>'url'
+        WHEN 'ntfy' THEN n->'settings'->'d'->>'url'
+        WHEN 'email' THEN n->'settings'->'d'->>'email'
+        WHEN 'telegram' THEN n->'settings'->'d'->>'chat_id'
+        ELSE 'N/A'
+    END
     ) AS description
 FROM
     "user" u,
