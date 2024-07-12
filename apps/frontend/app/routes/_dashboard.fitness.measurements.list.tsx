@@ -48,6 +48,7 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	processSubmission,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -69,6 +70,7 @@ const defaultTimeSpan = TimeSpan.Last30Days;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = enhancedCookieName("measurements.list");
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
 	const [startTime, endTime] = match(query.timeSpan || defaultTimeSpan)

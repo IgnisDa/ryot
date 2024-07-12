@@ -29,7 +29,10 @@ import {
 	useCoreDetails,
 	useGetMantineColor,
 } from "~/lib/hooks";
-import { serverGqlService } from "~/lib/utilities.server";
+import {
+	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -40,6 +43,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = enhancedCookieName("genre.list");
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([
 		serverGqlService.request(GenresListDocument, {
