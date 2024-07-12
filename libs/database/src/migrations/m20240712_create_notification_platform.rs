@@ -9,7 +9,7 @@ pub struct Migration;
 pub enum NotificationPlatform {
     Table,
     Id,
-    Platform,
+    Lot,
     CreatedOn,
     PlatformSpecifics,
     Description,
@@ -29,11 +29,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(NotificationPlatform::Platform)
-                            .text()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(NotificationPlatform::Lot).text().not_null())
                     .col(
                         ColumnDef::new(NotificationPlatform::CreatedOn)
                             .timestamp_with_time_zone()

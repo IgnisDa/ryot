@@ -445,7 +445,7 @@ pub enum IntegrationSource {
     rename_all = "snake_case"
 )]
 #[serde(rename_all = "snake_case")]
-pub enum NotificationPlatform {
+pub enum NotificationPlatformLot {
     Apprise,
     Discord,
     Gotify,
