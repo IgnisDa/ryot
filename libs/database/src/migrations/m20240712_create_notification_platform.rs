@@ -9,7 +9,6 @@ pub struct Migration;
 pub enum NotificationPlatform {
     Table,
     Id,
-    Platform,
     CreatedOn,
     PlatformSpecifics,
     Description,
@@ -28,11 +27,6 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null()
                             .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(NotificationPlatform::Platform)
-                            .text()
-                            .not_null(),
                     )
                     .col(
                         ColumnDef::new(NotificationPlatform::CreatedOn)
