@@ -44,8 +44,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
+    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -4811,11 +4811,18 @@ impl MiscellaneousService {
         ls.calculated_on = Utc::now();
 
         let user_model = user_statistic::ActiveModel {
-            user_id: ActiveValue::Unchanged(user_id.to_owned()),
-            lot: ActiveValue::Unchanged(UserStatisticLot::Summary),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            lot: ActiveValue::Set(UserStatisticLot::Summary),
             data: ActiveValue::Set(UserStatisticData::Summary(ls)),
         };
-        let usr = user_model.update(&self.db).await.unwrap();
+        let usr = UserStatistic::insert(user_model)
+            .on_conflict(
+                OnConflict::columns([user_statistic::Column::UserId, user_statistic::Column::Lot])
+                    .update_column(user_statistic::Column::Data)
+                    .to_owned(),
+            )
+            .exec_with_returning(&self.db)
+            .await?;
         tracing::debug!("Calculated summary for user: {:?}", usr.user_id);
         Ok(())
     }
