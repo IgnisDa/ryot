@@ -40,22 +40,17 @@ SELECT
         ELSE lower(n->'settings'->>'t')
     END AS platform,
     (n->>'timestamp')::timestamp with time zone AS created_on,
-    (
-    CASE lower(n->'settings'->>'t')
+    COALESCE(CASE lower(n->'settings'->>'t')
         WHEN 'apprise' THEN n->'settings'->'d'->>'url'
         WHEN 'discord' THEN n->'settings'->'d'->>'url'
         WHEN 'gotify' THEN n->'settings'->'d'->>'url'
         WHEN 'ntfy' THEN n->'settings'->'d'->>'url'
         WHEN 'email' THEN n->'settings'->'d'->>'email'
         WHEN 'telegram' THEN n->'settings'->'d'->>'chat_id'
-        ELSE 'N/A'
-    END
-    ) AS description
+    END, 'N/A') AS description
 FROM
     "user" u,
-    jsonb_array_elements(u.notifications) AS n
-WHERE
-    jsonb_array_length(u.notifications) > 0;
+    jsonb_array_elements(u.notifications) AS n;
         "#,
         )
         .await?;
