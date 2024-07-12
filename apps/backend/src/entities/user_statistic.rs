@@ -3,6 +3,8 @@
 use database::UserStatisticLot;
 use sea_orm::entity::prelude::*;
 
+use crate::models::UserStatisticData;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "user_statistic")]
 pub struct Model {
@@ -10,7 +12,7 @@ pub struct Model {
     pub user_id: String,
     #[sea_orm(primary_key)]
     pub lot: UserStatisticLot,
-    pub data: Json,
+    pub data: UserStatisticData,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

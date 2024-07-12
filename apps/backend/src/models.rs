@@ -332,6 +332,12 @@ pub struct UserSummary {
     pub calculated_from_beginning: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
+#[serde(tag = "t", content = "d")]
+pub enum UserStatisticData {
+    Summary(UserSummary),
+}
+
 pub mod media {
     use super::*;
 
