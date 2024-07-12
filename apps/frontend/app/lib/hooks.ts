@@ -48,6 +48,15 @@ export const useFallbackImageUrl = (text = "No Image") => {
 
 export const useAppSearchParam = (cookieKey: string) => {
 	const [searchParams, setSearchParams] = useSearchParams();
+
+	const updateCookieP = (key: string, value?: string | null) => {
+		const cookieValue = Cookies.get(cookieKey);
+		const cookieSearchParams = new URLSearchParams(cookieValue);
+		if (!value) cookieSearchParams.delete(key);
+		else cookieSearchParams.set(key, value);
+		Cookies.set(cookieKey, cookieSearchParams.toString());
+	};
+
 	const delP = (key: string) => {
 		setSearchParams(
 			(prev) => {
@@ -56,6 +65,7 @@ export const useAppSearchParam = (cookieKey: string) => {
 			},
 			{ replace: true },
 		);
+		updateCookieP(key);
 	};
 
 	const setP = (key: string, value?: string | null) => {
@@ -67,27 +77,10 @@ export const useAppSearchParam = (cookieKey: string) => {
 			},
 			{ replace: true },
 		);
-	};
-
-	const updateCookieP = (key: string, value?: string | null) => {
-		const cookieValue = Cookies.get(cookieKey);
-		const cookieSearchParams = new URLSearchParams(cookieValue);
-		if (!value) cookieSearchParams.delete(key);
-		else cookieSearchParams.set(key, value);
-		Cookies.set(cookieKey, cookieSearchParams.toString());
-	};
-
-	const delCookieP = (key: string) => {
-		delP(key);
-		updateCookieP(key);
-	};
-
-	const setCookieP = (key: string, value?: string | null) => {
-		setP(key, value);
 		updateCookieP(key, value);
 	};
 
-	return [searchParams, { setP: setCookieP, delP: delCookieP }] as const;
+	return [searchParams, { setP, delP }] as const;
 };
 
 export const useConfirmSubmit = () => {
