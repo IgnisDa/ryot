@@ -1207,7 +1207,7 @@ const AdjustSeenTimesModal = (props: {
 				action={withQuery("", { intent: "editSeenItem" })}
 			>
 				<Stack>
-					<Title order={3}>Adjust seen times</Title>
+					<Title order={3}>Edit history record</Title>
 					<DateInput
 						label="Start time"
 						name="startedOn"
