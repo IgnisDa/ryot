@@ -1,0 +1,32 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy-landing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Moon
+        uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Build landing page
+        run: moon run landing:build
+        env:
+          PUBLIC_PADDLE_CLIENT_TOKEN: ${{ secrets.PUBLIC_PADDLE_CLIENT_TOKEN }}
+          PUBLIC_PADDLE_PRICE_IDS: ${{ secrets.PUBLIC_PADDLE_PRICE_IDS }}
+
+      - name: Push to deployment branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: apps/landing/dist
+          publish_branch: nf-landing
+          force_orphan: true

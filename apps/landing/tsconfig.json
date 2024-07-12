@@ -3,8 +3,15 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
+			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"]
 		},
 		"outDir": "../../.moon/cache/types/apps/landing"
-	}
+	},
+	"references": [
+		{
+			"path": "../../libs/ts-utils"
+		}
+	]
 }

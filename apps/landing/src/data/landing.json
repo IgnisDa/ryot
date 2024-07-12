@@ -43,32 +43,30 @@
 	},
 	"pricingData": {
 		"title": "Ryot Pro Pricing",
-		"discord": "https://discord.gg/D9XTg2a7R8",
+		"currency": "$",
 		"tiers": [
 			{
 				"title": "Monthly",
 				"price": {
-					"amount": "$5",
+					"amount": "4",
 					"period": "/month",
 					"trial": 7
-				},
-				"cta": "Get started"
+				}
 			},
 			{
 				"title": "Yearly",
 				"price": {
-					"amount": "$49",
+					"amount": "40",
 					"period": "/year",
-					"trial": 14
-				},
-				"cta": "Get started"
+					"trial": 14,
+					"renewPrice": "25"
+				}
 			},
 			{
 				"title": "Lifetime",
 				"price": {
-					"amount": "$119"
-				},
-				"cta": "Get started"
+					"amount": "120"
+				}
 			}
 		]
 	},

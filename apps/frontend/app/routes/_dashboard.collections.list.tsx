@@ -69,11 +69,11 @@ import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
 	dayjsLib,
+	getPartialMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
 import {
-	getPartialMetadataDetailsQuery,
 	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,

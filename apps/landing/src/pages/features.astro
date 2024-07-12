@@ -2,9 +2,11 @@
 import Layout from "@/layouts/Layout.astro";
 import Footer from "@/sections/Footer.astro";
 import Header from "@/sections/Header.astro";
-import { getLandingData } from "@/services/data.service";
+import { getFeaturesData, getLandingData } from "@/services/data.service";
+import { snakeCase } from "@ryot/ts-utils";
 
 const data = await getLandingData();
+const featuresData = await getFeaturesData();
 ---
 
 <Layout meta={data.meta}>
@@ -17,50 +19,33 @@ const data = await getLandingData();
           An overview of all the features Ryot Pro provides.
         </p>
       </div>
-      <div class="px-4 md:px-60 gap-y-4 flex flex-col">
-        <h2 class="text-2xl font-semibold md:text-4xl md:font-normal">
-          Recommendations
-        </h2>
-        <div
-          class="gap-y-5 flex flex-col-reverse items-center justify-between md:gap-x-10 md:flex-row"
-        >
-          <p class="md:text-xl">
-            A new section called "Recommendations" is added to the Dashboard
-            where you can view personalized suggestions based on your recent
-            media consumption. They are refreshed every hour.
-          </p>
-          <img
-            src="/images/features/recommendations.png"
-            class="lg:w-[600px] border rounded-lg shadow-lg"
-          />
-        </div>
-      </div>
-      <div class="px-4 md:px-60 gap-y-4 flex flex-col">
-        <h2 class="text-2xl font-semibold md:text-4xl md:font-normal">
-          Supercharged Collections
-        </h2>
-        <div
-          class="gap-y-5 flex flex-col items-center justify-between md:gap-x-10 md:flex-row"
-        >
-          <img
-            src="/images/features/add-to-others-collection.png"
-            class="lg:w-[600px] border rounded-lg shadow-lg"
-          />
-          <ul class="list-disc list-inside">
-            <li class="md:text-xl">
-              Create information templates for your collections. These templates
-              will be used when you add media to your collection. You can see an
-              example of this on the community edition with the "Owned" and
-              "Reminders" collection.
-            </li>
-            <li class="md:text-xl">
-              Add collaborators to your collections. This feature is useful when
-              you want to share your collection with your friends or family.
-              They can also add or remove media from it.
-            </li>
-          </ul>
-        </div>
-      </div>
+      {
+        featuresData.map((feature, index) => (
+          <div
+            id={snakeCase(feature.name)}
+            class="px-4 md:px-60 gap-y-4 flex flex-col"
+          >
+            <h2 class="text-2xl font-semibold md:text-4xl md:font-normal">
+              {feature.name}
+            </h2>
+            <div
+              class={`gap-y-5 flex flex-col-reverse items-center justify-between md:gap-x-10 ${index % 2 === 1 ? "md:flex-row-reverse" : "md:flex-row"}`}
+            >
+              <ul
+                class={feature.points.length > 1 ? "list-disc list-inside" : ""}
+              >
+                {feature.points.map((point) => (
+                  <li class="md:text-xl">{point}</li>
+                ))}
+              </ul>
+              <img
+                src={feature.image}
+                class={`lg:w-[600px] ${!feature.noBorder ? "border rounded-lg shadow-lg" : ""}`}
+              />
+            </div>
+          </div>
+        ))
+      }
       <div class="px-4 text-center">
         <p class="md:text-xl">
           Have a feature request?

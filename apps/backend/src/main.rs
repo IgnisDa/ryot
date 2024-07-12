@@ -23,7 +23,7 @@ use axum::{
     routing::{get, post, Router},
     Extension,
 };
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use database::Migrator;
 use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
@@ -110,7 +110,7 @@ async fn main() -> Result<()> {
 
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
-    verify_pro_key(&config.server.pro_key).await?;
+    verify_pro_key(&config.server.pro_key, &compile_timestamp).await?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -324,12 +324,23 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-#[tracing::instrument(skip(pro_key))]
-async fn verify_pro_key(pro_key: &str) -> Result<()> {
+#[tracing::instrument(skip_all)]
+async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Result<()> {
+    use chrono::NaiveDate;
+    use rs_utils::convert_naive_to_utc;
+    use serde::{Deserialize, Serialize};
+    use serde_with::skip_serializing_none;
+
     use unkey::{
-        models::{VerifyKeyRequest, VerifyKeyResponse, Wrapped},
+        models::{VerifyKeyRequest, Wrapped},
         Client,
     };
+
+    #[skip_serializing_none]
+    #[derive(Debug, Serialize, Clone, Deserialize)]
+    struct Meta {
+        expiry: Option<NaiveDate>,
+    }
 
     let unkey_client = Client::new("public");
     let verify_request = VerifyKeyRequest::new(pro_key, "api_LQTzbpPNHgPALgiNdxg8bMfVxeg");
@@ -337,11 +348,25 @@ async fn verify_pro_key(pro_key: &str) -> Result<()> {
         Wrapped::Err(err) => {
             bail!("Error verifying pro key: {}", err.message);
         }
-        Wrapped::Ok(VerifyKeyResponse { valid, .. }) if !valid => {
-            bail!("Invalid pro key");
-        }
-        Wrapped::Ok(_) => {
-            tracing::info!("Pro key verified");
+        Wrapped::Ok(resp) => {
+            if !resp.valid {
+                bail!("Pro key is no longer valid.");
+            }
+            let key_meta = resp
+                .meta
+                .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
+            tracing::debug!("Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
+            if let Some(meta) = key_meta {
+                if let Some(expiry) = meta.expiry {
+                    if compilation_time > &convert_naive_to_utc(expiry) {
+                        bail!(
+                        "Pro key has expired. Please renew your subscription or downgrade to a version released before {}.",
+                        expiry.format("%v")
+                    );
+                    }
+                }
+            }
+            tracing::info!("Pro key verified successfully");
         }
     }
     Ok(())

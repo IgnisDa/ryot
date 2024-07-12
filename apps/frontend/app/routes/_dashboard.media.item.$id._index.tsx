@@ -1217,10 +1217,11 @@ const AdjustSeenTimesModal = (props: {
 }) => {
 	const { startedOn, finishedOn, id, manualTimeSpent } = props.seen;
 	const [mtv, mts] = manualTimeSpent
-		? (() => {
+		? //  IDK how to make this more readable. Should've paid more attention in math class.
+			(() => {
 				for (let i = 1; i <= 10; i++) {
 					const v = Number(manualTimeSpent) ** (1 / i);
-					if (v < 100) return [v, i];
+					if (v <= 100) return [v, i];
 				}
 				return DEFAULT_STATES;
 			})()

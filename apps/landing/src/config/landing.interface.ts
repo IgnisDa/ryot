@@ -61,20 +61,20 @@ export interface Brand {
 
 export interface PricingData {
 	title: string;
-	discord: string;
+	currency: string;
 	tiers: Tier[];
 }
 
 export interface Tier {
 	title: string;
 	price: Price;
-	cta: string;
 }
 
 export interface Price {
 	amount: string;
 	trial?: number;
 	period?: string;
+	renewPrice?: string;
 }
 
 export interface Meta {
@@ -101,3 +101,10 @@ export interface LdJson {
 }
 
 export type Icon = "GithubIcon" | "TwitterIcon";
+
+export interface Feature {
+	name: string;
+	image: string;
+	points: string[];
+	noBorder?: boolean;
+}

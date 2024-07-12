@@ -91,25 +91,3 @@ jobs:
           tags: ${{ steps.required_args.outputs.image_names }}
           build-args: |
             APP_VERSION=${{ steps.required_args.outputs.APP_VERSION }}
-
-  deploy-landing:
-    runs-on: ubuntu-latest
-    needs: docker-release
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Moon
-        uses: moonrepo/setup-toolchain@v0
-        with:
-          auto-install: true
-
-      - name: Build landing page
-        run: moon run landing:build
-
-      - name: Push to deployment branch
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: apps/landing/dist
-          publish_branch: nf-landing
-          force_orphan: true
