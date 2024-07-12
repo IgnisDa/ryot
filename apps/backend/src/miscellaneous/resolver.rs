@@ -63,9 +63,8 @@ use crate::{
             QueuedNotification, Review, Seen, User, UserMeasurement, UserStatistic,
             UserToCollection, UserToEntity, Workout,
         },
-        queued_notification, review, seen,
-        user::{self, UserWithOnlyPreferences},
-        user_measurement, user_statistic, user_to_collection, user_to_entity, workout,
+        queued_notification, review, seen, user, user_measurement, user_statistic,
+        user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
@@ -119,9 +118,8 @@ use crate::{
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
-        get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES,
-        TEMP_DIR, VERSION,
+        get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql, user_by_id,
+        user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
 
@@ -3346,9 +3344,7 @@ impl MiscellaneousService {
     }
 
     async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
-        let mut preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let mut preferences = user_by_id(&self.db, user_id).await?.preferences;
         preferences.features_enabled.media.anime =
             self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
         preferences.features_enabled.media.audio_book =
@@ -3396,9 +3392,7 @@ impl MiscellaneousService {
             });
         }
         let cloned_user_id = user_id.to_owned();
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -3473,9 +3467,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
@@ -3503,9 +3495,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -3771,10 +3761,7 @@ impl MiscellaneousService {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
                 let rating = match respect_preferences {
                     true => {
-                        let preferences =
-                            partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-                                .await?
-                                .preferences;
+                        let preferences = user_by_id(&self.db, user_id).await?.preferences;
                         r.rating.map(|s| {
                             s.checked_div(match preferences.general.review_scale {
                                 UserReviewScale::OutOfFive => dec!(20),
@@ -4130,9 +4117,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: PostReviewInput,
     ) -> Result<StringIdObject> {
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         if preferences.general.disable_reviews {
             return Err(Error::new("Reviews are disabled"));
         }

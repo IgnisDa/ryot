@@ -7,21 +7,13 @@ use argon2::{
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use database::UserLot;
-use sea_orm::{entity::prelude::*, ActiveValue, FromQueryResult};
+use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
 use crate::users::UserPreferences;
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
-)]
-#[sea_orm(entity = "Entity")]
-pub struct UserWithOnlyPreferences {
-    pub preferences: UserPreferences,
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
