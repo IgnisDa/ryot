@@ -10,6 +10,7 @@ SERVER_OIDC_CLIENT_SECRET=********
 SERVER_OIDC_ISSUER_URL=https://accounts.google.com # The URL of your OIDC provider (might end with trailing slash)
 # Below are optional
 FRONTEND_OIDC_BUTTON_LABEL=Use Google
+RUST_LOG=ryot=debug # To debug why OIDC authentication is failing
 ```
 
 In your OIDC provider, you will need to set the redirect URL to
