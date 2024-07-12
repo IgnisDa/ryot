@@ -25,10 +25,11 @@ import { isNumber, snakeCase, startCase, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { dayjsLib } from "~/lib/generals";
-import { useSearchParam } from "~/lib/hooks";
+import { dayjsLib, enhancedCookieName } from "~/lib/generals";
+import { useCookieEnhancedSearchParam } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -39,6 +40,8 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = enhancedCookieName("calendar");
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const date = dayjsLib(query.date);
 	const [{ userCalendarEvents }] = await Promise.all([
@@ -48,7 +51,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { query, calendarEvents: userCalendarEvents };
+	return { query, userCalendarEvents, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -56,8 +59,8 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 };
 
 export default function Page() {
-	const [_, { setP }] = useSearchParam();
 	const loaderData = useLoaderData<typeof loader>();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const date = dayjsLib(loaderData.query.date);
 
 	return (
@@ -89,15 +92,15 @@ export default function Page() {
 						</ActionIcon>
 					</Button.Group>
 				</Group>
-				{loaderData.calendarEvents.length > 0 ? (
+				{loaderData.userCalendarEvents.length > 0 ? (
 					<Box>
 						<Box>
 							<Text display="inline" fw="bold">
-								{sum(loaderData.calendarEvents.map((e) => e.events.length))}
+								{sum(loaderData.userCalendarEvents.map((e) => e.events.length))}
 							</Text>{" "}
 							items found
 						</Box>
-						{loaderData.calendarEvents.map((ce) => (
+						{loaderData.userCalendarEvents.map((ce) => (
 							<CalendarEvent day={ce} key={ce.date} />
 						))}
 					</Box>

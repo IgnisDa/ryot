@@ -46,16 +46,15 @@ export const useFallbackImageUrl = (text = "No Image") => {
 	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 };
 
-export const useSearchParam = (replace?: boolean) => {
+export const useCookieEnhancedSearchParam = (cookieKey: string) => {
 	const [searchParams, setSearchParams] = useSearchParams();
-
 	const delP = (key: string) => {
 		setSearchParams(
 			(prev) => {
 				prev.delete(key);
 				return prev;
 			},
-			{ replace },
+			{ replace: true },
 		);
 	};
 
@@ -66,18 +65,9 @@ export const useSearchParam = (replace?: boolean) => {
 				else prev.set(key, value);
 				return prev;
 			},
-			{ replace },
+			{ replace: true },
 		);
 	};
-
-	return [searchParams, { setP, delP }] as const;
-};
-
-export const useCookieEnhancedSearchParam = (cookieKey: string) => {
-	const userPreferences = useUserPreferences();
-	const [searchParams, { setP, delP }] = useSearchParam(
-		userPreferences.general.persistQueries,
-	);
 
 	const updateCookieP = (key: string, value?: string | null) => {
 		const cookieValue = Cookies.get(cookieKey);

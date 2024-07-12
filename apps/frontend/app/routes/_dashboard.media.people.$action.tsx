@@ -84,11 +84,11 @@ const SEARCH_SOURCES_ALLOWED = [
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const action = params.action as Action;
 	const cookieName = enhancedCookieName(`people.${action}`);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
 	});
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(

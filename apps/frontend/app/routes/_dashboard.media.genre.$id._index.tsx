@@ -16,8 +16,12 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { useCoreDetails, useSearchParam } from "~/lib/hooks";
-import { serverGqlService } from "~/lib/utilities.server";
+import { enhancedCookieName } from "~/lib/generals";
+import { useCookieEnhancedSearchParam, useCoreDetails } from "~/lib/hooks";
+import {
+	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -26,15 +30,18 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const query = zx.parseQuery(request, searchParamsSchema);
 	const genreId = params.id;
 	invariant(genreId);
+	const cookieName = enhancedCookieName(`genre.${genreId}`);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
+	const query = zx.parseQuery(request, searchParamsSchema);
+
 	const [{ genreDetails }] = await Promise.all([
 		serverGqlService.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },
 		}),
 	]);
-	return { query, genreDetails };
+	return { query, genreDetails, cookieName };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -44,7 +51,7 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 
 	return (
 		<Container>
