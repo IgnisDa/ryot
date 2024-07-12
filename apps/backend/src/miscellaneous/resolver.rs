@@ -635,6 +635,7 @@ struct EditSeenItemInput {
     seen_id: String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
+    provider_watched_on: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -3088,6 +3089,9 @@ impl MiscellaneousService {
         }
         if let Some(finished_on) = input.finished_on {
             seen.finished_on = ActiveValue::Set(Some(finished_on));
+        }
+        if let Some(provider_watched_on) = input.provider_watched_on {
+            seen.provider_watched_on = ActiveValue::Set(Some(provider_watched_on));
         }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;

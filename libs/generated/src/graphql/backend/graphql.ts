@@ -328,6 +328,7 @@ export type EditCustomExerciseInput = {
 
 export type EditSeenItemInput = {
   finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
   startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
 };
