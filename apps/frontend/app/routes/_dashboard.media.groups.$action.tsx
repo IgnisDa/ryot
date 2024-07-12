@@ -39,7 +39,7 @@ import {
 	MetadataGroupDisplayItem,
 } from "~/components/media";
 import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
-import { useCookieEnhancedSearchParam, useCoreDetails } from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -105,7 +105,7 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const navigate = useNavigate();
 
 	return (
@@ -140,6 +140,7 @@ export default function Page() {
 					<DebouncedSearchInput
 						placeholder="Search for groups"
 						initialValue={loaderData.query}
+						enhancedQueryParams={loaderData.cookieName}
 					/>
 					{loaderData.action === Action.Search ? (
 						<>

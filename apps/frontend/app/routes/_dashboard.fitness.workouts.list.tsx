@@ -41,7 +41,7 @@ import {
 } from "~/components/fitness";
 import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
-	useCookieEnhancedSearchParam,
+	useAppSearchParam,
 	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserPreferences,
@@ -82,7 +82,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 
@@ -104,6 +104,7 @@ export default function Page() {
 				<DebouncedSearchInput
 					placeholder="Search for workouts"
 					initialValue={loaderData.query.query}
+					enhancedQueryParams={loaderData.cookieName}
 				/>
 				{loaderData.userWorkoutList.items.length > 0 ? (
 					<>

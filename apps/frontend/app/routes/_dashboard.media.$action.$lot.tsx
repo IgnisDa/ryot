@@ -67,8 +67,8 @@ import {
 } from "~/components/media";
 import { Verb, enhancedCookieName, getLot, getVerb } from "~/lib/generals";
 import {
+	useAppSearchParam,
 	useApplicationEvents,
-	useCookieEnhancedSearchParam,
 	useCoreDetails,
 	useUserCollections,
 	useUserDetails,
@@ -117,6 +117,12 @@ const metadataMapping = {
 };
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
+	const lot = getLot(params.lot);
+	invariant(lot);
+	const action = params.action as Action;
+	invariant(action && Object.values(Action).includes(action as Action));
+	const cookieName = enhancedCookieName(`media.${action}.${lot}`);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ latestUserSummary }] = await Promise.all([
 		serverGqlService.request(
 			LatestUserSummaryDocument,
@@ -129,14 +135,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		page: zx.IntAsString.default("1"),
 	});
 	const numPage = Number(page);
-	const lot = getLot(params.lot);
-	invariant(lot);
-	const cookieName = enhancedCookieName(`media.action.lot.${lot}`);
-	const action = params.action as Action;
-	invariant(action && Object.values(Action).includes(action as Action));
 	const [mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
-			await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 			const urlParse = zx.parseQuery(request, {
 				sortOrder: z
 					.nativeEnum(GraphqlSortOrder)
@@ -218,7 +218,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -339,6 +339,7 @@ export default function Page() {
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
 								initialValue={loaderData.query}
+								enhancedQueryParams={loaderData.cookieName}
 							/>
 							{loaderData.mediaSearch.mediaSources.length > 1 ? (
 								<Select
@@ -529,7 +530,7 @@ const MediaSearchItem = (props: {
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const collections = useUserCollections();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	if (!loaderData.mediaList) return null;
 

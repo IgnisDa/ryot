@@ -46,7 +46,7 @@ export const useFallbackImageUrl = (text = "No Image") => {
 	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
 };
 
-export const useCookieEnhancedSearchParam = (cookieKey: string) => {
+export const useAppSearchParam = (cookieKey: string) => {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const delP = (key: string) => {
 		setSearchParams(

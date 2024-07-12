@@ -26,7 +26,7 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
 import { dayjsLib, enhancedCookieName } from "~/lib/generals";
-import { useCookieEnhancedSearchParam } from "~/lib/hooks";
+import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	redirectUsingEnhancedCookieSearchParams,
@@ -60,7 +60,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const date = dayjsLib(loaderData.query.date);
 
 	return (

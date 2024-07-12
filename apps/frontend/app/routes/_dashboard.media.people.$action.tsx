@@ -50,7 +50,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
 import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
-import { useCookieEnhancedSearchParam, useCoreDetails } from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	redirectUsingEnhancedCookieSearchParams,
@@ -149,7 +149,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -372,7 +372,7 @@ const commitPerson = async (
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<Flex gap="xs" align="center">

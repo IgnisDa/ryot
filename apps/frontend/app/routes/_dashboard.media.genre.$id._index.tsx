@@ -17,7 +17,7 @@ import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import { enhancedCookieName } from "~/lib/generals";
-import { useCookieEnhancedSearchParam, useCoreDetails } from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -35,7 +35,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const cookieName = enhancedCookieName(`genre.${genreId}`);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
-
 	const [{ genreDetails }] = await Promise.all([
 		serverGqlService.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },
@@ -51,7 +50,7 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<Container>

@@ -63,7 +63,7 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
-	useCookieEnhancedSearchParam,
+	useAppSearchParam,
 	useCoreDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -175,7 +175,7 @@ export default function Page() {
 	);
 	const [isBulkRemoving, setIsBulkRemoving] = useState(false);
 	const [isSelectAllLoading, setIsSelectAllLoading] = useState(false);
-	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
@@ -438,7 +438,7 @@ export default function Page() {
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<>

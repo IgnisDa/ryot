@@ -25,7 +25,7 @@ import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import { enhancedCookieName } from "~/lib/generals";
 import {
-	useCookieEnhancedSearchParam,
+	useAppSearchParam,
 	useCoreDetails,
 	useGetMantineColor,
 } from "~/lib/hooks";
@@ -61,7 +61,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const getMantineColor = useGetMantineColor();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<Container>
@@ -72,6 +72,7 @@ export default function Page() {
 				<DebouncedSearchInput
 					placeholder="Search for genres"
 					initialValue={loaderData.query.query}
+					enhancedQueryParams={loaderData.cookieName}
 				/>
 				{loaderData.genresList.details.total > 0 ? (
 					<>

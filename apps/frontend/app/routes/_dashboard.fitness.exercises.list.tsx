@@ -52,7 +52,7 @@ import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
-	useCookieEnhancedSearchParam,
+	useAppSearchParam,
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
@@ -131,7 +131,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
@@ -330,7 +330,7 @@ export default function Page() {
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const collections = useUserCollections();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<MantineThemeProvider

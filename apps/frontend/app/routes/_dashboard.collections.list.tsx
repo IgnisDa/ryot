@@ -24,6 +24,7 @@ import {
 	Link,
 	type MetaArgs_SingleFetch,
 	useFetcher,
+	useLoaderData,
 	useNavigation,
 	useSearchParams,
 } from "@remix-run/react";
@@ -42,6 +43,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
+import { enhancedCookieName } from "~/lib/generals";
 import {
 	useFallbackImageUrl,
 	useUserCollections,
@@ -51,12 +53,15 @@ import {
 	createToastHeaders,
 	getAuthorizationHeader,
 	processSubmission,
+	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async (_args) => {
-	return {};
+export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = enhancedCookieName("collections.list");
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
+	return { cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -147,6 +152,7 @@ type UpdateCollectionInput = {
 export default function Page() {
 	const transition = useNavigation();
 	const collections = useUserCollections();
+	const loaderData = useLoaderData<typeof loader>();
 	const [params] = useSearchParams();
 	const query = params.get("query") || undefined;
 
@@ -192,7 +198,10 @@ export default function Page() {
 						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 					</Modal>
 				</Flex>
-				<DebouncedSearchInput initialValue={query} />
+				<DebouncedSearchInput
+					initialValue={query}
+					enhancedQueryParams={loaderData.cookieName}
+				/>
 				<Virtuoso
 					style={{ height: "80vh" }}
 					data={filteredCollections}

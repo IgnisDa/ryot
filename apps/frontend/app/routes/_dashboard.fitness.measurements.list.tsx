@@ -39,8 +39,8 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib, enhancedCookieName } from "~/lib/generals";
 import {
+	useAppSearchParam,
 	useConfirmSubmit,
-	useCookieEnhancedSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
@@ -145,7 +145,7 @@ export default function Page() {
 		key: "SavedMeasurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
-	const [_p, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_p, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_m, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 
 	return (
