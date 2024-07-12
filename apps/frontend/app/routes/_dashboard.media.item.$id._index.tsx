@@ -18,6 +18,7 @@ import {
 	Modal,
 	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -199,7 +200,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
-					message: "Adjusted seen item successfully",
+					message: "Edited history item successfully",
 				}),
 			});
 		},
@@ -221,6 +222,7 @@ const editSeenItem = z.object({
 	seenId: z.string(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
+	providerWatchedOn: z.string().optional(),
 });
 
 export default function Page() {
@@ -1190,7 +1192,9 @@ const EditHistoryRecordModal = (props: {
 	onClose: () => void;
 	seen: History;
 }) => {
-	const { startedOn, finishedOn, id } = props.seen;
+	const { startedOn, finishedOn, id, providerWatchedOn } = props.seen;
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
 
 	return (
 		<Modal
@@ -1217,6 +1221,12 @@ const EditHistoryRecordModal = (props: {
 						label="End time"
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
+					/>
+					<Select
+						data={userPreferences.general.watchProviders}
+						label={`Where did you ${getVerb(Verb.Read, loaderData.metadataDetails.lot)} it?`}
+						name="providerWatchedOn"
+						defaultValue={providerWatchedOn}
 					/>
 					<Button variant="outline" type="submit" name="seenId" value={id}>
 						Submit
