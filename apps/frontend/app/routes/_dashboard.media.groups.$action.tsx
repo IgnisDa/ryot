@@ -38,8 +38,8 @@ import {
 	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
-import { redirectToQueryParam } from "~/lib/generals";
-import { useCoreDetails, useSearchParam } from "~/lib/hooks";
+import { enhancedCookieName, redirectToQueryParam } from "~/lib/generals";
+import { useCookieEnhancedSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
 	serverGqlService,
@@ -61,6 +61,7 @@ const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const action = params.action as Action;
+	const cookieName = enhancedCookieName(`groups.${action}`);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
@@ -94,7 +95,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			] as const;
 		})
 		.exhaustive();
-	return { action, query, page, list, search };
+	return { action, query, page, list, search, cookieName };
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -104,7 +105,7 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
 	const navigate = useNavigate();
 
 	return (
