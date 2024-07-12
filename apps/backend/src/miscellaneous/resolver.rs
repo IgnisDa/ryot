@@ -111,8 +111,9 @@ use crate::{
         MediaProviderLanguages, TraceOk,
     },
     users::{
-        NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
-        UserNotification, UserNotificationSettingKind, UserPreferences, UserReviewScale,
+        NotificationPlatformSpecifics, NotificationPlatformSpecificsKind,
+        UserGeneralDashboardElement, UserGeneralPreferences, UserNotification, UserPreferences,
+        UserReviewScale,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
@@ -165,7 +166,7 @@ struct GraphqlUserNotificationPlatform {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserNotificationPlatformInput {
-    lot: UserNotificationSettingKind,
+    lot: NotificationPlatformSpecificsKind,
     base_url: Option<String>,
     #[graphql(secret)]
     api_token: Option<String>,
@@ -5491,45 +5492,55 @@ impl MiscellaneousService {
             id: new_notification_id,
             timestamp: Utc::now(),
             settings: match input.lot {
-                UserNotificationSettingKind::Apprise => NotificationPlatformSpecifics::Apprise {
-                    url: input.base_url.unwrap(),
-                    key: input.api_token.unwrap(),
-                },
-                UserNotificationSettingKind::Discord => NotificationPlatformSpecifics::Discord {
-                    url: input.base_url.unwrap(),
-                },
-                UserNotificationSettingKind::Gotify => NotificationPlatformSpecifics::Gotify {
-                    url: input.base_url.unwrap(),
-                    token: input.api_token.unwrap(),
-                    priority: input.priority,
-                },
-                UserNotificationSettingKind::Ntfy => NotificationPlatformSpecifics::Ntfy {
+                NotificationPlatformSpecificsKind::Apprise => {
+                    NotificationPlatformSpecifics::Apprise {
+                        url: input.base_url.unwrap(),
+                        key: input.api_token.unwrap(),
+                    }
+                }
+                NotificationPlatformSpecificsKind::Discord => {
+                    NotificationPlatformSpecifics::Discord {
+                        url: input.base_url.unwrap(),
+                    }
+                }
+                NotificationPlatformSpecificsKind::Gotify => {
+                    NotificationPlatformSpecifics::Gotify {
+                        url: input.base_url.unwrap(),
+                        token: input.api_token.unwrap(),
+                        priority: input.priority,
+                    }
+                }
+                NotificationPlatformSpecificsKind::Ntfy => NotificationPlatformSpecifics::Ntfy {
                     url: input.base_url,
                     topic: input.api_token.unwrap(),
                     priority: input.priority,
                     auth_header: input.auth_header,
                 },
-                UserNotificationSettingKind::PushBullet => {
+                NotificationPlatformSpecificsKind::PushBullet => {
                     NotificationPlatformSpecifics::PushBullet {
                         api_token: input.api_token.unwrap(),
                     }
                 }
-                UserNotificationSettingKind::PushOver => NotificationPlatformSpecifics::PushOver {
-                    key: input.api_token.unwrap(),
-                    app_key: input.auth_header,
-                },
-                UserNotificationSettingKind::PushSafer => {
+                NotificationPlatformSpecificsKind::PushOver => {
+                    NotificationPlatformSpecifics::PushOver {
+                        key: input.api_token.unwrap(),
+                        app_key: input.auth_header,
+                    }
+                }
+                NotificationPlatformSpecificsKind::PushSafer => {
                     NotificationPlatformSpecifics::PushSafer {
                         key: input.api_token.unwrap(),
                     }
                 }
-                UserNotificationSettingKind::Email => NotificationPlatformSpecifics::Email {
+                NotificationPlatformSpecificsKind::Email => NotificationPlatformSpecifics::Email {
                     email: input.api_token.unwrap(),
                 },
-                UserNotificationSettingKind::Telegram => NotificationPlatformSpecifics::Telegram {
-                    bot_token: input.api_token.unwrap(),
-                    chat_id: input.chat_id.unwrap(),
-                },
+                NotificationPlatformSpecificsKind::Telegram => {
+                    NotificationPlatformSpecifics::Telegram {
+                        bot_token: input.api_token.unwrap(),
+                        chat_id: input.chat_id.unwrap(),
+                    }
+                }
             },
         };
 
