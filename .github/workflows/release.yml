@@ -132,6 +132,8 @@ jobs:
             APP_VERSION=${{ steps.required_args.outputs.APP_VERSION }}
             DEFAULT_TMDB_ACCESS_TOKEN=${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}
             DEFAULT_MAL_CLIENT_ID=${{ secrets.DEFAULT_MAL_CLIENT_ID }}
+            DEFAULT_DISCOGS_KEY=${{ secrets.DEFAULT_DISCOGS_KEY }}
+            DEFAULT_DISCOGS_SECRET=${{ secrets.DEFAULT_DISCOGS_SECRET }}
 
   upload-kodi-plugin:
     runs-on: ubuntu-20.04

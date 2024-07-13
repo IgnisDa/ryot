@@ -35,6 +35,8 @@ ARG TARGETARCH
 ARG APP_VERSION
 ARG DEFAULT_TMDB_ACCESS_TOKEN
 ARG DEFAULT_MAL_CLIENT_ID
+ARG DEFAULT_DISCOGS_KEY
+ARG DEFAULT_DISCOGS_SECRET
 ARG BUILD_PROFILE=release
 ENV RUST_TARGET_TRIPLE_arm64="aarch64-unknown-linux-gnu"
 ENV RUST_TARGET_TRIPLE_amd64="x86_64-unknown-linux-gnu"
@@ -42,13 +44,21 @@ ENV TARGET_CC="clang"
 ENV TARGET_AR="llvm-ar"
 ENV CFLAGS_aarch64_unknown_linux_gnu="--sysroot=/usr/aarch64-linux-gnu"
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-ENV APP_VERSION=$APP_VERSION
-RUN test -n "$APP_VERSION" && test -n "$DEFAULT_TMDB_ACCESS_TOKEN" && test -n "$DEFAULT_MAL_CLIENT_ID"
+RUN test -n "$APP_VERSION" && \
+    test -n "$DEFAULT_TMDB_ACCESS_TOKEN" && \
+    test -n "$DEFAULT_MAL_CLIENT_ID" && \
+    test -n "$DEFAULT_DISCOGS_KEY" && \
+    test -n "$DEFAULT_DISCOGS_SECRET"
 COPY --from=backend-planner /app/recipe.json recipe.json
 RUN rustup target add $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH")
 RUN cargo chef cook --profile $BUILD_PROFILE --target $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH") --recipe-path recipe.json
 COPY . .
-RUN ./apps/backend/ci/build-app.sh
+RUN APP_VERSION=$APP_VERSION \
+    DEFAULT_TMDB_ACCESS_TOKEN=$DEFAULT_TMDB_ACCESS_TOKEN \
+    DEFAULT_MAL_CLIENT_ID=$DEFAULT_MAL_CLIENT_ID \
+    DEFAULT_DISCOGS_KEY=$DEFAULT_DISCOGS_KEY \
+    DEFAULT_DISCOGS_SECRET=$DEFAULT_DISCOGS_SECRET \
+    ./apps/backend/ci/build-app.sh
 
 FROM $NODE_BASE_IMAGE
 LABEL org.opencontainers.image.source="https://github.com/IgnisDa/ryot"
