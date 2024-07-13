@@ -92,7 +92,7 @@ mutation DeleteUserMeasurement($timestamp: DateTime!) {
   deleteUserMeasurement(timestamp: $timestamp)
 }
 
-mutation DeleteUserNotificationPlatform($notificationId: Int!) {
+mutation DeleteUserNotificationPlatform($notificationId: String!) {
   deleteUserNotificationPlatform(notificationId: $notificationId)
 }
 

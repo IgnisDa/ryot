@@ -39,9 +39,10 @@ import {
 	MetadataGroupDisplayItem,
 } from "~/components/media";
 import { redirectToQueryParam } from "~/lib/generals";
-import { useCoreDetails, useSearchParam } from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -61,6 +62,7 @@ const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const action = params.action as Action;
+	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
@@ -94,7 +96,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			] as const;
 		})
 		.exhaustive();
-	return { action, query, page, list, search };
+	return { action, query, page, list, search, cookieName };
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -104,7 +106,7 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const navigate = useNavigate();
 
 	return (
@@ -139,6 +141,7 @@ export default function Page() {
 					<DebouncedSearchInput
 						placeholder="Search for groups"
 						initialValue={loaderData.query}
+						enhancedQueryParams={loaderData.cookieName}
 					/>
 					{loaderData.action === Action.Search ? (
 						<>

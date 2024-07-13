@@ -18,7 +18,8 @@ use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
     AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
-    MediaSource, MetadataToMetadataRelation, SeenState, UserLot, UserToMediaReason, Visibility,
+    MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
+    UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -43,8 +44,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, PgFunc,
-    PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
+    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -54,16 +55,16 @@ use crate::{
     entities::{
         calendar_event, collection, collection_to_entity, genre, import_report, integration,
         metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-        metadata_to_metadata_group, metadata_to_person, person,
+        metadata_to_metadata_group, metadata_to_person, notification_platform, person,
         prelude::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
             Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-            MetadataToMetadataGroup, MetadataToPerson, Person, QueuedNotification, Review, Seen,
-            User, UserMeasurement, UserToCollection, UserToEntity, Workout,
+            MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
+            QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
+            UserToEntity, Workout,
         },
-        queued_notification, review, seen,
-        user::{self, UserWithOnlyNotifications, UserWithOnlyPreferences, UserWithOnlySummary},
-        user_measurement, user_to_collection, user_to_entity, workout,
+        queued_notification, review, seen, user, user_measurement, user_summary,
+        user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
@@ -86,10 +87,11 @@ use crate::{
             ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
             ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, UserSummary, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+            ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
+        UserSummaryData,
     },
     providers::{
         anilist::{
@@ -111,14 +113,13 @@ use crate::{
         MediaProviderLanguages, TraceOk,
     },
     users::{
-        DashboardElementLot, UserGeneralDashboardElement, UserGeneralPreferences, UserNotification,
-        UserNotificationSetting, UserNotificationSettingKind, UserPreferences, UserReviewScale,
+        DashboardElementLot, NotificationPlatformSpecifics, UserGeneralDashboardElement,
+        UserGeneralPreferences, UserPreferences, UserReviewScale,
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
-        get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql,
-        partial_user_by_id, user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES,
-        TEMP_DIR, VERSION,
+        get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql, user_by_id,
+        user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
 
@@ -157,16 +158,9 @@ struct CreateIntegrationInput {
     maximum_progress: Decimal,
 }
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct GraphqlUserNotificationPlatform {
-    id: usize,
-    description: String,
-    timestamp: DateTimeUtc,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserNotificationPlatformInput {
-    lot: UserNotificationSettingKind,
+    lot: NotificationPlatformLot,
     base_url: Option<String>,
     #[graphql(secret)]
     api_token: Option<String>,
@@ -637,6 +631,7 @@ struct EditSeenItemInput {
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
     manual_time_spent: Option<Decimal>,
+    provider_watched_on: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -904,7 +899,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<user_summary::Model> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.latest_user_summary(&user_id).await
@@ -958,7 +953,7 @@ impl MiscellaneousQuery {
     async fn user_notification_platforms(
         &self,
         gql_ctx: &Context<'_>,
-    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
+    ) -> Result<Vec<notification_platform::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.user_notification_platforms(&user_id).await
@@ -1301,7 +1296,7 @@ impl MiscellaneousMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: CreateUserNotificationPlatformInput,
-    ) -> Result<usize> {
+    ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service
@@ -1320,7 +1315,7 @@ impl MiscellaneousMutation {
     async fn delete_user_notification_platform(
         &self,
         gql_ctx: &Context<'_>,
-        notification_id: usize,
+        notification_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
@@ -3141,6 +3136,9 @@ impl MiscellaneousService {
         if let Some(manual_time_spent) = input.manual_time_spent {
             seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
         }
+        if let Some(provider_watched_on) = input.provider_watched_on {
+            seen.provider_watched_on = ActiveValue::Set(Some(provider_watched_on));
+        }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
         Ok(true)
@@ -3398,9 +3396,7 @@ impl MiscellaneousService {
     }
 
     async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
-        let mut preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let mut preferences = user_by_id(&self.db, user_id).await?.preferences;
         preferences.features_enabled.media.anime =
             self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
         preferences.features_enabled.media.audio_book =
@@ -3448,9 +3444,7 @@ impl MiscellaneousService {
             });
         }
         let cloned_user_id = user_id.to_owned();
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -3525,9 +3519,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
@@ -3555,9 +3547,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -3823,10 +3813,7 @@ impl MiscellaneousService {
                 let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
                 let rating = match respect_preferences {
                     true => {
-                        let preferences =
-                            partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-                                .await?
-                                .preferences;
+                        let preferences = user_by_id(&self.db, user_id).await?.preferences;
                         r.rating.map(|s| {
                             s.checked_div(match preferences.general.review_scale {
                                 UserReviewScale::OutOfFive => dec!(20),
@@ -4182,9 +4169,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: PostReviewInput,
     ) -> Result<StringIdObject> {
-        let preferences = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         if preferences.general.disable_reviews {
             return Err(Error::new("Reviews are disabled"));
         }
@@ -4591,9 +4576,12 @@ impl MiscellaneousService {
         }
     }
 
-    async fn latest_user_summary(&self, user_id: &String) -> Result<UserSummary> {
-        let ls = partial_user_by_id::<UserWithOnlySummary>(&self.db, user_id).await?;
-        Ok(ls.summary.unwrap_or_default())
+    async fn latest_user_summary(&self, user_id: &String) -> Result<user_summary::Model> {
+        let ls = UserSummary::find_by_id(user_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        Ok(ls)
     }
 
     #[tracing::instrument(skip(self))]
@@ -4612,16 +4600,14 @@ impl MiscellaneousService {
                     )
                     .exec(&self.db)
                     .await?;
-                (UserSummary::default(), None)
+                (UserSummaryData::default(), None)
             }
             false => {
                 let here = self.latest_user_summary(user_id).await?;
                 let time = here.calculated_on;
-                (here, Some(time))
+                (here.data, Some(time))
             }
         };
-
-        ls.calculated_from_beginning = calculate_from_beginning;
 
         tracing::debug!("Calculating numbers summary for user: {:?}", ls);
 
@@ -4864,15 +4850,24 @@ impl MiscellaneousService {
         ls.media.movies.watched = ls.unique_items.movies.len();
         ls.media.visual_novels.played = ls.unique_items.visual_novels.len();
 
-        ls.calculated_on = Utc::now();
-
-        let user_model = user::ActiveModel {
-            id: ActiveValue::Unchanged(user_id.to_owned()),
-            summary: ActiveValue::Set(Some(ls)),
-            ..Default::default()
-        };
-        let usr = user_model.update(&self.db).await.unwrap();
-        tracing::debug!("Calculated summary for user: {:?}", usr.name);
+        let usr = UserSummary::insert(user_summary::ActiveModel {
+            data: ActiveValue::Set(ls),
+            calculated_on: ActiveValue::Set(Utc::now()),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            is_fresh: ActiveValue::Set(calculate_from_beginning),
+        })
+        .on_conflict(
+            OnConflict::column(user_summary::Column::UserId)
+                .update_columns([
+                    user_summary::Column::Data,
+                    user_summary::Column::IsFresh,
+                    user_summary::Column::CalculatedOn,
+                ])
+                .to_owned(),
+        )
+        .exec_with_returning(&self.db)
+        .await?;
+        tracing::debug!("Calculated summary for user: {:?}", usr.user_id);
         Ok(())
     }
 
@@ -4915,7 +4910,6 @@ impl MiscellaneousService {
             oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
             lot: ActiveValue::Set(lot),
             preferences: ActiveValue::Set(UserPreferences::default()),
-            notifications: ActiveValue::Set(vec![]),
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
@@ -5400,8 +5394,8 @@ impl MiscellaneousService {
                                 &input.value,
                             )
                             .unwrap();
-                            let default_general_prefs = UserGeneralPreferences::default();
-                            if value.len() != default_general_prefs.dashboard.len() {
+                            let default_general_preferences = UserGeneralPreferences::default();
+                            if value.len() != default_general_preferences.dashboard.len() {
                                 return Err(err());
                             }
                             preferences.general.dashboard = value;
@@ -5451,45 +5445,11 @@ impl MiscellaneousService {
     async fn user_notification_platforms(
         &self,
         user_id: &String,
-    ) -> Result<Vec<GraphqlUserNotificationPlatform>> {
-        let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
-        let mut all_notifications = vec![];
-        user.notifications.into_iter().for_each(|n| {
-            let description = match n.settings {
-                UserNotificationSetting::Apprise { url, key } => {
-                    format!("Apprise URL: {}, Key: {}", url, key)
-                }
-                UserNotificationSetting::Discord { url } => {
-                    format!("Discord webhook: {}", url)
-                }
-                UserNotificationSetting::Gotify { url, token, .. } => {
-                    format!("Gotify URL: {}, Token: {}", url, token)
-                }
-                UserNotificationSetting::Ntfy { url, topic, .. } => {
-                    format!("Ntfy URL: {:?}, Topic: {}", url, topic)
-                }
-                UserNotificationSetting::PushBullet { api_token } => {
-                    format!("Pushbullet API Token: {}", api_token)
-                }
-                UserNotificationSetting::PushOver { key, app_key } => {
-                    format!("PushOver Key: {}, App Key: {:?}", key, app_key)
-                }
-                UserNotificationSetting::PushSafer { key } => {
-                    format!("PushSafer Key: {}", key)
-                }
-                UserNotificationSetting::Email { email } => {
-                    format!("Email: {}", email)
-                }
-                UserNotificationSetting::Telegram { chat_id, .. } => {
-                    format!("Telegram Chat ID: {}", chat_id)
-                }
-            };
-            all_notifications.push(GraphqlUserNotificationPlatform {
-                id: n.id,
-                description,
-                timestamp: n.timestamp,
-            })
-        });
+    ) -> Result<Vec<notification_platform::Model>> {
+        let all_notifications = NotificationPlatform::find()
+            .filter(notification_platform::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
         Ok(all_notifications)
     }
 
@@ -5541,74 +5501,99 @@ impl MiscellaneousService {
         &self,
         user_id: String,
         input: CreateUserNotificationPlatformInput,
-    ) -> Result<usize> {
-        let user = user_by_id(&self.db, &user_id).await?;
-        let mut notifications = user.notifications.clone();
-        let new_notification_id = notifications.len() + 1;
-        let new_notification = UserNotification {
-            id: new_notification_id,
-            timestamp: Utc::now(),
-            settings: match input.lot {
-                UserNotificationSettingKind::Apprise => UserNotificationSetting::Apprise {
-                    url: input.base_url.unwrap(),
-                    key: input.api_token.unwrap(),
-                },
-                UserNotificationSettingKind::Discord => UserNotificationSetting::Discord {
-                    url: input.base_url.unwrap(),
-                },
-                UserNotificationSettingKind::Gotify => UserNotificationSetting::Gotify {
-                    url: input.base_url.unwrap(),
-                    token: input.api_token.unwrap(),
-                    priority: input.priority,
-                },
-                UserNotificationSettingKind::Ntfy => UserNotificationSetting::Ntfy {
-                    url: input.base_url,
-                    topic: input.api_token.unwrap(),
-                    priority: input.priority,
-                    auth_header: input.auth_header,
-                },
-                UserNotificationSettingKind::PushBullet => UserNotificationSetting::PushBullet {
-                    api_token: input.api_token.unwrap(),
-                },
-                UserNotificationSettingKind::PushOver => UserNotificationSetting::PushOver {
-                    key: input.api_token.unwrap(),
-                    app_key: input.auth_header,
-                },
-                UserNotificationSettingKind::PushSafer => UserNotificationSetting::PushSafer {
-                    key: input.api_token.unwrap(),
-                },
-                UserNotificationSettingKind::Email => UserNotificationSetting::Email {
-                    email: input.api_token.unwrap(),
-                },
-                UserNotificationSettingKind::Telegram => UserNotificationSetting::Telegram {
-                    bot_token: input.api_token.unwrap(),
-                    chat_id: input.chat_id.unwrap(),
-                },
+    ) -> Result<String> {
+        let specifics = match input.lot {
+            NotificationPlatformLot::Apprise => NotificationPlatformSpecifics::Apprise {
+                url: input.base_url.unwrap(),
+                key: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::Discord => NotificationPlatformSpecifics::Discord {
+                url: input.base_url.unwrap(),
+            },
+            NotificationPlatformLot::Gotify => NotificationPlatformSpecifics::Gotify {
+                url: input.base_url.unwrap(),
+                token: input.api_token.unwrap(),
+                priority: input.priority,
+            },
+            NotificationPlatformLot::Ntfy => NotificationPlatformSpecifics::Ntfy {
+                url: input.base_url,
+                topic: input.api_token.unwrap(),
+                priority: input.priority,
+                auth_header: input.auth_header,
+            },
+            NotificationPlatformLot::PushBullet => NotificationPlatformSpecifics::PushBullet {
+                api_token: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::PushOver => NotificationPlatformSpecifics::PushOver {
+                key: input.api_token.unwrap(),
+                app_key: input.auth_header,
+            },
+            NotificationPlatformLot::PushSafer => NotificationPlatformSpecifics::PushSafer {
+                key: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::Email => NotificationPlatformSpecifics::Email {
+                email: input.api_token.unwrap(),
+            },
+            NotificationPlatformLot::Telegram => NotificationPlatformSpecifics::Telegram {
+                bot_token: input.api_token.unwrap(),
+                chat_id: input.chat_id.unwrap(),
             },
         };
-
-        notifications.insert(0, new_notification);
-        let mut user: user::ActiveModel = user.into();
-        user.notifications = ActiveValue::Set(notifications);
-        user.update(&self.db).await?;
+        let description = match &specifics {
+            NotificationPlatformSpecifics::Apprise { url, key } => {
+                format!("URL: {}, Key: {}", url, key)
+            }
+            NotificationPlatformSpecifics::Discord { url } => {
+                format!("Webhook: {}", url)
+            }
+            NotificationPlatformSpecifics::Gotify { url, token, .. } => {
+                format!("URL: {}, Token: {}", url, token)
+            }
+            NotificationPlatformSpecifics::Ntfy { url, topic, .. } => {
+                format!("URL: {:?}, Topic: {}", url, topic)
+            }
+            NotificationPlatformSpecifics::PushBullet { api_token } => {
+                format!("API Token: {}", api_token)
+            }
+            NotificationPlatformSpecifics::PushOver { key, app_key } => {
+                format!("Key: {}, App Key: {:?}", key, app_key)
+            }
+            NotificationPlatformSpecifics::PushSafer { key } => {
+                format!("Key: {}", key)
+            }
+            NotificationPlatformSpecifics::Email { email } => {
+                format!("ID: {}", email)
+            }
+            NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
+                format!("Chat ID: {}", chat_id)
+            }
+        };
+        let notification = notification_platform::ActiveModel {
+            lot: ActiveValue::Set(input.lot),
+            user_id: ActiveValue::Set(user_id),
+            platform_specifics: ActiveValue::Set(specifics),
+            description: ActiveValue::Set(description),
+            ..Default::default()
+        };
+        let new_notification_id = notification.insert(&self.db).await?.id;
         Ok(new_notification_id)
     }
 
     async fn delete_user_notification_platform(
         &self,
         user_id: String,
-        notification_id: usize,
+        notification_id: String,
     ) -> Result<bool> {
-        let user = user_by_id(&self.db, &user_id).await?;
-        let mut user_db: user::ActiveModel = user.clone().into();
-        let notifications = user.notifications.clone();
-        let remaining_notifications = notifications
-            .into_iter()
-            .filter(|i| i.id != notification_id)
-            .collect_vec();
-        let update_value = remaining_notifications;
-        user_db.notifications = ActiveValue::Set(update_value);
-        user_db.update(&self.db).await?;
+        let notification = NotificationPlatform::find_by_id(notification_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        if notification.user_id != user_id {
+            return Err(Error::new(
+                "Notification platform does not belong to the user",
+            ));
+        }
+        notification.delete(&self.db).await?;
         Ok(true)
     }
 
@@ -7283,27 +7268,27 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn test_user_notification_platforms(&self, user_id: &String) -> Result<bool> {
-        let user = partial_user_by_id::<UserWithOnlyNotifications>(&self.db, user_id).await?;
-        for platform in user.notifications {
-            let msg = format!(
-                "This is a test notification for platform: {}",
-                platform.settings.kind()
-            );
-            platform.settings.send_message(&self.config, &msg).await?;
+        let notifications = NotificationPlatform::find()
+            .filter(notification_platform::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        for platform in notifications {
+            let msg = format!("This is a test notification for platform: {}", platform.lot);
+            platform
+                .platform_specifics
+                .send_message(&self.config, &msg)
+                .await?;
         }
         Ok(true)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
-        let users = User::find()
-            .into_partial_model::<UserWithOnlyNotifications>()
-            .all(&self.db)
-            .await?;
+        let users = User::find().all(&self.db).await?;
         for user_details in users {
             tracing::debug!("Sending notification to user: {:?}", user_details.id);
             let notifications = QueuedNotification::find()
-                .filter(queued_notification::Column::UserId.eq(user_details.id))
+                .filter(queued_notification::Column::UserId.eq(&user_details.id))
                 .all(&self.db)
                 .await?;
             if notifications.is_empty() {
@@ -7314,8 +7299,16 @@ ORDER BY RANDOM() LIMIT 10;
                 .map(|n| n.message)
                 .collect::<Vec<String>>()
                 .join("\n");
-            for notification in user_details.notifications {
-                if let Err(err) = notification.settings.send_message(&self.config, &msg).await {
+            let platforms = NotificationPlatform::find()
+                .filter(notification_platform::Column::UserId.eq(&user_details.id))
+                .all(&self.db)
+                .await?;
+            for notification in platforms {
+                if let Err(err) = notification
+                    .platform_specifics
+                    .send_message(&self.config, &msg)
+                    .await
+                {
                     tracing::trace!("Error sending notification: {:?}", err);
                 }
             }

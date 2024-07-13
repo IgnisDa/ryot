@@ -20,6 +20,7 @@ import {
 	NumberInput,
 	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Slider,
 	Stack,
@@ -214,7 +215,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
-					message: "Adjusted seen item successfully",
+					message: "Edited history item successfully",
 				}),
 			});
 		},
@@ -237,6 +238,7 @@ const editSeenItem = z.object({
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 	manualTimeSpent: z.string().optional(),
+	providerWatchedOn: z.string().optional(),
 });
 
 export default function Page() {
@@ -990,7 +992,7 @@ export default function Page() {
 								<Virtuoso
 									data={loaderData.userMetadataDetails.history}
 									itemContent={(index, history) => (
-										<SeenItem
+										<HistoryItem
 											index={index}
 											setTab={setTab}
 											key={history.id}
@@ -1210,12 +1212,13 @@ type History =
 
 const DEFAULT_STATES = [0, 3];
 
-const AdjustSeenTimesModal = (props: {
+const EditHistoryRecordModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
 }) => {
-	const { startedOn, finishedOn, id, manualTimeSpent } = props.seen;
+	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
+		props.seen;
 	const [mtv, mts] = manualTimeSpent
 		? //  IDK how to make this more readable. Should've paid more attention in math class.
 			(() => {
@@ -1229,6 +1232,8 @@ const AdjustSeenTimesModal = (props: {
 	const [manualTimeSpentValue, setManualTimeSpentValue] = useState(mtv);
 	const [manualTimeSpentScale, setManualTimeSpentScale] = useState(mts);
 	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
 
 	return (
 		<Modal
@@ -1245,7 +1250,7 @@ const AdjustSeenTimesModal = (props: {
 				action={withQuery("", { intent: "editSeenItem" })}
 			>
 				<Stack>
-					<Title order={3}>Adjust seen times</Title>
+					<Title order={3}>Edit history record</Title>
 					<DateInput
 						label="Start time"
 						name="startedOn"
@@ -1287,6 +1292,12 @@ const AdjustSeenTimesModal = (props: {
 							/>
 						) : null}
 					</Input.Wrapper>
+					<Select
+						data={userPreferences.general.watchProviders}
+						label={`Where did you ${getVerb(Verb.Read, loaderData.metadataDetails.lot)} it?`}
+						name="providerWatchedOn"
+						defaultValue={providerWatchedOn}
+					/>
 					<Button variant="outline" type="submit" name="seenId" value={id}>
 						Submit
 					</Button>
@@ -1332,7 +1343,7 @@ const MergeMetadataModal = (props: {
 
 type PossibleTab = "showSeasons" | "podcastEpisodes";
 
-const SeenItem = (props: {
+const HistoryItem = (props: {
 	index: number;
 	history: History;
 	showVirtuosoRef: RefObject<VirtuosoHandle>;
@@ -1529,7 +1540,7 @@ const SeenItem = (props: {
 					</SimpleGrid>
 				</Stack>
 			</Flex>
-			<AdjustSeenTimesModal
+			<EditHistoryRecordModal
 				opened={opened}
 				onClose={close}
 				seen={props.history}

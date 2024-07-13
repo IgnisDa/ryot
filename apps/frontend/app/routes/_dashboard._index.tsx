@@ -135,12 +135,12 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const theme = useMantineTheme();
+	const latestUserSummary = loaderData.latestUserSummary.data;
 
 	return (
 		<Container>
 			<Stack gap={32}>
-				{loaderData.latestUserSummary.media.metadataOverall.interactedWith ===
-				0 ? (
+				{latestUserSummary.media.metadataOverall.interactedWith === 0 ? (
 					<NewUserGuideAlert />
 				) : null}
 				{userPreferences.general.dashboard.map((de) =>
@@ -220,14 +220,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Movies",
-												value:
-													loaderData.latestUserSummary.media.movies.watched,
+												value: latestUserSummary.media.movies.watched,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value:
-													loaderData.latestUserSummary.media.movies.runtime,
+												value: latestUserSummary.media.movies.runtime,
 												type: "duration",
 											},
 										]}
@@ -238,26 +236,22 @@ export default function Page() {
 										data={[
 											{
 												label: "Shows",
-												value: loaderData.latestUserSummary.media.shows.watched,
+												value: latestUserSummary.media.shows.watched,
 												type: "number",
 											},
 											{
 												label: "Seasons",
-												value:
-													loaderData.latestUserSummary.media.shows
-														.watchedSeasons,
+												value: latestUserSummary.media.shows.watchedSeasons,
 												type: "number",
 											},
 											{
 												label: "Episodes",
-												value:
-													loaderData.latestUserSummary.media.shows
-														.watchedEpisodes,
+												value: latestUserSummary.media.shows.watchedEpisodes,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: loaderData.latestUserSummary.media.shows.runtime,
+												value: latestUserSummary.media.shows.runtime,
 												type: "duration",
 											},
 										]}
@@ -268,8 +262,7 @@ export default function Page() {
 										data={[
 											{
 												label: "Video games",
-												value:
-													loaderData.latestUserSummary.media.videoGames.played,
+												value: latestUserSummary.media.videoGames.played,
 												type: "number",
 											},
 										]}
@@ -280,16 +273,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Visual Novels",
-												value:
-													loaderData.latestUserSummary.media.visualNovels
-														.played,
+												value: latestUserSummary.media.visualNovels.played,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value:
-													loaderData.latestUserSummary.media.visualNovels
-														.runtime,
+												value: latestUserSummary.media.visualNovels.runtime,
 												type: "duration",
 											},
 										]}
@@ -300,14 +289,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Audiobooks",
-												value:
-													loaderData.latestUserSummary.media.audioBooks.played,
+												value: latestUserSummary.media.audioBooks.played,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value:
-													loaderData.latestUserSummary.media.audioBooks.runtime,
+												value: latestUserSummary.media.audioBooks.runtime,
 												type: "duration",
 											},
 										]}
@@ -318,12 +305,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Books",
-												value: loaderData.latestUserSummary.media.books.read,
+												value: latestUserSummary.media.books.read,
 												type: "number",
 											},
 											{
 												label: "Pages",
-												value: loaderData.latestUserSummary.media.books.pages,
+												value: latestUserSummary.media.books.pages,
 												type: "number",
 											},
 										]}
@@ -334,21 +321,17 @@ export default function Page() {
 										data={[
 											{
 												label: "Podcasts",
-												value:
-													loaderData.latestUserSummary.media.podcasts.played,
+												value: latestUserSummary.media.podcasts.played,
 												type: "number",
 											},
 											{
 												label: "Episodes",
-												value:
-													loaderData.latestUserSummary.media.podcasts
-														.playedEpisodes,
+												value: latestUserSummary.media.podcasts.playedEpisodes,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value:
-													loaderData.latestUserSummary.media.podcasts.runtime,
+												value: latestUserSummary.media.podcasts.runtime,
 												type: "duration",
 											},
 										]}
@@ -359,13 +342,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Manga",
-												value: loaderData.latestUserSummary.media.manga.read,
+												value: latestUserSummary.media.manga.read,
 												type: "number",
 											},
 											{
 												label: "Chapters",
-												value:
-													loaderData.latestUserSummary.media.manga.chapters,
+												value: latestUserSummary.media.manga.chapters,
 												type: "number",
 											},
 										]}
@@ -376,13 +358,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Anime",
-												value: loaderData.latestUserSummary.media.anime.watched,
+												value: latestUserSummary.media.anime.watched,
 												type: "number",
 											},
 											{
 												label: "Episodes",
-												value:
-													loaderData.latestUserSummary.media.anime.episodes,
+												value: latestUserSummary.media.anime.episodes,
 												type: "number",
 											},
 										]}
@@ -397,15 +378,14 @@ export default function Page() {
 													{
 														label: "Media",
 														value:
-															loaderData.latestUserSummary.media.metadataOverall
+															latestUserSummary.media.metadataOverall
 																.interactedWith,
 														type: "number",
 													},
 													{
 														label: "Reviews",
 														value:
-															loaderData.latestUserSummary.media.metadataOverall
-																.reviewed,
+															latestUserSummary.media.metadataOverall.reviewed,
 														type: "number",
 														hideIfZero: true,
 													},
@@ -425,15 +405,15 @@ export default function Page() {
 															{
 																label: "People",
 																value:
-																	loaderData.latestUserSummary.media
-																		.peopleOverall.interactedWith,
+																	latestUserSummary.media.peopleOverall
+																		.interactedWith,
 																type: "number",
 															},
 															{
 																label: "Reviews",
 																value:
-																	loaderData.latestUserSummary.media
-																		.peopleOverall.reviewed,
+																	latestUserSummary.media.peopleOverall
+																		.reviewed,
 																type: "number",
 																hideIfZero: true,
 															},
@@ -444,10 +424,8 @@ export default function Page() {
 										</>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
-									Number(
-										loaderData.latestUserSummary.fitness.workouts.duration,
-									) +
-										loaderData.latestUserSummary.fitness.workouts.recorded >
+									Number(latestUserSummary.fitness.workouts.duration) +
+										latestUserSummary.fitness.workouts.recorded >
 										0 ? (
 										<UnstyledLink to={$path("/fitness/workouts/list")}>
 											<ActualDisplayStat
@@ -457,24 +435,19 @@ export default function Page() {
 												data={[
 													{
 														label: "Workouts",
-														value:
-															loaderData.latestUserSummary.fitness.workouts
-																.recorded,
+														value: latestUserSummary.fitness.workouts.recorded,
 														type: "number",
 													},
 													{
 														label: "Runtime",
-														value:
-															loaderData.latestUserSummary.fitness.workouts
-																.duration,
+														value: latestUserSummary.fitness.workouts.duration,
 														type: "duration",
 													},
 													{
 														label: "Runtime",
 														value: displayWeightWithUnit(
 															loaderData.userPreferences.unitSystem,
-															loaderData.latestUserSummary.fitness.workouts
-																.weight,
+															latestUserSummary.fitness.workouts.weight,
 															true,
 														),
 														type: "string",
@@ -484,9 +457,8 @@ export default function Page() {
 										</UnstyledLink>
 									) : null}
 									{loaderData.userPreferences.fitness.enabled &&
-									loaderData.latestUserSummary.fitness.measurementsRecorded +
-										loaderData.latestUserSummary.fitness
-											.exercisesInteractedWith >
+									latestUserSummary.fitness.measurementsRecorded +
+										latestUserSummary.fitness.exercisesInteractedWith >
 										0 ? (
 										<ActualDisplayStat
 											icon={<IconScaleOutline stroke={1.3} />}
@@ -495,17 +467,14 @@ export default function Page() {
 											data={[
 												{
 													label: "Measurements",
-													value:
-														loaderData.latestUserSummary.fitness
-															.measurementsRecorded,
+													value: latestUserSummary.fitness.measurementsRecorded,
 													type: "number",
 													hideIfZero: true,
 												},
 												{
 													label: "Exercises",
 													value:
-														loaderData.latestUserSummary.fitness
-															.exercisesInteractedWith,
+														latestUserSummary.fitness.exercisesInteractedWith,
 													type: "number",
 													hideIfZero: true,
 												},

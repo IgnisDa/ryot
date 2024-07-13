@@ -43,10 +43,6 @@ export const LOGO_IMAGE_URL =
 export const redirectToQueryParam = "redirectTo";
 export const AUTH_COOKIE_NAME = "Auth";
 
-const enhancedSearchParamCookie = "SearchParams__";
-export const enhancedCookieName = (name: string) =>
-	`${enhancedSearchParamCookie}${name}`;
-
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });

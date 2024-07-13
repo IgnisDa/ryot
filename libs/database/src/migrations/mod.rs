@@ -35,6 +35,9 @@ mod m20240704_add_new_preference_for_persisted_queries;
 mod m20240709_add_manual_time_spent_column_to_seen;
 mod m20240710_remove_sequences_completely;
 mod m20240711_remove_total_time_spent_from_seen;
+mod m20240712_create_notification_platform;
+mod m20240713_create_user_summary;
+mod m20240713_zz_cleanup_v6_6_2_migrations;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -91,6 +94,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20240709_add_manual_time_spent_column_to_seen::Migration),
             Box::new(m20240710_remove_sequences_completely::Migration),
             Box::new(m20240711_remove_total_time_spent_from_seen::Migration),
+            Box::new(m20240712_create_notification_platform::Migration),
+            Box::new(m20240713_create_user_summary::Migration),
+            Box::new(m20240713_zz_cleanup_v6_6_2_migrations::Migration),
         ]
     }
 }

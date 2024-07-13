@@ -35,10 +35,9 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { getSurroundingElements } from "~/lib/generals";
 import {
-	useCookieEnhancedSearchParam,
+	useAppSearchParam,
 	useCoreDetails,
 	useFallbackImageUrl,
-	useSearchParam,
 } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
@@ -136,14 +135,12 @@ export const DebouncedSearchInput = (props: {
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
 	const [debounced] = useDebouncedValue(query, 1000);
-	const [_p, { setP }] = useSearchParam();
-	const [_e, { setP: setEnhancedP }] = useCookieEnhancedSearchParam(
+	const [_e, { setP }] = useAppSearchParam(
 		props.enhancedQueryParams || "query",
 	);
 
 	useDidUpdate(() => {
-		const fn = props.enhancedQueryParams ? setEnhancedP : setP;
-		fn(props.queryParam || "query", debounced);
+		setP(props.queryParam || "query", debounced);
 	}, [debounced]);
 
 	return (

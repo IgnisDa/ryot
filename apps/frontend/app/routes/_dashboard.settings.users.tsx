@@ -38,7 +38,9 @@ import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	processSubmission,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -49,6 +51,8 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = await getEnhancedCookieName("settings.users", request);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ usersList }] = await Promise.all([
 		serverGqlService.request(
@@ -57,7 +61,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { usersList, query };
+	return { usersList, query, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -174,6 +178,7 @@ export default function Page() {
 				<DebouncedSearchInput
 					placeholder="Search for users"
 					initialValue={loaderData.query.query}
+					enhancedQueryParams={loaderData.cookieName}
 				/>
 
 				<VirtuosoGrid

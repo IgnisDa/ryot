@@ -76,8 +76,9 @@ query UserIntegrations {
 query UserNotificationPlatforms {
   userNotificationPlatforms {
     id
+    lot
+    createdOn
     description
-    timestamp
   }
 }
 

@@ -50,15 +50,16 @@ import {
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
-import { dayjsLib, enhancedCookieName } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import {
-	useCookieEnhancedSearchParam,
+	useAppSearchParam,
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -90,7 +91,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookieName = enhancedCookieName("exercises.list");
+	const cookieName = await getEnhancedCookieName("exercises.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
@@ -131,7 +132,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
@@ -330,7 +331,7 @@ export default function Page() {
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const collections = useUserCollections();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<MantineThemeProvider

@@ -31,10 +31,10 @@ import { Form, Link, useFetcher } from "@remix-run/react";
 import {
 	EntityLot,
 	type MediaLot,
-	type MediaSource,
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
 	type ReviewItem,
+	SeenState,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -88,25 +88,6 @@ import {
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
-
-export const commitMedia = async (
-	identifier: string,
-	lot: MediaLot,
-	source: MediaSource,
-) => {
-	const data = new FormData();
-	const location = withoutHost(window.location.href);
-	data.append("identifier", identifier);
-	data.append("lot", lot);
-	data.append("source", source);
-	data.append(redirectToQueryParam, location);
-	const resp = await fetch($path("/actions", { intent: "commitMedia" }), {
-		method: "POST",
-		body: data,
-	});
-	const json = await resp.json();
-	return json.commitMedia.id;
-};
 
 export const PartialMetadataDisplay = (props: {
 	metadataId: string;
@@ -558,7 +539,9 @@ export const MetadataDisplayItem = (props: {
 		props.metadataId,
 	);
 	const averageRating = userMetadataDetails?.averageRating;
-	const history = userMetadataDetails?.history || [];
+	const history = (userMetadataDetails?.history || []).filter(
+		(h) => h.state === SeenState.Completed,
+	);
 	const surroundReason = (
 		idx: number,
 		data: readonly [UserToMediaReason, ReactNode],
