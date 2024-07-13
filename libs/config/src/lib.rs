@@ -23,6 +23,24 @@ fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_MAL_CLIENT_ID.to_owned()))
 }
 
+#[cfg(debug_assertions)]
+pub const DEFAULT_DISCOGS_KEY: &str = dotenvy_macro::dotenv!("DEFAULT_DISCOGS_KEY");
+#[cfg(not(debug_assertions))]
+pub const DEFAULT_DISCOGS_KEY: &str = env!("DEFAULT_DISCOGS_KEY");
+
+#[cfg(debug_assertions)]
+pub const DEFAULT_DISCOGS_SECRET: &str = dotenvy_macro::dotenv!("DEFAULT_DISCOGS_SECRET");
+#[cfg(not(debug_assertions))]
+pub const DEFAULT_DISCOGS_SECRET: &str = env!("DEFAULT_DISCOGS_SECRET");
+
+fn default_discogs_key(_ctx: &()) -> Result<Option<String>, HandlerError> {
+    Ok(Some(DEFAULT_DISCOGS_KEY.to_owned()))
+}
+
+fn default_discogs_secret(_ctx: &()) -> Result<Option<String>, HandlerError> {
+    Ok(Some(DEFAULT_DISCOGS_SECRET.to_owned()))
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
 pub struct MalConfig {
