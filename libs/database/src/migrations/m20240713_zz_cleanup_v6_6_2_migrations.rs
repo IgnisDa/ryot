@@ -79,11 +79,10 @@ FROM
 
             db.execute_unprepared(
                 r#"
-INSERT INTO user_statistic (user_id, lot, data)
+INSERT INTO user_summary (user_id, data)
 SELECT
     u.id AS user_id,
-    'summary' as lot,
-    JSON_BUILD_OBJECT('d', u.summary, 't', 'Summary') AS data
+    u.summary AS data
 FROM
     "user" u;
         "#,
