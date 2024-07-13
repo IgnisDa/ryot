@@ -14,9 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     background::ApplicationJob,
-    entities::{
-        import_report, prelude::ImportReport, user::UserWithOnlyPreferences, user_measurement,
-    },
+    entities::{import_report, prelude::ImportReport, user_measurement},
     fitness::resolver::ExerciseService,
     miscellaneous::resolver::MiscellaneousService,
     models::{
@@ -30,7 +28,7 @@ use crate::{
     },
     traits::{AuthProvider, TraceOk},
     users::{UserPreferences, UserReviewScale},
-    utils::partial_user_by_id,
+    utils::user_by_id,
 };
 
 mod audiobookshelf;
@@ -264,10 +262,9 @@ impl ImporterService {
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
         let db_import_job = self.start_import_job(&user_id, input.source).await?;
-        let preferences =
-            partial_user_by_id::<UserWithOnlyPreferences>(&self.media_service.db, &user_id)
-                .await?
-                .preferences;
+        let preferences = user_by_id(&self.media_service.db, &user_id)
+            .await?
+            .preferences;
         let mut import = match input.source {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), self.timezone.clone())

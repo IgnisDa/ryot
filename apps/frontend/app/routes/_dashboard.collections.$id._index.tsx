@@ -58,18 +58,18 @@ import {
 	clientGqlService,
 	convertEntityToIndividualId,
 	dayjsLib,
-	enhancedCookieName,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
 import {
-	useCookieEnhancedSearchParam,
+	useAppSearchParam,
 	useCoreDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
@@ -100,7 +100,10 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const collectionId = params.id;
 	invariant(collectionId);
-	const cookieName = enhancedCookieName(`collections.details.${collectionId}`);
+	const cookieName = await getEnhancedCookieName(
+		`collections.details.${collectionId}`,
+		request,
+	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
@@ -175,7 +178,7 @@ export default function Page() {
 	);
 	const [isBulkRemoving, setIsBulkRemoving] = useState(false);
 	const [isSelectAllLoading, setIsSelectAllLoading] = useState(false);
-	const [_e, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [
 		filtersModalOpened,
@@ -438,7 +441,7 @@ export default function Page() {
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useCookieEnhancedSearchParam(loaderData.cookieName);
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<>

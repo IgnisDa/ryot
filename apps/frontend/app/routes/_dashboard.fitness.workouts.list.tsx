@@ -41,14 +41,16 @@ import {
 } from "~/components/fitness";
 import { dayjsLib } from "~/lib/generals";
 import {
+	useAppSearchParam,
 	useCoreDetails,
 	useGetWorkoutStarter,
-	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
 	getAuthorizationHeader,
+	getEnhancedCookieName,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -60,6 +62,8 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = await getEnhancedCookieName("workouts.list", request);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ userWorkoutList }] = await Promise.all([
 		serverGqlService.request(
@@ -68,7 +72,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { query, userWorkoutList };
+	return { query, userWorkoutList, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -79,7 +83,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const unitSystem = userPreferences.fitness.exercises.unitSystem;
 
@@ -101,6 +105,7 @@ export default function Page() {
 				<DebouncedSearchInput
 					placeholder="Search for workouts"
 					initialValue={loaderData.query.query}
+					enhancedQueryParams={loaderData.cookieName}
 				/>
 				{loaderData.userWorkoutList.items.length > 0 ? (
 					<>

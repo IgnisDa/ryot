@@ -24,6 +24,7 @@ import {
 	Link,
 	type MetaArgs_SingleFetch,
 	useFetcher,
+	useLoaderData,
 	useNavigation,
 	useSearchParams,
 } from "@remix-run/react";
@@ -50,13 +51,17 @@ import {
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	processSubmission,
+	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async (_args) => {
-	return {};
+export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = await getEnhancedCookieName("collections.list", request);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
+	return { cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -147,6 +152,7 @@ type UpdateCollectionInput = {
 export default function Page() {
 	const transition = useNavigation();
 	const collections = useUserCollections();
+	const loaderData = useLoaderData<typeof loader>();
 	const [params] = useSearchParams();
 	const query = params.get("query") || undefined;
 
@@ -192,7 +198,10 @@ export default function Page() {
 						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 					</Modal>
 				</Flex>
-				<DebouncedSearchInput initialValue={query} />
+				<DebouncedSearchInput
+					initialValue={query}
+					enhancedQueryParams={loaderData.cookieName}
+				/>
 				<Virtuoso
 					style={{ height: "80vh" }}
 					data={filteredCollections}

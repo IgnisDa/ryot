@@ -370,3 +370,8 @@ export const redirectUsingEnhancedCookieSearchParams = async (
 	const savedSearchParams = cookies[cookieName];
 	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
 };
+
+export const getEnhancedCookieName = async (path: string, request: Request) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	return `SearchParams__${userDetails.id}__${path}`;
+};

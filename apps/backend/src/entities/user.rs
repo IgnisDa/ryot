@@ -7,41 +7,13 @@ use argon2::{
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use database::UserLot;
-use sea_orm::{entity::prelude::*, ActiveValue, FromQueryResult};
+use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    models::media::UserSummary,
-    users::{UserNotification, UserPreferences},
-};
+use crate::users::UserPreferences;
 
 fn get_hasher() -> Argon2<'static> {
     Argon2::default()
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
-)]
-#[sea_orm(entity = "Entity")]
-pub struct UserWithOnlyPreferences {
-    pub preferences: UserPreferences,
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
-)]
-#[sea_orm(entity = "Entity")]
-pub struct UserWithOnlyNotifications {
-    pub id: String,
-    pub notifications: Vec<UserNotification>,
-}
-
-#[derive(
-    Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromQueryResult, DerivePartialModel,
-)]
-#[sea_orm(entity = "Entity")]
-pub struct UserWithOnlySummary {
-    pub summary: Option<UserSummary>,
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
@@ -58,11 +30,6 @@ pub struct Model {
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,
-    #[sea_orm(column_type = "Json")]
-    #[graphql(skip)]
-    pub notifications: Vec<UserNotification>,
-    #[graphql(skip)]
-    pub summary: Option<UserSummary>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -75,6 +42,8 @@ pub enum Relation {
     ImportReport,
     #[sea_orm(has_many = "super::integration::Entity")]
     Integration,
+    #[sea_orm(has_many = "super::notification_platform::Entity")]
+    NotificationPlatform,
     #[sea_orm(has_many = "super::queued_notification::Entity")]
     QueuedNotification,
     #[sea_orm(has_many = "super::review::Entity")]
@@ -83,6 +52,8 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::user_measurement::Entity")]
     UserMeasurement,
+    #[sea_orm(has_many = "super::user_summary::Entity")]
+    UserSummary,
     #[sea_orm(has_many = "super::user_to_collection::Entity")]
     UserToCollection,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
@@ -109,6 +80,12 @@ impl Related<super::integration::Entity> for Entity {
     }
 }
 
+impl Related<super::notification_platform::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::NotificationPlatform.def()
+    }
+}
+
 impl Related<super::queued_notification::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::QueuedNotification.def()
@@ -130,6 +107,12 @@ impl Related<super::seen::Entity> for Entity {
 impl Related<super::user_measurement::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserMeasurement.def()
+    }
+}
+
+impl Related<super::user_summary::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserSummary.def()
     }
 }
 

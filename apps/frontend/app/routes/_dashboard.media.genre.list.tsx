@@ -24,11 +24,15 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
 import {
+	useAppSearchParam,
 	useCoreDetails,
 	useGetMantineColor,
-	useSearchParam,
 } from "~/lib/hooks";
-import { serverGqlService } from "~/lib/utilities.server";
+import {
+	getEnhancedCookieName,
+	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	page: zx.IntAsString.default("1"),
@@ -38,13 +42,15 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = await getEnhancedCookieName("genre.list", request);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([
 		serverGqlService.request(GenresListDocument, {
 			input: { page: query.page, query: query.query },
 		}),
 	]);
-	return { query, listGenres: genresList };
+	return { query, genresList, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -55,7 +61,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const getMantineColor = useGetMantineColor();
-	const [_, { setP }] = useSearchParam();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
 		<Container>
@@ -66,17 +72,18 @@ export default function Page() {
 				<DebouncedSearchInput
 					placeholder="Search for genres"
 					initialValue={loaderData.query.query}
+					enhancedQueryParams={loaderData.cookieName}
 				/>
-				{loaderData.listGenres.details.total > 0 ? (
+				{loaderData.genresList.details.total > 0 ? (
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
-								{loaderData.listGenres.details.total}
+								{loaderData.genresList.details.total}
 							</Text>{" "}
 							items found
 						</Box>
 						<ApplicationGrid>
-							{loaderData.listGenres.items.map((genre) => (
+							{loaderData.genresList.items.map((genre) => (
 								<Paper key={genre.id}>
 									<Group>
 										<Box
@@ -104,14 +111,14 @@ export default function Page() {
 				) : (
 					<Text>No information to display</Text>
 				)}
-				{loaderData.listGenres ? (
+				{loaderData.genresList ? (
 					<Center mt="xl">
 						<Pagination
 							size="sm"
 							value={loaderData.query.page}
 							onChange={(v) => setP("page", v.toString())}
 							total={Math.ceil(
-								loaderData.listGenres.details.total / coreDetails.pageLimit,
+								loaderData.genresList.details.total / coreDetails.pageLimit,
 							)}
 						/>
 					</Center>

@@ -11,11 +11,11 @@ use reqwest::{
 use rs_utils::PROJECT_NAME;
 
 use crate::{
-    users::UserNotificationSetting,
+    users::NotificationPlatformSpecifics,
     utils::{AVATAR_URL, JSON},
 };
 
-impl UserNotificationSetting {
+impl NotificationPlatformSpecifics {
     // TODO: Allow formatting messages
     pub async fn send_message(&self, config: &Arc<AppConfig>, msg: &str) -> Result<()> {
         let project_name = PROJECT_NAME.to_case(Case::Title);

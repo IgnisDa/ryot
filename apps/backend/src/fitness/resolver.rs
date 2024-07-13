@@ -23,7 +23,6 @@ use crate::{
         collection, collection_to_entity,
         exercise::{self, ExerciseListItem},
         prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
-        user::UserWithOnlyPreferences,
         user_measurement, user_to_entity, workout,
     },
     file_storage::FileStorageService,
@@ -37,7 +36,7 @@ use crate::{
         ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
-    utils::{add_entity_to_collection, entity_in_collections, ilike_sql, partial_user_by_id},
+    utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},
 };
 
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
@@ -722,12 +721,12 @@ impl ExerciseService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let user = partial_user_by_id::<UserWithOnlyPreferences>(&self.db, user_id).await?;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         let identifier = input
             .calculate_and_commit(
                 user_id,
                 &self.db,
-                user.preferences.fitness.exercises.save_history,
+                preferences.fitness.exercises.save_history,
             )
             .await?;
         Ok(identifier)

@@ -22,7 +22,7 @@ use reqwest::{
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    PartialModelTrait, QueryFilter,
+    QueryFilter,
 };
 
 use crate::{
@@ -376,19 +376,6 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<use
         .one(db)
         .await
         .unwrap()
-        .ok_or_else(|| Error::new("No user found"))
-}
-
-// DEV: Use this wherever possible since this results in less memory consumption.
-pub async fn partial_user_by_id<T>(db: &DatabaseConnection, user_id: &String) -> Result<T>
-where
-    T: PartialModelTrait,
-{
-    User::find_by_id(user_id)
-        .into_partial_model::<T>()
-        .one(db)
-        .await
-        .unwrap_or_default()
         .ok_or_else(|| Error::new("No user found"))
 }
 

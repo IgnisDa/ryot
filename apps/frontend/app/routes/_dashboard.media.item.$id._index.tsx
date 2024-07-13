@@ -18,6 +18,7 @@ import {
 	Modal,
 	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -199,7 +200,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
-					message: "Adjusted seen item successfully",
+					message: "Edited history item successfully",
 				}),
 			});
 		},
@@ -221,6 +222,7 @@ const editSeenItem = z.object({
 	seenId: z.string(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
+	providerWatchedOn: z.string().optional(),
 });
 
 export default function Page() {
@@ -972,7 +974,7 @@ export default function Page() {
 								<Virtuoso
 									data={loaderData.userMetadataDetails.history}
 									itemContent={(index, history) => (
-										<SeenItem
+										<HistoryItem
 											history={history}
 											key={history.id}
 											index={index}
@@ -1185,12 +1187,14 @@ const MetadataCreator = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
-const AdjustSeenTimesModal = (props: {
+const EditHistoryRecordModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
 }) => {
-	const { startedOn, finishedOn, id } = props.seen;
+	const { startedOn, finishedOn, id, providerWatchedOn } = props.seen;
+	const userPreferences = useUserPreferences();
+	const loaderData = useLoaderData<typeof loader>();
 
 	return (
 		<Modal
@@ -1207,7 +1211,7 @@ const AdjustSeenTimesModal = (props: {
 				action={withQuery("", { intent: "editSeenItem" })}
 			>
 				<Stack>
-					<Title order={3}>Adjust seen times</Title>
+					<Title order={3}>Edit history record</Title>
 					<DateInput
 						label="Start time"
 						name="startedOn"
@@ -1217,6 +1221,12 @@ const AdjustSeenTimesModal = (props: {
 						label="End time"
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
+					/>
+					<Select
+						data={userPreferences.general.watchProviders}
+						label={`Where did you ${getVerb(Verb.Read, loaderData.metadataDetails.lot)} it?`}
+						name="providerWatchedOn"
+						defaultValue={providerWatchedOn}
 					/>
 					<Button variant="outline" type="submit" name="seenId" value={id}>
 						Submit
@@ -1261,7 +1271,7 @@ const MergeMetadataModal = (props: {
 	);
 };
 
-const SeenItem = (props: { history: History; index: number }) => {
+const HistoryItem = (props: { history: History; index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const submit = useConfirmSubmit();
 	const [opened, { open, close }] = useDisclosure(false);
@@ -1414,7 +1424,7 @@ const SeenItem = (props: { history: History; index: number }) => {
 					</SimpleGrid>
 				</Stack>
 			</Flex>
-			<AdjustSeenTimesModal
+			<EditHistoryRecordModal
 				opened={opened}
 				onClose={close}
 				seen={props.history}

@@ -39,15 +39,17 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
+	useAppSearchParam,
 	useConfirmSubmit,
-	useSearchParam,
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	getAuthorizationHeader,
+	getEnhancedCookieName,
 	processSubmission,
+	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -68,6 +70,8 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 const defaultTimeSpan = TimeSpan.Last30Days;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const cookieName = await getEnhancedCookieName("measurements.list", request);
+	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
 	const [startTime, endTime] = match(query.timeSpan || defaultTimeSpan)
@@ -89,7 +93,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			getAuthorizationHeader(request),
 		),
 	]);
-	return { query, userMeasurementsList };
+	return { query, userMeasurementsList, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -142,7 +146,7 @@ export default function Page() {
 		key: "SavedMeasurementsDisplaySelectedStats",
 		getInitialValueInEffect: true,
 	});
-	const [_p, { setP }] = useSearchParam();
+	const [_p, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_m, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 
 	return (
