@@ -63,7 +63,6 @@ import {
 	BaseMediaDisplayItem,
 	MetadataDisplayItem,
 	NewUserGuideAlert,
-	commitMedia,
 } from "~/components/media";
 import { Verb, getLot, getVerb } from "~/lib/generals";
 import {
@@ -428,11 +427,16 @@ const MediaSearchItem = (props: {
 	const basicCommit = async () => {
 		if (props.maybeItemId) return props.maybeItemId;
 		setIsLoading(true);
-		const response = await commitMedia(
-			props.item.item.identifier,
-			props.lot,
-			props.source,
-		);
+		const data = new FormData();
+		data.append("identifier", props.item.item.identifier);
+		data.append("lot", props.lot);
+		data.append("source", props.source);
+		const resp = await fetch($path("/actions", { intent: "commitMedia" }), {
+			method: "POST",
+			body: data,
+		});
+		const json = await resp.json();
+		const response = json.commitMedia.id;
 		setIsLoading(false);
 		return response;
 	};
