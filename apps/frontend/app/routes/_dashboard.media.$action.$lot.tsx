@@ -203,7 +203,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		cookieName,
 		mediaSearch,
 		url: withoutHost(url.href),
-		mediaInteractedWith: latestUserSummary.media.metadataOverall.interactedWith,
+		mediaInteractedWith:
+			latestUserSummary.data.media.metadataOverall.interactedWith,
 	};
 });
 
