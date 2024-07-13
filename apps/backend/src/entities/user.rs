@@ -52,8 +52,8 @@ pub enum Relation {
     Seen,
     #[sea_orm(has_many = "super::user_measurement::Entity")]
     UserMeasurement,
-    #[sea_orm(has_many = "super::user_statistic::Entity")]
-    UserStatistic,
+    #[sea_orm(has_many = "super::user_summary::Entity")]
+    UserSummary,
     #[sea_orm(has_many = "super::user_to_collection::Entity")]
     UserToCollection,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
@@ -110,9 +110,9 @@ impl Related<super::user_measurement::Entity> for Entity {
     }
 }
 
-impl Related<super::user_statistic::Entity> for Entity {
+impl Related<super::user_summary::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserStatistic.def()
+        Relation::UserSummary.def()
     }
 }
 

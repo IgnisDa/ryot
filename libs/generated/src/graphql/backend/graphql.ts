@@ -1486,7 +1486,7 @@ export type QueryRoot = {
   /** Get all the import jobs deployed by the user. */
   importReports: Array<ImportReport>;
   /** Get a summary of all the media items that have been consumed by this user. */
-  latestUserSummary: UserSummary;
+  latestUserSummary: UserSummaryData;
   /** Get details about a media present in the database. */
   metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
@@ -2203,7 +2203,7 @@ export enum UserReviewScale {
   OutOfHundred = 'OUT_OF_HUNDRED'
 }
 
-export type UserSummary = {
+export type UserSummaryData = {
   calculatedOn: Scalars['DateTime']['output'];
   fitness: UserFitnessSummary;
   media: UserMediaSummary;

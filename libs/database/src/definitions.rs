@@ -455,26 +455,3 @@ pub enum NotificationPlatformLot {
     Email,
     Telegram,
 }
-
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    EnumIter,
-    DeriveActiveEnum,
-    Deserialize,
-    Serialize,
-    Enum,
-    Display,
-)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "String(StringLen::None)",
-    rename_all = "snake_case"
-)]
-#[serde(rename_all = "snake_case")]
-pub enum UserStatisticLot {
-    Summary,
-}

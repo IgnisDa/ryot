@@ -322,7 +322,7 @@ pub struct UserSummaryUniqueItems {
 #[derive(
     SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
 )]
-pub struct UserSummary {
+pub struct UserSummaryData {
     pub fitness: UserFitnessSummary,
     pub media: UserMediaSummary,
     #[graphql(skip)]
@@ -330,12 +330,6 @@ pub struct UserSummary {
     pub calculated_on: DateTimeUtc,
     #[graphql(skip)]
     pub calculated_from_beginning: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]
-#[serde(tag = "t", content = "d")]
-pub enum UserStatisticData {
-    Summary(UserSummary),
 }
 
 pub mod media {

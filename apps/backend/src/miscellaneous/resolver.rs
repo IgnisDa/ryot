@@ -19,7 +19,7 @@ use database::{
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
     AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
     MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
-    UserStatisticLot, UserToMediaReason, Visibility,
+    UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
 use futures::TryStreamExt;
@@ -60,10 +60,10 @@ use crate::{
             CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
             Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
             MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
-            QueuedNotification, Review, Seen, User, UserMeasurement, UserStatistic,
-            UserToCollection, UserToEntity, Workout,
+            QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
+            UserToEntity, Workout,
         },
-        queued_notification, review, seen, user, user_measurement, user_statistic,
+        queued_notification, review, seen, user, user_measurement, user_summary,
         user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
@@ -91,7 +91,7 @@ use crate::{
         },
         BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
-        UserStatisticData, UserSummary,
+        UserSummaryData,
     },
     providers::{
         anilist::{
@@ -897,7 +897,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummary> {
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummaryData> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.latest_user_summary(&user_id).await
@@ -4515,14 +4515,12 @@ impl MiscellaneousService {
         }
     }
 
-    async fn latest_user_summary(&self, user_id: &String) -> Result<UserSummary> {
-        let ls = UserStatistic::find_by_id((user_id.to_owned(), UserStatisticLot::Summary))
+    async fn latest_user_summary(&self, user_id: &String) -> Result<UserSummaryData> {
+        let ls = UserSummary::find_by_id(user_id)
             .one(&self.db)
             .await?
             .unwrap();
-        Ok(match ls.data {
-            UserStatisticData::Summary(s) => s,
-        })
+        Ok(ls.data)
     }
 
     #[tracing::instrument(skip(self))]
@@ -4541,7 +4539,7 @@ impl MiscellaneousService {
                     )
                     .exec(&self.db)
                     .await?;
-                (UserSummary::default(), None)
+                (UserSummaryData::default(), None)
             }
             false => {
                 let here = self.latest_user_summary(user_id).await?;
@@ -4795,15 +4793,14 @@ impl MiscellaneousService {
 
         ls.calculated_on = Utc::now();
 
-        let user_model = user_statistic::ActiveModel {
+        let user_model = user_summary::ActiveModel {
             user_id: ActiveValue::Set(user_id.to_owned()),
-            lot: ActiveValue::Set(UserStatisticLot::Summary),
-            data: ActiveValue::Set(UserStatisticData::Summary(ls)),
+            data: ActiveValue::Set(ls),
         };
-        let usr = UserStatistic::insert(user_model)
+        let usr = UserSummary::insert(user_model)
             .on_conflict(
-                OnConflict::columns([user_statistic::Column::UserId, user_statistic::Column::Lot])
-                    .update_column(user_statistic::Column::Data)
+                OnConflict::column(user_summary::Column::UserId)
+                    .update_column(user_summary::Column::Data)
                     .to_owned(),
             )
             .exec_with_returning(&self.db)
