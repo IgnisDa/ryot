@@ -49,8 +49,7 @@
 				"title": "Monthly",
 				"price": {
 					"amount": "4",
-					"period": "/month",
-					"trial": 7
+					"period": "/month"
 				}
 			},
 			{
@@ -58,7 +57,6 @@
 				"price": {
 					"amount": "40",
 					"period": "/year",
-					"trial": 14,
 					"renewPrice": "25"
 				}
 			},

@@ -879,6 +879,7 @@ const ExerciseDisplay = (props: {
 				</Stack>
 			</Modal>
 			<Paper
+				style={{ scrollMargin: 16 }}
 				id={props.exerciseIdx.toString()}
 				px={{ base: 4, md: "xs", lg: "sm" }}
 			>
