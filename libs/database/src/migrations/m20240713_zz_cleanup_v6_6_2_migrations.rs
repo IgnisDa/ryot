@@ -79,10 +79,12 @@ FROM
 
             db.execute_unprepared(
                 r#"
-INSERT INTO user_summary (user_id, data)
+INSERT INTO user_summary (user_id, data, calculated_on, is_fresh)
 SELECT
     u.id AS user_id,
-    u.summary AS data
+    u.summary AS data,
+    (u.summary->>'calculated_on')::timestamp with time zone AS calculated_on,
+    (u.summary->>'calculated_from_beginning')::boolean AS is_fresh
 FROM
     "user" u;
         "#,

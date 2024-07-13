@@ -11,6 +11,8 @@ pub struct Migration;
 pub enum UserSummary {
     Table,
     UserId,
+    CalculatedOn,
+    IsFresh,
     Data,
 }
 
@@ -22,12 +24,18 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserSummary::Table)
                     .col(ColumnDef::new(UserSummary::UserId).text().not_null())
+                    .col(
+                        ColumnDef::new(UserSummary::CalculatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(UserSummary::IsFresh).boolean().not_null())
+                    .col(ColumnDef::new(UserSummary::Data).json_binary().not_null())
                     .primary_key(
                         Index::create()
                             .name(USER_STATISTIC_PRIMARY_KEY)
                             .col(UserSummary::UserId),
                     )
-                    .col(ColumnDef::new(UserSummary::Data).json_binary().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_summary_to_user_foreign_key")
