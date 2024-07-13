@@ -6,7 +6,7 @@ use sea_orm::entity::prelude::*;
 use crate::models::UserSummaryData;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject)]
-#[sea_orm(table_name = "user_statistic")]
+#[sea_orm(table_name = "user_summary")]
 #[graphql(name = "UserSummary")]
 pub struct Model {
     #[sea_orm(primary_key)]
