@@ -34,6 +34,7 @@ import {
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
 	type ReviewItem,
+	SeenState,
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -538,7 +539,9 @@ export const MetadataDisplayItem = (props: {
 		props.metadataId,
 	);
 	const averageRating = userMetadataDetails?.averageRating;
-	const history = userMetadataDetails?.history || [];
+	const history = (userMetadataDetails?.history || []).filter(
+		(h) => h.state === SeenState.Completed,
+	);
 	const surroundReason = (
 		idx: number,
 		data: readonly [UserToMediaReason, ReactNode],
