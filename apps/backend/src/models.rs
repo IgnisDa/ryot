@@ -327,9 +327,6 @@ pub struct UserSummaryData {
     pub media: UserMediaSummary,
     #[graphql(skip)]
     pub unique_items: UserSummaryUniqueItems,
-    pub calculated_on: DateTimeUtc,
-    #[graphql(skip)]
-    pub calculated_from_beginning: bool,
 }
 
 pub mod media {

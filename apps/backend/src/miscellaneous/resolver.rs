@@ -897,7 +897,7 @@ impl MiscellaneousQuery {
     }
 
     /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<UserSummaryData> {
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<user_summary::Model> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = service.user_id_from_ctx(gql_ctx).await?;
         service.latest_user_summary(&user_id).await
@@ -4515,12 +4515,12 @@ impl MiscellaneousService {
         }
     }
 
-    async fn latest_user_summary(&self, user_id: &String) -> Result<UserSummaryData> {
+    async fn latest_user_summary(&self, user_id: &String) -> Result<user_summary::Model> {
         let ls = UserSummary::find_by_id(user_id)
             .one(&self.db)
             .await?
             .unwrap();
-        Ok(ls.data)
+        Ok(ls)
     }
 
     #[tracing::instrument(skip(self))]
@@ -4544,11 +4544,9 @@ impl MiscellaneousService {
             false => {
                 let here = self.latest_user_summary(user_id).await?;
                 let time = here.calculated_on;
-                (here, Some(time))
+                (here.data, Some(time))
             }
         };
-
-        ls.calculated_from_beginning = calculate_from_beginning;
 
         tracing::debug!("Calculating numbers summary for user: {:?}", ls);
 
@@ -4791,20 +4789,23 @@ impl MiscellaneousService {
         ls.media.movies.watched = ls.unique_items.movies.len();
         ls.media.visual_novels.played = ls.unique_items.visual_novels.len();
 
-        ls.calculated_on = Utc::now();
-
-        let user_model = user_summary::ActiveModel {
-            user_id: ActiveValue::Set(user_id.to_owned()),
+        let usr = UserSummary::insert(user_summary::ActiveModel {
             data: ActiveValue::Set(ls),
-        };
-        let usr = UserSummary::insert(user_model)
-            .on_conflict(
-                OnConflict::column(user_summary::Column::UserId)
-                    .update_column(user_summary::Column::Data)
-                    .to_owned(),
-            )
-            .exec_with_returning(&self.db)
-            .await?;
+            calculated_on: ActiveValue::Set(Utc::now()),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            is_fresh: ActiveValue::Set(calculate_from_beginning),
+        })
+        .on_conflict(
+            OnConflict::column(user_summary::Column::UserId)
+                .update_columns([
+                    user_summary::Column::Data,
+                    user_summary::Column::IsFresh,
+                    user_summary::Column::CalculatedOn,
+                ])
+                .to_owned(),
+        )
+        .exec_with_returning(&self.db)
+        .await?;
         tracing::debug!("Calculated summary for user: {:?}", usr.user_id);
         Ok(())
     }
