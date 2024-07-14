@@ -1642,6 +1642,9 @@ impl MiscellaneousService {
                 "https://www.google.co.in/books/edition/{slug}/{identifier}"
             )),
             MediaSource::Audible => Some(format!("https://www.audible.com/pd/{slug}/{identifier}")),
+            MediaSource::Discogs => Some(format!(
+                "https://www.discogs.com/release/{identifier}-{slug}"
+            )),
             MediaSource::Openlibrary => {
                 Some(format!("https://openlibrary.org/works/{identifier}/{slug}"))
             }
@@ -6230,6 +6233,9 @@ impl MiscellaneousService {
             MediaSource::Openlibrary => Some(format!(
                 "https://openlibrary.org/authors/{identifier}/{slug}"
             )),
+            MediaSource::Discogs => Some(format!(
+                "https://www.discogs.com/artist/{identifier}-{slug}"
+            )),
             MediaSource::Tmdb => Some(format!(
                 "https://www.themoviedb.org/person/{identifier}-{slug}"
             )),
@@ -6310,6 +6316,9 @@ impl MiscellaneousService {
             )),
             MediaSource::Tmdb => Some(format!(
                 "https://www.themoviedb.org/collections/{identifier}-{slug}"
+            )),
+            MediaSource::Discogs => Some(format!(
+                "https://www.discogs.com/master/{identifier}-{slug}"
             )),
             MediaSource::Igdb => Some(format!("https://www.igdb.com/collection/{slug}")),
         };
