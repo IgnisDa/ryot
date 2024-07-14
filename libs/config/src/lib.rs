@@ -381,7 +381,7 @@ pub struct UsersConfig {
     pub allow_registration: bool,
     /// The number of days till login authentication token is valid.
     #[setting(default = 90)]
-    pub token_valid_for_days: i64,
+    pub token_valid_for_days: i32,
     /// Whether to disable local user authentication completely.
     #[setting(default = false)]
     pub disable_local_auth: bool,

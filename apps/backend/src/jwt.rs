@@ -15,9 +15,9 @@ pub struct Claims {
 }
 
 impl Claims {
-    pub fn new(sub: String, token_valid_for_days: i64) -> Self {
+    pub fn new(sub: String, token_valid_for_days: i32) -> Self {
         let iat = Utc::now();
-        let exp = iat + Duration::try_days(token_valid_for_days).unwrap();
+        let exp = iat + Duration::try_days(token_valid_for_days.into()).unwrap();
 
         Self {
             sub,
@@ -28,7 +28,7 @@ impl Claims {
     }
 }
 
-pub fn sign(user_id: String, jwt_secret: &str, token_valid_for_days: i64) -> Result<String> {
+pub fn sign(user_id: String, jwt_secret: &str, token_valid_for_days: i32) -> Result<String> {
     let tokens = encode(
         &Header::default(),
         &Claims::new(user_id, token_valid_for_days),
