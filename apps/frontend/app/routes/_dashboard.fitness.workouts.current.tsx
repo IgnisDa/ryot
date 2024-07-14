@@ -223,7 +223,7 @@ export default function Page() {
 	useEffect(() => {
 		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
 		if (timeRemaining && timeRemaining <= 3) {
-			navigator.vibrate(200);
+			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
 				playCompleteTimerSound();
 				timerDrawerClose();
