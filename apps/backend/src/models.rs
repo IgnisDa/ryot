@@ -1062,19 +1062,23 @@ pub mod media {
         pub image: Option<String>,
     }
 
+    #[skip_serializing_none]
     #[derive(
         Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
     )]
     pub struct SeenShowExtraInformation {
         pub season: i32,
         pub episode: i32,
+        pub title: Option<String>,
     }
 
+    #[skip_serializing_none]
     #[derive(
         Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
     )]
     pub struct SeenPodcastExtraInformation {
         pub episode: i32,
+        pub title: Option<String>,
     }
 
     #[derive(
