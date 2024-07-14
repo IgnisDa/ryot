@@ -651,12 +651,13 @@ struct CreateReviewCommentInput {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 struct GraphqlCalendarEvent {
-    calendar_event_id: String,
     date: NaiveDate,
     metadata_id: String,
     metadata_title: String,
-    metadata_image: Option<String>,
     metadata_lot: MediaLot,
+    calendar_event_id: String,
+    episode_name: Option<String>,
+    metadata_image: Option<String>,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
@@ -1986,15 +1987,15 @@ impl MiscellaneousService {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             id: String,
-            date: NaiveDate,
-            metadata_id: String,
-            metadata_show_extra_information: Option<SeenShowExtraInformation>,
-            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
-            m_title: String,
-            m_images: Option<Vec<MetadataImage>>,
             m_lot: MediaLot,
+            date: NaiveDate,
+            m_title: String,
+            metadata_id: String,
+            m_images: Option<Vec<MetadataImage>>,
             m_show_specifics: Option<ShowSpecifics>,
             m_podcast_specifics: Option<PodcastSpecifics>,
+            metadata_show_extra_information: Option<SeenShowExtraInformation>,
+            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -2058,11 +2059,13 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let mut image = None;
+            let mut title = None;
 
             if let Some(s) = evt.metadata_show_extra_information {
                 if let Some(sh) = evt.m_show_specifics {
                     if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
                         image = ep.poster_images.first().cloned();
+                        title = Some(ep.name.clone());
                     }
                 }
                 calc.show_extra_information = Some(s);
@@ -2070,6 +2073,7 @@ impl MiscellaneousService {
                 if let Some(po) = evt.m_podcast_specifics {
                     if let Some(ep) = po.get_episode(p.episode) {
                         image = ep.thumbnail.clone();
+                        title = Some(ep.title.clone());
                     }
                 };
                 calc.podcast_extra_information = Some(p);
@@ -2079,6 +2083,7 @@ impl MiscellaneousService {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
             }
             calc.metadata_image = image;
+            calc.episode_name = title;
             events.push(calc);
         }
         Ok(events)
