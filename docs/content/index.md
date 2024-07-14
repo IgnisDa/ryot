@@ -35,7 +35,7 @@ volumes:
 !!! info
 
     The pro version is not backwards compatible with the community version, so be sure to
-    backup your data before upgrading.
+    [backup](./guides/exporting.md#exporting-the-entire-database) your data before upgrading.
 
 To upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
 You can get a key by contacting us via the [website]({{ extra.main_website_url }}).
