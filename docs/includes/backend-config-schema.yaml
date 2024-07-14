@@ -126,18 +126,6 @@ movies_and_shows:
     # @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
     locale: "en"
 
-# Settings related to music.
-music:
-  # Settings related to Discogs.
-  discogs:
-    # The key to use for making requests to Discogs API.
-    # @envvar MUSIC_DISCOGS_KEY
-    key: ""
-
-    # The secret to use for making requests to Discogs API.
-    # @envvar MUSIC_DISCOGS_SECRET
-    secret: ""
-
 # Settings related to podcasts.
 podcasts:
   # Settings related to iTunes.

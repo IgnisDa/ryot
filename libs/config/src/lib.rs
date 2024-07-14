@@ -23,24 +23,6 @@ fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_MAL_CLIENT_ID.to_owned()))
 }
 
-#[cfg(debug_assertions)]
-pub const DEFAULT_DISCOGS_KEY: &str = dotenvy_macro::dotenv!("DEFAULT_DISCOGS_KEY");
-#[cfg(not(debug_assertions))]
-pub const DEFAULT_DISCOGS_KEY: &str = env!("DEFAULT_DISCOGS_KEY");
-
-#[cfg(debug_assertions)]
-pub const DEFAULT_DISCOGS_SECRET: &str = dotenvy_macro::dotenv!("DEFAULT_DISCOGS_SECRET");
-#[cfg(not(debug_assertions))]
-pub const DEFAULT_DISCOGS_SECRET: &str = env!("DEFAULT_DISCOGS_SECRET");
-
-fn default_discogs_key(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_DISCOGS_KEY.to_owned()))
-}
-
-fn default_discogs_secret(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_DISCOGS_SECRET.to_owned()))
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
 pub struct MalConfig {
@@ -177,27 +159,6 @@ pub struct MovieAndShowConfig {
 }
 
 impl IsFeatureEnabled for MovieAndShowConfig {}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MUSIC_DISCOGS_")]
-pub struct DiscogsConfig {
-    /// The key to use for making requests to Discogs API.
-    #[setting(default = default_discogs_key)]
-    pub key: String,
-    /// The secret to use for making requests to Discogs API.
-    #[setting(default = default_discogs_secret)]
-    pub secret: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case")]
-pub struct MusicConfig {
-    /// Settings related to Discogs.
-    #[setting(nested)]
-    pub discogs: DiscogsConfig,
-}
-
-impl IsFeatureEnabled for MusicConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
@@ -462,9 +423,6 @@ pub struct AppConfig {
     /// Settings related to movies and shows.
     #[setting(nested)]
     pub movies_and_shows: MovieAndShowConfig,
-    /// Settings related to music.
-    #[setting(nested)]
-    pub music: MusicConfig,
     /// Settings related to podcasts.
     #[setting(nested)]
     pub podcasts: PodcastConfig,
@@ -502,8 +460,6 @@ impl AppConfig {
         cl.file_storage.s3_access_key_id = gt();
         cl.file_storage.s3_secret_access_key = gt();
         cl.file_storage.s3_url = gt();
-        cl.music.discogs.key = gt();
-        cl.music.discogs.secret = gt();
         cl.movies_and_shows.tmdb.access_token = gt();
         cl.podcasts.listennotes.api_token = gt();
         cl.video_games.twitch.client_id = gt();

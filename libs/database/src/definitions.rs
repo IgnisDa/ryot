@@ -34,7 +34,6 @@ pub enum MediaLot {
     Book,
     Podcast,
     Manga,
-    Music,
     Movie,
     Show,
     VideoGame,
@@ -67,7 +66,6 @@ pub enum MediaSource {
     Anilist,
     #[default]
     Audible,
-    Discogs,
     Custom,
     GoogleBooks,
     Igdb,
