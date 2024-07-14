@@ -224,7 +224,10 @@ export default function Page() {
 						<Tabs.Tab value="fitness">Fitness</Tabs.Tab>
 					</Tabs.List>
 					<Tabs.Panel value="dashboard">
-						<Text mb="md">The different sections on the dashboard.</Text>
+						<Text mb="md">
+							The different sections on the dashboard. Drag and drop using the
+							handle to re-arrange them.
+						</Text>
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
 								if (!userDetails.isDemo) {

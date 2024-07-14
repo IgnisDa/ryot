@@ -130,6 +130,8 @@ jobs:
           tags: ${{ steps.required_args.outputs.image_names }}
           build-args: |
             APP_VERSION=${{ steps.required_args.outputs.APP_VERSION }}
+            DEFAULT_TMDB_ACCESS_TOKEN=${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}
+            DEFAULT_MAL_CLIENT_ID=${{ secrets.DEFAULT_MAL_CLIENT_ID }}
 
   upload-kodi-plugin:
     runs-on: ubuntu-20.04

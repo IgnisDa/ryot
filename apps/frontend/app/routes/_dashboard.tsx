@@ -11,12 +11,15 @@ import {
 	Button,
 	Center,
 	Checkbox,
+	Code,
 	Collapse,
+	Container,
 	Drawer,
 	Flex,
 	Group,
 	Image,
 	Input,
+	List,
 	Loader,
 	Modal,
 	NumberInput,
@@ -54,6 +57,7 @@ import {
 	useLoaderData,
 	useLocation,
 	useNavigate,
+	useRouteError,
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
@@ -248,6 +252,75 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		currentColorScheme,
 	};
 });
+
+export function ErrorBoundary() {
+	const error = useRouteError() as Error;
+
+	return (
+		<Container size="sm" pt={200}>
+			<Stack p={{ base: "sm", md: "xl" }}>
+				<Text c="red" fz={{ base: 30, md: 40 }}>
+					We encountered an error
+				</Text>
+				<Text>This could be due to several reasons:</Text>
+				<List>
+					<List.Item>Your login session has expired/revoked.</List.Item>
+					<List.Item>You don't have access to this resource.</List.Item>
+					<List.Item>
+						A backwards incompatible server change has been made.
+					</List.Item>
+					<List.Item>There was a backend server error.</List.Item>
+				</List>
+				<Text>
+					In most cases, logging out and then logging back in should fix the
+					issue.
+				</Text>
+				<Group wrap="nowrap">
+					<Button
+						fullWidth
+						color="green"
+						variant="outline"
+						onClick={() => window.location.reload()}
+					>
+						Reload
+					</Button>
+					<Form
+						replace
+						method="POST"
+						style={{ width: "100%" }}
+						action={$path("/actions", { intent: "logout" })}
+					>
+						<Button type="submit" variant="outline" color="blue" fullWidth>
+							Logout
+						</Button>
+					</Form>
+				</Group>
+				<Text>
+					If the error still persists please contact the developer on{" "}
+					<Anchor
+						target="_blank"
+						rel="noreferrer noopener"
+						href="https://discord.gg/D9XTg2a7R8"
+					>
+						Discord
+					</Anchor>{" "}
+					or create an issue on{" "}
+					<Anchor
+						target="_blank"
+						rel="noreferrer noopener"
+						href="https://github.com/ignisda/ryot/issues"
+					>
+						Github
+					</Anchor>
+					. Here is the complete error that occurred:
+				</Text>
+				<Code mah={100} c="pink">
+					{error.message}
+				</Code>
+			</Stack>
+		</Container>
+	);
+}
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();

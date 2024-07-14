@@ -17,12 +17,13 @@ fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
 }
 
 fragment CalendarEventPart on GraphqlCalendarEvent {
-  calendarEventId
-  metadataId
-  metadataTitle
-  metadataLot
-  metadataImage
   date
+  metadataId
+  metadataLot
+  episodeName
+  metadataTitle
+  metadataImage
+  calendarEventId
   showExtraInformation {
     ...SeenShowExtraInformationPart
   }

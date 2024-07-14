@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Alert,
@@ -15,7 +14,6 @@ import {
 	type MetaFunction,
 	unstable_defineLoader,
 } from "@remix-run/node";
-import { Form } from "@remix-run/react";
 import {
 	Links,
 	Meta,
@@ -33,7 +31,7 @@ import { Toaster } from "~/components/toaster";
 import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";
 import {
 	colorSchemeCookie,
-	combineHeaders,
+	extendResponseHeaders,
 	getToast,
 } from "~/lib/utilities.server";
 
@@ -93,16 +91,15 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = unstable_defineLoader(async ({ request, response }) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
 	const defaultColorScheme = colorScheme || "light";
-	return Response.json(
-		{ toast, defaultColorScheme },
-		{ headers: combineHeaders(toastHeaders) },
-	);
+	if (toastHeaders)
+		response.headers = extendResponseHeaders(response.headers, toastHeaders);
+	return { toast, defaultColorScheme };
 });
 
 const DefaultHeadTags = () => {
@@ -158,41 +155,6 @@ export default function App() {
 					</MantineProvider>
 					<ReactQueryDevtools buttonPosition="top-right" />
 				</QueryClientProvider>
-			</body>
-		</html>
-	);
-}
-
-export function ErrorBoundary() {
-	return (
-		<html lang="en">
-			<head>
-				<DefaultHeadTags />
-				<Meta />
-				<Links />
-			</head>
-			<body>
-				<div>
-					We encountered an error. If you recently upgraded the server, you may
-					have to logout and login again. If the error still persists, please
-					create a new issue on{" "}
-					<a
-						href="https://github.com/ignisda/ryot/issues"
-						target="_blank"
-						rel="noreferrer noopener"
-					>
-						GitHub
-					</a>
-					.
-				</div>
-				<Form
-					replace
-					method="POST"
-					action={$path("/actions", { intent: "logout" })}
-				>
-					<button type="submit">Logout</button>
-				</Form>
-				<Scripts />
 			</body>
 		</html>
 	);

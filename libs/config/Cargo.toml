@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
+dotenvy_macro = { workspace = true }
 rs-utils = { path = "../../libs/rs-utils" }
 schematic = { workspace = true }
 serde = { workspace = true }

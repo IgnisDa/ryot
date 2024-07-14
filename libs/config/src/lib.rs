@@ -5,12 +5,22 @@ use rs_utils::{IsFeatureEnabled, PROJECT_NAME};
 use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
 use serde::{Deserialize, Serialize};
 
+#[cfg(debug_assertions)]
+pub const DEFAULT_TMDB_ACCESS_TOKEN: &str = dotenvy_macro::dotenv!("DEFAULT_TMDB_ACCESS_TOKEN");
+#[cfg(not(debug_assertions))]
+pub const DEFAULT_TMDB_ACCESS_TOKEN: &str = env!("DEFAULT_TMDB_ACCESS_TOKEN");
+
 fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGVlOTZjMjc0OGVhY2U0NzU2MGJkMWU4YzE5NTljMCIsInN1YiI6IjY0NDRiYmE4MmM2YjdiMDRiZTdlZDJmNSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZZZNJMXStvAOPJlT0hOBVPSTppFAK3mcUpmbJsExIq4".to_owned()))
+    Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_owned()))
 }
 
+#[cfg(debug_assertions)]
+pub const DEFAULT_MAL_CLIENT_ID: &str = dotenvy_macro::dotenv!("DEFAULT_MAL_CLIENT_ID");
+#[cfg(not(debug_assertions))]
+pub const DEFAULT_MAL_CLIENT_ID: &str = env!("DEFAULT_MAL_CLIENT_ID");
+
 fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some("3879694bbe52ac3204be9ff68af8f027".to_owned()))
+    Ok(Some(DEFAULT_MAL_CLIENT_ID.to_owned()))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
