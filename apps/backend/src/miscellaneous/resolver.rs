@@ -2407,11 +2407,7 @@ impl MiscellaneousService {
                     let episode = input.show_episode_number.ok_or_else(|| {
                         Error::new("Episode number is required for show progress update")
                     })?;
-                    Some(SeenShowExtraInformation {
-                        season,
-                        episode,
-                        title: None,
-                    })
+                    Some(SeenShowExtraInformation { season, episode })
                 } else {
                     None
                 };
@@ -2419,10 +2415,7 @@ impl MiscellaneousService {
                     let episode = input.podcast_episode_number.ok_or_else(|| {
                         Error::new("Episode number is required for podcast progress update")
                     })?;
-                    Some(SeenPodcastExtraInformation {
-                        episode,
-                        title: None,
-                    })
+                    Some(SeenPodcastExtraInformation { episode })
                 } else {
                     None
                 };
@@ -4137,20 +4130,13 @@ impl MiscellaneousService {
         let show_ei = if let (Some(season), Some(episode)) =
             (input.show_season_number, input.show_episode_number)
         {
-            Some(SeenShowExtraInformation {
-                season,
-                episode,
-                title: None,
-            })
+            Some(SeenShowExtraInformation { season, episode })
         } else {
             None
         };
         let podcast_ei = input
             .podcast_episode_number
-            .map(|episode| SeenPodcastExtraInformation {
-                episode,
-                title: None,
-            });
+            .map(|episode| SeenPodcastExtraInformation { episode });
         let anime_ei = input
             .anime_episode_number
             .map(|episode| SeenAnimeExtraInformation {
@@ -6706,7 +6692,6 @@ impl MiscellaneousService {
                         metadata_podcast_extra_information: ActiveValue::Set(Some(
                             SeenPodcastExtraInformation {
                                 episode: episode.number,
-                                title: Some(episode.title.clone()),
                             },
                         )),
                         ..Default::default()
@@ -6727,7 +6712,6 @@ impl MiscellaneousService {
                                     SeenShowExtraInformation {
                                         season: season.season_number,
                                         episode: episode.episode_number,
-                                        title: Some(episode.name.clone()),
                                     },
                                 )),
                                 ..Default::default()
