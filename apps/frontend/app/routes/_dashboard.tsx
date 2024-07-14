@@ -268,9 +268,8 @@ export function ErrorBoundary() {
 				<Text>This could be due to several reasons:</Text>
 				<List>
 					<List.Item>Your login session has expired/revoked.</List.Item>
-					<List.Item>You don't have access to this resource.</List.Item>
 					<List.Item>
-						A backwards incompatible server change has been made.
+						You don't have permission to perform this action.
 					</List.Item>
 					<List.Item>There was a backend server error.</List.Item>
 				</List>

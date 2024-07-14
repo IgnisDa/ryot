@@ -544,7 +544,7 @@ struct CoreDetails {
     website_url: String,
     author_name: String,
     repository_link: String,
-    token_valid_for_days: i64,
+    token_valid_for_days: i32,
     local_auth_disabled: bool,
 }
 
