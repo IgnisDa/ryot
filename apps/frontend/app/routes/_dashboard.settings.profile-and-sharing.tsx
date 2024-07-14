@@ -12,6 +12,8 @@ import { unstable_defineAction } from "@remix-run/node";
 import { type MetaArgs_SingleFetch, useFetcher } from "@remix-run/react";
 import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useRef } from "react";
+import { namedAction } from "remix-utils/named-action";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
@@ -26,25 +28,30 @@ import {
 import { processSubmission } from "~/lib/utilities.server";
 
 export const meta = (_args: MetaArgs_SingleFetch) => {
-	return [{ title: "Profile Settings | Ryot" }];
+	return [{ title: "Profile and Sharing | Ryot" }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
-	const token = getAuthorizationCookie(request);
 	const formData = await request.formData();
-	const submission = processSubmission(formData, updateProfileFormSchema);
-	await serverGqlService.request(
-		UpdateUserDocument,
-		{ input: submission },
-		getAuthorizationHeader(request),
-	);
-	queryClient.removeQueries({
-		queryKey: queryFactory.users.details(token).queryKey,
-	});
-	return Response.json({ status: "success", submission } as const, {
-		headers: await createToastHeaders({
-			message: "Profile updated successfully",
-		}),
+	return namedAction(request, {
+		updateProfile: async () => {
+			const token = getAuthorizationCookie(request);
+			const submission = processSubmission(formData, updateProfileFormSchema);
+			await serverGqlService.request(
+				UpdateUserDocument,
+				{ input: submission },
+				getAuthorizationHeader(request),
+			);
+			queryClient.removeQueries({
+				queryKey: queryFactory.users.details(token).queryKey,
+			});
+			return Response.json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Profile updated successfully",
+				}),
+			});
+		},
 	});
 });
 
@@ -70,7 +77,11 @@ export default function Page() {
 					<Tabs.Panel value="profile">
 						<Stack>
 							<Title>Profile</Title>
-							<fetcher.Form ref={formRef} method="POST">
+							<fetcher.Form
+								ref={formRef}
+								method="POST"
+								action={withQuery(".", { intent: "updateProfile" })}
+							>
 								<Stack>
 									<TextInput
 										readOnly
