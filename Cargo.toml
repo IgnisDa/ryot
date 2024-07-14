@@ -11,6 +11,7 @@ async-graphql = { version = "=7.0.6", features = [
     "tracing",
 ] }
 chrono = "=0.4.38"
+dotenvy_macro = "=0.15.7"
 nanoid = "=0.4.0"
 schematic = { version = "=0.16.4", features = [
     "config",

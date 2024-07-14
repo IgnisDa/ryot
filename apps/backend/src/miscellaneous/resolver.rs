@@ -653,12 +653,13 @@ struct CreateReviewCommentInput {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 struct GraphqlCalendarEvent {
-    calendar_event_id: String,
     date: NaiveDate,
     metadata_id: String,
     metadata_title: String,
-    metadata_image: Option<String>,
     metadata_lot: MediaLot,
+    calendar_event_id: String,
+    episode_name: Option<String>,
+    metadata_image: Option<String>,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
 }
@@ -755,6 +756,8 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 #[derive(Default)]
 pub struct MiscellaneousQuery;
 
+impl AuthProvider for MiscellaneousQuery {}
+
 #[Object]
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
@@ -770,7 +773,7 @@ impl MiscellaneousQuery {
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_collections_list(&user_id, name).await
     }
 
@@ -841,7 +844,7 @@ impl MiscellaneousQuery {
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_list(user_id, input).await
     }
 
@@ -864,7 +867,7 @@ impl MiscellaneousQuery {
         input: MetadataSearchInput,
     ) -> Result<SearchResults<MetadataSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_search(&user_id, input).await
     }
 
@@ -885,7 +888,7 @@ impl MiscellaneousQuery {
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_groups_list(user_id, input).await
     }
 
@@ -901,7 +904,7 @@ impl MiscellaneousQuery {
     /// Get a summary of all the media items that have been consumed by this user.
     async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<user_summary::Model> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.latest_user_summary(&user_id).await
     }
 
@@ -912,7 +915,7 @@ impl MiscellaneousQuery {
         metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .user_metadata_group_details(user_id, metadata_group_id)
             .await
@@ -921,7 +924,7 @@ impl MiscellaneousQuery {
     /// Get a user's preferences.
     async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_preferences(&user_id).await
     }
 
@@ -938,14 +941,14 @@ impl MiscellaneousQuery {
     /// Get details about the currently logged in user.
     async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let token = service.user_auth_token_from_ctx(gql_ctx)?;
+        let token = self.user_auth_token_from_ctx(gql_ctx)?;
         service.user_details(&token).await
     }
 
     /// Get all the integrations for the currently logged in user.
     async fn user_integrations(&self, gql_ctx: &Context<'_>) -> Result<Vec<integration::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_integrations(&user_id).await
     }
 
@@ -955,7 +958,7 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
     ) -> Result<Vec<notification_platform::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_notification_platforms(&user_id).await
     }
 
@@ -966,7 +969,7 @@ impl MiscellaneousQuery {
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_metadata_details(user_id, metadata_id).await
     }
 
@@ -977,7 +980,7 @@ impl MiscellaneousQuery {
         person_id: String,
     ) -> Result<UserPersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_person_details(user_id, person_id).await
     }
 
@@ -988,7 +991,7 @@ impl MiscellaneousQuery {
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_calendar_events(user_id, input).await
     }
 
@@ -999,14 +1002,14 @@ impl MiscellaneousQuery {
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_upcoming_calendar_events(user_id, input).await
     }
 
     /// Get media recommendations for the currently logged in user.
     async fn user_recommendations(&self, gql_ctx: &Context<'_>) -> Result<Vec<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_recommendations(&user_id).await
     }
 
@@ -1017,7 +1020,7 @@ impl MiscellaneousQuery {
         input: PeopleListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.people_list(user_id, input).await
     }
 
@@ -1028,7 +1031,7 @@ impl MiscellaneousQuery {
         input: PeopleSearchInput,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.people_search(&user_id, input).await
     }
 
@@ -1039,7 +1042,7 @@ impl MiscellaneousQuery {
         input: MetadataGroupSearchInput,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_group_search(&user_id, input).await
     }
 
@@ -1059,6 +1062,12 @@ impl MiscellaneousQuery {
 #[derive(Default)]
 pub struct MiscellaneousMutation;
 
+impl AuthProvider for MiscellaneousMutation {
+    fn is_mutation(&self) -> bool {
+        true
+    }
+}
+
 #[Object]
 impl MiscellaneousMutation {
     /// Create or update a review.
@@ -1068,14 +1077,14 @@ impl MiscellaneousMutation {
         input: PostReviewInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.post_review(&user_id, input).await
     }
 
     /// Delete a review if it belongs to the currently logged in user.
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_review(user_id, review_id).await
     }
 
@@ -1086,7 +1095,7 @@ impl MiscellaneousMutation {
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_or_update_collection(&user_id, input).await
     }
 
@@ -1097,7 +1106,7 @@ impl MiscellaneousMutation {
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.add_entity_to_collection(&user_id, input).await
     }
 
@@ -1108,7 +1117,7 @@ impl MiscellaneousMutation {
         input: ChangeCollectionToEntityInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.remove_entity_from_collection(&user_id, input).await
     }
 
@@ -1119,7 +1128,7 @@ impl MiscellaneousMutation {
         collection_name: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_collection(user_id, &collection_name).await
     }
 
@@ -1130,7 +1139,7 @@ impl MiscellaneousMutation {
         seen_id: String,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_seen_item(&user_id, seen_id).await
     }
 
@@ -1141,7 +1150,7 @@ impl MiscellaneousMutation {
         input: CreateCustomMetadataInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .create_custom_metadata(user_id, input)
             .await
@@ -1156,7 +1165,7 @@ impl MiscellaneousMutation {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.deploy_bulk_progress_update(user_id, input).await
     }
 
@@ -1189,7 +1198,7 @@ impl MiscellaneousMutation {
         merge_into: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .merge_metadata(user_id, merge_from, merge_into)
             .await
@@ -1252,7 +1261,7 @@ impl MiscellaneousMutation {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user(user_id, input).await
     }
 
@@ -1263,7 +1272,7 @@ impl MiscellaneousMutation {
         input: UpdateUserPreferenceInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user_preference(user_id, input).await
     }
 
@@ -1274,7 +1283,7 @@ impl MiscellaneousMutation {
         input: CreateIntegrationInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_user_integration(user_id, input).await
     }
 
@@ -1285,7 +1294,7 @@ impl MiscellaneousMutation {
         integration_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .delete_user_integration(user_id, integration_id)
             .await
@@ -1298,7 +1307,7 @@ impl MiscellaneousMutation {
         input: CreateUserNotificationPlatformInput,
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .create_user_notification_platform(user_id, input)
             .await
@@ -1307,7 +1316,7 @@ impl MiscellaneousMutation {
     /// Test all notification platforms for the currently logged in user.
     async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.test_user_notification_platforms(&user_id).await
     }
 
@@ -1318,7 +1327,7 @@ impl MiscellaneousMutation {
         notification_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .delete_user_notification_platform(user_id, notification_id)
             .await
@@ -1327,7 +1336,7 @@ impl MiscellaneousMutation {
     /// Delete a user. The account making the user must an `Admin`.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.admin_account_guard(&user_id).await?;
         service.delete_user(to_delete_user_id).await
     }
@@ -1356,7 +1365,7 @@ impl MiscellaneousMutation {
     /// Generate an auth token without any expiry.
     async fn generate_auth_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
     }
 
@@ -1367,7 +1376,7 @@ impl MiscellaneousMutation {
         input: CreateReviewCommentInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_review_comment(user_id, input).await
     }
 
@@ -1378,7 +1387,7 @@ impl MiscellaneousMutation {
         input: EditSeenItemInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.edit_seen_item(user_id, input).await
     }
 
@@ -1389,7 +1398,7 @@ impl MiscellaneousMutation {
         job_name: BackgroundJob,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.deploy_background_job(&user_id, job_name).await
     }
 
@@ -1412,8 +1421,6 @@ pub struct MiscellaneousService {
     oidc_client: Arc<Option<CoreClient>>,
     seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
 }
-
-impl AuthProvider for MiscellaneousService {}
 
 impl MiscellaneousService {
     pub async fn new(
@@ -1783,7 +1790,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        let media_details = self.metadata_details(&metadata_id).await?;
+        let media_details = self.generic_metadata(&metadata_id).await?;
         let collections = entity_in_collections(
             &self.db,
             &user_id,
@@ -1796,70 +1803,76 @@ impl MiscellaneousService {
         let reviews = self
             .item_reviews(&user_id, Some(metadata_id.clone()), None, None, None)
             .await?;
-        let history = self.seen_history(&user_id, &metadata_id).await?;
+        let (is_finished, history) = self
+            .is_metadata_finished_by_user(&user_id, &media_details)
+            .await?;
         let in_progress = history
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
             .cloned();
-        let next_entry = history.first().and_then(|h| {
-            if let Some(s) = &media_details.show_specifics {
-                let all_episodes = s
-                    .seasons
-                    .iter()
-                    .map(|s| (s.season_number, &s.episodes))
-                    .collect_vec()
-                    .into_iter()
-                    .flat_map(|(s, e)| {
-                        e.iter().map(move |e| UserMediaNextEntry {
-                            season: Some(s),
-                            episode: Some(e.episode_number),
+        let next_entry = if is_finished {
+            None
+        } else {
+            history.first().and_then(|h| {
+                if let Some(s) = &media_details.model.show_specifics {
+                    let all_episodes = s
+                        .seasons
+                        .iter()
+                        .map(|s| (s.season_number, &s.episodes))
+                        .collect_vec()
+                        .into_iter()
+                        .flat_map(|(s, e)| {
+                            e.iter().map(move |e| UserMediaNextEntry {
+                                season: Some(s),
+                                episode: Some(e.episode_number),
+                                chapter: None,
+                            })
+                        })
+                        .collect_vec();
+                    let next = all_episodes.iter().position(|e| {
+                        e.season == Some(h.show_extra_information.as_ref().unwrap().season)
+                            && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
+                    });
+                    Some(all_episodes.get(next? + 1)?.clone())
+                } else if let Some(p) = &media_details.model.podcast_specifics {
+                    let all_episodes = p
+                        .episodes
+                        .iter()
+                        .map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: Some(e.number),
                             chapter: None,
                         })
-                    })
-                    .collect_vec();
-                let next = all_episodes.iter().position(|e| {
-                    e.season == Some(h.show_extra_information.as_ref().unwrap().season)
-                        && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
-                });
-                Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(p) = &media_details.podcast_specifics {
-                let all_episodes = p
-                    .episodes
-                    .iter()
-                    .map(|e| UserMediaNextEntry {
-                        season: None,
-                        episode: Some(e.number),
-                        chapter: None,
-                    })
-                    .collect_vec();
-                let next = all_episodes.iter().position(|e| {
-                    e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
-                });
-                Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(anime_spec) = &media_details.anime_specifics {
-                anime_spec.episodes.and_then(|_| {
-                    h.anime_extra_information.as_ref().and_then(|hist| {
-                        hist.episode.map(|e| UserMediaNextEntry {
-                            season: None,
-                            episode: Some(e + 1),
-                            chapter: None,
+                        .collect_vec();
+                    let next = all_episodes.iter().position(|e| {
+                        e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
+                    });
+                    Some(all_episodes.get(next? + 1)?.clone())
+                } else if let Some(anime_spec) = &media_details.model.anime_specifics {
+                    anime_spec.episodes.and_then(|_| {
+                        h.anime_extra_information.as_ref().and_then(|hist| {
+                            hist.episode.map(|e| UserMediaNextEntry {
+                                season: None,
+                                episode: Some(e + 1),
+                                chapter: None,
+                            })
                         })
                     })
-                })
-            } else if let Some(manga_spec) = &media_details.manga_specifics {
-                manga_spec.chapters.and_then(|_| {
-                    h.manga_extra_information.as_ref().and_then(|hist| {
-                        hist.chapter.map(|e| UserMediaNextEntry {
-                            season: None,
-                            episode: None,
-                            chapter: Some(e + 1),
+                } else if let Some(manga_spec) = &media_details.model.manga_specifics {
+                    manga_spec.chapters.and_then(|_| {
+                        h.manga_extra_information.as_ref().and_then(|hist| {
+                            hist.chapter.map(|e| UserMediaNextEntry {
+                                season: None,
+                                episode: None,
+                                chapter: Some(e + 1),
+                            })
                         })
                     })
-                })
-            } else {
-                None
-            }
-        });
+                } else {
+                    None
+                }
+            })
+        };
         let metadata_alias = Alias::new("m");
         let seen_alias = Alias::new("s");
         let seen_select = Query::select()
@@ -1906,7 +1919,7 @@ impl MiscellaneousService {
             }
         };
         let seen_by_user_count = history.len();
-        let show_progress = if let Some(show_specifics) = media_details.show_specifics {
+        let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
             let mut seasons = vec![];
             for season in show_specifics.seasons {
                 let mut episodes = vec![];
@@ -1940,26 +1953,27 @@ impl MiscellaneousService {
         } else {
             None
         };
-        let podcast_progress = if let Some(podcast_specifics) = media_details.podcast_specifics {
-            let mut episodes = vec![];
-            for episode in podcast_specifics.episodes {
-                let seen = history
-                    .iter()
-                    .filter(|h| {
-                        h.podcast_extra_information
-                            .as_ref()
-                            .map_or(false, |s| s.episode == episode.number)
+        let podcast_progress =
+            if let Some(podcast_specifics) = media_details.model.podcast_specifics {
+                let mut episodes = vec![];
+                for episode in podcast_specifics.episodes {
+                    let seen = history
+                        .iter()
+                        .filter(|h| {
+                            h.podcast_extra_information
+                                .as_ref()
+                                .map_or(false, |s| s.episode == episode.number)
+                        })
+                        .collect_vec();
+                    episodes.push(UserMetadataDetailsEpisodeProgress {
+                        episode_number: episode.number,
+                        times_seen: seen.len(),
                     })
-                    .collect_vec();
-                episodes.push(UserMetadataDetailsEpisodeProgress {
-                    episode_number: episode.number,
-                    times_seen: seen.len(),
-                })
-            }
-            Some(episodes)
-        } else {
-            None
-        };
+                }
+                Some(episodes)
+            } else {
+                None
+            };
         Ok(UserMetadataDetails {
             media_reason: user_to_meta.and_then(|n| n.media_reason),
             collections,
@@ -2026,15 +2040,15 @@ impl MiscellaneousService {
         #[derive(Debug, FromQueryResult, Clone)]
         struct CalEvent {
             id: String,
-            date: NaiveDate,
-            metadata_id: String,
-            metadata_show_extra_information: Option<SeenShowExtraInformation>,
-            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
-            m_title: String,
-            m_images: Option<Vec<MetadataImage>>,
             m_lot: MediaLot,
+            date: NaiveDate,
+            m_title: String,
+            metadata_id: String,
+            m_images: Option<Vec<MetadataImage>>,
             m_show_specifics: Option<ShowSpecifics>,
             m_podcast_specifics: Option<PodcastSpecifics>,
+            metadata_show_extra_information: Option<SeenShowExtraInformation>,
+            metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -2098,11 +2112,13 @@ impl MiscellaneousService {
                 ..Default::default()
             };
             let mut image = None;
+            let mut title = None;
 
             if let Some(s) = evt.metadata_show_extra_information {
                 if let Some(sh) = evt.m_show_specifics {
                     if let Some((_, ep)) = sh.get_episode(s.season, s.episode) {
                         image = ep.poster_images.first().cloned();
+                        title = Some(ep.name.clone());
                     }
                 }
                 calc.show_extra_information = Some(s);
@@ -2110,6 +2126,7 @@ impl MiscellaneousService {
                 if let Some(po) = evt.m_podcast_specifics {
                     if let Some(ep) = po.get_episode(p.episode) {
                         image = ep.thumbnail.clone();
+                        title = Some(ep.title.clone());
                     }
                 };
                 calc.podcast_extra_information = Some(p);
@@ -2119,6 +2136,7 @@ impl MiscellaneousService {
                 image = evt.m_images.first_as_url(&self.file_storage_service).await
             }
             calc.metadata_image = image;
+            calc.episode_name = title;
             events.push(calc);
         }
         Ok(events)
@@ -2665,14 +2683,13 @@ impl MiscellaneousService {
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
                 if let Some(metadata_id) = ute.metadata_id.clone() {
-                    let seen_history = self.seen_history(&ute.user_id, &metadata_id).await?;
+                    let metadata = self.generic_metadata(&metadata_id).await?;
+                    let (is_finished, seen_history) = self
+                        .is_metadata_finished_by_user(&ute.user_id, &metadata)
+                        .await?;
                     if !seen_history.is_empty() {
                         new_reasons.insert(UserToMediaReason::Seen);
                     }
-                    let metadata = self.generic_metadata(&metadata_id).await?;
-                    let is_finished = self
-                        .is_metadata_finished_by_user(&ute.user_id, metadata)
-                        .await?;
                     if is_finished {
                         new_reasons.insert(UserToMediaReason::Finished);
                     }
@@ -5917,8 +5934,8 @@ impl MiscellaneousService {
                     || metadata.model.lot == MediaLot::Anime
                     || metadata.model.lot == MediaLot::Manga
                 {
-                    let is_complete = self
-                        .is_metadata_finished_by_user(&seen.user_id, metadata)
+                    let (is_complete, _) = self
+                        .is_metadata_finished_by_user(&seen.user_id, &metadata)
                         .await?;
                     if is_complete {
                         remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
@@ -5948,8 +5965,9 @@ impl MiscellaneousService {
     async fn is_metadata_finished_by_user(
         &self,
         user_id: &String,
-        metadata: MetadataBaseData,
-    ) -> Result<bool> {
+        metadata: &MetadataBaseData,
+    ) -> Result<(bool, Vec<seen::Model>)> {
+        let metadata = metadata.clone();
         let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
         let is_finished = if metadata.model.lot == MediaLot::Podcast
             || metadata.model.lot == MediaLot::Show
@@ -5981,11 +5999,12 @@ impl MiscellaneousService {
                 vec![]
             };
             if all_episodes.is_empty() {
-                return Ok(true);
+                return Ok((true, seen_history));
             }
             let mut bag =
                 HashMap::<String, i32>::from_iter(all_episodes.iter().cloned().map(|e| (e, 0)));
             seen_history
+                .clone()
                 .into_iter()
                 .map(|h| {
                     if let Some(s) = h.show_extra_information {
@@ -6007,11 +6026,9 @@ impl MiscellaneousService {
             let is_complete = values.iter().min() == values.iter().max();
             is_complete
         } else {
-            seen_history
-                .into_iter()
-                .any(|h| h.state == SeenState::Completed)
+            seen_history.iter().any(|h| h.state == SeenState::Completed)
         };
-        Ok(is_finished)
+        Ok((is_finished, seen_history))
     }
 
     async fn queue_notifications_to_user_platforms(

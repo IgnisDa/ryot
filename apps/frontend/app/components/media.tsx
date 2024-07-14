@@ -421,6 +421,7 @@ const blackBgStyles = {
 export const BaseMediaDisplayItem = (props: {
 	isLoading: boolean;
 	name?: string;
+	altName?: string;
 	imageUrl?: string | null;
 	imageOverlay?: {
 		topRight?: ReactNode;
@@ -511,7 +512,7 @@ export const BaseMediaDisplayItem = (props: {
 					</Flex>
 					<Flex justify="space-between" align="center" mb="xs">
 						<Text w="100%" truncate fw="bold">
-							{props.name}
+							{props.altName ?? props.name}
 						</Text>
 						{props.nameRight}
 					</Flex>
@@ -523,6 +524,8 @@ export const BaseMediaDisplayItem = (props: {
 
 export const MetadataDisplayItem = (props: {
 	metadataId: string;
+	name?: string;
+	altName?: string;
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 	rightLabelHistory?: boolean;
@@ -546,8 +549,8 @@ export const MetadataDisplayItem = (props: {
 		idx: number,
 		data: readonly [UserToMediaReason, ReactNode],
 	) => (
-		<Tooltip label={changeCase(data[0])}>
-			<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
+		<Tooltip label={changeCase(data[0])} key={idx}>
+			<ThemeIcon variant="transparent" size="sm" color="cyan">
 				{data[1]}
 			</ThemeIcon>
 		</Tooltip>
@@ -562,7 +565,8 @@ export const MetadataDisplayItem = (props: {
 
 	return (
 		<BaseMediaDisplayItem
-			name={metadataDetails?.title}
+			name={props.name ?? metadataDetails?.title}
+			altName={props.altName}
 			isLoading={isMetadataDetailsLoading}
 			onImageClickBehavior={$path("/media/item/:id", { id: props.metadataId })}
 			imageUrl={metadataDetails?.image}

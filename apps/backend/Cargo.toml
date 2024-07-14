@@ -31,7 +31,7 @@ derive_more = { version = "=1.0.0-beta.6", features = [
     "add_assign",
 ], default-features = false }
 dotenvy = "=0.15.7"
-dotenvy_macro = "=0.15.7"
+dotenvy_macro = { workspace = true }
 educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
 enum_meta = "=0.7.0"
 flate2 = "=1.0.30"
