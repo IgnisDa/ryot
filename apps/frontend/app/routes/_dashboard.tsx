@@ -254,8 +254,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 export function ErrorBoundary() {
 	return (
 		<Container size="sm" pt={200}>
-			<Stack p="xl">
-				<Text c="red" fz={{ base: 20, md: 40 }}>
+			<Stack p={{ base: "sm", md: "xl" }}>
+				<Text c="red" fz={{ base: 30, md: 40 }}>
 					We encountered an error
 				</Text>
 				<Text>This could be due to several reasons:</Text>
@@ -270,15 +270,26 @@ export function ErrorBoundary() {
 					In most cases, logging out and then logging back in should fix the
 					issue.
 				</Text>
-				<Form
-					replace
-					method="POST"
-					action={$path("/actions", { intent: "logout" })}
-				>
-					<Button type="submit" fullWidth variant="outline">
-						Logout
+				<Group wrap="nowrap">
+					<Button
+						fullWidth
+						color="green"
+						variant="outline"
+						onClick={() => window.location.reload()}
+					>
+						Reload
 					</Button>
-				</Form>
+					<Form
+						replace
+						method="POST"
+						style={{ width: "100%" }}
+						action={$path("/actions", { intent: "logout" })}
+					>
+						<Button type="submit" variant="outline" color="blue" fullWidth>
+							Logout
+						</Button>
+					</Form>
+				</Group>
 				<Text>
 					If the error still persists please contact the developer on{" "}
 					<Anchor
