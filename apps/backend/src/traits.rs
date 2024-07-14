@@ -8,6 +8,7 @@ use sea_orm::prelude::DateTimeUtc;
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     file_storage::FileStorageService,
+    miscellaneous::resolver::MiscellaneousService,
     models::{
         media::{
             MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
@@ -111,15 +112,21 @@ pub trait AuthProvider {
     }
 
     fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
-        let ctx = ctx.data_unchecked::<AuthContext>();
-        ctx.auth_token
+        let auth_ctx = ctx.data_unchecked::<AuthContext>();
+        auth_ctx
+            .auth_token
             .clone()
             .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
-        let ctx = ctx.data_unchecked::<AuthContext>();
-        if let Some(id) = ctx.user_id.to_owned() {
+        let auth_ctx = ctx.data_unchecked::<AuthContext>();
+        if self.is_mutation() {
+            let db = &ctx.data_unchecked::<Arc<MiscellaneousService>>().db;
+            dbg!(&db);
+            // return Err(Error::new("You do not have permission to do this"));
+        }
+        if let Some(id) = auth_ctx.user_id.to_owned() {
             Ok(id)
         } else {
             Err(Error::new("User was not logged in"))
