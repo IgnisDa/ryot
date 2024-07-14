@@ -10,6 +10,7 @@ import {
 	Stack,
 	Text,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { unstable_defineLoader } from "@remix-run/node";
 import {
@@ -21,7 +22,7 @@ import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, snakeCase, startCase, sum } from "@ryot/ts-utils";
+import { isNumber, snakeCase, startCase, sum, truncate } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -140,14 +141,16 @@ const CalendarEvent = (props: {
 					align="end"
 				>
 					<Text mt="sm" size="sm">
-						<Anchor
-							component={Link}
-							to={$path("/media/item/:id", {
-								id: evt.metadataId,
-							})}
-						>
-							{evt.metadataTitle}
-						</Anchor>{" "}
+						<Tooltip label={evt.metadataTitle} disabled={!evt.episodeName}>
+							<Anchor
+								component={Link}
+								to={$path("/media/item/:id", {
+									id: evt.metadataId,
+								})}
+							>
+								{truncate(evt.episodeName ?? evt.metadataTitle, { length: 40 })}
+							</Anchor>
+						</Tooltip>{" "}
 						{isNumber(evt.showExtraInformation?.season) ? (
 							<Text span c="dimmed" size="sm">
 								(S{evt.showExtraInformation.season}-E
