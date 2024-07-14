@@ -11,6 +11,7 @@ import {
 	Button,
 	Center,
 	Checkbox,
+	Code,
 	Collapse,
 	Container,
 	Drawer,
@@ -56,6 +57,7 @@ import {
 	useLoaderData,
 	useLocation,
 	useNavigate,
+	useRouteError,
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
@@ -252,6 +254,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 });
 
 export function ErrorBoundary() {
+	const error = useRouteError() as Error;
+
 	return (
 		<Container size="sm" pt={200}>
 			<Stack p={{ base: "sm", md: "xl" }}>
@@ -307,8 +311,11 @@ export function ErrorBoundary() {
 					>
 						Github
 					</Anchor>
-					.
+					. Here is the complete error that occurred:
 				</Text>
+				<Code mah={100} c="pink">
+					{error.message}
+				</Code>
 			</Stack>
 		</Container>
 	);
