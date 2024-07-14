@@ -1749,70 +1749,76 @@ impl MiscellaneousService {
         let reviews = self
             .item_reviews(&user_id, Some(metadata_id.clone()), None, None, None)
             .await?;
-        let history = self.seen_history(&user_id, &metadata_id).await?;
+        let (is_finished, history) = self
+            .is_metadata_finished_by_user(&user_id, &media_details)
+            .await?;
         let in_progress = history
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
             .cloned();
-        let next_entry = history.first().and_then(|h| {
-            if let Some(s) = &media_details.model.show_specifics {
-                let all_episodes = s
-                    .seasons
-                    .iter()
-                    .map(|s| (s.season_number, &s.episodes))
-                    .collect_vec()
-                    .into_iter()
-                    .flat_map(|(s, e)| {
-                        e.iter().map(move |e| UserMediaNextEntry {
-                            season: Some(s),
-                            episode: Some(e.episode_number),
+        let next_entry = if is_finished {
+            None
+        } else {
+            history.first().and_then(|h| {
+                if let Some(s) = &media_details.model.show_specifics {
+                    let all_episodes = s
+                        .seasons
+                        .iter()
+                        .map(|s| (s.season_number, &s.episodes))
+                        .collect_vec()
+                        .into_iter()
+                        .flat_map(|(s, e)| {
+                            e.iter().map(move |e| UserMediaNextEntry {
+                                season: Some(s),
+                                episode: Some(e.episode_number),
+                                chapter: None,
+                            })
+                        })
+                        .collect_vec();
+                    let next = all_episodes.iter().position(|e| {
+                        e.season == Some(h.show_extra_information.as_ref().unwrap().season)
+                            && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
+                    });
+                    Some(all_episodes.get(next? + 1)?.clone())
+                } else if let Some(p) = &media_details.model.podcast_specifics {
+                    let all_episodes = p
+                        .episodes
+                        .iter()
+                        .map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: Some(e.number),
                             chapter: None,
                         })
-                    })
-                    .collect_vec();
-                let next = all_episodes.iter().position(|e| {
-                    e.season == Some(h.show_extra_information.as_ref().unwrap().season)
-                        && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
-                });
-                Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(p) = &media_details.model.podcast_specifics {
-                let all_episodes = p
-                    .episodes
-                    .iter()
-                    .map(|e| UserMediaNextEntry {
-                        season: None,
-                        episode: Some(e.number),
-                        chapter: None,
-                    })
-                    .collect_vec();
-                let next = all_episodes.iter().position(|e| {
-                    e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
-                });
-                Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(anime_spec) = &media_details.model.anime_specifics {
-                anime_spec.episodes.and_then(|_| {
-                    h.anime_extra_information.as_ref().and_then(|hist| {
-                        hist.episode.map(|e| UserMediaNextEntry {
-                            season: None,
-                            episode: Some(e + 1),
-                            chapter: None,
+                        .collect_vec();
+                    let next = all_episodes.iter().position(|e| {
+                        e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
+                    });
+                    Some(all_episodes.get(next? + 1)?.clone())
+                } else if let Some(anime_spec) = &media_details.model.anime_specifics {
+                    anime_spec.episodes.and_then(|_| {
+                        h.anime_extra_information.as_ref().and_then(|hist| {
+                            hist.episode.map(|e| UserMediaNextEntry {
+                                season: None,
+                                episode: Some(e + 1),
+                                chapter: None,
+                            })
                         })
                     })
-                })
-            } else if let Some(manga_spec) = &media_details.model.manga_specifics {
-                manga_spec.chapters.and_then(|_| {
-                    h.manga_extra_information.as_ref().and_then(|hist| {
-                        hist.chapter.map(|e| UserMediaNextEntry {
-                            season: None,
-                            episode: None,
-                            chapter: Some(e + 1),
+                } else if let Some(manga_spec) = &media_details.model.manga_specifics {
+                    manga_spec.chapters.and_then(|_| {
+                        h.manga_extra_information.as_ref().and_then(|hist| {
+                            hist.chapter.map(|e| UserMediaNextEntry {
+                                season: None,
+                                episode: None,
+                                chapter: Some(e + 1),
+                            })
                         })
                     })
-                })
-            } else {
-                None
-            }
-        });
+                } else {
+                    None
+                }
+            })
+        };
         let metadata_alias = Alias::new("m");
         let seen_alias = Alias::new("s");
         let seen_select = Query::select()
@@ -2621,7 +2627,7 @@ impl MiscellaneousService {
                 if let Some(metadata_id) = ute.metadata_id.clone() {
                     let metadata = self.generic_metadata(&metadata_id).await?;
                     let (is_finished, seen_history) = self
-                        .is_metadata_finished_by_user(&ute.user_id, metadata)
+                        .is_metadata_finished_by_user(&ute.user_id, &metadata)
                         .await?;
                     if !seen_history.is_empty() {
                         new_reasons.insert(UserToMediaReason::Seen);
@@ -5855,7 +5861,7 @@ impl MiscellaneousService {
                     || metadata.model.lot == MediaLot::Manga
                 {
                     let (is_complete, _) = self
-                        .is_metadata_finished_by_user(&seen.user_id, metadata)
+                        .is_metadata_finished_by_user(&seen.user_id, &metadata)
                         .await?;
                     if is_complete {
                         remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
@@ -5885,8 +5891,9 @@ impl MiscellaneousService {
     async fn is_metadata_finished_by_user(
         &self,
         user_id: &String,
-        metadata: MetadataBaseData,
+        metadata: &MetadataBaseData,
     ) -> Result<(bool, Vec<seen::Model>)> {
+        let metadata = metadata.clone();
         let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
         let is_finished = if metadata.model.lot == MediaLot::Podcast
             || metadata.model.lot == MediaLot::Show
