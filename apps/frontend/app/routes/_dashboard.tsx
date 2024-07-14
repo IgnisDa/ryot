@@ -12,11 +12,13 @@ import {
 	Center,
 	Checkbox,
 	Collapse,
+	Container,
 	Drawer,
 	Flex,
 	Group,
 	Image,
 	Input,
+	List,
 	Loader,
 	Modal,
 	NumberInput,
@@ -248,6 +250,58 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		currentColorScheme,
 	};
 });
+
+export function ErrorBoundary() {
+	return (
+		<Container size="sm" pt={200}>
+			<Stack p="xl">
+				<Text c="red" fz={{ base: 20, md: 40 }}>
+					We encountered an error
+				</Text>
+				<Text>This could be due to several reasons:</Text>
+				<List>
+					<List.Item>Your login session has expired/revoked.</List.Item>
+					<List.Item>
+						A backwards incompatible server change has been made.
+					</List.Item>
+					<List.Item>There was a backend server error.</List.Item>
+				</List>
+				<Text>
+					In most cases, logging out and then logging back in should fix the
+					issue.
+				</Text>
+				<Form
+					replace
+					method="POST"
+					action={$path("/actions", { intent: "logout" })}
+				>
+					<Button type="submit" fullWidth variant="outline">
+						Logout
+					</Button>
+				</Form>
+				<Text>
+					If the error still persists please contact the developer on{" "}
+					<Anchor
+						target="_blank"
+						rel="noreferrer noopener"
+						href="https://discord.gg/D9XTg2a7R8"
+					>
+						Discord
+					</Anchor>{" "}
+					or create an issue on{" "}
+					<Anchor
+						target="_blank"
+						rel="noreferrer noopener"
+						href="https://github.com/ignisda/ryot/issues"
+					>
+						Github
+					</Anchor>
+					.
+				</Text>
+			</Stack>
+		</Container>
+	);
+}
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
