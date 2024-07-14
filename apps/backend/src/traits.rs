@@ -106,6 +106,10 @@ pub trait DatabaseAssetsAsUrls {
 
 #[async_trait]
 pub trait AuthProvider {
+    fn is_mutation(&self) -> bool {
+        false
+    }
+
     fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let ctx = ctx.data_unchecked::<AuthContext>();
         ctx.auth_token

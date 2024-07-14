@@ -1053,7 +1053,11 @@ impl MiscellaneousQuery {
 #[derive(Default)]
 pub struct MiscellaneousMutation;
 
-impl AuthProvider for MiscellaneousMutation {}
+impl AuthProvider for MiscellaneousMutation {
+    fn is_mutation(&self) -> bool {
+        true
+    }
+}
 
 #[Object]
 impl MiscellaneousMutation {

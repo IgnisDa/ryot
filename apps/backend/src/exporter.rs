@@ -44,7 +44,11 @@ impl ExporterQuery {
 #[derive(Default)]
 pub struct ExporterMutation;
 
-impl AuthProvider for ExporterMutation {}
+impl AuthProvider for ExporterMutation {
+    fn is_mutation(&self) -> bool {
+        true
+    }
+}
 
 #[Object]
 impl ExporterMutation {

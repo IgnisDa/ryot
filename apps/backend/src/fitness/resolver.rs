@@ -207,7 +207,11 @@ impl ExerciseQuery {
 #[derive(Default)]
 pub struct ExerciseMutation;
 
-impl AuthProvider for ExerciseMutation {}
+impl AuthProvider for ExerciseMutation {
+    fn is_mutation(&self) -> bool {
+        true
+    }
+}
 
 #[Object]
 impl ExerciseMutation {
@@ -300,8 +304,8 @@ impl ExerciseService {
         perform_application_job: &MemoryStorage<ApplicationJob>,
     ) -> Self {
         Self {
-            db: db.clone(),
             config,
+            db: db.clone(),
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
         }

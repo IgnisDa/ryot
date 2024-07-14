@@ -196,7 +196,11 @@ impl ImporterQuery {
 #[derive(Default)]
 pub struct ImporterMutation;
 
-impl AuthProvider for ImporterMutation {}
+impl AuthProvider for ImporterMutation {
+    fn is_mutation(&self) -> bool {
+        true
+    }
+}
 
 #[Object]
 impl ImporterMutation {
