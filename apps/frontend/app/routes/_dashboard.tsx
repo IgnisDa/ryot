@@ -260,7 +260,7 @@ export function ErrorBoundary() {
 	const error = useRouteError() as Error;
 
 	return (
-		<Container size="sm" pt={200}>
+		<Container size="sm" py={{ base: 100, md: 200 }}>
 			<Stack p={{ base: "sm", md: "xl" }}>
 				<Text c="red" fz={{ base: 30, md: 40 }}>
 					We encountered an error
