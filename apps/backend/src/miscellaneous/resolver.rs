@@ -1736,7 +1736,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        let media_details = self.metadata_details(&metadata_id).await?;
+        let media_details = self.generic_metadata(&metadata_id).await?;
         let collections = entity_in_collections(
             &self.db,
             &user_id,
@@ -1755,7 +1755,7 @@ impl MiscellaneousService {
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
             .cloned();
         let next_entry = history.first().and_then(|h| {
-            if let Some(s) = &media_details.show_specifics {
+            if let Some(s) = &media_details.model.show_specifics {
                 let all_episodes = s
                     .seasons
                     .iter()
@@ -1775,7 +1775,7 @@ impl MiscellaneousService {
                         && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
                 });
                 Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(p) = &media_details.podcast_specifics {
+            } else if let Some(p) = &media_details.model.podcast_specifics {
                 let all_episodes = p
                     .episodes
                     .iter()
@@ -1789,7 +1789,7 @@ impl MiscellaneousService {
                     e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
                 });
                 Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(anime_spec) = &media_details.anime_specifics {
+            } else if let Some(anime_spec) = &media_details.model.anime_specifics {
                 anime_spec.episodes.and_then(|_| {
                     h.anime_extra_information.as_ref().and_then(|hist| {
                         hist.episode.map(|e| UserMediaNextEntry {
@@ -1799,7 +1799,7 @@ impl MiscellaneousService {
                         })
                     })
                 })
-            } else if let Some(manga_spec) = &media_details.manga_specifics {
+            } else if let Some(manga_spec) = &media_details.model.manga_specifics {
                 manga_spec.chapters.and_then(|_| {
                     h.manga_extra_information.as_ref().and_then(|hist| {
                         hist.chapter.map(|e| UserMediaNextEntry {
@@ -1859,7 +1859,7 @@ impl MiscellaneousService {
             }
         };
         let seen_by_user_count = history.len();
-        let show_progress = if let Some(show_specifics) = media_details.show_specifics {
+        let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
             let mut seasons = vec![];
             for season in show_specifics.seasons {
                 let mut episodes = vec![];
@@ -1893,26 +1893,27 @@ impl MiscellaneousService {
         } else {
             None
         };
-        let podcast_progress = if let Some(podcast_specifics) = media_details.podcast_specifics {
-            let mut episodes = vec![];
-            for episode in podcast_specifics.episodes {
-                let seen = history
-                    .iter()
-                    .filter(|h| {
-                        h.podcast_extra_information
-                            .as_ref()
-                            .map_or(false, |s| s.episode == episode.number)
+        let podcast_progress =
+            if let Some(podcast_specifics) = media_details.model.podcast_specifics {
+                let mut episodes = vec![];
+                for episode in podcast_specifics.episodes {
+                    let seen = history
+                        .iter()
+                        .filter(|h| {
+                            h.podcast_extra_information
+                                .as_ref()
+                                .map_or(false, |s| s.episode == episode.number)
+                        })
+                        .collect_vec();
+                    episodes.push(UserMetadataDetailsEpisodeProgress {
+                        episode_number: episode.number,
+                        times_seen: seen.len(),
                     })
-                    .collect_vec();
-                episodes.push(UserMetadataDetailsEpisodeProgress {
-                    episode_number: episode.number,
-                    times_seen: seen.len(),
-                })
-            }
-            Some(episodes)
-        } else {
-            None
-        };
+                }
+                Some(episodes)
+            } else {
+                None
+            };
         Ok(UserMetadataDetails {
             media_reason: user_to_meta.and_then(|n| n.media_reason),
             collections,
@@ -2618,14 +2619,13 @@ impl MiscellaneousService {
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
                 if let Some(metadata_id) = ute.metadata_id.clone() {
-                    let seen_history = self.seen_history(&ute.user_id, &metadata_id).await?;
+                    let metadata = self.generic_metadata(&metadata_id).await?;
+                    let (is_finished, seen_history) = self
+                        .is_metadata_finished_by_user(&ute.user_id, metadata)
+                        .await?;
                     if !seen_history.is_empty() {
                         new_reasons.insert(UserToMediaReason::Seen);
                     }
-                    let metadata = self.generic_metadata(&metadata_id).await?;
-                    let is_finished = self
-                        .is_metadata_finished_by_user(&ute.user_id, metadata)
-                        .await?;
                     if is_finished {
                         new_reasons.insert(UserToMediaReason::Finished);
                     }
@@ -5854,7 +5854,7 @@ impl MiscellaneousService {
                     || metadata.model.lot == MediaLot::Anime
                     || metadata.model.lot == MediaLot::Manga
                 {
-                    let is_complete = self
+                    let (is_complete, _) = self
                         .is_metadata_finished_by_user(&seen.user_id, metadata)
                         .await?;
                     if is_complete {
@@ -5886,7 +5886,7 @@ impl MiscellaneousService {
         &self,
         user_id: &String,
         metadata: MetadataBaseData,
-    ) -> Result<bool> {
+    ) -> Result<(bool, Vec<seen::Model>)> {
         let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
         let is_finished = if metadata.model.lot == MediaLot::Podcast
             || metadata.model.lot == MediaLot::Show
@@ -5918,11 +5918,12 @@ impl MiscellaneousService {
                 vec![]
             };
             if all_episodes.is_empty() {
-                return Ok(true);
+                return Ok((true, seen_history));
             }
             let mut bag =
                 HashMap::<String, i32>::from_iter(all_episodes.iter().cloned().map(|e| (e, 0)));
             seen_history
+                .clone()
                 .into_iter()
                 .map(|h| {
                     if let Some(s) = h.show_extra_information {
@@ -5944,11 +5945,9 @@ impl MiscellaneousService {
             let is_complete = values.iter().min() == values.iter().max();
             is_complete
         } else {
-            seen_history
-                .into_iter()
-                .any(|h| h.state == SeenState::Completed)
+            seen_history.iter().any(|h| h.state == SeenState::Completed)
         };
-        Ok(is_finished)
+        Ok((is_finished, seen_history))
     }
 
     async fn queue_notifications_to_user_platforms(
