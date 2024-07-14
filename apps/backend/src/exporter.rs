@@ -29,18 +29,22 @@ struct ExportJob {
 #[derive(Default)]
 pub struct ExporterQuery;
 
+impl AuthProvider for ExporterQuery {}
+
 #[Object]
 impl ExporterQuery {
     /// Get all the export jobs for the current user.
     async fn user_exports(&self, gql_ctx: &Context<'_>) -> Result<Vec<ExportJob>> {
         let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_exports(user_id).await
     }
 }
 
 #[derive(Default)]
 pub struct ExporterMutation;
+
+impl AuthProvider for ExporterMutation {}
 
 #[Object]
 impl ExporterMutation {
@@ -51,7 +55,7 @@ impl ExporterMutation {
         to_export: Vec<ExportItem>,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.deploy_export_job(user_id, to_export).await
     }
 }
@@ -62,8 +66,6 @@ pub struct ExporterService {
     media_service: Arc<MiscellaneousService>,
     exercise_service: Arc<ExerciseService>,
 }
-
-impl AuthProvider for ExporterService {}
 
 impl ExporterService {
     pub fn new(

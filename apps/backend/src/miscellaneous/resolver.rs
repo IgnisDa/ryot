@@ -754,6 +754,8 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 #[derive(Default)]
 pub struct MiscellaneousQuery;
 
+impl AuthProvider for MiscellaneousQuery {}
+
 #[Object]
 impl MiscellaneousQuery {
     /// Get some primary information about the service.
@@ -769,7 +771,7 @@ impl MiscellaneousQuery {
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_collections_list(&user_id, name).await
     }
 
@@ -840,7 +842,7 @@ impl MiscellaneousQuery {
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_list(user_id, input).await
     }
 
@@ -863,7 +865,7 @@ impl MiscellaneousQuery {
         input: MetadataSearchInput,
     ) -> Result<SearchResults<MetadataSearchItemResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_search(&user_id, input).await
     }
 
@@ -884,7 +886,7 @@ impl MiscellaneousQuery {
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_groups_list(user_id, input).await
     }
 
@@ -900,7 +902,7 @@ impl MiscellaneousQuery {
     /// Get a summary of all the media items that have been consumed by this user.
     async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<user_summary::Model> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.latest_user_summary(&user_id).await
     }
 
@@ -911,7 +913,7 @@ impl MiscellaneousQuery {
         metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .user_metadata_group_details(user_id, metadata_group_id)
             .await
@@ -920,7 +922,7 @@ impl MiscellaneousQuery {
     /// Get a user's preferences.
     async fn user_preferences(&self, gql_ctx: &Context<'_>) -> Result<UserPreferences> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_preferences(&user_id).await
     }
 
@@ -937,14 +939,14 @@ impl MiscellaneousQuery {
     /// Get details about the currently logged in user.
     async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let token = service.user_auth_token_from_ctx(gql_ctx)?;
+        let token = self.user_auth_token_from_ctx(gql_ctx)?;
         service.user_details(&token).await
     }
 
     /// Get all the integrations for the currently logged in user.
     async fn user_integrations(&self, gql_ctx: &Context<'_>) -> Result<Vec<integration::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_integrations(&user_id).await
     }
 
@@ -954,7 +956,7 @@ impl MiscellaneousQuery {
         gql_ctx: &Context<'_>,
     ) -> Result<Vec<notification_platform::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_notification_platforms(&user_id).await
     }
 
@@ -965,7 +967,7 @@ impl MiscellaneousQuery {
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_metadata_details(user_id, metadata_id).await
     }
 
@@ -976,7 +978,7 @@ impl MiscellaneousQuery {
         person_id: String,
     ) -> Result<UserPersonDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_person_details(user_id, person_id).await
     }
 
@@ -987,7 +989,7 @@ impl MiscellaneousQuery {
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_calendar_events(user_id, input).await
     }
 
@@ -998,7 +1000,7 @@ impl MiscellaneousQuery {
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_upcoming_calendar_events(user_id, input).await
     }
 
@@ -1009,7 +1011,7 @@ impl MiscellaneousQuery {
         input: PeopleListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.people_list(user_id, input).await
     }
 
@@ -1020,7 +1022,7 @@ impl MiscellaneousQuery {
         input: PeopleSearchInput,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.people_search(&user_id, input).await
     }
 
@@ -1031,7 +1033,7 @@ impl MiscellaneousQuery {
         input: MetadataGroupSearchInput,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_group_search(&user_id, input).await
     }
 
@@ -1051,6 +1053,8 @@ impl MiscellaneousQuery {
 #[derive(Default)]
 pub struct MiscellaneousMutation;
 
+impl AuthProvider for MiscellaneousMutation {}
+
 #[Object]
 impl MiscellaneousMutation {
     /// Create or update a review.
@@ -1060,14 +1064,14 @@ impl MiscellaneousMutation {
         input: PostReviewInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.post_review(&user_id, input).await
     }
 
     /// Delete a review if it belongs to the currently logged in user.
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_review(user_id, review_id).await
     }
 
@@ -1078,7 +1082,7 @@ impl MiscellaneousMutation {
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_or_update_collection(&user_id, input).await
     }
 
@@ -1089,7 +1093,7 @@ impl MiscellaneousMutation {
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.add_entity_to_collection(&user_id, input).await
     }
 
@@ -1100,7 +1104,7 @@ impl MiscellaneousMutation {
         input: ChangeCollectionToEntityInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.remove_entity_from_collection(&user_id, input).await
     }
 
@@ -1111,7 +1115,7 @@ impl MiscellaneousMutation {
         collection_name: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_collection(user_id, &collection_name).await
     }
 
@@ -1122,7 +1126,7 @@ impl MiscellaneousMutation {
         seen_id: String,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_seen_item(&user_id, seen_id).await
     }
 
@@ -1133,7 +1137,7 @@ impl MiscellaneousMutation {
         input: CreateCustomMetadataInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .create_custom_metadata(user_id, input)
             .await
@@ -1148,7 +1152,7 @@ impl MiscellaneousMutation {
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.deploy_bulk_progress_update(user_id, input).await
     }
 
@@ -1181,7 +1185,7 @@ impl MiscellaneousMutation {
         merge_into: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .merge_metadata(user_id, merge_from, merge_into)
             .await
@@ -1244,7 +1248,7 @@ impl MiscellaneousMutation {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user(user_id, input).await
     }
 
@@ -1255,7 +1259,7 @@ impl MiscellaneousMutation {
         input: UpdateUserPreferenceInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_user_preference(user_id, input).await
     }
 
@@ -1266,7 +1270,7 @@ impl MiscellaneousMutation {
         input: CreateIntegrationInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_user_integration(user_id, input).await
     }
 
@@ -1277,7 +1281,7 @@ impl MiscellaneousMutation {
         integration_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .delete_user_integration(user_id, integration_id)
             .await
@@ -1290,7 +1294,7 @@ impl MiscellaneousMutation {
         input: CreateUserNotificationPlatformInput,
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .create_user_notification_platform(user_id, input)
             .await
@@ -1299,7 +1303,7 @@ impl MiscellaneousMutation {
     /// Test all notification platforms for the currently logged in user.
     async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.test_user_notification_platforms(&user_id).await
     }
 
@@ -1310,7 +1314,7 @@ impl MiscellaneousMutation {
         notification_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
             .delete_user_notification_platform(user_id, notification_id)
             .await
@@ -1319,7 +1323,7 @@ impl MiscellaneousMutation {
     /// Delete a user. The account making the user must an `Admin`.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.admin_account_guard(&user_id).await?;
         service.delete_user(to_delete_user_id).await
     }
@@ -1348,7 +1352,7 @@ impl MiscellaneousMutation {
     /// Generate an auth token without any expiry.
     async fn generate_auth_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.generate_auth_token(user_id).await
     }
 
@@ -1359,7 +1363,7 @@ impl MiscellaneousMutation {
         input: CreateReviewCommentInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_review_comment(user_id, input).await
     }
 
@@ -1370,7 +1374,7 @@ impl MiscellaneousMutation {
         input: EditSeenItemInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.edit_seen_item(user_id, input).await
     }
 
@@ -1381,7 +1385,7 @@ impl MiscellaneousMutation {
         job_name: BackgroundJob,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.deploy_background_job(&user_id, job_name).await
     }
 
@@ -1404,8 +1408,6 @@ pub struct MiscellaneousService {
     oidc_client: Arc<Option<CoreClient>>,
     seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
 }
-
-impl AuthProvider for MiscellaneousService {}
 
 impl MiscellaneousService {
     pub async fn new(

@@ -128,6 +128,8 @@ struct EditCustomExerciseInput {
 #[derive(Default)]
 pub struct ExerciseQuery;
 
+impl AuthProvider for ExerciseQuery {}
+
 #[Object]
 impl ExerciseQuery {
     /// Get all the parameters related to exercises.
@@ -143,7 +145,7 @@ impl ExerciseQuery {
         input: ExercisesListInput,
     ) -> Result<SearchResults<ExerciseListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.exercises_list(user_id, input).await
     }
 
@@ -154,7 +156,7 @@ impl ExerciseQuery {
         input: SearchInput,
     ) -> Result<SearchResults<WorkoutListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workout_list(user_id, input).await
     }
 
@@ -175,7 +177,7 @@ impl ExerciseQuery {
         workout_id: String,
     ) -> Result<workout::Model> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.workout_details(&user_id, workout_id).await
     }
 
@@ -186,7 +188,7 @@ impl ExerciseQuery {
         exercise_id: String,
     ) -> Result<UserExerciseDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_exercise_details(user_id, exercise_id).await
     }
 
@@ -197,13 +199,15 @@ impl ExerciseQuery {
         input: UserMeasurementsListInput,
     ) -> Result<Vec<user_measurement::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_measurements_list(&user_id, input).await
     }
 }
 
 #[derive(Default)]
 pub struct ExerciseMutation;
+
+impl AuthProvider for ExerciseMutation {}
 
 #[Object]
 impl ExerciseMutation {
@@ -214,7 +218,7 @@ impl ExerciseMutation {
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_user_measurement(&user_id, input).await
     }
 
@@ -225,7 +229,7 @@ impl ExerciseMutation {
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_user_measurement(user_id, timestamp).await
     }
 
@@ -236,7 +240,7 @@ impl ExerciseMutation {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_user_workout(&user_id, input).await
     }
 
@@ -247,14 +251,14 @@ impl ExerciseMutation {
         input: EditUserWorkoutInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.edit_user_workout(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.
     async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_user_workout(user_id, workout_id).await
     }
 
@@ -265,7 +269,7 @@ impl ExerciseMutation {
         input: exercise::Model,
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_custom_exercise(user_id, input).await
     }
 
@@ -276,7 +280,7 @@ impl ExerciseMutation {
         input: EditCustomExerciseInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.edit_custom_exercise(user_id, input).await
     }
 }
@@ -287,8 +291,6 @@ pub struct ExerciseService {
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
 }
-
-impl AuthProvider for ExerciseService {}
 
 impl ExerciseService {
     pub fn new(

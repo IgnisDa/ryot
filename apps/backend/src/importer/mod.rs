@@ -181,18 +181,22 @@ pub struct ImportResultResponse {
 #[derive(Default)]
 pub struct ImporterQuery;
 
+impl AuthProvider for ImporterQuery {}
+
 #[Object]
 impl ImporterQuery {
     /// Get all the import jobs deployed by the user.
     async fn import_reports(&self, gql_ctx: &Context<'_>) -> Result<Vec<import_report::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.import_reports(user_id).await
     }
 }
 
 #[derive(Default)]
 pub struct ImporterMutation;
+
+impl AuthProvider for ImporterMutation {}
 
 #[Object]
 impl ImporterMutation {
@@ -203,7 +207,7 @@ impl ImporterMutation {
         input: DeployImportJobInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
-        let user_id = service.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.deploy_import_job(user_id, input).await
     }
 }
@@ -213,8 +217,6 @@ pub struct ImporterService {
     exercise_service: Arc<ExerciseService>,
     timezone: Arc<chrono_tz::Tz>,
 }
-
-impl AuthProvider for ImporterService {}
 
 impl ImporterService {
     pub fn new(
