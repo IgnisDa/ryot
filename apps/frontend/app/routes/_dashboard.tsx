@@ -217,7 +217,10 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			label: "Imports and Exports",
 			link: $path("/settings/imports-and-exports"),
 		},
-		{ label: "Profile", link: $path("/settings/profile") },
+		{
+			label: "Profile and Sharing",
+			link: $path("/settings/profile-and-sharing"),
+		},
 		{ label: "Integrations", link: $path("/settings/integrations") },
 		{ label: "Notifications", link: $path("/settings/notifications") },
 		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
