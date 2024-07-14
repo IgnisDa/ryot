@@ -546,8 +546,8 @@ export const MetadataDisplayItem = (props: {
 		idx: number,
 		data: readonly [UserToMediaReason, ReactNode],
 	) => (
-		<Tooltip label={changeCase(data[0])}>
-			<ThemeIcon variant="transparent" size="sm" color="cyan" key={idx}>
+		<Tooltip label={changeCase(data[0])} key={idx}>
+			<ThemeIcon variant="transparent" size="sm" color="cyan">
 				{data[1]}
 			</ThemeIcon>
 		</Tooltip>
