@@ -2,8 +2,10 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use uuid::Uuid;
 
+#[skip_serializing_none]
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {
     pub sub: String,
