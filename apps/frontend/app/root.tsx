@@ -33,7 +33,7 @@ import { Toaster } from "~/components/toaster";
 import { LOGO_IMAGE_URL, queryClient } from "~/lib/generals";
 import {
 	colorSchemeCookie,
-	combineHeaders,
+	extendResponseHeaders,
 	getToast,
 } from "~/lib/utilities.server";
 
@@ -93,16 +93,15 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = unstable_defineLoader(async ({ request, response }) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
 	const defaultColorScheme = colorScheme || "light";
-	return Response.json(
-		{ toast, defaultColorScheme },
-		{ headers: combineHeaders(toastHeaders) },
-	);
+	if (toastHeaders)
+		response.headers = extendResponseHeaders(response.headers, toastHeaders);
+	return { toast, defaultColorScheme };
 });
 
 const DefaultHeadTags = () => {
