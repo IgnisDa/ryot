@@ -16,9 +16,9 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty } from "@ryot/ts-utils";
+import { intersection, isEmpty } from "@ryot/ts-utils";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
-import { GraphQLClient } from "graphql-request";
+import { ClientError, GraphQLClient } from "graphql-request";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
@@ -33,8 +33,32 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
+const RECOVERABLE_BACKEND_ERRORS = ["NO_AUTH_TOKEN", "NO_USER_ID"];
+
 export const serverGqlService = new GraphQLClient(`${API_URL}/graphql`, {
 	headers: { Connection: "keep-alive" },
+	responseMiddleware: async (response) => {
+		if (response instanceof ClientError) {
+			const errors = response.response.errors?.map((e) => e.message) || [];
+			const isRecoverable =
+				intersection(RECOVERABLE_BACKEND_ERRORS, errors).length > 0;
+			if (isRecoverable)
+				throw Response.json(
+					{},
+					{
+						headers: combineHeaders(
+							getLogoutCookies(),
+							{ Location: $path("/auth") },
+							await createToastHeaders({
+								type: "error",
+								message: "Your session has expired",
+							}),
+						),
+						status: 302,
+					},
+				);
+		}
+	},
 });
 
 export const getCookieValue = (request: Request, cookieName: string) => {

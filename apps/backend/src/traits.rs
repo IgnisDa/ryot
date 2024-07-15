@@ -115,16 +115,16 @@ pub trait AuthProvider {
         auth_ctx
             .auth_token
             .clone()
-            .ok_or_else(|| Error::new("The auth token is not present".to_owned()))
+            .ok_or_else(|| Error::new("NO_AUTH_TOKEN".to_owned()))
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
+        // return Err(Error::new("NO_USER_ID".to_owned()));
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
-        if let Some(id) = auth_ctx.user_id.to_owned() {
-            Ok(id)
-        } else {
-            Err(Error::new("User was not logged in"))
-        }
+        auth_ctx
+            .user_id
+            .clone()
+            .ok_or_else(|| Error::new("NO_USER_ID".to_owned()))
     }
 }
 

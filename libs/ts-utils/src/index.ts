@@ -7,6 +7,7 @@ import {
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";
 import groupBy from "lodash/groupBy";
+import intersection from "lodash/intersection";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
 import isNumber from "lodash/isNumber";
@@ -75,6 +76,7 @@ export {
 	camelCase,
 	cloneDeep,
 	groupBy,
+	intersection,
 	isEmpty,
 	isEqual,
 	isNumber,
