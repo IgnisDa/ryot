@@ -23,7 +23,6 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
-import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { MediaDetailsLayout } from "~/components/common";
@@ -49,9 +48,8 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
+	const { id: metadataGroupId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const metadataGroupId = params.id;
-	invariant(metadataGroupId);
 	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
 		await Promise.all([
 			serverGqlService.request(MetadataGroupDetailsDocument, {

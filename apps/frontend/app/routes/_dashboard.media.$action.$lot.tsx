@@ -49,7 +49,6 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";
@@ -117,10 +116,10 @@ const metadataMapping = {
 };
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const lot = getLot(params.lot);
-	invariant(lot);
-	const action = params.action as Action;
-	invariant(action && Object.values(Action).includes(action as Action));
+	const { action, lot } = zx.parseParams(params, {
+		action: z.nativeEnum(Action),
+		lot: z.string().transform((v) => getLot(v) as MediaLot),
+	});
 	const cookieName = await getEnhancedCookieName(
 		`media.${action}.${lot}`,
 		request,

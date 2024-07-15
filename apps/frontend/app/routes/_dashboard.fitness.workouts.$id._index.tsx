@@ -53,10 +53,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplaySetStatistics,
@@ -83,8 +83,7 @@ import {
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const workoutId = params.id;
-	invariant(workoutId);
+	const { id: workoutId } = zx.parseParams(params, { id: z.string() });
 	const [{ workoutDetails }] = await Promise.all([
 		serverGqlService.request(
 			WorkoutDetailsDocument,
