@@ -48,7 +48,7 @@ import {
 	useDisclosure,
 	useLocalStorage,
 } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
+import { redirect, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	Link,
@@ -65,6 +65,7 @@ import {
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
+	UserDetailsDocument,
 	UserLot,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -74,6 +75,7 @@ import {
 	changeCase,
 	formatDateToNaiveDate,
 	groupBy,
+	intersection,
 	isNumber,
 	snakeCase,
 } from "@ryot/ts-utils";
@@ -104,6 +106,7 @@ import { joinURL, withQuery } from "ufo";
 import {
 	LOGO_IMAGE_URL,
 	Verb,
+	dayjsLib,
 	getLot,
 	getVerb,
 	queryClient,
@@ -126,19 +129,57 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
+	combineHeaders,
+	createToastHeaders,
 	serverVariables as envData,
+	getAuthorizationHeader,
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
+	getLogoutCookies,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
+import { ClientError } from "graphql-request";
 import classes from "~/styles/dashboard.module.css";
+
+const RECOVERABLE_BACKEND_ERRORS = ["NO_AUTH_TOKEN", "NO_USER_ID"];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	await queryClient.ensureQueryData({
+		queryKey: queryFactory.users.details(userDetails.id).queryKey,
+		queryFn: async () => {
+			try {
+				await serverGqlService.request(
+					UserDetailsDocument,
+					undefined,
+					getAuthorizationHeader(request),
+				);
+			} catch (response) {
+				if (response instanceof ClientError) {
+					const errors = response.response.errors?.map((e) => e.message) || [];
+					const isRecoverable =
+						intersection(RECOVERABLE_BACKEND_ERRORS, errors).length > 0;
+					if (isRecoverable)
+						throw redirect($path("/auth"), {
+							headers: combineHeaders(
+								getLogoutCookies(),
+								await createToastHeaders({
+									type: "error",
+									message: "Your session has expired",
+								}),
+							),
+						});
+				}
+			}
+			return null;
+		},
+		staleTime: dayjsLib.duration(1, "minute").asMilliseconds(),
+	});
 	const [userPreferences, userCollections, { coreDetails }] = await Promise.all(
 		[
 			getCachedUserPreferences(request),
