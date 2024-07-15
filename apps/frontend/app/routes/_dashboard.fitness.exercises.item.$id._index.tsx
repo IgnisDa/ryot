@@ -29,7 +29,7 @@ import {
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isString, startCase } from "@ryot/ts-utils";
+import { changeCase, startCase } from "@ryot/ts-utils";
 import { IconCheck, IconExternalLink } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
@@ -38,7 +38,6 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { Fragment } from "react";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
@@ -65,8 +64,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ params, request }) => {
-	const exerciseId = params.id;
-	invariant(isString(exerciseId));
+	const { id: exerciseId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
 		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),

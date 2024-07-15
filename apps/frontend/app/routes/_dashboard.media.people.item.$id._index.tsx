@@ -30,7 +30,6 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { namedAction } from "remix-utils/named-action";
-import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -59,9 +58,8 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
+	const { id: personId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const personId = params.id;
-	invariant(personId);
 	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
 		serverGqlService.request(PersonDetailsDocument, { personId }),
 		serverGqlService.request(

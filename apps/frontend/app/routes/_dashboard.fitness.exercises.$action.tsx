@@ -60,7 +60,7 @@ enum Action {
 }
 
 export const loader = unstable_defineLoader(async ({ params, request }) => {
-	const action = params.action as Action;
+	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const details = await match(action)
 		.with(Action.Create, () => undefined)
@@ -72,7 +72,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			);
 			return exerciseDetails;
 		})
-		.run();
+		.exhaustive();
 	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
 	return {
 		action,

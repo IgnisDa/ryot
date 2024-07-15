@@ -11,7 +11,6 @@ import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
@@ -30,8 +29,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const genreId = params.id;
-	invariant(genreId);
+	const { id: genreId } = zx.parseParams(params, { id: z.string() });
 	const cookieName = await getEnhancedCookieName(`genre.${genreId}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);

@@ -83,7 +83,7 @@ const SEARCH_SOURCES_ALLOWED = [
 ] as const;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const action = params.action as Action;
+	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const { query, page } = zx.parseQuery(request, {
@@ -92,15 +92,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const [peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
-			const urlParse = zx.parseQuery(
-				request,
-				z.object({
-					sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
-					orderBy: z
-						.nativeEnum(GraphqlSortOrder)
-						.default(defaultFilters.orderBy),
-				}),
-			);
+			const urlParse = zx.parseQuery(request, {
+				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
+				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
+			});
 			const { peopleList } = await serverGqlService.request(
 				PeopleListDocument,
 				{
@@ -114,14 +109,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			return [{ list: peopleList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
-			const urlParse = zx.parseQuery(
-				request,
-				z.object({
-					source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
-					isTmdbCompany: zx.BoolAsString.optional(),
-					isAnilistStudio: zx.BoolAsString.optional(),
-				}),
-			);
+			const urlParse = zx.parseQuery(request, {
+				source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
+				isTmdbCompany: zx.BoolAsString.optional(),
+				isAnilistStudio: zx.BoolAsString.optional(),
+			});
 			const { peopleSearch } = await serverGqlService.request(
 				PeopleSearchDocument,
 				{
@@ -341,7 +333,7 @@ const PersonSearchItem = (props: {
 						loaderData.peopleSearch.url.isAnilistStudio,
 					);
 					setIsLoading(false);
-					return navigate($path("/media/groups/item/:id", { id }));
+					return navigate($path("/media/people/item/:id", { id }));
 				}
 			}}
 		/>

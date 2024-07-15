@@ -44,7 +44,6 @@ import {
 } from "@tabler/icons-react";
 import { Fragment, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
-import invariant from "tiny-invariant";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -98,8 +97,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const collectionId = params.id;
-	invariant(collectionId);
+	const { id: collectionId } = zx.parseParams(params, { id: z.string() });
 	const cookieName = await getEnhancedCookieName(
 		`collections.details.${collectionId}`,
 		request,

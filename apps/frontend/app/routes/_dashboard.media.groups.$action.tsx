@@ -61,7 +61,7 @@ const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
 };
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const action = params.action as Action;
+	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
@@ -77,12 +77,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			return [{ list: metadataGroupsList, url: {} }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
-			const urlParse = zx.parseQuery(
-				request,
-				z.object({
-					source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
-				}),
-			);
+			const urlParse = zx.parseQuery(request, {
+				source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
+			});
 			const lot = SEARCH_SOURCES_ALLOWED[urlParse.source];
 			invariant(lot);
 			const { metadataGroupSearch } = await serverGqlService.request(
