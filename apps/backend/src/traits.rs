@@ -8,6 +8,7 @@ use sea_orm::prelude::DateTimeUtc;
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     file_storage::FileStorageService,
+    miscellaneous::resolver::MiscellaneousService,
     models::{
         media::{
             MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
@@ -128,8 +129,20 @@ pub trait AuthProvider {
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
-        // return Err(Error::new("NO_USER_ID".to_owned()));
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
+        if let Some(auth_token) = &auth_ctx.auth_token {
+            let service = ctx.data_unchecked::<Arc<MiscellaneousService>>();
+            if service.is_auth_token_invalid(auth_token).await? {
+                return Err(Error::new("SESSION_EXPIRED".to_owned()));
+            }
+            if self.is_mutation()
+                && !service
+                    .is_token_allowed_to_perform_mutation(auth_token)
+                    .await?
+            {
+                return Err(Error::new("MUTATION_NOT_ALLOWED".to_owned()));
+            }
+        }
         auth_ctx
             .user_id
             .clone()

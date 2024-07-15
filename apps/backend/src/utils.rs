@@ -36,7 +36,7 @@ use crate::{
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
     importer::ImporterService,
-    jwt,
+    jwt::{self, Claims},
     miscellaneous::resolver::MiscellaneousService,
     models::{ChangeCollectionToEntityInput, StoredUrl},
     traits::TraceOk,
@@ -240,10 +240,12 @@ where
     })
 }
 
+pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {
+    jwt::verify(token, jwt_secret).map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
+}
+
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
-    jwt::verify(token, jwt_secret)
-        .map(|c| c.sub)
-        .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
+    user_claims_from_token(token, jwt_secret).map(|c| c.sub)
 }
 
 pub fn get_base_http_client(

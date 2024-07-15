@@ -4248,6 +4248,7 @@ __metadata:
     isbot: "npm:5.1.12"
     jotai: "npm:2.9.0"
     js-cookie: "npm:3.0.5"
+    jwt-decode: "npm:4.0.0"
     mantine-datatable: "npm:7.11.1"
     postcss: "npm:8.4.39"
     postcss-preset-mantine: "npm:1.15.0"
@@ -9512,6 +9513,13 @@ __metadata:
   version: 0.0.1
   resolution: "jsonify@npm:0.0.1"
   checksum: 10/7b86b6f4518582ff1d8b7624ed6c6277affd5246445e864615dbdef843a4057ac58587684faf129ea111eeb80e01c15f0a4d9d03820eb3f3985fa67e81b12398
+  languageName: node
+  linkType: hard
+
+"jwt-decode@npm:4.0.0":
+  version: 4.0.0
+  resolution: "jwt-decode@npm:4.0.0"
+  checksum: 10/87b569e4a9a0067fb0d592bcf3b2ac3e638e49beee28620eeb07bef1b4470f4077dea68c15d191dd68e076846c3af8394be3bcaecffedc6e97433b221fdbbcf3
   languageName: node
   linkType: hard
 

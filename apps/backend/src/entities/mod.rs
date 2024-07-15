@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod access_link;
 pub mod calendar_event;
 pub mod collection;
 pub mod collection_to_entity;

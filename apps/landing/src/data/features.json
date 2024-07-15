@@ -1,5 +1,14 @@
 [
 	{
+		"name": "Sharing",
+		"image": "/images/features/sharing.png",
+		"points": [
+			"Share your profile with your friends and family.",
+			"Set an expiry (or don't!) and revoke access at any time.",
+			"Anonymous users can only view your data, not change it."
+		]
+	},
+	{
 		"name": "Recommendations",
 		"image": "/images/features/recommendations.png",
 		"points": [

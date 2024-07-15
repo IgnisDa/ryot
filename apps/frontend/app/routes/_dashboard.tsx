@@ -91,12 +91,14 @@ import {
 	IconHome2,
 	IconLogout,
 	IconMoon,
+	IconPencilCancel,
 	IconPercentage,
 	IconSettings,
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
+import { jwtDecode } from "jwt-decode";
 import { type FormEvent, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
@@ -127,6 +129,7 @@ import {
 } from "~/lib/state/media";
 import {
 	serverVariables as envData,
+	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
@@ -240,6 +243,10 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		!userDetails.isDemo;
 
 	const workoutInProgress = isWorkoutActive(request);
+	const decodedCookie = jwtDecode<{ access_link_id?: string }>(
+		getAuthorizationCookie(request),
+	);
+	const isAccessLinkSession = !!decodedCookie?.access_link_id;
 
 	return {
 		envData,
@@ -253,6 +260,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		userCollections,
 		workoutInProgress,
 		currentColorScheme,
+		isAccessLinkSession,
 	};
 });
 
@@ -326,6 +334,7 @@ export function ErrorBoundary() {
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const submit = useConfirmSubmit();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
@@ -524,6 +533,15 @@ export default function Layout() {
 						/>
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
+						{loaderData.isAccessLinkSession ? (
+							<Tooltip
+								label={`You are viewing ${userDetails.name}'s data. All mutations will be blocked.`}
+							>
+								<Button leftSection={<IconPencilCancel />} disabled>
+									Readonly
+								</Button>
+							</Tooltip>
+						) : null}
 						<Form
 							method="POST"
 							action={withQuery("/actions", { intent: "toggleColorScheme" })}

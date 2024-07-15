@@ -172,3 +172,26 @@ mutation UpdateUser($input: UpdateUserInput!) {
 mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {
   updateUserPreference(input: $input)
 }
+
+mutation CreateAccessLink($input: CreateAccessLinkInput!) {
+  createAccessLink(input: $input) {
+    id
+  }
+}
+
+mutation ProcessAccessLink($accessLinkId: String!) {
+  processAccessLink(accessLinkId: $accessLinkId) {
+    __typename
+    ... on ProcessAccessLinkError {
+      error
+    }
+    ... on ProcessAccessLinkResponse {
+      apiKey
+      tokenValidForDays
+    }
+  }
+}
+
+mutation revokeAccessLink($accessLinkId: String!) {
+  revokeAccessLink(accessLinkId: $accessLinkId)
+}

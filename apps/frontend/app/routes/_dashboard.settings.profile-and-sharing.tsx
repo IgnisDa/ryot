@@ -1,24 +1,53 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
+	ActionIcon,
 	Box,
 	Button,
 	Container,
+	Flex,
+	Group,
+	Modal,
+	NumberInput,
+	Paper,
 	PasswordInput,
 	Stack,
 	Tabs,
+	Text,
 	TextInput,
+	ThemeIcon,
 	Title,
 } from "@mantine/core";
-import { unstable_defineAction } from "@remix-run/node";
-import { type MetaArgs_SingleFetch, useFetcher } from "@remix-run/react";
-import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
+import { DateTimePicker } from "@mantine/dates";
+import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import {
+	Form,
+	type MetaArgs_SingleFetch,
+	useFetcher,
+	useLoaderData,
+} from "@remix-run/react";
+import {
+	CreateAccessLinkDocument,
+	RevokeAccessLinkDocument,
+	UpdateUserDocument,
+	UserAccessLinksDocument,
+	type UserAccessLinksQuery,
+} from "@ryot/generated/graphql/backend/graphql";
+import { isNumber, isString } from "@ryot/ts-utils";
+import {
+	IconEye,
+	IconEyeClosed,
+	IconLock,
+	IconLockAccess,
+} from "@tabler/icons-react";
 import { useRef } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { ProRequiredAlert } from "~/components/common";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { queryClient, queryFactory } from "~/lib/generals";
-import { useUserDetails } from "~/lib/hooks";
+import { dayjsLib, queryClient, queryFactory } from "~/lib/generals";
+import { useCoreDetails, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
@@ -26,6 +55,17 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
+
+export const loader = unstable_defineLoader(async ({ request }) => {
+	const [{ userAccessLinks }] = await Promise.all([
+		serverGqlService.request(
+			UserAccessLinksDocument,
+			undefined,
+			getAuthorizationHeader(request),
+		),
+	]);
+	return { userAccessLinks };
+});
 
 export const meta = (_args: MetaArgs_SingleFetch) => {
 	return [{ title: "Profile and Sharing | Ryot" }];
@@ -52,6 +92,40 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
+		revokeAccessLink: async () => {
+			const submission = processSubmission(
+				formData,
+				revokeAccessLinkFormSchema,
+			);
+			await serverGqlService.request(
+				RevokeAccessLinkDocument,
+				submission,
+				getAuthorizationHeader(request),
+			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Access link revoked successfully",
+				}),
+			});
+		},
+		createAccessLink: async () => {
+			const submission = processSubmission(
+				formData,
+				createAccessLinkFormSchema,
+			);
+			await serverGqlService.request(
+				CreateAccessLinkDocument,
+				{ input: submission },
+				getAuthorizationHeader(request),
+			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Access link created successfully",
+				}),
+			});
+		},
 	});
 });
 
@@ -61,10 +135,24 @@ const updateProfileFormSchema = z.object({
 	password: z.string().optional(),
 });
 
+const revokeAccessLinkFormSchema = z.object({
+	accessLinkId: z.string(),
+});
+
+const createAccessLinkFormSchema = z.object({
+	expiresOn: z.string().optional(),
+	maximumUses: zx.IntAsString.optional(),
+});
+
 export default function Page() {
 	const userDetails = useUserDetails();
+	const loaderData = useLoaderData<typeof loader>();
 	const fetcher = useFetcher<typeof action>();
 	const formRef = useRef<HTMLFormElement>(null);
+	const [
+		createAccessLinkModalOpened,
+		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
+	] = useDisclosure(false);
 
 	return (
 		<Container size="xs">
@@ -132,7 +220,31 @@ export default function Page() {
 					<Tabs.Panel value="sharing">
 						<Stack>
 							<Title>Sharing</Title>
-							<ProRequiredAlert tooltipLabel="Allow others to see your favorite media without signing up" />
+							{loaderData.userAccessLinks.length > 0 ? (
+								loaderData.userAccessLinks.map((link, idx) => (
+									<DisplayIntegration
+										accessLink={link}
+										key={`${link.id}-${idx}`}
+									/>
+								))
+							) : (
+								<Text>No access links configured</Text>
+							)}
+							<Flex w="100%">
+								<Button
+									size="xs"
+									variant="light"
+									radius="md"
+									onClick={openCreateAccessLinkModal}
+									ml="auto"
+								>
+									Create new access link
+								</Button>
+								<CreateAccessLinkModal
+									createModalOpened={createAccessLinkModalOpened}
+									closeModal={closeCreateAccessLinkModal}
+								/>
+							</Flex>
 						</Stack>
 					</Tabs.Panel>
 				</Box>
@@ -140,3 +252,141 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type AccessLink = UserAccessLinksQuery["userAccessLinks"][number];
+
+const DisplayIntegration = (props: { accessLink: AccessLink }) => {
+	const [parent] = useAutoAnimate();
+	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
+	const fetcher = useFetcher<typeof action>();
+	const deleteFormRef = useRef<HTMLFormElement>(null);
+
+	const accessLinkUrl =
+		typeof window !== "undefined"
+			? `${window.location.origin}/_s/${props.accessLink.id}`
+			: "";
+
+	const optionalDetails = [
+		props.accessLink.expiresOn
+			? `Expiry: ${dayjsLib(props.accessLink.expiresOn).fromNow()}`
+			: null,
+		isNumber(props.accessLink.maximumUses)
+			? `Maximum uses: ${props.accessLink.maximumUses}`
+			: null,
+	]
+		.filter(isString)
+		.join(", ");
+
+	return (
+		<Paper p="xs" withBorder data-access-link-url={accessLinkUrl}>
+			<Stack ref={parent}>
+				<Flex align="center" justify="space-between">
+					<Box>
+						<Text size="sm">
+							Created: {dayjsLib(props.accessLink.createdOn).fromNow()}, Times
+							Used: {props.accessLink.timesUsed}
+						</Text>
+						{optionalDetails ? <Text size="xs">{optionalDetails}</Text> : null}
+					</Box>
+					<Group wrap="nowrap">
+						{props.accessLink.isRevoked !== true ? (
+							<>
+								<ActionIcon color="blue" onClick={inputToggle}>
+									{inputOpened ? <IconEyeClosed /> : <IconEye />}
+								</ActionIcon>
+								<fetcher.Form
+									method="POST"
+									ref={deleteFormRef}
+									action={withQuery("", { intent: "revokeAccessLink" })}
+								>
+									<input
+										type="hidden"
+										name="accessLinkId"
+										defaultValue={props.accessLink.id}
+									/>
+									<ActionIcon
+										color="red"
+										variant="subtle"
+										mt={4}
+										onClick={async () => {
+											const conf = await confirmWrapper({
+												confirmation:
+													"Are you sure you want to revoke this access link?",
+											});
+											if (conf) fetcher.submit(deleteFormRef.current);
+										}}
+									>
+										<IconLock />
+									</ActionIcon>
+								</fetcher.Form>
+							</>
+						) : (
+							<>
+								<ThemeIcon color="red" size="lg" variant="outline">
+									<IconLockAccess />
+								</ThemeIcon>
+								<Text size="xs" c="dimmed">
+									Revoked
+								</Text>
+							</>
+						)}
+					</Group>
+				</Flex>
+				{inputOpened ? (
+					<TextInput
+						value={accessLinkUrl}
+						readOnly
+						onClick={(e) => e.currentTarget.select()}
+					/>
+				) : null}
+			</Stack>
+		</Paper>
+	);
+};
+
+const CreateAccessLinkModal = (props: {
+	createModalOpened: boolean;
+	closeModal: () => void;
+}) => {
+	const coreDetails = useCoreDetails();
+	const defaultExpiresAtValue = dayjsLib()
+		.add(coreDetails.tokenValidForDays, "day")
+		.toDate();
+
+	return (
+		<Modal
+			opened={props.createModalOpened}
+			onClose={props.closeModal}
+			centered
+			withCloseButton={false}
+		>
+			<Form
+				replace
+				method="POST"
+				onSubmit={() => props.closeModal()}
+				action={withQuery("", { intent: "createAccessLink" })}
+			>
+				<Stack>
+					<Title order={3}>Create new access link</Title>
+					<Text size="xs" c="dimmed">
+						Once a link has become invalid or been revoked, it will be
+						automatically deleted. If none of the below are provided, the link
+						will never expire and have unlimited uses.
+					</Text>
+					<DateTimePicker
+						label="Expires at"
+						name="expiresOn"
+						description="This link will become invalid after this timestamp"
+						defaultValue={defaultExpiresAtValue}
+					/>
+					<NumberInput
+						label="Maximum uses"
+						name="maximumUses"
+						description="This link will become invalid after this number of uses"
+					/>
+					<Button type="submit">Submit</Button>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};

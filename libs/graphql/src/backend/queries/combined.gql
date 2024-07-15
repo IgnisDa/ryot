@@ -138,3 +138,14 @@ query PeopleList($input: PeopleListInput!) {
     items
   }
 }
+
+query UserAccessLinks {
+  userAccessLinks {
+    id
+    createdOn
+    expiresOn
+    timesUsed
+    isRevoked
+    maximumUses
+  }
+}

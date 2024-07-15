@@ -43,6 +43,7 @@
 		"isbot": "5.1.12",
 		"jotai": "2.9.0",
 		"js-cookie": "3.0.5",
+		"jwt-decode": "4.0.0",
 		"mantine-datatable": "7.11.1",
 		"react": "18.3.1",
 		"react-confirm": "0.3.0-7",
