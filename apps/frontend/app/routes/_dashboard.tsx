@@ -523,51 +523,49 @@ export default function Layout() {
 							links={loaderData.settingsLinks}
 						/>
 					</Box>
-					<Stack gap="xs">
-						<Flex direction="column" justify="center" gap="md">
-							<Form
-								method="POST"
-								action={withQuery("/actions", { intent: "toggleColorScheme" })}
-								onSubmit={submit}
-							>
-								<Group justify="center">
-									<UnstyledButton
-										aria-label="Toggle theme"
-										className={classes.control2}
-										type="submit"
-									>
-										<Center className={classes.iconWrapper}>
-											<Icon size={16.8} stroke={1.5} />
-										</Center>
-										<Text size="sm" className={classes.value}>
-											{upperFirst(
-												loaderData.currentColorScheme === "dark"
-													? "light"
-													: "dark",
-											)}{" "}
-											theme
-										</Text>
-									</UnstyledButton>
-								</Group>
-							</Form>
-							<Form
-								method="POST"
-								style={{ display: "flex" }}
-								action={withQuery("/actions", { intent: "logout" })}
-							>
+					<Flex direction="column" justify="center" gap="md">
+						<Form
+							method="POST"
+							action={withQuery("/actions", { intent: "toggleColorScheme" })}
+							onSubmit={submit}
+						>
+							<Group justify="center">
 								<UnstyledButton
-									mx="auto"
-									className={classes.oldLink}
+									aria-label="Toggle theme"
+									className={classes.control2}
 									type="submit"
 								>
-									<Group>
-										<IconLogout size={19.2} />
-										<Text>Logout</Text>
-									</Group>
+									<Center className={classes.iconWrapper}>
+										<Icon size={16.8} stroke={1.5} />
+									</Center>
+									<Text size="sm" className={classes.value}>
+										{upperFirst(
+											loaderData.currentColorScheme === "dark"
+												? "light"
+												: "dark",
+										)}{" "}
+										theme
+									</Text>
 								</UnstyledButton>
-							</Form>
-						</Flex>
-					</Stack>
+							</Group>
+						</Form>
+						<Form
+							method="POST"
+							style={{ display: "flex" }}
+							action={withQuery("/actions", { intent: "logout" })}
+						>
+							<UnstyledButton
+								mx="auto"
+								className={classes.oldLink}
+								type="submit"
+							>
+								<Group>
+									<IconLogout size={19.2} />
+									<Text>Logout</Text>
+								</Group>
+							</UnstyledButton>
+						</Form>
+					</Flex>
 				</AppShell.Navbar>
 				<Flex direction="column" h="90%">
 					<Flex justify="space-between" p="md" hiddenFrom="sm">
