@@ -150,7 +150,12 @@ export default function Page() {
 						right: rem(loaderData.workoutInProgress ? 100 : 40),
 					}}
 				>
-					<Form method="POST" action={`?defaultTab=${defaultTab}`} replace>
+					<Form
+						replace
+						method="POST"
+						action={`?defaultTab=${defaultTab}`}
+						onSubmit={() => updateUserPreferencesHandler.setState([])}
+					>
 						{toUpdatePreferences.map((pref) => (
 							<input
 								key={pref[0]}
