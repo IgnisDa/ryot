@@ -7,6 +7,7 @@ pub struct Migration;
 pub enum User {
     Table,
     Id,
+    CreatedOn,
     Name,
     Password,
     IsDemo,
@@ -35,6 +36,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::SinkIntegrations).json_binary())
                     .col(ColumnDef::new(User::IsDemo).boolean())
                     .col(ColumnDef::new(User::OidcIssuerId).text())
+                    .col(
+                        ColumnDef::new(User::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
