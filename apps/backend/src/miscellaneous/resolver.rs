@@ -4407,6 +4407,7 @@ impl MiscellaneousService {
     async fn delete_seen_item(&self, user_id: &String, seen_id: String) -> Result<StringIdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
+            let cloned_seen = si.clone();
             let (ssn, sen) = match &si.show_extra_information {
                 Some(d) => (Some(d.season), Some(d.episode)),
                 None => (None, None),
@@ -4425,7 +4426,6 @@ impl MiscellaneousService {
             };
             self.seen_progress_cache.cache_remove(&cache).unwrap();
             let seen_id = si.id.clone();
-            let progress = si.progress;
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {
                 return Err(Error::new(
@@ -4433,21 +4433,9 @@ impl MiscellaneousService {
                 ));
             }
             si.delete(&self.db).await.trace_ok();
-            if progress < dec!(100) {
-                self.remove_entity_from_collection(
-                    user_id,
-                    ChangeCollectionToEntityInput {
-                        creator_user_id: user_id.to_owned(),
-                        collection_name: DefaultCollection::InProgress.to_string(),
-                        metadata_id: Some(metadata_id.clone()),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .ok();
-            }
             associate_user_with_entity(user_id, Some(metadata_id), None, None, None, &self.db)
                 .await?;
+            self.after_media_seen_tasks(cloned_seen).await?;
             Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
