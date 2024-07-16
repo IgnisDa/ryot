@@ -37,6 +37,7 @@ import {
 	queryClient,
 	queryFactory,
 	redirectToQueryParam,
+	toastKey,
 } from "~/lib/generals";
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
@@ -63,7 +64,6 @@ class EnhancedGraphQLClient extends GraphQLClient {
 			if (e instanceof ClientError) {
 				const error = e.response.errors?.at(0)?.message || "";
 				const expectedError = BACKEND_ERRORS[error];
-				console.log({ error, expectedError });
 				if (expectedError === undefined) throw e;
 				if (expectedError === null)
 					throw redirect($path("/auth"), {
@@ -316,17 +316,14 @@ export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
 		sameSite: "lax",
 		path: "/",
-		httpOnly: true,
 		secrets: (process.env.SESSION_SECRET || "").split(","),
-		name: "Toast",
+		name: toastKey,
 	},
 });
 
 export const colorSchemeCookie = createCookie("ColorScheme", {
 	maxAge: 60 * 60 * 24 * 365,
 });
-
-export const toastKey = "toast";
 
 const TypeSchema = z.enum(["message", "success", "error"]);
 const ToastSchema = z.object({
