@@ -114,10 +114,10 @@ import {
 } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	getCoreEnabledFeatures,
 	isWorkoutActive,
 	redirectWithToast,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const workoutCookieName = CurrentWorkoutKey;
@@ -145,12 +145,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		createWorkout: async () => {
 			const workout = JSON.parse(formData.get("workout") as string);
-			const { createUserWorkout } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					CreateUserWorkoutDocument,
-					workout,
-				);
+			const { createUserWorkout } = await serverGqlService.authenticatedRequest(
+				request,
+				CreateUserWorkoutDocument,
+				workout,
+			);
 			return redirect(
 				$path("/fitness/workouts/:id", { id: createUserWorkout }),
 				{

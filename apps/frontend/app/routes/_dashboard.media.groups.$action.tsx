@@ -41,8 +41,8 @@ import {
 import { redirectToQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
-	enhancedServerGqlService,
 	getEnhancedCookieName,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export type SearchParams = {
@@ -69,7 +69,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const [list, search] = await match(action)
 		.with(Action.List, async () => {
 			const { metadataGroupsList } =
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					MetadataGroupsListDocument,
 					{ input: { page, query } },
@@ -83,7 +83,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const lot = SEARCH_SOURCES_ALLOWED[urlParse.source];
 			invariant(lot);
 			const { metadataGroupSearch } =
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					MetadataGroupSearchDocument,
 					{ input: { lot, source: urlParse.source, search: { page, query } } },

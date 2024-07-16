@@ -31,10 +31,10 @@ import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
 import {
-	enhancedServerGqlService,
 	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async (_args) => {
@@ -62,12 +62,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
 	input.creators = input.creators?.split(", ");
-	const { createCustomMetadata } =
-		await enhancedServerGqlService.authenticatedRequest(
-			request,
-			CreateCustomMetadataDocument,
-			{ input },
-		);
+	const { createCustomMetadata } = await serverGqlService.authenticatedRequest(
+		request,
+		CreateCustomMetadataDocument,
+		{ input },
+	);
 	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
 });
 

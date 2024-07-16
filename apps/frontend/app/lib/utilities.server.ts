@@ -43,7 +43,7 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-class EnhancedGraphQLClient extends GraphQLClient {
+class AuthenticatedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
 		remixRequest: Request,
 		docs: RequestDocument | TypedDocumentNode<T, V>,
@@ -75,7 +75,7 @@ class EnhancedGraphQLClient extends GraphQLClient {
 	}
 }
 
-export const enhancedServerGqlService = new EnhancedGraphQLClient(
+export const serverGqlService = new AuthenticatedGraphQLClient(
 	`${API_URL}/graphql`,
 	{ headers: { Connection: "keep-alive" } },
 );
@@ -175,7 +175,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
-		queryFn: () => enhancedServerGqlService.request(CoreDetailsDocument),
+		queryFn: () => serverGqlService.request(CoreDetailsDocument),
 	});
 };
 
@@ -184,7 +184,7 @@ export const getCachedUserDetails = async (request: Request) => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.users.details(token).queryKey,
 		queryFn: () =>
-			enhancedServerGqlService.authenticatedRequest(
+			serverGqlService.authenticatedRequest(
 				request,
 				UserDetailsDocument,
 				undefined,
@@ -197,7 +197,7 @@ export const getCachedUserPreferences = async (request: Request) => {
 	return queryClient.ensureQueryData({
 		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
 		queryFn: () =>
-			enhancedServerGqlService
+			serverGqlService
 				.authenticatedRequest(request, UserPreferencesDocument, undefined)
 				.then((data) => data.userPreferences),
 	});
@@ -208,7 +208,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 	return queryClient.ensureQueryData({
 		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 		queryFn: () =>
-			enhancedServerGqlService
+			serverGqlService
 				.authenticatedRequest(request, UserCollectionsListDocument, {})
 				.then((data) => data.userCollectionsList),
 		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
@@ -228,7 +228,7 @@ export const uploadFileAndGetKey = async (
 	contentType: string,
 	body: ArrayBuffer | Buffer,
 ) => {
-	const { presignedPutS3Url } = await enhancedServerGqlService.request(
+	const { presignedPutS3Url } = await serverGqlService.request(
 		PresignedPutS3UrlDocument,
 		{ input: { fileName, prefix } },
 	);
@@ -241,7 +241,7 @@ export const uploadFileAndGetKey = async (
 };
 
 export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await enhancedServerGqlService.request(
+	const { getPresignedS3Url } = await serverGqlService.request(
 		GetPresignedS3UrlDocument,
 		{ key },
 	);
@@ -291,7 +291,7 @@ export const s3FileUploader = (prefix: string) =>
 	}, unstable_createMemoryUploadHandler());
 
 export const getCoreEnabledFeatures = async () =>
-	enhancedServerGqlService
+	serverGqlService
 		.request(CoreEnabledFeaturesDocument)
 		.then((data) => data.coreEnabledFeatures);
 

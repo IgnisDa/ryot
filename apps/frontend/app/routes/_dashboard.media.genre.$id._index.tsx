@@ -17,9 +17,9 @@ import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
-	enhancedServerGqlService,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -34,7 +34,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genreDetails }] = await Promise.all([
-		enhancedServerGqlService.request(GenreDetailsDocument, {
+		serverGqlService.request(GenreDetailsDocument, {
 			input: { genreId, page: query.page },
 		}),
 	]);

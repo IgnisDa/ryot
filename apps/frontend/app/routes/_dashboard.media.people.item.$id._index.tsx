@@ -46,8 +46,8 @@ import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	processSubmission,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -60,12 +60,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { id: personId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
-		enhancedServerGqlService.request(PersonDetailsDocument, { personId }),
-		enhancedServerGqlService.authenticatedRequest(
-			request,
-			UserPersonDetailsDocument,
-			{ personId },
-		),
+		serverGqlService.request(PersonDetailsDocument, { personId }),
+		serverGqlService.authenticatedRequest(request, UserPersonDetailsDocument, {
+			personId,
+		}),
 	]);
 	return { query, personId, userPersonDetails, personDetails };
 });
@@ -79,7 +77,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		deployUpdatePersonJob: async () => {
 			const submission = processSubmission(formData, personIdSchema);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				DeployUpdatePersonJobDocument,
 				submission,

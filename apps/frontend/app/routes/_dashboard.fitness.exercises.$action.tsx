@@ -43,10 +43,10 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -65,12 +65,11 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {
 			invariant(query.name);
-			const { exerciseDetails } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					ExerciseDetailsDocument,
-					{ exerciseId: query.name },
-				);
+			const { exerciseDetails } = await serverGqlService.authenticatedRequest(
+				request,
+				ExerciseDetailsDocument,
+				{ exerciseId: query.name },
+			);
 			return exerciseDetails;
 		})
 		.exhaustive();
@@ -113,7 +112,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		return await namedAction(request, {
 			[Action.Create]: async () => {
 				const { createCustomExercise } =
-					await enhancedServerGqlService.authenticatedRequest(
+					await serverGqlService.authenticatedRequest(
 						request,
 						CreateCustomExerciseDocument,
 						{ input },
@@ -124,7 +123,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			},
 			[Action.Update]: async () => {
 				invariant(submission.oldName);
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					EditCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },

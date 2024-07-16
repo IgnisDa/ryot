@@ -36,7 +36,7 @@ import {
 } from "~/components/media";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
-import { enhancedServerGqlService } from "~/lib/utilities.server";
+import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -49,10 +49,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
 		await Promise.all([
-			enhancedServerGqlService.request(MetadataGroupDetailsDocument, {
+			serverGqlService.request(MetadataGroupDetailsDocument, {
 				metadataGroupId,
 			}),
-			enhancedServerGqlService.authenticatedRequest(
+			serverGqlService.authenticatedRequest(
 				request,
 				UserMetadataGroupDetailsDocument,
 				{ metadataGroupId },

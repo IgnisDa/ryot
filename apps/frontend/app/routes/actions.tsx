@@ -36,12 +36,12 @@ import {
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
-	enhancedServerGqlService,
 	extendResponseHeaders,
 	getLogoutCookies,
 	processSubmission,
 	removeCachedUserCollectionsList,
 	s3FileUploader,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = async () => redirect($path("/"));
@@ -57,12 +57,11 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 	await match(intent)
 		.with("commitMedia", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMetadata } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					CommitMetadataDocument,
-					{ input: submission },
-				);
+			const { commitMetadata } = await serverGqlService.authenticatedRequest(
+				request,
+				CommitMetadataDocument,
+				{ input: submission },
+			);
 			returnData = { commitMedia: commitMetadata };
 		})
 		.with("uploadWorkoutAsset", async () => {
@@ -73,38 +72,36 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
-			const { deleteS3Object } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					DeleteS3ObjectDocument,
-					{ key },
-				);
+			const { deleteS3Object } = await serverGqlService.authenticatedRequest(
+				request,
+				DeleteS3ObjectDocument,
+				{ key },
+			);
 			returnData = { success: deleteS3Object };
 		})
 		.with("commitPerson", async () => {
 			const submission = processSubmission(formData, commitPersonSchema);
-			const { commitPerson } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					CommitPersonDocument,
-					{
-						input: {
-							identifier: submission.identifier,
-							name: submission.name,
-							source: submission.source,
-							sourceSpecifics: {
-								isAnilistStudio: submission.isAnilistStudio,
-								isTmdbCompany: submission.isTmdbCompany,
-							},
+			const { commitPerson } = await serverGqlService.authenticatedRequest(
+				request,
+				CommitPersonDocument,
+				{
+					input: {
+						identifier: submission.identifier,
+						name: submission.name,
+						source: submission.source,
+						sourceSpecifics: {
+							isAnilistStudio: submission.isAnilistStudio,
+							isTmdbCompany: submission.isTmdbCompany,
 						},
 					},
-				);
+				},
+			);
 			returnData = { commitPerson };
 		})
 		.with("commitMetadataGroup", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
 			const { commitMetadataGroup } =
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					CommitMetadataGroupDocument,
 					{ input: submission },
@@ -130,7 +127,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				CreateReviewCommentDocument,
 				{ input: submission },
@@ -155,7 +152,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const addTo = [submission.collectionName];
 			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
 			for (const co of addTo) {
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					AddEntityToCollectionDocument,
 					{
@@ -180,7 +177,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			removeCachedUserCollectionsList(request);
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				RemoveEntityFromCollectionDocument,
 				{
@@ -196,7 +193,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const submission = processSubmission(formData, reviewSchema);
 			if (submission.shouldDelete) {
 				invariant(submission.reviewId);
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					DeleteReviewDocument,
 					{ reviewId: submission.reviewId },
@@ -209,7 +206,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					}),
 				);
 			} else {
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					PostReviewDocument,
 					{ input: submission },
@@ -324,7 +321,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			}
 			if (needsFinalUpdate) updates.push(variables);
 			const { deployBulkProgressUpdate } =
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					DeployBulkProgressUpdateDocument,
 					{ input: updates },
@@ -344,7 +341,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("individualProgressUpdate", async () => {
 			const submission = processSubmission(formData, bulkUpdateSchema);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				DeployBulkProgressUpdateDocument,
 				{ input: submission },
@@ -366,7 +363,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				if (!isEmpty(value) && name !== redirectToQueryParam)
 					set(input, name, value);
 			}
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				CreateUserMeasurementDocument,
 				{ input },

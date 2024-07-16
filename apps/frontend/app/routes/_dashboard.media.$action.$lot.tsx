@@ -77,9 +77,9 @@ import {
 	useMetadataProgressUpdate,
 } from "~/lib/state/media";
 import {
-	enhancedServerGqlService,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export type SearchParams = {
@@ -125,7 +125,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ latestUserSummary }] = await Promise.all([
-		enhancedServerGqlService.authenticatedRequest(
+		serverGqlService.authenticatedRequest(
 			request,
 			LatestUserSummaryDocument,
 			{},
@@ -148,22 +148,21 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					.default(defaultFilters.mineGeneralFilter),
 				collection: z.string().optional(),
 			});
-			const { metadataList } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					MetadataListDocument,
-					{
-						input: {
-							lot,
-							search: { page: numPage, query },
-							sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
-							filter: {
-								general: urlParse.generalFilter,
-								collection: urlParse.collection,
-							},
+			const { metadataList } = await serverGqlService.authenticatedRequest(
+				request,
+				MetadataListDocument,
+				{
+					input: {
+						lot,
+						search: { page: numPage, query },
+						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
+						filter: {
+							general: urlParse.generalFilter,
+							collection: urlParse.collection,
 						},
 					},
-				);
+				},
+			);
 			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
@@ -171,18 +170,17 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { metadataSearch } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					MetadataSearchDocument,
-					{
-						input: {
-							lot,
-							search: { page, query },
-							source: urlParse.source,
-						},
+			const { metadataSearch } = await serverGqlService.authenticatedRequest(
+				request,
+				MetadataSearchDocument,
+				{
+					input: {
+						lot,
+						search: { page, query },
+						source: urlParse.source,
 					},
-				);
+				},
+			);
 			return [
 				undefined,
 				{

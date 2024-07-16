@@ -29,9 +29,9 @@ import {
 	useGetMantineColor,
 } from "~/lib/hooks";
 import {
-	enhancedServerGqlService,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -46,7 +46,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([
-		enhancedServerGqlService.request(GenresListDocument, {
+		serverGqlService.request(GenresListDocument, {
 			input: { page: query.page, query: query.query },
 		}),
 	]);

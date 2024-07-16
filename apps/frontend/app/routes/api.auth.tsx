@@ -8,9 +8,9 @@ import {
 import { z } from "zod";
 import { zx } from "zodix";
 import {
-	enhancedServerGqlService,
 	getCachedCoreDetails,
 	getCookiesForApplication,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({ code: z.string() });
@@ -19,7 +19,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const input = zx.parseQuery(request, searchParamsSchema);
-	const { getOidcToken } = await enhancedServerGqlService.request(
+	const { getOidcToken } = await serverGqlService.request(
 		GetOidcTokenDocument,
 		input,
 	);
@@ -30,16 +30,15 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	};
 	const [_, { registerUser }] = await Promise.all([
 		getCachedCoreDetails(),
-		enhancedServerGqlService.request(RegisterUserDocument, {
+		serverGqlService.request(RegisterUserDocument, {
 			input: { oidc: oidcInput },
 		}),
 	]);
 	if (registerUser.__typename === "RegisterError")
 		console.error("Registration failed:", registerUser);
-	const { loginUser } = await enhancedServerGqlService.request(
-		LoginUserDocument,
-		{ input: { oidc: oidcInput } },
-	);
+	const { loginUser } = await serverGqlService.request(LoginUserDocument, {
+		input: { oidc: oidcInput },
+	});
 	if (loginUser.__typename === "LoginResponse") {
 		const headers = await getCookiesForApplication(loginUser.apiKey);
 		return redirect($path("/"), { headers });

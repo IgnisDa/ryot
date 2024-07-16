@@ -29,9 +29,9 @@ import { zx } from "zodix";
 import { dayjsLib } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
-	enhancedServerGqlService,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -46,11 +46,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const date = dayjsLib(query.date);
 	const [{ userCalendarEvents }] = await Promise.all([
-		enhancedServerGqlService.authenticatedRequest(
-			request,
-			UserCalendarEventsDocument,
-			{ input: { month: date.month() + 1, year: date.year() } },
-		),
+		serverGqlService.authenticatedRequest(request, UserCalendarEventsDocument, {
+			input: { month: date.month() + 1, year: date.year() },
+		}),
 	]);
 	return { query, userCalendarEvents, cookieName };
 });

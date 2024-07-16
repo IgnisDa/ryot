@@ -44,13 +44,13 @@ import { dayjsLib } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	processSubmission,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
-		enhancedServerGqlService.authenticatedRequest(
+		serverGqlService.authenticatedRequest(
 			request,
 			UserNotificationPlatformsDocument,
 			{},
@@ -68,7 +68,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				CreateUserNotificationPlatformDocument,
 				{ input: submission },
@@ -77,7 +77,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				DeleteUserNotificationPlatformDocument,
 				submission,
@@ -91,7 +91,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		test: async () => {
 			const { testUserNotificationPlatforms } =
-				await enhancedServerGqlService.authenticatedRequest(
+				await serverGqlService.authenticatedRequest(
 					request,
 					TestUserNotificationPlatformsDocument,
 					{},

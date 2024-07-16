@@ -37,10 +37,10 @@ import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -54,7 +54,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ usersList }] = await Promise.all([
-		enhancedServerGqlService.authenticatedRequest(request, UsersListDocument, {
+		serverGqlService.authenticatedRequest(request, UsersListDocument, {
 			query: query.query,
 		}),
 	]);
@@ -70,12 +70,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			const { deleteUser } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					DeleteUserDocument,
-					submission,
-				);
+			const { deleteUser } = await serverGqlService.authenticatedRequest(
+				request,
+				DeleteUserDocument,
+				submission,
+			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: deleteUser ? "success" : "error",
@@ -87,12 +86,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		registerNew: async () => {
 			const submission = processSubmission(formData, registerFormSchema);
-			const { registerUser } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					RegisterUserDocument,
-					{ input: { password: submission } },
-				);
+			const { registerUser } = await serverGqlService.authenticatedRequest(
+				request,
+				RegisterUserDocument,
+				{ input: { password: submission } },
+			);
 			const success = registerUser.__typename === "StringIdObject";
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({

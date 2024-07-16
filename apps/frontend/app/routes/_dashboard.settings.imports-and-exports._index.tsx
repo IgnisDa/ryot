@@ -58,8 +58,8 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	getCoreEnabledFeatures,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import {
 	processSubmission,
@@ -70,16 +70,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
 			getCoreEnabledFeatures(),
-			enhancedServerGqlService.authenticatedRequest(
-				request,
-				ImportReportsDocument,
-				{},
-			),
-			enhancedServerGqlService.authenticatedRequest(
-				request,
-				UserExportsDocument,
-				{},
-			),
+			serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
+			serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
 		]);
 	return { coreEnabledFeatures, importReports, userExports };
 });
@@ -137,7 +129,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 					igdb: processSubmission(formData, igdbImportFormSchema),
 				}))
 				.exhaustive();
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
@@ -154,7 +146,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployExport: async () => {
 			const toExport = processSubmission(formData, deployExportForm);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				DeployExportJobDocument,
 				toExport,

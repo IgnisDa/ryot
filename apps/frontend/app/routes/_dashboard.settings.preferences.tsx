@@ -62,9 +62,9 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import classes from "~/styles/preferences.module.css";
 
@@ -104,7 +104,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		});
 	}
 	for (const input of submission) {
-		await enhancedServerGqlService.authenticatedRequest(
+		await serverGqlService.authenticatedRequest(
 			request,
 			UpdateUserPreferenceDocument,
 			{ input },

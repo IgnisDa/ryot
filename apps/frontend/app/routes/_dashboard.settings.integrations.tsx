@@ -52,15 +52,15 @@ import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	processSubmission,
+	serverGqlService,
 } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
-		enhancedServerGqlService.authenticatedRequest(
+		serverGqlService.authenticatedRequest(
 			request,
 			UserIntegrationsDocument,
 			undefined,
@@ -78,7 +78,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				DeleteUserIntegrationDocument,
 				submission,
@@ -95,7 +95,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await enhancedServerGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				CreateUserIntegrationDocument,
 				{ input: submission },
@@ -111,12 +111,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 		generateAuthToken: async () => {
-			const { generateAuthToken } =
-				await enhancedServerGqlService.authenticatedRequest(
-					request,
-					GenerateAuthTokenDocument,
-					{},
-				);
+			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
+				request,
+				GenerateAuthTokenDocument,
+				{},
+			);
 			return Response.json({ status: "success", generateAuthToken } as const);
 		},
 	});

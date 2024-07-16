@@ -41,13 +41,13 @@ import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	processSubmission,
 	redirectWithToast,
+	serverGqlService,
 	serverVariables,
 } from "~/lib/utilities.server";
 
@@ -101,7 +101,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 							"Invalid form data",
 					}),
 				});
-			const { registerUser } = await enhancedServerGqlService.request(
+			const { registerUser } = await serverGqlService.request(
 				RegisterUserDocument,
 				{
 					input: {
@@ -132,17 +132,14 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		login: async () => {
 			const submission = processSubmission(formData, loginSchema);
-			const { loginUser } = await enhancedServerGqlService.request(
-				LoginUserDocument,
-				{
-					input: {
-						password: {
-							password: submission.password,
-							username: submission.username,
-						},
+			const { loginUser } = await serverGqlService.request(LoginUserDocument, {
+				input: {
+					password: {
+						password: submission.password,
+						username: submission.username,
 					},
 				},
-			);
+			});
 			if (loginUser.__typename === "LoginResponse") {
 				let redirectUrl = $path("/");
 				if (submission[redirectToQueryParam])
@@ -166,7 +163,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		getOauthRedirectUrl: async () => {
-			const { getOidcRedirectUrl } = await enhancedServerGqlService.request(
+			const { getOidcRedirectUrl } = await serverGqlService.request(
 				GetOidcRedirectUrlDocument,
 			);
 			return redirect(getOidcRedirectUrl);

@@ -21,8 +21,8 @@ import { queryClient, queryFactory } from "~/lib/generals";
 import { useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	enhancedServerGqlService,
 	getAuthorizationCookie,
+	serverGqlService,
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
 
@@ -36,11 +36,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 		updateProfile: async () => {
 			const token = getAuthorizationCookie(request);
 			const submission = processSubmission(formData, updateProfileFormSchema);
-			await enhancedServerGqlService.authenticatedRequest(
-				request,
-				UpdateUserDocument,
-				{ input: submission },
-			);
+			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
+				input: submission,
+			});
 			queryClient.removeQueries({
 				queryKey: queryFactory.users.details(token).queryKey,
 			});
