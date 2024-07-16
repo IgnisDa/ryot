@@ -108,7 +108,6 @@ import {
 	getVerb,
 	queryClient,
 	queryFactory,
-	toastKey,
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
@@ -136,7 +135,6 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
-import Cookies from "js-cookie";
 import classes from "~/styles/dashboard.module.css";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -260,7 +258,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 
 export function ErrorBoundary() {
 	const error = useRouteError() as Error;
-	const toastError = Cookies.get(toastKey);
 
 	return (
 		<Container size="sm" py={{ base: 100, md: 200 }}>
@@ -320,7 +317,7 @@ export function ErrorBoundary() {
 					. Here is the complete error that occurred:
 				</Text>
 				<Code mah={100} c="pink">
-					{toastError || error.message}
+					{error.message}
 				</Code>
 			</Stack>
 		</Container>

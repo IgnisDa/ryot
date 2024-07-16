@@ -18,7 +18,7 @@ import {
 	getUserMetadataDetailsQuery,
 } from "~/lib/generals";
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
-import type { loader } from "~/routes/_dashboard";
+import type { loader as dashboardLoader } from "~/routes/_dashboard";
 
 declare global {
 	interface Window {
@@ -116,7 +116,8 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 };
 
 const useDashboardLayoutData = () => {
-	const loaderData = useRouteLoaderData<typeof loader>("routes/_dashboard");
+	const loaderData =
+		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
 	return loaderData;
 };
 
