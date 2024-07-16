@@ -3,6 +3,7 @@ import {
 	Anchor,
 	Box,
 	Button,
+	Code,
 	Container,
 	Divider,
 	FileInput,
@@ -493,16 +494,13 @@ export default function Page() {
 																Failed: {report.details.failedItems.length}
 															</Text>
 															{report.details.failedItems.length > 0 ? (
-																<JsonInput
-																	size="xs"
-																	defaultValue={JSON.stringify(
+																<Code mah={400} block>
+																	{JSON.stringify(
 																		report.details.failedItems,
 																		null,
 																		4,
 																	)}
-																	readOnly
-																	autosize
-																/>
+																</Code>
 															) : null}
 														</>
 													) : (
