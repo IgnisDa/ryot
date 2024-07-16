@@ -616,6 +616,8 @@ struct UserMetadataDetails {
     show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.
     podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
+    /// Whether this media has been interacted with
+    has_interacted: bool,
 }
 
 #[derive(SimpleObject, Debug, Clone)]
@@ -1930,18 +1932,19 @@ impl MiscellaneousService {
                 None
             };
         Ok(UserMetadataDetails {
-            media_reason: user_to_meta.and_then(|n| n.media_reason),
-            collections,
             reviews,
             history,
-            in_progress,
             next_entry,
-            seen_by_all_count: seen_by,
-            seen_by_user_count,
+            collections,
+            in_progress,
+            show_progress,
             average_rating,
             units_consumed,
-            show_progress,
             podcast_progress,
+            seen_by_user_count,
+            seen_by_all_count: seen_by,
+            has_interacted: user_to_meta.is_some(),
+            media_reason: user_to_meta.and_then(|n| n.media_reason),
         })
     }
 
