@@ -89,7 +89,7 @@ use crate::{
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
+        BackendError, BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
         UserSummaryData,
     },
@@ -545,6 +545,7 @@ struct CoreDetails {
     repository_link: String,
     token_valid_for_days: i32,
     local_auth_disabled: bool,
+    backend_errors: Vec<BackendError>,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
@@ -1461,6 +1462,7 @@ impl MiscellaneousService {
             oidc_enabled: self.oidc_client.is_some(),
             page_limit: self.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
+            backend_errors: BackendError::iter().collect(),
             website_url: "https://ryot.io/features".to_owned(),
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,

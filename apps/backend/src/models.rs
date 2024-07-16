@@ -53,6 +53,12 @@ pub enum EntityLot {
     Collection,
 }
 
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]
+pub enum BackendError {
+    NoAuthToken,
+    NoUserId,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum StoredUrl {
     S3(String),

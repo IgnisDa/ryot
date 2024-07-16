@@ -13,7 +13,7 @@ use crate::{
             MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
             PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
         },
-        SearchResults,
+        BackendError, SearchResults,
     },
     utils::AuthContext,
 };
@@ -115,16 +115,15 @@ pub trait AuthProvider {
         auth_ctx
             .auth_token
             .clone()
-            .ok_or_else(|| Error::new("NO_AUTH_TOKEN".to_owned()))
+            .ok_or_else(|| Error::new(BackendError::NoAuthToken.to_string()))
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
-        // return Err(Error::new("NO_USER_ID".to_owned()));
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
         auth_ctx
             .user_id
             .clone()
-            .ok_or_else(|| Error::new("NO_USER_ID".to_owned()))
+            .ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))
     }
 }
 

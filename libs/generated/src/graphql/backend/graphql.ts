@@ -68,6 +68,11 @@ export type AuthUserInput = {
   password?: InputMaybe<PasswordUserInput>;
 };
 
+export enum BackendError {
+  NoAuthToken = 'NO_AUTH_TOKEN',
+  NoUserId = 'NO_USER_ID'
+}
+
 export enum BackgroundJob {
   CalculateSummary = 'CALCULATE_SUMMARY',
   EvaluateWorkouts = 'EVALUATE_WORKOUTS',
@@ -184,6 +189,7 @@ export type CommitPersonInput = {
 
 export type CoreDetails = {
   authorName: Scalars['String']['output'];
+  backendErrors: Array<BackendError>;
   docsLink: Scalars['String']['output'];
   isPro: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
