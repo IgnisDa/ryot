@@ -1870,6 +1870,7 @@ export type UpdateUserPreferenceInput = {
 };
 
 export type User = {
+  createdOn: Scalars['DateTime']['output'];
   id: Scalars['String']['output'];
   isDemo?: Maybe<Scalars['Boolean']['output']>;
   lot: UserLot;
