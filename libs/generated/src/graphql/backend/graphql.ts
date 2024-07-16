@@ -1864,6 +1864,7 @@ export type StrongAppImportMapping = {
 };
 
 export type UpdateUserInput = {
+  extraInformation?: InputMaybe<Scalars['JSON']['input']>;
   password?: InputMaybe<Scalars['String']['input']>;
   username?: InputMaybe<Scalars['String']['input']>;
 };

@@ -262,6 +262,7 @@ struct UpdateUserInput {
     username: Option<String>,
     #[graphql(secret)]
     password: Option<String>,
+    extra_information: Option<serde_json::Value>,
 }
 
 #[derive(Debug, InputObject)]
@@ -4932,7 +4933,12 @@ impl MiscellaneousService {
         if let Some(n) = input.username {
             user_obj.name = ActiveValue::Set(n);
         }
-        user_obj.password = ActiveValue::Set(input.password);
+        if let Some(p) = input.password {
+            user_obj.password = ActiveValue::Set(Some(p));
+        }
+        if let Some(i) = input.extra_information {
+            user_obj.extra_information = ActiveValue::Set(Some(i));
+        }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(StringIdObject { id: user_obj.id })
     }
