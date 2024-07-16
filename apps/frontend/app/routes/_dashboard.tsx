@@ -1167,11 +1167,11 @@ const NewProgressUpdateForm = ({
 				{watchTime === WATCH_TIMES[2] ? (
 					<DatePickerInput
 						required
-						label="Enter exact date"
+						clearable
 						dropdownType="modal"
 						maxDate={new Date()}
 						onChange={setSelectedDate}
-						clearable
+						label="Enter exact date"
 					/>
 				) : null}
 				<Select
@@ -1179,12 +1179,18 @@ const NewProgressUpdateForm = ({
 					data={userPreferences.general.watchProviders}
 					name="providerWatchedOn"
 				/>
+				{selectedDate ? (
+					<input
+						hidden
+						readOnly
+						name="date"
+						value={formatDateToNaiveDate(selectedDate)}
+					/>
+				) : null}
 				<Button
+					type="submit"
 					variant="outline"
 					disabled={selectedDate === undefined}
-					type="submit"
-					name="date"
-					value={selectedDate ? formatDateToNaiveDate(selectedDate) : undefined}
 				>
 					Submit
 				</Button>

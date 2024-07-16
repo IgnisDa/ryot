@@ -25,8 +25,10 @@ import {
 } from "@remix-run/react";
 import {
 	GetOidcRedirectUrlDocument,
+	LatestUserSummaryDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
+	MediaLot,
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -38,11 +40,12 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { redirectToQueryParam } from "~/lib/generals";
+import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
 	getCachedCoreDetails,
+	getCachedUserPreferences,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	processSubmission,
@@ -61,10 +64,30 @@ export type SearchParams = z.infer<typeof searchParamsSchema> &
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
-	if (isAuthenticated)
+	if (isAuthenticated) {
+		const [userPreferences, { latestUserSummary }] = await Promise.all([
+			getCachedUserPreferences(request),
+			serverGqlService.authenticatedRequest(request, LatestUserSummaryDocument),
+		]);
+		if (
+			latestUserSummary.data.media.metadataOverall.interactedWith === 0 &&
+			userPreferences.featuresEnabled.media.enabled === true
+		)
+			throw await redirectWithToast(
+				$path(
+					"/media/:action/:lot",
+					{ action: "search", lot: MediaLot.Movie },
+					{ query: "avengers" },
+				),
+				{
+					message: "Welcome to Ryot! Add any movie you want to your watchlist!",
+					closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
+				},
+			);
 		throw await redirectWithToast($path("/"), {
 			message: "You were already logged in",
 		});
+	}
 	const [enabledFeatures, { coreDetails }] = await Promise.all([
 		getCoreEnabledFeatures(),
 		getCachedCoreDetails(),
@@ -141,11 +164,12 @@ export const action = unstable_defineAction(async ({ request }) => {
 				},
 			});
 			if (loginUser.__typename === "LoginResponse") {
-				let redirectUrl = $path("/");
-				if (submission[redirectToQueryParam])
-					redirectUrl = safeRedirect(submission[redirectToQueryParam]);
 				const headers = await getCookiesForApplication(loginUser.apiKey);
-				return redirect(redirectUrl, { headers });
+				if (submission[redirectToQueryParam])
+					return redirect(safeRedirect(submission[redirectToQueryParam]), {
+						headers,
+					});
+				return Response.json({}, { headers });
 			}
 			const message = match(loginUser.error)
 				.with(

@@ -321,6 +321,7 @@ const ToastSchema = z.object({
 	id: z.string().default(() => randomUUID()),
 	title: z.string().optional(),
 	type: TypeSchema.default("message"),
+	closeAfter: z.number().optional(),
 });
 
 export type Toast = z.infer<typeof ToastSchema>;

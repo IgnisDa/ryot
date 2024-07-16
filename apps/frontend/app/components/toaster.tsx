@@ -13,7 +13,7 @@ export function Toaster({ toast }: { toast?: Toast | null }) {
 }
 
 const ShowToast = (props: { toast: Toast }) => {
-	const { id, type, title, message } = props.toast;
+	const { id, type, title, message, closeAfter } = props.toast;
 	useEffect(() => {
 		setTimeout(() => {
 			const [defaultTitle, defaultColor] = match(type)
@@ -26,6 +26,7 @@ const ShowToast = (props: { toast: Toast }) => {
 				message,
 				title: title ?? defaultTitle,
 				color: defaultColor,
+				autoClose: closeAfter,
 			});
 		}, 0);
 	}, [message, id, title, type]);
