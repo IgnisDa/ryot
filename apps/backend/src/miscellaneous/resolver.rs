@@ -4892,11 +4892,7 @@ impl MiscellaneousService {
                         }
                     }
                 }
-                let jwt_key = jwt::sign(
-                    user.id,
-                    &self.config.users.jwt_secret,
-                    self.config.users.token_valid_for_days,
-                )?;
+                let jwt_key = self.generate_auth_token(user.id).await?;
                 Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }
