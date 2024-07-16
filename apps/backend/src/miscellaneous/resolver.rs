@@ -259,7 +259,6 @@ enum LoginResult {
 
 #[derive(Debug, InputObject)]
 struct UpdateUserInput {
-    user_id: String,
     username: Option<String>,
     #[graphql(secret)]
     password: Option<String>,
@@ -1253,7 +1252,8 @@ impl MiscellaneousMutation {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.update_user(input).await
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.update_user(user_id, input).await
     }
 
     /// Change a user's preferences.
@@ -4917,8 +4917,8 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_user(&self, input: UpdateUserInput) -> Result<StringIdObject> {
-        let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
+    async fn update_user(&self, user_id: String, input: UpdateUserInput) -> Result<StringIdObject> {
+        let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
             .one(&self.db)
             .await
             .unwrap()
