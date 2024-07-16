@@ -40,12 +40,11 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-const RECOVERABLE_BACKEND_ERRORS = [
-	"NO_AUTH_TOKEN",
-	"NO_USER_ID",
-	"MUTATION_NOT_ALLOWED",
-	"SESSION_EXPIRED",
-] as const;
+const BACKEND_ERRORS = {
+	// If the backend throws these errors, redirect to auth page
+	auth: ["NO_AUTH_TOKEN", "NO_USER_ID", "SESSION_EXPIRED"],
+	recoverable: ["MUTATION_NOT_ALLOWED"],
+} as const;
 
 class EnhancedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
@@ -59,9 +58,9 @@ class EnhancedGraphQLClient extends GraphQLClient {
 		} catch (e) {
 			if (e instanceof ClientError) {
 				const errors = e.response.errors?.map((e) => e.message) || [];
-				const isRecoverable =
-					intersection(RECOVERABLE_BACKEND_ERRORS, errors).length > 0;
-				if (isRecoverable)
+				const isAuthError =
+					intersection(BACKEND_ERRORS.auth, errors).length > 0;
+				if (isAuthError)
 					throw redirect($path("/auth"), {
 						headers: combineHeaders(
 							getLogoutCookies(),
