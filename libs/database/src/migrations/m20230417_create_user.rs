@@ -18,6 +18,7 @@ pub enum User {
     // This field can be `NULL` if the user has not enabled any sink integration
     SinkIntegrations,
     OidcIssuerId,
+    ExtraInformation,
 }
 
 #[async_trait::async_trait]
@@ -42,6 +43,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(User::ExtraInformation).json_binary())
                     .to_owned(),
             )
             .await?;

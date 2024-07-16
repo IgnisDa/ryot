@@ -31,6 +31,9 @@ pub struct Model {
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,
+    #[sea_orm(ignore)]
+    #[graphql(skip)]
+    pub extra_information: Option<Json>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
