@@ -49,7 +49,10 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 		docs: RequestDocument | TypedDocumentNode<T, V>,
 		...vars: VariablesAndRequestHeadersArgs<V>
 	): Promise<T> {
-		vars[1] = { ...getAuthorizationHeader(remixRequest), ...vars[1] };
+		const authHeaders = {
+			Authorization: `Bearer ${getAuthorizationCookie(remixRequest)}`,
+		};
+		vars[1] = { ...authHeaders, ...vars[1] };
 		try {
 			return await this.request<T, V>(docs, ...vars);
 		} catch (e) {
@@ -86,14 +89,6 @@ export const getCookieValue = (request: Request, cookieName: string) => {
 
 export const getAuthorizationCookie = (request: Request) => {
 	return getCookieValue(request, AUTH_COOKIE_NAME);
-};
-
-const getAuthorizationHeader = (request?: Request, token?: string) => {
-	let cookie: string;
-	if (request) cookie = getAuthorizationCookie(request);
-	else if (token) cookie = token;
-	else cookie = "";
-	return { Authorization: `Bearer ${cookie}` };
 };
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
