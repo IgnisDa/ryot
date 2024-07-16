@@ -4,6 +4,7 @@ import { $path } from "@ignisda/remix-routes";
 import {
 	createCookie,
 	createCookieSessionStorage,
+	json,
 	redirect,
 	unstable_composeUploadHandlers,
 	unstable_createMemoryUploadHandler,
@@ -17,7 +18,7 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { intersection, isEmpty } from "@ryot/ts-utils";
+import { isEmpty } from "@ryot/ts-utils";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
 import {
 	ClientError,
@@ -40,11 +41,14 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-const BACKEND_ERRORS = {
-	// If the backend throws these errors, redirect to auth page
-	auth: ["NO_AUTH_TOKEN", "NO_USER_ID", "SESSION_EXPIRED"],
-	recoverable: ["MUTATION_NOT_ALLOWED"],
-} as const;
+// Backend throws these errors as strings. If a corresponding value is provided, the user
+// will be shown a toast, otherwise redirect to auth page with a generic message.
+const BACKEND_ERRORS: Record<string, string | null> = {
+	NO_AUTH_TOKEN: null,
+	NO_USER_ID: null,
+	SESSION_EXPIRED: null,
+	MUTATION_NOT_ALLOWED: "Mutating this resource is not allowed",
+};
 
 class EnhancedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
@@ -57,10 +61,11 @@ class EnhancedGraphQLClient extends GraphQLClient {
 			return await this.request<T, V>(docs, ...vars);
 		} catch (e) {
 			if (e instanceof ClientError) {
-				const errors = e.response.errors?.map((e) => e.message) || [];
-				const isAuthError =
-					intersection(BACKEND_ERRORS.auth, errors).length > 0;
-				if (isAuthError)
+				const error = e.response.errors?.at(0)?.message || "";
+				const expectedError = BACKEND_ERRORS[error];
+				console.log({ error, expectedError });
+				if (expectedError === undefined) throw e;
+				if (expectedError === null)
 					throw redirect($path("/auth"), {
 						headers: combineHeaders(
 							getLogoutCookies(),
@@ -70,6 +75,15 @@ class EnhancedGraphQLClient extends GraphQLClient {
 							}),
 						),
 					});
+				throw json(
+					{},
+					{
+						headers: await createToastHeaders({
+							type: "error",
+							message: expectedError,
+						}),
+					},
+				);
 			}
 			throw e;
 		}
