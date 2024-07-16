@@ -4,7 +4,6 @@ import { $path } from "@ignisda/remix-routes";
 import {
 	createCookie,
 	createCookieSessionStorage,
-	json,
 	redirect,
 	unstable_composeUploadHandlers,
 	unstable_createMemoryUploadHandler,
@@ -75,15 +74,7 @@ class EnhancedGraphQLClient extends GraphQLClient {
 							}),
 						),
 					});
-				throw json(
-					{},
-					{
-						headers: await createToastHeaders({
-							type: "error",
-							message: expectedError,
-						}),
-					},
-				);
+				throw Response.json({ error: expectedError });
 			}
 			throw e;
 		}

@@ -54,6 +54,7 @@ import {
 	Link,
 	NavLink,
 	Outlet,
+	isRouteErrorResponse,
 	useLoaderData,
 	useLocation,
 	useNavigate,
@@ -317,7 +318,7 @@ export function ErrorBoundary() {
 					. Here is the complete error that occurred:
 				</Text>
 				<Code mah={100} c="pink">
-					{error.message}
+					{isRouteErrorResponse(error) ? error.data.error : error.message}
 				</Code>
 			</Stack>
 		</Container>
