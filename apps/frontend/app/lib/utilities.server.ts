@@ -56,24 +56,23 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 		try {
 			return await this.request<T, V>(docs, ...vars);
 		} catch (e) {
-			if (e instanceof ClientError) {
-				const error: BackendError | string =
-					e.response.errors?.at(0)?.message || "";
-				throw await match(error)
-					.with(BackendError.NoAuthToken, BackendError.NoUserId, async () =>
-						redirect($path("/auth"), {
-							headers: combineHeaders(
-								getLogoutCookies(),
-								await createToastHeaders({
-									type: "error",
-									message: "Your session has expired",
-								}),
-							),
-						}),
-					)
-					.otherwise((error) => Response.json({ error }));
-			}
-			throw e;
+			if (!(e instanceof ClientError)) throw e;
+			const error = e.response.errors?.at(0)?.message || "";
+			throw await match(error)
+				.with(BackendError.NoAuthToken, BackendError.NoUserId, async () => {
+					return redirect($path("/auth"), {
+						headers: combineHeaders(
+							getLogoutCookies(),
+							await createToastHeaders({
+								type: "error",
+								message: "Your session has expired",
+							}),
+						),
+					});
+				})
+				.otherwise((error) => {
+					return Response.json({ error });
+				});
 		}
 	}
 }
