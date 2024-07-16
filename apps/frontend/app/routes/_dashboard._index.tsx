@@ -40,7 +40,6 @@ import { displayWeightWithUnit } from "~/components/fitness";
 import {
 	DisplayCollectionEntity,
 	MetadataDisplayItem,
-	NewUserGuideAlert,
 } from "~/components/media";
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
@@ -117,9 +116,6 @@ export default function Page() {
 	return (
 		<Container>
 			<Stack gap={32}>
-				{latestUserSummary.media.metadataOverall.interactedWith === 0 ? (
-					<NewUserGuideAlert />
-				) : null}
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>

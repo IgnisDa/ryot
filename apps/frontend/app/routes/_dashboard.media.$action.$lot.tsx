@@ -27,7 +27,6 @@ import {
 import {
 	EntityLot,
 	GraphqlSortOrder,
-	LatestUserSummaryDocument,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -58,11 +57,7 @@ import {
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common";
-import {
-	BaseMediaDisplayItem,
-	MetadataDisplayItem,
-	NewUserGuideAlert,
-} from "~/components/media";
+import { BaseMediaDisplayItem, MetadataDisplayItem } from "~/components/media";
 import { Verb, getLot, getVerb } from "~/lib/generals";
 import {
 	useAppSearchParam,
@@ -124,13 +119,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		request,
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const [{ latestUserSummary }] = await Promise.all([
-		serverGqlService.authenticatedRequest(
-			request,
-			LatestUserSummaryDocument,
-			{},
-		),
-	]);
 	const { query, page } = zx.parseQuery(request, {
 		query: z.string().optional(),
 		page: zx.IntAsString.default("1"),
@@ -201,8 +189,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		cookieName,
 		mediaSearch,
 		url: withoutHost(url.href),
-		mediaInteractedWith:
-			latestUserSummary.data.media.metadataOverall.interactedWith,
 	};
 });
 
@@ -236,7 +222,6 @@ export default function Page() {
 
 	return (
 		<Container>
-			{loaderData.mediaInteractedWith === 0 ? <NewUserGuideAlert /> : null}
 			<Tabs
 				variant="default"
 				mt="sm"
