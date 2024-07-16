@@ -17,9 +17,10 @@ import {
 	UserPreferencesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty } from "@ryot/ts-utils";
+import { intersection, isEmpty } from "@ryot/ts-utils";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
 import {
+	ClientError,
 	GraphQLClient,
 	type RequestDocument,
 	type Variables,
@@ -39,6 +40,13 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
+const RECOVERABLE_BACKEND_ERRORS = [
+	"NO_AUTH_TOKEN",
+	"NO_USER_ID",
+	"MUTATION_NOT_ALLOWED",
+	"SESSION_EXPIRED",
+] as const;
+
 class EnhancedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
 		remixRequest: Request,
@@ -46,8 +54,26 @@ class EnhancedGraphQLClient extends GraphQLClient {
 		...vars: VariablesAndRequestHeadersArgs<V>
 	): Promise<T> {
 		vars[1] = { ...getAuthorizationHeader(remixRequest), ...vars[1] };
-		const response = await this.request<T, V>(docs, ...vars);
-		return response;
+		try {
+			return await this.request<T, V>(docs, ...vars);
+		} catch (e) {
+			if (e instanceof ClientError) {
+				const errors = e.response.errors?.map((e) => e.message) || [];
+				const isRecoverable =
+					intersection(RECOVERABLE_BACKEND_ERRORS, errors).length > 0;
+				if (isRecoverable)
+					throw redirect($path("/auth"), {
+						headers: combineHeaders(
+							getLogoutCookies(),
+							await createToastHeaders({
+								type: "error",
+								message: "Your session has expired",
+							}),
+						),
+					});
+			}
+			throw e;
+		}
 	}
 }
 
