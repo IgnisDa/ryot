@@ -59,19 +59,30 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 			if (!(e instanceof ClientError)) throw e;
 			const error = e.response.errors?.at(0)?.message || "";
 			throw await match(error)
-				.with(BackendError.NoAuthToken, BackendError.NoUserId, async () => {
-					return redirect($path("/auth"), {
-						headers: combineHeaders(
-							getLogoutCookies(),
-							await createToastHeaders({
-								type: "error",
-								message: "Your session has expired",
-							}),
-						),
-					});
-				})
+				.with(
+					BackendError.NoAuthToken,
+					BackendError.NoUserId,
+					BackendError.SessionExpired,
+					async () => {
+						return redirect($path("/auth"), {
+							headers: combineHeaders(
+								getLogoutCookies(),
+								await createToastHeaders({
+									type: "error",
+									message: "Your session has expired",
+								}),
+							),
+						});
+					},
+				)
 				.otherwise((error) => {
-					return Response.json({ error });
+					const message = match(error)
+						.with(
+							BackendError.MutationNotAllowed,
+							() => "You do not have permission to perform this action",
+						)
+						.otherwise(() => error);
+					return Response.json({ error: message });
 				});
 		}
 	}
