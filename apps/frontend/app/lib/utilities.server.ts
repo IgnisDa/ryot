@@ -9,6 +9,7 @@ import {
 	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
+	BackendError,
 	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
@@ -26,6 +27,7 @@ import {
 	type Variables,
 } from "graphql-request";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
+import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
@@ -41,15 +43,6 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-// Backend throws these errors as strings. If a corresponding value is provided, the user
-// will be shown a toast, otherwise redirect to auth page with a generic message.
-const BACKEND_ERRORS: Record<string, string | null> = {
-	NO_AUTH_TOKEN: null,
-	NO_USER_ID: null,
-	SESSION_EXPIRED: null,
-	MUTATION_NOT_ALLOWED: "Mutating this resource is not allowed",
-};
-
 class EnhancedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
 		remixRequest: Request,
@@ -61,20 +54,21 @@ class EnhancedGraphQLClient extends GraphQLClient {
 			return await this.request<T, V>(docs, ...vars);
 		} catch (e) {
 			if (e instanceof ClientError) {
-				const error = e.response.errors?.at(0)?.message || "";
-				const expectedError = BACKEND_ERRORS[error];
-				if (expectedError === undefined) throw e;
-				if (expectedError === null)
-					throw redirect($path("/auth"), {
-						headers: combineHeaders(
-							getLogoutCookies(),
-							await createToastHeaders({
-								type: "error",
-								message: "Your session has expired",
-							}),
-						),
-					});
-				throw Response.json({ error: expectedError });
+				const error: BackendError | string =
+					e.response.errors?.at(0)?.message || "";
+				throw await match(error)
+					.with(BackendError.NoAuthToken, BackendError.NoUserId, async () =>
+						redirect($path("/auth"), {
+							headers: combineHeaders(
+								getLogoutCookies(),
+								await createToastHeaders({
+									type: "error",
+									message: "Your session has expired",
+								}),
+							),
+						}),
+					)
+					.otherwise((error) => Response.json({ error }));
 			}
 			throw e;
 		}
