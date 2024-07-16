@@ -62,7 +62,6 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 	serverGqlService,
@@ -105,10 +104,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		});
 	}
 	for (const input of submission) {
-		await serverGqlService.request(
+		await serverGqlService.authenticatedRequest(
+			request,
 			UpdateUserPreferenceDocument,
 			{ input },
-			getAuthorizationHeader(request),
 		);
 	}
 	queryClient.removeQueries({
@@ -151,7 +150,12 @@ export default function Page() {
 						right: rem(loaderData.workoutInProgress ? 100 : 40),
 					}}
 				>
-					<Form method="POST" action={`?defaultTab=${defaultTab}`} replace>
+					<Form
+						replace
+						method="POST"
+						action={`?defaultTab=${defaultTab}`}
+						onSubmit={() => updateUserPreferencesHandler.setState([])}
+					>
 						{toUpdatePreferences.map((pref) => (
 							<input
 								key={pref[0]}

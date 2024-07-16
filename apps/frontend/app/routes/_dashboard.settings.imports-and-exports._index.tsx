@@ -3,6 +3,7 @@ import {
 	Anchor,
 	Box,
 	Button,
+	Code,
 	Container,
 	Divider,
 	FileInput,
@@ -57,7 +58,6 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -70,16 +70,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
 			getCoreEnabledFeatures(),
-			serverGqlService.request(
-				ImportReportsDocument,
-				undefined,
-				getAuthorizationHeader(request),
-			),
-			serverGqlService.request(
-				UserExportsDocument,
-				undefined,
-				getAuthorizationHeader(request),
-			),
+			serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
+			serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
 		]);
 	return { coreEnabledFeatures, importReports, userExports };
 });
@@ -137,10 +129,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 					igdb: processSubmission(formData, igdbImportFormSchema),
 				}))
 				.exhaustive();
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
-				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -154,10 +146,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployExport: async () => {
 			const toExport = processSubmission(formData, deployExportForm);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				DeployExportJobDocument,
 				toExport,
-				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -493,16 +485,13 @@ export default function Page() {
 																Failed: {report.details.failedItems.length}
 															</Text>
 															{report.details.failedItems.length > 0 ? (
-																<JsonInput
-																	size="xs"
-																	defaultValue={JSON.stringify(
+																<Code mah={400} block>
+																	{JSON.stringify(
 																		report.details.failedItems,
 																		null,
 																		4,
 																	)}
-																	readOnly
-																	autosize
-																/>
+																</Code>
 															) : null}
 														</>
 													) : (

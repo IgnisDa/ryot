@@ -121,7 +121,7 @@ export const PartialMetadataDisplay = (props: {
 				size="xs"
 				ta="center"
 				lineClamp={1}
-				c={(userMetadataDetails?.history.length || 0) > 0 ? "bright" : "dimmed"}
+				c={userMetadataDetails?.hasInteracted ? "yellow" : "dimmed"}
 			>
 				{metadataDetails?.title} {props.extraText}
 			</Text>
@@ -562,6 +562,7 @@ export const MetadataDisplayItem = (props: {
 			UserToMediaReason.Owned,
 		].includes(r),
 	);
+	const hasInteracted = userMetadataDetails?.hasInteracted;
 
 	return (
 		<BaseMediaDisplayItem
@@ -587,7 +588,7 @@ export const MetadataDisplayItem = (props: {
 										`${history.length} time${history.length === 1 ? "" : "s"}`
 									) : null
 								) : (
-									<Text c={history.length > 0 ? "bright" : undefined}>
+									<Text c={hasInteracted ? "yellow" : undefined}>
 										{changeCase(snakeCase(metadataDetails.lot))}
 									</Text>
 								)),

@@ -26,10 +26,13 @@ pub struct Model {
     #[graphql(skip)]
     pub password: Option<String>,
     pub oidc_issuer_id: Option<String>,
+    pub created_on: DateTimeUtc,
     pub is_demo: Option<bool>,
     pub lot: UserLot,
     #[graphql(skip)]
     pub preferences: UserPreferences,
+    #[graphql(skip)]
+    pub extra_information: Option<Json>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

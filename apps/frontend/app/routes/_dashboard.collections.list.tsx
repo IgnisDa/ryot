@@ -50,7 +50,6 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
@@ -75,10 +74,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			try {
-				await serverGqlService.request(
+				await serverGqlService.authenticatedRequest(
+					request,
 					CreateOrUpdateCollectionDocument,
 					{ input: submission },
-					getAuthorizationHeader(request),
 				);
 				return Response.json(
 					{},
@@ -113,10 +112,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 			let wasSuccessful = true;
 			try {
-				await serverGqlService.request(
+				await serverGqlService.authenticatedRequest(
+					request,
 					DeleteCollectionDocument,
 					submission,
-					getAuthorizationHeader(request),
 				);
 			} catch {
 				wasSuccessful = false;

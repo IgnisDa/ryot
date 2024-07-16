@@ -67,7 +67,6 @@ import {
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
@@ -105,21 +104,17 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
-		serverGqlService.request(
-			CollectionContentsDocument,
-			{
-				input: {
-					collectionId,
-					filter: {
-						entityType: query.entityLot,
-						metadataLot: query.metadataLot,
-					},
-					sort: { by: query.sortBy, order: query.orderBy },
-					search: { page: query.page, query: query.query },
+		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
+			input: {
+				collectionId,
+				filter: {
+					entityType: query.entityLot,
+					metadataLot: query.metadataLot,
 				},
+				sort: { by: query.sortBy, order: query.orderBy },
+				search: { page: query.page, query: query.query },
 			},
-			getAuthorizationHeader(request),
-		),
+		}),
 	]);
 	return { collectionId, query, collectionContents, cookieName };
 });
@@ -138,7 +133,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					item.entityId,
 					item.entityLot,
 				);
-				await serverGqlService.request(
+				await serverGqlService.authenticatedRequest(
+					request,
 					RemoveEntityFromCollectionDocument,
 					{
 						input: {
@@ -147,7 +143,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 							...input,
 						},
 					},
-					getAuthorizationHeader(request),
 				);
 			}
 			await removeCachedUserCollectionsList(request);

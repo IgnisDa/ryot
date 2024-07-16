@@ -1,7 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
 import { redirect, unstable_defineLoader } from "@remix-run/node";
 import {
-	CoreDetailsDocument,
 	GetOidcTokenDocument,
 	LoginUserDocument,
 	RegisterUserDocument,
@@ -9,6 +8,7 @@ import {
 import { z } from "zod";
 import { zx } from "zodix";
 import {
+	getCachedCoreDetails,
 	getCookiesForApplication,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -29,7 +29,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		issuerId: getOidcToken.subject,
 	};
 	const [_, { registerUser }] = await Promise.all([
-		serverGqlService.request(CoreDetailsDocument),
+		getCachedCoreDetails(),
 		serverGqlService.request(RegisterUserDocument, {
 			input: { oidc: oidcInput },
 		}),

@@ -45,7 +45,6 @@ import {
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import {
-	getAuthorizationHeader,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
 	serverGqlService,
@@ -73,26 +72,22 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
 	] = await Promise.all([
-		serverGqlService.request(
-			CollectionContentsDocument,
-			{
-				input: {
-					collectionId: foundInProgressCollection.id,
-					take: takeInProgress,
-					sort: { order: GraphqlSortOrder.Desc },
-				},
+		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
+			input: {
+				collectionId: foundInProgressCollection.id,
+				take: takeInProgress,
+				sort: { order: GraphqlSortOrder.Desc },
 			},
-			getAuthorizationHeader(request),
-		),
-		serverGqlService.request(
+		}),
+		serverGqlService.authenticatedRequest(
+			request,
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
-			getAuthorizationHeader(request),
 		),
-		serverGqlService.request(
+		serverGqlService.authenticatedRequest(
+			request,
 			LatestUserSummaryDocument,
 			undefined,
-			getAuthorizationHeader(request),
 		),
 	]);
 	return {

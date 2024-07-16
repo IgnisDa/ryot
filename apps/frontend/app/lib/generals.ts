@@ -42,6 +42,7 @@ export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 export const redirectToQueryParam = "redirectTo";
 export const AUTH_COOKIE_NAME = "Auth";
+export const toastKey = "Toast";
 
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },

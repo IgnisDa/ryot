@@ -111,7 +111,6 @@ import {
 import {
 	MetadataIdSchema,
 	createToastHeaders,
-	getAuthorizationHeader,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -133,10 +132,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
 		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
-		serverGqlService.request(
+		serverGqlService.authenticatedRequest(
+			request,
 			UserMetadataDetailsDocument,
 			{ metadataId },
-			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, metadataId, metadataDetails, userMetadataDetails };
@@ -151,10 +150,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		deleteSeenItem: async () => {
 			const submission = processSubmission(formData, seenIdSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				DeleteSeenItemDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
@@ -165,10 +164,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployUpdateMetadataJob: async () => {
 			const submission = processSubmission(formData, MetadataIdSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				DeployUpdateMetadataJobDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
@@ -179,10 +178,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		mergeMetadata: async () => {
 			const submission = processSubmission(formData, mergeMetadataSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				MergeMetadataDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return redirectWithToast(
 				$path("/media/item/:id", { id: submission.mergeInto }),
@@ -191,10 +190,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				EditSeenItemDocument,
 				{ input: submission },
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({

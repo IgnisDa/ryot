@@ -43,7 +43,6 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
@@ -66,7 +65,8 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {
 			invariant(query.name);
-			const { exerciseDetails } = await serverGqlService.request(
+			const { exerciseDetails } = await serverGqlService.authenticatedRequest(
+				request,
 				ExerciseDetailsDocument,
 				{ exerciseId: query.name },
 			);
@@ -111,21 +111,22 @@ export const action = unstable_defineAction(async ({ request }) => {
 	try {
 		return await namedAction(request, {
 			[Action.Create]: async () => {
-				const { createCustomExercise } = await serverGqlService.request(
-					CreateCustomExerciseDocument,
-					{ input },
-					getAuthorizationHeader(request),
-				);
+				const { createCustomExercise } =
+					await serverGqlService.authenticatedRequest(
+						request,
+						CreateCustomExerciseDocument,
+						{ input },
+					);
 				return redirect(
 					$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
 				);
 			},
 			[Action.Update]: async () => {
 				invariant(submission.oldName);
-				await serverGqlService.request(
+				await serverGqlService.authenticatedRequest(
+					request,
 					EditCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },
-					getAuthorizationHeader(request),
 				);
 				return redirect($path("/fitness/exercises/list"));
 			},

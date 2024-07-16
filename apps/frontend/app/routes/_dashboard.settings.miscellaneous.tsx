@@ -18,7 +18,6 @@ import { z } from "zod";
 import { useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -30,10 +29,10 @@ export const meta = (_args: MetaArgs_SingleFetch) => {
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	const submission = processSubmission(formData, jobSchema);
-	await serverGqlService.request(
+	await serverGqlService.authenticatedRequest(
+		request,
 		DeployBackgroundJobDocument,
 		submission,
-		getAuthorizationHeader(request),
 	);
 	return Response.json({ status: "success" } as const, {
 		headers: await createToastHeaders({

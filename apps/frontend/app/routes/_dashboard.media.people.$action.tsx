@@ -52,7 +52,6 @@ import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
 import { redirectToQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -96,7 +95,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 			});
-			const { peopleList } = await serverGqlService.request(
+			const { peopleList } = await serverGqlService.authenticatedRequest(
+				request,
 				PeopleListDocument,
 				{
 					input: {
@@ -104,7 +104,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 					},
 				},
-				getAuthorizationHeader(request),
 			);
 			return [{ list: peopleList, url: urlParse }, undefined] as const;
 		})
@@ -114,7 +113,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				isTmdbCompany: zx.BoolAsString.optional(),
 				isAnilistStudio: zx.BoolAsString.optional(),
 			});
-			const { peopleSearch } = await serverGqlService.request(
+			const { peopleSearch } = await serverGqlService.authenticatedRequest(
+				request,
 				PeopleSearchDocument,
 				{
 					input: {
@@ -126,7 +126,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						},
 					},
 				},
-				getAuthorizationHeader(request),
 			);
 			return [undefined, { search: peopleSearch, url: urlParse }] as const;
 		})

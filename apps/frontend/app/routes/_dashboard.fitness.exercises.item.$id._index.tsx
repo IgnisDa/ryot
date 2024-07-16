@@ -52,10 +52,7 @@ import { dayjsLib } from "~/lib/generals";
 import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
-import {
-	getAuthorizationHeader,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
@@ -68,10 +65,10 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
 		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-		serverGqlService.request(
+		serverGqlService.authenticatedRequest(
+			request,
 			UserExerciseDetailsDocument,
 			{ exerciseId },
-			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, exerciseDetails, userExerciseDetails, exerciseId };

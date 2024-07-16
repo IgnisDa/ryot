@@ -114,7 +114,6 @@ import {
 } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	isWorkoutActive,
 	redirectWithToast,
@@ -146,10 +145,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		createWorkout: async () => {
 			const workout = JSON.parse(formData.get("workout") as string);
-			const { createUserWorkout } = await serverGqlService.request(
+			const { createUserWorkout } = await serverGqlService.authenticatedRequest(
+				request,
 				CreateUserWorkoutDocument,
 				workout,
-				getAuthorizationHeader(request),
 			);
 			return redirect(
 				$path("/fitness/workouts/:id", { id: createUserWorkout }),

@@ -89,7 +89,7 @@ use crate::{
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
-        BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
+        BackendError, BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
         UserSummaryData,
     },
@@ -262,6 +262,7 @@ struct UpdateUserInput {
     username: Option<String>,
     #[graphql(secret)]
     password: Option<String>,
+    extra_information: Option<serde_json::Value>,
 }
 
 #[derive(Debug, InputObject)]
@@ -545,6 +546,7 @@ struct CoreDetails {
     repository_link: String,
     token_valid_for_days: i32,
     local_auth_disabled: bool,
+    backend_errors: Vec<BackendError>,
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
@@ -615,6 +617,8 @@ struct UserMetadataDetails {
     show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.
     podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
+    /// Whether this media has been interacted with
+    has_interacted: bool,
 }
 
 #[derive(SimpleObject, Debug, Clone)]
@@ -1461,6 +1465,7 @@ impl MiscellaneousService {
             oidc_enabled: self.oidc_client.is_some(),
             page_limit: self.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
+            backend_errors: BackendError::iter().collect(),
             website_url: "https://ryot.io/features".to_owned(),
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
@@ -1928,18 +1933,19 @@ impl MiscellaneousService {
                 None
             };
         Ok(UserMetadataDetails {
-            media_reason: user_to_meta.and_then(|n| n.media_reason),
-            collections,
             reviews,
             history,
-            in_progress,
             next_entry,
-            seen_by_all_count: seen_by,
-            seen_by_user_count,
+            collections,
+            in_progress,
+            show_progress,
             average_rating,
             units_consumed,
-            show_progress,
             podcast_progress,
+            seen_by_user_count,
+            seen_by_all_count: seen_by,
+            has_interacted: user_to_meta.is_some(),
+            media_reason: user_to_meta.and_then(|n| n.media_reason),
         })
     }
 
@@ -4407,6 +4413,7 @@ impl MiscellaneousService {
     async fn delete_seen_item(&self, user_id: &String, seen_id: String) -> Result<StringIdObject> {
         let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
         if let Some(si) = seen_item {
+            let cloned_seen = si.clone();
             let (ssn, sen) = match &si.show_extra_information {
                 Some(d) => (Some(d.season), Some(d.episode)),
                 None => (None, None),
@@ -4425,7 +4432,6 @@ impl MiscellaneousService {
             };
             self.seen_progress_cache.cache_remove(&cache).unwrap();
             let seen_id = si.id.clone();
-            let progress = si.progress;
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {
                 return Err(Error::new(
@@ -4433,21 +4439,9 @@ impl MiscellaneousService {
                 ));
             }
             si.delete(&self.db).await.trace_ok();
-            if progress < dec!(100) {
-                self.remove_entity_from_collection(
-                    user_id,
-                    ChangeCollectionToEntityInput {
-                        creator_user_id: user_id.to_owned(),
-                        collection_name: DefaultCollection::InProgress.to_string(),
-                        metadata_id: Some(metadata_id.clone()),
-                        ..Default::default()
-                    },
-                )
-                .await
-                .ok();
-            }
             associate_user_with_entity(user_id, Some(metadata_id), None, None, None, &self.db)
                 .await?;
+            self.after_media_seen_tasks(cloned_seen).await?;
             Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
@@ -4904,11 +4898,7 @@ impl MiscellaneousService {
                         }
                     }
                 }
-                let jwt_key = jwt::sign(
-                    user.id,
-                    &self.config.users.jwt_secret,
-                    self.config.users.token_valid_for_days,
-                )?;
+                let jwt_key = self.generate_auth_token(user.id).await?;
                 Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }
@@ -4943,7 +4933,12 @@ impl MiscellaneousService {
         if let Some(n) = input.username {
             user_obj.name = ActiveValue::Set(n);
         }
-        user_obj.password = ActiveValue::Set(input.password);
+        if let Some(p) = input.password {
+            user_obj.password = ActiveValue::Set(Some(p));
+        }
+        if let Some(i) = input.extra_information {
+            user_obj.extra_information = ActiveValue::Set(Some(i));
+        }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(StringIdObject { id: user_obj.id })
     }

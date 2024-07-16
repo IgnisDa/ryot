@@ -77,7 +77,6 @@ import {
 	useMetadataProgressUpdate,
 } from "~/lib/state/media";
 import {
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -126,10 +125,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ latestUserSummary }] = await Promise.all([
-		serverGqlService.request(
+		serverGqlService.authenticatedRequest(
+			request,
 			LatestUserSummaryDocument,
-			undefined,
-			getAuthorizationHeader(request),
+			{},
 		),
 	]);
 	const { query, page } = zx.parseQuery(request, {
@@ -149,7 +148,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					.default(defaultFilters.mineGeneralFilter),
 				collection: z.string().optional(),
 			});
-			const { metadataList } = await serverGqlService.request(
+			const { metadataList } = await serverGqlService.authenticatedRequest(
+				request,
 				MetadataListDocument,
 				{
 					input: {
@@ -162,7 +162,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						},
 					},
 				},
-				getAuthorizationHeader(request),
 			);
 			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
@@ -171,7 +170,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { metadataSearch } = await serverGqlService.request(
+			const { metadataSearch } = await serverGqlService.authenticatedRequest(
+				request,
 				MetadataSearchDocument,
 				{
 					input: {
@@ -180,7 +180,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						source: urlParse.source,
 					},
 				},
-				getAuthorizationHeader(request),
 			);
 			return [
 				undefined,
@@ -455,7 +454,7 @@ const MediaSearchItem = (props: {
 				labels={{
 					left: props.item.item.publishYear,
 					right: (
-						<Text c={props.hasInteracted ? "bright" : undefined}>
+						<Text c={props.hasInteracted ? "yellow" : undefined}>
 							{changeCase(snakeCase(props.lot))}
 						</Text>
 					),

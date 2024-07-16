@@ -53,6 +53,15 @@ pub enum EntityLot {
     Collection,
 }
 
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum BackendError {
+    NoAuthToken,
+    NoUserId,
+    SessionExpired,
+    MutationNotAllowed,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum StoredUrl {
     S3(String),
