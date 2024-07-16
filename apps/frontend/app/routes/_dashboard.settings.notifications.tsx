@@ -44,14 +44,14 @@ import { dayjsLib } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	processSubmission,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
-		serverGqlService.request(
+		enhancedServerGqlService.request(
 			UserNotificationPlatformsDocument,
 			undefined,
 			getAuthorizationHeader(request),
@@ -69,7 +69,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				CreateUserNotificationPlatformDocument,
 				{ input: submission },
 				getAuthorizationHeader(request),
@@ -78,7 +78,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				DeleteUserNotificationPlatformDocument,
 				submission,
 				getAuthorizationHeader(request),
@@ -91,11 +91,12 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		test: async () => {
-			const { testUserNotificationPlatforms } = await serverGqlService.request(
-				TestUserNotificationPlatformsDocument,
-				undefined,
-				getAuthorizationHeader(request),
-			);
+			const { testUserNotificationPlatforms } =
+				await enhancedServerGqlService.request(
+					TestUserNotificationPlatformsDocument,
+					undefined,
+					getAuthorizationHeader(request),
+				);
 			return Response.json({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: testUserNotificationPlatforms ? "success" : "error",

@@ -58,9 +58,9 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	getCoreEnabledFeatures,
-	serverGqlService,
 } from "~/lib/utilities.server";
 import {
 	processSubmission,
@@ -71,12 +71,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
 			getCoreEnabledFeatures(),
-			serverGqlService.request(
+			enhancedServerGqlService.request(
 				ImportReportsDocument,
 				undefined,
 				getAuthorizationHeader(request),
 			),
-			serverGqlService.request(
+			enhancedServerGqlService.request(
 				UserExportsDocument,
 				undefined,
 				getAuthorizationHeader(request),
@@ -138,7 +138,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 					igdb: processSubmission(formData, igdbImportFormSchema),
 				}))
 				.exhaustive();
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
 				getAuthorizationHeader(request),
@@ -155,7 +155,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployExport: async () => {
 			const toExport = processSubmission(formData, deployExportForm);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				DeployExportJobDocument,
 				toExport,
 				getAuthorizationHeader(request),

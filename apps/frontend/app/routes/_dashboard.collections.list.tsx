@@ -50,12 +50,12 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -75,7 +75,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			try {
-				await serverGqlService.request(
+				await enhancedServerGqlService.request(
 					CreateOrUpdateCollectionDocument,
 					{ input: submission },
 					getAuthorizationHeader(request),
@@ -113,7 +113,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 			let wasSuccessful = true;
 			try {
-				await serverGqlService.request(
+				await enhancedServerGqlService.request(
 					DeleteCollectionDocument,
 					submission,
 					getAuthorizationHeader(request),

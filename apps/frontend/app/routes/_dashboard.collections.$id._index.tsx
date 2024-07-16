@@ -67,12 +67,12 @@ import {
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 const DEFAULT_TAB = "contents";
@@ -105,7 +105,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
-		serverGqlService.request(
+		enhancedServerGqlService.request(
 			CollectionContentsDocument,
 			{
 				input: {
@@ -138,7 +138,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 					item.entityId,
 					item.entityLot,
 				);
-				await serverGqlService.request(
+				await enhancedServerGqlService.request(
 					RemoveEntityFromCollectionDocument,
 					{
 						input: {

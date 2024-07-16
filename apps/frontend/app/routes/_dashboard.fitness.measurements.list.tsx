@@ -46,11 +46,11 @@ import {
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 enum TimeSpan {
@@ -82,7 +82,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		.with(TimeSpan.AllTime, () => [null, null])
 		.exhaustive();
 	const [{ userMeasurementsList }] = await Promise.all([
-		serverGqlService.request(
+		enhancedServerGqlService.request(
 			UserMeasurementsListDocument,
 			{
 				input: {
@@ -105,7 +105,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				DeleteUserMeasurementDocument,
 				submission,
 				getAuthorizationHeader(request),

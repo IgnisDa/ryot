@@ -1,4 +1,5 @@
 import { parseWithZod } from "@conform-to/zod";
+import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { $path } from "@ignisda/remix-routes";
 import {
 	createCookie,
@@ -18,7 +19,12 @@ import {
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
-import { GraphQLClient } from "graphql-request";
+import {
+	GraphQLClient,
+	type RequestDocument,
+	type Variables,
+} from "graphql-request";
+import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
@@ -33,9 +39,29 @@ import {
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-export const serverGqlService = new GraphQLClient(`${API_URL}/graphql`, {
-	headers: { Connection: "keep-alive" },
-});
+class EnhancedGraphQLClient extends GraphQLClient {
+	async enhancedRequest<T, V extends Variables = Variables>(
+		remixRequest: Request,
+		documentOrOptions: RequestDocument | TypedDocumentNode<T, V>,
+		...variablesAndRequestHeaders: VariablesAndRequestHeadersArgs<V>
+	): Promise<T> {
+		variablesAndRequestHeaders[1] = {
+			...getAuthorizationHeader(remixRequest),
+			...variablesAndRequestHeaders[1],
+		};
+		const response = await this.request<T, V>(
+			documentOrOptions,
+			...variablesAndRequestHeaders,
+		);
+		console.log(response);
+		return response;
+	}
+}
+
+export const enhancedServerGqlService = new EnhancedGraphQLClient(
+	`${API_URL}/graphql`,
+	{ headers: { Connection: "keep-alive" } },
+);
 
 export const getCookieValue = (request: Request, cookieName: string) => {
 	return parse(request.headers.get("cookie") || "")[cookieName];
@@ -132,7 +158,7 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.miscellaneous.coreDetails().queryKey,
-		queryFn: () => serverGqlService.request(CoreDetailsDocument),
+		queryFn: () => enhancedServerGqlService.request(CoreDetailsDocument),
 	});
 };
 
@@ -141,10 +167,10 @@ export const getCachedUserDetails = async (request: Request) => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.users.details(token).queryKey,
 		queryFn: () =>
-			serverGqlService.request(
+			enhancedServerGqlService.enhancedRequest(
+				request,
 				UserDetailsDocument,
 				undefined,
-				getAuthorizationHeader(request),
 			),
 	});
 };
@@ -154,12 +180,8 @@ export const getCachedUserPreferences = async (request: Request) => {
 	return queryClient.ensureQueryData({
 		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
 		queryFn: () =>
-			serverGqlService
-				.request(
-					UserPreferencesDocument,
-					undefined,
-					getAuthorizationHeader(request),
-				)
+			enhancedServerGqlService
+				.enhancedRequest(request, UserPreferencesDocument, undefined)
 				.then((data) => data.userPreferences),
 	});
 };
@@ -169,12 +191,8 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 	return queryClient.ensureQueryData({
 		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 		queryFn: () =>
-			serverGqlService
-				.request(
-					UserCollectionsListDocument,
-					{},
-					getAuthorizationHeader(request),
-				)
+			enhancedServerGqlService
+				.enhancedRequest(request, UserCollectionsListDocument, {})
 				.then((data) => data.userCollectionsList),
 		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
@@ -193,7 +211,7 @@ export const uploadFileAndGetKey = async (
 	contentType: string,
 	body: ArrayBuffer | Buffer,
 ) => {
-	const { presignedPutS3Url } = await serverGqlService.request(
+	const { presignedPutS3Url } = await enhancedServerGqlService.request(
 		PresignedPutS3UrlDocument,
 		{ input: { fileName, prefix } },
 	);
@@ -206,7 +224,7 @@ export const uploadFileAndGetKey = async (
 };
 
 export const getPresignedGetUrl = async (key: string) => {
-	const { getPresignedS3Url } = await serverGqlService.request(
+	const { getPresignedS3Url } = await enhancedServerGqlService.request(
 		GetPresignedS3UrlDocument,
 		{ key },
 	);
@@ -255,12 +273,10 @@ export const s3FileUploader = (prefix: string) =>
 		return undefined;
 	}, unstable_createMemoryUploadHandler());
 
-export const getCoreEnabledFeatures = async () => {
-	const { coreEnabledFeatures } = await serverGqlService.request(
-		CoreEnabledFeaturesDocument,
-	);
-	return coreEnabledFeatures;
-};
+export const getCoreEnabledFeatures = async () =>
+	enhancedServerGqlService
+		.request(CoreEnabledFeaturesDocument)
+		.then((data) => data.coreEnabledFeatures);
 
 export const serverVariables = expectedServerVariables.parse(process.env);
 

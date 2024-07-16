@@ -53,8 +53,8 @@ import { useUserDetails, useUserPreferences } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import {
+	enhancedServerGqlService,
 	getAuthorizationHeader,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -67,8 +67,8 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const { id: exerciseId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
-		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-		serverGqlService.request(
+		enhancedServerGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+		enhancedServerGqlService.request(
 			UserExerciseDetailsDocument,
 			{ exerciseId },
 			getAuthorizationHeader(request),

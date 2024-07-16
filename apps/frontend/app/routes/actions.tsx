@@ -36,13 +36,13 @@ import {
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
+	enhancedServerGqlService,
 	extendResponseHeaders,
 	getAuthorizationHeader,
 	getLogoutCookies,
 	processSubmission,
 	removeCachedUserCollectionsList,
 	s3FileUploader,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = async () => redirect($path("/"));
@@ -58,7 +58,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 	await match(intent)
 		.with("commitMedia", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMetadata } = await serverGqlService.request(
+			const { commitMetadata } = await enhancedServerGqlService.request(
 				CommitMetadataDocument,
 				{ input: submission },
 				getAuthorizationHeader(request),
@@ -73,7 +73,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
-			const { deleteS3Object } = await serverGqlService.request(
+			const { deleteS3Object } = await enhancedServerGqlService.request(
 				DeleteS3ObjectDocument,
 				{ key },
 			);
@@ -81,7 +81,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("commitPerson", async () => {
 			const submission = processSubmission(formData, commitPersonSchema);
-			const { commitPerson } = await serverGqlService.request(
+			const { commitPerson } = await enhancedServerGqlService.request(
 				CommitPersonDocument,
 				{
 					input: {
@@ -100,7 +100,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("commitMetadataGroup", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
-			const { commitMetadataGroup } = await serverGqlService.request(
+			const { commitMetadataGroup } = await enhancedServerGqlService.request(
 				CommitMetadataGroupDocument,
 				{ input: submission },
 				getAuthorizationHeader(request),
@@ -126,7 +126,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				CreateReviewCommentDocument,
 				{ input: submission },
 				getAuthorizationHeader(request),
@@ -151,7 +151,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const addTo = [submission.collectionName];
 			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
 			for (const co of addTo) {
-				await serverGqlService.request(
+				await enhancedServerGqlService.request(
 					AddEntityToCollectionDocument,
 					{
 						input: {
@@ -176,7 +176,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			removeCachedUserCollectionsList(request);
 			const [submission, input] =
 				getChangeCollectionToEntityVariables(formData);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				RemoveEntityFromCollectionDocument,
 				{
 					input: {
@@ -192,7 +192,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const submission = processSubmission(formData, reviewSchema);
 			if (submission.shouldDelete) {
 				invariant(submission.reviewId);
-				await serverGqlService.request(
+				await enhancedServerGqlService.request(
 					DeleteReviewDocument,
 					{ reviewId: submission.reviewId },
 					getAuthorizationHeader(request),
@@ -205,7 +205,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					}),
 				);
 			} else {
-				await serverGqlService.request(
+				await enhancedServerGqlService.request(
 					PostReviewDocument,
 					{ input: submission },
 					getAuthorizationHeader(request),
@@ -319,11 +319,12 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
-			const { deployBulkProgressUpdate } = await serverGqlService.request(
-				DeployBulkProgressUpdateDocument,
-				{ input: updates },
-				getAuthorizationHeader(request),
-			);
+			const { deployBulkProgressUpdate } =
+				await enhancedServerGqlService.request(
+					DeployBulkProgressUpdateDocument,
+					{ input: updates },
+					getAuthorizationHeader(request),
+				);
 			await sleepForHalfSecond();
 			await removeCachedUserCollectionsList(request);
 			response.headers = extendResponseHeaders(
@@ -339,7 +340,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("individualProgressUpdate", async () => {
 			const submission = processSubmission(formData, bulkUpdateSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				DeployBulkProgressUpdateDocument,
 				{ input: submission },
 				getAuthorizationHeader(request),
@@ -361,7 +362,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				if (!isEmpty(value) && name !== redirectToQueryParam)
 					set(input, name, value);
 			}
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				CreateUserMeasurementDocument,
 				{ input },
 				getAuthorizationHeader(request),

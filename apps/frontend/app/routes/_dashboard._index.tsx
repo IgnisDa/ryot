@@ -45,10 +45,10 @@ import {
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
 import {
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
@@ -73,7 +73,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
 	] = await Promise.all([
-		serverGqlService.request(
+		enhancedServerGqlService.request(
 			CollectionContentsDocument,
 			{
 				input: {
@@ -84,12 +84,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			},
 			getAuthorizationHeader(request),
 		),
-		serverGqlService.request(
+		enhancedServerGqlService.request(
 			UserUpcomingCalendarEventsDocument,
 			{ input: { nextMedia: takeUpcoming } },
 			getAuthorizationHeader(request),
 		),
-		serverGqlService.request(
+		enhancedServerGqlService.request(
 			LatestUserSummaryDocument,
 			undefined,
 			getAuthorizationHeader(request),

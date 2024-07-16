@@ -111,9 +111,9 @@ import {
 import {
 	MetadataIdSchema,
 	createToastHeaders,
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	redirectWithToast,
-	serverGqlService,
 } from "~/lib/utilities.server";
 import {
 	MetadataSpecificsSchema,
@@ -132,8 +132,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { id: metadataId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
-		serverGqlService.request(MetadataDetailsDocument, { metadataId }),
-		serverGqlService.request(
+		enhancedServerGqlService.request(MetadataDetailsDocument, { metadataId }),
+		enhancedServerGqlService.request(
 			UserMetadataDetailsDocument,
 			{ metadataId },
 			getAuthorizationHeader(request),
@@ -151,7 +151,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		deleteSeenItem: async () => {
 			const submission = processSubmission(formData, seenIdSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				DeleteSeenItemDocument,
 				submission,
 				getAuthorizationHeader(request),
@@ -165,7 +165,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployUpdateMetadataJob: async () => {
 			const submission = processSubmission(formData, MetadataIdSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				DeployUpdateMetadataJobDocument,
 				submission,
 				getAuthorizationHeader(request),
@@ -179,7 +179,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		mergeMetadata: async () => {
 			const submission = processSubmission(formData, mergeMetadataSchema);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				MergeMetadataDocument,
 				submission,
 				getAuthorizationHeader(request),
@@ -191,7 +191,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
-			await serverGqlService.request(
+			await enhancedServerGqlService.request(
 				EditSeenItemDocument,
 				{ input: submission },
 				getAuthorizationHeader(request),

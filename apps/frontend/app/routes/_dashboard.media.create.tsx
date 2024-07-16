@@ -31,11 +31,11 @@ import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
 import {
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async (_args) => {
@@ -63,7 +63,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
 	input.creators = input.creators?.split(", ");
-	const { createCustomMetadata } = await serverGqlService.request(
+	const { createCustomMetadata } = await enhancedServerGqlService.request(
 		CreateCustomMetadataDocument,
 		{ input },
 		getAuthorizationHeader(request),

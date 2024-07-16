@@ -24,7 +24,6 @@ import {
 	useSearchParams,
 } from "@remix-run/react";
 import {
-	CoreDetailsDocument,
 	GetOidcRedirectUrlDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
@@ -42,12 +41,13 @@ import { zx } from "zodix";
 import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
+	enhancedServerGqlService,
 	getAuthorizationCookie,
+	getCachedCoreDetails,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	processSubmission,
 	redirectWithToast,
-	serverGqlService,
 	serverVariables,
 } from "~/lib/utilities.server";
 
@@ -67,7 +67,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		});
 	const [enabledFeatures, { coreDetails }] = await Promise.all([
 		getCoreEnabledFeatures(),
-		serverGqlService.request(CoreDetailsDocument),
+		getCachedCoreDetails(),
 	]);
 	return {
 		intent: query.intent || "login",
@@ -101,7 +101,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 							"Invalid form data",
 					}),
 				});
-			const { registerUser } = await serverGqlService.request(
+			const { registerUser } = await enhancedServerGqlService.request(
 				RegisterUserDocument,
 				{
 					input: {
@@ -132,14 +132,17 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		login: async () => {
 			const submission = processSubmission(formData, loginSchema);
-			const { loginUser } = await serverGqlService.request(LoginUserDocument, {
-				input: {
-					password: {
-						password: submission.password,
-						username: submission.username,
+			const { loginUser } = await enhancedServerGqlService.request(
+				LoginUserDocument,
+				{
+					input: {
+						password: {
+							password: submission.password,
+							username: submission.username,
+						},
 					},
 				},
-			});
+			);
 			if (loginUser.__typename === "LoginResponse") {
 				let redirectUrl = $path("/");
 				if (submission[redirectToQueryParam])
@@ -163,7 +166,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		getOauthRedirectUrl: async () => {
-			const { getOidcRedirectUrl } = await serverGqlService.request(
+			const { getOidcRedirectUrl } = await enhancedServerGqlService.request(
 				GetOidcRedirectUrlDocument,
 			);
 			return redirect(getOidcRedirectUrl);

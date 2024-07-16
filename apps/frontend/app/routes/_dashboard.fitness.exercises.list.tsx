@@ -58,10 +58,10 @@ import {
 } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
+	enhancedServerGqlService,
 	getAuthorizationHeader,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 const defaultFiltersValue = {
@@ -97,8 +97,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query.page = query.page ?? 1;
 	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
-		serverGqlService.request(ExerciseParametersDocument, {}),
-		serverGqlService.request(
+		enhancedServerGqlService.request(ExerciseParametersDocument, {}),
+		enhancedServerGqlService.request(
 			ExercisesListDocument,
 			{
 				input: {

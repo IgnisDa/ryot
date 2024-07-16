@@ -37,8 +37,8 @@ import {
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
+	enhancedServerGqlService,
 	getAuthorizationHeader,
-	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
@@ -52,10 +52,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
 		await Promise.all([
-			serverGqlService.request(MetadataGroupDetailsDocument, {
+			enhancedServerGqlService.request(MetadataGroupDetailsDocument, {
 				metadataGroupId,
 			}),
-			serverGqlService.request(
+			enhancedServerGqlService.request(
 				UserMetadataGroupDetailsDocument,
 				{ metadataGroupId },
 				getAuthorizationHeader(request),
