@@ -82,7 +82,7 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 							() => "You do not have permission to perform this action",
 						)
 						.otherwise(() => error);
-					return Response.json({ error: message });
+					return Response.json({ message });
 				});
 		}
 	}

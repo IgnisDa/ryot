@@ -266,18 +266,9 @@ export function ErrorBoundary() {
 				<Text c="red" fz={{ base: 30, md: 40 }}>
 					We encountered an error
 				</Text>
-				<Text>This could be due to several reasons:</Text>
-				<List>
-					<List.Item>Your login session has expired/revoked.</List.Item>
-					<List.Item>
-						You don't have permission to perform this action.
-					</List.Item>
-					<List.Item>There was a backend server error.</List.Item>
-				</List>
-				<Text>
-					In most cases, logging out and then logging back in should fix the
-					issue.
-				</Text>
+				<Code mah={100} c="pink">
+					{isRouteErrorResponse(error) ? error.data.message : error.message}
+				</Code>
 				<Group wrap="nowrap">
 					<Button
 						fullWidth
@@ -298,28 +289,41 @@ export function ErrorBoundary() {
 						</Button>
 					</Form>
 				</Group>
-				<Text>
-					If the error still persists please contact the developer on{" "}
-					<Anchor
-						target="_blank"
-						rel="noreferrer noopener"
-						href="https://discord.gg/D9XTg2a7R8"
-					>
-						Discord
-					</Anchor>{" "}
-					or create an issue on{" "}
-					<Anchor
-						target="_blank"
-						rel="noreferrer noopener"
-						href="https://github.com/ignisda/ryot/issues"
-					>
-						Github
-					</Anchor>
-					. Here is the complete error that occurred:
-				</Text>
-				<Code mah={100} c="pink">
-					{isRouteErrorResponse(error) ? error.data.error : error.message}
-				</Code>
+				{isRouteErrorResponse(error) ? null : (
+					<>
+						<Text>This could be due to several reasons:</Text>
+						<List>
+							<List.Item>Your login session has expired/revoked.</List.Item>
+							<List.Item>
+								You don't have permission to perform this action.
+							</List.Item>
+							<List.Item>There was a backend server error.</List.Item>
+						</List>
+						<Text>
+							In most cases, logging out and then logging back in should fix the
+							issue.
+						</Text>
+						<Text>
+							If the error still persists please contact the developer on{" "}
+							<Anchor
+								target="_blank"
+								rel="noreferrer noopener"
+								href="https://discord.gg/D9XTg2a7R8"
+							>
+								Discord
+							</Anchor>{" "}
+							or create an issue on{" "}
+							<Anchor
+								target="_blank"
+								rel="noreferrer noopener"
+								href="https://github.com/ignisda/ryot/issues"
+							>
+								Github
+							</Anchor>
+							.
+						</Text>
+					</>
+				)}
 			</Stack>
 		</Container>
 	);
