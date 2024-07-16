@@ -121,7 +121,11 @@ export const PartialMetadataDisplay = (props: {
 				size="xs"
 				ta="center"
 				lineClamp={1}
-				c={(userMetadataDetails?.history.length || 0) > 0 ? "yellow" : "dimmed"}
+				c={
+					(userMetadataDetails?.mediaReason?.length || 0) > 0
+						? "yellow"
+						: "dimmed"
+				}
 			>
 				{metadataDetails?.title} {props.extraText}
 			</Text>
@@ -587,7 +591,7 @@ export const MetadataDisplayItem = (props: {
 										`${history.length} time${history.length === 1 ? "" : "s"}`
 									) : null
 								) : (
-									<Text c={history.length > 0 ? "yellow" : undefined}>
+									<Text c={(reasons?.length || 0) > 0 ? "yellow" : undefined}>
 										{changeCase(snakeCase(metadataDetails.lot))}
 									</Text>
 								)),
