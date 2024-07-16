@@ -54,7 +54,6 @@ import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -63,10 +62,10 @@ const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
-		serverGqlService.request(
+		serverGqlService.authenticatedRequest(
+			request,
 			UserIntegrationsDocument,
 			undefined,
-			getAuthorizationHeader(request),
 		),
 	]);
 	return { userIntegrations };
@@ -81,10 +80,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				DeleteUserIntegrationDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -98,10 +97,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				CreateUserIntegrationDocument,
 				{ input: submission },
-				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -114,10 +113,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 		generateAuthToken: async () => {
-			const { generateAuthToken } = await serverGqlService.request(
+			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
+				request,
 				GenerateAuthTokenDocument,
-				undefined,
-				getAuthorizationHeader(request),
+				{},
 			);
 			return Response.json({ status: "success", generateAuthToken } as const);
 		},

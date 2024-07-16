@@ -76,7 +76,6 @@ import {
 } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	processSubmission,
 	redirectWithToast,
 	serverGqlService,
@@ -85,19 +84,17 @@ import {
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { id: workoutId } = zx.parseParams(params, { id: z.string() });
 	const [{ workoutDetails }] = await Promise.all([
-		serverGqlService.request(
-			WorkoutDetailsDocument,
-			{ workoutId },
-			getAuthorizationHeader(request),
-		),
+		serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
+			workoutId,
+		}),
 	]);
 	let repeatedWorkout = null;
 	if (workoutDetails.repeatedFrom) {
 		const { workoutDetails: repeatedWorkoutData } =
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				WorkoutDetailsDocument,
 				{ workoutId: workoutDetails.repeatedFrom },
-				getAuthorizationHeader(request),
 			);
 		repeatedWorkout = {
 			id: workoutDetails.repeatedFrom,
@@ -117,10 +114,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		edit: async () => {
 			const submission = processSubmission(formData, editWorkoutSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				EditUserWorkoutDocument,
 				{ input: submission },
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -131,10 +128,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				DeleteUserWorkoutDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return redirectWithToast($path("/fitness/workouts/list"), {
 				type: "success",

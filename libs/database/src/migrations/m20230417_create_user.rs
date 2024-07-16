@@ -7,6 +7,7 @@ pub struct Migration;
 pub enum User {
     Table,
     Id,
+    CreatedOn,
     Name,
     Password,
     IsDemo,
@@ -17,6 +18,7 @@ pub enum User {
     // This field can be `NULL` if the user has not enabled any sink integration
     SinkIntegrations,
     OidcIssuerId,
+    ExtraInformation,
 }
 
 #[async_trait::async_trait]
@@ -35,6 +37,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::SinkIntegrations).json_binary())
                     .col(ColumnDef::new(User::IsDemo).boolean())
                     .col(ColumnDef::new(User::OidcIssuerId).text())
+                    .col(
+                        ColumnDef::new(User::CreatedOn)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(ColumnDef::new(User::ExtraInformation).json_binary())
                     .to_owned(),
             )
             .await?;

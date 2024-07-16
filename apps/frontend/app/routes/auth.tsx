@@ -24,7 +24,6 @@ import {
 	useSearchParams,
 } from "@remix-run/react";
 import {
-	CoreDetailsDocument,
 	GetOidcRedirectUrlDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
@@ -43,6 +42,7 @@ import { redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
+	getCachedCoreDetails,
 	getCookiesForApplication,
 	getCoreEnabledFeatures,
 	processSubmission,
@@ -67,7 +67,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		});
 	const [enabledFeatures, { coreDetails }] = await Promise.all([
 		getCoreEnabledFeatures(),
-		serverGqlService.request(CoreDetailsDocument),
+		getCachedCoreDetails(),
 	]);
 	return {
 		intent: query.intent || "login",

@@ -80,7 +80,6 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
@@ -92,11 +91,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = await getEnhancedCookieName("collections.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ usersList }] = await Promise.all([
-		serverGqlService.request(
-			UsersListDocument,
-			{},
-			getAuthorizationHeader(request),
-		),
+		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
 	]);
 	return { usersList, cookieName };
 });
@@ -112,10 +107,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			try {
-				await serverGqlService.request(
+				await serverGqlService.authenticatedRequest(
+					request,
 					CreateOrUpdateCollectionDocument,
 					{ input: submission },
-					getAuthorizationHeader(request),
 				);
 				return Response.json(
 					{},
@@ -150,10 +145,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 			let wasSuccessful = true;
 			try {
-				await serverGqlService.request(
+				await serverGqlService.authenticatedRequest(
+					request,
 					DeleteCollectionDocument,
 					submission,
-					getAuthorizationHeader(request),
 				);
 			} catch {
 				wasSuccessful = false;

@@ -48,7 +48,6 @@ import {
 } from "~/lib/hooks";
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -66,11 +65,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ userWorkoutList }] = await Promise.all([
-		serverGqlService.request(
-			UserWorkoutListDocument,
-			{ input: { page: query.page, query: query.query } },
-			getAuthorizationHeader(request),
-		),
+		serverGqlService.authenticatedRequest(request, UserWorkoutListDocument, {
+			input: { page: query.page, query: query.query },
+		}),
 	]);
 	return { query, userWorkoutList, cookieName };
 });

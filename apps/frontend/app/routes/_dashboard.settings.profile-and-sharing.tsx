@@ -51,18 +51,13 @@ import { useCoreDetails, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
-	getAuthorizationHeader,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import { processSubmission } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userAccessLinks }] = await Promise.all([
-		serverGqlService.request(
-			UserAccessLinksDocument,
-			undefined,
-			getAuthorizationHeader(request),
-		),
+		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
 	]);
 	return { userAccessLinks };
 });
@@ -77,11 +72,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 		updateProfile: async () => {
 			const token = getAuthorizationCookie(request);
 			const submission = processSubmission(formData, updateProfileFormSchema);
-			await serverGqlService.request(
-				UpdateUserDocument,
-				{ input: submission },
-				getAuthorizationHeader(request),
-			);
+			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
+				input: submission,
+			});
 			queryClient.removeQueries({
 				queryKey: queryFactory.users.details(token).queryKey,
 			});
@@ -97,10 +90,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 				formData,
 				revokeAccessLinkFormSchema,
 			);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				RevokeAccessLinkDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success" } as const, {
 				headers: await createToastHeaders({
@@ -114,10 +107,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 				formData,
 				createAccessLinkFormSchema,
 			);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				CreateAccessLinkDocument,
 				{ input: submission },
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success" } as const, {
 				headers: await createToastHeaders({

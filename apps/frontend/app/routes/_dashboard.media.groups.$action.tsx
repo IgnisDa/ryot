@@ -41,7 +41,6 @@ import {
 import { redirectToQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -69,11 +68,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const [list, search] = await match(action)
 		.with(Action.List, async () => {
-			const { metadataGroupsList } = await serverGqlService.request(
-				MetadataGroupsListDocument,
-				{ input: { page, query } },
-				getAuthorizationHeader(request),
-			);
+			const { metadataGroupsList } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					MetadataGroupsListDocument,
+					{ input: { page, query } },
+				);
 			return [{ list: metadataGroupsList, url: {} }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
@@ -82,11 +82,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			});
 			const lot = SEARCH_SOURCES_ALLOWED[urlParse.source];
 			invariant(lot);
-			const { metadataGroupSearch } = await serverGqlService.request(
-				MetadataGroupSearchDocument,
-				{ input: { lot, source: urlParse.source, search: { page, query } } },
-				getAuthorizationHeader(request),
-			);
+			const { metadataGroupSearch } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					MetadataGroupSearchDocument,
+					{ input: { lot, source: urlParse.source, search: { page, query } } },
+				);
 			return [
 				undefined,
 				{ search: metadataGroupSearch, url: urlParse, lot },

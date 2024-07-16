@@ -1,4 +1,5 @@
 import { parseWithZod } from "@conform-to/zod";
+import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { $path } from "@ignisda/remix-routes";
 import {
 	createCookie,
@@ -8,6 +9,7 @@ import {
 	unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import {
+	BackendError,
 	CoreDetailsDocument,
 	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
@@ -18,7 +20,14 @@ import {
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
 import { type CookieSerializeOptions, parse, serialize } from "cookie";
-import { GraphQLClient } from "graphql-request";
+import {
+	ClientError,
+	GraphQLClient,
+	type RequestDocument,
+	type Variables,
+} from "graphql-request";
+import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
+import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import { type ZodTypeAny, type output, z } from "zod";
@@ -29,13 +38,60 @@ import {
 	queryClient,
 	queryFactory,
 	redirectToQueryParam,
+	toastKey,
 } from "~/lib/generals";
 
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
-export const serverGqlService = new GraphQLClient(`${API_URL}/graphql`, {
-	headers: { Connection: "keep-alive" },
-});
+class AuthenticatedGraphQLClient extends GraphQLClient {
+	async authenticatedRequest<T, V extends Variables = Variables>(
+		remixRequest: Request,
+		docs: RequestDocument | TypedDocumentNode<T, V>,
+		...vars: VariablesAndRequestHeadersArgs<V>
+	): Promise<T> {
+		const authHeaders = {
+			Authorization: `Bearer ${getAuthorizationCookie(remixRequest)}`,
+		};
+		vars[1] = { ...authHeaders, ...vars[1] };
+		try {
+			return await this.request<T, V>(docs, ...vars);
+		} catch (e) {
+			if (!(e instanceof ClientError)) throw e;
+			const error = e.response.errors?.at(0)?.message || "";
+			throw await match(error)
+				.with(
+					BackendError.NoAuthToken,
+					BackendError.NoUserId,
+					BackendError.SessionExpired,
+					async () => {
+						return redirect($path("/auth"), {
+							headers: combineHeaders(
+								getLogoutCookies(),
+								await createToastHeaders({
+									type: "error",
+									message: "Your session has expired",
+								}),
+							),
+						});
+					},
+				)
+				.otherwise((error) => {
+					const message = match(error)
+						.with(
+							BackendError.MutationNotAllowed,
+							() => "You do not have permission to perform this action",
+						)
+						.otherwise(() => error);
+					return Response.json({ message });
+				});
+		}
+	}
+}
+
+export const serverGqlService = new AuthenticatedGraphQLClient(
+	`${API_URL}/graphql`,
+	{ headers: { Connection: "keep-alive" } },
+);
 
 export const getCookieValue = (request: Request, cookieName: string) => {
 	return parse(request.headers.get("cookie") || "")[cookieName];
@@ -43,14 +99,6 @@ export const getCookieValue = (request: Request, cookieName: string) => {
 
 export const getAuthorizationCookie = (request: Request) => {
 	return getCookieValue(request, AUTH_COOKIE_NAME);
-};
-
-export const getAuthorizationHeader = (request?: Request, token?: string) => {
-	let cookie: string;
-	if (request) cookie = getAuthorizationCookie(request);
-	else if (token) cookie = token;
-	else cookie = "";
-	return { Authorization: `Bearer ${cookie}` };
 };
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
@@ -141,10 +189,10 @@ export const getCachedUserDetails = async (request: Request) => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.users.details(token).queryKey,
 		queryFn: () =>
-			serverGqlService.request(
+			serverGqlService.authenticatedRequest(
+				request,
 				UserDetailsDocument,
 				undefined,
-				getAuthorizationHeader(request),
 			),
 	});
 };
@@ -155,11 +203,7 @@ export const getCachedUserPreferences = async (request: Request) => {
 		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
 		queryFn: () =>
 			serverGqlService
-				.request(
-					UserPreferencesDocument,
-					undefined,
-					getAuthorizationHeader(request),
-				)
+				.authenticatedRequest(request, UserPreferencesDocument, undefined)
 				.then((data) => data.userPreferences),
 	});
 };
@@ -170,11 +214,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 		queryFn: () =>
 			serverGqlService
-				.request(
-					UserCollectionsListDocument,
-					{},
-					getAuthorizationHeader(request),
-				)
+				.authenticatedRequest(request, UserCollectionsListDocument, {})
 				.then((data) => data.userCollectionsList),
 		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});
@@ -255,12 +295,10 @@ export const s3FileUploader = (prefix: string) =>
 		return undefined;
 	}, unstable_createMemoryUploadHandler());
 
-export const getCoreEnabledFeatures = async () => {
-	const { coreEnabledFeatures } = await serverGqlService.request(
-		CoreEnabledFeaturesDocument,
-	);
-	return coreEnabledFeatures;
-};
+export const getCoreEnabledFeatures = async () =>
+	serverGqlService
+		.request(CoreEnabledFeaturesDocument)
+		.then((data) => data.coreEnabledFeatures);
 
 export const serverVariables = expectedServerVariables.parse(process.env);
 
@@ -268,17 +306,14 @@ export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
 		sameSite: "lax",
 		path: "/",
-		httpOnly: true,
 		secrets: (process.env.SESSION_SECRET || "").split(","),
-		name: "Toast",
+		name: toastKey,
 	},
 });
 
 export const colorSchemeCookie = createCookie("ColorScheme", {
 	maxAge: 60 * 60 * 24 * 365,
 });
-
-export const toastKey = "toast";
 
 const TypeSchema = z.enum(["message", "success", "error"]);
 const ToastSchema = z.object({

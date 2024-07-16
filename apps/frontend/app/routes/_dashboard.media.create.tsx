@@ -31,7 +31,6 @@ import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
 import {
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
@@ -63,10 +62,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
 	input.creators = input.creators?.split(", ");
-	const { createCustomMetadata } = await serverGqlService.request(
+	const { createCustomMetadata } = await serverGqlService.authenticatedRequest(
+		request,
 		CreateCustomMetadataDocument,
 		{ input },
-		getAuthorizationHeader(request),
 	);
 	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
 });

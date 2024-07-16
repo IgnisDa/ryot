@@ -37,7 +37,6 @@ import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
@@ -55,11 +54,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ usersList }] = await Promise.all([
-		serverGqlService.request(
-			UsersListDocument,
-			{ query: query.query },
-			getAuthorizationHeader(request),
-		),
+		serverGqlService.authenticatedRequest(request, UsersListDocument, {
+			query: query.query,
+		}),
 	]);
 	return { usersList, query, cookieName };
 });
@@ -73,10 +70,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			const { deleteUser } = await serverGqlService.request(
+			const { deleteUser } = await serverGqlService.authenticatedRequest(
+				request,
 				DeleteUserDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -89,10 +86,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		registerNew: async () => {
 			const submission = processSubmission(formData, registerFormSchema);
-			const { registerUser } = await serverGqlService.request(
+			const { registerUser } = await serverGqlService.authenticatedRequest(
+				request,
 				RegisterUserDocument,
 				{ input: { password: submission } },
-				getAuthorizationHeader(request),
 			);
 			const success = registerUser.__typename === "StringIdObject";
 			return Response.json({ status: "success", submission } as const, {

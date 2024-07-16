@@ -336,6 +336,11 @@ async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Resu
         Client,
     };
 
+    #[cfg(debug_assertions)]
+    const API_ID: &str = "api_4GvvJVbWobkNjcnnvFHmBP5pXb4K";
+    #[cfg(not(debug_assertions))]
+    const API_ID: &str = "api_LQTzbpPNHgPALgiNdxg8bMfVxeg";
+
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Clone, Deserialize)]
     struct Meta {
@@ -343,7 +348,7 @@ async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Resu
     }
 
     let unkey_client = Client::new("public");
-    let verify_request = VerifyKeyRequest::new(pro_key, "api_LQTzbpPNHgPALgiNdxg8bMfVxeg");
+    let verify_request = VerifyKeyRequest::new(pro_key, API_ID);
     match unkey_client.verify_key(verify_request).await {
         Wrapped::Err(err) => {
             bail!("Error verifying pro key: {}", err.message);

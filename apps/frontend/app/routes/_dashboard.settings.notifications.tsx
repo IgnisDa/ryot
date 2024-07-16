@@ -44,17 +44,16 @@ import { dayjsLib } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getAuthorizationHeader,
 	processSubmission,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
-		serverGqlService.request(
+		serverGqlService.authenticatedRequest(
+			request,
 			UserNotificationPlatformsDocument,
-			undefined,
-			getAuthorizationHeader(request),
+			{},
 		),
 	]);
 	return { userNotificationPlatforms };
@@ -69,19 +68,19 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		create: async () => {
 			const submission = processSubmission(formData, createSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				CreateUserNotificationPlatformDocument,
 				{ input: submission },
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const);
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.request(
+			await serverGqlService.authenticatedRequest(
+				request,
 				DeleteUserNotificationPlatformDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -91,11 +90,12 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		test: async () => {
-			const { testUserNotificationPlatforms } = await serverGqlService.request(
-				TestUserNotificationPlatformsDocument,
-				undefined,
-				getAuthorizationHeader(request),
-			);
+			const { testUserNotificationPlatforms } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					TestUserNotificationPlatformsDocument,
+					{},
+				);
 			return Response.json({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: testUserNotificationPlatforms ? "success" : "error",
