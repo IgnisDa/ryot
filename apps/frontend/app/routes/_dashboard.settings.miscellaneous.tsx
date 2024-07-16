@@ -19,7 +19,6 @@ import { useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	processSubmission,
 } from "~/lib/utilities.server";
 
@@ -30,10 +29,10 @@ export const meta = (_args: MetaArgs_SingleFetch) => {
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	const submission = processSubmission(formData, jobSchema);
-	await enhancedServerGqlService.request(
+	await enhancedServerGqlService.authenticatedRequest(
+		request,
 		DeployBackgroundJobDocument,
 		submission,
-		getAuthorizationHeader(request),
 	);
 	return Response.json({ status: "success" } as const, {
 		headers: await createToastHeaders({

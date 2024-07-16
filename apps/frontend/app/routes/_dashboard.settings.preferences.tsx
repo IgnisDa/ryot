@@ -63,7 +63,6 @@ import {
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	isWorkoutActive,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
@@ -105,10 +104,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		});
 	}
 	for (const input of submission) {
-		await enhancedServerGqlService.request(
+		await enhancedServerGqlService.authenticatedRequest(
+			request,
 			UpdateUserPreferenceDocument,
 			{ input },
-			getAuthorizationHeader(request),
 		);
 	}
 	queryClient.removeQueries({

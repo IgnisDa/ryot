@@ -47,7 +47,6 @@ import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
@@ -82,7 +81,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		.with(TimeSpan.AllTime, () => [null, null])
 		.exhaustive();
 	const [{ userMeasurementsList }] = await Promise.all([
-		enhancedServerGqlService.request(
+		enhancedServerGqlService.authenticatedRequest(
+			request,
 			UserMeasurementsListDocument,
 			{
 				input: {
@@ -90,7 +90,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					endTime: endTime?.toISOString(),
 				},
 			},
-			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, userMeasurementsList, cookieName };
@@ -105,10 +104,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await enhancedServerGqlService.request(
+			await enhancedServerGqlService.authenticatedRequest(
+				request,
 				DeleteUserMeasurementDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({

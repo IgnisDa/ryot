@@ -68,7 +68,6 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
@@ -105,7 +104,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ collectionContents }] = await Promise.all([
-		enhancedServerGqlService.request(
+		enhancedServerGqlService.authenticatedRequest(
+			request,
 			CollectionContentsDocument,
 			{
 				input: {
@@ -118,7 +118,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					search: { page: query.page, query: query.query },
 				},
 			},
-			getAuthorizationHeader(request),
 		),
 	]);
 	return { collectionId, query, collectionContents, cookieName };
@@ -138,7 +137,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					item.entityId,
 					item.entityLot,
 				);
-				await enhancedServerGqlService.request(
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
 					RemoveEntityFromCollectionDocument,
 					{
 						input: {
@@ -147,7 +147,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 							...input,
 						},
 					},
-					getAuthorizationHeader(request),
 				);
 			}
 			await removeCachedUserCollectionsList(request);

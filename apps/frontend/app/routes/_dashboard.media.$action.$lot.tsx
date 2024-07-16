@@ -78,7 +78,6 @@ import {
 } from "~/lib/state/media";
 import {
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 } from "~/lib/utilities.server";
@@ -126,10 +125,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ latestUserSummary }] = await Promise.all([
-		enhancedServerGqlService.request(
+		enhancedServerGqlService.authenticatedRequest(
+			request,
 			LatestUserSummaryDocument,
-			undefined,
-			getAuthorizationHeader(request),
+			{},
 		),
 	]);
 	const { query, page } = zx.parseQuery(request, {
@@ -149,21 +148,22 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					.default(defaultFilters.mineGeneralFilter),
 				collection: z.string().optional(),
 			});
-			const { metadataList } = await enhancedServerGqlService.request(
-				MetadataListDocument,
-				{
-					input: {
-						lot,
-						search: { page: numPage, query },
-						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
-						filter: {
-							general: urlParse.generalFilter,
-							collection: urlParse.collection,
+			const { metadataList } =
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
+					MetadataListDocument,
+					{
+						input: {
+							lot,
+							search: { page: numPage, query },
+							sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
+							filter: {
+								general: urlParse.generalFilter,
+								collection: urlParse.collection,
+							},
 						},
 					},
-				},
-				getAuthorizationHeader(request),
-			);
+				);
 			return [{ list: metadataList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
@@ -171,17 +171,18 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { metadataSearch } = await enhancedServerGqlService.request(
-				MetadataSearchDocument,
-				{
-					input: {
-						lot,
-						search: { page, query },
-						source: urlParse.source,
+			const { metadataSearch } =
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
+					MetadataSearchDocument,
+					{
+						input: {
+							lot,
+							search: { page, query },
+							source: urlParse.source,
+						},
 					},
-				},
-				getAuthorizationHeader(request),
-			);
+				);
 			return [
 				undefined,
 				{

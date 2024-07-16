@@ -59,7 +59,6 @@ import {
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 } from "~/lib/utilities.server";
 import {
@@ -71,15 +70,15 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const [coreEnabledFeatures, { importReports }, { userExports }] =
 		await Promise.all([
 			getCoreEnabledFeatures(),
-			enhancedServerGqlService.request(
+			enhancedServerGqlService.authenticatedRequest(
+				request,
 				ImportReportsDocument,
-				undefined,
-				getAuthorizationHeader(request),
+				{},
 			),
-			enhancedServerGqlService.request(
+			enhancedServerGqlService.authenticatedRequest(
+				request,
 				UserExportsDocument,
-				undefined,
-				getAuthorizationHeader(request),
+				{},
 			),
 		]);
 	return { coreEnabledFeatures, importReports, userExports };
@@ -138,10 +137,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 					igdb: processSubmission(formData, igdbImportFormSchema),
 				}))
 				.exhaustive();
-			await enhancedServerGqlService.request(
+			await enhancedServerGqlService.authenticatedRequest(
+				request,
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
-				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -155,10 +154,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		deployExport: async () => {
 			const toExport = processSubmission(formData, deployExportForm);
-			await enhancedServerGqlService.request(
+			await enhancedServerGqlService.authenticatedRequest(
+				request,
 				DeployExportJobDocument,
 				toExport,
-				getAuthorizationHeader(request),
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,

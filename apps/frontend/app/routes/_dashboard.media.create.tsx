@@ -32,7 +32,6 @@ import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
 import {
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
@@ -63,11 +62,12 @@ export const action = unstable_defineAction(async ({ request }) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(", ");
 	input.creators = input.creators?.split(", ");
-	const { createCustomMetadata } = await enhancedServerGqlService.request(
-		CreateCustomMetadataDocument,
-		{ input },
-		getAuthorizationHeader(request),
-	);
+	const { createCustomMetadata } =
+		await enhancedServerGqlService.authenticatedRequest(
+			request,
+			CreateCustomMetadataDocument,
+			{ input },
+		);
 	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
 });
 

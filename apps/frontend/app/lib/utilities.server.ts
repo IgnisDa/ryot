@@ -40,20 +40,13 @@ import {
 export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
 
 class EnhancedGraphQLClient extends GraphQLClient {
-	async enhancedRequest<T, V extends Variables = Variables>(
+	async authenticatedRequest<T, V extends Variables = Variables>(
 		remixRequest: Request,
-		documentOrOptions: RequestDocument | TypedDocumentNode<T, V>,
-		...variablesAndRequestHeaders: VariablesAndRequestHeadersArgs<V>
+		docs: RequestDocument | TypedDocumentNode<T, V>,
+		...vars: VariablesAndRequestHeadersArgs<V>
 	): Promise<T> {
-		variablesAndRequestHeaders[1] = {
-			...getAuthorizationHeader(remixRequest),
-			...variablesAndRequestHeaders[1],
-		};
-		const response = await this.request<T, V>(
-			documentOrOptions,
-			...variablesAndRequestHeaders,
-		);
-		console.log(response);
+		vars[1] = { ...getAuthorizationHeader(remixRequest), ...vars[1] };
+		const response = await this.request<T, V>(docs, ...vars);
 		return response;
 	}
 }
@@ -71,7 +64,7 @@ export const getAuthorizationCookie = (request: Request) => {
 	return getCookieValue(request, AUTH_COOKIE_NAME);
 };
 
-export const getAuthorizationHeader = (request?: Request, token?: string) => {
+const getAuthorizationHeader = (request?: Request, token?: string) => {
 	let cookie: string;
 	if (request) cookie = getAuthorizationCookie(request);
 	else if (token) cookie = token;
@@ -167,7 +160,7 @@ export const getCachedUserDetails = async (request: Request) => {
 	return await queryClient.ensureQueryData({
 		queryKey: queryFactory.users.details(token).queryKey,
 		queryFn: () =>
-			enhancedServerGqlService.enhancedRequest(
+			enhancedServerGqlService.authenticatedRequest(
 				request,
 				UserDetailsDocument,
 				undefined,
@@ -181,7 +174,7 @@ export const getCachedUserPreferences = async (request: Request) => {
 		queryKey: queryFactory.users.preferences(userDetails.id).queryKey,
 		queryFn: () =>
 			enhancedServerGqlService
-				.enhancedRequest(request, UserPreferencesDocument, undefined)
+				.authenticatedRequest(request, UserPreferencesDocument, undefined)
 				.then((data) => data.userPreferences),
 	});
 };
@@ -192,7 +185,7 @@ export const getCachedUserCollectionsList = async (request: Request) => {
 		queryKey: queryFactory.collections.userList(userDetails.id).queryKey,
 		queryFn: () =>
 			enhancedServerGqlService
-				.enhancedRequest(request, UserCollectionsListDocument, {})
+				.authenticatedRequest(request, UserCollectionsListDocument, {})
 				.then((data) => data.userCollectionsList),
 		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});

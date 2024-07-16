@@ -115,7 +115,6 @@ import {
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	isWorkoutActive,
 	redirectWithToast,
@@ -146,11 +145,12 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		createWorkout: async () => {
 			const workout = JSON.parse(formData.get("workout") as string);
-			const { createUserWorkout } = await enhancedServerGqlService.request(
-				CreateUserWorkoutDocument,
-				workout,
-				getAuthorizationHeader(request),
-			);
+			const { createUserWorkout } =
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
+					CreateUserWorkoutDocument,
+					workout,
+				);
 			return redirect(
 				$path("/fitness/workouts/:id", { id: createUserWorkout }),
 				{

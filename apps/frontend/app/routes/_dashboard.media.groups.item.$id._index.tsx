@@ -36,10 +36,7 @@ import {
 } from "~/components/media";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
-import {
-	enhancedServerGqlService,
-	getAuthorizationHeader,
-} from "~/lib/utilities.server";
+import { enhancedServerGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -55,10 +52,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			enhancedServerGqlService.request(MetadataGroupDetailsDocument, {
 				metadataGroupId,
 			}),
-			enhancedServerGqlService.request(
+			enhancedServerGqlService.authenticatedRequest(
+				request,
 				UserMetadataGroupDetailsDocument,
 				{ metadataGroupId },
-				getAuthorizationHeader(request),
 			),
 		]);
 	return {

@@ -59,7 +59,6 @@ import {
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 } from "~/lib/utilities.server";
@@ -98,14 +97,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	query.page = query.page ?? 1;
 	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
 		enhancedServerGqlService.request(ExerciseParametersDocument, {}),
-		enhancedServerGqlService.request(
+		enhancedServerGqlService.authenticatedRequest(
+			request,
 			ExercisesListDocument,
 			{
 				input: {
-					search: {
-						page: query.page,
-						query: query.query,
-					},
+					search: { page: query.page, query: query.query },
 					filter: {
 						equipment: query.equipment,
 						force: query.force,
@@ -118,7 +115,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					sortBy: query.sortBy,
 				},
 			},
-			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, exerciseParameters, exercisesList, cookieName };

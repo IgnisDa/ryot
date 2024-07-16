@@ -53,7 +53,6 @@ import { redirectToQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 } from "~/lib/utilities.server";
@@ -96,16 +95,17 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 			});
-			const { peopleList } = await enhancedServerGqlService.request(
-				PeopleListDocument,
-				{
-					input: {
-						search: { page, query },
-						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+			const { peopleList } =
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
+					PeopleListDocument,
+					{
+						input: {
+							search: { page, query },
+							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+						},
 					},
-				},
-				getAuthorizationHeader(request),
-			);
+				);
 			return [{ list: peopleList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
@@ -114,20 +114,21 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				isTmdbCompany: zx.BoolAsString.optional(),
 				isAnilistStudio: zx.BoolAsString.optional(),
 			});
-			const { peopleSearch } = await enhancedServerGqlService.request(
-				PeopleSearchDocument,
-				{
-					input: {
-						source: urlParse.source,
-						search: { page, query },
-						sourceSpecifics: {
-							isAnilistStudio: urlParse.isAnilistStudio,
-							isTmdbCompany: urlParse.isTmdbCompany,
+			const { peopleSearch } =
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
+					PeopleSearchDocument,
+					{
+						input: {
+							source: urlParse.source,
+							search: { page, query },
+							sourceSpecifics: {
+								isAnilistStudio: urlParse.isAnilistStudio,
+								isTmdbCompany: urlParse.isTmdbCompany,
+							},
 						},
 					},
-				},
-				getAuthorizationHeader(request),
-			);
+				);
 			return [undefined, { search: peopleSearch, url: urlParse }] as const;
 		})
 		.exhaustive();

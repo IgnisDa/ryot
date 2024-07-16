@@ -51,7 +51,6 @@ import {
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getEnhancedCookieName,
 	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
@@ -75,10 +74,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			try {
-				await enhancedServerGqlService.request(
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
 					CreateOrUpdateCollectionDocument,
 					{ input: submission },
-					getAuthorizationHeader(request),
 				);
 				return Response.json(
 					{},
@@ -113,10 +112,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 			let wasSuccessful = true;
 			try {
-				await enhancedServerGqlService.request(
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
 					DeleteCollectionDocument,
 					submission,
-					getAuthorizationHeader(request),
 				);
 			} catch {
 				wasSuccessful = false;

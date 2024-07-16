@@ -47,7 +47,6 @@ import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	processSubmission,
 } from "~/lib/utilities.server";
 
@@ -62,10 +61,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
 		enhancedServerGqlService.request(PersonDetailsDocument, { personId }),
-		enhancedServerGqlService.request(
+		enhancedServerGqlService.authenticatedRequest(
+			request,
 			UserPersonDetailsDocument,
 			{ personId },
-			getAuthorizationHeader(request),
 		),
 	]);
 	return { query, personId, userPersonDetails, personDetails };
@@ -80,10 +79,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		deployUpdatePersonJob: async () => {
 			const submission = processSubmission(formData, personIdSchema);
-			await enhancedServerGqlService.request(
+			await enhancedServerGqlService.authenticatedRequest(
+				request,
 				DeployUpdatePersonJobDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({

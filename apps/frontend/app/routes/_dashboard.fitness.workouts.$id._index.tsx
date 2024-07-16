@@ -77,7 +77,6 @@ import {
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	processSubmission,
 	redirectWithToast,
 } from "~/lib/utilities.server";
@@ -85,19 +84,21 @@ import {
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { id: workoutId } = zx.parseParams(params, { id: z.string() });
 	const [{ workoutDetails }] = await Promise.all([
-		enhancedServerGqlService.request(
+		enhancedServerGqlService.authenticatedRequest(
+			request,
 			WorkoutDetailsDocument,
-			{ workoutId },
-			getAuthorizationHeader(request),
+			{
+				workoutId,
+			},
 		),
 	]);
 	let repeatedWorkout = null;
 	if (workoutDetails.repeatedFrom) {
 		const { workoutDetails: repeatedWorkoutData } =
-			await enhancedServerGqlService.request(
+			await enhancedServerGqlService.authenticatedRequest(
+				request,
 				WorkoutDetailsDocument,
 				{ workoutId: workoutDetails.repeatedFrom },
-				getAuthorizationHeader(request),
 			);
 		repeatedWorkout = {
 			id: workoutDetails.repeatedFrom,
@@ -117,10 +118,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		edit: async () => {
 			const submission = processSubmission(formData, editWorkoutSchema);
-			await enhancedServerGqlService.request(
+			await enhancedServerGqlService.authenticatedRequest(
+				request,
 				EditUserWorkoutDocument,
 				{ input: submission },
-				getAuthorizationHeader(request),
 			);
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -131,10 +132,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await enhancedServerGqlService.request(
+			await enhancedServerGqlService.authenticatedRequest(
+				request,
 				DeleteUserWorkoutDocument,
 				submission,
-				getAuthorizationHeader(request),
 			);
 			return redirectWithToast($path("/fitness/workouts/list"), {
 				type: "success",

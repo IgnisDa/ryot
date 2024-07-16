@@ -44,7 +44,6 @@ import { zx } from "zodix";
 import {
 	createToastHeaders,
 	enhancedServerGqlService,
-	getAuthorizationHeader,
 	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
@@ -66,10 +65,12 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		.with(Action.Create, () => undefined)
 		.with(Action.Update, async () => {
 			invariant(query.name);
-			const { exerciseDetails } = await enhancedServerGqlService.request(
-				ExerciseDetailsDocument,
-				{ exerciseId: query.name },
-			);
+			const { exerciseDetails } =
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
+					ExerciseDetailsDocument,
+					{ exerciseId: query.name },
+				);
 			return exerciseDetails;
 		})
 		.exhaustive();
@@ -111,21 +112,22 @@ export const action = unstable_defineAction(async ({ request }) => {
 	try {
 		return await namedAction(request, {
 			[Action.Create]: async () => {
-				const { createCustomExercise } = await enhancedServerGqlService.request(
-					CreateCustomExerciseDocument,
-					{ input },
-					getAuthorizationHeader(request),
-				);
+				const { createCustomExercise } =
+					await enhancedServerGqlService.authenticatedRequest(
+						request,
+						CreateCustomExerciseDocument,
+						{ input },
+					);
 				return redirect(
 					$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
 				);
 			},
 			[Action.Update]: async () => {
 				invariant(submission.oldName);
-				await enhancedServerGqlService.request(
+				await enhancedServerGqlService.authenticatedRequest(
+					request,
 					EditCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },
-					getAuthorizationHeader(request),
 				);
 				return redirect($path("/fitness/exercises/list"));
 			},
