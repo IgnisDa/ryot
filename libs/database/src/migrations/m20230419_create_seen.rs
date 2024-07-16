@@ -62,7 +62,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
-                        .timestamp_with_time_zone()
+                            .timestamp_with_time_zone()
                             .not_null()
                             .extra("GENERATED ALWAYS AS (updated_at[array_length(updated_at, 1)]) STORED")
                     )
