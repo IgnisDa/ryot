@@ -58,6 +58,8 @@ pub enum EntityLot {
 pub enum BackendError {
     NoAuthToken,
     NoUserId,
+    SessionExpired,
+    MutationNotAllowed,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
