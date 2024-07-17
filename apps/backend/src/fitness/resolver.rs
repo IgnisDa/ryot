@@ -102,14 +102,14 @@ struct UserExerciseDetails {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-struct EditUserWorkoutInput {
+struct UpdateUserWorkoutInput {
     id: String,
     start_time: Option<DateTimeUtc>,
     end_time: Option<DateTimeUtc>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-struct EditCustomExerciseInput {
+struct UpdateCustomExerciseInput {
     old_name: String,
     should_delete: Option<bool>,
     #[graphql(flatten)]
@@ -240,14 +240,14 @@ impl ExerciseMutation {
     }
 
     /// Change the details about a user's workout.
-    async fn edit_user_workout(
+    async fn update_user_workout(
         &self,
         gql_ctx: &Context<'_>,
-        input: EditUserWorkoutInput,
+        input: UpdateUserWorkoutInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.edit_user_workout(user_id, input).await
+        service.update_user_workout(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.
@@ -268,15 +268,15 @@ impl ExerciseMutation {
         service.create_custom_exercise(user_id, input).await
     }
 
-    /// Edit a custom exercise.
-    async fn edit_custom_exercise(
+    /// Update a custom exercise.
+    async fn update_custom_exercise(
         &self,
         gql_ctx: &Context<'_>,
-        input: EditCustomExerciseInput,
+        input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.edit_custom_exercise(user_id, input).await
+        service.update_custom_exercise(user_id, input).await
     }
 }
 
@@ -700,10 +700,10 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    async fn edit_user_workout(
+    async fn update_user_workout(
         &self,
         user_id: String,
-        input: EditUserWorkoutInput,
+        input: UpdateUserWorkoutInput,
     ) -> Result<bool> {
         if let Some(wkt) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
@@ -861,10 +861,10 @@ impl ExerciseService {
         }
     }
 
-    async fn edit_custom_exercise(
+    async fn update_custom_exercise(
         &self,
         user_id: String,
-        input: EditCustomExerciseInput,
+        input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
         let entities = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))

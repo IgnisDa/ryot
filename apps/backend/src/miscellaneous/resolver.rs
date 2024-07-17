@@ -629,7 +629,7 @@ struct UserMediaNextEntry {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct EditSeenItemInput {
+struct UpdateSeenItemInput {
     seen_id: String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
@@ -1375,15 +1375,15 @@ impl MiscellaneousMutation {
         service.create_review_comment(user_id, input).await
     }
 
-    /// Edit the start/end date of a seen item.
-    async fn edit_seen_item(
+    /// Update the start/end date of a seen item.
+    async fn update_seen_item(
         &self,
         gql_ctx: &Context<'_>,
-        input: EditSeenItemInput,
+        input: UpdateSeenItemInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.edit_seen_item(user_id, input).await
+        service.update_seen_item(user_id, input).await
     }
 
     /// Start a background job.
@@ -3092,7 +3092,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn edit_seen_item(&self, user_id: String, input: EditSeenItemInput) -> Result<bool> {
+    async fn update_seen_item(&self, user_id: String, input: UpdateSeenItemInput) -> Result<bool> {
         let seen = match Seen::find_by_id(input.seen_id).one(&self.db).await.unwrap() {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),

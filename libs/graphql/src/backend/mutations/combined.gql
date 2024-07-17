@@ -24,8 +24,8 @@ mutation CreateCustomExercise($input: ExerciseInput!) {
   createCustomExercise(input: $input)
 }
 
-mutation EditCustomExercise($input: EditCustomExerciseInput!) {
-  editCustomExercise(input: $input)
+mutation UpdateCustomExercise($input: UpdateCustomExerciseInput!) {
+  updateCustomExercise(input: $input)
 }
 
 mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
@@ -124,12 +124,12 @@ mutation DeployUpdatePersonJob($personId: String!) {
   deployUpdatePersonJob(personId: $personId)
 }
 
-mutation EditSeenItem($input: EditSeenItemInput!) {
-  editSeenItem(input: $input)
+mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
+  updateSeenItem(input: $input)
 }
 
-mutation EditUserWorkout($input: EditUserWorkoutInput!) {
-  editUserWorkout(input: $input)
+mutation UpdateUserWorkout($input: UpdateUserWorkoutInput!) {
+  updateUserWorkout(input: $input)
 }
 
 mutation GenerateAuthToken {

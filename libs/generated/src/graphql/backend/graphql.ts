@@ -321,32 +321,6 @@ export type DeployUrlAndKeyImportInput = {
   apiUrl: Scalars['String']['input'];
 };
 
-export type EditCustomExerciseInput = {
-  attributes: ExerciseAttributesInput;
-  equipment?: InputMaybe<ExerciseEquipment>;
-  force?: InputMaybe<ExerciseForce>;
-  id: Scalars['String']['input'];
-  level: ExerciseLevel;
-  lot: ExerciseLot;
-  mechanic?: InputMaybe<ExerciseMechanic>;
-  muscles: Array<ExerciseMuscle>;
-  oldName: Scalars['String']['input'];
-  shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
-};
-
-export type EditSeenItemInput = {
-  finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
-  seenId: Scalars['String']['input'];
-  startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
-};
-
-export type EditUserWorkoutInput = {
-  endTime?: InputMaybe<Scalars['DateTime']['input']>;
-  id: Scalars['String']['input'];
-  startTime?: InputMaybe<Scalars['DateTime']['input']>;
-};
-
 /** The assets that were uploaded for an entity. */
 export type EntityAssets = {
   /** The keys of the S3 images. */
@@ -1036,12 +1010,6 @@ export type MutationRoot = {
    * It is only available in development mode.
    */
   developmentMutation: Scalars['Boolean']['output'];
-  /** Edit a custom exercise. */
-  editCustomExercise: Scalars['Boolean']['output'];
-  /** Edit the start/end date of a seen item. */
-  editSeenItem: Scalars['Boolean']['output'];
-  /** Change the details about a user's workout. */
-  editUserWorkout: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
   /** Login a user using their username and password and return an auth token. */
@@ -1064,10 +1032,16 @@ export type MutationRoot = {
   removeEntityFromCollection: StringIdObject;
   /** Test all notification platforms for the currently logged in user. */
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
+  /** Update a custom exercise. */
+  updateCustomExercise: Scalars['Boolean']['output'];
+  /** Update the start/end date of a seen item. */
+  updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
   updateUser: StringIdObject;
   /** Change a user's preferences. */
   updateUserPreference: Scalars['Boolean']['output'];
+  /** Change the details about a user's workout. */
+  updateUserWorkout: Scalars['Boolean']['output'];
 };
 
 
@@ -1206,21 +1180,6 @@ export type MutationRootDeployUpdatePersonJobArgs = {
 };
 
 
-export type MutationRootEditCustomExerciseArgs = {
-  input: EditCustomExerciseInput;
-};
-
-
-export type MutationRootEditSeenItemArgs = {
-  input: EditSeenItemInput;
-};
-
-
-export type MutationRootEditUserWorkoutArgs = {
-  input: EditUserWorkoutInput;
-};
-
-
 export type MutationRootLoginUserArgs = {
   input: AuthUserInput;
 };
@@ -1252,6 +1211,16 @@ export type MutationRootRemoveEntityFromCollectionArgs = {
 };
 
 
+export type MutationRootUpdateCustomExerciseArgs = {
+  input: UpdateCustomExerciseInput;
+};
+
+
+export type MutationRootUpdateSeenItemArgs = {
+  input: UpdateSeenItemInput;
+};
+
+
 export type MutationRootUpdateUserArgs = {
   input: UpdateUserInput;
 };
@@ -1259,6 +1228,11 @@ export type MutationRootUpdateUserArgs = {
 
 export type MutationRootUpdateUserPreferenceArgs = {
   input: UpdateUserPreferenceInput;
+};
+
+
+export type MutationRootUpdateUserWorkoutArgs = {
+  input: UpdateUserWorkoutInput;
 };
 
 export type NotificationPlatform = {
@@ -1861,6 +1835,26 @@ export type StrongAppImportMapping = {
   targetName: Scalars['String']['input'];
 };
 
+export type UpdateCustomExerciseInput = {
+  attributes: ExerciseAttributesInput;
+  equipment?: InputMaybe<ExerciseEquipment>;
+  force?: InputMaybe<ExerciseForce>;
+  id: Scalars['String']['input'];
+  level: ExerciseLevel;
+  lot: ExerciseLot;
+  mechanic?: InputMaybe<ExerciseMechanic>;
+  muscles: Array<ExerciseMuscle>;
+  oldName: Scalars['String']['input'];
+  shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export type UpdateSeenItemInput = {
+  finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  seenId: Scalars['String']['input'];
+  startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+};
+
 export type UpdateUserInput = {
   extraInformation?: InputMaybe<Scalars['JSON']['input']>;
   password?: InputMaybe<Scalars['String']['input']>;
@@ -1874,6 +1868,12 @@ export type UpdateUserPreferenceInput = {
    */
   property: Scalars['String']['input'];
   value: Scalars['String']['input'];
+};
+
+export type UpdateUserWorkoutInput = {
+  endTime?: InputMaybe<Scalars['DateTime']['input']>;
+  id: Scalars['String']['input'];
+  startTime?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type User = {
@@ -2460,12 +2460,12 @@ export type CreateCustomExerciseMutationVariables = Exact<{
 
 export type CreateCustomExerciseMutation = { createCustomExercise: string };
 
-export type EditCustomExerciseMutationVariables = Exact<{
-  input: EditCustomExerciseInput;
+export type UpdateCustomExerciseMutationVariables = Exact<{
+  input: UpdateCustomExerciseInput;
 }>;
 
 
-export type EditCustomExerciseMutation = { editCustomExercise: boolean };
+export type UpdateCustomExerciseMutation = { updateCustomExercise: boolean };
 
 export type CreateCustomMetadataMutationVariables = Exact<{
   input: CreateCustomMetadataInput;
@@ -2621,19 +2621,19 @@ export type DeployUpdatePersonJobMutationVariables = Exact<{
 
 export type DeployUpdatePersonJobMutation = { deployUpdatePersonJob: boolean };
 
-export type EditSeenItemMutationVariables = Exact<{
-  input: EditSeenItemInput;
+export type UpdateSeenItemMutationVariables = Exact<{
+  input: UpdateSeenItemInput;
 }>;
 
 
-export type EditSeenItemMutation = { editSeenItem: boolean };
+export type UpdateSeenItemMutation = { updateSeenItem: boolean };
 
-export type EditUserWorkoutMutationVariables = Exact<{
-  input: EditUserWorkoutInput;
+export type UpdateUserWorkoutMutationVariables = Exact<{
+  input: UpdateUserWorkoutInput;
 }>;
 
 
-export type EditUserWorkoutMutation = { editUserWorkout: boolean };
+export type UpdateUserWorkoutMutation = { updateUserWorkout: boolean };
 
 export type GenerateAuthTokenMutationVariables = Exact<{ [key: string]: never; }>;
 
@@ -2990,7 +2990,7 @@ export const CommitMetadataDocument = {"kind":"Document","definitions":[{"kind":
 export const CommitMetadataGroupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitMetadataGroup"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitMediaInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitMetadataGroup"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitMetadataGroupMutation, CommitMetadataGroupMutationVariables>;
 export const CommitPersonDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CommitPerson"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CommitPersonInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"commitPerson"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CommitPersonMutation, CommitPersonMutationVariables>;
 export const CreateCustomExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomExercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ExerciseInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomExercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateCustomExerciseMutation, CreateCustomExerciseMutationVariables>;
-export const EditCustomExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"EditCustomExercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EditCustomExerciseInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"editCustomExercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<EditCustomExerciseMutation, EditCustomExerciseMutationVariables>;
+export const UpdateCustomExerciseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateCustomExercise"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateCustomExerciseInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateCustomExercise"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateCustomExerciseMutation, UpdateCustomExerciseMutationVariables>;
 export const CreateCustomMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateCustomMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateCustomMetadataInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createCustomMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateCustomMetadataMutation, CreateCustomMetadataMutationVariables>;
 export const CreateOrUpdateCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateOrUpdateCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateOrUpdateCollectionInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createOrUpdateCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateOrUpdateCollectionMutation, CreateOrUpdateCollectionMutationVariables>;
 export const CreateReviewCommentDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateReviewComment"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateReviewCommentInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createReviewComment"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<CreateReviewCommentMutation, CreateReviewCommentMutationVariables>;
@@ -3013,8 +3013,8 @@ export const DeployExportJobDocument = {"kind":"Document","definitions":[{"kind"
 export const DeployImportJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployImportJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DeployImportJobInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployImportJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<DeployImportJobMutation, DeployImportJobMutationVariables>;
 export const DeployUpdateMetadataJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployUpdateMetadataJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployUpdateMetadataJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}]}]}}]} as unknown as DocumentNode<DeployUpdateMetadataJobMutation, DeployUpdateMetadataJobMutationVariables>;
 export const DeployUpdatePersonJobDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeployUpdatePersonJob"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"personId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deployUpdatePersonJob"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"personId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"personId"}}}]}]}}]} as unknown as DocumentNode<DeployUpdatePersonJobMutation, DeployUpdatePersonJobMutationVariables>;
-export const EditSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"EditSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EditSeenItemInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"editSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<EditSeenItemMutation, EditSeenItemMutationVariables>;
-export const EditUserWorkoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"EditUserWorkout"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"EditUserWorkoutInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"editUserWorkout"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<EditUserWorkoutMutation, EditUserWorkoutMutationVariables>;
+export const UpdateSeenItemDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateSeenItem"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateSeenItemInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateSeenItem"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateSeenItemMutation, UpdateSeenItemMutationVariables>;
+export const UpdateUserWorkoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateUserWorkout"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateUserWorkoutInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateUserWorkout"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}]}]}}]} as unknown as DocumentNode<UpdateUserWorkoutMutation, UpdateUserWorkoutMutationVariables>;
 export const GenerateAuthTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"GenerateAuthToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"generateAuthToken"}}]}}]} as unknown as DocumentNode<GenerateAuthTokenMutation, GenerateAuthTokenMutationVariables>;
 export const MergeMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MergeMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mergeFrom"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mergeInto"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mergeMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"mergeFrom"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mergeFrom"}}},{"kind":"Argument","name":{"kind":"Name","value":"mergeInto"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mergeInto"}}}]}]}}]} as unknown as DocumentNode<MergeMetadataMutation, MergeMetadataMutationVariables>;
 export const PostReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PostReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PostReviewInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"postReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<PostReviewMutation, PostReviewMutationVariables>;
