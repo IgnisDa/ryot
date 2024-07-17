@@ -228,7 +228,7 @@ export default function Page() {
 						</Stack>
 					</Tabs.Panel>
 					{loaderData.userExerciseDetails.history ? (
-						<Tabs.Panel value="history" h="70vh">
+						<Tabs.Panel value="history" h="68vh">
 							<Virtuoso
 								data={loaderData.userExerciseDetails.history}
 								itemContent={(index, history) => (
