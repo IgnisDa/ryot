@@ -41,7 +41,7 @@ import {
 	toastKey,
 } from "~/lib/generals";
 
-export const API_URL = process.env.API_URL || "http://localhost:8000/backend";
+export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
 class AuthenticatedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
@@ -130,6 +130,7 @@ const expectedServerVariables = z.object({
 	FRONTEND_OIDC_BUTTON_LABEL: z
 		.string()
 		.default("Continue with OpenID Connect"),
+	FRONTEND_DASHBOARD_MESSAGE: z.string().optional(),
 });
 
 /**

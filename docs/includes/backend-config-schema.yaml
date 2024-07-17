@@ -77,6 +77,10 @@ file_storage:
 
 # Settings related to frontend storage.
 frontend:
+  # A message to be displayed on the dashboard.
+  # @envvar FRONTEND_DASHBOARD_MESSAGE
+  dashboard_message: ""
+
   # The button label for OIDC authentication.
   # @envvar FRONTEND_OIDC_BUTTON_LABEL
   oidc_button_label: "Continue with OpenID Connect"

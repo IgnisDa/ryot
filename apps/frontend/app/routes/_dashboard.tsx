@@ -259,6 +259,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 
 export function ErrorBoundary() {
 	const error = useRouteError() as Error;
+	const message = isRouteErrorResponse(error)
+		? error.data.message
+		: error.message;
 
 	return (
 		<Container size="sm" py={{ base: 100, md: 200 }}>
@@ -266,9 +269,11 @@ export function ErrorBoundary() {
 				<Text c="red" fz={{ base: 30, md: 40 }}>
 					We encountered an error
 				</Text>
-				<Code mah={100} c="pink">
-					{isRouteErrorResponse(error) ? error.data.message : error.message}
-				</Code>
+				{message ? (
+					<Code mah={100} c="pink">
+						{message}
+					</Code>
+				) : null}
 				<Group wrap="nowrap">
 					<Button
 						fullWidth

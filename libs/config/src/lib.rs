@@ -296,6 +296,8 @@ pub struct FrontendConfig {
     /// The button label for OIDC authentication.
     #[setting(default = "Continue with OpenID Connect")]
     pub oidc_button_label: String,
+    /// A message to be displayed on the dashboard.
+    pub dashboard_message: String,
     /// Settings related to Umami analytics.
     #[setting(nested)]
     pub umami: FrontendUmamiConfig,
