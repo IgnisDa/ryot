@@ -7208,6 +7208,9 @@ GROUP BY m.id;
             .all(&self.db)
             .await?;
         for platform in notifications {
+            if platform.is_disabled.unwrap_or_default() {
+                continue;
+            }
             let msg = format!("This is a test notification for platform: {}", platform.lot);
             platform
                 .platform_specifics
@@ -7239,6 +7242,14 @@ GROUP BY m.id;
                 .all(&self.db)
                 .await?;
             for notification in platforms {
+                if notification.is_disabled.unwrap_or_default() {
+                    tracing::debug!(
+                        "Skipping sending notification to user: {} for platform: {} since it is disabled",
+                        user_details.id,
+                        notification.lot
+                    );
+                    continue;
+                }
                 if let Err(err) = notification
                     .platform_specifics
                     .send_message(&self.config, &msg)

@@ -80,6 +80,7 @@ query UserNotificationPlatforms {
     id
     lot
     createdOn
+    isDisabled
     description
   }
 }
