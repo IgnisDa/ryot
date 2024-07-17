@@ -296,15 +296,13 @@ export default function Page() {
 													<Text size="sm" c="dimmed">
 														{changeCase(personalBest.lot)}
 													</Text>
-													<Stack gap={0}>
-														{personalBest.sets.map((pbSet) => (
-															<DisplayPersonalBest
-																set={pbSet}
-																key={pbSet.workoutId}
-																personalBest={personalBest}
-															/>
-														))}
-													</Stack>
+													{personalBest.sets.map((pbSet) => (
+														<DisplayPersonalBest
+															set={pbSet}
+															key={pbSet.workoutId}
+															personalBestLot={personalBest.lot}
+														/>
+													))}
 												</Box>
 											),
 										)}
@@ -409,10 +407,7 @@ const DisplayLifetimeStatistic = (props: {
 
 const DisplayPersonalBest = (props: {
 	set: { workoutId: string; exerciseIdx: number; setIdx: number };
-	personalBest: {
-		lot: WorkoutSetPersonalBest;
-		sets: Array<{ workoutId: string; exerciseIdx: number; setIdx: number }>;
-	};
+	personalBestLot: WorkoutSetPersonalBest;
 }) => {
 	const unitSystem = useUserUnitSystem();
 	const { data } = useQuery(getWorkoutDetailsQuery(props.set.workoutId));
@@ -426,7 +421,7 @@ const DisplayPersonalBest = (props: {
 			key={`${props.set.workoutId}-${props.set.setIdx}`}
 		>
 			<Text size="sm">
-				{match(props.personalBest.lot)
+				{match(props.personalBestLot)
 					.with(WorkoutSetPersonalBest.OneRm, () =>
 						Number(set.statistic.oneRm).toFixed(2),
 					)
