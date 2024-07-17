@@ -39,7 +39,6 @@ import {
 import {
 	DeleteSeenItemDocument,
 	DeployUpdateMetadataJobDocument,
-	EditSeenItemDocument,
 	EntityLot,
 	MediaLot,
 	MediaSource,
@@ -49,6 +48,7 @@ import {
 	MetadataVideoSource,
 	type PodcastEpisode,
 	SeenState,
+	UpdateSeenItemDocument,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -193,7 +193,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const submission = processSubmission(formData, editSeenItem);
 			await serverGqlService.authenticatedRequest(
 				request,
-				EditSeenItemDocument,
+				UpdateSeenItemDocument,
 				{ input: submission },
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {

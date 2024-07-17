@@ -24,7 +24,6 @@ import {
 } from "@remix-run/react";
 import {
 	CreateCustomExerciseDocument,
-	EditCustomExerciseDocument,
 	ExerciseDetailsDocument,
 	ExerciseEquipment,
 	ExerciseForce,
@@ -32,6 +31,7 @@ import {
 	ExerciseLot,
 	ExerciseMechanic,
 	ExerciseMuscle,
+	UpdateCustomExerciseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { cloneDeep, startCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
@@ -125,7 +125,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				invariant(submission.oldName);
 				await serverGqlService.authenticatedRequest(
 					request,
-					EditCustomExerciseDocument,
+					UpdateCustomExerciseDocument,
 					{ input: { ...input, oldName: submission.oldName } },
 				);
 				return redirect($path("/fitness/exercises/list"));

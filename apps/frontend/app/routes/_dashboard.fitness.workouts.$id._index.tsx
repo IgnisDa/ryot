@@ -29,9 +29,9 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
-	EditUserWorkoutDocument,
 	type ExerciseLot,
 	SetLot,
+	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -116,7 +116,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const submission = processSubmission(formData, editWorkoutSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
-				EditUserWorkoutDocument,
+				UpdateUserWorkoutDocument,
 				{ input: submission },
 			);
 			return Response.json({ status: "success", submission } as const, {
