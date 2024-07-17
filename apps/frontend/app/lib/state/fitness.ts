@@ -7,6 +7,7 @@ import {
 	SetLot,
 	UserExerciseDetailsDocument,
 	type UserWorkoutSetRecord,
+	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -126,6 +127,18 @@ const getExerciseDetails = async (exerciseId: string) => {
 	return { details, userDetails };
 };
 
+export const getWorkoutDetailsQuery = (workoutId: string) =>
+	queryOptions({
+		queryKey: queryFactory.fitness.workoutDetails(workoutId).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(WorkoutDetailsDocument, { workoutId })
+				.then((data) => data.workoutDetails),
+	});
+
+export const getWorkoutDetails = async (workoutId: string) =>
+	queryClient.ensureQueryData(getWorkoutDetailsQuery(workoutId));
+
 type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
 
 export const convertHistorySetToCurrentSet = (
@@ -181,6 +194,14 @@ export const addExerciseToWorkout = async (
 	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
+		const alreadyDoneSets = [];
+		for (const history of exerciseDetails.userDetails.history || []) {
+			const workout = await getWorkoutDetails(history.workoutId);
+			const setStatistics = workout.information.exercises[history.idx].sets.map(
+				(s) => s.statistic,
+			);
+			alreadyDoneSets.push({ statistic: setStatistics[0] });
+		}
 		draft.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: false,
@@ -191,10 +212,7 @@ export const addExerciseToWorkout = async (
 			lot: ex.lot,
 			sets: [{ statistic: {}, lot: SetLot.Normal, confirmedAt: null }],
 			supersetWith: [],
-			alreadyDoneSets:
-				exerciseDetails.userDetails.history?.at(0)?.sets.map((s) => ({
-					statistic: s.statistic,
-				})) || [],
+			alreadyDoneSets,
 			restTimer: { duration: 60, enabled: true },
 			notes: [],
 			images: [],

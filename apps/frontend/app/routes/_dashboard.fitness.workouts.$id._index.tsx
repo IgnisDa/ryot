@@ -68,7 +68,7 @@ import {
 	useConfirmSubmit,
 	useGetMantineColor,
 	useGetWorkoutStarter,
-	useUserPreferences,
+	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
 	duplicateOldWorkout,
@@ -151,9 +151,8 @@ const editWorkoutSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const [
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
@@ -369,8 +368,7 @@ type Exercise =
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const { data: exerciseDetails } = useQuery(

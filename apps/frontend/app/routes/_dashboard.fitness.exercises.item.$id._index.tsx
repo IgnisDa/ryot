@@ -37,6 +37,7 @@ import {
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
@@ -49,8 +50,12 @@ import {
 } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
-import { useUserDetails, useUserPreferences } from "~/lib/hooks";
-import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
+import { useUserDetails, useUserUnitSystem } from "~/lib/hooks";
+import {
+	addExerciseToWorkout,
+	getWorkoutDetailsQuery,
+	useCurrentWorkout,
+} from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 
@@ -80,8 +85,7 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
 	const canCurrentUserUpdate =
 		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
@@ -287,66 +291,18 @@ export default function Page() {
 											Personal Bests
 										</Text>
 										{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
-											(pb) => (
-												<Box key={pb.lot}>
+											(personalBest) => (
+												<Box key={personalBest.lot}>
 													<Text size="sm" c="dimmed">
-														{changeCase(pb.lot)}
+														{changeCase(personalBest.lot)}
 													</Text>
 													<Stack gap={0}>
-														{pb.sets.map((s) => (
-															<Group
-																justify="space-between"
-																key={`${s.workoutId}-${s.setIdx}`}
-															>
-																<Text size="sm">
-																	{match(pb.lot)
-																		.with(WorkoutSetPersonalBest.OneRm, () =>
-																			Number(s.data.statistic.oneRm).toFixed(2),
-																		)
-																		.with(
-																			WorkoutSetPersonalBest.Reps,
-																			() => s.data.statistic.reps,
-																		)
-																		.with(
-																			WorkoutSetPersonalBest.Time,
-																			() => `${s.data.statistic.duration} min`,
-																		)
-																		.with(WorkoutSetPersonalBest.Volume, () =>
-																			displayWeightWithUnit(
-																				unitSystem,
-																				s.data.statistic.volume,
-																			),
-																		)
-																		.with(WorkoutSetPersonalBest.Weight, () =>
-																			displayWeightWithUnit(
-																				unitSystem,
-																				s.data.statistic.weight,
-																			),
-																		)
-																		.with(
-																			WorkoutSetPersonalBest.Pace,
-																			() => `${s.data.statistic.pace}/min`,
-																		)
-																		.exhaustive()}
-																</Text>
-																<Group>
-																	<Text size="sm">
-																		{dayjsLib(s.workoutDoneOn).format("ll")}
-																	</Text>
-																	<Anchor
-																		component={Link}
-																		to={withFragment(
-																			$path("/fitness/workouts/:id", {
-																				id: s.workoutId,
-																			}),
-																			s.exerciseIdx.toString(),
-																		)}
-																		fw="bold"
-																	>
-																		<IconExternalLink size={16} />
-																	</Anchor>
-																</Group>
-															</Group>
+														{personalBest.sets.map((pbSet) => (
+															<DisplayPersonalBest
+																set={pbSet}
+																key={pbSet.workoutId}
+																personalBest={personalBest}
+															/>
 														))}
 													</Stack>
 												</Box>
@@ -449,4 +405,60 @@ const DisplayLifetimeStatistic = (props: {
 			<Text size="sm">{props.val}</Text>
 		</Flex>
 	) : null;
+};
+
+const DisplayPersonalBest = (props: {
+	set: { workoutId: string; exerciseIdx: number; setIdx: number };
+	personalBest: {
+		lot: WorkoutSetPersonalBest;
+		sets: Array<{ workoutId: string; exerciseIdx: number; setIdx: number }>;
+	};
+}) => {
+	const unitSystem = useUserUnitSystem();
+	const { data } = useQuery(getWorkoutDetailsQuery(props.set.workoutId));
+	const set =
+		data?.information.exercises[props.set.exerciseIdx].sets[props.set.setIdx];
+	if (!set) return null;
+
+	return (
+		<Group
+			justify="space-between"
+			key={`${props.set.workoutId}-${props.set.setIdx}`}
+		>
+			<Text size="sm">
+				{match(props.personalBest.lot)
+					.with(WorkoutSetPersonalBest.OneRm, () =>
+						Number(set.statistic.oneRm).toFixed(2),
+					)
+					.with(WorkoutSetPersonalBest.Reps, () => set.statistic.reps)
+					.with(
+						WorkoutSetPersonalBest.Time,
+						() => `${set.statistic.duration} min`,
+					)
+					.with(WorkoutSetPersonalBest.Volume, () =>
+						displayWeightWithUnit(unitSystem, set.statistic.volume),
+					)
+					.with(WorkoutSetPersonalBest.Weight, () =>
+						displayWeightWithUnit(unitSystem, set.statistic.weight),
+					)
+					.with(WorkoutSetPersonalBest.Pace, () => `${set.statistic.pace}/min`)
+					.exhaustive()}
+			</Text>
+			<Group>
+				<Text size="sm">{dayjsLib(data.endTime).format("ll")}</Text>
+				<Anchor
+					component={Link}
+					to={withFragment(
+						$path("/fitness/workouts/:id", {
+							id: props.set.workoutId,
+						}),
+						props.set.exerciseIdx.toString(),
+					)}
+					fw="bold"
+				>
+					<IconExternalLink size={16} />
+				</Anchor>
+			</Group>
+		</Group>
+	);
 };
