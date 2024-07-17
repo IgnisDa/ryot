@@ -4,6 +4,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	CopyButton,
 	Flex,
@@ -41,6 +42,7 @@ import {
 	IconCopy,
 	IconEye,
 	IconEyeClosed,
+	IconPencil,
 	IconTrash,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
@@ -151,6 +153,8 @@ export default function Page() {
 			close: closeCreateIntegrationModal,
 		},
 	] = useDisclosure(false);
+	const [updateIntegrationModalData, setUpdateIntegrationModalData] =
+		useState<Integration | null>(null);
 
 	return (
 		<Container size="xs">
@@ -158,7 +162,11 @@ export default function Page() {
 				<Title>Integration settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (
 					loaderData.userIntegrations.map((i, idx) => (
-						<DisplayIntegration integration={i} key={`${i.id}-${idx}`} />
+						<DisplayIntegration
+							integration={i}
+							key={`${i.id}-${idx}`}
+							setUpdateIntegrationModalData={setUpdateIntegrationModalData}
+						/>
 					))
 				) : (
 					<Text>No integrations configured</Text>
@@ -193,6 +201,10 @@ export default function Page() {
 					<CreateIntegrationModal
 						createModalOpened={createIntegrationModalOpened}
 						closeIntegrationModal={closeCreateIntegrationModal}
+					/>
+					<UpdateIntegrationModal
+						updateIntegrationData={updateIntegrationModalData}
+						closeIntegrationModal={() => setUpdateIntegrationModalData(null)}
 					/>
 				</Box>
 				{actionData?.generateAuthToken ? (
@@ -231,7 +243,10 @@ export default function Page() {
 
 type Integration = UserIntegrationsQuery["userIntegrations"][number];
 
-const DisplayIntegration = (props: { integration: Integration }) => {
+const DisplayIntegration = (props: {
+	integration: Integration;
+	setUpdateIntegrationModalData: (data: Integration | null) => void;
+}) => {
 	const [parent] = useAutoAnimate();
 	const [integrationInputOpened, { toggle: integrationInputToggle }] =
 		useDisclosure(false);
@@ -248,9 +263,14 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
-						<Text size="sm" fw="bold">
-							{changeCase(props.integration.source)}
-						</Text>
+						<Group gap="xs">
+							<Text size="sm" fw="bold">
+								{changeCase(props.integration.source)}
+							</Text>
+							{props.integration.isDisabled ? (
+								<Text size="xs">(Disabled)</Text>
+							) : null}
+						</Group>
 						<Text size="xs">
 							Created: {dayjsLib(props.integration.createdOn).fromNow()}
 						</Text>
@@ -267,6 +287,15 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
 						) : null}
+						<ActionIcon
+							color="indigo"
+							variant="subtle"
+							onClick={() =>
+								props.setUpdateIntegrationModalData(props.integration)
+							}
+						>
+							<IconPencil />
+						</ActionIcon>
 						<fetcher.Form
 							method="POST"
 							ref={deleteFormRef}
@@ -384,6 +413,55 @@ const CreateIntegrationModal = (props: {
 							</>
 						))
 						.otherwise(() => undefined)}
+					<Button type="submit">Submit</Button>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+const UpdateIntegrationModal = (props: {
+	updateIntegrationData: Integration | null;
+	closeIntegrationModal: () => void;
+}) => {
+	return (
+		<Modal
+			opened={props.updateIntegrationData !== null}
+			onClose={props.closeIntegrationModal}
+			centered
+			withCloseButton={false}
+		>
+			<Form
+				replace
+				method="POST"
+				onSubmit={() => props.closeIntegrationModal()}
+				action={withQuery("", { intent: "update" })}
+			>
+				<Stack>
+					<Group wrap="nowrap">
+						<NumberInput
+							size="xs"
+							label="Minimum progress"
+							description="Progress will not be synced below this value"
+							name="minimumProgress"
+							defaultValue={props.updateIntegrationData?.minimumProgress}
+						/>
+						<NumberInput
+							size="xs"
+							label="Maximum progress"
+							description="After this value, progress will be marked as completed"
+							name="maximumProgress"
+							defaultValue={props.updateIntegrationData?.maximumProgress}
+						/>
+					</Group>
+					<Checkbox
+						name="isDisabled"
+						label="Disable integration"
+						defaultChecked={
+							props.updateIntegrationData?.isDisabled || undefined
+						}
+						description="Disabling an integration will stop all syncing"
+					/>
 					<Button type="submit">Submit</Button>
 				</Stack>
 			</Form>
