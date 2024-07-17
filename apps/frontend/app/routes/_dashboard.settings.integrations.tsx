@@ -33,6 +33,7 @@ import {
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
 	IntegrationSource,
+	UpdateUserIntegrationDocument,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -50,6 +51,7 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
@@ -112,6 +114,25 @@ export const action = unstable_defineAction(async ({ request }) => {
 				},
 			);
 		},
+		update: async () => {
+			const submission = processSubmission(formData, updateSchema);
+			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
+			submission.isDisabled = submission.isDisabled === true;
+			await serverGqlService.authenticatedRequest(
+				request,
+				UpdateUserIntegrationDocument,
+				{ input: submission },
+			);
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Integration updated successfully",
+					}),
+				},
+			);
+		},
 		generateAuthToken: async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
 				request,
@@ -141,6 +162,13 @@ const createSchema = z.object({
 
 const deleteSchema = z.object({
 	integrationId: z.string(),
+});
+
+const updateSchema = z.object({
+	integrationId: z.string(),
+	minimumProgress: z.string().optional(),
+	maximumProgress: z.string().optional(),
+	isDisabled: zx.CheckboxAsString.optional(),
 });
 
 export default function Page() {
@@ -437,6 +465,11 @@ const UpdateIntegrationModal = (props: {
 				onSubmit={() => props.closeIntegrationModal()}
 				action={withQuery("", { intent: "update" })}
 			>
+				<input
+					type="hidden"
+					name="integrationId"
+					defaultValue={props.updateIntegrationData?.id}
+				/>
 				<Stack>
 					<Group wrap="nowrap">
 						<NumberInput
@@ -456,11 +489,10 @@ const UpdateIntegrationModal = (props: {
 					</Group>
 					<Checkbox
 						name="isDisabled"
-						label="Disable integration"
+						label="Pause integration"
 						defaultChecked={
 							props.updateIntegrationData?.isDisabled || undefined
 						}
-						description="Disabling an integration will stop all syncing"
 					/>
 					<Button type="submit">Submit</Button>
 				</Stack>
