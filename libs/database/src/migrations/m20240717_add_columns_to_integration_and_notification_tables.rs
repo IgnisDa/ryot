@@ -10,6 +10,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 ALTER TABLE "integration" ADD COLUMN IF NOT EXISTS "is_disabled" boolean;
+ALTER TABLE "notification_platform" ADD COLUMN IF NOT EXISTS "is_disabled" boolean;
         "#,
         )
         .await?;
