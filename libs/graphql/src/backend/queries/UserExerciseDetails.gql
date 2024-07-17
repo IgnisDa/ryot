@@ -4,16 +4,8 @@ query UserExerciseDetails($exerciseId: String!) {
       ...CollectionPart
     }
     history {
+      idx
       workoutId
-      workoutName
-      workoutTime
-      index
-      sets {
-        lot
-        statistic {
-          ...WorkoutSetStatisticPart
-        }
-      }
     }
     details {
       exerciseId

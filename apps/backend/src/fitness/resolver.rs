@@ -30,8 +30,8 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
-            GithubExerciseAttributes, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
-            WorkoutListItem, WorkoutSetRecord,
+            GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
+            UserWorkoutInput, UserWorkoutSetRecord, WorkoutListItem,
         },
         ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -95,18 +95,9 @@ struct UserMeasurementsListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct UserExerciseHistoryInformation {
-    workout_id: String,
-    workout_name: String,
-    workout_time: DateTimeUtc,
-    index: usize,
-    sets: Vec<WorkoutSetRecord>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseDetails {
     details: Option<user_to_entity::Model>,
-    history: Option<Vec<UserExerciseHistoryInformation>>,
+    history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
     collections: Vec<collection::Model>,
 }
 
@@ -406,36 +397,7 @@ impl ExerciseService {
                 .exercise_extra_information
                 .clone()
                 .unwrap_or_default();
-            let workouts = Workout::find()
-                .filter(
-                    workout::Column::Id.is_in(
-                        user_to_exercise_extra_information
-                            .history
-                            .iter()
-                            .map(|h| h.workout_id.clone()),
-                    ),
-                )
-                .order_by_desc(workout::Column::EndTime)
-                .all(&self.db)
-                .await?;
-            let history = workouts
-                .into_iter()
-                .map(|w| {
-                    let element = user_to_exercise_extra_information
-                        .history
-                        .iter()
-                        .find(|h| h.workout_id == w.id)
-                        .unwrap();
-                    UserExerciseHistoryInformation {
-                        workout_id: w.id,
-                        workout_name: w.name,
-                        workout_time: w.start_time,
-                        index: element.idx,
-                        sets: w.information.exercises[element.idx].sets.clone(),
-                    }
-                })
-                .collect_vec();
-            resp.history = Some(history);
+            resp.history = Some(user_to_exercise_extra_information.history);
             resp.details = Some(association);
         }
         Ok(resp)
