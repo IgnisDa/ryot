@@ -409,6 +409,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						})}
 						fw="bold"
 						lineClamp={1}
+						style={{ scrollMargin: 20 }}
 					>
 						{props.exercise.name}
 					</Anchor>
