@@ -68,6 +68,9 @@ query UserIntegrations {
     lot
     source
     createdOn
+    isDisabled
+    maximumProgress
+    minimumProgress
     lastTriggeredOn
   }
 }
@@ -77,6 +80,7 @@ query UserNotificationPlatforms {
     id
     lot
     createdOn
+    isDisabled
     description
   }
 }

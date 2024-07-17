@@ -128,6 +128,9 @@ export const useUserDetails = () => useDashboardLayoutData().userDetails;
 export const useUserCollections = () =>
 	useDashboardLayoutData().userCollections;
 
+export const useUserUnitSystem = () =>
+	useUserPreferences().fitness.exercises.unitSystem;
+
 export const useApplicationEvents = () => {
 	const { version, isPro } = useCoreDetails();
 

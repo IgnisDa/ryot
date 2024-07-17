@@ -16,6 +16,7 @@ pub struct Model {
     pub id: String,
     pub lot: NotificationPlatformLot,
     pub created_on: DateTimeWithTimeZone,
+    pub is_disabled: Option<bool>,
     #[graphql(skip)]
     pub platform_specifics: NotificationPlatformSpecifics,
     pub description: String,

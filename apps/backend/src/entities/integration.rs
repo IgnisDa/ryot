@@ -21,6 +21,7 @@ pub struct Model {
     pub user_id: String,
     pub lot: IntegrationLot,
     pub source: IntegrationSource,
+    pub is_disabled: Option<bool>,
     #[graphql(skip_input)]
     pub created_on: DateTimeUtc,
     #[graphql(skip_input)]

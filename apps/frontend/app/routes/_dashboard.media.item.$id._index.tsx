@@ -1,6 +1,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { $path } from "@ignisda/remix-routes";
 import {
+	Accordion,
 	ActionIcon,
 	Alert,
 	Anchor,
@@ -38,15 +39,16 @@ import {
 import {
 	DeleteSeenItemDocument,
 	DeployUpdateMetadataJobDocument,
-	EditSeenItemDocument,
 	EntityLot,
 	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataDetailsDocument,
+	type MetadataDetailsQuery,
 	MetadataVideoSource,
 	type PodcastEpisode,
 	SeenState,
+	UpdateSeenItemDocument,
 	UserMetadataDetailsDocument,
 	type UserMetadataDetailsQuery,
 	UserReviewScale,
@@ -73,9 +75,8 @@ import {
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, forwardRef, useState } from "react";
-import { GroupedVirtuoso, Virtuoso, VirtuosoGrid } from "react-virtuoso";
+import { Virtuoso, VirtuosoGrid } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -192,7 +193,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const submission = processSubmission(formData, editSeenItem);
 			await serverGqlService.authenticatedRequest(
 				request,
-				EditSeenItemDocument,
+				UpdateSeenItemDocument,
 				{ input: submission },
 			);
 			return Response.json({ status: "success", tt: new Date() } as const, {
@@ -632,6 +633,11 @@ export default function Page() {
 						</MediaScrollArea>
 					</Tabs.Panel>
 					<Tabs.Panel value="actions">
+						<MergeMetadataModal
+							onClose={mergeMetadataModalClose}
+							opened={mergeMetadataModalOpened}
+							metadataId={loaderData.metadataId}
+						/>
 						<MediaScrollArea>
 							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 								<Menu shadow="md">
@@ -907,11 +913,6 @@ export default function Page() {
 										<Menu.Item onClick={mergeMetadataModalOpen}>
 											Merge media
 										</Menu.Item>
-										<MergeMetadataModal
-											onClose={mergeMetadataModalClose}
-											opened={mergeMetadataModalOpened}
-											metadataId={loaderData.metadataId}
-										/>
 									</Menu.Dropdown>
 								</Menu>
 							</SimpleGrid>
@@ -985,37 +986,52 @@ export default function Page() {
 						)}
 					</Tabs.Panel>
 					<Tabs.Panel value="showSeasons">
-						{loaderData.metadataDetails.showSpecifics &&
-						loaderData.userMetadataDetails.showProgress ? (
-							<Box h={MEDIA_DETAILS_HEIGHT}>
-								<GroupedVirtuoso
-									groupCounts={loaderData.metadataDetails.showSpecifics.seasons.map(
-										(season) => season.episodes.length,
+						<MediaScrollArea>
+							{loaderData.metadataDetails.showSpecifics &&
+							loaderData.userMetadataDetails.showProgress ? (
+								<Accordion chevron={<Box />}>
+									{loaderData.metadataDetails.showSpecifics.seasons.map(
+										(season, seasonIdx) => {
+											const seasonProgress =
+												loaderData.userMetadataDetails.showProgress?.[
+													seasonIdx
+												];
+											return (
+												<Accordion.Item
+													key={season.seasonNumber}
+													value={season.seasonNumber.toString()}
+												>
+													<Accordion.Control component={Box} py={0} px="xs">
+														<DisplayShowSeason
+															season={season}
+															seasonProgress={seasonProgress}
+														/>
+													</Accordion.Control>
+													<Accordion.Panel>
+														<Stack h={300} gap="xs">
+															<Virtuoso
+																data={season.episodes}
+																itemContent={(episodeIdx, episode) => (
+																	<DisplayShowEpisode
+																		episode={episode}
+																		seasonIdx={seasonIdx}
+																		episodeIdx={episodeIdx}
+																		episodeProgress={
+																			seasonProgress?.episodes[episodeIdx]
+																		}
+																		seasonNumber={season.seasonNumber}
+																	/>
+																)}
+															/>
+														</Stack>
+													</Accordion.Panel>
+												</Accordion.Item>
+											);
+										},
 									)}
-									groupContent={(index) => (
-										<DisplayShowSeason
-											seasonIdx={index}
-											showProgress={loaderData.userMetadataDetails.showProgress}
-										/>
-									)}
-									itemContent={(index, groupIndex) => (
-										<DisplayShowEpisode
-											overallIdx={index}
-											seasonIdx={groupIndex}
-											seasonProgress={
-												loaderData.userMetadataDetails.showProgress
-											}
-											seasonNumber={
-												// biome-ignore lint/style/noNonNullAssertion: typescript error
-												loaderData.metadataDetails.showSpecifics!.seasons[
-													groupIndex
-												].seasonNumber
-											}
-										/>
-									)}
-								/>
-							</Box>
-						) : null}
+								</Accordion>
+							) : null}
+						</MediaScrollArea>
 					</Tabs.Panel>
 					{loaderData.metadataDetails.podcastSpecifics ? (
 						<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
@@ -1208,6 +1224,7 @@ const EditHistoryRecordModal = (props: {
 				onSubmit={props.onClose}
 				action={withQuery("", { intent: "editSeenItem" })}
 			>
+				<input hidden name="seenId" defaultValue={id} />
 				<Stack>
 					<Title order={3}>Edit history record</Title>
 					<DateInput
@@ -1226,7 +1243,7 @@ const EditHistoryRecordModal = (props: {
 						name="providerWatchedOn"
 						defaultValue={providerWatchedOn}
 					/>
-					<Button variant="outline" type="submit" name="seenId" value={id}>
+					<Button variant="outline" type="submit">
 						Submit
 					</Button>
 				</Stack>
@@ -1441,7 +1458,6 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	numEpisodes?: number | null;
 	posterImages: Array<string>;
 	publishDate?: string | null;
-	isShowSeason?: boolean;
 }) => {
 	const [parent] = useAutoAnimate();
 	const [displayOverview, setDisplayOverview] = useDisclosure(false);
@@ -1488,142 +1504,131 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	);
 
 	return (
-		<Paper
-			withBorder={props.isShowSeason}
-			p={props.isShowSeason ? 8 : undefined}
-			shadow={props.isShowSeason ? "md" : undefined}
-		>
-			<Stack data-episode-id={props.id} ref={parent}>
-				<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
-					<Group wrap="nowrap">
-						<Indicator
-							disabled={!isSeen}
-							label={
-								props.displayIndicator === 1
-									? "Seen"
-									: `Seen × ${props.displayIndicator}`
-							}
-							offset={7}
-							position="bottom-end"
-							size={16}
-							color="cyan"
-							style={{ zIndex: 0 }}
-						>
-							<Avatar
-								src={props.posterImages[0]}
-								name={props.name}
-								radius="xl"
-								size="lg"
-								imageProps={{ loading: "lazy" }}
-							/>
-						</Indicator>
-						<Box visibleFrom="md" ml="sm">
-							<DisplayDetails />
-						</Box>
-					</Group>
-					<Box flex={0} ml={{ base: "md", md: 0 }}>
-						{props.children}
+		<Stack data-episode-id={props.id} ref={parent}>
+			<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
+				<Group wrap="nowrap">
+					<Indicator
+						disabled={!isSeen}
+						label={
+							props.displayIndicator === 1
+								? "Seen"
+								: `Seen × ${props.displayIndicator}`
+						}
+						offset={7}
+						position="bottom-end"
+						size={16}
+						color="cyan"
+						style={{ zIndex: 0 }}
+					>
+						<Avatar
+							src={props.posterImages[0]}
+							name={props.name}
+							radius="xl"
+							size="lg"
+							imageProps={{ loading: "lazy" }}
+						/>
+					</Indicator>
+					<Box visibleFrom="md" ml="sm">
+						<DisplayDetails />
 					</Box>
-				</Flex>
-				<Box hiddenFrom="md">
-					<DisplayDetails />
+				</Group>
+				<Box flex={0} ml={{ base: "md", md: 0 }}>
+					{props.children}
 				</Box>
-				{props.overview && displayOverview ? (
-					<Text
-						size="sm"
-						c="dimmed"
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-						dangerouslySetInnerHTML={{ __html: props.overview }}
-						lineClamp={5}
-					/>
-				) : null}
-			</Stack>
-		</Paper>
+			</Flex>
+			<Box hiddenFrom="md">
+				<DisplayDetails />
+			</Box>
+			{props.overview && displayOverview ? (
+				<Text
+					size="sm"
+					c="dimmed"
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+					dangerouslySetInnerHTML={{ __html: props.overview }}
+					lineClamp={5}
+				/>
+			) : null}
+		</Stack>
 	);
 };
 
+type Season = NonNullable<
+	MetadataDetailsQuery["metadataDetails"]["showSpecifics"]
+>["seasons"][number];
+type SeasonProgress = NonNullable<
+	UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"]
+>[number];
+
 const DisplayShowSeason = (props: {
-	seasonIdx: number;
-	showProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
+	season: Season;
+	seasonProgress?: SeasonProgress;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const season =
-		loaderData.metadataDetails.showSpecifics?.seasons[props.seasonIdx];
-	invariant(season);
-	const numTimesSeen = props.showProgress?.[props.seasonIdx]?.timesSeen || 0;
+	const numTimesSeen = props.seasonProgress?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
 
 	return (
-		<Paper my="xs" py="sm">
-			<DisplaySeasonOrEpisodeDetails
-				{...season}
-				name={`${season.seasonNumber}. ${season.name}`}
-				numEpisodes={season.episodes.length}
-				displayIndicator={numTimesSeen}
-				runtime={season.episodes
-					.map((e) => e.runtime || 0)
-					.reduce((i, a) => i + a, 0)}
-				isShowSeason
-			>
-				<>
-					{season.episodes.length > 0 ? (
-						<Button
-							variant={isSeen ? "default" : "outline"}
-							color="blue"
-							onClick={() => {
-								setMetadataToUpdate({
-									metadataId: loaderData.metadataId,
-									showSeasonNumber: season.seasonNumber,
-									onlySeason: true,
-								});
-							}}
-						>
-							{isSeen ? "Rewatch this" : "Mark as seen"}
-						</Button>
-					) : null}
-				</>
-			</DisplaySeasonOrEpisodeDetails>
-		</Paper>
+		<DisplaySeasonOrEpisodeDetails
+			{...props.season}
+			name={`${props.season.seasonNumber}. ${props.season.name}`}
+			numEpisodes={props.season.episodes.length}
+			displayIndicator={numTimesSeen}
+			runtime={props.season.episodes
+				.map((e) => e.runtime || 0)
+				.reduce((i, a) => i + a, 0)}
+		>
+			<>
+				{props.season.episodes.length > 0 ? (
+					<Button
+						variant={isSeen ? "default" : "outline"}
+						size="xs"
+						color="blue"
+						onClick={() => {
+							setMetadataToUpdate({
+								metadataId: loaderData.metadataId,
+								showSeasonNumber: props.season.seasonNumber,
+								onlySeason: true,
+							});
+						}}
+					>
+						{isSeen ? "Watch again" : "Mark as seen"}
+					</Button>
+				) : null}
+			</>
+		</DisplaySeasonOrEpisodeDetails>
 	);
 };
 
 const DisplayShowEpisode = (props: {
 	seasonIdx: number;
-	overallIdx: number;
 	seasonNumber: number;
-	seasonProgress: UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"];
+	episodeIdx: number;
+	episode: Season["episodes"][number];
+	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const flattenedEpisodes =
-		loaderData.metadataDetails.showSpecifics?.seasons.flatMap(
-			(season) => season.episodes,
-		) || [];
-	const episode = flattenedEpisodes[props.overallIdx];
-	invariant(episode);
-	const flattenedProgress =
-		props.seasonProgress?.flatMap((season) => season.episodes) || [];
-	const episodeProgress = flattenedProgress[props.overallIdx];
-	const numTimesEpisodeSeen = episodeProgress?.timesSeen || 0;
+	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 
 	return (
 		<Box my="lg" ml="md">
 			<DisplaySeasonOrEpisodeDetails
-				{...episode}
-				key={episode.episodeNumber}
-				name={`${episode.episodeNumber}. ${episode.name}`}
-				publishDate={episode.publishDate}
+				{...props.episode}
+				key={props.episode.episodeNumber}
+				name={`${props.episode.episodeNumber}. ${props.episode.name}`}
+				publishDate={props.episode.publishDate}
 				displayIndicator={numTimesEpisodeSeen}
 			>
 				<Button
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
+					size="xs"
 					color="blue"
 					onClick={() => {
 						setMetadataToUpdate({
 							metadataId: loaderData.metadataId,
 							showSeasonNumber: props.seasonNumber,
-							showEpisodeNumber: episode.episodeNumber,
+							showEpisodeNumber: props.episode.episodeNumber,
 						});
 					}}
 				>

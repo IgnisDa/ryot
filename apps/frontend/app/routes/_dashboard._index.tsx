@@ -21,7 +21,6 @@ import {
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaLot,
-	type UserMediaFeaturesEnabledPreferences,
 	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -42,7 +41,11 @@ import {
 	MetadataDisplayItem,
 } from "~/components/media";
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
-import { useGetMantineColor, useUserPreferences } from "~/lib/hooks";
+import {
+	useGetMantineColor,
+	useUserPreferences,
+	useUserUnitSystem,
+} from "~/lib/hooks";
 import {
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
@@ -90,13 +93,6 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		),
 	]);
 	return {
-		userPreferences: {
-			reviewScale: preferences.general.reviewScale,
-			dashboard: preferences.general.dashboard,
-			media: preferences.featuresEnabled.media,
-			fitness: preferences.featuresEnabled.fitness,
-			unitSystem: preferences.fitness.exercises.unitSystem,
-		},
 		latestUserSummary,
 		userUpcomingCalendarEvents,
 		inProgressCollectionContents,
@@ -110,6 +106,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
+	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
 	const latestUserSummary = loaderData.latestUserSummary.data;
 
@@ -173,7 +170,6 @@ export default function Page() {
 									spacing="xs"
 								>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.Movie}
 										data={[
 											{
@@ -189,7 +185,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.Show}
 										data={[
 											{
@@ -215,7 +210,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.VideoGame}
 										data={[
 											{
@@ -226,7 +220,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.VisualNovel}
 										data={[
 											{
@@ -242,7 +235,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.AudioBook}
 										data={[
 											{
@@ -258,7 +250,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.Book}
 										data={[
 											{
@@ -274,7 +265,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.Podcast}
 										data={[
 											{
@@ -295,7 +285,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.Manga}
 										data={[
 											{
@@ -311,7 +300,6 @@ export default function Page() {
 										]}
 									/>
 									<DisplayStatForMediaType
-										media={loaderData.userPreferences.media}
 										lot={MediaLot.Anime}
 										data={[
 											{
@@ -326,7 +314,7 @@ export default function Page() {
 											},
 										]}
 									/>
-									{loaderData.userPreferences.media.enabled ? (
+									{userPreferences.featuresEnabled.media.enabled ? (
 										<>
 											<ActualDisplayStat
 												icon={<IconServer />}
@@ -349,7 +337,7 @@ export default function Page() {
 													},
 												]}
 											/>
-											{loaderData.userPreferences.media.people ? (
+											{userPreferences.featuresEnabled.media.people ? (
 												<UnstyledLink
 													to={$path("/media/people/:action", {
 														action: "list",
@@ -381,7 +369,7 @@ export default function Page() {
 											) : null}
 										</>
 									) : null}
-									{loaderData.userPreferences.fitness.enabled &&
+									{userPreferences.featuresEnabled.fitness.enabled &&
 									Number(latestUserSummary.fitness.workouts.duration) +
 										latestUserSummary.fitness.workouts.recorded >
 										0 ? (
@@ -404,7 +392,7 @@ export default function Page() {
 													{
 														label: "Runtime",
 														value: displayWeightWithUnit(
-															loaderData.userPreferences.unitSystem,
+															unitSystem,
 															latestUserSummary.fitness.workouts.weight,
 															true,
 														),
@@ -414,7 +402,7 @@ export default function Page() {
 											/>
 										</UnstyledLink>
 									) : null}
-									{loaderData.userPreferences.fitness.enabled &&
+									{userPreferences.featuresEnabled.fitness.enabled &&
 									latestUserSummary.fitness.measurementsRecorded +
 										latestUserSummary.fitness.exercisesInteractedWith >
 										0 ? (
@@ -551,16 +539,16 @@ const ActualDisplayStat = (props: {
 const DisplayStatForMediaType = (props: {
 	lot: MediaLot;
 	data: Array<{ type: "duration" | "number"; label: string; value: number }>;
-	media: UserMediaFeaturesEnabledPreferences;
 }) => {
 	const getMantineColor = useGetMantineColor();
-	const isEnabled = Object.entries(props.media || {}).find(
-		([name, _]) => getLot(name) === props.lot,
-	);
+	const userPreferences = useUserPreferences();
+	const isEnabled = Object.entries(
+		userPreferences.featuresEnabled.media || {},
+	).find(([name, _]) => getLot(name) === props.lot);
 	const Icon = getMetadataIcon(props.lot);
 	const icon = <Icon size={24} stroke={1.5} />;
 
-	return isEnabled?.[1] && props.media.enabled ? (
+	return isEnabled?.[1] && userPreferences.featuresEnabled.media.enabled ? (
 		<UnstyledLink
 			to={$path("/media/:action/:lot", {
 				action: "list",

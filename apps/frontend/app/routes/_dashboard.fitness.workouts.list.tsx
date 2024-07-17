@@ -44,7 +44,7 @@ import {
 	useAppSearchParam,
 	useCoreDetails,
 	useGetWorkoutStarter,
-	useUserPreferences,
+	useUserUnitSystem,
 } from "~/lib/hooks";
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
@@ -78,11 +78,10 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 
 	return (
 		<Container size="xs">
@@ -221,11 +220,11 @@ const DisplayStat = (props: {
 const ExerciseDisplay = (props: {
 	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
 }) => {
-	const userPreferences = useUserPreferences();
+	const unitSystem = useUserUnitSystem();
 	const [stat, _] = getSetStatisticsTextToDisplay(
 		props.exercise.lot,
 		props.exercise.bestSet.statistic,
-		userPreferences.fitness.exercises.unitSystem,
+		unitSystem,
 	);
 
 	return (

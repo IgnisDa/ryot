@@ -1530,9 +1530,7 @@ pub mod fitness {
     pub struct ExerciseBestSetRecord {
         pub workout_id: String,
         pub exercise_idx: usize,
-        pub workout_done_on: DateTimeUtc,
         pub set_idx: usize,
-        pub data: WorkoutSetRecord,
     }
 
     #[derive(

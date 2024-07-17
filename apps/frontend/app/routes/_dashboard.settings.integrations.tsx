@@ -4,6 +4,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	CopyButton,
 	Flex,
@@ -32,6 +33,7 @@ import {
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
 	IntegrationSource,
+	UpdateUserIntegrationDocument,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -41,6 +43,7 @@ import {
 	IconCopy,
 	IconEye,
 	IconEyeClosed,
+	IconPencil,
 	IconTrash,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
@@ -48,6 +51,7 @@ import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
@@ -110,6 +114,25 @@ export const action = unstable_defineAction(async ({ request }) => {
 				},
 			);
 		},
+		update: async () => {
+			const submission = processSubmission(formData, updateSchema);
+			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
+			submission.isDisabled = submission.isDisabled === true;
+			await serverGqlService.authenticatedRequest(
+				request,
+				UpdateUserIntegrationDocument,
+				{ input: submission },
+			);
+			return Response.json(
+				{ status: "success", generateAuthToken: false } as const,
+				{
+					headers: await createToastHeaders({
+						type: "success",
+						message: "Integration updated successfully",
+					}),
+				},
+			);
+		},
 		generateAuthToken: async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
 				request,
@@ -141,6 +164,13 @@ const deleteSchema = z.object({
 	integrationId: z.string(),
 });
 
+const updateSchema = z.object({
+	integrationId: z.string(),
+	minimumProgress: z.string().optional(),
+	maximumProgress: z.string().optional(),
+	isDisabled: zx.CheckboxAsString.optional(),
+});
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
@@ -151,6 +181,8 @@ export default function Page() {
 			close: closeCreateIntegrationModal,
 		},
 	] = useDisclosure(false);
+	const [updateIntegrationModalData, setUpdateIntegrationModalData] =
+		useState<Integration | null>(null);
 
 	return (
 		<Container size="xs">
@@ -158,7 +190,11 @@ export default function Page() {
 				<Title>Integration settings</Title>
 				{loaderData.userIntegrations.length > 0 ? (
 					loaderData.userIntegrations.map((i, idx) => (
-						<DisplayIntegration integration={i} key={`${i.id}-${idx}`} />
+						<DisplayIntegration
+							integration={i}
+							key={`${i.id}-${idx}`}
+							setUpdateIntegrationModalData={setUpdateIntegrationModalData}
+						/>
 					))
 				) : (
 					<Text>No integrations configured</Text>
@@ -193,6 +229,10 @@ export default function Page() {
 					<CreateIntegrationModal
 						createModalOpened={createIntegrationModalOpened}
 						closeIntegrationModal={closeCreateIntegrationModal}
+					/>
+					<UpdateIntegrationModal
+						updateIntegrationData={updateIntegrationModalData}
+						closeIntegrationModal={() => setUpdateIntegrationModalData(null)}
 					/>
 				</Box>
 				{actionData?.generateAuthToken ? (
@@ -231,7 +271,10 @@ export default function Page() {
 
 type Integration = UserIntegrationsQuery["userIntegrations"][number];
 
-const DisplayIntegration = (props: { integration: Integration }) => {
+const DisplayIntegration = (props: {
+	integration: Integration;
+	setUpdateIntegrationModalData: (data: Integration | null) => void;
+}) => {
 	const [parent] = useAutoAnimate();
 	const [integrationInputOpened, { toggle: integrationInputToggle }] =
 		useDisclosure(false);
@@ -248,9 +291,14 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
-						<Text size="sm" fw="bold">
-							{changeCase(props.integration.source)}
-						</Text>
+						<Group gap="xs">
+							<Text size="sm" fw="bold">
+								{changeCase(props.integration.source)}
+							</Text>
+							{props.integration.isDisabled ? (
+								<Text size="xs">(Disabled)</Text>
+							) : null}
+						</Group>
 						<Text size="xs">
 							Created: {dayjsLib(props.integration.createdOn).fromNow()}
 						</Text>
@@ -267,6 +315,15 @@ const DisplayIntegration = (props: { integration: Integration }) => {
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
 						) : null}
+						<ActionIcon
+							color="indigo"
+							variant="subtle"
+							onClick={() =>
+								props.setUpdateIntegrationModalData(props.integration)
+							}
+						>
+							<IconPencil />
+						</ActionIcon>
 						<fetcher.Form
 							method="POST"
 							ref={deleteFormRef}
@@ -384,6 +441,59 @@ const CreateIntegrationModal = (props: {
 							</>
 						))
 						.otherwise(() => undefined)}
+					<Button type="submit">Submit</Button>
+				</Stack>
+			</Form>
+		</Modal>
+	);
+};
+
+const UpdateIntegrationModal = (props: {
+	updateIntegrationData: Integration | null;
+	closeIntegrationModal: () => void;
+}) => {
+	return (
+		<Modal
+			opened={props.updateIntegrationData !== null}
+			onClose={props.closeIntegrationModal}
+			centered
+			withCloseButton={false}
+		>
+			<Form
+				replace
+				method="POST"
+				onSubmit={() => props.closeIntegrationModal()}
+				action={withQuery("", { intent: "update" })}
+			>
+				<input
+					type="hidden"
+					name="integrationId"
+					defaultValue={props.updateIntegrationData?.id}
+				/>
+				<Stack>
+					<Group wrap="nowrap">
+						<NumberInput
+							size="xs"
+							label="Minimum progress"
+							description="Progress will not be synced below this value"
+							name="minimumProgress"
+							defaultValue={props.updateIntegrationData?.minimumProgress}
+						/>
+						<NumberInput
+							size="xs"
+							label="Maximum progress"
+							description="After this value, progress will be marked as completed"
+							name="maximumProgress"
+							defaultValue={props.updateIntegrationData?.maximumProgress}
+						/>
+					</Group>
+					<Checkbox
+						name="isDisabled"
+						label="Pause integration"
+						defaultChecked={
+							props.updateIntegrationData?.isDisabled || undefined
+						}
+					/>
 					<Button type="submit">Submit</Button>
 				</Stack>
 			</Form>

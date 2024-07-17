@@ -14,6 +14,7 @@ pub enum NotificationPlatform {
     PlatformSpecifics,
     Description,
     UserId,
+    IsDisabled,
 }
 
 #[async_trait::async_trait]
@@ -51,6 +52,7 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(NotificationPlatform::IsDisabled).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("notification_platform_to_user_foreign_key")

@@ -1,3 +1,27 @@
+mutation RegisterUser($input: AuthUserInput!) {
+  registerUser(input: $input){
+    __typename
+    ... on RegisterError {
+      error
+    }
+    ... on StringIdObject {
+      id
+    }
+  }
+}
+
+mutation LoginUser($input: AuthUserInput!) {
+  loginUser(input: $input) {
+    __typename
+    ... on LoginError {
+      error
+    }
+    ... on LoginResponse {
+      apiKey
+    }
+  }
+}
+
 mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
   addEntityToCollection(input: $input)
 }
@@ -24,8 +48,12 @@ mutation CreateCustomExercise($input: ExerciseInput!) {
   createCustomExercise(input: $input)
 }
 
-mutation EditCustomExercise($input: EditCustomExerciseInput!) {
-  editCustomExercise(input: $input)
+mutation UpdateCustomExercise($input: UpdateCustomExerciseInput!) {
+  updateCustomExercise(input: $input)
+}
+
+mutation UpdateUserIntegration($input: UpdateUserIntegrationInput!) {
+  updateUserIntegration(input: $input)
 }
 
 mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
@@ -52,7 +80,7 @@ mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformIn
   createUserNotificationPlatform(input: $input)
 }
 
-mutation CreateUserIntegration($input: CreateIntegrationInput!) {
+mutation CreateUserIntegration($input: CreateUserIntegrationInput!) {
   createUserIntegration(input: $input) {
     id
   }
@@ -124,12 +152,16 @@ mutation DeployUpdatePersonJob($personId: String!) {
   deployUpdatePersonJob(personId: $personId)
 }
 
-mutation EditSeenItem($input: EditSeenItemInput!) {
-  editSeenItem(input: $input)
+mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
+  updateSeenItem(input: $input)
 }
 
-mutation EditUserWorkout($input: EditUserWorkoutInput!) {
-  editUserWorkout(input: $input)
+mutation UpdateUserNotificationPlatform($input: UpdateUserNotificationPlatformInput!) {
+  updateUserNotificationPlatform(input: $input)
+}
+
+mutation UpdateUserWorkout($input: UpdateUserWorkoutInput!) {
+  updateUserWorkout(input: $input)
 }
 
 mutation GenerateAuthToken {
