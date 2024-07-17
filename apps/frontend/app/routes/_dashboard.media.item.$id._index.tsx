@@ -632,6 +632,11 @@ export default function Page() {
 						</MediaScrollArea>
 					</Tabs.Panel>
 					<Tabs.Panel value="actions">
+						<MergeMetadataModal
+							onClose={mergeMetadataModalClose}
+							opened={mergeMetadataModalOpened}
+							metadataId={loaderData.metadataId}
+						/>
 						<MediaScrollArea>
 							<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
 								<Menu shadow="md">
@@ -907,11 +912,6 @@ export default function Page() {
 										<Menu.Item onClick={mergeMetadataModalOpen}>
 											Merge media
 										</Menu.Item>
-										<MergeMetadataModal
-											onClose={mergeMetadataModalClose}
-											opened={mergeMetadataModalOpened}
-											metadataId={loaderData.metadataId}
-										/>
 									</Menu.Dropdown>
 								</Menu>
 							</SimpleGrid>
