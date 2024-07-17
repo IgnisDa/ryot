@@ -156,6 +156,10 @@ mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
   updateSeenItem(input: $input)
 }
 
+mutation UpdateUserNotificationPlatform($input: UpdateUserNotificationPlatformInput!) {
+  updateUserNotificationPlatform(input: $input)
+}
+
 mutation UpdateUserWorkout($input: UpdateUserWorkoutInput!) {
   updateUserWorkout(input: $input)
 }

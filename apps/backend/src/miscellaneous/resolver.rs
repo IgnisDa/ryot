@@ -177,6 +177,12 @@ struct CreateUserNotificationPlatformInput {
     chat_id: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct UpdateUserNotificationPlatformInput {
+    notification_id: String,
+    is_disabled: Option<bool>,
+}
+
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum CreateCustomMediaErrorVariant {
     LotDoesNotMatchSpecifics,
@@ -1327,11 +1333,17 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Test all notification platforms for the currently logged in user.
-    async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+    /// Edit a notification platform for the currently logged in user.
+    async fn update_user_notification_platform(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserNotificationPlatformInput,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.test_user_notification_platforms(&user_id).await
+        service
+            .update_user_notification_platform(user_id, input)
+            .await
     }
 
     /// Delete a notification platform for the currently logged in user.
@@ -1345,6 +1357,13 @@ impl MiscellaneousMutation {
         service
             .delete_user_notification_platform(user_id, notification_id)
             .await
+    }
+
+    /// Test all notification platforms for the currently logged in user.
+    async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.test_user_notification_platforms(&user_id).await
     }
 
     /// Delete a user. The account making the user must an `Admin`.
@@ -5577,6 +5596,28 @@ impl MiscellaneousService {
         };
         let new_notification_id = notification.insert(&self.db).await?.id;
         Ok(new_notification_id)
+    }
+
+    async fn update_user_notification_platform(
+        &self,
+        user_id: String,
+        input: UpdateUserNotificationPlatformInput,
+    ) -> Result<bool> {
+        let db_notification = NotificationPlatform::find_by_id(input.notification_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        if db_notification.user_id != user_id {
+            return Err(Error::new(
+                "Notification platform does not belong to the user",
+            ));
+        }
+        let mut db_notification: notification_platform::ActiveModel = db_notification.into();
+        if let Some(s) = input.is_disabled {
+            db_notification.is_disabled = ActiveValue::Set(Some(s));
+        }
+        db_notification.update(&self.db).await?;
+        Ok(true)
     }
 
     async fn delete_user_notification_platform(
