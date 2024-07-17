@@ -5672,6 +5672,10 @@ impl MiscellaneousService {
         let mut collection_updates = vec![];
         let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
+            if integration.is_disabled.unwrap_or_default() {
+                tracing::debug!("Integration {} is disabled", integration.id);
+                continue;
+            }
             let response = match integration.source {
                 IntegrationSource::Audiobookshelf => {
                     let specifics = integration.clone().source_specifics.unwrap();
@@ -5799,6 +5803,9 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
+        if integration.is_disabled.unwrap_or_default() {
+            return Err(Error::new("Integration is disabled".to_owned()));
+        }
         let service = self.get_integration_service();
         let maybe_progress_update = match integration.source {
             IntegrationSource::Kodi => service.kodi_progress(&payload).await,
