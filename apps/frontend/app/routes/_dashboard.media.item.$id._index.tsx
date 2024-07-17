@@ -1001,7 +1001,7 @@ export default function Page() {
 													key={season.seasonNumber}
 													value={season.seasonNumber.toString()}
 												>
-													<Accordion.Control component={Box} p={0}>
+													<Accordion.Control component={Box} py={0} px="xs">
 														<DisplayShowSeason
 															season={season}
 															seasonProgress={seasonProgress}
@@ -1224,6 +1224,7 @@ const EditHistoryRecordModal = (props: {
 				onSubmit={props.onClose}
 				action={withQuery("", { intent: "editSeenItem" })}
 			>
+				<input hidden name="seenId" defaultValue={id} />
 				<Stack>
 					<Title order={3}>Edit history record</Title>
 					<DateInput
@@ -1242,7 +1243,7 @@ const EditHistoryRecordModal = (props: {
 						name="providerWatchedOn"
 						defaultValue={providerWatchedOn}
 					/>
-					<Button variant="outline" type="submit" name="seenId" value={id}>
+					<Button variant="outline" type="submit">
 						Submit
 					</Button>
 				</Stack>
