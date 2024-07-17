@@ -39,6 +39,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
@@ -227,17 +228,20 @@ export default function Page() {
 						</Stack>
 					</Tabs.Panel>
 					{loaderData.userExerciseDetails.history ? (
-						<Tabs.Panel value="history">
-							<Stack>
-								{loaderData.userExerciseDetails.history.map((history) => (
-									<ExerciseHistory
-										history={history}
-										key={history.workoutId}
-										exerciseId={loaderData.exerciseDetails.id}
-										exerciseLot={loaderData.exerciseDetails.lot}
-									/>
-								))}
-							</Stack>
+						<Tabs.Panel value="history" h="70vh">
+							<Virtuoso
+								data={loaderData.userExerciseDetails.history}
+								itemContent={(index, history) => (
+									<Box mt={index !== 0 ? "md" : undefined}>
+										<ExerciseHistory
+											history={history}
+											key={history.workoutId}
+											exerciseId={loaderData.exerciseDetails.id}
+											exerciseLot={loaderData.exerciseDetails.lot}
+										/>
+									</Box>
+								)}
+							/>
 						</Tabs.Panel>
 					) : null}
 					{loaderData.userExerciseDetails.details?.exerciseExtraInformation ? (
