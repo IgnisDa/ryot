@@ -10,7 +10,7 @@ use sea_orm::{
 
 use crate::{
     entities::{
-        prelude::{Exercise, UserToEntity},
+        prelude::{Exercise, UserToEntity, Workout},
         user_to_entity, workout,
     },
     models::fitness::{
@@ -237,7 +237,13 @@ impl UserWorkoutInput {
                     .and_then(|record| record.sets.first());
                 let set = sets.get_mut(set_idx).unwrap();
                 if let Some(r) = possible_record {
-                    if set.get_personal_best(best_type) > r.data.get_personal_best(best_type) {
+                    let workout = Workout::find_by_id(r.workout_id.clone())
+                        .one(db)
+                        .await?
+                        .unwrap();
+                    let workout_set =
+                        workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
+                    if set.get_personal_best(best_type) > workout_set.get_personal_best(best_type) {
                         set.personal_bests.push(*best_type);
                         total.personal_bests_achieved += 1;
                     }
@@ -251,10 +257,8 @@ impl UserWorkoutInput {
                 for best in set.personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
                         workout_id: id.clone(),
-                        workout_done_on: input.end_time,
                         exercise_idx,
                         set_idx,
-                        data: set.clone(),
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
                         let mut data =

@@ -29,16 +29,22 @@ import {
 	DeleteUserNotificationPlatformDocument,
 	NotificationPlatformLot,
 	TestUserNotificationPlatformsDocument,
+	UpdateUserNotificationPlatformDocument,
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
-import { IconTrash } from "@tabler/icons-react";
+import {
+	IconPlayerPause,
+	IconPlayerPlay,
+	IconTrash,
+} from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import { useCoreDetails } from "~/lib/hooks";
@@ -105,6 +111,21 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
+		update: async () => {
+			const submission = processSubmission(formData, updateSchema);
+			submission.isDisabled = submission.isDisabled === true;
+			await serverGqlService.authenticatedRequest(
+				request,
+				UpdateUserNotificationPlatformDocument,
+				{ input: submission },
+			);
+			return Response.json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Notification updated successfully",
+				}),
+			});
+		},
 	});
 });
 
@@ -117,6 +138,11 @@ const createSchema = z.object({
 	apiToken: z.string().optional(),
 	authHeader: z.string().optional(),
 	priority: z.number().optional(),
+});
+
+const updateSchema = z.object({
+	notificationId: z.string(),
+	isDisabled: zx.BoolAsString.optional(),
 });
 
 export default function Page() {
@@ -328,6 +354,7 @@ const DisplayNotification = (props: {
 }) => {
 	const fetcher = useFetcher<typeof action>();
 	const deleteFormRef = useRef<HTMLFormElement>(null);
+
 	return (
 		<Paper p="xs" withBorder>
 			<Flex align="center" justify="space-between">
@@ -343,6 +370,26 @@ const DisplayNotification = (props: {
 					</Text>
 				</Box>
 				<Group>
+					<Form method="POST" action={withQuery("", { intent: "update" })}>
+						<ActionIcon color="indigo" variant="outline" type="submit">
+							{props.notification.isDisabled ? (
+								<IconPlayerPlay />
+							) : (
+								<IconPlayerPause />
+							)}
+							<input
+								hidden
+								name="notificationId"
+								defaultValue={props.notification.id}
+							/>
+							<input
+								hidden
+								readOnly
+								name="isDisabled"
+								value={props.notification.isDisabled ? "false" : "true"}
+							/>
+						</ActionIcon>
+					</Form>
 					<Tooltip label="Delete">
 						<fetcher.Form
 							method="POST"

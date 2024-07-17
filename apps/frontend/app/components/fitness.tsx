@@ -10,10 +10,12 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { truncate } from "@ryot/ts-utils";
 import { IconArrowLeftToArc } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { useUserPreferences } from "~/lib/hooks";
+import { useUserUnitSystem } from "~/lib/hooks";
+import { getWorkoutDetailsQuery } from "~/lib/state/fitness";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
@@ -78,8 +80,7 @@ export const DisplaySetStatistics = (props: {
 	hideExtras?: boolean;
 	centerText?: boolean;
 }) => {
-	const userPreferences = useUserPreferences();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const [first, second] = getSetStatisticsTextToDisplay(
 		props.lot,
 		props.statistic,
@@ -115,6 +116,8 @@ export const ExerciseHistory = (props: {
 	>[number];
 	onCopyButtonClick?: () => Promise<void>;
 }) => {
+	const { data } = useQuery(getWorkoutDetailsQuery(props.history.workoutId));
+
 	return (
 		<Paper key={props.history.workoutId} withBorder p="xs">
 			<Group justify="space-between" wrap="nowrap">
@@ -122,11 +125,11 @@ export const ExerciseHistory = (props: {
 					component={Link}
 					to={withFragment(
 						$path("/fitness/workouts/:id", { id: props.history.workoutId }),
-						props.history.index.toString(),
+						props.history.idx.toString(),
 					)}
 					fw="bold"
 				>
-					{truncate(props.history.workoutName, { length: 36 })}
+					{truncate(data?.name, { length: 36 })}
 				</Anchor>
 				{props.onCopyButtonClick ? (
 					<ActionIcon onClick={props.onCopyButtonClick} size="sm">
@@ -135,9 +138,9 @@ export const ExerciseHistory = (props: {
 				) : null}
 			</Group>
 			<Text c="dimmed" fz="sm" mb="xs">
-				{dayjsLib(props.history.workoutTime).format("LLLL")}
+				{dayjsLib(data?.endTime).format("LLLL")}
 			</Text>
-			{props.history.sets.map((s, idx) => (
+			{data?.information.exercises[props.history.idx].sets.map((s, idx) => (
 				<Flex key={`${idx}-${s.lot}`} align="center">
 					<Text fz="sm" c={getSetColor(s.lot)} mr="md" fw="bold" ff="monospace">
 						{match(s.lot)

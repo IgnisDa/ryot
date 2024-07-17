@@ -151,12 +151,20 @@ struct CreateCustomMetadataInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateIntegrationInput {
+struct CreateUserIntegrationInput {
     source: IntegrationSource,
     sync_to_owned_collection: Option<bool>,
     source_specifics: Option<IntegrationSourceSpecifics>,
     minimum_progress: Decimal,
     maximum_progress: Decimal,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct UpdateUserIntegrationInput {
+    integration_id: String,
+    is_disabled: Option<bool>,
+    minimum_progress: Option<Decimal>,
+    maximum_progress: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -169,6 +177,12 @@ struct CreateUserNotificationPlatformInput {
     auth_header: Option<String>,
     priority: Option<i32>,
     chat_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct UpdateUserNotificationPlatformInput {
+    notification_id: String,
+    is_disabled: Option<bool>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -631,7 +645,7 @@ struct UserMediaNextEntry {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct EditSeenItemInput {
+struct UpdateSeenItemInput {
     seen_id: String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
@@ -1355,11 +1369,22 @@ impl MiscellaneousMutation {
     async fn create_user_integration(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateIntegrationInput,
+        input: CreateUserIntegrationInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_user_integration(user_id, input).await
+    }
+
+    /// Update an integration for the currently logged in user.
+    async fn update_user_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserIntegrationInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.update_user_integration(user_id, input).await
     }
 
     /// Delete an integration for the currently logged in user.
@@ -1388,11 +1413,17 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Test all notification platforms for the currently logged in user.
-    async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+    /// Edit a notification platform for the currently logged in user.
+    async fn update_user_notification_platform(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserNotificationPlatformInput,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.test_user_notification_platforms(&user_id).await
+        service
+            .update_user_notification_platform(user_id, input)
+            .await
     }
 
     /// Delete a notification platform for the currently logged in user.
@@ -1406,6 +1437,13 @@ impl MiscellaneousMutation {
         service
             .delete_user_notification_platform(user_id, notification_id)
             .await
+    }
+
+    /// Test all notification platforms for the currently logged in user.
+    async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.test_user_notification_platforms(&user_id).await
     }
 
     /// Delete a user. The account making the user must an `Admin`.
@@ -1455,15 +1493,15 @@ impl MiscellaneousMutation {
         service.create_review_comment(user_id, input).await
     }
 
-    /// Edit the start/end date of a seen item.
-    async fn edit_seen_item(
+    /// Update the start/end date of a seen item.
+    async fn update_seen_item(
         &self,
         gql_ctx: &Context<'_>,
-        input: EditSeenItemInput,
+        input: UpdateSeenItemInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.edit_seen_item(user_id, input).await
+        service.update_seen_item(user_id, input).await
     }
 
     /// Start a background job.
@@ -3212,7 +3250,7 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn edit_seen_item(&self, user_id: String, input: EditSeenItemInput) -> Result<bool> {
+    async fn update_seen_item(&self, user_id: String, input: UpdateSeenItemInput) -> Result<bool> {
         let seen = match Seen::find_by_id(input.seen_id).one(&self.db).await.unwrap() {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),
@@ -5560,7 +5598,7 @@ impl MiscellaneousService {
     async fn create_user_integration(
         &self,
         user_id: String,
-        input: CreateIntegrationInput,
+        input: CreateUserIntegrationInput,
     ) -> Result<StringIdObject> {
         if input.minimum_progress > input.maximum_progress {
             return Err(Error::new(
@@ -5583,6 +5621,37 @@ impl MiscellaneousService {
         };
         let integration = to_insert.insert(&self.db).await?;
         Ok(StringIdObject { id: integration.id })
+    }
+
+    async fn update_user_integration(
+        &self,
+        user_id: String,
+        input: UpdateUserIntegrationInput,
+    ) -> Result<bool> {
+        let db_integration = Integration::find_by_id(input.integration_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
+        if db_integration.user_id != user_id {
+            return Err(Error::new("Integration does not belong to the user"));
+        }
+        if input.minimum_progress > input.maximum_progress {
+            return Err(Error::new(
+                "Minimum progress cannot be greater than maximum progress",
+            ));
+        }
+        let mut db_integration: integration::ActiveModel = db_integration.into();
+        if let Some(s) = input.minimum_progress {
+            db_integration.minimum_progress = ActiveValue::Set(s);
+        }
+        if let Some(s) = input.maximum_progress {
+            db_integration.maximum_progress = ActiveValue::Set(s);
+        }
+        if let Some(d) = input.is_disabled {
+            db_integration.is_disabled = ActiveValue::Set(Some(d));
+        }
+        db_integration.update(&self.db).await?;
+        Ok(true)
     }
 
     async fn delete_user_integration(
@@ -5683,6 +5752,28 @@ impl MiscellaneousService {
         Ok(new_notification_id)
     }
 
+    async fn update_user_notification_platform(
+        &self,
+        user_id: String,
+        input: UpdateUserNotificationPlatformInput,
+    ) -> Result<bool> {
+        let db_notification = NotificationPlatform::find_by_id(input.notification_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        if db_notification.user_id != user_id {
+            return Err(Error::new(
+                "Notification platform does not belong to the user",
+            ));
+        }
+        let mut db_notification: notification_platform::ActiveModel = db_notification.into();
+        if let Some(s) = input.is_disabled {
+            db_notification.is_disabled = ActiveValue::Set(Some(s));
+        }
+        db_notification.update(&self.db).await?;
+        Ok(true)
+    }
+
     async fn delete_user_notification_platform(
         &self,
         user_id: String,
@@ -5776,6 +5867,10 @@ impl MiscellaneousService {
         let mut collection_updates = vec![];
         let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
+            if integration.is_disabled.unwrap_or_default() {
+                tracing::debug!("Integration {} is disabled", integration.id);
+                continue;
+            }
             let response = match integration.source {
                 IntegrationSource::Audiobookshelf => {
                     let specifics = integration.clone().source_specifics.unwrap();
@@ -5904,6 +5999,9 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
+        if integration.is_disabled.unwrap_or_default() {
+            return Err(Error::new("Integration is disabled".to_owned()));
+        }
         let service = self.get_integration_service();
         let maybe_progress_update = match integration.source {
             IntegrationSource::Kodi => service.kodi_progress(&payload).await,
@@ -7489,6 +7587,9 @@ ORDER BY RANDOM() LIMIT 10;
             .all(&self.db)
             .await?;
         for platform in notifications {
+            if platform.is_disabled.unwrap_or_default() {
+                continue;
+            }
             let msg = format!("This is a test notification for platform: {}", platform.lot);
             platform
                 .platform_specifics
@@ -7520,6 +7621,14 @@ ORDER BY RANDOM() LIMIT 10;
                 .all(&self.db)
                 .await?;
             for notification in platforms {
+                if notification.is_disabled.unwrap_or_default() {
+                    tracing::debug!(
+                        "Skipping sending notification to user: {} for platform: {} since it is disabled",
+                        user_details.id,
+                        notification.lot
+                    );
+                    continue;
+                }
                 if let Err(err) = notification
                     .platform_specifics
                     .send_message(&self.config, &msg)

@@ -107,13 +107,18 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
-import { useApplicationEvents, useUserPreferences } from "~/lib/hooks";
+import {
+	useApplicationEvents,
+	useUserPreferences,
+	useUserUnitSystem,
+} from "~/lib/hooks";
 import {
 	type InProgressWorkout,
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	exerciseHasDetailsToShow,
 	getUserExerciseDetailsQuery,
+	getWorkoutDetails,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
@@ -182,7 +187,7 @@ const deleteUploadedAsset = (key: string) => {
 
 export default function Page() {
 	const userPreferences = useUserPreferences();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const events = useApplicationEvents();
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
@@ -674,8 +679,7 @@ const ExerciseDisplay = (props: {
 	stopTimer: () => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
@@ -1036,7 +1040,7 @@ const ExerciseDisplay = (props: {
 										>
 											{exerciseHistory?.map((history, idx) => (
 												<Carousel.Slide
-													key={`${history.workoutId}-${history.index}`}
+													key={`${history.workoutId}-${history.idx}`}
 												>
 													{getSurroundingElements(
 														exerciseHistory,
@@ -1047,11 +1051,16 @@ const ExerciseDisplay = (props: {
 															exerciseLot={exercise.lot}
 															exerciseId={exercise.exerciseId}
 															onCopyButtonClick={async () => {
+																const workout = await getWorkoutDetails(
+																	history.workoutId,
+																);
 																const yes = await confirmWrapper({
-																	confirmation: `Are you sure you want to copy all sets from "${history.workoutName}"?`,
+																	confirmation: `Are you sure you want to copy all sets from "${workout.name}"?`,
 																});
 																if (yes) {
-																	const sets = history.sets;
+																	const sets =
+																		workout.information.exercises[history.idx]
+																			.sets;
 																	const converted = sets.map(
 																		convertHistorySetToCurrentSet,
 																	);
@@ -1429,7 +1438,7 @@ const SetDisplay = (props: {
 													nextExerciseElement?.scrollIntoView({
 														behavior: "smooth",
 													});
-												}, 500);
+												}, 800);
 												if (
 													nextExercise &&
 													exerciseHasDetailsToShow(nextExercise)

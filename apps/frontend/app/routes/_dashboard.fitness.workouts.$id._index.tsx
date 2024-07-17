@@ -29,9 +29,9 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
-	EditUserWorkoutDocument,
 	type ExerciseLot,
 	SetLot,
+	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -68,7 +68,7 @@ import {
 	useConfirmSubmit,
 	useGetMantineColor,
 	useGetWorkoutStarter,
-	useUserPreferences,
+	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
 	duplicateOldWorkout,
@@ -116,7 +116,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const submission = processSubmission(formData, editWorkoutSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
-				EditUserWorkoutDocument,
+				UpdateUserWorkoutDocument,
 				{ input: submission },
 			);
 			return Response.json({ status: "success", submission } as const, {
@@ -151,9 +151,8 @@ const editWorkoutSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const [
 		adjustTimeModalOpened,
 		{ open: adjustTimeModalOpen, close: adjustTimeModalClose },
@@ -369,8 +368,7 @@ type Exercise =
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const unitSystem = userPreferences.fitness.exercises.unitSystem;
+	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const { data: exerciseDetails } = useQuery(
@@ -411,6 +409,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						})}
 						fw="bold"
 						lineClamp={1}
+						style={{ scrollMargin: 20 }}
 					>
 						{props.exercise.name}
 					</Anchor>

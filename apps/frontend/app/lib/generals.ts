@@ -273,6 +273,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	userExerciseDetails: (exerciseId: string) => ({
 		queryKey: ["userExerciseDetails", exerciseId],
 	}),
+	workoutDetails: (workoutId: string) => ({
+		queryKey: ["workoutDetails", workoutId],
+	}),
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {

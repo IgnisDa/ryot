@@ -18,6 +18,7 @@ pub enum Integration {
     SyncToOwnedCollection,
     MinimumProgress,
     MaximumProgress,
+    IsDisabled,
 }
 
 #[async_trait::async_trait]
@@ -55,6 +56,7 @@ impl MigrationTrait for Migration {
                             .decimal()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Integration::IsDisabled).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("integration_to_user_foreign_key")

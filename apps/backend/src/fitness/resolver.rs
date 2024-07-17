@@ -30,8 +30,8 @@ use crate::{
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
-            GithubExerciseAttributes, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
-            WorkoutListItem, WorkoutSetRecord,
+            GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
+            UserWorkoutInput, UserWorkoutSetRecord, WorkoutListItem,
         },
         ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -95,30 +95,21 @@ struct UserMeasurementsListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct UserExerciseHistoryInformation {
-    workout_id: String,
-    workout_name: String,
-    workout_time: DateTimeUtc,
-    index: usize,
-    sets: Vec<WorkoutSetRecord>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseDetails {
     details: Option<user_to_entity::Model>,
-    history: Option<Vec<UserExerciseHistoryInformation>>,
+    history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
     collections: Vec<collection::Model>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-struct EditUserWorkoutInput {
+struct UpdateUserWorkoutInput {
     id: String,
     start_time: Option<DateTimeUtc>,
     end_time: Option<DateTimeUtc>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-struct EditCustomExerciseInput {
+struct UpdateCustomExerciseInput {
     old_name: String,
     should_delete: Option<bool>,
     #[graphql(flatten)]
@@ -249,14 +240,14 @@ impl ExerciseMutation {
     }
 
     /// Change the details about a user's workout.
-    async fn edit_user_workout(
+    async fn update_user_workout(
         &self,
         gql_ctx: &Context<'_>,
-        input: EditUserWorkoutInput,
+        input: UpdateUserWorkoutInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.edit_user_workout(user_id, input).await
+        service.update_user_workout(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.
@@ -277,15 +268,15 @@ impl ExerciseMutation {
         service.create_custom_exercise(user_id, input).await
     }
 
-    /// Edit a custom exercise.
-    async fn edit_custom_exercise(
+    /// Update a custom exercise.
+    async fn update_custom_exercise(
         &self,
         gql_ctx: &Context<'_>,
-        input: EditCustomExerciseInput,
+        input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.edit_custom_exercise(user_id, input).await
+        service.update_custom_exercise(user_id, input).await
     }
 }
 
@@ -406,36 +397,7 @@ impl ExerciseService {
                 .exercise_extra_information
                 .clone()
                 .unwrap_or_default();
-            let workouts = Workout::find()
-                .filter(
-                    workout::Column::Id.is_in(
-                        user_to_exercise_extra_information
-                            .history
-                            .iter()
-                            .map(|h| h.workout_id.clone()),
-                    ),
-                )
-                .order_by_desc(workout::Column::EndTime)
-                .all(&self.db)
-                .await?;
-            let history = workouts
-                .into_iter()
-                .map(|w| {
-                    let element = user_to_exercise_extra_information
-                        .history
-                        .iter()
-                        .find(|h| h.workout_id == w.id)
-                        .unwrap();
-                    UserExerciseHistoryInformation {
-                        workout_id: w.id,
-                        workout_name: w.name,
-                        workout_time: w.start_time,
-                        index: element.idx,
-                        sets: w.information.exercises[element.idx].sets.clone(),
-                    }
-                })
-                .collect_vec();
-            resp.history = Some(history);
+            resp.history = Some(user_to_exercise_extra_information.history);
             resp.details = Some(association);
         }
         Ok(resp)
@@ -738,10 +700,10 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    async fn edit_user_workout(
+    async fn update_user_workout(
         &self,
         user_id: String,
-        input: EditUserWorkoutInput,
+        input: UpdateUserWorkoutInput,
     ) -> Result<bool> {
         if let Some(wkt) = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
@@ -899,10 +861,10 @@ impl ExerciseService {
         }
     }
 
-    async fn edit_custom_exercise(
+    async fn update_custom_exercise(
         &self,
         user_id: String,
-        input: EditCustomExerciseInput,
+        input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
         let entities = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
