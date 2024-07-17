@@ -32,15 +32,8 @@ query UserExerciseDetails($exerciseId: String!) {
           lot
           sets {
             workoutId
-            workoutDoneOn
             exerciseIdx
             setIdx
-            data {
-              statistic {
-                ...WorkoutSetStatisticPart
-              }
-              lot
-            }
           }
         }
       }
