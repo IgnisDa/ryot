@@ -114,6 +114,7 @@ export default function Page() {
 				) : null}
 				<Tabs
 					variant="outline"
+					keepMounted={false}
 					defaultValue={loaderData.query.defaultTab || "overview"}
 				>
 					<Tabs.List mb="xs">
