@@ -150,11 +150,19 @@ struct CreateCustomMetadataInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct CreateIntegrationInput {
+struct CreateUserIntegrationInput {
     source: IntegrationSource,
     source_specifics: Option<IntegrationSourceSpecifics>,
     minimum_progress: Decimal,
     maximum_progress: Decimal,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct UpdateUserIntegrationInput {
+    integration_id: String,
+    is_disabled: Option<bool>,
+    minimum_progress: Option<Decimal>,
+    maximum_progress: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1275,11 +1283,22 @@ impl MiscellaneousMutation {
     async fn create_user_integration(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateIntegrationInput,
+        input: CreateUserIntegrationInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.create_user_integration(user_id, input).await
+    }
+
+    /// Update an integration for the currently logged in user.
+    async fn update_user_integration(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserIntegrationInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.update_user_integration(user_id, input).await
     }
 
     /// Delete an integration for the currently logged in user.
@@ -5407,7 +5426,7 @@ impl MiscellaneousService {
     async fn create_user_integration(
         &self,
         user_id: String,
-        input: CreateIntegrationInput,
+        input: CreateUserIntegrationInput,
     ) -> Result<StringIdObject> {
         if input.minimum_progress > input.maximum_progress {
             return Err(Error::new(
@@ -5429,6 +5448,37 @@ impl MiscellaneousService {
         };
         let integration = to_insert.insert(&self.db).await?;
         Ok(StringIdObject { id: integration.id })
+    }
+
+    async fn update_user_integration(
+        &self,
+        user_id: String,
+        input: UpdateUserIntegrationInput,
+    ) -> Result<bool> {
+        let db_integration = Integration::find_by_id(input.integration_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
+        if db_integration.user_id != user_id {
+            return Err(Error::new("Integration does not belong to the user"));
+        }
+        if input.minimum_progress > input.maximum_progress {
+            return Err(Error::new(
+                "Minimum progress cannot be greater than maximum progress",
+            ));
+        }
+        let mut db_integration: integration::ActiveModel = db_integration.into();
+        if let Some(s) = input.minimum_progress {
+            db_integration.minimum_progress = ActiveValue::Set(s);
+        }
+        if let Some(s) = input.maximum_progress {
+            db_integration.maximum_progress = ActiveValue::Set(s);
+        }
+        if let Some(d) = input.is_disabled {
+            db_integration.is_disabled = ActiveValue::Set(Some(d));
+        }
+        db_integration.update(&self.db).await?;
+        Ok(true)
     }
 
     async fn delete_user_integration(

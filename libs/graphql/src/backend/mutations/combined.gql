@@ -1,3 +1,27 @@
+mutation RegisterUser($input: AuthUserInput!) {
+  registerUser(input: $input){
+    __typename
+    ... on RegisterError {
+      error
+    }
+    ... on StringIdObject {
+      id
+    }
+  }
+}
+
+mutation LoginUser($input: AuthUserInput!) {
+  loginUser(input: $input) {
+    __typename
+    ... on LoginError {
+      error
+    }
+    ... on LoginResponse {
+      apiKey
+    }
+  }
+}
+
 mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
   addEntityToCollection(input: $input)
 }
@@ -28,6 +52,10 @@ mutation UpdateCustomExercise($input: UpdateCustomExerciseInput!) {
   updateCustomExercise(input: $input)
 }
 
+mutation UpdateUserIntegration($input: UpdateUserIntegrationInput!) {
+  updateUserIntegration(input: $input)
+}
+
 mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
   createCustomMetadata(input: $input) {
     id
@@ -52,7 +80,7 @@ mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformIn
   createUserNotificationPlatform(input: $input)
 }
 
-mutation CreateUserIntegration($input: CreateIntegrationInput!) {
+mutation CreateUserIntegration($input: CreateUserIntegrationInput!) {
   createUserIntegration(input: $input) {
     id
   }
