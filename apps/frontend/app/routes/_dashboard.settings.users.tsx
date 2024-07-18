@@ -9,8 +9,10 @@ import {
 	Group,
 	Modal,
 	Paper,
+	PasswordInput,
 	SimpleGrid,
 	Stack,
+	Switch,
 	Text,
 	TextInput,
 	Title,
@@ -22,17 +24,24 @@ import {
 	unstable_defineLoader,
 } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import { Form, useFetcher, useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
+	UpdateUserDocument,
 	UserLot,
 	UsersListDocument,
+	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, randomString, truncate } from "@ryot/ts-utils";
-import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
-import { forwardRef, useRef, useState } from "react";
+import {
+	IconPencil,
+	IconPlus,
+	IconRefresh,
+	IconTrash,
+} from "@tabler/icons-react";
+import { forwardRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -41,7 +50,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { useUserDetails } from "~/lib/hooks";
+import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
@@ -99,7 +108,17 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { registerUser } = await serverGqlService.authenticatedRequest(
 				request,
 				RegisterUserDocument,
-				{ input: { password: submission } },
+				{
+					input: {
+						adminAccessToken: submission.adminAccessToken,
+						data: {
+							password: {
+								password: submission.password,
+								username: submission.username,
+							},
+						},
+					},
+				},
 			);
 			const success = registerUser.__typename === "StringIdObject";
 			return Response.json({ status: "success", submission } as const, {
@@ -120,20 +139,41 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
+		update: async () => {
+			const submission = processSubmission(formData, updateUserSchema);
+			submission.isDisabled = submission.isDisabled === true;
+			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
+				input: submission,
+			});
+			return Response.json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "User updated successfully",
+				}),
+			});
+		},
 	});
 });
 
 const registerFormSchema = z.object({
-	creatorUserId: z.string(),
 	username: z.string(),
 	password: z.string(),
+	adminAccessToken: z.string().optional(),
 });
 
 const deleteSchema = z.object({ toDeleteUserId: z.string() });
 
+const updateUserSchema = z.object({
+	userId: z.string(),
+	adminAccessToken: z.string(),
+	isDisabled: zx.CheckboxAsString.optional(),
+	lot: z.nativeEnum(UserLot).optional(),
+	password: z.string().optional(),
+});
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
 	const [
 		registerUserModalOpened,
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
@@ -163,7 +203,6 @@ export default function Page() {
 				>
 					<Form replace method="POST" onSubmit={closeRegisterUserModal}>
 						<input hidden name="intent" defaultValue="registerNew" />
-						<input hidden name="creatorUserId" defaultValue={userDetails.id} />
 						<Stack>
 							<Title order={3}>Create User</Title>
 							<TextInput label="Name" required name="username" />
@@ -179,6 +218,14 @@ export default function Page() {
 									</ActionIcon>
 								}
 							/>
+							{!coreDetails.signupAllowed ? (
+								<TextInput
+									required
+									name="adminAccessToken"
+									label="Admin Access Token"
+									description="This is required as registration is disabled"
+								/>
+							) : null}
 							<Button variant="outline" type="submit">
 								Create
 							</Button>
@@ -206,15 +253,22 @@ export default function Page() {
 	);
 }
 
+type User = UsersListQuery["usersList"][number];
+
 const UserDisplay = (props: { index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const fetcher = useFetcher<typeof action>();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const user = loaderData.usersList[props.index];
+	const submit = useConfirmSubmit();
+	const [updateUserData, setUpdateUserData] = useState<User | null>(null);
+
 	if (!user) return null;
 
 	return (
 		<Paper p="xs" withBorder key={user.id} data-user-id={user.id}>
+			<UpdateUserModal
+				updateUserData={updateUserData}
+				closeIntegrationModal={() => setUpdateUserData(null)}
+			/>
 			<Flex align="center" justify="space-between">
 				<Group wrap="nowrap">
 					<Avatar name={user.name} />
@@ -222,30 +276,84 @@ const UserDisplay = (props: { index: number }) => {
 						<Text lineClamp={1} fw="bold">
 							{truncate(user.name, { length: 20 })}
 						</Text>
-						<Text size="xs">Role: {changeCase(user.lot)}</Text>
+						<Text size="xs">
+							Role: {changeCase(user.lot)}
+							{user.isDisabled ? ", Status: Disabled" : null}
+						</Text>
 					</Box>
 				</Group>
-				<fetcher.Form
-					method="POST"
-					ref={deleteFormRef}
-					action={withQuery("", { intent: "delete" })}
-					style={{ flex: "none" }}
-				>
-					<input hidden name="toDeleteUserId" defaultValue={user.id} />
+				<Group>
 					<ActionIcon
-						color="red"
+						color="indigo"
 						variant="outline"
-						onClick={async () => {
-							const conf = await confirmWrapper({
-								confirmation: "Are you sure you want to delete this user?",
-							});
-							if (conf) fetcher.submit(deleteFormRef.current);
-						}}
+						onClick={() => setUpdateUserData(user)}
 					>
-						<IconTrash size={16} />
+						<IconPencil />
 					</ActionIcon>
-				</fetcher.Form>
+					<Form
+						method="POST"
+						action={withQuery("", { intent: "delete" })}
+						style={{ flex: "none" }}
+					>
+						<input hidden name="toDeleteUserId" defaultValue={user.id} />
+						<ActionIcon
+							color="red"
+							type="submit"
+							variant="outline"
+							onClick={async (e) => {
+								const form = e.currentTarget.form;
+								e.preventDefault();
+								const conf = await confirmWrapper({
+									confirmation: "Are you sure you want to delete this user?",
+								});
+								if (conf && form) submit(form);
+							}}
+						>
+							<IconTrash size={16} />
+						</ActionIcon>
+					</Form>
+				</Group>
 			</Flex>
 		</Paper>
+	);
+};
+
+const UpdateUserModal = (props: {
+	updateUserData: User | null;
+	closeIntegrationModal: () => void;
+}) => {
+	return (
+		<Modal
+			opened={props.updateUserData !== null}
+			onClose={props.closeIntegrationModal}
+			centered
+			withCloseButton={false}
+		>
+			<Form
+				replace
+				method="POST"
+				onSubmit={() => props.closeIntegrationModal()}
+				action={withQuery("", { intent: "update" })}
+			>
+				<input hidden name="userId" defaultValue={props.updateUserData?.id} />
+				<Stack>
+					<Title order={3}>Update {props.updateUserData?.name}</Title>
+					<TextInput
+						required
+						name="adminAccessToken"
+						label="Admin Access Token"
+						description="This is required as registration is disabled"
+					/>
+					<Switch
+						label="Is disabled"
+						name="isDisabled"
+						description="This will disable the user from logging in"
+						defaultChecked={props.updateUserData?.isDisabled || undefined}
+					/>
+					<PasswordInput name="password" label="Password" />
+					<Button type="submit">Submit</Button>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };

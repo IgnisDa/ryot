@@ -4,6 +4,7 @@ query MediaDetailsQuery($id: Int!) {
     title {
       english
       native
+      romaji
     }
     isAdult
     episodes
@@ -50,6 +51,7 @@ query MediaDetailsQuery($id: Int!) {
           title {
             english
             native
+            romaji
           }
           coverImage {
             extraLarge

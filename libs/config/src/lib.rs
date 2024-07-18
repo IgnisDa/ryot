@@ -31,11 +31,25 @@ pub struct MalConfig {
     pub client_id: String,
 }
 
+derive_enum!(
+    #[derive(ConfigEnum, Default)]
+    pub enum AnilistPreferredLanguage {
+        English,
+        #[default]
+        Native,
+        Romaji,
+    }
+);
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_ANILIST_")]
 pub struct AnilistConfig {
     /// Whether to prefer the english name for media from this source.
+    // TODO: Remove this in the next major release.
+    #[deprecated]
     pub prefer_english: bool,
+    /// The preferred language for media from this source.
+    pub preferred_language: AnilistPreferredLanguage,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -93,17 +107,17 @@ derive_enum!(
 );
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
-pub struct GoogleBooksConfig {
-    /// Whether to pass the raw query string to the search API.
-    pub pass_raw_query: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     /// The image sizes to fetch from Openlibrary.
     pub cover_image_size: OpenlibraryCoverImageSize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
+pub struct GoogleBooksConfig {
+    /// Whether to pass the raw query string to the search API.
+    pub pass_raw_query: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -370,6 +384,9 @@ pub struct ServerConfig {
     /// Number of seconds to sleep before starting the server.
     #[setting(default = 0)]
     pub sleep_before_startup_seconds: u64,
+    /// An access token that can be used for admin operations.
+    #[setting(default = format!("{}", PROJECT_NAME))]
+    pub admin_access_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -466,8 +483,8 @@ impl AppConfig {
         cl.podcasts.listennotes.api_token = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
-        cl.server.cors_origins = vec![gt()];
         cl.users.jwt_secret = gt();
+        cl.server.cors_origins = vec![gt()];
         cl.server.smtp.server = gt();
         cl.server.smtp.user = gt();
         cl.server.smtp.password = gt();
@@ -475,6 +492,7 @@ impl AppConfig {
         cl.server.oidc.client_id = gt();
         cl.server.oidc.client_secret = gt();
         cl.server.oidc.issuer_url = gt();
+        cl.server.admin_access_token = gt();
         cl
     }
 }

@@ -21,7 +21,6 @@ import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	type MetaArgs_SingleFetch,
-	useFetcher,
 	useLoaderData,
 } from "@remix-run/react";
 import {
@@ -39,7 +38,7 @@ import {
 	IconPlayerPlay,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -47,7 +46,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
-import { useCoreDetails } from "~/lib/hooks";
+import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	processSubmission,
@@ -352,8 +351,7 @@ export default function Page() {
 const DisplayNotification = (props: {
 	notification: UserNotificationPlatformsQuery["userNotificationPlatforms"][number];
 }) => {
-	const fetcher = useFetcher<typeof action>();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
+	const submit = useConfirmSubmit();
 
 	return (
 		<Paper p="xs" withBorder>
@@ -391,30 +389,29 @@ const DisplayNotification = (props: {
 						</ActionIcon>
 					</Form>
 					<Tooltip label="Delete">
-						<fetcher.Form
-							method="POST"
-							ref={deleteFormRef}
-							action={withQuery("", { intent: "delete" })}
-						>
+						<Form method="POST" action={withQuery("", { intent: "delete" })}>
 							<input
 								hidden
 								name="notificationId"
 								defaultValue={props.notification.id}
 							/>
 							<ActionIcon
+								type="submit"
 								color="red"
 								variant="outline"
-								onClick={async () => {
+								onClick={async (e) => {
+									const form = e.currentTarget.form;
+									e.preventDefault();
 									const conf = await confirmWrapper({
 										confirmation:
 											"Are you sure you want to delete this notification platform?",
 									});
-									if (conf) fetcher.submit(deleteFormRef.current);
+									if (conf && form) submit(form);
 								}}
 							>
 								<IconTrash size={16} />
 							</ActionIcon>
-						</fetcher.Form>
+						</Form>
 					</Tooltip>
 				</Group>
 			</Flex>

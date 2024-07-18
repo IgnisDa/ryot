@@ -36,6 +36,7 @@ mod m20240713_create_user_summary;
 mod m20240713_zz_cleanup_v6_6_2_migrations;
 mod m20240716_add_columns_to_user_table;
 mod m20240717_add_columns_to_integration_and_notification_tables;
+mod m20240717_zz_add_columns_to_user_table;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -93,6 +94,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240713_zz_cleanup_v6_6_2_migrations::Migration),
             Box::new(m20240716_add_columns_to_user_table::Migration),
             Box::new(m20240717_add_columns_to_integration_and_notification_tables::Migration),
+            Box::new(m20240717_zz_add_columns_to_user_table::Migration),
         ]
     }
 }

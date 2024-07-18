@@ -9,7 +9,9 @@ query StudioQuery($id: Int!) {
           id
           type
           title {
+            english
             native
+            romaji
           }
           coverImage {
             extraLarge
