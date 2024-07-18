@@ -13,6 +13,7 @@ query MediaSearchQuery(
       title {
         english
         native
+        romaji
       }
       coverImage {
         extraLarge

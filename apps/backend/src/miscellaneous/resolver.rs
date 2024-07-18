@@ -3715,9 +3715,13 @@ impl MiscellaneousService {
                 .await,
             ),
             MediaSource::Tmdb => Box::new(self.get_tmdb_non_media_service().await?),
-            MediaSource::Anilist => {
-                Box::new(NonMediaAnilistService::new(self.config.frontend.page_size).await)
-            }
+            MediaSource::Anilist => Box::new(
+                NonMediaAnilistService::new(
+                    &self.config.anime_and_manga.anilist,
+                    self.config.frontend.page_size,
+                )
+                .await,
+            ),
             MediaSource::Mal => Box::new(NonMediaMalService::new().await),
             MediaSource::Custom => return err(),
         };
