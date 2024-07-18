@@ -768,10 +768,10 @@ fn get_in_preferred_language(
     romaji: Option<String>,
     preferred_language: &AnilistPreferredLanguage,
 ) -> String {
-    let title = if prefer_english {
-        english.or(native)
-    } else {
-        native
+    let title = match preferred_language {
+        AnilistPreferredLanguage::Native => native.clone(),
+        AnilistPreferredLanguage::English => english.clone(),
+        AnilistPreferredLanguage::Romaji => romaji.clone(),
     };
-    title.unwrap()
+    title.or(native).unwrap()
 }
