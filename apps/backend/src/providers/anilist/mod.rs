@@ -448,7 +448,7 @@ impl AnilistAnimeService {
 impl MediaProvider for AnilistAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details =
-            media_details(&self.base.client, identifier, self.base.preferred_language).await?;
+            media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
         Ok(details)
     }
 
@@ -465,7 +465,7 @@ impl MediaProvider for AnilistAnimeService {
             page,
             self.base.page_size,
             display_nsfw,
-            self.base.preferred_language,
+            &self.base.preferred_language,
         )
         .await?;
         Ok(SearchResults {
@@ -492,7 +492,7 @@ impl AnilistMangaService {
 impl MediaProvider for AnilistMangaService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details =
-            media_details(&self.base.client, identifier, self.base.preferred_language).await?;
+            media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
         Ok(details)
     }
 
@@ -509,7 +509,7 @@ impl MediaProvider for AnilistMangaService {
             page,
             self.base.page_size,
             display_nsfw,
-            self.base.preferred_language,
+            &self.base.preferred_language,
         )
         .await?;
         Ok(SearchResults {
@@ -526,7 +526,7 @@ async fn get_client_config(url: &str) -> Client {
 async fn media_details(
     client: &Client,
     id: &str,
-    preferred_language: AnilistPreferredLanguage,
+    preferred_language: &AnilistPreferredLanguage,
 ) -> Result<MediaDetails> {
     let variables = media_details_query::Variables {
         id: id.parse::<i64>().unwrap(),
@@ -642,7 +642,7 @@ async fn media_details(
                     title.native,
                     title.english,
                     title.romaji,
-                    &preferred_language,
+                    preferred_language,
                 );
                 PartialMetadataWithoutId {
                     title,
@@ -672,7 +672,7 @@ async fn media_details(
         title.native,
         title.english,
         title.romaji,
-        &preferred_language,
+        preferred_language,
     );
     Ok(MediaDetails {
         title,
@@ -707,7 +707,7 @@ async fn search(
     page: Option<i32>,
     page_size: i32,
     _is_adult: bool,
-    preferred_language: AnilistPreferredLanguage,
+    preferred_language: &AnilistPreferredLanguage,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
     let variables = media_search_query::Variables {
@@ -747,7 +747,7 @@ async fn search(
                 title.native,
                 title.english,
                 title.romaji,
-                &preferred_language,
+                preferred_language,
             );
             MetadataSearchItem {
                 identifier: b.id.to_string(),
