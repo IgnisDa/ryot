@@ -1,19 +1,32 @@
 import { $path } from "@ignisda/remix-routes";
-import { Anchor, Flex, Paper, Text } from "@mantine/core";
+import {
+	ActionIcon,
+	Anchor,
+	Badge,
+	Box,
+	Flex,
+	Paper,
+	Popover,
+	Skeleton,
+	Text,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { Link } from "@remix-run/react";
 import {
 	ExerciseLot,
 	SetLot,
 	type UserExerciseDetailsQuery,
 	UserUnitSystem,
+	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils";
+import { startCase, truncate } from "@ryot/ts-utils";
+import { IconTrophy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { dayjsLib, getSetColor } from "~/lib/generals";
-import { useUserUnitSystem } from "~/lib/hooks";
+import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import { getWorkoutDetailsQuery } from "~/lib/state/fitness";
 
 export const getSetStatisticsTextToDisplay = (
@@ -107,6 +120,74 @@ export const DisplaySetStatistics = (props: {
 	);
 };
 
+type Exercise =
+	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
+type Set = Exercise["sets"][number];
+
+export const DisplaySet = (props: {
+	set: Set;
+	idx: number;
+	exerciseLot: ExerciseLot;
+}) => {
+	const getMantineColor = useGetMantineColor();
+	const [opened, { close, open }] = useDisclosure(false);
+
+	return (
+		<Box key={`${props.idx}`} mb={2}>
+			<Flex align="center">
+				<Text
+					fz="sm"
+					c={getSetColor(props.set.lot)}
+					mr="md"
+					fw="bold"
+					ff="monospace"
+				>
+					{match(props.set.lot)
+						.with(SetLot.Normal, () => props.idx + 1)
+						.otherwise(() => props.set.lot.at(0))}
+				</Text>
+				{props.set.personalBests.length > 0 ? (
+					<Popover position="left" withArrow shadow="md" opened={opened}>
+						<Popover.Target>
+							<ActionIcon
+								onMouseEnter={open}
+								onMouseLeave={close}
+								variant="transparent"
+								color="grape"
+							>
+								<IconTrophy size={18} />
+							</ActionIcon>
+						</Popover.Target>
+						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
+							<Flex>
+								{props.set.personalBests.map((pb) => (
+									<Badge
+										key={pb}
+										variant="light"
+										size="xs"
+										color={getMantineColor(pb)}
+									>
+										{startCase(pb)}
+									</Badge>
+								))}
+							</Flex>
+						</Popover.Dropdown>
+					</Popover>
+				) : null}
+				<DisplaySetStatistics
+					lot={props.exerciseLot}
+					statistic={props.set.statistic}
+				/>
+			</Flex>
+			{props.set.note ? (
+				<Text c="dimmed" size="xs">
+					{props.set.note}
+				</Text>
+			) : null}
+		</Box>
+	);
+};
+
 export const ExerciseHistory = (props: {
 	exerciseId: string;
 	exerciseLot: ExerciseLot;
@@ -114,36 +195,41 @@ export const ExerciseHistory = (props: {
 		UserExerciseDetailsQuery["userExerciseDetails"]["history"]
 	>[number];
 }) => {
-	const { data } = useQuery(getWorkoutDetailsQuery(props.history.workoutId));
+	const { data: workoutData } = useQuery(
+		getWorkoutDetailsQuery(props.history.workoutId),
+	);
 
 	return (
 		<Paper key={props.history.workoutId} withBorder p="xs">
-			<Anchor
-				component={Link}
-				to={withFragment(
-					$path("/fitness/workouts/:id", { id: props.history.workoutId }),
-					props.history.idx.toString(),
-				)}
-				fw="bold"
-			>
-				{truncate(data?.name, { length: 36 })}
-			</Anchor>
-			<Text c="dimmed" fz="sm" mb="xs">
-				{dayjsLib(data?.endTime).format("LLLL")}
-			</Text>
-			{data?.information.exercises[props.history.idx].sets.map((s, idx) => (
-				<Flex key={`${idx}-${s.lot}`} align="center">
-					<Text fz="sm" c={getSetColor(s.lot)} mr="md" fw="bold" ff="monospace">
-						{match(s.lot)
-							.with(SetLot.Normal, () => idx + 1)
-							.otherwise(() => s.lot.at(0))}
+			{workoutData ? (
+				<>
+					<Anchor
+						component={Link}
+						to={withFragment(
+							$path("/fitness/workouts/:id", { id: props.history.workoutId }),
+							props.history.idx.toString(),
+						)}
+						fw="bold"
+					>
+						{truncate(workoutData.name, { length: 36 })}
+					</Anchor>
+					<Text c="dimmed" fz="sm" mb="xs">
+						{dayjsLib(workoutData.endTime).format("LLLL")}
 					</Text>
-					<DisplaySetStatistics
-						lot={props.exerciseLot}
-						statistic={s.statistic}
-					/>
-				</Flex>
-			))}
+					{workoutData.information.exercises[props.history.idx].sets.map(
+						(set, idx) => (
+							<DisplaySet
+								idx={idx}
+								set={set}
+								key={`${idx}-${set.lot}`}
+								exerciseLot={props.exerciseLot}
+							/>
+						),
+					)}
+				</>
+			) : (
+				<Skeleton h={20} />
+			)}
 		</Paper>
 	);
 };
