@@ -53,6 +53,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 });
 
 const updateProfileFormSchema = z.object({
+	userId: z.string(),
 	username: z.string().optional(),
 	email: z.string().email().optional(),
 	password: z.string().optional(),
@@ -79,6 +80,11 @@ export default function Page() {
 								method="POST"
 								action={withQuery(".", { intent: "updateProfile" })}
 							>
+								<input
+									type="hidden"
+									name="userId"
+									defaultValue={userDetails.id}
+								/>
 								<Stack>
 									<TextInput
 										readOnly
