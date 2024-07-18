@@ -4855,7 +4855,9 @@ impl MiscellaneousService {
     }
 
     async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
-        if !self.config.users.allow_registration {
+        if !self.config.users.allow_registration
+            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
+        {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
