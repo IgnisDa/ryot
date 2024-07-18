@@ -41,7 +41,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { useConfirmSubmit, useUserDetails } from "~/lib/hooks";
+import { useConfirmSubmit } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
@@ -124,7 +124,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 });
 
 const registerFormSchema = z.object({
-	creatorUserId: z.string(),
 	username: z.string(),
 	password: z.string(),
 });
@@ -133,7 +132,6 @@ const deleteSchema = z.object({ toDeleteUserId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const userDetails = useUserDetails();
 	const [
 		registerUserModalOpened,
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
@@ -163,7 +161,6 @@ export default function Page() {
 				>
 					<Form replace method="POST" onSubmit={closeRegisterUserModal}>
 						<input hidden name="intent" defaultValue="registerNew" />
-						<input hidden name="creatorUserId" defaultValue={userDetails.id} />
 						<Stack>
 							<Title order={3}>Create User</Title>
 							<TextInput label="Name" required name="username" />
