@@ -19,6 +19,7 @@ pub enum User {
     SinkIntegrations,
     OidcIssuerId,
     ExtraInformation,
+    IsDisabled,
 }
 
 #[async_trait::async_trait]
@@ -44,6 +45,7 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(User::ExtraInformation).json_binary())
+                    .col(ColumnDef::new(User::IsDisabled).boolean())
                     .to_owned(),
             )
             .await?;
