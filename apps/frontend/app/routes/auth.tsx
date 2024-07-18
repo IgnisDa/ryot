@@ -79,7 +79,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					{ query: "avengers" },
 				),
 				{
-					message: "Welcome to Ryot! Add any movie you want to your watchlist!",
+					message:
+						"Welcome to Ryot! Get started by adding a movie to your watchlist!",
 					closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
 				},
 			);
