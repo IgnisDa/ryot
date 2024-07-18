@@ -46,7 +46,7 @@ import {
 	unstable_defineAction,
 	unstable_defineLoader,
 } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import { Link, useFetcher, useNavigate } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
@@ -103,6 +103,7 @@ import {
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
+	useCoreDetails,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -118,7 +119,6 @@ import {
 } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
-	getCoreEnabledFeatures,
 	isWorkoutActive,
 	redirectWithToast,
 	serverGqlService,
@@ -134,10 +134,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			type: "error",
 			message: "No workout in progress",
 		});
-	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
-	return {
-		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
-	};
+	return {};
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -669,13 +666,14 @@ const ExerciseDisplay = (props: {
 	openTimerDrawer: () => void;
 	stopTimer: () => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const [currentTimer] = useTimerAtom();
+	const coreDetails = useCoreDetails();
+	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -785,7 +783,7 @@ const ExerciseDisplay = (props: {
 			>
 				<Stack>
 					<Text size="lg">Images for {exercise.exerciseId}</Text>
-					{loaderData.coreEnabledFeatures.fileStorage ? (
+					{fileUploadAllowed ? (
 						<>
 							{exercise.images.length > 0 ? (
 								<Avatar.Group spacing="xs">

@@ -56,24 +56,18 @@ import {
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
-import {
-	createToastHeaders,
-	getCoreEnabledFeatures,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import {
 	processSubmission,
 	temporaryFileUploadHandler,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
-	const [coreEnabledFeatures, { importReports }, { userExports }] =
-		await Promise.all([
-			getCoreEnabledFeatures(),
-			serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
-			serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
-		]);
-	return { coreEnabledFeatures, importReports, userExports };
+	const [{ importReports }, { userExports }] = await Promise.all([
+		serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
+		serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
+	]);
+	return { importReports, userExports };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -209,6 +203,7 @@ const deployExportForm = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
+	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 	const userCollections = useUserCollections();
 	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
@@ -538,7 +533,7 @@ export default function Page() {
 								/>
 								<Tooltip
 									label="Please enable file storage to use this feature"
-									disabled={loaderData.coreEnabledFeatures.fileStorage}
+									disabled={fileUploadNotAllowed}
 								>
 									<Button
 										type="submit"
@@ -547,7 +542,7 @@ export default function Page() {
 										fullWidth
 										radius="md"
 										mt="xs"
-										disabled={!loaderData.coreEnabledFeatures.fileStorage}
+										disabled={fileUploadNotAllowed}
 									>
 										Start job
 									</Button>

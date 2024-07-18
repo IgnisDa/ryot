@@ -353,12 +353,6 @@ struct CollectionItem {
     collaborators: Vec<IdAndNamedObject>,
 }
 
-#[derive(SimpleObject)]
-struct GeneralFeatures {
-    file_storage: bool,
-    signup_allowed: bool,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct MetadataCreator {
     id: Option<String>,
@@ -557,8 +551,10 @@ struct CoreDetails {
     oidc_enabled: bool,
     website_url: String,
     author_name: String,
+    signup_allowed: bool,
     repository_link: String,
     token_valid_for_days: i32,
+    file_storage_enabled: bool,
     local_auth_disabled: bool,
     backend_errors: Vec<BackendError>,
 }
@@ -868,12 +864,6 @@ impl MiscellaneousQuery {
     async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.file_storage_service.get_presigned_url(key).await
-    }
-
-    /// Get all the features that are enabled for the service
-    async fn core_enabled_features(&self, gql_ctx: &Context<'_>) -> Result<GeneralFeatures> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.core_enabled_features().await
     }
 
     /// Search for a list of media for a given type.
@@ -1496,15 +1486,21 @@ type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 
 impl MiscellaneousService {
     async fn core_details(&self) -> CoreDetails {
+        let mut files_enabled = self.config.file_storage.is_enabled();
+        if files_enabled && !self.file_storage_service.is_enabled().await {
+            files_enabled = false;
+        }
         CoreDetails {
             is_pro: false,
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
+            file_storage_enabled: files_enabled,
             oidc_enabled: self.oidc_client.is_some(),
             page_limit: self.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
             backend_errors: BackendError::iter().collect(),
             website_url: "https://ryot.io/features".to_owned(),
+            signup_allowed: self.config.users.allow_registration,
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
@@ -3423,18 +3419,6 @@ impl MiscellaneousService {
         preferences.features_enabled.media.video_game =
             self.config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
         Ok(preferences)
-    }
-
-    async fn core_enabled_features(&self) -> Result<GeneralFeatures> {
-        let mut files_enabled = self.config.file_storage.is_enabled();
-        if files_enabled && !self.file_storage_service.is_enabled().await {
-            files_enabled = false;
-        }
-        let general = GeneralFeatures {
-            file_storage: files_enabled,
-            signup_allowed: self.config.users.allow_registration,
-        };
-        Ok(general)
     }
 
     async fn metadata_search(

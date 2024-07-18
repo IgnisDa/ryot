@@ -41,9 +41,9 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
+import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
 	serverGqlService,
@@ -73,11 +73,9 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			return exerciseDetails;
 		})
 		.exhaustive();
-	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
 	return {
 		action,
 		details,
-		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
 	};
 });
 
@@ -165,7 +163,8 @@ const schema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const fileUploadNowAllowed = !loaderData.coreEnabledFeatures.fileStorage;
+	const coreDetails = useCoreDetails();
+	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 	const title = startCase(loaderData.action);
 
 	return (
@@ -243,7 +242,7 @@ export default function Page() {
 						)}
 						autosize
 					/>
-					{!fileUploadNowAllowed ? (
+					{!fileUploadNotAllowed ? (
 						<FileInput
 							label="Images"
 							name="images"
