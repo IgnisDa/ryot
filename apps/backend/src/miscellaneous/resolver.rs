@@ -282,6 +282,7 @@ enum LoginResult {
 #[derive(Debug, InputObject)]
 struct UpdateUserInput {
     user_id: String,
+    is_disabled: Option<bool>,
     lot: Option<UserLot>,
     #[graphql(secret)]
     password: Option<String>,
@@ -4994,6 +4995,9 @@ impl MiscellaneousService {
         }
         if let Some(l) = input.lot {
             user_obj.lot = ActiveValue::Set(l);
+        }
+        if let Some(d) = input.is_disabled {
+            user_obj.is_disabled = ActiveValue::Set(Some(d));
         }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(StringIdObject { id: user_obj.id })
