@@ -81,8 +81,9 @@ query UserNotificationPlatforms {
 query UsersList($query: String) {
   usersList(query: $query) {
     id
-    name
     lot
+    name
+    isDisabled
   }
 }
 

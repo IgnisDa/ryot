@@ -175,6 +175,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 					() => "The credentials provided were incorrect",
 				)
 				.with(
+					LoginErrorVariant.AccountDisabled,
+					() => "This account has been disabled. Please contact support.",
+				)
+				.with(
 					LoginErrorVariant.IncorrectProviderChosen,
 					() => "The provider chosen was incorrect",
 				)

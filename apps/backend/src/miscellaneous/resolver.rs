@@ -257,6 +257,7 @@ enum RegisterResult {
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum LoginErrorVariant {
+    AccountDisabled,
     UsernameDoesNotExist,
     CredentialsMismatch,
     IncorrectProviderChosen,
@@ -4917,6 +4918,11 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::UsernameDoesNotExist,
             })),
             Some(user) => {
+                if user.is_disabled.unwrap_or_default() {
+                    return Ok(LoginResult::Error(LoginError {
+                        error: LoginErrorVariant::AccountDisabled,
+                    }));
+                }
                 if self.config.users.validate_password {
                     if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
                         if let Some(hashed_password) = user.password {
