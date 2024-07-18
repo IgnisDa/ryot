@@ -9,8 +9,10 @@ import {
 	Group,
 	Modal,
 	Paper,
+	PasswordInput,
 	SimpleGrid,
 	Stack,
+	Switch,
 	Text,
 	TextInput,
 	Title,
@@ -27,6 +29,7 @@ import {
 	DeleteUserDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
+	UpdateUserDocument,
 	UserLot,
 	UsersListDocument,
 	type UsersListQuery,
@@ -136,6 +139,19 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
+		update: async () => {
+			const submission = processSubmission(formData, updateUserSchema);
+			submission.isDisabled = submission.isDisabled === true;
+			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
+				input: submission,
+			});
+			return Response.json({ status: "success", submission } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "User updated successfully",
+				}),
+			});
+		},
 	});
 });
 
@@ -146,6 +162,14 @@ const registerFormSchema = z.object({
 });
 
 const deleteSchema = z.object({ toDeleteUserId: z.string() });
+
+const updateUserSchema = z.object({
+	userId: z.string(),
+	adminAccessToken: z.string(),
+	isDisabled: zx.CheckboxAsString.optional(),
+	lot: z.nativeEnum(UserLot).optional(),
+	password: z.string().optional(),
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -252,7 +276,10 @@ const UserDisplay = (props: { index: number }) => {
 						<Text lineClamp={1} fw="bold">
 							{truncate(user.name, { length: 20 })}
 						</Text>
-						<Text size="xs">Role: {changeCase(user.lot)}</Text>
+						<Text size="xs">
+							Role: {changeCase(user.lot)}
+							{user.isDisabled ? ", Status: Disabled" : null}
+						</Text>
 					</Box>
 				</Group>
 				<Group>
@@ -308,7 +335,22 @@ const UpdateUserModal = (props: {
 				onSubmit={() => props.closeIntegrationModal()}
 				action={withQuery("", { intent: "update" })}
 			>
+				<input hidden name="userId" defaultValue={props.updateUserData?.id} />
 				<Stack>
+					<Title order={3}>Update {props.updateUserData?.name}</Title>
+					<TextInput
+						required
+						name="adminAccessToken"
+						label="Admin Access Token"
+						description="This is required as registration is disabled"
+					/>
+					<Switch
+						label="Is disabled"
+						name="isDisabled"
+						description="This will disable the user from logging in"
+						defaultChecked={props.updateUserData?.isDisabled || undefined}
+					/>
+					<PasswordInput name="password" label="Password" />
 					<Button type="submit">Submit</Button>
 				</Stack>
 			</Form>
