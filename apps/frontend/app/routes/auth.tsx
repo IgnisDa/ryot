@@ -84,9 +84,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
 				},
 			);
-		throw await redirectWithToast($path("/"), {
-			message: "You were already logged in",
-		});
+		throw redirect($path("/"));
 	}
 	const [enabledFeatures, { coreDetails }] = await Promise.all([
 		getCoreEnabledFeatures(),

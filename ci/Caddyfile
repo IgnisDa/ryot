@@ -6,14 +6,14 @@
 :{$PORT:8000} {
 	handle_path /_i/* {
 		rewrite * /webhooks/integrations{path}
-		reverse_proxy localhost:5000
+		reverse_proxy 127.0.0.1:5000
 	}
 	handle_path /_s/* {
 		rewrite * /api/sharing{path}
-		reverse_proxy localhost:3000
+		reverse_proxy 127.0.0.1:3000
 	}
 	handle_path /backend* {
-		reverse_proxy localhost:5000
+		reverse_proxy 127.0.0.1:5000
 	}
 	handle /health {
 		header Content-Type text/plain
@@ -23,5 +23,5 @@
 			{{ httpInclude "/backend/config" }}
 		TXT
 	}
-	reverse_proxy localhost:3000
+	reverse_proxy 127.0.0.1:3000
 }

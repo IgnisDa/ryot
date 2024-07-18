@@ -115,7 +115,7 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getUserMetadataDetailsQuery(metadataId));
 };
 
-const useDashboardLayoutData = () => {
+export const useDashboardLayoutData = () => {
 	const loaderData =
 		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
 	return loaderData;

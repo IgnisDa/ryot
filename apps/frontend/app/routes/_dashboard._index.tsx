@@ -1,5 +1,6 @@
 import { $path } from "@ignisda/remix-routes";
 import {
+	Alert,
 	Box,
 	Center,
 	Container,
@@ -29,6 +30,7 @@ import { humanizeDuration, isNumber } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconFriends,
+	IconInfoCircle,
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
@@ -43,6 +45,7 @@ import {
 } from "~/components/media";
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import {
+	useDashboardLayoutData,
 	useGetMantineColor,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -126,11 +129,17 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
+	const dashboardLayoutData = useDashboardLayoutData();
 	const latestUserSummary = loaderData.latestUserSummary.data;
 
 	return (
 		<Container>
 			<Stack gap={32}>
+				{dashboardLayoutData.envData.FRONTEND_DASHBOARD_MESSAGE ? (
+					<Alert variant="default" icon={<IconInfoCircle />}>
+						{dashboardLayoutData.envData.FRONTEND_DASHBOARD_MESSAGE}
+					</Alert>
+				) : null}
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], () =>
