@@ -3,6 +3,7 @@ anime_and_manga:
   # Settings related to Anilist.
   anilist:
     # Whether to prefer the english name for media from this source.
+    # @deprecated
     # @envvar ANIME_AND_MANGA_ANILIST_PREFER_ENGLISH
     prefer_english: false
 
