@@ -29,9 +29,15 @@ import {
 	RegisterUserDocument,
 	UserLot,
 	UsersListDocument,
+	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, randomString, truncate } from "@ryot/ts-utils";
-import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
+import {
+	IconPencil,
+	IconPlus,
+	IconRefresh,
+	IconTrash,
+} from "@tabler/icons-react";
 import { forwardRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
@@ -223,14 +229,22 @@ export default function Page() {
 	);
 }
 
+type User = UsersListQuery["usersList"][number];
+
 const UserDisplay = (props: { index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const user = loaderData.usersList[props.index];
 	const submit = useConfirmSubmit();
+	const [updateUserData, setUpdateUserData] = useState<User | null>(null);
+
 	if (!user) return null;
 
 	return (
 		<Paper p="xs" withBorder key={user.id} data-user-id={user.id}>
+			<UpdateUserModal
+				updateUserData={updateUserData}
+				closeIntegrationModal={() => setUpdateUserData(null)}
+			/>
 			<Flex align="center" justify="space-between">
 				<Group wrap="nowrap">
 					<Avatar name={user.name} />
@@ -241,29 +255,63 @@ const UserDisplay = (props: { index: number }) => {
 						<Text size="xs">Role: {changeCase(user.lot)}</Text>
 					</Box>
 				</Group>
-				<Form
-					method="POST"
-					action={withQuery("", { intent: "delete" })}
-					style={{ flex: "none" }}
-				>
-					<input hidden name="toDeleteUserId" defaultValue={user.id} />
+				<Group>
 					<ActionIcon
-						color="red"
-						type="submit"
+						color="indigo"
 						variant="outline"
-						onClick={async (e) => {
-							const form = e.currentTarget.form;
-							e.preventDefault();
-							const conf = await confirmWrapper({
-								confirmation: "Are you sure you want to delete this user?",
-							});
-							if (conf && form) submit(form);
-						}}
+						onClick={() => setUpdateUserData(user)}
 					>
-						<IconTrash size={16} />
+						<IconPencil />
 					</ActionIcon>
-				</Form>
+					<Form
+						method="POST"
+						action={withQuery("", { intent: "delete" })}
+						style={{ flex: "none" }}
+					>
+						<input hidden name="toDeleteUserId" defaultValue={user.id} />
+						<ActionIcon
+							color="red"
+							type="submit"
+							variant="outline"
+							onClick={async (e) => {
+								const form = e.currentTarget.form;
+								e.preventDefault();
+								const conf = await confirmWrapper({
+									confirmation: "Are you sure you want to delete this user?",
+								});
+								if (conf && form) submit(form);
+							}}
+						>
+							<IconTrash size={16} />
+						</ActionIcon>
+					</Form>
+				</Group>
 			</Flex>
 		</Paper>
+	);
+};
+
+const UpdateUserModal = (props: {
+	updateUserData: User | null;
+	closeIntegrationModal: () => void;
+}) => {
+	return (
+		<Modal
+			opened={props.updateUserData !== null}
+			onClose={props.closeIntegrationModal}
+			centered
+			withCloseButton={false}
+		>
+			<Form
+				replace
+				method="POST"
+				onSubmit={() => props.closeIntegrationModal()}
+				action={withQuery("", { intent: "update" })}
+			>
+				<Stack>
+					<Button type="submit">Submit</Button>
+				</Stack>
+			</Form>
+		</Modal>
 	);
 };
