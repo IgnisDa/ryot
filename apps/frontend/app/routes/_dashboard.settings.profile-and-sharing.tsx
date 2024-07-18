@@ -9,16 +9,16 @@ import {
 	Title,
 } from "@mantine/core";
 import { unstable_defineAction } from "@remix-run/node";
-import { type MetaArgs_SingleFetch, useFetcher } from "@remix-run/react";
+import { Form } from "@remix-run/react";
+import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
-import { useRef } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import { queryClient, queryFactory } from "~/lib/generals";
-import { useUserDetails } from "~/lib/hooks";
+import { useConfirmSubmit, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
@@ -61,8 +61,7 @@ const updateProfileFormSchema = z.object({
 
 export default function Page() {
 	const userDetails = useUserDetails();
-	const fetcher = useFetcher<typeof action>();
-	const formRef = useRef<HTMLFormElement>(null);
+	const submit = useConfirmSubmit();
 
 	return (
 		<Container size="xs">
@@ -75,8 +74,7 @@ export default function Page() {
 					<Tabs.Panel value="profile">
 						<Stack>
 							<Title>Profile</Title>
-							<fetcher.Form
-								ref={formRef}
+							<Form
 								method="POST"
 								action={withQuery(".", { intent: "updateProfile" })}
 							>
@@ -117,19 +115,22 @@ export default function Page() {
 										}
 									/>
 									<Button
-										onClick={async () => {
+										type="submit"
+										onClick={async (e) => {
+											const form = e.currentTarget.form;
+											e.preventDefault();
 											const conf = await confirmWrapper({
 												confirmation:
 													"Are you sure you want to update your profile?",
 											});
-											if (conf) fetcher.submit(formRef.current);
+											if (conf && form) submit(form);
 										}}
 										fullWidth
 									>
 										Update
 									</Button>
 								</Stack>
-							</fetcher.Form>
+							</Form>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">

@@ -23,7 +23,6 @@ import {
 	Form,
 	Link,
 	type MetaArgs_SingleFetch,
-	useFetcher,
 	useLoaderData,
 	useNavigation,
 	useSearchParams,
@@ -36,7 +35,7 @@ import {
 import { truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
@@ -44,6 +43,7 @@ import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
+	useConfirmSubmit,
 	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,
@@ -233,8 +233,7 @@ const DisplayCollection = (props: {
 	openModal: () => void;
 }) => {
 	const userDetails = useUserDetails();
-	const fetcher = useFetcher<typeof action>();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
+	const submit = useConfirmSubmit();
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
 
@@ -309,9 +308,8 @@ const DisplayCollection = (props: {
 								</ActionIcon>
 							) : null}
 							{!props.collection.isDefault ? (
-								<fetcher.Form
+								<Form
 									method="POST"
-									ref={deleteFormRef}
 									action={withQuery("", { intent: "delete" })}
 								>
 									<input
@@ -320,19 +318,22 @@ const DisplayCollection = (props: {
 										defaultValue={props.collection.name}
 									/>
 									<ActionIcon
+										type="submit"
 										color="red"
 										variant="outline"
-										onClick={async () => {
+										onClick={async (e) => {
+											const form = e.currentTarget.form;
+											e.preventDefault();
 											const conf = await confirmWrapper({
 												confirmation:
 													"Are you sure you want to delete this collection?",
 											});
-											if (conf) fetcher.submit(deleteFormRef.current);
+											if (conf && form) submit(form);
 										}}
 									>
 										<IconTrashFilled size={18} />
 									</ActionIcon>
-								</fetcher.Form>
+								</Form>
 							) : null}
 						</Group>
 					</Group>
