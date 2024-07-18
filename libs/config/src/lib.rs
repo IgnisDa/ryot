@@ -384,6 +384,9 @@ pub struct ServerConfig {
     /// Number of seconds to sleep before starting the server.
     #[setting(default = 0)]
     pub sleep_before_startup_seconds: u64,
+    /// An access token that can be used for admin operations.
+    #[setting(default = format!("{}", PROJECT_NAME))]
+    pub admin_access_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -480,8 +483,8 @@ impl AppConfig {
         cl.podcasts.listennotes.api_token = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
-        cl.server.cors_origins = vec![gt()];
         cl.users.jwt_secret = gt();
+        cl.server.cors_origins = vec![gt()];
         cl.server.smtp.server = gt();
         cl.server.smtp.user = gt();
         cl.server.smtp.password = gt();
@@ -489,6 +492,7 @@ impl AppConfig {
         cl.server.oidc.client_id = gt();
         cl.server.oidc.client_secret = gt();
         cl.server.oidc.issuer_url = gt();
+        cl.server.admin_access_token = gt();
         cl
     }
 }

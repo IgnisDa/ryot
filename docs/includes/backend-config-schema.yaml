@@ -158,6 +158,10 @@ scheduler:
 
 # Settings related to server.
 server:
+  # An access token that can be used for admin operations.
+  # @envvar SERVER_ADMIN_ACCESS_TOKEN
+  admin_access_token: ""
+
   # An array of URLs for CORS.
   # @envvar SERVER_CORS_ORIGINS
   cors_origins: []
