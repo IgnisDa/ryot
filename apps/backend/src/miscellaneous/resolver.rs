@@ -280,10 +280,12 @@ enum LoginResult {
 
 #[derive(Debug, InputObject)]
 struct UpdateUserInput {
-    username: Option<String>,
+    user_id: String,
     #[graphql(secret)]
     password: Option<String>,
+    username: Option<String>,
     extra_information: Option<serde_json::Value>,
+    admin_access_token: Option<String>,
 }
 
 #[derive(Debug, InputObject)]
@@ -1267,7 +1269,7 @@ impl MiscellaneousMutation {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await.ok();
         service.update_user(user_id, input).await
     }
 
@@ -4958,8 +4960,21 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_user(&self, user_id: String, input: UpdateUserInput) -> Result<StringIdObject> {
-        let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
+    async fn update_user(
+        &self,
+        user_id: Option<String>,
+        input: UpdateUserInput,
+    ) -> Result<StringIdObject> {
+        if let Some(user_id) = user_id {
+            if input.user_id != user_id {
+                return Err(Error::new("User id mismatch".to_owned()));
+            }
+        } else if self.config.server.admin_access_token
+            != input.admin_access_token.unwrap_or_default()
+        {
+            return Err(Error::new("Admin access token mismatch".to_owned()));
+        };
+        let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
             .one(&self.db)
             .await
             .unwrap()
