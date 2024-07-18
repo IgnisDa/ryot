@@ -123,9 +123,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 				RegisterUserDocument,
 				{
 					input: {
-						password: {
-							password: submission.value.password,
-							username: submission.value.username,
+						data: {
+							password: {
+								password: submission.value.password,
+								username: submission.value.username,
+							},
 						},
 					},
 				},

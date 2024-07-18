@@ -31,7 +31,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const [_, { registerUser }] = await Promise.all([
 		getCachedCoreDetails(),
 		serverGqlService.request(RegisterUserDocument, {
-			input: { oidc: oidcInput },
+			input: { data: { oidc: oidcInput } },
 		}),
 	]);
 	if (registerUser.__typename === "RegisterError")
