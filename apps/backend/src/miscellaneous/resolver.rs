@@ -4694,7 +4694,7 @@ impl MiscellaneousService {
             let access_link = AccessLink::find_by_id(access_link_id)
                 .one(&self.db)
                 .await?
-                .unwrap();
+                .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
             if access_link.is_revoked.unwrap_or_default() {
                 return Ok(true);
             }
