@@ -5788,13 +5788,14 @@ impl MiscellaneousService {
     }
 
     async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
-        Ok(User::find()
+        let users = User::find()
             .apply_if(query, |query, value| {
                 query.filter(Expr::col(user::Column::Name).ilike(ilike_sql(&value)))
             })
             .order_by_asc(user::Column::Name)
             .all(&self.db)
-            .await?)
+            .await?;
+        Ok(users)
     }
 
     async fn delete_user(&self, to_delete_user_id: String) -> Result<bool> {
