@@ -41,7 +41,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { useConfirmSubmit } from "~/lib/hooks";
+import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
@@ -99,7 +99,17 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { registerUser } = await serverGqlService.authenticatedRequest(
 				request,
 				RegisterUserDocument,
-				{ input: { password: submission } },
+				{
+					input: {
+						adminAccessToken: submission.adminAccessToken,
+						data: {
+							password: {
+								password: submission.password,
+								username: submission.username,
+							},
+						},
+					},
+				},
 			);
 			const success = registerUser.__typename === "StringIdObject";
 			return Response.json({ status: "success", submission } as const, {
@@ -126,12 +136,14 @@ export const action = unstable_defineAction(async ({ request }) => {
 const registerFormSchema = z.object({
 	username: z.string(),
 	password: z.string(),
+	adminAccessToken: z.string().optional(),
 });
 
 const deleteSchema = z.object({ toDeleteUserId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [
 		registerUserModalOpened,
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
@@ -176,6 +188,14 @@ export default function Page() {
 									</ActionIcon>
 								}
 							/>
+							{!coreDetails.signupAllowed ? (
+								<TextInput
+									required
+									name="adminAccessToken"
+									label="Admin Access Token"
+									description="This is required as registration is disabled"
+								/>
+							) : null}
 							<Button variant="outline" type="submit">
 								Create
 							</Button>
