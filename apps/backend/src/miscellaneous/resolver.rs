@@ -281,6 +281,7 @@ enum LoginResult {
 #[derive(Debug, InputObject)]
 struct UpdateUserInput {
     user_id: String,
+    lot: Option<UserLot>,
     #[graphql(secret)]
     password: Option<String>,
     username: Option<String>,
@@ -4965,15 +4966,11 @@ impl MiscellaneousService {
         user_id: Option<String>,
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
-        if let Some(user_id) = user_id {
-            if input.user_id != user_id {
-                return Err(Error::new("User id mismatch".to_owned()));
-            }
-        } else if self.config.server.admin_access_token
-            != input.admin_access_token.unwrap_or_default()
+        if user_id.unwrap_or_default() != input.user_id
+            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
         {
             return Err(Error::new("Admin access token mismatch".to_owned()));
-        };
+        }
         let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
             .one(&self.db)
             .await
@@ -4988,6 +4985,9 @@ impl MiscellaneousService {
         }
         if let Some(i) = input.extra_information {
             user_obj.extra_information = ActiveValue::Set(Some(i));
+        }
+        if let Some(l) = input.lot {
+            user_obj.lot = ActiveValue::Set(l);
         }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(StringIdObject { id: user_obj.id })

@@ -1876,6 +1876,7 @@ export type UpdateSeenItemInput = {
 export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   extraInformation?: InputMaybe<Scalars['JSON']['input']>;
+  lot?: InputMaybe<UserLot>;
   password?: InputMaybe<Scalars['String']['input']>;
   userId: Scalars['String']['input'];
   username?: InputMaybe<Scalars['String']['input']>;
