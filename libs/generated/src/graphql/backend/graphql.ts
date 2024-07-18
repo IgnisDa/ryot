@@ -1278,6 +1278,8 @@ export type OidcUserInput = {
 };
 
 export type PasswordUserInput = {
+  /** If provided, that means an admin tried to create an account. */
+  creatorUserId?: InputMaybe<Scalars['String']['input']>;
   password: Scalars['String']['input'];
   username: Scalars['String']['input'];
 };
