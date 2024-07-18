@@ -218,8 +218,6 @@ struct PasswordUserInput {
     username: String,
     #[graphql(secret)]
     password: String,
-    /// If provided, that means an admin tried to create an account.
-    creator_user_id: Option<String>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -235,13 +233,11 @@ enum AuthUserInput {
     Oidc(OidcUserInput),
 }
 
-impl AuthUserInput {
-    fn creator_user_id(&self) -> Option<String> {
-        match self {
-            Self::Password(p) => p.creator_user_id.clone(),
-            _ => None,
-        }
-    }
+#[derive(Debug, InputObject)]
+struct RegisterUserInput {
+    data: AuthUserInput,
+    /// If registration is disabled, this can be used to override it.
+    admin_access_token: Option<String>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -263,6 +259,7 @@ enum RegisterResult {
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum LoginErrorVariant {
+    AccountDisabled,
     UsernameDoesNotExist,
     CredentialsMismatch,
     IncorrectProviderChosen,
@@ -286,10 +283,14 @@ enum LoginResult {
 
 #[derive(Debug, InputObject)]
 struct UpdateUserInput {
-    username: Option<String>,
+    user_id: String,
+    is_disabled: Option<bool>,
+    lot: Option<UserLot>,
     #[graphql(secret)]
     password: Option<String>,
+    username: Option<String>,
     extra_information: Option<serde_json::Value>,
+    admin_access_token: Option<String>,
 }
 
 #[derive(Debug, InputObject)]
@@ -1333,7 +1334,7 @@ impl MiscellaneousMutation {
     async fn register_user(
         &self,
         gql_ctx: &Context<'_>,
-        input: AuthUserInput,
+        input: RegisterUserInput,
     ) -> Result<RegisterResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.register_user(input).await
@@ -1352,7 +1353,7 @@ impl MiscellaneousMutation {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await.ok();
         service.update_user(user_id, input).await
     }
 
@@ -3839,9 +3840,13 @@ impl MiscellaneousService {
                 .await,
             ),
             MediaSource::Tmdb => Box::new(self.get_tmdb_non_media_service().await?),
-            MediaSource::Anilist => {
-                Box::new(NonMediaAnilistService::new(self.config.frontend.page_size).await)
-            }
+            MediaSource::Anilist => Box::new(
+                NonMediaAnilistService::new(
+                    &self.config.anime_and_manga.anilist,
+                    self.config.frontend.page_size,
+                )
+                .await,
+            ),
             MediaSource::Mal => Box::new(NonMediaMalService::new().await),
             MediaSource::Custom => return err(),
         };
@@ -5008,24 +5013,24 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn register_user(&self, input: AuthUserInput) -> Result<RegisterResult> {
-        if let Some(user_id) = input.creator_user_id() {
-            self.admin_account_guard(&user_id).await?;
-        } else if !self.config.users.allow_registration {
+    async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
+        if !self.config.users.allow_registration
+            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
+        {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
         }
-        let (filter, username, password) = match input.clone() {
-            AuthUserInput::Oidc(input) => (
-                user::Column::OidcIssuerId.eq(&input.issuer_id),
-                input.email,
+        let (filter, username, password) = match input.data.clone() {
+            AuthUserInput::Oidc(data) => (
+                user::Column::OidcIssuerId.eq(&data.issuer_id),
+                data.email,
                 None,
             ),
-            AuthUserInput::Password(input) => (
-                user::Column::Name.eq(&input.username),
-                input.username,
-                Some(input.password),
+            AuthUserInput::Password(data) => (
+                user::Column::Name.eq(&data.username),
+                data.username,
+                Some(data.password),
             ),
         };
         if User::find().filter(filter).count(&self.db).await.unwrap() != 0 {
@@ -5033,8 +5038,8 @@ impl MiscellaneousService {
                 error: RegisterErrorVariant::IdentifierAlreadyExists,
             }));
         };
-        let oidc_issuer_id = match input {
-            AuthUserInput::Oidc(input) => Some(input.issuer_id),
+        let oidc_issuer_id = match input.data {
+            AuthUserInput::Oidc(data) => Some(data.issuer_id),
             AuthUserInput::Password(_) => None,
         };
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
@@ -5068,6 +5073,11 @@ impl MiscellaneousService {
                 error: LoginErrorVariant::UsernameDoesNotExist,
             })),
             Some(user) => {
+                if user.is_disabled.unwrap_or_default() {
+                    return Ok(LoginResult::Error(LoginError {
+                        error: LoginErrorVariant::AccountDisabled,
+                    }));
+                }
                 if self.config.users.validate_password {
                     if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
                         if let Some(hashed_password) = user.password {
@@ -5112,8 +5122,17 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_user(&self, user_id: String, input: UpdateUserInput) -> Result<StringIdObject> {
-        let mut user_obj: user::ActiveModel = User::find_by_id(user_id.to_owned())
+    async fn update_user(
+        &self,
+        user_id: Option<String>,
+        input: UpdateUserInput,
+    ) -> Result<StringIdObject> {
+        if user_id.unwrap_or_default() != input.user_id
+            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
+        {
+            return Err(Error::new("Admin access token mismatch".to_owned()));
+        }
+        let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
             .one(&self.db)
             .await
             .unwrap()
@@ -5127,6 +5146,12 @@ impl MiscellaneousService {
         }
         if let Some(i) = input.extra_information {
             user_obj.extra_information = ActiveValue::Set(Some(i));
+        }
+        if let Some(l) = input.lot {
+            user_obj.lot = ActiveValue::Set(l);
+        }
+        if let Some(d) = input.is_disabled {
+            user_obj.is_disabled = ActiveValue::Set(Some(d));
         }
         let user_obj = user_obj.update(&self.db).await.unwrap();
         Ok(StringIdObject { id: user_obj.id })
@@ -5947,19 +5972,20 @@ impl MiscellaneousService {
     async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
         let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
-            return Err(Error::new("Only admins can perform this operation."));
+            return Err(Error::new(BackendError::AdminOnlyAction.to_string()));
         }
         Ok(())
     }
 
     async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
-        Ok(User::find()
+        let users = User::find()
             .apply_if(query, |query, value| {
                 query.filter(Expr::col(user::Column::Name).ilike(ilike_sql(&value)))
             })
             .order_by_asc(user::Column::Name)
             .all(&self.db)
-            .await?)
+            .await?;
+        Ok(users)
     }
 
     async fn delete_user(&self, to_delete_user_id: String) -> Result<bool> {

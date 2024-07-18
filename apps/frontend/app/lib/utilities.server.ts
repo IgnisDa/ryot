@@ -80,6 +80,10 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 							BackendError.MutationNotAllowed,
 							() => "You do not have permission to perform this action",
 						)
+						.with(
+							BackendError.AdminOnlyAction,
+							() => "You must be an admin to perform this action",
+						)
 						.otherwise(() => error);
 					return Response.json({ message });
 				});

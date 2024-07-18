@@ -29,6 +29,7 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     pub is_demo: Option<bool>,
     pub lot: UserLot,
+    pub is_disabled: Option<bool>,
     #[graphql(skip)]
     pub preferences: UserPreferences,
     #[graphql(skip)]

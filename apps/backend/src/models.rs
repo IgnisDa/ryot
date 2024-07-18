@@ -56,9 +56,10 @@ pub enum EntityLot {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum BackendError {
-    NoAuthToken,
     NoUserId,
+    NoAuthToken,
     SessionExpired,
+    AdminOnlyAction,
     MutationNotAllowed,
 }
 

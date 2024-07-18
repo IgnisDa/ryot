@@ -22,12 +22,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import {
-	Form,
-	useActionData,
-	useFetcher,
-	useLoaderData,
-} from "@remix-run/react";
+import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserIntegrationDocument,
 	DeleteUserIntegrationDocument,
@@ -46,7 +41,7 @@ import {
 	IconPencil,
 	IconTrash,
 } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -54,6 +49,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
+import { useConfirmSubmit } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	processSubmission,
@@ -279,8 +275,7 @@ const DisplayIntegration = (props: {
 	const [parent] = useAutoAnimate();
 	const [integrationInputOpened, { toggle: integrationInputToggle }] =
 		useDisclosure(false);
-	const fetcher = useFetcher<typeof action>();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
+	const submit = useConfirmSubmit();
 
 	const integrationUrl =
 		typeof window !== "undefined"
@@ -328,31 +323,30 @@ const DisplayIntegration = (props: {
 						>
 							<IconPencil />
 						</ActionIcon>
-						<fetcher.Form
-							method="POST"
-							ref={deleteFormRef}
-							action={withQuery("", { intent: "delete" })}
-						>
+						<Form method="POST" action={withQuery("", { intent: "delete" })}>
 							<input
 								type="hidden"
 								name="integrationId"
 								defaultValue={props.integration.id}
 							/>
 							<ActionIcon
+								type="submit"
 								color="red"
 								variant="subtle"
 								mt={4}
-								onClick={async () => {
+								onClick={async (e) => {
+									const form = e.currentTarget.form;
+									e.preventDefault();
 									const conf = await confirmWrapper({
 										confirmation:
 											"Are you sure you want to delete this integration?",
 									});
-									if (conf) fetcher.submit(deleteFormRef.current);
+									if (conf && form) submit(form);
 								}}
 							>
 								<IconTrash />
 							</ActionIcon>
-						</fetcher.Form>
+						</Form>
 					</Group>
 				</Flex>
 				{integrationInputOpened ? (

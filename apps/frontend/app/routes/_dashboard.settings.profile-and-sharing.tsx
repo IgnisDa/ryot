@@ -23,7 +23,6 @@ import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	type MetaArgs_SingleFetch,
-	useFetcher,
 	useLoaderData,
 } from "@remix-run/react";
 import {
@@ -40,14 +39,13 @@ import {
 	IconLock,
 	IconLockAccess,
 } from "@tabler/icons-react";
-import { useRef } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib, queryClient, queryFactory } from "~/lib/generals";
-import { useCoreDetails, useUserDetails } from "~/lib/hooks";
+import { useConfirmSubmit, useCoreDetails, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
@@ -123,6 +121,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 });
 
 const updateProfileFormSchema = z.object({
+	userId: z.string(),
 	username: z.string().optional(),
 	email: z.string().email().optional(),
 	password: z.string().optional(),
@@ -141,8 +140,7 @@ const createAccessLinkFormSchema = z.object({
 export default function Page() {
 	const userDetails = useUserDetails();
 	const loaderData = useLoaderData<typeof loader>();
-	const fetcher = useFetcher<typeof action>();
-	const formRef = useRef<HTMLFormElement>(null);
+	const submit = useConfirmSubmit();
 	const [
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
@@ -159,11 +157,15 @@ export default function Page() {
 					<Tabs.Panel value="profile">
 						<Stack>
 							<Title>Profile</Title>
-							<fetcher.Form
-								ref={formRef}
+							<Form
 								method="POST"
 								action={withQuery(".", { intent: "updateProfile" })}
 							>
+								<input
+									type="hidden"
+									name="userId"
+									defaultValue={userDetails.id}
+								/>
 								<Stack>
 									<TextInput
 										readOnly
@@ -196,19 +198,22 @@ export default function Page() {
 										}
 									/>
 									<Button
-										onClick={async () => {
+										type="submit"
+										onClick={async (e) => {
+											const form = e.currentTarget.form;
+											e.preventDefault();
 											const conf = await confirmWrapper({
 												confirmation:
 													"Are you sure you want to update your profile?",
 											});
-											if (conf) fetcher.submit(formRef.current);
+											if (conf && form) submit(form);
 										}}
 										fullWidth
 									>
 										Update
 									</Button>
 								</Stack>
-							</fetcher.Form>
+							</Form>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">
@@ -252,8 +257,7 @@ type AccessLink = UserAccessLinksQuery["userAccessLinks"][number];
 const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 	const [parent] = useAutoAnimate();
 	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
-	const fetcher = useFetcher<typeof action>();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
+	const submit = useConfirmSubmit();
 
 	const accessLinkUrl =
 		typeof window !== "undefined"
@@ -291,9 +295,8 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 								<ActionIcon color="blue" onClick={inputToggle}>
 									{inputOpened ? <IconEyeClosed /> : <IconEye />}
 								</ActionIcon>
-								<fetcher.Form
+								<Form
 									method="POST"
-									ref={deleteFormRef}
 									action={withQuery("", { intent: "revokeAccessLink" })}
 								>
 									<input
@@ -302,20 +305,23 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 										defaultValue={props.accessLink.id}
 									/>
 									<ActionIcon
+										type="submit"
 										color="red"
 										variant="subtle"
 										mt={4}
-										onClick={async () => {
+										onClick={async (e) => {
+											const form = e.currentTarget.form;
+											e.preventDefault();
 											const conf = await confirmWrapper({
 												confirmation:
 													"Are you sure you want to revoke this access link?",
 											});
-											if (conf) fetcher.submit(deleteFormRef.current);
+											if (conf && form) submit(form);
 										}}
 									>
 										<IconLock />
 									</ActionIcon>
-								</fetcher.Form>
+								</Form>
 							</>
 						) : (
 							<>

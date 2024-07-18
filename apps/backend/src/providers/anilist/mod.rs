@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use config::AnilistPreferredLanguage;
 use database::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
@@ -11,8 +12,8 @@ use crate::{
     models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
-             MetadataPerson, MetadataSearchItem, MetadataVideo,
-            MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics,
         },
         SearchDetails, SearchResults, StoredUrl,
@@ -81,8 +82,8 @@ struct StudioQuery;
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     client: Client,
-    prefer_english: bool,
-    page_limit: i32,
+    preferred_language: AnilistPreferredLanguage,
+    page_size: i32,
 }
 
 impl MediaProviderLanguages for AnilistService {
@@ -95,20 +96,31 @@ impl MediaProviderLanguages for AnilistService {
     }
 }
 
+impl AnilistService {
+    async fn new(page_size: i32, config: &config::AnilistConfig) -> Self {
+        let client = get_client_config(URL).await;
+        let preferred_language = if config.prefer_english {
+            AnilistPreferredLanguage::English
+        } else {
+            config.preferred_language.clone()
+        };
+        Self {
+            client,
+            preferred_language,
+            page_size,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NonMediaAnilistService {
     base: AnilistService,
 }
 
 impl NonMediaAnilistService {
-    pub async fn new(page_limit: i32) -> Self {
-        let client = get_client_config(URL).await;
+    pub async fn new(config: &config::AnilistConfig, page_size: i32) -> Self {
         Self {
-            base: AnilistService {
-                client,
-                prefer_english: false,
-                page_limit,
-            },
+            base: AnilistService::new(page_size, config).await,
         }
     }
 }
@@ -133,7 +145,7 @@ impl MediaProvider for NonMediaAnilistService {
             let variables = studio_search_query::Variables {
                 page: page.unwrap_or(1).into(),
                 search: query.to_owned(),
-                per_page: self.base.page_limit.into(),
+                per_page: self.base.page_size.into(),
             };
             let body = StudioSearchQuery::build_query(variables);
             let search = self
@@ -152,7 +164,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * self.base.page_limit) > 0 {
+            let next_page = if total - (page.unwrap_or(1) * self.base.page_size) > 0 {
                 Some(page.unwrap_or(1) + 1)
             } else {
                 None
@@ -176,7 +188,7 @@ impl MediaProvider for NonMediaAnilistService {
             let variables = staff_search_query::Variables {
                 page: page.unwrap_or(1).into(),
                 search: query.to_owned(),
-                per_page: self.base.page_limit.into(),
+                per_page: self.base.page_size.into(),
             };
             let body = StaffSearchQuery::build_query(variables);
             let search = self
@@ -195,7 +207,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * self.base.page_limit) > 0 {
+            let next_page = if total - (page.unwrap_or(1) * self.base.page_size) > 0 {
                 Some(page.unwrap_or(1) + 1)
             } else {
                 None
@@ -347,8 +359,12 @@ impl MediaProvider for NonMediaAnilistService {
                 .map(|r| {
                     let data = r.unwrap().node.unwrap();
                     let title = data.title.unwrap();
-                    let title =
-                        preferred_language(title.native, title.english, self.base.prefer_english);
+                    let title = get_in_preferred_language(
+                        title.native,
+                        title.english,
+                        title.romaji,
+                        &self.base.preferred_language,
+                    );
                     (
                         "Voicing".to_owned(),
                         PartialMetadataWithoutId {
@@ -376,10 +392,11 @@ impl MediaProvider for NonMediaAnilistService {
                     .map(|r| {
                         let data = r.unwrap().node.unwrap();
                         let title = data.title.unwrap();
-                        let title = preferred_language(
+                        let title = get_in_preferred_language(
                             title.native,
                             title.english,
-                            self.base.prefer_english,
+                            title.romaji,
+                            &self.base.preferred_language,
                         );
                         (
                             "Production".to_owned(),
@@ -423,14 +440,9 @@ pub struct AnilistAnimeService {
 }
 
 impl AnilistAnimeService {
-    pub async fn new(config: &config::AnilistConfig, page_limit: i32) -> Self {
-        let client = get_client_config(URL).await;
+    pub async fn new(config: &config::AnilistConfig, page_size: i32) -> Self {
         Self {
-            base: AnilistService {
-                client,
-                prefer_english: config.prefer_english,
-                page_limit,
-            },
+            base: AnilistService::new(page_size, config).await,
         }
     }
 }
@@ -439,7 +451,7 @@ impl AnilistAnimeService {
 impl MediaProvider for AnilistAnimeService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details =
-            media_details(&self.base.client, identifier, self.base.prefer_english).await?;
+            media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
         Ok(details)
     }
 
@@ -454,9 +466,9 @@ impl MediaProvider for AnilistAnimeService {
             media_search_query::MediaType::ANIME,
             query,
             page,
-            self.base.page_limit,
+            self.base.page_size,
             display_nsfw,
-            self.base.prefer_english,
+            &self.base.preferred_language,
         )
         .await?;
         Ok(SearchResults {
@@ -472,14 +484,9 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(config: &config::AnilistConfig, page_limit: i32) -> Self {
-        let client = get_client_config(URL).await;
+    pub async fn new(config: &config::AnilistConfig, page_size: i32) -> Self {
         Self {
-            base: AnilistService {
-                client,
-                prefer_english: config.prefer_english,
-                page_limit,
-            },
+            base: AnilistService::new(page_size, config).await,
         }
     }
 }
@@ -488,7 +495,7 @@ impl AnilistMangaService {
 impl MediaProvider for AnilistMangaService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let details =
-            media_details(&self.base.client, identifier, self.base.prefer_english).await?;
+            media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
         Ok(details)
     }
 
@@ -503,9 +510,9 @@ impl MediaProvider for AnilistMangaService {
             media_search_query::MediaType::MANGA,
             query,
             page,
-            self.base.page_limit,
+            self.base.page_size,
             display_nsfw,
-            self.base.prefer_english,
+            &self.base.preferred_language,
         )
         .await?;
         Ok(SearchResults {
@@ -519,7 +526,11 @@ async fn get_client_config(url: &str) -> Client {
     get_base_http_client(url, None)
 }
 
-async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Result<MediaDetails> {
+async fn media_details(
+    client: &Client,
+    id: &str,
+    preferred_language: &AnilistPreferredLanguage,
+) -> Result<MediaDetails> {
     let variables = media_details_query::Variables {
         id: id.parse::<i64>().unwrap(),
     };
@@ -543,9 +554,7 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
     }
     let images = images
         .into_iter()
-        .map(|i| MetadataImageForMediaDetails {
-            image: i,
-        })
+        .map(|i| MetadataImageForMediaDetails { image: i })
         .unique()
         .collect();
     let mut genres = details
@@ -632,7 +641,12 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         .flat_map(|r| {
             r.unwrap().media_recommendation.map(|data| {
                 let title = data.title.unwrap();
-                let title = preferred_language(title.native, title.english, prefer_english);
+                let title = get_in_preferred_language(
+                    title.native,
+                    title.english,
+                    title.romaji,
+                    preferred_language,
+                );
                 PartialMetadataWithoutId {
                     title,
                     identifier: data.id.to_string(),
@@ -658,7 +672,12 @@ async fn media_details(client: &Client, id: &str, prefer_english: bool) -> Resul
         },
     }));
     let title = details.title.unwrap();
-    let title = preferred_language(title.native, title.english, prefer_english);
+    let title = get_in_preferred_language(
+        title.native,
+        title.english,
+        title.romaji,
+        preferred_language,
+    );
     Ok(MediaDetails {
         title,
         identifier: details.id.to_string(),
@@ -690,16 +709,16 @@ async fn search(
     media_type: media_search_query::MediaType,
     query: &str,
     page: Option<i32>,
-    page_limit: i32,
+    page_size: i32,
     _is_adult: bool,
-    prefer_english: bool,
+    preferred_language: &AnilistPreferredLanguage,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
     let variables = media_search_query::Variables {
         page: page.into(),
         search: query.to_owned(),
         type_: media_type,
-        per_page: page_limit.into(),
+        per_page: page_size.into(),
     };
     let body = MediaSearchQuery::build_query(variables);
     let search = client
@@ -716,7 +735,7 @@ async fn search(
         .page
         .unwrap();
     let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-    let next_page = if total - (page * page_limit) > 0 {
+    let next_page = if total - (page * page_size) > 0 {
         Some(page + 1)
     } else {
         None
@@ -728,7 +747,12 @@ async fn search(
         .flatten()
         .map(|b| {
             let title = b.title.unwrap();
-            let title = preferred_language(title.native, title.english, prefer_english);
+            let title = get_in_preferred_language(
+                title.native,
+                title.english,
+                title.romaji,
+                preferred_language,
+            );
             MetadataSearchItem {
                 identifier: b.id.to_string(),
                 title,
@@ -742,15 +766,16 @@ async fn search(
     Ok((media, total, next_page))
 }
 
-fn preferred_language(
+fn get_in_preferred_language(
     native: Option<String>,
     english: Option<String>,
-    prefer_english: bool,
+    romaji: Option<String>,
+    preferred_language: &AnilistPreferredLanguage,
 ) -> String {
-    let title = if prefer_english {
-        english.or(native)
-    } else {
-        native
+    let title = match preferred_language {
+        AnilistPreferredLanguage::Native => native.clone(),
+        AnilistPreferredLanguage::English => english.clone(),
+        AnilistPreferredLanguage::Romaji => romaji.clone(),
     };
-    title.unwrap()
+    title.or(native).unwrap()
 }

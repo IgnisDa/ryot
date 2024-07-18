@@ -79,7 +79,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 					{ query: "avengers" },
 				),
 				{
-					message: "Welcome to Ryot! Add any movie you want to your watchlist!",
+					message:
+						"Welcome to Ryot! Get started by adding a movie to your watchlist!",
 					closeAfter: dayjsLib.duration(10, "second").asMilliseconds(),
 				},
 			);
@@ -122,9 +123,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 				RegisterUserDocument,
 				{
 					input: {
-						password: {
-							password: submission.value.password,
-							username: submission.value.username,
+						data: {
+							password: {
+								password: submission.value.password,
+								username: submission.value.username,
+							},
 						},
 					},
 				},
@@ -170,6 +173,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 					LoginErrorVariant.CredentialsMismatch,
 					LoginErrorVariant.UsernameDoesNotExist,
 					() => "The credentials provided were incorrect",
+				)
+				.with(
+					LoginErrorVariant.AccountDisabled,
+					() => "This account has been disabled. Please contact support.",
 				)
 				.with(
 					LoginErrorVariant.IncorrectProviderChosen,

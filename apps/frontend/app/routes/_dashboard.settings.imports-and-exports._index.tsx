@@ -28,10 +28,8 @@ import {
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
-	type FetcherWithComponents,
 	Form,
 	type MetaArgs_SingleFetch,
-	useFetcher,
 	useLoaderData,
 } from "@remix-run/react";
 import {
@@ -44,7 +42,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase } from "@ryot/ts-utils";
 import { IconDownload } from "@tabler/icons-react";
-import { type ReactNode, type RefObject, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
@@ -53,6 +51,7 @@ import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import {
 	useApplicationEvents,
+	useConfirmSubmit,
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
@@ -208,9 +207,6 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const [deployImportSource, setDeployImportSource] = useState<ImportSource>();
 
-	const fetcher = useFetcher<typeof action>();
-	const formRef = useRef<HTMLFormElement>(null);
-
 	return (
 		<Container size="xs">
 			<Tabs defaultValue="import">
@@ -220,8 +216,7 @@ export default function Page() {
 				</Tabs.List>
 				<Box mt="xl">
 					<Tabs.Panel value="import">
-						<fetcher.Form
-							ref={formRef}
+						<Form
 							method="POST"
 							action={withQuery("", { intent: "deployImport" })}
 							encType="multipart/form-data"
@@ -275,7 +270,7 @@ export default function Page() {
 									}}
 								/>
 								{deployImportSource ? (
-									<ImportSourceElement fetcher={fetcher} formRef={formRef}>
+									<ImportSourceElement>
 										{match(deployImportSource)
 											.with(
 												ImportSource.Audiobookshelf,
@@ -500,7 +495,7 @@ export default function Page() {
 									<Text>You have not performed any imports</Text>
 								)}
 							</Stack>
-						</fetcher.Form>
+						</Form>
 					</Tabs.Panel>
 					<Tabs.Panel value="export">
 						<Stack>
@@ -583,24 +578,27 @@ export default function Page() {
 
 const ImportSourceElement = (props: {
 	children: ReactNode | Array<ReactNode>;
-	fetcher: FetcherWithComponents<unknown>;
-	formRef: RefObject<HTMLFormElement>;
 }) => {
+	const submit = useConfirmSubmit();
+
 	return (
 		<>
 			{props.children}
 			<Button
+				type="submit"
 				variant="light"
 				color="blue"
 				fullWidth
 				mt="md"
 				radius="md"
-				onClick={async () => {
+				onClick={async (e) => {
+					const form = e.currentTarget.form;
+					e.preventDefault();
 					const conf = await confirmWrapper({
 						confirmation:
 							"Are you sure you want to deploy an import job? This action is irreversible.",
 					});
-					if (conf) props.fetcher.submit(props.formRef.current);
+					if (conf && form) submit(form);
 				}}
 			>
 				Import
