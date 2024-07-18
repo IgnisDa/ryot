@@ -218,6 +218,8 @@ struct PasswordUserInput {
     username: String,
     #[graphql(secret)]
     password: String,
+    /// If provided, that means an admin tried to create an account.
+    creator_user_id: Option<String>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -231,6 +233,15 @@ struct OidcUserInput {
 enum AuthUserInput {
     Password(PasswordUserInput),
     Oidc(OidcUserInput),
+}
+
+impl AuthUserInput {
+    fn creator_user_id(&self) -> Option<String> {
+        match self {
+            Self::Password(p) => p.creator_user_id.clone(),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -4998,7 +5009,9 @@ impl MiscellaneousService {
     }
 
     async fn register_user(&self, input: AuthUserInput) -> Result<RegisterResult> {
-        if !self.config.users.allow_registration {
+        if let Some(user_id) = input.creator_user_id() {
+            self.admin_account_guard(&user_id).await?;
+        } else if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
@@ -5944,7 +5957,7 @@ impl MiscellaneousService {
             .apply_if(query, |query, value| {
                 query.filter(Expr::col(user::Column::Name).ilike(ilike_sql(&value)))
             })
-            .order_by_asc(user::Column::Id)
+            .order_by_asc(user::Column::Name)
             .all(&self.db)
             .await?)
     }

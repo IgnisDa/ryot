@@ -1,3 +1,4 @@
+import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Avatar,
@@ -15,13 +16,18 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import {
+	redirect,
+	unstable_defineAction,
+	unstable_defineLoader,
+} from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
+	UserLot,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, randomString, truncate } from "@ryot/ts-utils";
@@ -35,10 +41,12 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
+import { useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
 	processSubmission,
+	redirectIfNotAuthenticatedOrUpdated,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -50,6 +58,8 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
 	const cookieName = await getEnhancedCookieName("settings.users", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -114,6 +124,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 });
 
 const registerFormSchema = z.object({
+	creatorUserId: z.string(),
 	username: z.string(),
 	password: z.string(),
 });
@@ -122,6 +133,7 @@ const deleteSchema = z.object({ toDeleteUserId: z.string() });
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const [
 		registerUserModalOpened,
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
@@ -151,6 +163,7 @@ export default function Page() {
 				>
 					<Form replace method="POST" onSubmit={closeRegisterUserModal}>
 						<input hidden name="intent" defaultValue="registerNew" />
+						<input hidden name="creatorUserId" defaultValue={userDetails.id} />
 						<Stack>
 							<Title order={3}>Create User</Title>
 							<TextInput label="Name" required name="username" />
