@@ -231,6 +231,13 @@ enum AuthUserInput {
     Oidc(OidcUserInput),
 }
 
+#[derive(Debug, InputObject)]
+struct RegisterUserInput {
+    data: AuthUserInput,
+    /// If registration is disabled, this can be used to override it.
+    admin_access_token: Option<String>,
+}
+
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 enum RegisterErrorVariant {
     IdentifierAlreadyExists,
@@ -1241,7 +1248,7 @@ impl MiscellaneousMutation {
     async fn register_user(
         &self,
         gql_ctx: &Context<'_>,
-        input: AuthUserInput,
+        input: RegisterUserInput,
     ) -> Result<RegisterResult> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.register_user(input).await
@@ -4847,22 +4854,22 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn register_user(&self, input: AuthUserInput) -> Result<RegisterResult> {
+    async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
         if !self.config.users.allow_registration {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
             }));
         }
-        let (filter, username, password) = match input.clone() {
-            AuthUserInput::Oidc(input) => (
-                user::Column::OidcIssuerId.eq(&input.issuer_id),
-                input.email,
+        let (filter, username, password) = match input.data.clone() {
+            AuthUserInput::Oidc(data) => (
+                user::Column::OidcIssuerId.eq(&data.issuer_id),
+                data.email,
                 None,
             ),
-            AuthUserInput::Password(input) => (
-                user::Column::Name.eq(&input.username),
-                input.username,
-                Some(input.password),
+            AuthUserInput::Password(data) => (
+                user::Column::Name.eq(&data.username),
+                data.username,
+                Some(data.password),
             ),
         };
         if User::find().filter(filter).count(&self.db).await.unwrap() != 0 {
@@ -4870,8 +4877,8 @@ impl MiscellaneousService {
                 error: RegisterErrorVariant::IdentifierAlreadyExists,
             }));
         };
-        let oidc_issuer_id = match input {
-            AuthUserInput::Oidc(input) => Some(input.issuer_id),
+        let oidc_issuer_id = match input.data {
+            AuthUserInput::Oidc(data) => Some(data.issuer_id),
             AuthUserInput::Password(_) => None,
         };
         let lot = if User::find().count(&self.db).await.unwrap() == 0 {
