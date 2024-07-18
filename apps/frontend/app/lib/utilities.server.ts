@@ -11,7 +11,6 @@ import {
 import {
 	BackendError,
 	CoreDetailsDocument,
-	CoreEnabledFeaturesDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
@@ -295,11 +294,6 @@ export const s3FileUploader = (prefix: string) =>
 		}
 		return undefined;
 	}, unstable_createMemoryUploadHandler());
-
-export const getCoreEnabledFeatures = async () =>
-	serverGqlService
-		.request(CoreEnabledFeaturesDocument)
-		.then((data) => data.coreEnabledFeatures);
 
 export const serverVariables = expectedServerVariables.parse(process.env);
 

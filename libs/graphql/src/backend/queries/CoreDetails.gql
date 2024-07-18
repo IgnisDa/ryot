@@ -7,8 +7,10 @@ query CoreDetails {
     websiteUrl
     authorName
     oidcEnabled
+    signupAllowed
     repositoryLink
     localAuthDisabled
+    fileStorageEnabled
     tokenValidForDays
   }
 }

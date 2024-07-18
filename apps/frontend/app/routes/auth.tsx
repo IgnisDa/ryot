@@ -47,7 +47,6 @@ import {
 	getCachedCoreDetails,
 	getCachedUserPreferences,
 	getCookiesForApplication,
-	getCoreEnabledFeatures,
 	processSubmission,
 	redirectWithToast,
 	serverGqlService,
@@ -86,17 +85,14 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			);
 		throw redirect($path("/"));
 	}
-	const [enabledFeatures, { coreDetails }] = await Promise.all([
-		getCoreEnabledFeatures(),
-		getCachedCoreDetails(),
-	]);
+	const [{ coreDetails }] = await Promise.all([getCachedCoreDetails()]);
 	return {
 		intent: query.intent || "login",
 		oidcEnabled: coreDetails.oidcEnabled,
 		oidcButtonLabel: serverVariables.FRONTEND_OIDC_BUTTON_LABEL,
 		localAuthDisabled: coreDetails.localAuthDisabled,
 		tokenValidForDays: coreDetails.tokenValidForDays,
-		signupAllowed: enabledFeatures.signupAllowed,
+		signupAllowed: coreDetails.signupAllowed,
 	};
 });
 

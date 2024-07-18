@@ -22,7 +22,7 @@ import {
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form } from "@remix-run/react";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -30,18 +30,15 @@ import {
 import { camelCase, changeCase } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
+import { useCoreDetails } from "~/lib/hooks";
 import {
-	getCoreEnabledFeatures,
 	processSubmission,
 	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async (_args) => {
-	const [coreEnabledFeatures] = await Promise.all([getCoreEnabledFeatures()]);
-	return {
-		coreEnabledFeatures: { fileStorage: coreEnabledFeatures.fileStorage },
-	};
+	return {};
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -87,9 +84,8 @@ const schema = z.object({
 });
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-
-	const fileUploadNowAllowed = !loaderData.coreEnabledFeatures.fileStorage;
+	const coreDetails = useCoreDetails();
+	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
 	return (
 		<Container>
@@ -132,9 +128,9 @@ export default function Page() {
 						label="Images"
 						name="images"
 						multiple
-						disabled={fileUploadNowAllowed}
+						disabled={fileUploadNotAllowed}
 						description={
-							fileUploadNowAllowed &&
+							fileUploadNotAllowed &&
 							"Please set the S3 variables required to enable file uploading"
 						}
 						accept="image/png,image/jpeg,image/jpg"
@@ -144,9 +140,9 @@ export default function Page() {
 						label="Videos"
 						name="videos"
 						multiple
-						disabled={fileUploadNowAllowed}
+						disabled={fileUploadNotAllowed}
 						description={
-							fileUploadNowAllowed &&
+							fileUploadNotAllowed &&
 							"Please set the S3 variables required to enable file uploading"
 						}
 						accept="video/mp4,video/x-m4v,video/*"
