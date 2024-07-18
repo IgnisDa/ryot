@@ -95,17 +95,17 @@ derive_enum!(
 );
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
-pub struct GoogleBooksConfig {
-    /// Whether to pass the raw query string to the search API.
-    pub pass_raw_query: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_OPENLIBRARY_")]
 pub struct OpenlibraryConfig {
     /// The image sizes to fetch from Openlibrary.
     pub cover_image_size: OpenlibraryCoverImageSize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
+pub struct GoogleBooksConfig {
+    /// Whether to pass the raw query string to the search API.
+    pub pass_raw_query: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
