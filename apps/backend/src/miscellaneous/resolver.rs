@@ -732,6 +732,7 @@ struct MetadataSearchInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateAccessLinkInput {
+    name: String,
     maximum_uses: Option<i32>,
     expires_on: Option<DateTimeUtc>,
 }
@@ -7310,6 +7311,7 @@ GROUP BY "m"."id";
     ) -> Result<StringIdObject> {
         let new_link = access_link::ActiveModel {
             user_id: ActiveValue::Set(user_id),
+            name: ActiveValue::Set(input.name),
             expires_on: ActiveValue::Set(input.expires_on),
             maximum_uses: ActiveValue::Set(input.maximum_uses),
             ..Default::default()

@@ -11,6 +11,7 @@ use sea_orm::{entity::prelude::*, ActiveValue};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: String,
+    pub name: String,
     pub created_on: DateTimeUtc,
     #[graphql(skip)]
     pub issued_tokens: Vec<String>,

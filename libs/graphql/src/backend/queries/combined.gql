@@ -146,6 +146,7 @@ query PeopleList($input: PeopleListInput!) {
 query UserAccessLinks {
   userAccessLinks {
     id
+    name
     createdOn
     expiresOn
     timesUsed

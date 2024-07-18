@@ -133,6 +133,7 @@ const revokeAccessLinkFormSchema = z.object({
 });
 
 const createAccessLinkFormSchema = z.object({
+	name: z.string(),
 	expiresOn: z.string().optional(),
 	maximumUses: zx.IntAsString.optional(),
 });
@@ -215,7 +216,7 @@ export default function Page() {
 							<Title>Sharing</Title>
 							{loaderData.userAccessLinks.length > 0 ? (
 								loaderData.userAccessLinks.map((link, idx) => (
-									<DisplayIntegration
+									<DisplayAccessLink
 										accessLink={link}
 										key={`${link.id}-${idx}`}
 									/>
@@ -248,7 +249,7 @@ export default function Page() {
 
 type AccessLink = UserAccessLinksQuery["userAccessLinks"][number];
 
-const DisplayIntegration = (props: { accessLink: AccessLink }) => {
+const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 	const [parent] = useAutoAnimate();
 	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 	const fetcher = useFetcher<typeof action>();
@@ -275,6 +276,9 @@ const DisplayIntegration = (props: { accessLink: AccessLink }) => {
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
+						<Text fw="bold" span>
+							{props.accessLink.name}
+						</Text>
 						<Text size="sm">
 							Created: {dayjsLib(props.accessLink.createdOn).fromNow()}, Times
 							Used: {props.accessLink.timesUsed}
@@ -366,6 +370,12 @@ const CreateAccessLinkModal = (props: {
 						automatically deleted. If none of the below are provided, the link
 						will never expire and have unlimited uses.
 					</Text>
+					<TextInput
+						required
+						label="Name"
+						name="name"
+						description="A descriptive name for this link"
+					/>
 					<DateTimePicker
 						label="Expires at"
 						name="expiresOn"
