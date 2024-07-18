@@ -5782,7 +5782,7 @@ impl MiscellaneousService {
     async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
         let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
-            return Err(Error::new("Only admins can perform this operation."));
+            return Err(Error::new(BackendError::AdminOnlyAction.to_string()));
         }
         Ok(())
     }

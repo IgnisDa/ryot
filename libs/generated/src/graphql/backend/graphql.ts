@@ -69,6 +69,7 @@ export type AuthUserInput = {
 };
 
 export enum BackendError {
+  AdminOnlyAction = 'ADMIN_ONLY_ACTION',
   MutationNotAllowed = 'MUTATION_NOT_ALLOWED',
   NoAuthToken = 'NO_AUTH_TOKEN',
   NoUserId = 'NO_USER_ID',
