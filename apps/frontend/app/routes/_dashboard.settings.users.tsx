@@ -22,7 +22,7 @@ import {
 	unstable_defineLoader,
 } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import { Form, useFetcher, useLoaderData } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserDocument,
 	RegisterErrorVariant,
@@ -32,7 +32,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, randomString, truncate } from "@ryot/ts-utils";
 import { IconPlus, IconRefresh, IconTrash } from "@tabler/icons-react";
-import { forwardRef, useRef, useState } from "react";
+import { forwardRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -41,7 +41,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
-import { useUserDetails } from "~/lib/hooks";
+import { useConfirmSubmit, useUserDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
@@ -208,9 +208,8 @@ export default function Page() {
 
 const UserDisplay = (props: { index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
-	const fetcher = useFetcher<typeof action>();
-	const deleteFormRef = useRef<HTMLFormElement>(null);
 	const user = loaderData.usersList[props.index];
+	const submit = useConfirmSubmit();
 	if (!user) return null;
 
 	return (
@@ -225,26 +224,28 @@ const UserDisplay = (props: { index: number }) => {
 						<Text size="xs">Role: {changeCase(user.lot)}</Text>
 					</Box>
 				</Group>
-				<fetcher.Form
+				<Form
 					method="POST"
-					ref={deleteFormRef}
 					action={withQuery("", { intent: "delete" })}
 					style={{ flex: "none" }}
 				>
 					<input hidden name="toDeleteUserId" defaultValue={user.id} />
 					<ActionIcon
 						color="red"
+						type="submit"
 						variant="outline"
-						onClick={async () => {
+						onClick={async (e) => {
+							const form = e.currentTarget.form;
+							e.preventDefault();
 							const conf = await confirmWrapper({
 								confirmation: "Are you sure you want to delete this user?",
 							});
-							if (conf) fetcher.submit(deleteFormRef.current);
+							if (conf && form) submit(form);
 						}}
 					>
 						<IconTrash size={16} />
 					</ActionIcon>
-				</fetcher.Form>
+				</Form>
 			</Flex>
 		</Paper>
 	);
