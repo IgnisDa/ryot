@@ -361,6 +361,7 @@ impl MediaProvider for NonMediaAnilistService {
                     let title = get_in_preferred_language(
                         title.native,
                         title.english,
+                        title.romaji,
                         &self.base.preferred_language,
                     );
                     (
@@ -392,6 +393,7 @@ impl MediaProvider for NonMediaAnilistService {
                         let title = get_in_preferred_language(
                             title.native,
                             title.english,
+                            title.romaji,
                             &self.base.preferred_language,
                         );
                         (
@@ -636,8 +638,12 @@ async fn media_details(
         .flat_map(|r| {
             r.unwrap().media_recommendation.map(|data| {
                 let title = data.title.unwrap();
-                let title =
-                    get_in_preferred_language(title.native, title.english, &preferred_language);
+                let title = get_in_preferred_language(
+                    title.native,
+                    title.english,
+                    title.romaji,
+                    &preferred_language,
+                );
                 PartialMetadataWithoutId {
                     title,
                     identifier: data.id.to_string(),
@@ -662,7 +668,12 @@ async fn media_details(
         },
     }));
     let title = details.title.unwrap();
-    let title = get_in_preferred_language(title.native, title.english, &preferred_language);
+    let title = get_in_preferred_language(
+        title.native,
+        title.english,
+        title.romaji,
+        &preferred_language,
+    );
     Ok(MediaDetails {
         title,
         identifier: details.id.to_string(),
@@ -732,7 +743,12 @@ async fn search(
         .flatten()
         .map(|b| {
             let title = b.title.unwrap();
-            let title = get_in_preferred_language(title.native, title.english, &preferred_language);
+            let title = get_in_preferred_language(
+                title.native,
+                title.english,
+                title.romaji,
+                &preferred_language,
+            );
             MetadataSearchItem {
                 identifier: b.id.to_string(),
                 title,
@@ -749,6 +765,7 @@ async fn search(
 fn get_in_preferred_language(
     native: Option<String>,
     english: Option<String>,
+    romaji: Option<String>,
     preferred_language: &AnilistPreferredLanguage,
 ) -> String {
     let title = if prefer_english {
