@@ -6,7 +6,6 @@ import {
 	Stack,
 	Tabs,
 	TextInput,
-	Title,
 } from "@mantine/core";
 import { unstable_defineAction } from "@remix-run/node";
 import { Form } from "@remix-run/react";
@@ -73,7 +72,6 @@ export default function Page() {
 				<Box mt="md">
 					<Tabs.Panel value="profile">
 						<Stack>
-							<Title>Profile</Title>
 							<Form
 								method="POST"
 								action={withQuery(".", { intent: "updateProfile" })}
@@ -135,7 +133,6 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">
 						<Stack>
-							<Title>Sharing</Title>
 							<ProRequiredAlert tooltipLabel="Allow others to see your favorite media without signing up" />
 						</Stack>
 					</Tabs.Panel>
