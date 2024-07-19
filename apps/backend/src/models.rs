@@ -1648,8 +1648,9 @@ pub mod fitness {
     )]
     #[serde(rename_all = "snake_case")]
     pub struct WorkoutInformation {
-        pub exercises: Vec<ProcessedExercise>,
         pub assets: EntityAssets,
+        pub comment: Option<String>,
+        pub exercises: Vec<ProcessedExercise>,
     }
 
     /// The summary about an exercise done in a workout.

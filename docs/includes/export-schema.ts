@@ -271,6 +271,7 @@ export interface ProcessedExercise {
 /** Information about a workout done. */
 export interface WorkoutInformation {
 	assets: EntityAssets;
+	comment: string | null;
 	exercises: ProcessedExercise[];
 }
 
@@ -289,7 +290,6 @@ export interface WorkoutSummary {
 
 /** A workout that was completed by the user. */
 export interface Workout {
-	comment: string | null;
 	end_time: string;
 	id: string;
 	information: WorkoutInformation;

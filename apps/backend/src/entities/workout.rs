@@ -34,12 +34,14 @@ pub struct Model {
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,
     pub name: String,
-    pub comment: Option<String>,
 }
 
 #[async_trait]
 impl GraphqlRepresentation for Model {
-    async fn graphql_representation(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
+    async fn graphql_representation(
+        self,
+        file_storage_service: &Arc<FileStorageService>,
+    ) -> Result<Self> {
         let mut cnv_workout = self.clone();
         for image in cnv_workout.information.assets.images.iter_mut() {
             *image = file_storage_service.get_presigned_url(image.clone()).await;

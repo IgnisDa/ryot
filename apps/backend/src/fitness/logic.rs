@@ -305,7 +305,6 @@ impl UserWorkoutInput {
             repeated_from: input.repeated_from,
             user_id: user_id.clone(),
             name: input.name,
-            comment: input.comment,
             summary: WorkoutSummary {
                 total: summary_total,
                 exercises: exercises
@@ -319,6 +318,7 @@ impl UserWorkoutInput {
                     .collect(),
             },
             information: WorkoutInformation {
+                comment: input.comment,
                 assets: input.assets.clone(),
                 exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
             },

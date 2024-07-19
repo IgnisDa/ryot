@@ -829,12 +829,13 @@ impl ExerciseService {
 
     pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
         UserWorkoutInput {
-            id: Some(user_workout.id),
             name: user_workout.name,
-            comment: user_workout.comment,
-            start_time: user_workout.start_time,
-            repeated_from: user_workout.repeated_from,
+            id: Some(user_workout.id),
             end_time: user_workout.end_time,
+            start_time: user_workout.start_time,
+            assets: user_workout.information.assets,
+            repeated_from: user_workout.repeated_from,
+            comment: user_workout.information.comment,
             exercises: user_workout
                 .information
                 .exercises
@@ -857,7 +858,6 @@ impl ExerciseService {
                     superset_with: e.superset_with,
                 })
                 .collect(),
-            assets: user_workout.information.assets,
         }
     }
 
