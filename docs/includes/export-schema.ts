@@ -238,9 +238,9 @@ export interface WorkoutSetRecord {
 	confirmed_at: string | null;
 	lot: SetLot;
 	note: string | null;
-	personal_bests: WorkoutSetPersonalBest[];
+	personal_bests: WorkoutSetPersonalBest[] | null;
 	statistic: WorkoutSetStatistic;
-	totals?: WorkoutSetTotals;
+	totals?: WorkoutSetTotals | null;
 }
 
 /** The totals of a workout and the different bests achieved. */
@@ -257,7 +257,7 @@ export interface WorkoutOrExerciseTotals {
 
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
-	assets: EntityAssets;
+	assets: EntityAssets | null;
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];
@@ -270,7 +270,7 @@ export interface ProcessedExercise {
 
 /** Information about a workout done. */
 export interface WorkoutInformation {
-	assets: EntityAssets;
+	assets: EntityAssets | null;
 	comment: string | null;
 	exercises: ProcessedExercise[];
 }

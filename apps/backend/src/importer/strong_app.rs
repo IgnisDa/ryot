@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     importer::{utils, DeployStrongAppImportInput, ImportResult},
     models::fitness::{
-        EntityAssets, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
-        WorkoutSetStatistic,
+        SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
     },
 };
 
@@ -99,8 +98,8 @@ pub async fn import(
                 exercise_id: target_exercise.target_name.clone(),
                 sets,
                 notes,
+                assets: None,
                 rest_time: None,
-                assets: EntityAssets::default(),
                 superset_with: vec![],
             });
             sets = vec![];
@@ -130,7 +129,7 @@ pub async fn import(
                 start_time: ndt,
                 end_time: ndt + workout_duration,
                 exercises,
-                assets: EntityAssets::default(),
+                assets: None,
             });
             exercises = vec![];
         }
