@@ -147,11 +147,15 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		})
 		.with(Action.CreateTemplate, async () => {})
 		.exhaustive();
-	return { isCreatingTemplate: action === Action.CreateTemplate };
+	return { action, isCreatingTemplate: action === Action.CreateTemplate };
 });
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: "Current Workout | Ryot" }];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [
+		{
+			title: `${data?.action === Action.LogWorkout ? "Current Workout" : "Create Template"} | Ryot`,
+		},
+	];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
