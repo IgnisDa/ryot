@@ -1730,9 +1730,9 @@ pub mod fitness {
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct UserWorkoutInput {
-        #[graphql(skip_input)]
         pub name: String,
         // If specified, the workout will be created with this ID.
+        #[graphql(skip_input)]
         pub id: Option<String>,
         pub end_time: DateTimeUtc,
         pub comment: Option<String>,

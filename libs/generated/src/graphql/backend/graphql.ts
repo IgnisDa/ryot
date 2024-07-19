@@ -2307,7 +2307,7 @@ export type UserWorkoutInput = {
   comment?: InputMaybe<Scalars['String']['input']>;
   endTime: Scalars['DateTime']['input'];
   exercises: Array<UserExerciseInput>;
-  id?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
   repeatedFrom?: InputMaybe<Scalars['String']['input']>;
   startTime: Scalars['DateTime']['input'];
 };
