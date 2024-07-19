@@ -146,7 +146,7 @@ export const DisplaySet = (props: {
 						.with(SetLot.Normal, () => props.idx + 1)
 						.otherwise(() => props.set.lot.at(0))}
 				</Text>
-				{props.set.personalBests.length > 0 ? (
+				{props.set.personalBests && props.set.personalBests.length > 0 ? (
 					<Popover position="left" withArrow shadow="md" opened={opened}>
 						<Popover.Target>
 							<ActionIcon

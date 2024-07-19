@@ -478,7 +478,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						{props.exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
 					</Text>
 				))}
-				{props.exercise.assets.images.length > 0 ? (
+				{props.exercise.assets && props.exercise.assets.images.length > 0 ? (
 					<Avatar.Group>
 						{props.exercise.assets.images.map((i) => (
 							<Anchor key={i} href={i} target="_blank">
