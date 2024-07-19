@@ -157,6 +157,7 @@ export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = workout.name;
 	inProgress.repeatedFrom = workout.id;
+	inProgress.comment = workout.information.comment || undefined;
 	for (const [_exerciseIdx, ex] of workout.information.exercises.entries()) {
 		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
