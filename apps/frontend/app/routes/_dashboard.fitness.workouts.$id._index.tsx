@@ -328,12 +328,12 @@ export default function Page() {
 							) : null}
 						</SimpleGrid>
 					</Box>
-					{loaderData.workoutDetails.comment ? (
+					{loaderData.workoutDetails.information.comment ? (
 						<Box>
 							<Text c="dimmed" span>
 								Commented:{" "}
 							</Text>
-							<Text span>{loaderData.workoutDetails.comment}</Text>
+							<Text span>{loaderData.workoutDetails.information.comment}</Text>
 						</Box>
 					) : null}
 					{loaderData.workoutDetails.information.exercises.length > 0 ? (
