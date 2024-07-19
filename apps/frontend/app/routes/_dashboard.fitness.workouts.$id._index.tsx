@@ -278,55 +278,59 @@ export default function Page() {
 						<Text span>
 							{dayjsLib(loaderData.workoutDetails.startTime).format("LLL")}
 						</Text>
-						<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
-							<DisplayStat
-								icon={<IconClock size={16} />}
-								data={humanizeDuration(
-									new Date(loaderData.workoutDetails.endTime).valueOf() -
-										new Date(loaderData.workoutDetails.startTime).valueOf(),
-									{ round: true, units: ["h", "m"] },
-								)}
-							/>
-							{Number(loaderData.workoutDetails.summary.total.weight) !== 0 ? (
+						{loaderData.workoutDetails.summary.total ? (
+							<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
 								<DisplayStat
-									icon={<IconWeight size={16} />}
-									data={displayWeightWithUnit(
-										unitSystem,
-										loaderData.workoutDetails.summary.total.weight,
-									)}
-								/>
-							) : null}
-							{Number(loaderData.workoutDetails.summary.total.distance) > 0 ? (
-								<DisplayStat
-									icon={<IconRun size={16} />}
-									data={displayDistanceWithUnit(
-										unitSystem,
-										loaderData.workoutDetails.summary.total.distance,
-									)}
-								/>
-							) : null}
-							<DisplayStat
-								icon={<IconBarbell size={16} />}
-								data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
-							/>
-							{Number(
-								loaderData.workoutDetails.summary.total.personalBestsAchieved,
-							) !== 0 ? (
-								<DisplayStat
-									icon={<IconTrophy size={16} />}
-									data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved} PRs`}
-								/>
-							) : null}
-							{loaderData.workoutDetails.summary.total.restTime > 0 ? (
-								<DisplayStat
-									icon={<IconZzz size={16} />}
+									icon={<IconClock size={16} />}
 									data={humanizeDuration(
-										loaderData.workoutDetails.summary.total.restTime * 1e3,
-										{ round: true, units: ["m", "s"] },
+										new Date(loaderData.workoutDetails.endTime).valueOf() -
+											new Date(loaderData.workoutDetails.startTime).valueOf(),
+										{ round: true, units: ["h", "m"] },
 									)}
 								/>
-							) : null}
-						</SimpleGrid>
+								{Number(loaderData.workoutDetails.summary.total.weight) !==
+								0 ? (
+									<DisplayStat
+										icon={<IconWeight size={16} />}
+										data={displayWeightWithUnit(
+											unitSystem,
+											loaderData.workoutDetails.summary.total.weight,
+										)}
+									/>
+								) : null}
+								{Number(loaderData.workoutDetails.summary.total.distance) >
+								0 ? (
+									<DisplayStat
+										icon={<IconRun size={16} />}
+										data={displayDistanceWithUnit(
+											unitSystem,
+											loaderData.workoutDetails.summary.total.distance,
+										)}
+									/>
+								) : null}
+								<DisplayStat
+									icon={<IconBarbell size={16} />}
+									data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
+								/>
+								{Number(
+									loaderData.workoutDetails.summary.total.personalBestsAchieved,
+								) !== 0 ? (
+									<DisplayStat
+										icon={<IconTrophy size={16} />}
+										data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved} PRs`}
+									/>
+								) : null}
+								{loaderData.workoutDetails.summary.total.restTime > 0 ? (
+									<DisplayStat
+										icon={<IconZzz size={16} />}
+										data={humanizeDuration(
+											loaderData.workoutDetails.summary.total.restTime * 1e3,
+											{ round: true, units: ["m", "s"] },
+										)}
+									/>
+								) : null}
+							</SimpleGrid>
+						) : null}
 					</Box>
 					{loaderData.workoutDetails.information.comment ? (
 						<Box>

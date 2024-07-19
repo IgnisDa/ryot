@@ -303,7 +303,7 @@ impl UserWorkoutInput {
                 },
             ));
         }
-        let summary_total = workout_totals.into_iter().sum();
+        let summary_total = Some(workout_totals.into_iter().sum());
         let model = workout::Model {
             id,
             end_time: input.end_time,
