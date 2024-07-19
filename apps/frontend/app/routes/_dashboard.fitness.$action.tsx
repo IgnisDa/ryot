@@ -991,10 +991,11 @@ const ExerciseDisplay = (props: {
 							</Menu.Item>
 							<Menu.Item
 								leftSection={<IconPhoto size={14} />}
+								onClick={assetsModalToggle}
 								rightSection={
 									exercise.images.length > 0 ? exercise.images.length : null
 								}
-								onClick={assetsModalToggle}
+								style={isCreatingTemplate ? { display: "none" } : undefined}
 							>
 								Images
 							</Menu.Item>
