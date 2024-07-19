@@ -11,7 +11,6 @@ pub enum Workout {
     Id,
     UserId,
     Name,
-    Comment,
     StartTime,
     EndTime,
     /// General information like total weights lifted, number of records etc.
@@ -47,7 +46,6 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Workout::Name).text().not_null())
-                    .col(ColumnDef::new(Workout::Comment).text())
                     .col(ColumnDef::new(Workout::RepeatedFrom).text())
                     .col(ColumnDef::new(Workout::UserId).text().not_null())
                     .foreign_key(
