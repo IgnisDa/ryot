@@ -4,7 +4,6 @@ import {
 	ActionIcon,
 	Anchor,
 	Avatar,
-	Badge,
 	Box,
 	Button,
 	Container,
@@ -14,7 +13,6 @@ import {
 	Menu,
 	Modal,
 	Paper,
-	Popover,
 	ScrollArea,
 	SimpleGrid,
 	Stack,
@@ -29,13 +27,11 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
-	type ExerciseLot,
-	SetLot,
 	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration, startCase } from "@ryot/ts-utils";
+import { humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconClock,
@@ -53,20 +49,18 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
-import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
-	DisplaySetStatistics,
+	DisplaySet,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { dayjsLib, getSetColor } from "~/lib/generals";
+import { dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
-	useGetMantineColor,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -494,81 +488,15 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 					</Avatar.Group>
 				) : null}
 			</Stack>
-			{props.exercise.sets.map((s, idx) => (
+			{props.exercise.sets.map((set, idx) => (
 				<DisplaySet
-					key={s.confirmedAt}
-					set={s}
+					set={set}
 					idx={idx}
+					key={set.confirmedAt}
 					exerciseLot={props.exercise.lot}
 				/>
 			))}
 		</Paper>
-	);
-};
-
-type Set = Exercise["sets"][number];
-
-const DisplaySet = (props: {
-	set: Set;
-	idx: number;
-	exerciseLot: ExerciseLot;
-}) => {
-	const getMantineColor = useGetMantineColor();
-	const [opened, { close, open }] = useDisclosure(false);
-
-	return (
-		<Box key={`${props.idx}`} mb={props.set.note ? 6 : 2}>
-			<Flex align="center">
-				<Text
-					fz="sm"
-					c={getSetColor(props.set.lot)}
-					mr="md"
-					fw="bold"
-					ff="monospace"
-				>
-					{match(props.set.lot)
-						.with(SetLot.Normal, () => props.idx + 1)
-						.otherwise(() => props.set.lot.at(0))}
-				</Text>
-				{props.set.personalBests.length > 0 ? (
-					<Popover position="left" withArrow shadow="md" opened={opened}>
-						<Popover.Target>
-							<ActionIcon
-								onMouseEnter={open}
-								onMouseLeave={close}
-								variant="transparent"
-								color="grape"
-							>
-								<IconTrophy size={18} />
-							</ActionIcon>
-						</Popover.Target>
-						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
-							<Flex>
-								{props.set.personalBests.map((pb) => (
-									<Badge
-										key={pb}
-										variant="light"
-										size="xs"
-										color={getMantineColor(pb)}
-									>
-										{startCase(pb)}
-									</Badge>
-								))}
-							</Flex>
-						</Popover.Dropdown>
-					</Popover>
-				) : null}
-				<DisplaySetStatistics
-					lot={props.exerciseLot}
-					statistic={props.set.statistic}
-				/>
-			</Flex>
-			{props.set.note ? (
-				<Text c="dimmed" size="xs">
-					{props.set.note}
-				</Text>
-			) : null}
-		</Box>
 	);
 };
 
