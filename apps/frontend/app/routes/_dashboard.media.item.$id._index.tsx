@@ -1376,8 +1376,7 @@ const HistoryItem = (props: {
 		}, 500);
 	};
 	const displayShowExtraInformation = showExtraInformation
-		? `S${props.history.showExtraInformation?.season}-E
-			${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
+		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
 	const podcastExtraInformation = props.history.podcastExtraInformation
 		? loaderData.metadataDetails.podcastSpecifics?.episodes.find(

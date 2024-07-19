@@ -3,6 +3,7 @@ import {
 	ActionIcon,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Flex,
 	Group,
@@ -105,6 +106,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				formData,
 				createAccessLinkFormSchema,
 			);
+			submission.isMutationAllowed = submission.isMutationAllowed === true;
 			await serverGqlService.authenticatedRequest(
 				request,
 				CreateAccessLinkDocument,
@@ -135,6 +137,7 @@ const createAccessLinkFormSchema = z.object({
 	name: z.string(),
 	expiresOn: z.string().optional(),
 	maximumUses: zx.IntAsString.optional(),
+	isMutationAllowed: zx.CheckboxAsString.optional(),
 });
 
 export default function Page() {
@@ -271,6 +274,7 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 		isNumber(props.accessLink.maximumUses)
 			? `Maximum uses: ${props.accessLink.maximumUses}`
 			: null,
+		props.accessLink.isMutationAllowed ? "Mutation allowed" : null,
 	]
 		.filter(isString)
 		.join(", ");
@@ -392,6 +396,11 @@ const CreateAccessLinkModal = (props: {
 						label="Maximum uses"
 						name="maximumUses"
 						description="This link will become invalid after this number of uses"
+					/>
+					<Checkbox
+						label="Allow mutation"
+						name="isMutationAllowed"
+						description="Users will be able to change your data if this is checked"
 					/>
 					<Button type="submit">Submit</Button>
 				</Stack>

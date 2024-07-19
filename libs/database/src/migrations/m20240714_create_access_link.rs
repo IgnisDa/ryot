@@ -12,6 +12,7 @@ pub enum AccessLink {
     UserId,
     CreatedOn,
     Name,
+    IsMutationAllowed,
     IssuedTokens,
     // The maximum number of times this link can be used to generate a token
     MaximumUses,
@@ -58,6 +59,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(AccessLink::IsRevoked).boolean())
                     .col(ColumnDef::new(AccessLink::UserId).text().not_null())
                     .col(ColumnDef::new(AccessLink::Name).text().not_null())
+                    .col(ColumnDef::new(AccessLink::IsMutationAllowed).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("access_link_to_user_foreign_key")

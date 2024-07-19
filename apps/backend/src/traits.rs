@@ -132,16 +132,7 @@ pub trait AuthProvider {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
         if let Some(auth_token) = &auth_ctx.auth_token {
             let service = ctx.data_unchecked::<Arc<MiscellaneousService>>();
-            if service.is_auth_token_invalid(auth_token).await? {
-                return Err(Error::new("SESSION_EXPIRED".to_owned()));
-            }
-            if self.is_mutation()
-                && !service
-                    .is_token_allowed_to_perform_mutation(auth_token)
-                    .await?
-            {
-                return Err(Error::new("MUTATION_NOT_ALLOWED".to_owned()));
-            }
+            service.check_token(auth_token, self.is_mutation()).await?;
         }
         auth_ctx
             .user_id

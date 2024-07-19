@@ -743,6 +743,7 @@ struct CreateAccessLinkInput {
     name: String,
     maximum_uses: Option<i32>,
     expires_on: Option<DateTimeUtc>,
+    is_mutation_allowed: Option<bool>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -4697,14 +4698,12 @@ impl MiscellaneousService {
         }
     }
 
+    /// If the token has an access link, then checks that:
+    /// - the access link is not revoked
+    /// - if the operation is a mutation, then the access link allows mutations
+    /// If any of the above conditions are not met, then an error is returned.
     #[inline]
-    pub async fn is_token_allowed_to_perform_mutation(&self, token: &str) -> Result<bool> {
-        let claims = user_claims_from_token(token, &self.config.users.jwt_secret)?;
-        Ok(claims.access_link_id.is_none())
-    }
-
-    #[inline]
-    pub async fn is_auth_token_invalid(&self, token: &str) -> Result<bool> {
+    pub async fn check_token(&self, token: &str, is_mutation: bool) -> Result<bool> {
         let claims = user_claims_from_token(token, &self.config.users.jwt_secret)?;
         if let Some(access_link_id) = claims.access_link_id {
             let access_link = AccessLink::find_by_id(access_link_id)
@@ -4712,10 +4711,18 @@ impl MiscellaneousService {
                 .await?
                 .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
             if access_link.is_revoked.unwrap_or_default() {
+                return Err(Error::new(BackendError::SessionExpired.to_string()));
+            }
+            if is_mutation {
+                if !access_link.is_mutation_allowed.unwrap_or_default() {
+                    return Err(Error::new(BackendError::MutationNotAllowed.to_string()));
+                }
                 return Ok(true);
             }
+            Ok(true)
+        } else {
+            Ok(true)
         }
-        Ok(false)
     }
 
     async fn latest_user_summary(&self, user_id: &String) -> Result<user_summary::Model> {
@@ -7337,6 +7344,7 @@ GROUP BY "m"."id";
             name: ActiveValue::Set(input.name),
             expires_on: ActiveValue::Set(input.expires_on),
             maximum_uses: ActiveValue::Set(input.maximum_uses),
+            is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
             ..Default::default()
         };
         let link = new_link.insert(&self.db).await?;

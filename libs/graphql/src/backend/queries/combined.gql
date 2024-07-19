@@ -146,5 +146,6 @@ query UserAccessLinks {
     timesUsed
     isRevoked
     maximumUses
+    isMutationAllowed
   }
 }

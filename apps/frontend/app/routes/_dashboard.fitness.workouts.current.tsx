@@ -1429,19 +1429,17 @@ const SetDisplay = (props: {
 											const nextExercise = draft.exercises[nextExerciseIdx];
 											if (newConfirmed && isLastSet) {
 												currentExercise.isShowDetailsOpen = false;
+												const nextExerciseHasDetailsToShow =
+													nextExercise &&
+													exerciseHasDetailsToShow(nextExercise);
+												if (nextExerciseHasDetailsToShow)
+													nextExercise.isShowDetailsOpen = true;
 												setTimeout(() => {
-													const nextExerciseElement = document.getElementById(
+													const exerciseElem = document.getElementById(
 														nextExerciseIdx.toString(),
 													);
-													nextExerciseElement?.scrollIntoView({
-														behavior: "smooth",
-													});
+													exerciseElem?.scrollIntoView({ behavior: "smooth" });
 												}, 800);
-												if (
-													nextExercise &&
-													exerciseHasDetailsToShow(nextExercise)
-												)
-													nextExercise.isShowDetailsOpen = true;
 											}
 										}),
 									);

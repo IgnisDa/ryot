@@ -89,10 +89,10 @@ import {
 	IconClock,
 	IconDeviceSpeaker,
 	IconDeviceTv,
+	IconEyeglass,
 	IconHome2,
 	IconLogout,
 	IconMoon,
-	IconPencilCancel,
 	IconPercentage,
 	IconSettings,
 	IconStretching,
@@ -544,11 +544,9 @@ export default function Layout() {
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
 						{loaderData.isAccessLinkSession ? (
-							<Tooltip
-								label={`You are viewing ${userDetails.name}'s data. All mutations will be blocked.`}
-							>
-								<Button leftSection={<IconPencilCancel />} disabled>
-									Readonly
+							<Tooltip label={`You are viewing ${userDetails.name}'s data.`}>
+								<Button leftSection={<IconEyeglass />} disabled>
+									Visitor
 								</Button>
 							</Tooltip>
 						) : null}
