@@ -146,7 +146,7 @@ impl ExporterService {
         writer.end_object().unwrap();
         writer.finish_document().unwrap();
         let ended_at = Utc::now();
-        let (_, url) = self
+        let (_key, url) = self
             .file_storage_service
             .get_presigned_put_url(
                 export_path
@@ -155,7 +155,7 @@ impl ExporterService {
                     .to_str()
                     .unwrap()
                     .to_string(),
-                format!("exports/user__{}", user_id),
+                format!("exports/{}", user_id),
                 false,
                 Some(HashMap::from([
                     ("started_at".to_string(), started_at.to_rfc2822()),
@@ -171,7 +171,7 @@ impl ExporterService {
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
         let client = Client::new();
-        client
+        let resp = client
             .put(url)
             .header("x-amz-meta-started_at", started_at.to_rfc2822())
             .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
@@ -193,7 +193,7 @@ impl ExporterService {
         let mut resp = vec![];
         let objects = self
             .file_storage_service
-            .list_objects_at_prefix(format!("exports/user__{}", user_id))
+            .list_objects_at_prefix(format!("exports/{}", user_id))
             .await;
         for object in objects {
             let url = self
