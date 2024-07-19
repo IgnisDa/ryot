@@ -46,7 +46,7 @@ import {
 	unstable_defineAction,
 	unstable_defineLoader,
 } from "@remix-run/node";
-import { Link, useFetcher, useNavigate } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
@@ -131,11 +131,12 @@ const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
 enum Action {
 	LogWorkout = "log-workout",
+	CreateTemplate = "create-template",
 }
 
 export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
-	return match(action)
+	await match(action)
 		.with(Action.LogWorkout, async () => {
 			const inProgress = isWorkoutActive(request);
 			if (!inProgress)
@@ -143,9 +144,10 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 					type: "error",
 					message: "No workout in progress",
 				});
-			return {};
 		})
+		.with(Action.CreateTemplate, async () => {})
 		.exhaustive();
+	return { isCreatingTemplate: action === Action.CreateTemplate };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -185,6 +187,7 @@ const deleteUploadedAsset = (key: string) => {
 };
 
 export default function Page() {
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const events = useApplicationEvents();
@@ -299,11 +302,15 @@ export default function Page() {
 									<DurationTimer startTime={currentWorkout.startTime} />
 									<StatDisplay
 										name="Exercises"
-										value={`${
-											currentWorkout.exercises
-												.map((e) => e.sets.every((s) => s.confirmedAt))
-												.filter(Boolean).length
-										}/${currentWorkout.exercises.length}`}
+										value={
+											isCreatingTemplate
+												? currentWorkout.exercises.length.toString()
+												: `${
+														currentWorkout.exercises
+															.map((e) => e.sets.every((s) => s.confirmedAt))
+															.filter(Boolean).length
+													}/${currentWorkout.exercises.length}`
+										}
 									/>
 									<StatDisplay
 										name="Weight"
@@ -313,7 +320,7 @@ export default function Page() {
 												currentWorkout.exercises
 													.flatMap((e) => e.sets)
 													.flatMap((s) =>
-														s.confirmedAt
+														isCreatingTemplate || s.confirmedAt
 															? Number(s.statistic.reps || 0) *
 																Number(s.statistic.weight || 0)
 															: 0,
@@ -326,7 +333,9 @@ export default function Page() {
 										value={sum(
 											currentWorkout.exercises
 												.flatMap((e) => e.sets)
-												.flatMap((s) => (s.confirmedAt ? 1 : 0)),
+												.flatMap((s) =>
+													isCreatingTemplate || s.confirmedAt ? 1 : 0,
+												),
 										).toString()}
 									/>
 								</Group>
@@ -334,16 +343,18 @@ export default function Page() {
 								<SimpleGrid
 									cols={
 										2 +
+										(isCreatingTemplate ? -1 : 0) +
 										Number(currentWorkout.exercises.length > 0) +
 										Number(currentWorkout.exercises.length > 1)
 									}
 								>
 									<Button
+										radius="md"
 										color="orange"
 										variant="subtle"
-										onClick={timerDrawerToggle}
-										radius="md"
 										size="compact-sm"
+										onClick={timerDrawerToggle}
+										style={isCreatingTemplate ? { display: "none" } : undefined}
 									>
 										{currentTimer
 											? dayjsLib
@@ -456,9 +467,12 @@ export default function Page() {
 								<Group justify="center">
 									{userPreferences.featuresEnabled.fitness.measurements ? (
 										<Button
-											variant="subtle"
 											color="teal"
+											variant="subtle"
 											onClick={() => setMeasurementsDrawerOpen(true)}
+											style={
+												isCreatingTemplate ? { display: "none" } : undefined
+											}
 										>
 											Add measurement
 										</Button>
@@ -482,13 +496,17 @@ export default function Page() {
 	);
 }
 
-const StatDisplay = (props: { name: string; value: string }) => {
+const StatDisplay = (props: {
+	name: string;
+	value: string;
+	isHidden?: boolean;
+}) => {
 	return (
-		<Box mx="auto">
+		<Box mx="auto" style={props.isHidden ? { display: "none" } : undefined}>
 			<Text ta="center" fz={{ md: "xl" }}>
 				{props.value}
 			</Text>
-			<Text c="dimmed" size="sm">
+			<Text c="dimmed" size="sm" ta="center">
 				{props.name}
 			</Text>
 		</Box>
@@ -503,6 +521,7 @@ const offsetDate = (startTime: string) => {
 const DurationTimer = ({ startTime }: { startTime: string }) => {
 	const [seconds, setSeconds] = useState(offsetDate(startTime));
 	const interval = useInterval(() => setSeconds((s) => s + 1), 1000);
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 
 	useEffect(() => {
 		interval.start();
@@ -516,6 +535,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 		<StatDisplay
 			name="Duration"
 			value={dayjsLib.duration(seconds * 1000).format(format)}
+			isHidden={isCreatingTemplate}
 		/>
 	);
 };
@@ -677,6 +697,7 @@ const ExerciseDisplay = (props: {
 	openTimerDrawer: () => void;
 	stopTimer: () => void;
 }) => {
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -1024,7 +1045,11 @@ const ExerciseDisplay = (props: {
 							<Text size="xs" w="5%" ta="center">
 								SET
 							</Text>
-							<Text size="xs" w={`${85 / toBeDisplayedColumns}%`} ta="center">
+							<Text
+								size="xs"
+								w={`${(isCreatingTemplate ? 95 : 85) / toBeDisplayedColumns}%`}
+								ta="center"
+							>
 								PREVIOUS
 							</Text>
 							{durationCol ? (
@@ -1057,7 +1082,10 @@ const ExerciseDisplay = (props: {
 									REPS
 								</Text>
 							) : null}
-							<Box w="10%" />
+							<Box
+								w="10%"
+								style={isCreatingTemplate ? { display: "none" } : undefined}
+							/>
 						</Flex>
 						{exercise.sets.map((_, idx) => (
 							<SetDisplay
@@ -1111,6 +1139,7 @@ const SetDisplay = (props: {
 	startTimer: FuncStartTimer;
 	toBeDisplayedColumns: number;
 }) => {
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
@@ -1188,7 +1217,10 @@ const SetDisplay = (props: {
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
-				<Box w={`${85 / props.toBeDisplayedColumns}%`} ta="center">
+				<Box
+					w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
+					ta="center"
+				>
 					{exercise.alreadyDoneSets[props.setIdx] ? (
 						<Box
 							onClick={() => {
@@ -1245,7 +1277,11 @@ const SetDisplay = (props: {
 						stat="reps"
 					/>
 				) : null}
-				<Group w="10%" justify="center">
+				<Group
+					w="10%"
+					justify="center"
+					style={isCreatingTemplate ? { display: "none" } : undefined}
+				>
 					<Transition
 						mounted
 						transition={{
