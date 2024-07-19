@@ -302,7 +302,7 @@ pub struct FrontendUmamiConfig {
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_")]
 pub struct FrontendConfig {
     /// Used as the base URL when generating item links for the frontend.
-    #[setting(default = "https://app.ryot.io")]
+    #[setting(default = "https://pro.ryot.io")]
     pub url: String,
     /// The number of items to display in a list view.
     #[setting(default = 20)]

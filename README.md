@@ -24,7 +24,7 @@
     <a href="https://ryot.io/features" target="_blank">Pro features</a> •
     <a href="https://docs.ryot.io" target="_blank">Installation</a> •
     <a href="https://docs.ryot.io/configuration" target="_blank">Configuration</a> •
-    <a href="https://app.ryot.io" target="_blank">Hosted version</a>
+    <a href="https://pro.ryot.io/_s/acl_vUMPnPirkHlT" target="_blank">Hosted version</a>
 </p>
 
 <br/>
@@ -32,24 +32,18 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
-## IMPORTANT NOTE FOR `v5.*` USERS
-
-If you were using `v5.*` of Ryot, please read the
-[migration guide](https://docs.ryot.io/migration#from-v5-to-v6) for instructions.
-
 ## Pro version
 
 Ryot is available in two versions - community and pro. The pro version has additional
-features like recommendations, supercharged collections etc. Learn more about the pro
-version [here](https://ryot.io/features).
+features like profile sharing, recommendations, supercharged collections etc. Learn more
+about the pro version [here](https://ryot.io/features).
 
 ## 💻 Demo
 
-You can use the demo account on the Ryot website. Login with the username `demo` and
-password `demo-password`. This instance is automatically deployed from the latest release.
+You can use the demo account on the pro instance using [this
+link](https://pro.ryot.io/_s/acl_vUMPnPirkHlT).
 
-**NOTE**: The data in this demo account is not recommended to be used for any production
-usage. Please create a new account for that.
+**NOTE**: The data in this demo account is reset every 24 hours.
 
 ## 📝 ELI5
 
