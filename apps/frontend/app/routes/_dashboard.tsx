@@ -376,7 +376,8 @@ export default function Layout() {
 	return (
 		<>
 			{loaderData.workoutInProgress &&
-			location.pathname !== $path("/fitness/workouts/current") ? (
+			location.pathname !==
+				$path("/fitness/:action", { action: "log-workout" }) ? (
 				<Tooltip label="You have an active workout" position="left">
 					<Affix
 						position={{
@@ -395,7 +396,9 @@ export default function Layout() {
 							color="orange"
 							radius="xl"
 							size="xl"
-							onClick={() => navigate($path("/fitness/workouts/current"))}
+							onClick={() =>
+								navigate($path("/fitness/:action", { action: "log-workout" }))
+							}
 						>
 							<IconStretching size={32} />
 						</ActionIcon>

@@ -89,6 +89,8 @@ import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplaySetStatistics,
@@ -127,14 +129,23 @@ import {
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
-	const inProgress = isWorkoutActive(request);
-	if (!inProgress)
-		throw await redirectWithToast($path("/"), {
-			type: "error",
-			message: "No workout in progress",
-		});
-	return {};
+enum Action {
+	LogWorkout = "log-workout",
+}
+
+export const loader = unstable_defineLoader(async ({ params, request }) => {
+	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	return match(action)
+		.with(Action.LogWorkout, async () => {
+			const inProgress = isWorkoutActive(request);
+			if (!inProgress)
+				throw await redirectWithToast($path("/"), {
+					type: "error",
+					message: "No workout in progress",
+				});
+			return {};
+		})
+		.exhaustive();
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {

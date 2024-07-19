@@ -102,7 +102,7 @@ export const useGetWorkoutStarter = () => {
 			expires: 2,
 			sameSite: "Strict",
 		});
-		navigate($path("/fitness/workouts/current"));
+		navigate($path("/fitness/:action", { action: "log-workout" }));
 	};
 	return fn;
 };

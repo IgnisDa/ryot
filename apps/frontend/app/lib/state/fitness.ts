@@ -223,7 +223,7 @@ export const addExerciseToWorkout = async (
 	setCurrentWorkout(finishedDraft);
 	navigate(
 		withFragment(
-			$path("/fitness/workouts/current"),
+			$path("/fitness/:action", { action: "log-workout" }),
 			idxOfNextExercise.toString(),
 		),
 	);
