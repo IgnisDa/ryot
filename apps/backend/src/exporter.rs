@@ -4,7 +4,10 @@ use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use nanoid::nanoid;
-use reqwest::{Body, Client};
+use reqwest::{
+    header::{CONTENT_LENGTH, CONTENT_TYPE},
+    Body, Client,
+};
 use rs_utils::IsFeatureEnabled;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -168,11 +171,15 @@ impl ExporterService {
             )
             .await;
         let file = File::open(&export_path).await.unwrap();
+        let content_length = file.metadata().await.unwrap().len();
+        let content_type = mime_guess::from_path(&export_path).first_or_octet_stream();
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
         let client = Client::new();
-        let resp = client
+        client
             .put(url)
+            .header(CONTENT_TYPE, content_type.to_string())
+            .header(CONTENT_LENGTH, content_length)
             .header("x-amz-meta-started_at", started_at.to_rfc2822())
             .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
             .header(
