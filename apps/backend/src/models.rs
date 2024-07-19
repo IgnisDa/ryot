@@ -1667,7 +1667,6 @@ pub mod fitness {
     #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummaryExercise {
         pub num_sets: usize,
-        #[serde(alias = "name")]
         pub id: String,
         pub lot: ExerciseLot,
         pub best_set: WorkoutSetRecord,
