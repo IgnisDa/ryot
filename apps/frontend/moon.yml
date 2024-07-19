@@ -1,5 +1,3 @@
-platform: bun
-
 dependsOn:
   - 'assets'
 

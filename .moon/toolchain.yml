@@ -1,7 +1,14 @@
 $schema: "https://moonrepo.dev/schemas/toolchain.json"
 
-bun:
-  version: 1.1.20
+node:
+  version: "20.10.0"
+  packageManager: "yarn"
+  yarn:
+    version: "4.1.1"
+  addEnginesConstraint: true
+  dedupeOnLockfileChange: false
+  inferTasksFromScripts: false
+  syncProjectWorkspaceDependencies: true
 
 typescript:
   createMissingConfig: true
