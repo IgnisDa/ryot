@@ -17,6 +17,7 @@ import {
 	TextInput,
 	ThemeIcon,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
@@ -261,6 +262,7 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 	const [parent] = useAutoAnimate();
 	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 	const submit = useConfirmSubmit();
+	const userDetails = useUserDetails();
 
 	const accessLinkUrl =
 		typeof window !== "undefined"
@@ -308,23 +310,29 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 										name="accessLinkId"
 										defaultValue={props.accessLink.id}
 									/>
-									<ActionIcon
-										type="submit"
-										color="red"
-										variant="subtle"
-										mt={4}
-										onClick={async (e) => {
-											const form = e.currentTarget.form;
-											e.preventDefault();
-											const conf = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to revoke this access link?",
-											});
-											if (conf && form) submit(form);
-										}}
+									<Tooltip
+										label="Can not revoke access links for demo user"
+										disabled={!userDetails.isDemo}
 									>
-										<IconLock />
-									</ActionIcon>
+										<ActionIcon
+											mt={4}
+											color="red"
+											type="submit"
+											variant="subtle"
+											disabled={userDetails.isDemo || undefined}
+											onClick={async (e) => {
+												const form = e.currentTarget.form;
+												e.preventDefault();
+												const conf = await confirmWrapper({
+													confirmation:
+														"Are you sure you want to revoke this access link?",
+												});
+												if (conf && form) submit(form);
+											}}
+										>
+											<IconLock />
+										</ActionIcon>
+									</Tooltip>
 								</Form>
 							</>
 						) : (
@@ -382,19 +390,20 @@ const CreateAccessLinkModal = (props: {
 					</Text>
 					<TextInput
 						required
-						label="Name"
 						name="name"
+						label="Name"
 						description="A descriptive name for this link"
 					/>
 					<DateTimePicker
-						label="Expires at"
+						clearable
 						name="expiresOn"
+						label="Expires at"
 						description="This link will become invalid after this timestamp"
 						defaultValue={defaultExpiresAtValue}
 					/>
 					<NumberInput
-						label="Maximum uses"
 						name="maximumUses"
+						label="Maximum uses"
 						description="This link will become invalid after this number of uses"
 					/>
 					<Checkbox
