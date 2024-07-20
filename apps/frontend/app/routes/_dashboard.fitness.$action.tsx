@@ -153,7 +153,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [
 		{
-			title: `${data?.action === Action.LogWorkout ? "Current Workout" : "Create Template"} | Ryot`,
+			title: `${data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"} | Ryot`,
 		},
 	];
 };
