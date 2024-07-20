@@ -390,11 +390,10 @@ export default function Page() {
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
-														if (!isCreatingTemplate) events.createWorkout();
-														const input =
-															currentWorkoutToCreateWorkoutInput(
-																currentWorkout,
-															);
+														const input = currentWorkoutToCreateWorkoutInput(
+															currentWorkout,
+															isCreatingTemplate,
+														);
 														for (const exercise of currentWorkout.exercises) {
 															queryClient.removeQueries({
 																queryKey:
@@ -405,7 +404,10 @@ export default function Page() {
 														}
 														stopTimer();
 														interval.stop();
-														Cookies.remove(workoutCookieName);
+														if (!isCreatingTemplate) {
+															events.createWorkout();
+															Cookies.remove(workoutCookieName);
+														}
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
 															{

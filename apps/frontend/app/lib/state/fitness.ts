@@ -232,6 +232,7 @@ export const addExerciseToWorkout = async (
 
 export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
+	isCreatingTemplate: boolean,
 ) => {
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
@@ -250,10 +251,13 @@ export const currentWorkoutToCreateWorkoutInput = (
 	for (const exercise of currentWorkout.exercises) {
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
-			if (set.confirmedAt) {
+			if (isCreatingTemplate || set.confirmedAt) {
+				if (Object.keys(set.statistic).length === 0) continue;
 				sets.push({
 					lot: set.lot,
-					confirmedAt: new Date(set.confirmedAt).toISOString(),
+					confirmedAt: set.confirmedAt
+						? new Date(set.confirmedAt).toISOString()
+						: null,
 					statistic: set.statistic,
 				});
 			}
