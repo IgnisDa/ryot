@@ -386,7 +386,7 @@ export default function Page() {
 													}
 													const yes = await confirmWrapper({
 														confirmation: isCreatingTemplate
-															? "Are you sure you want to save this template?"
+															? "Only sets that have data will added. Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
