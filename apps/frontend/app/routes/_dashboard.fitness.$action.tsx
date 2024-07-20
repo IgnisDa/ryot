@@ -400,7 +400,7 @@ export default function Page() {
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
-														events.createWorkout();
+														if (!isCreatingTemplate) events.createWorkout();
 														const input =
 															currentWorkoutToCreateWorkoutInput(
 																currentWorkout,
