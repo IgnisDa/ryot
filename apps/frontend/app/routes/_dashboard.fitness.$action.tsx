@@ -41,11 +41,7 @@ import {
 	useToggle,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
-} from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
@@ -120,7 +116,6 @@ import {
 	useTimerAtom,
 } from "~/lib/state/fitness";
 import {
-	createToastHeaders,
 	isWorkoutActive,
 	redirectWithToast,
 	serverGqlService,
@@ -160,22 +155,17 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
+	const workout = JSON.parse(formData.get("workout") as string);
 	return namedAction(request, {
 		createWorkout: async () => {
-			const workout = JSON.parse(formData.get("workout") as string);
 			const { createUserWorkout } = await serverGqlService.authenticatedRequest(
 				request,
 				CreateUserWorkoutDocument,
 				workout,
 			);
-			return redirect(
+			return redirectWithToast(
 				$path("/fitness/workouts/:id", { id: createUserWorkout }),
-				{
-					headers: await createToastHeaders({
-						message: "Workout completed successfully",
-						type: "success",
-					}),
-				},
+				{ message: "Workout completed successfully", type: "success" },
 			);
 		},
 	});
