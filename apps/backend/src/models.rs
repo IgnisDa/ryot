@@ -1467,6 +1467,7 @@ pub mod fitness {
     }
 
     /// Details about the set performed.
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,
@@ -1591,6 +1592,7 @@ pub mod fitness {
     }
 
     /// An exercise that has been processed and committed to the database.
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,
@@ -1635,6 +1637,7 @@ pub mod fitness {
     }
 
     /// Information about a workout done.
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,
