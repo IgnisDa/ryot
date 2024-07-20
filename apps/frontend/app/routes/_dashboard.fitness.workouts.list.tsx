@@ -32,6 +32,7 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import type { ReactElement } from "react";
+import invariant from "tiny-invariant";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
@@ -223,6 +224,8 @@ const ExerciseDisplay = (props: {
 	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
 }) => {
 	const unitSystem = useUserUnitSystem();
+	invariant(props.exercise.bestSet);
+	invariant(props.exercise.lot);
 	const [stat, _] = getSetStatisticsTextToDisplay(
 		props.exercise.lot,
 		props.exercise.bestSet.statistic,
