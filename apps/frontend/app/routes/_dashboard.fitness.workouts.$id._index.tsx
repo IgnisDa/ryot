@@ -424,43 +424,47 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 									<Text fz="xs">Rest time: {props.exercise.restTime}s</Text>
 								</Flex>
 							) : null}
-							{Number(props.exercise.total.reps) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconRotateClockwise size={14} />
-									<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
-								</Flex>
-							) : null}
-							{Number(props.exercise.total.duration) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconClock size={14} />
-									<Text fz="xs">
-										Duration: {props.exercise.total.duration} min
-									</Text>
-								</Flex>
-							) : null}
-							{Number(props.exercise.total.weight) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconWeight size={14} />
-									<Text fz="xs">
-										Weight:{" "}
-										{displayWeightWithUnit(
-											unitSystem,
-											props.exercise.total.weight,
-										)}
-									</Text>
-								</Flex>
-							) : null}
-							{Number(props.exercise.total.distance) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconRun size={14} />
-									<Text fz="xs">
-										Distance:{" "}
-										{displayDistanceWithUnit(
-											unitSystem,
-											props.exercise.total.distance,
-										)}
-									</Text>
-								</Flex>
+							{props.exercise.total ? (
+								<>
+									{Number(props.exercise.total.reps) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconRotateClockwise size={14} />
+											<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
+										</Flex>
+									) : null}
+									{Number(props.exercise.total.duration) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconClock size={14} />
+											<Text fz="xs">
+												Duration: {props.exercise.total.duration} min
+											</Text>
+										</Flex>
+									) : null}
+									{Number(props.exercise.total.weight) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconWeight size={14} />
+											<Text fz="xs">
+												Weight:{" "}
+												{displayWeightWithUnit(
+													unitSystem,
+													props.exercise.total.weight,
+												)}
+											</Text>
+										</Flex>
+									) : null}
+									{Number(props.exercise.total.distance) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconRun size={14} />
+											<Text fz="xs">
+												Distance:{" "}
+												{displayDistanceWithUnit(
+													unitSystem,
+													props.exercise.total.distance,
+												)}
+											</Text>
+										</Flex>
+									) : null}
+								</>
 							) : null}
 						</SimpleGrid>
 						{exerciseDetails ? (

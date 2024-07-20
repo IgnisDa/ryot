@@ -293,9 +293,9 @@ impl UserWorkoutInput {
                 db_ex.lot,
                 ProcessedExercise {
                     sets,
+                    lot: db_ex.lot,
                     name: db_ex.id,
                     total: Some(total),
-                    lot: Some(db_ex.lot),
                     notes: ex.notes.clone(),
                     rest_time: ex.rest_time,
                     assets: ex.assets.clone(),
