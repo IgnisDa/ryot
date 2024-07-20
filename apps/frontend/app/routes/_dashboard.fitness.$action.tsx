@@ -395,7 +395,6 @@ export default function Page() {
 														return;
 													}
 													const yes = await confirmWrapper({
-														title: "Finish workout",
 														confirmation: isCreatingTemplate
 															? "Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
