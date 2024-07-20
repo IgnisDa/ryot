@@ -390,14 +390,15 @@ export default function Page() {
 													if (!currentWorkout.name) {
 														notifications.show({
 															color: "red",
-															message: "Please give a name to the workout",
+															message: `Please give a name to the ${isCreatingTemplate ? "template" : "workout"}`,
 														});
 														return;
 													}
 													const yes = await confirmWrapper({
 														title: "Finish workout",
-														confirmation:
-															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+														confirmation: isCreatingTemplate
+															? "Are you sure you want to save this template?"
+															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
 														events.createWorkout();
@@ -421,7 +422,9 @@ export default function Page() {
 															{
 																method: "post",
 																action: withQuery(".", {
-																	intent: "createWorkout",
+																	intent: isCreatingTemplate
+																		? "createTemplate"
+																		: "createWorkout",
 																}),
 																encType: "multipart/form-data",
 															},
@@ -440,8 +443,7 @@ export default function Page() {
 										size="compact-sm"
 										onClick={async () => {
 											const yes = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to cancel this workout?",
+												confirmation: `Are you sure you want to cancel this ${isCreatingTemplate ? "template" : "workout"}?`,
 											});
 											if (yes) {
 												for (const e of currentWorkout.exercises) {
@@ -494,7 +496,7 @@ export default function Page() {
 					)}
 				</ClientOnly>
 			) : (
-				<Text>Loading workout...</Text>
+				<Text>Loading {isCreatingTemplate ? "template" : "workout"}...</Text>
 			)}
 		</Container>
 	);
