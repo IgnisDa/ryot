@@ -429,7 +429,7 @@ export default function Page() {
 													}
 												}}
 											>
-												Finish
+												{isCreatingTemplate ? "Save" : "Finish"}
 											</Button>
 										</>
 									) : null}
