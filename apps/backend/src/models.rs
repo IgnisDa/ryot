@@ -1605,14 +1605,14 @@ pub mod fitness {
     #[serde(rename_all = "snake_case")]
     pub struct ProcessedExercise {
         pub name: String,
-        pub lot: ExerciseLot,
-        pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
-        pub total: WorkoutOrExerciseTotals,
-        pub assets: Option<EntityAssets>,
         /// The indices of the exercises with which this has been superset with.
         pub superset_with: Vec<u16>,
+        pub lot: Option<ExerciseLot>,
+        pub sets: Vec<WorkoutSetRecord>,
+        pub assets: Option<EntityAssets>,
+        pub total: Option<WorkoutOrExerciseTotals>,
     }
 
     #[derive(

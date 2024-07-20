@@ -1426,14 +1426,14 @@ export type PresignedPutUrlResponse = {
 /** An exercise that has been processed and committed to the database. */
 export type ProcessedExercise = {
   assets?: Maybe<EntityAssets>;
-  lot: ExerciseLot;
+  lot?: Maybe<ExerciseLot>;
   name: Scalars['String']['output'];
   notes: Array<Scalars['String']['output']>;
   restTime?: Maybe<Scalars['Int']['output']>;
   sets: Array<WorkoutSetRecord>;
   /** The indices of the exercises with which this has been superset with. */
   supersetWith: Array<Scalars['Int']['output']>;
-  total: WorkoutOrExerciseTotals;
+  total?: Maybe<WorkoutOrExerciseTotals>;
 };
 
 export type ProgressUpdateInput = {
@@ -2899,7 +2899,7 @@ export type WorkoutDetailsQueryVariables = Exact<{
 }>;
 
 
-export type WorkoutDetailsQuery = { workoutDetails: { id: string, name: string, endTime: string, startTime: string, repeatedFrom?: string | null, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot?: ExerciseLot | null, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> }, information: { comment?: string | null, assets?: { images: Array<string>, videos: Array<string> } | null, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number }, assets?: { images: Array<string>, videos: Array<string> } | null, sets: Array<{ note?: string | null, lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } };
+export type WorkoutDetailsQuery = { workoutDetails: { id: string, name: string, endTime: string, startTime: string, repeatedFrom?: string | null, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot?: ExerciseLot | null, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> }, information: { comment?: string | null, assets?: { images: Array<string>, videos: Array<string> } | null, exercises: Array<{ name: string, lot?: ExerciseLot | null, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, assets?: { images: Array<string>, videos: Array<string> } | null, sets: Array<{ note?: string | null, lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } };
 
 export type GetOidcRedirectUrlQueryVariables = Exact<{ [key: string]: never; }>;
 

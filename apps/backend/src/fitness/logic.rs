@@ -292,14 +292,14 @@ impl UserWorkoutInput {
             exercises.push((
                 db_ex.lot,
                 ProcessedExercise {
-                    name: db_ex.id,
-                    lot: db_ex.lot,
                     sets,
+                    name: db_ex.id,
+                    total: Some(total),
+                    lot: Some(db_ex.lot),
                     notes: ex.notes.clone(),
                     rest_time: ex.rest_time,
                     assets: ex.assets.clone(),
                     superset_with: ex.superset_with.clone(),
-                    total,
                 },
             ));
         }

@@ -258,14 +258,14 @@ export interface WorkoutOrExerciseTotals {
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
-	lot: ExerciseLot;
+	lot: ExerciseLot | null;
 	name: string;
 	notes: string[];
 	rest_time: number | null;
 	sets: WorkoutSetRecord[];
 	/** The indices of the exercises with which this has been superset with. */
 	superset_with: number[];
-	total: WorkoutOrExerciseTotals;
+	total: WorkoutOrExerciseTotals | null;
 }
 
 /** Information about a workout done. */
