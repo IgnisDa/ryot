@@ -316,10 +316,10 @@ impl UserWorkoutInput {
                 exercises: exercises
                     .iter()
                     .map(|(lot, e)| WorkoutSummaryExercise {
-                        num_sets: e.sets.len(),
+                        lot: Some(*lot),
                         id: e.name.clone(),
-                        lot: *lot,
-                        best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
+                        num_sets: e.sets.len(),
+                        best_set: Some(e.sets[get_best_set_index(&e.sets).unwrap()].clone()),
                     })
                     .collect(),
             },

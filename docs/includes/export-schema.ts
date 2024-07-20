@@ -277,9 +277,9 @@ export interface WorkoutInformation {
 
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
-	best_set: WorkoutSetRecord;
+	best_set: WorkoutSetRecord | null;
 	id: string;
-	lot: ExerciseLot;
+	lot: ExerciseLot | null;
 	num_sets: number;
 }
 

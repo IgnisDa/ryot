@@ -2441,9 +2441,9 @@ export type WorkoutSummary = {
 
 /** The summary about an exercise done in a workout. */
 export type WorkoutSummaryExercise = {
-  bestSet: WorkoutSetRecord;
+  bestSet?: Maybe<WorkoutSetRecord>;
   id: Scalars['String']['output'];
-  lot: ExerciseLot;
+  lot?: Maybe<ExerciseLot>;
   numSets: Scalars['Int']['output'];
 };
 
@@ -2892,14 +2892,14 @@ export type UserWorkoutListQueryVariables = Exact<{
 }>;
 
 
-export type UserWorkoutListQuery = { userWorkoutList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: string, name: string, startTime: string, endTime: string, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> } }> } };
+export type UserWorkoutListQuery = { userWorkoutList: { details: { total: number, nextPage?: number | null }, items: Array<{ id: string, name: string, startTime: string, endTime: string, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot?: ExerciseLot | null, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> } }> } };
 
 export type WorkoutDetailsQueryVariables = Exact<{
   workoutId: Scalars['String']['input'];
 }>;
 
 
-export type WorkoutDetailsQuery = { workoutDetails: { id: string, name: string, endTime: string, startTime: string, repeatedFrom?: string | null, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> }, information: { comment?: string | null, assets?: { images: Array<string>, videos: Array<string> } | null, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number }, assets?: { images: Array<string>, videos: Array<string> } | null, sets: Array<{ note?: string | null, lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } };
+export type WorkoutDetailsQuery = { workoutDetails: { id: string, name: string, endTime: string, startTime: string, repeatedFrom?: string | null, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot?: ExerciseLot | null, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> }, information: { comment?: string | null, assets?: { images: Array<string>, videos: Array<string> } | null, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number }, assets?: { images: Array<string>, videos: Array<string> } | null, sets: Array<{ note?: string | null, lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } };
 
 export type GetOidcRedirectUrlQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -3009,7 +3009,7 @@ export type EntityAssetsPartFragment = { images: Array<string>, videos: Array<st
 
 export type WorkoutSetStatisticPartFragment = { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null };
 
-export type WorkoutSummaryPartFragment = { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot: ExerciseLot, bestSet: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } }> };
+export type WorkoutSummaryPartFragment = { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot?: ExerciseLot | null, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> };
 
 export type CollectionPartFragment = { id: string, name: string, userId: string };
 

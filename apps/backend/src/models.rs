@@ -1667,10 +1667,10 @@ pub mod fitness {
     )]
     #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummaryExercise {
-        pub num_sets: usize,
         pub id: String,
-        pub lot: ExerciseLot,
-        pub best_set: WorkoutSetRecord,
+        pub num_sets: usize,
+        pub lot: Option<ExerciseLot>,
+        pub best_set: Option<WorkoutSetRecord>,
     }
 
     #[derive(
