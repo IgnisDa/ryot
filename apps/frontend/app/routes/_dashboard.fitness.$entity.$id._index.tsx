@@ -91,6 +91,7 @@ type MatchReturn = [
 	WorkoutInformation,
 	WorkoutSummary,
 	OtherEntity | null,
+	OtherEntity | null,
 ];
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
@@ -98,40 +99,46 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		id: z.string(),
 		entity: z.nativeEnum(Entity),
 	});
-	const [name, startTime, endTime, information, summary, repeatedWorkout] =
-		await match(entity)
-			.with(Entity.Workout, async (): Promise<MatchReturn> => {
-				const [{ workoutDetails }] = await Promise.all([
-					serverGqlService.authenticatedRequest(
+	const [
+		name,
+		startTime,
+		endTime,
+		information,
+		summary,
+		repeatedWorkout,
+		template,
+	] = await match(entity)
+		.with(Entity.Workout, async (): Promise<MatchReturn> => {
+			const [{ workoutDetails }] = await Promise.all([
+				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
+					workoutId: entityId,
+				}),
+			]);
+			let repeatedWorkout = null;
+			if (workoutDetails.repeatedFrom) {
+				const { workoutDetails: repeatedWorkoutData } =
+					await serverGqlService.authenticatedRequest(
 						request,
 						WorkoutDetailsDocument,
-						{ workoutId: entityId },
-					),
-				]);
-				let repeatedWorkout = null;
-				if (workoutDetails.repeatedFrom) {
-					const { workoutDetails: repeatedWorkoutData } =
-						await serverGqlService.authenticatedRequest(
-							request,
-							WorkoutDetailsDocument,
-							{ workoutId: workoutDetails.repeatedFrom },
-						);
-					repeatedWorkout = {
-						id: workoutDetails.repeatedFrom,
-						name: repeatedWorkoutData.name,
-						doneOn: repeatedWorkoutData.startTime,
-					};
-				}
-				return [
-					workoutDetails.name,
-					workoutDetails.startTime,
-					workoutDetails.endTime,
-					workoutDetails.information,
-					workoutDetails.summary,
-					repeatedWorkout,
-				] as const;
-			})
-			.exhaustive();
+						{ workoutId: workoutDetails.repeatedFrom },
+					);
+				repeatedWorkout = {
+					id: workoutDetails.repeatedFrom,
+					name: repeatedWorkoutData.name,
+					doneOn: repeatedWorkoutData.startTime,
+				};
+			}
+			return [
+				workoutDetails.name,
+				workoutDetails.startTime,
+				workoutDetails.endTime,
+				workoutDetails.information,
+				workoutDetails.summary,
+				repeatedWorkout,
+				null,
+			] as const;
+		})
+		.exhaustive();
 	return {
 		entityId,
 		name,
@@ -141,6 +148,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		information,
 		summary,
 		repeatedWorkout,
+		template,
 	};
 });
 
@@ -322,10 +330,14 @@ export default function Page() {
 						</Box>
 					) : null}
 					<Box>
-						<Text c="dimmed" span>
-							Done on{" "}
-						</Text>
-						<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
+						{loaderData.startTime ? (
+							<>
+								<Text c="dimmed" span>
+									Done on{" "}
+								</Text>
+								<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
+							</>
+						) : null}
 						{loaderData.summary.total ? (
 							<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
 								{loaderData.endTime && loaderData.startTime ? (
