@@ -175,6 +175,22 @@ export default function Page() {
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
 
+	const performDecision = async (
+		entity: Entity,
+		repeatedFromId?: string,
+		_templateId?: string,
+		_updateWorkoutTemplateId?: string,
+	) => {
+		setIsWorkoutLoading(true);
+		const workout = await duplicateOldWorkout(
+			loaderData.information,
+			loaderData.entityName,
+			repeatedFromId,
+		);
+		startWorkout(workout, entity);
+		setIsWorkoutLoading(false);
+	};
+
 	return (
 		<>
 			{loaderData.startTime && loaderData.endTime ? (
@@ -228,16 +244,7 @@ export default function Page() {
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
-									onClick={async () => {
-										setIsWorkoutLoading(true);
-										const workout = await duplicateOldWorkout(
-											loaderData.information,
-											loaderData.entityName,
-											loaderData.repeatedWorkout?.id,
-										);
-										startWorkout(workout, "workout");
-										setIsWorkoutLoading(false);
-									}}
+									onClick={() => performDecision(Entity.Workout)}
 									leftSection={<IconRepeat size={14} />}
 								>
 									Repeat
