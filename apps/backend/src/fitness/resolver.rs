@@ -793,9 +793,8 @@ impl ExerciseService {
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
-        if let Some(wkt) = Workout::find()
+        if let Some(wkt) = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(&user_id))
-            .filter(workout::Column::Id.eq(workout_id))
             .one(&self.db)
             .await?
         {
