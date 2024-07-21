@@ -30,8 +30,6 @@ import {
 	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
-	type WorkoutInformation,
-	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import { humanizeDuration } from "@ryot/ts-utils";
 import {
@@ -82,33 +80,13 @@ enum Entity {
 	Workout = "workout",
 }
 
-type OtherEntity = { id: string; name: string; doneOn?: string };
-
-type MatchReturn = [
-	string,
-	string | null,
-	string | null,
-	WorkoutInformation,
-	WorkoutSummary,
-	OtherEntity | null,
-	OtherEntity | null,
-];
-
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { id: entityId, entity } = zx.parseParams(params, {
 		id: z.string(),
 		entity: z.nativeEnum(Entity),
 	});
-	const [
-		name,
-		startTime,
-		endTime,
-		information,
-		summary,
-		repeatedWorkout,
-		template,
-	] = await match(entity)
-		.with(Entity.Workout, async (): Promise<MatchReturn> => {
+	const resp = await match(entity)
+		.with(Entity.Workout, async () => {
 			const [{ workoutDetails }] = await Promise.all([
 				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
 					workoutId: entityId,
@@ -128,32 +106,22 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					doneOn: repeatedWorkoutData.startTime,
 				};
 			}
-			return [
-				workoutDetails.name,
-				workoutDetails.startTime,
-				workoutDetails.endTime,
-				workoutDetails.information,
-				workoutDetails.summary,
-				repeatedWorkout,
-				null,
-			] as const;
+			return {
+				entityName: workoutDetails.name,
+				startTime: workoutDetails.startTime,
+				endTime: workoutDetails.endTime,
+				information: workoutDetails.information,
+				summary: workoutDetails.summary,
+				repeatedWorkout: repeatedWorkout,
+				template: null,
+			};
 		})
 		.exhaustive();
-	return {
-		entityId,
-		name,
-		entity,
-		startTime,
-		endTime,
-		information,
-		summary,
-		repeatedWorkout,
-		template,
-	};
+	return { entityId, entity, ...resp };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: `${data?.name} | Ryot` }];
+	return [{ title: `${data?.entityName} | Ryot` }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -251,7 +219,7 @@ export default function Page() {
 			<Container size="xs">
 				<Stack>
 					<Group justify="space-between" wrap="nowrap">
-						<Title>{loaderData.name}</Title>
+						<Title>{loaderData.entityName}</Title>
 						<Menu shadow="md" position="bottom-end">
 							<Menu.Target>
 								<ActionIcon variant="transparent" loading={isWorkoutLoading}>
@@ -264,7 +232,7 @@ export default function Page() {
 										setIsWorkoutLoading(true);
 										const workout = await duplicateOldWorkout(
 											loaderData.information,
-											loaderData.name,
+											loaderData.entityName,
 											loaderData.repeatedWorkout?.id,
 										);
 										startWorkout(workout);
