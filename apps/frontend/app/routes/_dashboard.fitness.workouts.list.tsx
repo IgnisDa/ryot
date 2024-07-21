@@ -155,7 +155,10 @@ export default function Page() {
 										</Accordion.Control>
 										<Anchor
 											component={Link}
-											to={$path("/fitness/workouts/:id", { id: workout.id })}
+											to={$path("/fitness/:entity/:id", {
+												entity: "workout",
+												id: workout.id,
+											})}
 											pr="md"
 										>
 											<Text fz="xs" ta="right" visibleFrom="sm">

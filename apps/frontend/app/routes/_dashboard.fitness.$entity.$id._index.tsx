@@ -75,8 +75,16 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
+enum Entity {
+	Workout = "workout",
+	Template = "template",
+}
+
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const { id: workoutId } = zx.parseParams(params, { id: z.string() });
+	const { id: workoutId, entity } = zx.parseParams(params, {
+		id: z.string(),
+		entity: z.nativeEnum(Entity),
+	});
 	const [{ workoutDetails }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
 			workoutId,
@@ -96,7 +104,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			doneOn: repeatedWorkoutData.startTime,
 		};
 	}
-	return { workoutId, workoutDetails, repeatedWorkout };
+	return { workoutId, entity, workoutDetails, repeatedWorkout };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -259,7 +267,8 @@ export default function Page() {
 							</Text>
 							<Anchor
 								component={Link}
-								to={$path("/fitness/workouts/:id", {
+								to={$path("/fitness/:entity/:id", {
+									entity: "workout",
 									id: loaderData.repeatedWorkout.id,
 								})}
 							>

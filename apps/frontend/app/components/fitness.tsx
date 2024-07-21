@@ -206,7 +206,10 @@ export const ExerciseHistory = (props: {
 					<Anchor
 						component={Link}
 						to={withFragment(
-							$path("/fitness/workouts/:id", { id: props.history.workoutId }),
+							$path("/fitness/:entity/:id", {
+								entity: "workout",
+								id: props.history.workoutId,
+							}),
 							props.history.idx.toString(),
 						)}
 						fw="bold"
