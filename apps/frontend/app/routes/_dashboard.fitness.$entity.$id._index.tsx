@@ -363,19 +363,13 @@ export default function Page() {
 							<Text span>{loaderData.information.comment}</Text>
 						</Box>
 					) : null}
-					{loaderData.information.exercises.length > 0 ? (
-						loaderData.information.exercises.map((exercise, idx) => (
-							<DisplayExercise
-								key={`${exercise.name}-${idx}`}
-								exercise={exercise}
-								idx={idx}
-							/>
-						))
-					) : (
-						<Paper withBorder p="xs">
-							No exercises done
-						</Paper>
-					)}
+					{loaderData.information.exercises.map((exercise, idx) => (
+						<DisplayExercise
+							key={`${exercise.name}-${idx}`}
+							exercise={exercise}
+							idx={idx}
+						/>
+					))}
 				</Stack>
 			</Container>
 		</>
