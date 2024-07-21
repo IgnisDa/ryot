@@ -298,14 +298,10 @@ export default function Page() {
 						</Box>
 					) : null}
 					<Box>
-						{loaderData.startTime ? (
-							<>
-								<Text c="dimmed" span>
-									Done on{" "}
-								</Text>
-								<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
-							</>
-						) : null}
+						<Text c="dimmed" span>
+							Done on{" "}
+						</Text>
+						<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
 						{loaderData.summary.total ? (
 							<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
 								{loaderData.endTime && loaderData.startTime ? (
