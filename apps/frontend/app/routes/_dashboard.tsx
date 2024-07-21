@@ -1206,8 +1206,13 @@ const ReviewEntityForm = ({
 			replace
 			method="POST"
 			action={withQuery("/actions", { intent: "performReviewAction" })}
-			onSubmit={(e) => {
+			onSubmit={async (e) => {
 				submit(e);
+				await queryClient.invalidateQueries({
+					queryKey: queryFactory.media.userMetadataDetails(
+						entityToReview.entityId,
+					).queryKey,
+				});
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
 			}}
