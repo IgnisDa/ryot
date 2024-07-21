@@ -247,7 +247,7 @@ export default function Page() {
 									onClick={() => performDecision(Entity.Workout)}
 									leftSection={<IconRepeat size={14} />}
 								>
-									Repeat
+									Duplicate
 								</Menu.Item>
 								<Menu.Item
 									onClick={adjustTimeModalOpen}
