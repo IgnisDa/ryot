@@ -61,7 +61,12 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+enum Entity {
+	Workout = "workout",
+}
+
+export const loader = unstable_defineLoader(async ({ params, request }) => {
+	const { entity } = zx.parseParams(params, { entity: z.nativeEnum(Entity) });
 	const cookieName = await getEnhancedCookieName("workouts.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -70,7 +75,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			input: { page: query.page, query: query.query },
 		}),
 	]);
-	return { query, userWorkoutList, cookieName };
+	return { query, entity, userWorkoutList, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {

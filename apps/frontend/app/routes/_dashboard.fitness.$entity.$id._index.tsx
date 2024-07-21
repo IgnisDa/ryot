@@ -31,7 +31,7 @@ import {
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils";
+import { changeCase, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconClock,
@@ -146,17 +146,21 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				DeleteUserWorkoutDocument,
-				submission,
+				{ workoutId: submission.workoutId },
 			);
-			return redirectWithToast($path("/fitness/workouts/list"), {
+			const { entity } = submission;
+			return redirectWithToast($path("/fitness/:entity/list", { entity }), {
 				type: "success",
-				message: "Workout deleted successfully",
+				message: `${changeCase(entity)} deleted successfully`,
 			});
 		},
 	});
 });
 
-const deleteSchema = z.object({ workoutId: z.string() });
+const deleteSchema = z.object({
+	workoutId: z.string(),
+	entity: z.nativeEnum(Entity),
+});
 
 const editWorkoutSchema = z.object({
 	startTime: z.string(),
@@ -261,16 +265,20 @@ export default function Page() {
 								>
 									<input
 										type="hidden"
+										name="entity"
+										defaultValue={loaderData.entity}
+									/>
+									<input
+										type="hidden"
 										name="workoutId"
-										value={loaderData.entityId}
+										defaultValue={loaderData.entityId}
 									/>
 									<Menu.Item
 										onClick={async (e) => {
 											const form = e.currentTarget.form;
 											e.preventDefault();
 											const conf = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to delete this workout? This action is not reversible.",
+												confirmation: `Are you sure you want to delete this ${loaderData.entity}? This action is not reversible.`,
 											});
 											if (conf && form) submit(form);
 										}}
