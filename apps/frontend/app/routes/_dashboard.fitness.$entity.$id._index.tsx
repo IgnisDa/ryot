@@ -82,13 +82,15 @@ enum Entity {
 	Workout = "workout",
 }
 
+type OtherEntity = { id: string; name: string; doneOn?: string };
+
 type MatchReturn = [
 	string,
 	string | null,
 	string | null,
 	WorkoutInformation,
 	WorkoutSummary,
-	{ id: string; name: string; doneOn: string } | null,
+	OtherEntity | null,
 ];
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
