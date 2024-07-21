@@ -30,6 +30,8 @@ import {
 	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
+	type WorkoutInformation,
+	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import { humanizeDuration } from "@ryot/ts-utils";
 import {
@@ -49,6 +51,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -77,38 +80,70 @@ import {
 
 enum Entity {
 	Workout = "workout",
-	Template = "template",
 }
 
+type MatchReturn = [
+	string,
+	string | null,
+	string | null,
+	WorkoutInformation,
+	WorkoutSummary,
+	{ id: string; name: string; doneOn: string } | null,
+];
+
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const { id: workoutId, entity } = zx.parseParams(params, {
+	const { id: entityId, entity } = zx.parseParams(params, {
 		id: z.string(),
 		entity: z.nativeEnum(Entity),
 	});
-	const [{ workoutDetails }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
-			workoutId,
-		}),
-	]);
-	let repeatedWorkout = null;
-	if (workoutDetails.repeatedFrom) {
-		const { workoutDetails: repeatedWorkoutData } =
-			await serverGqlService.authenticatedRequest(
-				request,
-				WorkoutDetailsDocument,
-				{ workoutId: workoutDetails.repeatedFrom },
-			);
-		repeatedWorkout = {
-			id: workoutDetails.repeatedFrom,
-			name: repeatedWorkoutData.name,
-			doneOn: repeatedWorkoutData.startTime,
-		};
-	}
-	return { workoutId, entity, workoutDetails, repeatedWorkout };
+	const [name, startTime, endTime, information, summary, repeatedWorkout] =
+		await match(entity)
+			.with(Entity.Workout, async (): Promise<MatchReturn> => {
+				const [{ workoutDetails }] = await Promise.all([
+					serverGqlService.authenticatedRequest(
+						request,
+						WorkoutDetailsDocument,
+						{ workoutId: entityId },
+					),
+				]);
+				let repeatedWorkout = null;
+				if (workoutDetails.repeatedFrom) {
+					const { workoutDetails: repeatedWorkoutData } =
+						await serverGqlService.authenticatedRequest(
+							request,
+							WorkoutDetailsDocument,
+							{ workoutId: workoutDetails.repeatedFrom },
+						);
+					repeatedWorkout = {
+						id: workoutDetails.repeatedFrom,
+						name: repeatedWorkoutData.name,
+						doneOn: repeatedWorkoutData.startTime,
+					};
+				}
+				return [
+					workoutDetails.name,
+					workoutDetails.startTime,
+					workoutDetails.endTime,
+					workoutDetails.information,
+					workoutDetails.summary,
+					repeatedWorkout,
+				] as const;
+			})
+			.exhaustive();
+	return {
+		entityId,
+		name,
+		entity,
+		startTime,
+		endTime,
+		information,
+		summary,
+		repeatedWorkout,
+	};
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: `${data?.workoutDetails.name} | Ryot` }];
+	return [{ title: `${data?.name} | Ryot` }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -164,47 +199,49 @@ export default function Page() {
 
 	return (
 		<>
-			<Modal
-				opened={adjustTimeModalOpened}
-				onClose={adjustTimeModalClose}
-				withCloseButton={false}
-				centered
-			>
-				<Form
-					replace
-					method="POST"
-					action={withQuery("", { intent: "edit" })}
-					onSubmit={() => adjustTimeModalClose()}
+			{loaderData.startTime && loaderData.endTime ? (
+				<Modal
+					opened={adjustTimeModalOpened}
+					onClose={adjustTimeModalClose}
+					withCloseButton={false}
+					centered
 				>
-					<Stack>
-						<Title order={3}>Adjust times</Title>
-						<DateTimePicker
-							label="Start time"
-							required
-							name="startTime"
-							defaultValue={new Date(loaderData.workoutDetails.startTime)}
-						/>
-						<DateTimePicker
-							label="End time"
-							required
-							name="endTime"
-							defaultValue={new Date(loaderData.workoutDetails.endTime)}
-						/>
-						<Button
-							variant="outline"
-							type="submit"
-							name="id"
-							value={loaderData.workoutId}
-						>
-							Submit
-						</Button>
-					</Stack>
-				</Form>
-			</Modal>
+					<Form
+						replace
+						method="POST"
+						action={withQuery("", { intent: "edit" })}
+						onSubmit={() => adjustTimeModalClose()}
+					>
+						<Stack>
+							<Title order={3}>Adjust times</Title>
+							<DateTimePicker
+								label="Start time"
+								required
+								name="startTime"
+								defaultValue={new Date(loaderData.startTime)}
+							/>
+							<DateTimePicker
+								label="End time"
+								required
+								name="endTime"
+								defaultValue={new Date(loaderData.endTime)}
+							/>
+							<Button
+								variant="outline"
+								type="submit"
+								name="id"
+								value={loaderData.entityId}
+							>
+								Submit
+							</Button>
+						</Stack>
+					</Form>
+				</Modal>
+			) : null}
 			<Container size="xs">
 				<Stack>
 					<Group justify="space-between" wrap="nowrap">
-						<Title>{loaderData.workoutDetails.name}</Title>
+						<Title>{loaderData.name}</Title>
 						<Menu shadow="md" position="bottom-end">
 							<Menu.Target>
 								<ActionIcon variant="transparent" loading={isWorkoutLoading}>
@@ -238,7 +275,7 @@ export default function Page() {
 									<input
 										type="hidden"
 										name="workoutId"
-										value={loaderData.workoutId}
+										value={loaderData.entityId}
 									/>
 									<Menu.Item
 										onClick={async (e) => {
@@ -284,56 +321,53 @@ export default function Page() {
 						<Text c="dimmed" span>
 							Done on{" "}
 						</Text>
-						<Text span>
-							{dayjsLib(loaderData.workoutDetails.startTime).format("LLL")}
-						</Text>
-						{loaderData.workoutDetails.summary.total ? (
+						<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
+						{loaderData.summary.total ? (
 							<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
-								<DisplayStat
-									icon={<IconClock size={16} />}
-									data={humanizeDuration(
-										new Date(loaderData.workoutDetails.endTime).valueOf() -
-											new Date(loaderData.workoutDetails.startTime).valueOf(),
-										{ round: true, units: ["h", "m"] },
-									)}
-								/>
-								{Number(loaderData.workoutDetails.summary.total.weight) !==
-								0 ? (
+								{loaderData.endTime && loaderData.startTime ? (
+									<DisplayStat
+										icon={<IconClock size={16} />}
+										data={humanizeDuration(
+											new Date(loaderData.endTime).valueOf() -
+												new Date(loaderData.startTime).valueOf(),
+											{ round: true, units: ["h", "m"] },
+										)}
+									/>
+								) : null}
+								{Number(loaderData.summary.total.weight) !== 0 ? (
 									<DisplayStat
 										icon={<IconWeight size={16} />}
 										data={displayWeightWithUnit(
 											unitSystem,
-											loaderData.workoutDetails.summary.total.weight,
+											loaderData.summary.total.weight,
 										)}
 									/>
 								) : null}
-								{Number(loaderData.workoutDetails.summary.total.distance) >
-								0 ? (
+								{Number(loaderData.summary.total.distance) > 0 ? (
 									<DisplayStat
 										icon={<IconRun size={16} />}
 										data={displayDistanceWithUnit(
 											unitSystem,
-											loaderData.workoutDetails.summary.total.distance,
+											loaderData.summary.total.distance,
 										)}
 									/>
 								) : null}
 								<DisplayStat
 									icon={<IconBarbell size={16} />}
-									data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
+									data={`${loaderData.summary.exercises.length} Exercises`}
 								/>
-								{Number(
-									loaderData.workoutDetails.summary.total.personalBestsAchieved,
-								) !== 0 ? (
+								{Number(loaderData.summary.total.personalBestsAchieved) !==
+								0 ? (
 									<DisplayStat
 										icon={<IconTrophy size={16} />}
-										data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved} PRs`}
+										data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
 									/>
 								) : null}
-								{loaderData.workoutDetails.summary.total.restTime > 0 ? (
+								{loaderData.summary.total.restTime > 0 ? (
 									<DisplayStat
 										icon={<IconZzz size={16} />}
 										data={humanizeDuration(
-											loaderData.workoutDetails.summary.total.restTime * 1e3,
+											loaderData.summary.total.restTime * 1e3,
 											{ round: true, units: ["m", "s"] },
 										)}
 									/>
@@ -341,24 +375,22 @@ export default function Page() {
 							</SimpleGrid>
 						) : null}
 					</Box>
-					{loaderData.workoutDetails.information.comment ? (
+					{loaderData.information.comment ? (
 						<Box>
 							<Text c="dimmed" span>
 								Commented:{" "}
 							</Text>
-							<Text span>{loaderData.workoutDetails.information.comment}</Text>
+							<Text span>{loaderData.information.comment}</Text>
 						</Box>
 					) : null}
-					{loaderData.workoutDetails.information.exercises.length > 0 ? (
-						loaderData.workoutDetails.information.exercises.map(
-							(exercise, idx) => (
-								<DisplayExercise
-									key={`${exercise.name}-${idx}`}
-									exercise={exercise}
-									idx={idx}
-								/>
-							),
-						)
+					{loaderData.information.exercises.length > 0 ? (
+						loaderData.information.exercises.map((exercise, idx) => (
+							<DisplayExercise
+								key={`${exercise.name}-${idx}`}
+								exercise={exercise}
+								idx={idx}
+							/>
+						))
 					) : (
 						<Paper withBorder p="xs">
 							No exercises done
@@ -391,14 +423,10 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 							fz="xs"
 							href={withFragment(
 								"",
-								`${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
+								`${loaderData.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
 							)}
 						>
-							{
-								loaderData.workoutDetails.information.exercises[
-									otherExerciseIdx
-								].name
-							}
+							{loaderData.information.exercises[otherExerciseIdx].name}
 						</Anchor>
 					))
 					.reduce((prev, curr) => [prev, ", ", curr])
