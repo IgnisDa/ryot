@@ -23,7 +23,7 @@ import {
 	UserWorkoutListDocument,
 	type UserWorkoutListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration, truncate } from "@ryot/ts-utils";
+import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
@@ -78,8 +78,8 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	return { query, entity, userWorkoutList, cookieName };
 });
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: "Workouts | Ryot" }];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${changeCase(data?.entity || "")} | Ryot` }];
 };
 
 export default function Page() {
