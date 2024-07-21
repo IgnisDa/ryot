@@ -390,7 +390,7 @@ export const extendResponseHeaders = (
 
 export const isWorkoutActive = (request: Request) => {
 	const cookies = request.headers.get("cookie");
-	const inProgress = parse(cookies || "")[CurrentWorkoutKey] === "true";
+	const inProgress = parse(cookies || "")[CurrentWorkoutKey] === "workout";
 	return inProgress;
 };
 

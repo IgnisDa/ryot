@@ -235,7 +235,7 @@ export default function Page() {
 											loaderData.entityName,
 											loaderData.repeatedWorkout?.id,
 										);
-										startWorkout(workout);
+										startWorkout(workout, "workout");
 										setIsWorkoutLoading(false);
 									}}
 									leftSection={<IconRepeat size={14} />}

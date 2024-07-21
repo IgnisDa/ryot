@@ -93,7 +93,7 @@ export default function Page() {
 						color="green"
 						variant="outline"
 						onClick={() => {
-							startWorkout(getDefaultWorkout());
+							startWorkout(getDefaultWorkout(), "workout");
 						}}
 					>
 						<IconPlus size={16} />
