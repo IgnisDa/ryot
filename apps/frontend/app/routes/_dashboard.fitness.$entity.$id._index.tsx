@@ -253,7 +253,9 @@ export default function Page() {
 									onClick={async () => {
 										setIsWorkoutLoading(true);
 										const workout = await duplicateOldWorkout(
-											loaderData.workoutDetails,
+											loaderData.information,
+											loaderData.name,
+											loaderData.repeatedWorkout?.id,
 										);
 										startWorkout(workout);
 										setIsWorkoutLoading(false);

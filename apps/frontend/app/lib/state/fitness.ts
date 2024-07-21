@@ -9,6 +9,7 @@ import {
 	type UserWorkoutSetRecord,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
+	type WorkoutInformation,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { queryOptions } from "@tanstack/react-query";
@@ -153,12 +154,16 @@ export const convertHistorySetToCurrentSet = (
 		statistic: s.statistic,
 	}) satisfies ExerciseSet;
 
-export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
+export const duplicateOldWorkout = async (
+	workoutInformation: WorkoutInformation,
+	name: string,
+	repeatedFromId?: string,
+) => {
 	const inProgress = getDefaultWorkout();
-	inProgress.name = workout.name;
-	inProgress.repeatedFrom = workout.id;
-	inProgress.comment = workout.information.comment || undefined;
-	for (const [_exerciseIdx, ex] of workout.information.exercises.entries()) {
+	inProgress.name = name;
+	inProgress.repeatedFrom = repeatedFromId;
+	inProgress.comment = workoutInformation.comment || undefined;
+	for (const [_exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
@@ -176,7 +181,7 @@ export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
 			sets: sets,
 		});
 	}
-	for (const [idx, exercise] of workout.information.exercises.entries()) {
+	for (const [idx, exercise] of workoutInformation.exercises.entries()) {
 		const supersetWith = exercise.supersetWith.map(
 			(index) => inProgress.exercises[index].identifier,
 		);
