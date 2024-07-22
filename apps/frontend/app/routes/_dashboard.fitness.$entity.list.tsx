@@ -63,16 +63,16 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 enum Entity {
-	Workout = "workout",
+	Workouts = "workouts",
 }
 
 export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const { entity } = zx.parseParams(params, { entity: z.nativeEnum(Entity) });
-	const cookieName = await getEnhancedCookieName("workouts.list", request);
+	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const itemList = await match(entity)
-		.with(Entity.Workout, async () => {
+		.with(Entity.Workouts, async () => {
 			const { userWorkoutList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutListDocument,
@@ -193,7 +193,7 @@ export default function Page() {
 									<Accordion.Panel>
 										<Group justify="space-between">
 											<Text fw="bold">Exercise</Text>
-											{loaderData.entity === Entity.Workout ? (
+											{loaderData.entity === Entity.Workouts ? (
 												<Text fw="bold">Best set</Text>
 											) : null}
 										</Group>

@@ -450,7 +450,7 @@ const DisplayPersonalBest = (props: {
 					component={Link}
 					to={withFragment(
 						$path("/fitness/:entity/:id", {
-							entity: "workout",
+							entity: "workouts",
 							id: props.set.workoutId,
 						}),
 						props.set.exerciseIdx.toString(),

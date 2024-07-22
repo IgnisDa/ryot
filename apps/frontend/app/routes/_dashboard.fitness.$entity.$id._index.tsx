@@ -77,7 +77,7 @@ import {
 } from "~/lib/utilities.server";
 
 enum Entity {
-	Workout = "workout",
+	Workouts = "workouts",
 }
 
 export const loader = unstable_defineLoader(async ({ request, params }) => {
@@ -86,7 +86,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		entity: z.nativeEnum(Entity),
 	});
 	const resp = await match(entity)
-		.with(Entity.Workout, async () => {
+		.with(Entity.Workouts, async () => {
 			const [{ workoutDetails }] = await Promise.all([
 				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
 					workoutId: entityId,
@@ -248,7 +248,7 @@ export default function Page() {
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
-									onClick={() => performDecision(Entity.Workout)}
+									onClick={() => performDecision(Entity.Workouts)}
 									leftSection={<IconRepeat size={14} />}
 								>
 									Duplicate
@@ -300,7 +300,7 @@ export default function Page() {
 							<Anchor
 								component={Link}
 								to={$path("/fitness/:entity/:id", {
-									entity: "workout",
+									entity: "workouts",
 									id: loaderData.repeatedWorkout.id,
 								})}
 							>

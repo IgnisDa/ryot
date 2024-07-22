@@ -383,7 +383,9 @@ export default function Page() {
 										latestUserSummary.fitness.workouts.recorded >
 										0 ? (
 										<UnstyledLink
-											to={$path("/fitness/:entity/list", { entity: "workout" })}
+											to={$path("/fitness/:entity/list", {
+												entity: "workouts",
+											})}
 										>
 											<ActualDisplayStat
 												icon={<IconBarbell stroke={1.3} />}

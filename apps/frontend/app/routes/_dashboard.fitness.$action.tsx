@@ -165,7 +165,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 			return redirectWithToast(
 				$path("/fitness/:entity/:id", {
-					entity: "workout",
+					entity: "workouts",
 					id: createUserWorkout,
 				}),
 				{ message: "Workout completed successfully", type: "success" },
