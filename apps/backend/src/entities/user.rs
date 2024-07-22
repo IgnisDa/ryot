@@ -23,7 +23,6 @@ pub struct Model {
     pub password: Option<String>,
     pub oidc_issuer_id: Option<String>,
     pub created_on: DateTimeUtc,
-    pub is_demo: Option<bool>,
     pub lot: UserLot,
     pub is_disabled: Option<bool>,
     #[graphql(skip)]

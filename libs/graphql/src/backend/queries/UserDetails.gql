@@ -6,7 +6,6 @@ query UserDetails {
       lot
       name
       oidcIssuerId
-      isDemo
     }
   }
 }
