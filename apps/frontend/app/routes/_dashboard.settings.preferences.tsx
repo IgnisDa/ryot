@@ -55,11 +55,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { queryClient, queryFactory } from "~/lib/generals";
-import {
-	useConfirmSubmit,
-	useUserDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useConfirmSubmit, useUserPreferences } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	isWorkoutActive,
@@ -123,7 +119,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
 	const [dashboardElements, setDashboardElements] = useState(
 		userPreferences.general.dashboard,
@@ -134,6 +129,7 @@ export default function Page() {
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
+	const isEditDisabled = false;
 
 	const appendPref = (property: string, value: string) => {
 		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
@@ -187,7 +183,7 @@ export default function Page() {
 								type="submit"
 								variant="outline"
 								onClick={async (e) => {
-									if (!userDetails.isDemo) {
+									if (!isEditDisabled) {
 										const form = e.currentTarget.form;
 										e.preventDefault();
 										const conf = await confirmWrapper({
@@ -209,7 +205,7 @@ export default function Page() {
 						</Tooltip>
 					</Form>
 				</Group>
-				{userDetails.isDemo ? (
+				{isEditDisabled ? (
 					<Alert icon={<IconAlertCircle />} variant="outline" color="violet">
 						{notificationContent.message}
 					</Alert>
@@ -234,7 +230,7 @@ export default function Page() {
 						</Text>
 						<DragDropContext
 							onDragEnd={({ destination, source }) => {
-								if (!userDetails.isDemo) {
+								if (!isEditDisabled) {
 									const newOrder = reorder(dashboardElements, {
 										from: source.index,
 										to: destination?.index || 0,
@@ -249,10 +245,11 @@ export default function Page() {
 									<Stack {...provided.droppableProps} ref={provided.innerRef}>
 										{dashboardElements.map((de, index) => (
 											<EditDashboardElement
+												index={index}
 												key={de.section}
 												lot={de.section}
-												index={index}
 												appendPref={appendPref}
+												isEditDisabled={isEditDisabled}
 											/>
 										))}
 										{provided.placeholder}
@@ -275,7 +272,7 @@ export default function Page() {
 													size="xs"
 													label={changeCase(snakeCase(name))}
 													defaultChecked={isEnabled}
-													disabled={!!userDetails.isDemo}
+													disabled={!!isEditDisabled}
 													onChange={(ev) => {
 														const lot = snakeCase(name);
 														appendPref(
@@ -297,7 +294,7 @@ export default function Page() {
 								label="Watch providers"
 								placeholder="Enter more providers"
 								defaultValue={userPreferences.general.watchProviders}
-								disabled={!!userDetails.isDemo}
+								disabled={!!isEditDisabled}
 								onChange={(val) => {
 									appendPref("general.watch_providers", JSON.stringify(val));
 								}}
@@ -342,7 +339,7 @@ export default function Page() {
 											)
 											.exhaustive()}
 										defaultChecked={userPreferences.general[name]}
-										disabled={!!userDetails.isDemo}
+										disabled={!!isEditDisabled}
 										onChange={(ev) => {
 											appendPref(
 												`general.${snakeCase(name)}`,
@@ -359,7 +356,7 @@ export default function Page() {
 										value: c,
 									}))}
 									defaultValue={userPreferences.general.reviewScale}
-									disabled={!!userDetails.isDemo}
+									disabled={!!isEditDisabled}
 									onChange={(val) => {
 										if (val) appendPref("general.review_scale", val);
 									}}
@@ -373,7 +370,7 @@ export default function Page() {
 								size="xs"
 								label="Whether notifications will be sent"
 								defaultChecked={userPreferences.notifications.enabled}
-								disabled={!!userDetails.isDemo}
+								disabled={!!isEditDisabled}
 								onChange={(ev) => {
 									appendPref(
 										"notifications.enabled",
@@ -440,8 +437,7 @@ export default function Page() {
 											name,
 										)}
 										disabled={
-											!!userDetails.isDemo ||
-											!userPreferences.notifications.enabled
+											!!isEditDisabled || !userPreferences.notifications.enabled
 										}
 										onChange={() => {
 											const alreadyToSend = new Set(
@@ -472,7 +468,7 @@ export default function Page() {
 									size="xs"
 									label="Number of elements in exercise history"
 									defaultValue={userPreferences.fitness.exercises.saveHistory}
-									disabled={!!userDetails.isDemo}
+									disabled={!!isEditDisabled}
 									onChange={(num) => {
 										if (num)
 											appendPref("fitness.exercises.save_history", String(num));
@@ -486,7 +482,7 @@ export default function Page() {
 										label: startCase(c.toLowerCase()),
 									}))}
 									defaultValue={userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!!userDetails.isDemo}
+									disabled={!!isEditDisabled}
 									onChange={(val) => {
 										if (val) appendPref("fitness.exercises.unit_system", val);
 									}}
@@ -521,7 +517,7 @@ export default function Page() {
 										key={name}
 										label={changeCase(snakeCase(name))}
 										defaultChecked={isEnabled}
-										disabled={!!userDetails.isDemo}
+										disabled={!!isEditDisabled}
 										onChange={(ev) => {
 											appendPref(
 												`fitness.measurements.inbuilt.${snakeCase(name)}`,
@@ -539,7 +535,7 @@ export default function Page() {
 									null,
 									4,
 								)}
-								disabled={!!userDetails.isDemo}
+								disabled={!!isEditDisabled}
 								autosize
 								formatOnBlur
 								onChange={(v) => {
@@ -555,12 +551,12 @@ export default function Page() {
 }
 
 const EditDashboardElement = (props: {
+	isEditDisabled: boolean;
 	lot: DashboardElementLot;
 	index: number;
 	appendPref: (property: string, value: string) => void;
 }) => {
 	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
 	const focusedElementIndex = userPreferences.general.dashboard.findIndex(
 		(de) => de.section === props.lot,
 	);
@@ -598,7 +594,7 @@ const EditDashboardElement = (props: {
 							label="Hidden"
 							labelPosition="left"
 							defaultChecked={focusedElement.hidden}
-							disabled={!!userDetails.isDemo}
+							disabled={!!props.isEditDisabled}
 							onChange={(ev) => {
 								const newValue = ev.currentTarget.checked;
 								const newDashboardData = Array.from(
@@ -618,7 +614,7 @@ const EditDashboardElement = (props: {
 								label="Number of elements"
 								size="xs"
 								defaultValue={focusedElement.numElements}
-								disabled={!!userDetails.isDemo}
+								disabled={!!props.isEditDisabled}
 								onChange={(num) => {
 									if (isNumber(num)) {
 										const newDashboardData = Array.from(

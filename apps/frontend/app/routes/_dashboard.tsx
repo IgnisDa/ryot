@@ -237,8 +237,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const shouldHaveUmami =
 		envData.FRONTEND_UMAMI_SCRIPT_URL &&
 		envData.FRONTEND_UMAMI_WEBSITE_ID &&
-		!envData.DISABLE_TELEMETRY &&
-		!userDetails.isDemo;
+		!envData.DISABLE_TELEMETRY;
 
 	const workoutInProgress = isWorkoutActive(request);
 

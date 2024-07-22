@@ -61,6 +61,7 @@ const updateProfileFormSchema = z.object({
 export default function Page() {
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
+	const isEditDisabled = false;
 
 	return (
 		<Container size="xs">
@@ -90,9 +91,9 @@ export default function Page() {
 									<TextInput
 										label="Username"
 										name="username"
-										disabled={Boolean(userDetails.isDemo)}
+										disabled={Boolean(isEditDisabled)}
 										description={
-											userDetails.isDemo &&
+											isEditDisabled &&
 											"Username can not be changed for the demo user"
 										}
 										defaultValue={userDetails.name}
@@ -101,13 +102,13 @@ export default function Page() {
 										label="Password"
 										name="password"
 										disabled={
-											Boolean(userDetails.isDemo) ||
+											Boolean(isEditDisabled) ||
 											Boolean(userDetails.oidcIssuerId)
 										}
 										description={
 											userDetails.oidcIssuerId
 												? "Not applicable since this user was created via OIDC"
-												: userDetails.isDemo
+												: isEditDisabled
 													? "Password can not be changed for the demo user"
 													: undefined
 										}
