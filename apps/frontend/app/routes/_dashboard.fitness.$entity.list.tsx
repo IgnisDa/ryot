@@ -21,7 +21,7 @@ import {
 } from "@remix-run/react";
 import {
 	UserWorkoutListDocument,
-	type UserWorkoutListQuery,
+	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
@@ -78,7 +78,19 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 				UserWorkoutListDocument,
 				{ input: { page: query.page, query: query.query } },
 			);
-			return userWorkoutList;
+			return {
+				details: userWorkoutList.details,
+				items: userWorkoutList.items.map((w) => ({
+					id: w.id,
+					name: w.name,
+					timestamp: w.startTime,
+					duration: humanizeDuration(
+						new Date(w.endTime).valueOf() - new Date(w.startTime).valueOf(),
+						{ round: true, units: ["h", "m"] },
+					),
+					summary: w.summary,
+				})),
+			};
 		})
 		.exhaustive();
 	return { query, entity, itemList, cookieName };
@@ -131,18 +143,16 @@ export default function Page() {
 													{truncate(workout.name, { length: 20 })}
 												</Text>
 												<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-													{dayjsLib(workout.startTime).format("LL")}
+													{dayjsLib(workout.timestamp).format("LL")}
 												</Text>
 											</Group>
 											<Stack mt="xs" gap={1}>
-												<DisplayStat
-													icon={<IconClock size={16} />}
-													data={humanizeDuration(
-														new Date(workout.endTime).valueOf() -
-															new Date(workout.startTime).valueOf(),
-														{ round: true, units: ["h", "m"] },
-													)}
-												/>
+												{workout.duration ? (
+													<DisplayStat
+														icon={<IconClock size={16} />}
+														data={workout.duration}
+													/>
+												) : null}
 												{workout.summary.total ? (
 													<Group>
 														<DisplayStat
@@ -183,7 +193,9 @@ export default function Page() {
 									<Accordion.Panel>
 										<Group justify="space-between">
 											<Text fw="bold">Exercise</Text>
-											<Text fw="bold">Best set</Text>
+											{loaderData.entity === Entity.Workout ? (
+												<Text fw="bold">Best set</Text>
+											) : null}
 										</Group>
 										{workout.summary.exercises.map((exercise, idx) => (
 											<ExerciseDisplay
@@ -214,10 +226,7 @@ export default function Page() {
 	);
 }
 
-const DisplayStat = (props: {
-	icon: ReactElement;
-	data: string;
-}) => {
+const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 	return (
 		<Flex gap={4} align="center">
 			{props.icon}
@@ -229,16 +238,21 @@ const DisplayStat = (props: {
 };
 
 const ExerciseDisplay = (props: {
-	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
+	exercise: WorkoutSummary["exercises"][number];
 }) => {
 	const unitSystem = useUserUnitSystem();
-	invariant(props.exercise.bestSet);
-	invariant(props.exercise.lot);
-	const [stat, _] = getSetStatisticsTextToDisplay(
-		props.exercise.lot,
-		props.exercise.bestSet.statistic,
-		unitSystem,
-	);
+	const lot = props.exercise.lot;
+	invariant(lot);
+	const stat = match(props.exercise.bestSet)
+		.with(undefined, null, () => {})
+		.otherwise((value) => {
+			const [stat] = getSetStatisticsTextToDisplay(
+				lot,
+				value.statistic,
+				unitSystem,
+			);
+			return stat;
+		});
 
 	return (
 		<Flex gap="xs">
@@ -248,7 +262,7 @@ const ExerciseDisplay = (props: {
 			<Text style={{ flex: 1 }} fz="sm">
 				{props.exercise.id}
 			</Text>
-			<Text fz="sm">{stat}</Text>
+			{stat ? <Text fz="sm">{stat}</Text> : null}
 		</Flex>
 	);
 };
