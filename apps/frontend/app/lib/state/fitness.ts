@@ -17,6 +17,7 @@ import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import Cookies from "js-cookie";
 import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
@@ -227,9 +228,13 @@ export const addExerciseToWorkout = async (
 	}
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
+	const currentEntity = Cookies.get(CurrentWorkoutKey);
 	navigate(
 		withFragment(
-			$path("/fitness/:action", { action: "log-workout" }),
+			$path("/fitness/:action", {
+				action:
+					currentEntity === "workouts" ? "log-workout" : "create-template",
+			}),
 			idxOfNextExercise.toString(),
 		),
 	);
