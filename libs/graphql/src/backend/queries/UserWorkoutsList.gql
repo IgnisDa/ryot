@@ -1,5 +1,5 @@
-query UserWorkoutList($input: SearchInput!) {
-  userWorkoutList(input: $input) {
+query UserWorkoutsList($input: SearchInput!) {
+  userWorkoutsList(input: $input) {
     details {
       total
       nextPage

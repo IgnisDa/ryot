@@ -141,14 +141,14 @@ impl ExerciseQuery {
     }
 
     /// Get a paginated list of workouts done by the user.
-    async fn user_workout_list(
+    async fn user_workouts_list(
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
     ) -> Result<SearchResults<WorkoutListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_workout_list(user_id, input).await
+        service.user_workouts_list(user_id, input).await
     }
 
     /// Get details about an exercise.
@@ -403,7 +403,7 @@ impl ExerciseService {
         Ok(resp)
     }
 
-    async fn user_workout_list(
+    async fn user_workouts_list(
         &self,
         user_id: String,
         input: SearchInput,
