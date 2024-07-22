@@ -84,7 +84,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 					id: w.id,
 					name: w.name,
 					timestamp: w.startTime,
-					duration: humanizeDuration(
+					detail: humanizeDuration(
 						new Date(w.endTime).valueOf() - new Date(w.startTime).valueOf(),
 						{ round: true, units: ["h", "m"] },
 					),
@@ -147,10 +147,14 @@ export default function Page() {
 												</Text>
 											</Group>
 											<Stack mt="xs" gap={1}>
-												{workout.duration ? (
+												{workout.detail ? (
 													<DisplayStat
-														icon={<IconClock size={16} />}
-														data={workout.duration}
+														icon={match(loaderData.entity)
+															.with(Entity.Workouts, () => (
+																<IconClock size={16} />
+															))
+															.exhaustive()}
+														data={workout.detail}
 													/>
 												) : null}
 												{workout.summary.total ? (
