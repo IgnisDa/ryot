@@ -241,13 +241,12 @@ const ExerciseDisplay = (props: {
 	exercise: WorkoutSummary["exercises"][number];
 }) => {
 	const unitSystem = useUserUnitSystem();
-	const lot = props.exercise.lot;
-	invariant(lot);
 	const stat = match(props.exercise.bestSet)
 		.with(undefined, null, () => {})
 		.otherwise((value) => {
+			invariant(props.exercise.lot);
 			const [stat] = getSetStatisticsTextToDisplay(
-				lot,
+				props.exercise.lot,
 				value.statistic,
 				unitSystem,
 			);
