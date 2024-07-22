@@ -20,7 +20,7 @@ import {
 	useLoaderData,
 } from "@remix-run/react";
 import {
-	UserWorkoutListDocument,
+	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
@@ -73,14 +73,14 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const itemList = await match(entity)
 		.with(Entity.Workouts, async () => {
-			const { userWorkoutList } = await serverGqlService.authenticatedRequest(
+			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
-				UserWorkoutListDocument,
+				UserWorkoutsListDocument,
 				{ input: { page: query.page, query: query.query } },
 			);
 			return {
-				details: userWorkoutList.details,
-				items: userWorkoutList.items.map((w) => ({
+				details: userWorkoutsList.details,
+				items: userWorkoutsList.items.map((w) => ({
 					id: w.id,
 					name: w.name,
 					timestamp: w.startTime,
