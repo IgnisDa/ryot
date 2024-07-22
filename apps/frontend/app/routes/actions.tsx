@@ -17,6 +17,7 @@ import {
 	EntityLot,
 	MediaLot,
 	MediaSource,
+	MetadataDetailsDocument,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	SeenState,
@@ -222,6 +223,10 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("progressUpdate", async () => {
 			const submission = processSubmission(formData, progressUpdateSchema);
+			const { metadataDetails } = await serverGqlService.request(
+				MetadataDetailsDocument,
+				{ metadataId: submission.metadataId },
+			);
 			const variables = {
 				metadataId: submission.metadataId,
 				progress: "100",
@@ -236,12 +241,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			};
 			let needsFinalUpdate = true;
 			const updates = [];
-			const showSpecifics = showSpecificsSchema.parse(
-				JSON.parse(submission.showSpecifics || "[]"),
-			);
-			const podcastSpecifics = podcastSpecificsSchema.parse(
-				JSON.parse(submission.podcastSpecifics || "[]"),
-			);
+			const showSpecifics = metadataDetails.showSpecifics?.seasons || [];
+			const podcastSpecifics = metadataDetails.podcastSpecifics?.episodes || [];
 			if (submission.metadataLot === MediaLot.Anime) {
 				if (submission.animeEpisodeNumber) {
 					if (submission.animeAllEpisodesBefore) {
@@ -275,7 +276,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 							updates.push({
 								...variables,
 								showSeasonNumber: season.seasonNumber,
-								showEpisodeNumber: episode,
+								showEpisodeNumber: episode.episodeNumber,
 							});
 						}
 					}
@@ -294,7 +295,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 								updates.push({
 									...variables,
 									showSeasonNumber: season.seasonNumber,
-									showEpisodeNumber: episode,
+									showEpisodeNumber: episode.episodeNumber,
 								});
 							}
 						}
@@ -302,7 +303,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 						for (const episode of selectedSeason.episodes || []) {
 							updates.push({
 								...variables,
-								showEpisodeNumber: episode,
+								showEpisodeNumber: episode.episodeNumber,
 							});
 						}
 					}
@@ -313,7 +314,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					for (const episode of podcastSpecifics) {
 						updates.push({
 							...variables,
-							podcastEpisodeNumber: episode.episodeNumber,
+							podcastEpisodeNumber: episode.number,
 						});
 					}
 					needsFinalUpdate = false;
@@ -446,9 +447,7 @@ const progressUpdateSchema = z
 		metadataLot: z.nativeEnum(MediaLot),
 		date: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
-		showSpecifics: z.string().optional(),
 		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
-		podcastSpecifics: z.string().optional(),
 		onlySeason: zx.BoolAsString.optional(),
 		completeShow: zx.BoolAsString.optional(),
 		completePodcast: zx.BoolAsString.optional(),
@@ -458,12 +457,6 @@ const progressUpdateSchema = z
 	})
 	.merge(MetadataIdSchema)
 	.merge(MetadataSpecificsSchema);
-
-const showSpecificsSchema = z.array(
-	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),
-);
-
-const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
 const bulkUpdateSchema = z
 	.object({

@@ -1023,16 +1023,6 @@ const NewProgressUpdateForm = ({
 				) : null}
 				{metadataDetails.lot === MediaLot.Show ? (
 					<>
-						<input
-							hidden
-							name="showSpecifics"
-							defaultValue={JSON.stringify(
-								metadataDetails.showSpecifics?.seasons.map((s) => ({
-									seasonNumber: s.seasonNumber,
-									episodes: s.episodes.map((e) => e.episodeNumber),
-								})),
-							)}
-						/>
 						{metadataToUpdate.onlySeason || metadataToUpdate.completeShow ? (
 							<Alert color="yellow" icon={<IconAlertCircle />}>
 								{metadataToUpdate.onlySeason
@@ -1101,15 +1091,6 @@ const NewProgressUpdateForm = ({
 				) : null}
 				{metadataDetails.lot === MediaLot.Podcast ? (
 					<>
-						<input
-							hidden
-							name="podcastSpecifics"
-							defaultValue={JSON.stringify(
-								metadataDetails.podcastSpecifics?.episodes.map((e) => ({
-									episodeNumber: e.number,
-								})),
-							)}
-						/>
 						{metadataToUpdate.completePodcast ? (
 							<Alert color="yellow" icon={<IconAlertCircle />}>
 								This will mark all episodes for this podcast as seen
