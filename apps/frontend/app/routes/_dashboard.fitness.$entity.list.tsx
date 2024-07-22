@@ -33,6 +33,7 @@ import {
 } from "@tabler/icons-react";
 import type { ReactElement } from "react";
 import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
@@ -70,12 +71,17 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const cookieName = await getEnhancedCookieName("workouts.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [{ userWorkoutList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, UserWorkoutListDocument, {
-			input: { page: query.page, query: query.query },
-		}),
-	]);
-	return { query, entity, userWorkoutList, cookieName };
+	const itemList = await match(entity)
+		.with(Entity.Workout, async () => {
+			const { userWorkoutList } = await serverGqlService.authenticatedRequest(
+				request,
+				UserWorkoutListDocument,
+				{ input: { page: query.page, query: query.query } },
+			);
+			return userWorkoutList;
+		})
+		.exhaustive();
+	return { query, entity, itemList, cookieName };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -93,26 +99,26 @@ export default function Page() {
 		<Container size="xs">
 			<Stack>
 				<Flex align="center" gap="md">
-					<Title>Workouts</Title>
+					<Title>{changeCase(loaderData.entity)}</Title>
 					<ActionIcon
 						color="green"
 						variant="outline"
 						onClick={() => {
-							startWorkout(getDefaultWorkout(), "workout");
+							startWorkout(getDefaultWorkout(), loaderData.entity);
 						}}
 					>
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
 				<DebouncedSearchInput
-					placeholder="Search for workouts"
+					placeholder={`Search for ${loaderData.entity}`}
 					initialValue={loaderData.query.query}
 					enhancedQueryParams={loaderData.cookieName}
 				/>
-				{loaderData.userWorkoutList.items.length > 0 ? (
+				{loaderData.itemList.items.length > 0 ? (
 					<>
 						<Accordion multiple chevronPosition="left">
-							{loaderData.userWorkoutList.items.map((workout) => (
+							{loaderData.itemList.items.map((workout) => (
 								<Accordion.Item
 									key={workout.id}
 									value={workout.id}
@@ -161,7 +167,7 @@ export default function Page() {
 										<Anchor
 											component={Link}
 											to={$path("/fitness/:entity/:id", {
-												entity: "workout",
+												entity: loaderData.entity,
 												id: workout.id,
 											})}
 											pr="md"
@@ -175,29 +181,23 @@ export default function Page() {
 										</Anchor>
 									</Center>
 									<Accordion.Panel>
-										{workout.summary.exercises.length > 0 ? (
-											<>
-												<Group justify="space-between">
-													<Text fw="bold">Exercise</Text>
-													<Text fw="bold">Best set</Text>
-												</Group>
-												{workout.summary.exercises.map((exercise, idx) => (
-													<ExerciseDisplay
-														exercise={exercise}
-														key={`${idx}-${exercise.id}`}
-													/>
-												))}
-											</>
-										) : (
-											<Text>No exercises done</Text>
-										)}
+										<Group justify="space-between">
+											<Text fw="bold">Exercise</Text>
+											<Text fw="bold">Best set</Text>
+										</Group>
+										{workout.summary.exercises.map((exercise, idx) => (
+											<ExerciseDisplay
+												exercise={exercise}
+												key={`${idx}-${exercise.id}`}
+											/>
+										))}
 									</Accordion.Panel>
 								</Accordion.Item>
 							))}
 						</Accordion>
 					</>
 				) : (
-					<Text>No workouts found</Text>
+					<Text>No ${loaderData.entity}s found</Text>
 				)}
 				<Center>
 					<Pagination
@@ -205,7 +205,7 @@ export default function Page() {
 						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
-							loaderData.userWorkoutList.details.total / coreDetails.pageLimit,
+							loaderData.itemList.details.total / coreDetails.pageLimit,
 						)}
 					/>
 				</Center>
