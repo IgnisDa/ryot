@@ -13,7 +13,7 @@ async-graphql = { version = "=7.0.6", features = [
 chrono = "=0.4.38"
 dotenvy_macro = "=0.15.7"
 nanoid = "=0.4.0"
-schematic = { version = "=0.16.4", features = [
+schematic = { version = "=0.16.6", features = [
     "config",
     "json",
     "schema",
@@ -37,7 +37,7 @@ sea-orm = { version = "=1.0.0-rc.5", features = [
     "with-uuid",
 ], default-features = false }
 sea-orm-migration = "=1.0.0-rc.5"
-serde = { version = "=1.0.202", features = ["derive"] }
-serde_json = "=1.0.117"
+serde = { version = "=1.0.204", features = ["derive"] }
+serde_json = "=1.0.120"
 strum = { version = "=0.26.2", features = ["derive"] }
 tracing = { version = "=0.1.40", features = ["attributes"] }
