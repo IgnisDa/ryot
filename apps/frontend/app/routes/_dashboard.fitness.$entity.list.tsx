@@ -209,7 +209,7 @@ export default function Page() {
 						</Accordion>
 					</>
 				) : (
-					<Text>No {loaderData.entity}s found</Text>
+					<Text>No {loaderData.entity} found</Text>
 				)}
 				<Center>
 					<Pagination
