@@ -49,6 +49,7 @@ lettre = { version = "=0.11.7", features = [
     "builder",
 ], default-features = false }
 markdown = "=1.0.0-alpha.18"
+mime_guess = "=2.0.5"
 nanoid = { workspace = true }
 openidconnect = "=3.5.0"
 paginate = "=1.1.11"
@@ -83,5 +84,5 @@ tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
 logs-wheel = "=0.3.1"
-unkey = "=0.3.0"
+unkey = "=0.4.0"
 uuid = { version = "=1.10.0", features = ["v4"], default-features = false }

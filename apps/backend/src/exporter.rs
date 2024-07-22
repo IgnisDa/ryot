@@ -4,7 +4,10 @@ use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use nanoid::nanoid;
-use reqwest::{Body, Client};
+use reqwest::{
+    header::{CONTENT_LENGTH, CONTENT_TYPE},
+    Body, Client,
+};
 use rs_utils::IsFeatureEnabled;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -146,7 +149,7 @@ impl ExporterService {
         writer.end_object().unwrap();
         writer.finish_document().unwrap();
         let ended_at = Utc::now();
-        let (_, url) = self
+        let (_key, url) = self
             .file_storage_service
             .get_presigned_put_url(
                 export_path
@@ -155,7 +158,7 @@ impl ExporterService {
                     .to_str()
                     .unwrap()
                     .to_string(),
-                format!("exports/user__{}", user_id),
+                format!("exports/{}", user_id),
                 false,
                 Some(HashMap::from([
                     ("started_at".to_string(), started_at.to_rfc2822()),
@@ -168,11 +171,15 @@ impl ExporterService {
             )
             .await;
         let file = File::open(&export_path).await.unwrap();
+        let content_length = file.metadata().await.unwrap().len();
+        let content_type = mime_guess::from_path(&export_path).first_or_octet_stream();
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
         let client = Client::new();
         client
             .put(url)
+            .header(CONTENT_TYPE, content_type.to_string())
+            .header(CONTENT_LENGTH, content_length)
             .header("x-amz-meta-started_at", started_at.to_rfc2822())
             .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
             .header(
@@ -193,7 +200,7 @@ impl ExporterService {
         let mut resp = vec![];
         let objects = self
             .file_storage_service
-            .list_objects_at_prefix(format!("exports/user__{}", user_id))
+            .list_objects_at_prefix(format!("exports/{}", user_id))
             .await;
         for object in objects {
             let url = self

@@ -2,40 +2,15 @@ query WorkoutDetails($workoutId: String!) {
   workoutDetails(workoutId: $workoutId) {
     id
     name
-    comment
-    startTime
     endTime
+    startTime
+    templateId
     repeatedFrom
     summary {
       ...WorkoutSummaryPart
     }
     information {
-      assets {
-        ...EntityAssetsPart
-      }
-      exercises {
-        name
-        lot
-        notes
-        restTime
-        total {
-          ...WorkoutOrExerciseTotalsPart
-        }
-        supersetWith
-        assets {
-          ...EntityAssetsPart
-        }
-        sets {
-          statistic {
-            ...WorkoutSetStatisticPart
-          }
-          note
-          lot
-          note
-          personalBests
-          confirmedAt
-        }
-      }
+      ...WorkoutInformationPart
     }
   }
 }

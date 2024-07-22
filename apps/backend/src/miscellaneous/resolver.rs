@@ -69,7 +69,7 @@ use crate::{
     file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
     integrations::{IntegrationMediaSeen, IntegrationService},
-    jwt,
+    jwt::{self, AccessLinkClaims},
     miscellaneous::{CustomService, DefaultCollection},
     models::{
         fitness::UserUnitSystem,
@@ -4705,8 +4705,8 @@ impl MiscellaneousService {
     #[inline]
     pub async fn check_token(&self, token: &str, is_mutation: bool) -> Result<bool> {
         let claims = user_claims_from_token(token, &self.config.users.jwt_secret)?;
-        if let Some(access_link_id) = claims.access_link_id {
-            let access_link = AccessLink::find_by_id(access_link_id)
+        if let Some(access_link) = claims.access_link {
+            let access_link = AccessLink::find_by_id(access_link.id)
                 .one(&self.db)
                 .await?
                 .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
@@ -5479,6 +5479,10 @@ impl MiscellaneousService {
                                 }
                                 "workouts" => {
                                     preferences.features_enabled.fitness.workouts =
+                                        value_bool.unwrap()
+                                }
+                                "templates" => {
+                                    preferences.features_enabled.fitness.templates =
                                         value_bool.unwrap()
                                 }
                                 _ => return Err(err()),
@@ -7388,7 +7392,10 @@ GROUP BY "m"."id";
             link.user_id.clone(),
             &self.config.users.jwt_secret,
             validity,
-            Some(link.id.clone()),
+            Some(AccessLinkClaims {
+                id: link.id.clone(),
+                is_demo: link.is_demo,
+            }),
         )?;
         let mut issued_tokens = link.issued_tokens.clone();
         issued_tokens.push(api_key.clone());

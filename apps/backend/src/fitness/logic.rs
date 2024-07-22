@@ -198,11 +198,11 @@ impl UserWorkoutInput {
                     totals.weight = Some(we * re);
                 }
                 let mut value = WorkoutSetRecord {
-                    totals,
                     lot: set.lot,
                     actual_rest_time,
+                    totals: Some(totals),
                     note: set.note.clone(),
-                    personal_bests: vec![],
+                    personal_bests: Some(vec![]),
                     confirmed_at: set.confirmed_at,
                     statistic: set.statistic.clone(),
                 };
@@ -244,32 +244,38 @@ impl UserWorkoutInput {
                     let workout_set =
                         workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
                     if set.get_personal_best(best_type) > workout_set.get_personal_best(best_type) {
-                        set.personal_bests.push(*best_type);
+                        if let Some(ref mut set_personal_bests) = set.personal_bests {
+                            set_personal_bests.push(*best_type);
+                        }
                         total.personal_bests_achieved += 1;
                     }
                 } else {
-                    set.personal_bests.push(*best_type);
+                    if let Some(ref mut set_personal_bests) = set.personal_bests {
+                        set_personal_bests.push(*best_type);
+                    }
                     total.personal_bests_achieved += 1;
                 }
             }
             workout_totals.push(total.clone());
             for (set_idx, set) in sets.iter().enumerate() {
-                for best in set.personal_bests.iter() {
-                    let to_insert_record = ExerciseBestSetRecord {
-                        workout_id: id.clone(),
-                        exercise_idx,
-                        set_idx,
-                    };
-                    if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
-                        let mut data =
-                            LengthVec::from_vec_and_length(record.sets.clone(), save_history);
-                        data.push_front(to_insert_record);
-                        record.sets = data.into_vec();
-                    } else {
-                        personal_bests.push(UserToExerciseBestSetExtraInformation {
-                            lot: *best,
-                            sets: vec![to_insert_record],
-                        });
+                if let Some(set_personal_bests) = &set.personal_bests {
+                    for best in set_personal_bests.iter() {
+                        let to_insert_record = ExerciseBestSetRecord {
+                            workout_id: id.clone(),
+                            exercise_idx,
+                            set_idx,
+                        };
+                        if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
+                            let mut data =
+                                LengthVec::from_vec_and_length(record.sets.clone(), save_history);
+                            data.push_front(to_insert_record);
+                            record.sets = data.into_vec();
+                        } else {
+                            personal_bests.push(UserToExerciseBestSetExtraInformation {
+                                lot: *best,
+                                sets: vec![to_insert_record],
+                            });
+                        }
                     }
                 }
             }
@@ -286,18 +292,18 @@ impl UserWorkoutInput {
             exercises.push((
                 db_ex.lot,
                 ProcessedExercise {
-                    name: db_ex.id,
-                    lot: db_ex.lot,
                     sets,
+                    lot: db_ex.lot,
+                    name: db_ex.id,
+                    total: Some(total),
                     notes: ex.notes.clone(),
                     rest_time: ex.rest_time,
                     assets: ex.assets.clone(),
                     superset_with: ex.superset_with.clone(),
-                    total,
                 },
             ));
         }
-        let summary_total = workout_totals.into_iter().sum();
+        let summary_total = Some(workout_totals.into_iter().sum());
         let model = workout::Model {
             id,
             end_time: input.end_time,
@@ -305,23 +311,24 @@ impl UserWorkoutInput {
             repeated_from: input.repeated_from,
             user_id: user_id.clone(),
             name: input.name,
-            comment: input.comment,
             summary: WorkoutSummary {
                 total: summary_total,
                 exercises: exercises
                     .iter()
                     .map(|(lot, e)| WorkoutSummaryExercise {
-                        num_sets: e.sets.len(),
+                        lot: Some(*lot),
                         id: e.name.clone(),
-                        lot: *lot,
-                        best_set: e.sets[get_best_set_index(&e.sets).unwrap()].clone(),
+                        num_sets: e.sets.len(),
+                        best_set: Some(e.sets[get_best_set_index(&e.sets).unwrap()].clone()),
                     })
                     .collect(),
             },
             information: WorkoutInformation {
-                assets: input.assets.clone(),
+                comment: input.comment,
+                assets: input.assets,
                 exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
             },
+            template_id: input.template_id,
         };
         let insert: workout::ActiveModel = model.into();
         let data = insert.insert(db).await?;

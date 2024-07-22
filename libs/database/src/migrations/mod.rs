@@ -11,6 +11,7 @@ mod m20230502_create_genre;
 mod m20230504_create_collection;
 mod m20230505_create_review;
 mod m20230509_create_import_report;
+mod m20230818_create_workout_template;
 mod m20230819_create_workout;
 mod m20230820_create_user_measurement;
 mod m20230822_create_exercise;
@@ -44,6 +45,11 @@ mod m20240717_add_columns_to_access_link;
 mod m20240717_add_columns_to_integration_and_notification_tables;
 mod m20240717_zz_add_columns_to_user_table;
 mod m20240718_add_columns_to_access_link;
+mod m20240719_remove_comment_from_top_level;
+mod m20240720_add_new_columns_to_workout;
+mod m20240722_remove_columns_from_user_table;
+mod m20240822_zz_add_new_preference_for_templates;
+mod m20240822_zzz_add_new_column_to_access_link;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -76,6 +82,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230504_create_collection::Migration),
             Box::new(m20230505_create_review::Migration),
             Box::new(m20230509_create_import_report::Migration),
+            Box::new(m20230818_create_workout_template::Migration),
             Box::new(m20230819_create_workout::Migration),
             Box::new(m20230820_create_user_measurement::Migration),
             Box::new(m20230822_create_exercise::Migration),
@@ -109,6 +116,11 @@ impl MigratorTrait for Migrator {
             Box::new(m20240717_add_columns_to_access_link::Migration),
             Box::new(m20240717_zz_add_columns_to_user_table::Migration),
             Box::new(m20240718_add_columns_to_access_link::Migration),
+            Box::new(m20240719_remove_comment_from_top_level::Migration),
+            Box::new(m20240720_add_new_columns_to_workout::Migration),
+            Box::new(m20240722_remove_columns_from_user_table::Migration),
+            Box::new(m20240822_zz_add_new_preference_for_templates::Migration),
+            Box::new(m20240822_zzz_add_new_column_to_access_link::Migration),
         ]
     }
 }

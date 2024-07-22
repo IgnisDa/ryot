@@ -237,19 +237,22 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		request.headers.get("cookie") || "",
 	);
 
+	const decodedCookie = jwtDecode<{
+		access_link?: { id: string; is_demo?: boolean };
+	}>(getAuthorizationCookie(request));
+	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
+	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
+
 	const shouldHaveUmami =
 		envData.FRONTEND_UMAMI_SCRIPT_URL &&
 		envData.FRONTEND_UMAMI_WEBSITE_ID &&
 		!envData.DISABLE_TELEMETRY &&
-		!userDetails.isDemo;
+		!isDemo;
 
 	const workoutInProgress = isWorkoutActive(request);
-	const decodedCookie = jwtDecode<{ access_link_id?: string }>(
-		getAuthorizationCookie(request),
-	);
-	const isAccessLinkSession = !!decodedCookie?.access_link_id;
 
 	return {
+		isDemo,
 		envData,
 		mediaLinks,
 		userDetails,
@@ -385,7 +388,8 @@ export default function Layout() {
 	return (
 		<>
 			{loaderData.workoutInProgress &&
-			location.pathname !== $path("/fitness/workouts/current") ? (
+			location.pathname !==
+				$path("/fitness/:action", { action: "log-workout" }) ? (
 				<Tooltip label="You have an active workout" position="left">
 					<Affix
 						position={{
@@ -404,7 +408,9 @@ export default function Layout() {
 							color="orange"
 							radius="xl"
 							size="xl"
-							onClick={() => navigate($path("/fitness/workouts/current"))}
+							onClick={() =>
+								navigate($path("/fitness/:action", { action: "log-workout" }))
+							}
 						>
 							<IconStretching size={32} />
 						</ActionIcon>
@@ -1219,8 +1225,13 @@ const ReviewEntityForm = ({
 			replace
 			method="POST"
 			action={withQuery("/actions", { intent: "performReviewAction" })}
-			onSubmit={(e) => {
+			onSubmit={async (e) => {
 				submit(e);
+				await queryClient.invalidateQueries({
+					queryKey: queryFactory.media.userMetadataDetails(
+						entityToReview.entityId,
+					).queryKey,
+				});
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
 			}}

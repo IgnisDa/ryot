@@ -34,25 +34,32 @@ pub struct Model {
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,
     pub name: String,
-    pub comment: Option<String>,
+    pub template_id: Option<String>,
 }
 
 #[async_trait]
 impl GraphqlRepresentation for Model {
-    async fn graphql_representation(self, file_storage_service: &Arc<FileStorageService>) -> Result<Self> {
+    async fn graphql_representation(
+        self,
+        file_storage_service: &Arc<FileStorageService>,
+    ) -> Result<Self> {
         let mut cnv_workout = self.clone();
-        for image in cnv_workout.information.assets.images.iter_mut() {
-            *image = file_storage_service.get_presigned_url(image.clone()).await;
-        }
-        for video in cnv_workout.information.assets.videos.iter_mut() {
-            *video = file_storage_service.get_presigned_url(video.clone()).await;
-        }
-        for exercise in cnv_workout.information.exercises.iter_mut() {
-            for image in exercise.assets.images.iter_mut() {
+        if let Some(ref mut assets) = cnv_workout.information.assets {
+            for image in assets.images.iter_mut() {
                 *image = file_storage_service.get_presigned_url(image.clone()).await;
             }
-            for video in exercise.assets.videos.iter_mut() {
+            for video in assets.videos.iter_mut() {
                 *video = file_storage_service.get_presigned_url(video.clone()).await;
+            }
+        }
+        for exercise in cnv_workout.information.exercises.iter_mut() {
+            if let Some(ref mut assets) = exercise.assets {
+                for image in assets.images.iter_mut() {
+                    *image = file_storage_service.get_presigned_url(image.clone()).await;
+                }
+                for video in assets.videos.iter_mut() {
+                    *video = file_storage_service.get_presigned_url(video.clone()).await;
+                }
             }
         }
         Ok(cnv_workout)

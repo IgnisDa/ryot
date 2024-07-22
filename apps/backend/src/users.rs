@@ -97,6 +97,7 @@ pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
     pub workouts: bool,
+    pub templates: bool,
 }
 
 impl Default for UserFitnessFeaturesEnabledPreferences {
@@ -105,6 +106,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
             enabled: true,
             measurements: true,
             workouts: true,
+            templates: true,
         }
     }
 }

@@ -1,0 +1,14 @@
+query WorkoutTemplateDetails($workoutTemplateId: String!) {
+  workoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
+    id
+    name
+    createdOn
+    visibility
+    summary {
+      ...WorkoutSummaryPart
+    }
+    information {
+      ...WorkoutInformationPart
+    }
+  }
+}

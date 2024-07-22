@@ -1,5 +1,5 @@
-query UserWorkoutList($input: SearchInput!) {
-  userWorkoutList(input: $input) {
+query UserWorkoutTemplatesList($input: SearchInput!) {
+  userWorkoutTemplatesList(input: $input) {
     details {
       total
       nextPage
@@ -7,8 +7,8 @@ query UserWorkoutList($input: SearchInput!) {
     items {
       id
       name
-      startTime
-      endTime
+      createdOn
+      visibility
       summary {
         ...WorkoutSummaryPart
       }

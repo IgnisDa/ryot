@@ -326,15 +326,12 @@ fn init_tracing() -> Result<()> {
 
 #[tracing::instrument(skip_all)]
 async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Result<()> {
+    use anyhow::anyhow;
     use chrono::NaiveDate;
     use rs_utils::convert_naive_to_utc;
     use serde::{Deserialize, Serialize};
     use serde_with::skip_serializing_none;
-
-    use unkey::{
-        models::{VerifyKeyRequest, Wrapped},
-        Client,
-    };
+    use unkey::{models::VerifyKeyRequest, Client};
 
     #[cfg(debug_assertions)]
     const API_ID: &str = "api_4GvvJVbWobkNjcnnvFHmBP5pXb4K";
@@ -349,31 +346,25 @@ async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Resu
 
     let unkey_client = Client::new("public");
     let verify_request = VerifyKeyRequest::new(pro_key, API_ID);
-    match unkey_client.verify_key(verify_request).await {
-        Wrapped::Err(err) => {
-            bail!("Error verifying pro key: {}", err.message);
-        }
-        Wrapped::Ok(resp) => {
-            if !resp.valid {
-                bail!("Pro key is no longer valid.");
+    let verify_response = unkey_client
+        .verify_key(verify_request)
+        .await
+        .map_err(|e| anyhow!("Error verifying key").context(e.message))?;
+    if !verify_response.valid {
+        bail!("Pro key is no longer valid.");
+    }
+    let key_meta = verify_response
+        .meta
+        .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
+    tracing::debug!("Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
+    if let Some(meta) = key_meta {
+        if let Some(expiry) = meta.expiry {
+            if compilation_time > &convert_naive_to_utc(expiry) {
+                bail!("Pro key has expired. Please renew your subscription or downgrade to a version released before {}.", expiry.format("%v"));
             }
-            let key_meta = resp
-                .meta
-                .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
-            tracing::debug!("Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
-            if let Some(meta) = key_meta {
-                if let Some(expiry) = meta.expiry {
-                    if compilation_time > &convert_naive_to_utc(expiry) {
-                        bail!(
-                        "Pro key has expired. Please renew your subscription or downgrade to a version released before {}.",
-                        expiry.format("%v")
-                    );
-                    }
-                }
-            }
-            tracing::info!("Pro key verified successfully");
         }
     }
+    tracing::info!("Pro key verified successfully");
     Ok(())
 }
 

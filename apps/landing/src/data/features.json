@@ -28,6 +28,7 @@
 		"name": "Other Enhancements",
 		"image": "/images/features/other-enhancements.png",
 		"points": [
+			"Create templates to schedule future workouts.",
 			"Option to automatically sync media items from integrations to the \"Owned\" collection.",
 			"Easier navigation for the \"History\" tab in media details to your favorite episode.",
 			"Easily view history for an exercise and copy it to your current workout.",

@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20230417_create_user::User;
+use super::{m20230417_create_user::User, m20230818_create_workout_template::WorkoutTemplate};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,7 +11,6 @@ pub enum Workout {
     Id,
     UserId,
     Name,
-    Comment,
     StartTime,
     EndTime,
     /// General information like total weights lifted, number of records etc.
@@ -20,6 +19,8 @@ pub enum Workout {
     Information,
     /// The workout this one was repeated from
     RepeatedFrom,
+    /// The template this workout was created from
+    TemplateId,
 }
 
 #[async_trait::async_trait]
@@ -47,15 +48,23 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Workout::Name).text().not_null())
-                    .col(ColumnDef::new(Workout::Comment).text())
                     .col(ColumnDef::new(Workout::RepeatedFrom).text())
                     .col(ColumnDef::new(Workout::UserId).text().not_null())
+                    .col(ColumnDef::new(Workout::TemplateId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("workout_to_user_foreign_key")
                             .from(Workout::Table, Workout::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("template_to_workout_foreign_key")
+                            .from(Workout::Table, Workout::TemplateId)
+                            .to(WorkoutTemplate::Table, WorkoutTemplate::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),

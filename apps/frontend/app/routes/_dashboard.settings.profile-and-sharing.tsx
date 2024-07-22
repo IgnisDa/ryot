@@ -47,7 +47,12 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib, queryClient, queryFactory } from "~/lib/generals";
-import { useConfirmSubmit, useCoreDetails, useUserDetails } from "~/lib/hooks";
+import {
+	useConfirmSubmit,
+	useCoreDetails,
+	useDashboardLayoutData,
+	useUserDetails,
+} from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
@@ -145,6 +150,8 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const loaderData = useLoaderData<typeof loader>();
 	const submit = useConfirmSubmit();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemo;
 	const [
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
@@ -160,7 +167,6 @@ export default function Page() {
 				<Box mt="md">
 					<Tabs.Panel value="profile">
 						<Stack>
-							<Title>Profile</Title>
 							<Form
 								method="POST"
 								action={withQuery(".", { intent: "updateProfile" })}
@@ -179,9 +185,9 @@ export default function Page() {
 									<TextInput
 										label="Username"
 										name="username"
-										disabled={Boolean(userDetails.isDemo)}
+										disabled={Boolean(isEditDisabled)}
 										description={
-											userDetails.isDemo &&
+											isEditDisabled &&
 											"Username can not be changed for the demo user"
 										}
 										defaultValue={userDetails.name}
@@ -190,13 +196,13 @@ export default function Page() {
 										label="Password"
 										name="password"
 										disabled={
-											Boolean(userDetails.isDemo) ||
+											Boolean(isEditDisabled) ||
 											Boolean(userDetails.oidcIssuerId)
 										}
 										description={
 											userDetails.oidcIssuerId
 												? "Not applicable since this user was created via OIDC"
-												: userDetails.isDemo
+												: isEditDisabled
 													? "Password can not be changed for the demo user"
 													: undefined
 										}
@@ -222,12 +228,12 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">
 						<Stack>
-							<Title>Sharing</Title>
 							{loaderData.userAccessLinks.length > 0 ? (
 								loaderData.userAccessLinks.map((link, idx) => (
 									<DisplayAccessLink
 										accessLink={link}
 										key={`${link.id}-${idx}`}
+										isEditDisabled={isEditDisabled}
 									/>
 								))
 							) : (
@@ -258,11 +264,13 @@ export default function Page() {
 
 type AccessLink = UserAccessLinksQuery["userAccessLinks"][number];
 
-const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
+const DisplayAccessLink = (props: {
+	accessLink: AccessLink;
+	isEditDisabled: boolean;
+}) => {
 	const [parent] = useAutoAnimate();
 	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 	const submit = useConfirmSubmit();
-	const userDetails = useUserDetails();
 
 	const accessLinkUrl =
 		typeof window !== "undefined"
@@ -277,6 +285,7 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 			? `Maximum uses: ${props.accessLink.maximumUses}`
 			: null,
 		props.accessLink.isMutationAllowed ? "Mutation allowed" : null,
+		props.accessLink.isDemo ? "Demo access" : null,
 	]
 		.filter(isString)
 		.join(", ");
@@ -312,14 +321,14 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 									/>
 									<Tooltip
 										label="Can not revoke access links for demo user"
-										disabled={!userDetails.isDemo}
+										disabled={!props.isEditDisabled}
 									>
 										<ActionIcon
 											mt={4}
 											color="red"
 											type="submit"
 											variant="subtle"
-											disabled={userDetails.isDemo || undefined}
+											disabled={props.isEditDisabled || undefined}
 											onClick={async (e) => {
 												const form = e.currentTarget.form;
 												e.preventDefault();
@@ -349,9 +358,10 @@ const DisplayAccessLink = (props: { accessLink: AccessLink }) => {
 				</Flex>
 				{inputOpened ? (
 					<TextInput
-						value={accessLinkUrl}
 						readOnly
+						value={accessLinkUrl}
 						onClick={(e) => e.currentTarget.select()}
+						description="Share this link with others to give them access to your data"
 					/>
 				) : null}
 			</Stack>

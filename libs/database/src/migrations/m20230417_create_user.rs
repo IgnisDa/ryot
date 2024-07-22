@@ -10,7 +10,6 @@ pub enum User {
     CreatedOn,
     Name,
     Password,
-    IsDemo,
     Lot,
     Preferences,
     // This field can be `NULL` if the user has not enabled any yank integration
@@ -36,7 +35,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Preferences).json_binary().not_null())
                     .col(ColumnDef::new(User::YankIntegrations).json_binary())
                     .col(ColumnDef::new(User::SinkIntegrations).json_binary())
-                    .col(ColumnDef::new(User::IsDemo).boolean())
                     .col(ColumnDef::new(User::OidcIssuerId).text())
                     .col(
                         ColumnDef::new(User::CreatedOn)

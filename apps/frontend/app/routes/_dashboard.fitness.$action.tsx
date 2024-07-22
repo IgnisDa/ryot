@@ -43,14 +43,11 @@ import {
 	useToggle,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
-} from "@remix-run/node";
-import { Link, useFetcher, useNavigate } from "@remix-run/react";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
+	CreateOrUpdateWorkoutTemplateDocument,
 	CreateUserWorkoutDocument,
 	ExerciseLot,
 	SetLot,
@@ -93,6 +90,8 @@ import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { z } from "zod";
+import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplaySetStatistics,
@@ -127,7 +126,6 @@ import {
 	useTimerAtom,
 } from "~/lib/state/fitness";
 import {
-	createToastHeaders,
 	isWorkoutActive,
 	redirectWithToast,
 	serverGqlService,
@@ -136,38 +134,66 @@ import {
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
-	const inProgress = isWorkoutActive(request);
-	if (!inProgress)
-		throw await redirectWithToast($path("/"), {
-			type: "error",
-			message: "No workout in progress",
-		});
-	return {};
+enum Action {
+	LogWorkout = "log-workout",
+	CreateTemplate = "create-template",
+}
+
+export const loader = unstable_defineLoader(async ({ params, request }) => {
+	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	await match(action)
+		.with(Action.LogWorkout, async () => {
+			const inProgress = isWorkoutActive(request);
+			if (!inProgress)
+				throw await redirectWithToast($path("/"), {
+					type: "error",
+					message: "No workout in progress",
+				});
+		})
+		.with(Action.CreateTemplate, async () => {})
+		.exhaustive();
+	return { action, isCreatingTemplate: action === Action.CreateTemplate };
 });
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: "Current Workout | Ryot" }];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [
+		{
+			title: `${data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"} | Ryot`,
+		},
+	];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
+	const workout = JSON.parse(formData.get("workout") as string);
 	return namedAction(request, {
 		createWorkout: async () => {
-			const workout = JSON.parse(formData.get("workout") as string);
 			const { createUserWorkout } = await serverGqlService.authenticatedRequest(
 				request,
 				CreateUserWorkoutDocument,
 				workout,
 			);
-			return redirect(
-				$path("/fitness/workouts/:id", { id: createUserWorkout }),
-				{
-					headers: await createToastHeaders({
-						message: "Workout completed successfully",
-						type: "success",
-					}),
-				},
+			return redirectWithToast(
+				$path("/fitness/:entity/:id", {
+					entity: "workouts",
+					id: createUserWorkout,
+				}),
+				{ message: "Workout completed successfully", type: "success" },
+			);
+		},
+		createTemplate: async () => {
+			const { createOrUpdateWorkoutTemplate } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					CreateOrUpdateWorkoutTemplateDocument,
+					workout,
+				);
+			return redirectWithToast(
+				$path("/fitness/:entity/:id", {
+					entity: "templates",
+					id: createOrUpdateWorkoutTemplate,
+				}),
+				{ message: "Template created successfully", type: "success" },
 			);
 		},
 	});
@@ -183,6 +209,7 @@ const deleteUploadedAsset = (key: string) => {
 };
 
 export default function Page() {
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const events = useApplicationEvents();
@@ -297,11 +324,15 @@ export default function Page() {
 									<DurationTimer startTime={currentWorkout.startTime} />
 									<StatDisplay
 										name="Exercises"
-										value={`${
-											currentWorkout.exercises
-												.map((e) => e.sets.every((s) => s.confirmedAt))
-												.filter(Boolean).length
-										}/${currentWorkout.exercises.length}`}
+										value={
+											isCreatingTemplate
+												? currentWorkout.exercises.length.toString()
+												: `${
+														currentWorkout.exercises
+															.map((e) => e.sets.every((s) => s.confirmedAt))
+															.filter(Boolean).length
+													}/${currentWorkout.exercises.length}`
+										}
 									/>
 									<StatDisplay
 										name="Weight"
@@ -311,7 +342,7 @@ export default function Page() {
 												currentWorkout.exercises
 													.flatMap((e) => e.sets)
 													.flatMap((s) =>
-														s.confirmedAt
+														isCreatingTemplate || s.confirmedAt
 															? Number(s.statistic.reps || 0) *
 																Number(s.statistic.weight || 0)
 															: 0,
@@ -324,7 +355,9 @@ export default function Page() {
 										value={sum(
 											currentWorkout.exercises
 												.flatMap((e) => e.sets)
-												.flatMap((s) => (s.confirmedAt ? 1 : 0)),
+												.flatMap((s) =>
+													isCreatingTemplate || s.confirmedAt ? 1 : 0,
+												),
 										).toString()}
 									/>
 								</Group>
@@ -332,16 +365,18 @@ export default function Page() {
 								<SimpleGrid
 									cols={
 										2 +
+										(isCreatingTemplate ? -1 : 0) +
 										Number(currentWorkout.exercises.length > 0) +
 										Number(currentWorkout.exercises.length > 1)
 									}
 								>
 									<Button
+										radius="md"
 										color="orange"
 										variant="subtle"
-										onClick={timerDrawerToggle}
-										radius="md"
 										size="compact-sm"
+										onClick={timerDrawerToggle}
+										style={isCreatingTemplate ? { display: "none" } : undefined}
 									>
 										{currentTimer
 											? dayjsLib
@@ -373,21 +408,20 @@ export default function Page() {
 													if (!currentWorkout.name) {
 														notifications.show({
 															color: "red",
-															message: "Please give a name to the workout",
+															message: `Please give a name to the ${isCreatingTemplate ? "template" : "workout"}`,
 														});
 														return;
 													}
 													const yes = await confirmWrapper({
-														title: "Finish workout",
-														confirmation:
-															"Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
+														confirmation: isCreatingTemplate
+															? "Only sets that have data will added. Are you sure you want to save this template?"
+															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
-														events.createWorkout();
-														const input =
-															currentWorkoutToCreateWorkoutInput(
-																currentWorkout,
-															);
+														const input = currentWorkoutToCreateWorkoutInput(
+															currentWorkout,
+															isCreatingTemplate,
+														);
 														for (const exercise of currentWorkout.exercises) {
 															queryClient.removeQueries({
 																queryKey:
@@ -398,13 +432,18 @@ export default function Page() {
 														}
 														stopTimer();
 														interval.stop();
-														Cookies.remove(workoutCookieName);
+														if (!isCreatingTemplate) {
+															events.createWorkout();
+															Cookies.remove(workoutCookieName);
+														}
 														createUserWorkoutFetcher.submit(
 															{ workout: JSON.stringify(input) },
 															{
 																method: "post",
 																action: withQuery(".", {
-																	intent: "createWorkout",
+																	intent: isCreatingTemplate
+																		? "createTemplate"
+																		: "createWorkout",
 																}),
 																encType: "multipart/form-data",
 															},
@@ -412,7 +451,7 @@ export default function Page() {
 													}
 												}}
 											>
-												Finish
+												{isCreatingTemplate ? "Save" : "Finish"}
 											</Button>
 										</>
 									) : null}
@@ -423,8 +462,7 @@ export default function Page() {
 										size="compact-sm"
 										onClick={async () => {
 											const yes = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to cancel this workout?",
+												confirmation: `Are you sure you want to cancel this ${isCreatingTemplate ? "template" : "workout"}?`,
 											});
 											if (yes) {
 												for (const e of currentWorkout.exercises) {
@@ -454,9 +492,12 @@ export default function Page() {
 								<Group justify="center">
 									{userPreferences.featuresEnabled.fitness.measurements ? (
 										<Button
-											variant="subtle"
 											color="teal"
+											variant="subtle"
 											onClick={() => setMeasurementsDrawerOpen(true)}
+											style={
+												isCreatingTemplate ? { display: "none" } : undefined
+											}
 										>
 											Add measurement
 										</Button>
@@ -474,19 +515,23 @@ export default function Page() {
 					)}
 				</ClientOnly>
 			) : (
-				<Text>Loading workout...</Text>
+				<Text>Loading {isCreatingTemplate ? "template" : "workout"}...</Text>
 			)}
 		</Container>
 	);
 }
 
-const StatDisplay = (props: { name: string; value: string }) => {
+const StatDisplay = (props: {
+	name: string;
+	value: string;
+	isHidden?: boolean;
+}) => {
 	return (
-		<Box mx="auto">
+		<Box mx="auto" style={props.isHidden ? { display: "none" } : undefined}>
 			<Text ta="center" fz={{ md: "xl" }}>
 				{props.value}
 			</Text>
-			<Text c="dimmed" size="sm">
+			<Text c="dimmed" size="sm" ta="center">
 				{props.name}
 			</Text>
 		</Box>
@@ -501,6 +546,7 @@ const offsetDate = (startTime: string) => {
 const DurationTimer = ({ startTime }: { startTime: string }) => {
 	const [seconds, setSeconds] = useState(offsetDate(startTime));
 	const interval = useInterval(() => setSeconds((s) => s + 1), 1000);
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 
 	useEffect(() => {
 		interval.start();
@@ -514,6 +560,7 @@ const DurationTimer = ({ startTime }: { startTime: string }) => {
 		<StatDisplay
 			name="Duration"
 			value={dayjsLib.duration(seconds * 1000).format(format)}
+			isHidden={isCreatingTemplate}
 		/>
 	);
 };
@@ -675,6 +722,7 @@ const ExerciseDisplay = (props: {
 	openTimerDrawer: () => void;
 	stopTimer: () => void;
 }) => {
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -970,10 +1018,11 @@ const ExerciseDisplay = (props: {
 							</Menu.Item>
 							<Menu.Item
 								leftSection={<IconPhoto size={14} />}
+								onClick={assetsModalToggle}
 								rightSection={
 									exercise.images.length > 0 ? exercise.images.length : null
 								}
-								onClick={assetsModalToggle}
+								style={isCreatingTemplate ? { display: "none" } : undefined}
 							>
 								Images
 							</Menu.Item>
@@ -1110,7 +1159,11 @@ const ExerciseDisplay = (props: {
 							<Text size="xs" w="5%" ta="center">
 								SET
 							</Text>
-							<Text size="xs" w={`${85 / toBeDisplayedColumns}%`} ta="center">
+							<Text
+								size="xs"
+								w={`${(isCreatingTemplate ? 95 : 85) / toBeDisplayedColumns}%`}
+								ta="center"
+							>
 								PREVIOUS
 							</Text>
 							{durationCol ? (
@@ -1143,7 +1196,10 @@ const ExerciseDisplay = (props: {
 									REPS
 								</Text>
 							) : null}
-							<Box w="10%" />
+							<Box
+								w="10%"
+								style={isCreatingTemplate ? { display: "none" } : undefined}
+							/>
 						</Flex>
 						{exercise.sets.map((_, idx) => (
 							<SetDisplay
@@ -1197,6 +1253,7 @@ const SetDisplay = (props: {
 	startTimer: FuncStartTimer;
 	toBeDisplayedColumns: number;
 }) => {
+	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
@@ -1304,7 +1361,10 @@ const SetDisplay = (props: {
 						</Menu.Item>
 					</Menu.Dropdown>
 				</Menu>
-				<Box w={`${85 / props.toBeDisplayedColumns}%`} ta="center">
+				<Box
+					w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
+					ta="center"
+				>
 					{exercise.alreadyDoneSets[props.setIdx] ? (
 						<Box
 							onClick={() => {
@@ -1361,7 +1421,11 @@ const SetDisplay = (props: {
 						stat="reps"
 					/>
 				) : null}
-				<Group w="10%" justify="center">
+				<Group
+					w="10%"
+					justify="center"
+					style={isCreatingTemplate ? { display: "none" } : undefined}
+				>
 					<Transition
 						mounted
 						transition={{

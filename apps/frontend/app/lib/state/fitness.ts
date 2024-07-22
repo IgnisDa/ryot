@@ -9,6 +9,7 @@ import {
 	type UserWorkoutSetRecord,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
+	type WorkoutInformation,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
@@ -17,6 +18,7 @@ import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
+import Cookies from "js-cookie";
 import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
@@ -55,7 +57,9 @@ export type Exercise = {
 };
 
 export type InProgressWorkout = {
+	updateWorkoutTemplateId?: string;
 	repeatedFrom?: string;
+	templateId?: string;
 	startTime: string;
 	endTime?: string;
 	name: string;
@@ -156,11 +160,20 @@ export const convertHistorySetToCurrentSet = (
 		statistic: s.statistic,
 	}) satisfies ExerciseSet;
 
-export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
+export const duplicateOldWorkout = async (
+	workoutInformation: WorkoutInformation,
+	name: string,
+	repeatedFromId?: string,
+	templateId?: string,
+	updateWorkoutTemplateId?: string,
+) => {
 	const inProgress = getDefaultWorkout();
-	inProgress.name = workout.name;
-	inProgress.repeatedFrom = workout.id;
-	for (const [exerciseIdx, ex] of workout.information.exercises.entries()) {
+	inProgress.name = name;
+	inProgress.repeatedFrom = repeatedFromId;
+	inProgress.templateId = templateId;
+	inProgress.updateWorkoutTemplateId = updateWorkoutTemplateId;
+	inProgress.comment = workoutInformation.comment || undefined;
+	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
@@ -182,7 +195,7 @@ export const duplicateOldWorkout = async (workout: TWorkoutDetails) => {
 					: "images",
 		});
 	}
-	for (const [idx, exercise] of workout.information.exercises.entries()) {
+	for (const [idx, exercise] of workoutInformation.exercises.entries()) {
 		const supersetWith = exercise.supersetWith.map(
 			(index) => inProgress.exercises[index].identifier,
 		);
@@ -232,9 +245,13 @@ export const addExerciseToWorkout = async (
 	}
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
+	const currentEntity = Cookies.get(CurrentWorkoutKey);
 	navigate(
 		withFragment(
-			$path("/fitness/workouts/current"),
+			$path("/fitness/:action", {
+				action:
+					currentEntity === "workouts" ? "log-workout" : "create-template",
+			}),
 			idxOfNextExercise.toString(),
 		),
 	);
@@ -242,10 +259,13 @@ export const addExerciseToWorkout = async (
 
 export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
+	isCreatingTemplate: boolean,
 ) => {
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
 			endTime: new Date().toISOString(),
+			templateId: currentWorkout.templateId,
+			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
@@ -260,12 +280,15 @@ export const currentWorkoutToCreateWorkoutInput = (
 	for (const exercise of currentWorkout.exercises) {
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
-			if (set.confirmedAt) {
+			if (isCreatingTemplate || set.confirmedAt) {
 				const note = isString(set.note) ? set.note : undefined;
+				if (Object.keys(set.statistic).length === 0) continue;
 				sets.push({
 					note,
 					lot: set.lot,
-					confirmedAt: new Date(set.confirmedAt).toISOString(),
+					confirmedAt: set.confirmedAt
+						? new Date(set.confirmedAt).toISOString()
+						: null,
 					statistic: set.statistic,
 				});
 			}

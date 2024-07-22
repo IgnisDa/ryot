@@ -25,3 +25,4 @@ pub use super::user_summary::Entity as UserSummary;
 pub use super::user_to_collection::Entity as UserToCollection;
 pub use super::user_to_entity::Entity as UserToEntity;
 pub use super::workout::Entity as Workout;
+pub use super::workout_template::Entity as WorkoutTemplate;

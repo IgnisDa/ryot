@@ -4,15 +4,16 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
 use database::{
     AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
-    ExerciseMechanic, ExerciseMuscle, ExerciseSource,
+    ExerciseMechanic, ExerciseMuscle, ExerciseSource, Visibility,
 };
 use itertools::Itertools;
+use nanoid::nanoid;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
     QueryTrait, RelationTrait,
 };
-use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType};
+use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict};
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use struson::writer::{JsonStreamWriter, JsonWriter};
@@ -22,16 +23,20 @@ use crate::{
     entities::{
         collection, collection_to_entity,
         exercise::{self, ExerciseListItem},
-        prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
-        user_measurement, user_to_entity, workout,
+        prelude::{
+            CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
+        },
+        user_measurement, user_to_entity, workout, workout_template,
     },
     file_storage::FileStorageService,
     miscellaneous::DefaultCollection,
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
-            GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
-            UserWorkoutInput, UserWorkoutSetRecord, WorkoutListItem,
+            GithubExerciseAttributes, ProcessedExercise, UserExerciseInput,
+            UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
+            WorkoutInformation, WorkoutListItem, WorkoutSetRecord, WorkoutSummary,
+            WorkoutSummaryExercise,
         },
         ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
     },
@@ -141,14 +146,25 @@ impl ExerciseQuery {
     }
 
     /// Get a paginated list of workouts done by the user.
-    async fn user_workout_list(
+    async fn user_workouts_list(
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
     ) -> Result<SearchResults<WorkoutListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_workout_list(user_id, input).await
+        service.user_workouts_list(user_id, input).await
+    }
+
+    /// Get a paginated list of templates created by the user.
+    async fn user_workout_templates_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<workout_template::Model>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.user_workout_templates_list(user_id, input).await
     }
 
     /// Get details about an exercise.
@@ -181,6 +197,16 @@ impl ExerciseQuery {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_exercise_details(user_id, exercise_id).await
+    }
+
+    /// Get information about a workout template.
+    async fn workout_template_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        workout_template_id: String,
+    ) -> Result<workout_template::Model> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        service.workout_template_details(workout_template_id).await
     }
 
     /// Get all the measurements for a user.
@@ -239,6 +265,19 @@ impl ExerciseMutation {
         service.create_user_workout(&user_id, input).await
     }
 
+    /// Create or update a workout template.
+    async fn create_or_update_workout_template(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserWorkoutInput,
+    ) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .create_or_update_workout_template(user_id, input)
+            .await
+    }
+
     /// Change the details about a user's workout.
     async fn update_user_workout(
         &self,
@@ -255,6 +294,19 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_user_workout(user_id, workout_id).await
+    }
+
+    /// Delete a workout template.
+    async fn delete_workout_template(
+        &self,
+        gql_ctx: &Context<'_>,
+        workout_template_id: String,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .delete_workout_template(user_id, workout_template_id)
+            .await
     }
 
     /// Create a custom exercise.
@@ -351,6 +403,21 @@ impl ExerciseService {
         }
     }
 
+    async fn workout_template_details(
+        &self,
+        workout_template_id: String,
+    ) -> Result<workout_template::Model> {
+        let maybe_template = WorkoutTemplate::find_by_id(workout_template_id)
+            .one(&self.db)
+            .await?;
+        match maybe_template {
+            None => Err(Error::new(
+                "Workout template with the given ID could not be found.",
+            )),
+            Some(e) => Ok(e),
+        }
+    }
+
     async fn workout_details(
         &self,
         user_id: &String,
@@ -403,7 +470,7 @@ impl ExerciseService {
         Ok(resp)
     }
 
-    async fn user_workout_list(
+    async fn user_workouts_list(
         &self,
         user_id: String,
         input: SearchInput,
@@ -420,6 +487,33 @@ impl ExerciseService {
         let data = query
             .into_partial_model::<WorkoutListItem>()
             .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
+        let next_page = if total - (page * self.config.frontend.page_size) > 0 {
+            Some(page + 1)
+        } else {
+            None
+        };
+        Ok(SearchResults {
+            details: SearchDetails { total, next_page },
+            items,
+        })
+    }
+
+    async fn user_workout_templates_list(
+        &self,
+        user_id: String,
+        input: SearchInput,
+    ) -> Result<SearchResults<workout_template::Model>> {
+        let page = input.page.unwrap_or(1);
+        let query = WorkoutTemplate::find()
+            .filter(workout_template::Column::UserId.eq(user_id))
+            .apply_if(input.query, |query, v| {
+                query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
+            })
+            .order_by_desc(workout_template::Column::CreatedOn);
+        let total = query.clone().count(&self.db).await?;
+        let total: i32 = total.try_into().unwrap();
+        let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
         let next_page = if total - (page * self.config.frontend.page_size) > 0 {
             Some(page + 1)
@@ -700,6 +794,79 @@ impl ExerciseService {
         Ok(identifier)
     }
 
+    pub async fn create_or_update_workout_template(
+        &self,
+        user_id: String,
+        input: UserWorkoutInput,
+    ) -> Result<String> {
+        let mut summary = WorkoutSummary {
+            total: None,
+            exercises: vec![],
+        };
+        let mut information = WorkoutInformation {
+            assets: None,
+            comment: input.comment,
+            exercises: vec![],
+        };
+        for exercise in input.exercises {
+            let db_ex = self.exercise_details(exercise.exercise_id.clone()).await?;
+            summary.exercises.push(WorkoutSummaryExercise {
+                id: exercise.exercise_id.clone(),
+                best_set: None,
+                lot: None,
+                num_sets: exercise.sets.len(),
+            });
+            information.exercises.push(ProcessedExercise {
+                total: None,
+                assets: None,
+                lot: db_ex.lot,
+                sets: exercise
+                    .sets
+                    .into_iter()
+                    .map(|s| WorkoutSetRecord {
+                        lot: s.lot,
+                        note: s.note,
+                        totals: None,
+                        confirmed_at: None,
+                        personal_bests: None,
+                        actual_rest_time: None,
+                        statistic: s.statistic,
+                    })
+                    .collect(),
+                notes: exercise.notes,
+                name: exercise.exercise_id,
+                rest_time: exercise.rest_time,
+                superset_with: exercise.superset_with,
+            });
+        }
+        let template = workout_template::ActiveModel {
+            id: match input.update_workout_template_id {
+                Some(id) => ActiveValue::Set(id),
+                None => ActiveValue::Set(format!("wktpl_{}", nanoid!(12))),
+            },
+            name: ActiveValue::Set(input.name),
+            user_id: ActiveValue::Set(user_id),
+            summary: ActiveValue::Set(summary),
+            information: ActiveValue::Set(information),
+            visibility: ActiveValue::Set(Visibility::Private),
+            ..Default::default()
+        };
+        let template = WorkoutTemplate::insert(template)
+            .on_conflict(
+                OnConflict::column(workout_template::Column::Id)
+                    .update_columns([
+                        workout_template::Column::Name,
+                        workout_template::Column::Summary,
+                        workout_template::Column::Visibility,
+                        workout_template::Column::Information,
+                    ])
+                    .to_owned(),
+            )
+            .exec_with_returning(&self.db)
+            .await?;
+        Ok(template.id)
+    }
+
     async fn update_user_workout(
         &self,
         user_id: String,
@@ -793,9 +960,8 @@ impl ExerciseService {
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
-        if let Some(wkt) = Workout::find()
+        if let Some(wkt) = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(&user_id))
-            .filter(workout::Column::Id.eq(workout_id))
             .one(&self.db)
             .await?
         {
@@ -803,6 +969,23 @@ impl ExerciseService {
             Ok(true)
         } else {
             Err(Error::new("Workout does not exist for user"))
+        }
+    }
+
+    async fn delete_workout_template(
+        &self,
+        user_id: String,
+        workout_template_id: String,
+    ) -> Result<bool> {
+        if let Some(wkt) = WorkoutTemplate::find_by_id(workout_template_id)
+            .filter(workout_template::Column::UserId.eq(&user_id))
+            .one(&self.db)
+            .await?
+        {
+            wkt.delete(&self.db).await?;
+            Ok(true)
+        } else {
+            Err(Error::new("Workout template does not exist for user"))
         }
     }
 
@@ -829,12 +1012,15 @@ impl ExerciseService {
 
     pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
         UserWorkoutInput {
-            id: Some(user_workout.id),
             name: user_workout.name,
-            comment: user_workout.comment,
-            start_time: user_workout.start_time,
-            repeated_from: user_workout.repeated_from,
+            id: Some(user_workout.id),
             end_time: user_workout.end_time,
+            update_workout_template_id: None,
+            start_time: user_workout.start_time,
+            template_id: user_workout.template_id,
+            assets: user_workout.information.assets,
+            repeated_from: user_workout.repeated_from,
+            comment: user_workout.information.comment,
             exercises: user_workout
                 .information
                 .exercises
@@ -857,7 +1043,6 @@ impl ExerciseService {
                     superset_with: e.superset_with,
                 })
                 .collect(),
-            assets: user_workout.information.assets,
         }
     }
 

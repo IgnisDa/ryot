@@ -146,3 +146,32 @@ fragment ReviewItemPart on ReviewItem {
     ...SeenMangaExtraInformationPart
   }
 }
+
+fragment WorkoutInformationPart on WorkoutInformation {
+  comment
+  assets {
+    ...EntityAssetsPart
+  }
+  exercises {
+    name
+    lot
+    notes
+    restTime
+    total {
+      ...WorkoutOrExerciseTotalsPart
+    }
+    supersetWith
+    assets {
+      ...EntityAssetsPart
+    }
+    sets {
+      statistic {
+        ...WorkoutSetStatisticPart
+      }
+      note
+      lot
+      personalBests
+      confirmedAt
+    }
+  }
+}

@@ -27,3 +27,4 @@ pub mod user_summary;
 pub mod user_to_collection;
 pub mod user_to_entity;
 pub mod workout;
+pub mod workout_template;
