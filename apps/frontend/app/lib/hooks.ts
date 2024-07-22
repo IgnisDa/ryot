@@ -96,13 +96,17 @@ export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
-	const fn = (wkt: InProgressWorkout) => {
+	const fn = (wkt: InProgressWorkout, value: "workouts" | "templates") => {
 		setCurrentWorkout(wkt);
-		Cookies.set(CurrentWorkoutKey, "true", {
+		Cookies.set(CurrentWorkoutKey, value, {
 			expires: 2,
 			sameSite: "Strict",
 		});
-		navigate($path("/fitness/workouts/current"));
+		navigate(
+			$path("/fitness/:action", {
+				action: value === "workouts" ? "log-workout" : "create-template",
+			}),
+		);
 	};
 	return fn;
 };

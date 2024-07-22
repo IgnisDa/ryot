@@ -20,10 +20,10 @@ import {
 	useLoaderData,
 } from "@remix-run/react";
 import {
-	UserWorkoutListDocument,
-	type UserWorkoutListQuery,
+	UserWorkoutsListDocument,
+	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration, truncate } from "@ryot/ts-utils";
+import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
@@ -32,6 +32,8 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import type { ReactElement } from "react";
+import invariant from "tiny-invariant";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput } from "~/components/common";
@@ -60,20 +62,42 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
-	const cookieName = await getEnhancedCookieName("workouts.list", request);
+enum Entity {
+	Workouts = "workouts",
+}
+
+export const loader = unstable_defineLoader(async ({ params, request }) => {
+	const { entity } = zx.parseParams(params, { entity: z.nativeEnum(Entity) });
+	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
-	const [{ userWorkoutList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, UserWorkoutListDocument, {
-			input: { page: query.page, query: query.query },
-		}),
-	]);
-	return { query, userWorkoutList, cookieName };
+	const itemList = await match(entity)
+		.with(Entity.Workouts, async () => {
+			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
+				request,
+				UserWorkoutsListDocument,
+				{ input: { page: query.page, query: query.query } },
+			);
+			return {
+				details: userWorkoutsList.details,
+				items: userWorkoutsList.items.map((w) => ({
+					id: w.id,
+					name: w.name,
+					timestamp: w.startTime,
+					detail: humanizeDuration(
+						new Date(w.endTime).valueOf() - new Date(w.startTime).valueOf(),
+						{ round: true, units: ["h", "m"] },
+					),
+					summary: w.summary,
+				})),
+			};
+		})
+		.exhaustive();
+	return { query, entity, itemList, cookieName };
 });
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: "Workouts | Ryot" }];
+export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+	return [{ title: `${changeCase(data?.entity || "")} | Ryot` }];
 };
 
 export default function Page() {
@@ -87,26 +111,26 @@ export default function Page() {
 		<Container size="xs">
 			<Stack>
 				<Flex align="center" gap="md">
-					<Title>Workouts</Title>
+					<Title>{changeCase(loaderData.entity)}</Title>
 					<ActionIcon
 						color="green"
 						variant="outline"
 						onClick={() => {
-							startWorkout(getDefaultWorkout());
+							startWorkout(getDefaultWorkout(), loaderData.entity);
 						}}
 					>
 						<IconPlus size={16} />
 					</ActionIcon>
 				</Flex>
 				<DebouncedSearchInput
-					placeholder="Search for workouts"
+					placeholder={`Search for ${loaderData.entity}`}
 					initialValue={loaderData.query.query}
 					enhancedQueryParams={loaderData.cookieName}
 				/>
-				{loaderData.userWorkoutList.items.length > 0 ? (
+				{loaderData.itemList.items.length > 0 ? (
 					<>
 						<Accordion multiple chevronPosition="left">
-							{loaderData.userWorkoutList.items.map((workout) => (
+							{loaderData.itemList.items.map((workout) => (
 								<Accordion.Item
 									key={workout.id}
 									value={workout.id}
@@ -119,40 +143,47 @@ export default function Page() {
 													{truncate(workout.name, { length: 20 })}
 												</Text>
 												<Text fz={{ base: "xs", md: "sm" }} c="dimmed">
-													{dayjsLib(workout.startTime).format("LL")}
+													{dayjsLib(workout.timestamp).format("LL")}
 												</Text>
 											</Group>
 											<Stack mt="xs" gap={1}>
-												<DisplayStat
-													icon={<IconClock size={16} />}
-													data={humanizeDuration(
-														new Date(workout.endTime).valueOf() -
-															new Date(workout.startTime).valueOf(),
-														{ round: true, units: ["h", "m"] },
-													)}
-												/>
-												<Group>
+												{workout.detail ? (
 													<DisplayStat
-														icon={<IconWeight size={16} />}
-														data={displayWeightWithUnit(
-															unitSystem,
-															workout.summary.total.weight,
-														)}
+														icon={match(loaderData.entity)
+															.with(Entity.Workouts, () => (
+																<IconClock size={16} />
+															))
+															.exhaustive()}
+														data={workout.detail}
 													/>
-													{Number(
-														workout.summary.total.personalBestsAchieved,
-													) !== 0 ? (
+												) : null}
+												{workout.summary.total ? (
+													<Group>
 														<DisplayStat
-															icon={<IconTrophy size={16} />}
-															data={`${workout.summary.total.personalBestsAchieved} PRs`}
+															icon={<IconWeight size={16} />}
+															data={displayWeightWithUnit(
+																unitSystem,
+																workout.summary.total.weight,
+															)}
 														/>
-													) : null}
-												</Group>
+														{Number(
+															workout.summary.total.personalBestsAchieved,
+														) !== 0 ? (
+															<DisplayStat
+																icon={<IconTrophy size={16} />}
+																data={`${workout.summary.total.personalBestsAchieved} PRs`}
+															/>
+														) : null}
+													</Group>
+												) : null}
 											</Stack>
 										</Accordion.Control>
 										<Anchor
 											component={Link}
-											to={$path("/fitness/workouts/:id", { id: workout.id })}
+											to={$path("/fitness/:entity/:id", {
+												entity: loaderData.entity,
+												id: workout.id,
+											})}
 											pr="md"
 										>
 											<Text fz="xs" ta="right" visibleFrom="sm">
@@ -164,29 +195,25 @@ export default function Page() {
 										</Anchor>
 									</Center>
 									<Accordion.Panel>
-										{workout.summary.exercises.length > 0 ? (
-											<>
-												<Group justify="space-between">
-													<Text fw="bold">Exercise</Text>
-													<Text fw="bold">Best set</Text>
-												</Group>
-												{workout.summary.exercises.map((exercise, idx) => (
-													<ExerciseDisplay
-														exercise={exercise}
-														key={`${idx}-${exercise.id}`}
-													/>
-												))}
-											</>
-										) : (
-											<Text>No exercises done</Text>
-										)}
+										<Group justify="space-between">
+											<Text fw="bold">Exercise</Text>
+											{loaderData.entity === Entity.Workouts ? (
+												<Text fw="bold">Best set</Text>
+											) : null}
+										</Group>
+										{workout.summary.exercises.map((exercise, idx) => (
+											<ExerciseDisplay
+												exercise={exercise}
+												key={`${idx}-${exercise.id}`}
+											/>
+										))}
 									</Accordion.Panel>
 								</Accordion.Item>
 							))}
 						</Accordion>
 					</>
 				) : (
-					<Text>No workouts found</Text>
+					<Text>No {loaderData.entity} found</Text>
 				)}
 				<Center>
 					<Pagination
@@ -194,7 +221,7 @@ export default function Page() {
 						value={loaderData.query.page}
 						onChange={(v) => setP("page", v.toString())}
 						total={Math.ceil(
-							loaderData.userWorkoutList.details.total / coreDetails.pageLimit,
+							loaderData.itemList.details.total / coreDetails.pageLimit,
 						)}
 					/>
 				</Center>
@@ -203,10 +230,7 @@ export default function Page() {
 	);
 }
 
-const DisplayStat = (props: {
-	icon: ReactElement;
-	data: string;
-}) => {
+const DisplayStat = (props: { icon: ReactElement; data: string }) => {
 	return (
 		<Flex gap={4} align="center">
 			{props.icon}
@@ -218,14 +242,20 @@ const DisplayStat = (props: {
 };
 
 const ExerciseDisplay = (props: {
-	exercise: UserWorkoutListQuery["userWorkoutList"]["items"][number]["summary"]["exercises"][number];
+	exercise: WorkoutSummary["exercises"][number];
 }) => {
 	const unitSystem = useUserUnitSystem();
-	const [stat, _] = getSetStatisticsTextToDisplay(
-		props.exercise.lot,
-		props.exercise.bestSet.statistic,
-		unitSystem,
-	);
+	const stat = match(props.exercise.bestSet)
+		.with(undefined, null, () => {})
+		.otherwise((value) => {
+			invariant(props.exercise.lot);
+			const [stat] = getSetStatisticsTextToDisplay(
+				props.exercise.lot,
+				value.statistic,
+				unitSystem,
+			);
+			return stat;
+		});
 
 	return (
 		<Flex gap="xs">
@@ -235,7 +265,7 @@ const ExerciseDisplay = (props: {
 			<Text style={{ flex: 1 }} fz="sm">
 				{props.exercise.id}
 			</Text>
-			<Text fz="sm">{stat}</Text>
+			{stat ? <Text fz="sm">{stat}</Text> : null}
 		</Flex>
 	);
 };

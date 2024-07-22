@@ -238,9 +238,9 @@ export interface WorkoutSetRecord {
 	confirmed_at: string | null;
 	lot: SetLot;
 	note: string | null;
-	personal_bests: WorkoutSetPersonalBest[];
+	personal_bests: WorkoutSetPersonalBest[] | null;
 	statistic: WorkoutSetStatistic;
-	totals?: WorkoutSetTotals;
+	totals?: WorkoutSetTotals | null;
 }
 
 /** The totals of a workout and the different bests achieved. */
@@ -257,7 +257,7 @@ export interface WorkoutOrExerciseTotals {
 
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
-	assets: EntityAssets;
+	assets: EntityAssets | null;
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];
@@ -265,31 +265,31 @@ export interface ProcessedExercise {
 	sets: WorkoutSetRecord[];
 	/** The indices of the exercises with which this has been superset with. */
 	superset_with: number[];
-	total: WorkoutOrExerciseTotals;
+	total: WorkoutOrExerciseTotals | null;
 }
 
 /** Information about a workout done. */
 export interface WorkoutInformation {
-	assets: EntityAssets;
+	assets: EntityAssets | null;
+	comment: string | null;
 	exercises: ProcessedExercise[];
 }
 
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
-	best_set: WorkoutSetRecord;
+	best_set: WorkoutSetRecord | null;
 	id: string;
-	lot: ExerciseLot;
+	lot: ExerciseLot | null;
 	num_sets: number;
 }
 
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
-	total: WorkoutOrExerciseTotals;
+	total: WorkoutOrExerciseTotals | null;
 }
 
 /** A workout that was completed by the user. */
 export interface Workout {
-	comment: string | null;
 	end_time: string;
 	id: string;
 	information: WorkoutInformation;

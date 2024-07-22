@@ -1467,6 +1467,7 @@ pub mod fitness {
     }
 
     /// Details about the set performed.
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,
@@ -1482,10 +1483,10 @@ pub mod fitness {
     pub struct WorkoutSetRecord {
         pub statistic: WorkoutSetStatistic,
         pub lot: SetLot,
-        pub personal_bests: Vec<WorkoutSetPersonalBest>,
+        pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
         pub confirmed_at: Option<DateTimeUtc>,
         #[serde(default)]
-        pub totals: WorkoutSetTotals,
+        pub totals: Option<WorkoutSetTotals>,
         pub actual_rest_time: Option<i64>,
         pub note: Option<String>,
     }
@@ -1591,6 +1592,7 @@ pub mod fitness {
     }
 
     /// An exercise that has been processed and committed to the database.
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,
@@ -1606,13 +1608,13 @@ pub mod fitness {
     pub struct ProcessedExercise {
         pub name: String,
         pub lot: ExerciseLot,
-        pub sets: Vec<WorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
-        pub total: WorkoutOrExerciseTotals,
-        pub assets: EntityAssets,
         /// The indices of the exercises with which this has been superset with.
         pub superset_with: Vec<u16>,
+        pub sets: Vec<WorkoutSetRecord>,
+        pub assets: Option<EntityAssets>,
+        pub total: Option<WorkoutOrExerciseTotals>,
     }
 
     #[derive(
@@ -1635,6 +1637,7 @@ pub mod fitness {
     }
 
     /// Information about a workout done.
+    #[skip_serializing_none]
     #[derive(
         Clone,
         Debug,
@@ -1648,8 +1651,9 @@ pub mod fitness {
     )]
     #[serde(rename_all = "snake_case")]
     pub struct WorkoutInformation {
+        pub comment: Option<String>,
+        pub assets: Option<EntityAssets>,
         pub exercises: Vec<ProcessedExercise>,
-        pub assets: EntityAssets,
     }
 
     /// The summary about an exercise done in a workout.
@@ -1666,11 +1670,10 @@ pub mod fitness {
     )]
     #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummaryExercise {
-        pub num_sets: usize,
-        #[serde(alias = "name")]
         pub id: String,
-        pub lot: ExerciseLot,
-        pub best_set: WorkoutSetRecord,
+        pub num_sets: usize,
+        pub lot: Option<ExerciseLot>,
+        pub best_set: Option<WorkoutSetRecord>,
     }
 
     #[derive(
@@ -1686,7 +1689,7 @@ pub mod fitness {
     )]
     #[serde(rename_all = "snake_case")]
     pub struct WorkoutSummary {
-        pub total: WorkoutOrExerciseTotals,
+        pub total: Option<WorkoutOrExerciseTotals>,
         pub exercises: Vec<WorkoutSummaryExercise>,
     }
 
@@ -1724,21 +1727,21 @@ pub mod fitness {
         pub sets: Vec<UserWorkoutSetRecord>,
         pub notes: Vec<String>,
         pub rest_time: Option<u16>,
-        pub assets: EntityAssets,
+        pub assets: Option<EntityAssets>,
         pub superset_with: Vec<u16>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct UserWorkoutInput {
-        #[graphql(skip_input)]
-        // If specified, the workout will be created with this ID.
-        pub id: Option<String>,
-        pub repeated_from: Option<String>,
         pub name: String,
+        // If specified, the workout will be created with this ID.
+        #[graphql(skip_input)]
+        pub id: Option<String>,
+        pub end_time: DateTimeUtc,
         pub comment: Option<String>,
         pub start_time: DateTimeUtc,
-        pub end_time: DateTimeUtc,
+        pub assets: Option<EntityAssets>,
+        pub repeated_from: Option<String>,
         pub exercises: Vec<UserExerciseInput>,
-        pub assets: EntityAssets,
     }
 }

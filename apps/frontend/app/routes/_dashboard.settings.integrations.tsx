@@ -286,12 +286,12 @@ const DisplayIntegration = (props: {
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>
-						<Group gap="xs">
+						<Group gap={4}>
 							<Text size="sm" fw="bold">
 								{changeCase(props.integration.source)}
 							</Text>
 							{props.integration.isDisabled ? (
-								<Text size="xs">(Disabled)</Text>
+								<Text size="xs">(Paused)</Text>
 							) : null}
 						</Group>
 						<Text size="xs">

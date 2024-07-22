@@ -12,10 +12,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::users::UserPreferences;
 
-fn get_hasher() -> Argon2<'static> {
-    Argon2::default()
-}
-
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "User")]
 #[sea_orm(table_name = "user")]
@@ -27,7 +23,6 @@ pub struct Model {
     pub password: Option<String>,
     pub oidc_issuer_id: Option<String>,
     pub created_on: DateTimeUtc,
-    pub is_demo: Option<bool>,
     pub lot: UserLot,
     pub is_disabled: Option<bool>,
     #[graphql(skip)]
@@ -157,7 +152,7 @@ impl ActiveModelBehavior for ActiveModel {
             let cloned_password = self.password.clone().unwrap();
             if let Some(password) = cloned_password {
                 let salt = SaltString::generate(&mut OsRng);
-                let password_hash = get_hasher()
+                let password_hash = Argon2::default()
                     .hash_password(password.as_bytes(), &salt)
                     .map_err(|_| DbErr::Custom("Unable to hash password".to_owned()))?
                     .to_string();

@@ -141,14 +141,14 @@ impl ExerciseQuery {
     }
 
     /// Get a paginated list of workouts done by the user.
-    async fn user_workout_list(
+    async fn user_workouts_list(
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
     ) -> Result<SearchResults<WorkoutListItem>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_workout_list(user_id, input).await
+        service.user_workouts_list(user_id, input).await
     }
 
     /// Get details about an exercise.
@@ -403,7 +403,7 @@ impl ExerciseService {
         Ok(resp)
     }
 
-    async fn user_workout_list(
+    async fn user_workouts_list(
         &self,
         user_id: String,
         input: SearchInput,
@@ -793,9 +793,8 @@ impl ExerciseService {
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
-        if let Some(wkt) = Workout::find()
+        if let Some(wkt) = Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(&user_id))
-            .filter(workout::Column::Id.eq(workout_id))
             .one(&self.db)
             .await?
         {
@@ -829,12 +828,13 @@ impl ExerciseService {
 
     pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
         UserWorkoutInput {
-            id: Some(user_workout.id),
             name: user_workout.name,
-            comment: user_workout.comment,
-            start_time: user_workout.start_time,
-            repeated_from: user_workout.repeated_from,
+            id: Some(user_workout.id),
             end_time: user_workout.end_time,
+            start_time: user_workout.start_time,
+            assets: user_workout.information.assets,
+            repeated_from: user_workout.repeated_from,
+            comment: user_workout.information.comment,
             exercises: user_workout
                 .information
                 .exercises
@@ -857,7 +857,6 @@ impl ExerciseService {
                     superset_with: e.superset_with,
                 })
                 .collect(),
-            assets: user_workout.information.assets,
         }
     }
 

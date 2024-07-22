@@ -237,8 +237,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const shouldHaveUmami =
 		envData.FRONTEND_UMAMI_SCRIPT_URL &&
 		envData.FRONTEND_UMAMI_WEBSITE_ID &&
-		!envData.DISABLE_TELEMETRY &&
-		!userDetails.isDemo;
+		!envData.DISABLE_TELEMETRY;
 
 	const workoutInProgress = isWorkoutActive(request);
 
@@ -376,7 +375,8 @@ export default function Layout() {
 	return (
 		<>
 			{loaderData.workoutInProgress &&
-			location.pathname !== $path("/fitness/workouts/current") ? (
+			location.pathname !==
+				$path("/fitness/:action", { action: "log-workout" }) ? (
 				<Tooltip label="You have an active workout" position="left">
 					<Affix
 						position={{
@@ -395,7 +395,9 @@ export default function Layout() {
 							color="orange"
 							radius="xl"
 							size="xl"
-							onClick={() => navigate($path("/fitness/workouts/current"))}
+							onClick={() =>
+								navigate($path("/fitness/:action", { action: "log-workout" }))
+							}
 						>
 							<IconStretching size={32} />
 						</ActionIcon>
@@ -1203,8 +1205,13 @@ const ReviewEntityForm = ({
 			replace
 			method="POST"
 			action={withQuery("/actions", { intent: "performReviewAction" })}
-			onSubmit={(e) => {
+			onSubmit={async (e) => {
 				submit(e);
+				await queryClient.invalidateQueries({
+					queryKey: queryFactory.media.userMetadataDetails(
+						entityToReview.entityId,
+					).queryKey,
+				});
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
 			}}

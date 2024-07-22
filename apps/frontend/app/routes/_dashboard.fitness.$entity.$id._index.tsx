@@ -31,7 +31,7 @@ import {
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils";
+import { changeCase, humanizeDuration } from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconClock,
@@ -49,6 +49,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -75,32 +76,52 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
+enum Entity {
+	Workouts = "workouts",
+}
+
 export const loader = unstable_defineLoader(async ({ request, params }) => {
-	const { id: workoutId } = zx.parseParams(params, { id: z.string() });
-	const [{ workoutDetails }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
-			workoutId,
-		}),
-	]);
-	let repeatedWorkout = null;
-	if (workoutDetails.repeatedFrom) {
-		const { workoutDetails: repeatedWorkoutData } =
-			await serverGqlService.authenticatedRequest(
-				request,
-				WorkoutDetailsDocument,
-				{ workoutId: workoutDetails.repeatedFrom },
-			);
-		repeatedWorkout = {
-			id: workoutDetails.repeatedFrom,
-			name: repeatedWorkoutData.name,
-			doneOn: repeatedWorkoutData.startTime,
-		};
-	}
-	return { workoutId, workoutDetails, repeatedWorkout };
+	const { id: entityId, entity } = zx.parseParams(params, {
+		id: z.string(),
+		entity: z.nativeEnum(Entity),
+	});
+	const resp = await match(entity)
+		.with(Entity.Workouts, async () => {
+			const [{ workoutDetails }] = await Promise.all([
+				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
+					workoutId: entityId,
+				}),
+			]);
+			let repeatedWorkout = null;
+			if (workoutDetails.repeatedFrom) {
+				const { workoutDetails: repeatedWorkoutData } =
+					await serverGqlService.authenticatedRequest(
+						request,
+						WorkoutDetailsDocument,
+						{ workoutId: workoutDetails.repeatedFrom },
+					);
+				repeatedWorkout = {
+					id: workoutDetails.repeatedFrom,
+					name: repeatedWorkoutData.name,
+					doneOn: repeatedWorkoutData.startTime,
+				};
+			}
+			return {
+				entityName: workoutDetails.name,
+				startTime: workoutDetails.startTime,
+				endTime: workoutDetails.endTime,
+				information: workoutDetails.information,
+				summary: workoutDetails.summary,
+				repeatedWorkout: repeatedWorkout,
+				template: null,
+			};
+		})
+		.exhaustive();
+	return { entityId, entity, ...resp };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [{ title: `${data?.workoutDetails.name} | Ryot` }];
+	return [{ title: `${data?.entityName} | Ryot` }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -125,17 +146,21 @@ export const action = unstable_defineAction(async ({ request }) => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				DeleteUserWorkoutDocument,
-				submission,
+				{ workoutId: submission.workoutId },
 			);
-			return redirectWithToast($path("/fitness/workouts/list"), {
+			const { entity } = submission;
+			return redirectWithToast($path("/fitness/:entity/list", { entity }), {
 				type: "success",
-				message: "Workout deleted successfully",
+				message: `${changeCase(entity)} deleted successfully`,
 			});
 		},
 	});
 });
 
-const deleteSchema = z.object({ workoutId: z.string() });
+const deleteSchema = z.object({
+	workoutId: z.string(),
+	entity: z.nativeEnum(Entity),
+});
 
 const editWorkoutSchema = z.object({
 	startTime: z.string(),
@@ -154,49 +179,67 @@ export default function Page() {
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
 
+	const performDecision = async (
+		entity: Entity,
+		repeatedFromId?: string,
+		_templateId?: string,
+		_updateWorkoutTemplateId?: string,
+	) => {
+		setIsWorkoutLoading(true);
+		const workout = await duplicateOldWorkout(
+			loaderData.information,
+			loaderData.entityName,
+			repeatedFromId,
+		);
+		startWorkout(workout, entity);
+		setIsWorkoutLoading(false);
+	};
+
 	return (
 		<>
-			<Modal
-				opened={adjustTimeModalOpened}
-				onClose={adjustTimeModalClose}
-				withCloseButton={false}
-				centered
-			>
-				<Form
-					replace
-					method="POST"
-					action={withQuery("", { intent: "edit" })}
-					onSubmit={() => adjustTimeModalClose()}
+			{loaderData.startTime && loaderData.endTime ? (
+				<Modal
+					opened={adjustTimeModalOpened}
+					onClose={adjustTimeModalClose}
+					withCloseButton={false}
+					centered
 				>
-					<Stack>
-						<Title order={3}>Adjust times</Title>
-						<DateTimePicker
-							label="Start time"
-							required
-							name="startTime"
-							defaultValue={new Date(loaderData.workoutDetails.startTime)}
-						/>
-						<DateTimePicker
-							label="End time"
-							required
-							name="endTime"
-							defaultValue={new Date(loaderData.workoutDetails.endTime)}
-						/>
-						<Button
-							variant="outline"
-							type="submit"
-							name="id"
-							value={loaderData.workoutId}
-						>
-							Submit
-						</Button>
-					</Stack>
-				</Form>
-			</Modal>
+					<Form
+						replace
+						method="POST"
+						action={withQuery("", { intent: "edit" })}
+						onSubmit={() => adjustTimeModalClose()}
+					>
+						<Stack>
+							<Title order={3}>Adjust times</Title>
+							<DateTimePicker
+								label="Start time"
+								required
+								name="startTime"
+								defaultValue={new Date(loaderData.startTime)}
+							/>
+							<DateTimePicker
+								label="End time"
+								required
+								name="endTime"
+								defaultValue={new Date(loaderData.endTime)}
+							/>
+							<Button
+								variant="outline"
+								type="submit"
+								name="id"
+								value={loaderData.entityId}
+							>
+								Submit
+							</Button>
+						</Stack>
+					</Form>
+				</Modal>
+			) : null}
 			<Container size="xs">
 				<Stack>
 					<Group justify="space-between" wrap="nowrap">
-						<Title>{loaderData.workoutDetails.name}</Title>
+						<Title>{loaderData.entityName}</Title>
 						<Menu shadow="md" position="bottom-end">
 							<Menu.Target>
 								<ActionIcon variant="transparent" loading={isWorkoutLoading}>
@@ -205,17 +248,10 @@ export default function Page() {
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
-									onClick={async () => {
-										setIsWorkoutLoading(true);
-										const workout = await duplicateOldWorkout(
-											loaderData.workoutDetails,
-										);
-										startWorkout(workout);
-										setIsWorkoutLoading(false);
-									}}
+									onClick={() => performDecision(Entity.Workouts)}
 									leftSection={<IconRepeat size={14} />}
 								>
-									Repeat
+									Duplicate
 								</Menu.Item>
 								<Menu.Item
 									onClick={adjustTimeModalOpen}
@@ -229,16 +265,20 @@ export default function Page() {
 								>
 									<input
 										type="hidden"
+										name="entity"
+										defaultValue={loaderData.entity}
+									/>
+									<input
+										type="hidden"
 										name="workoutId"
-										value={loaderData.workoutId}
+										defaultValue={loaderData.entityId}
 									/>
 									<Menu.Item
 										onClick={async (e) => {
 											const form = e.currentTarget.form;
 											e.preventDefault();
 											const conf = await confirmWrapper({
-												confirmation:
-													"Are you sure you want to delete this workout? This action is not reversible.",
+												confirmation: `Are you sure you want to delete this ${loaderData.entity}? This action is not reversible.`,
 											});
 											if (conf && form) submit(form);
 										}}
@@ -259,7 +299,8 @@ export default function Page() {
 							</Text>
 							<Anchor
 								component={Link}
-								to={$path("/fitness/workouts/:id", {
+								to={$path("/fitness/:entity/:id", {
+									entity: "workouts",
 									id: loaderData.repeatedWorkout.id,
 								})}
 							>
@@ -275,82 +316,75 @@ export default function Page() {
 						<Text c="dimmed" span>
 							Done on{" "}
 						</Text>
-						<Text span>
-							{dayjsLib(loaderData.workoutDetails.startTime).format("LLL")}
-						</Text>
-						<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
-							<DisplayStat
-								icon={<IconClock size={16} />}
-								data={humanizeDuration(
-									new Date(loaderData.workoutDetails.endTime).valueOf() -
-										new Date(loaderData.workoutDetails.startTime).valueOf(),
-									{ round: true, units: ["h", "m"] },
-								)}
-							/>
-							{Number(loaderData.workoutDetails.summary.total.weight) !== 0 ? (
+						<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
+						{loaderData.summary.total ? (
+							<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
+								{loaderData.endTime && loaderData.startTime ? (
+									<DisplayStat
+										icon={<IconClock size={16} />}
+										data={humanizeDuration(
+											new Date(loaderData.endTime).valueOf() -
+												new Date(loaderData.startTime).valueOf(),
+											{ round: true, units: ["h", "m"] },
+										)}
+									/>
+								) : null}
+								{Number(loaderData.summary.total.weight) !== 0 ? (
+									<DisplayStat
+										icon={<IconWeight size={16} />}
+										data={displayWeightWithUnit(
+											unitSystem,
+											loaderData.summary.total.weight,
+										)}
+									/>
+								) : null}
+								{Number(loaderData.summary.total.distance) > 0 ? (
+									<DisplayStat
+										icon={<IconRun size={16} />}
+										data={displayDistanceWithUnit(
+											unitSystem,
+											loaderData.summary.total.distance,
+										)}
+									/>
+								) : null}
 								<DisplayStat
-									icon={<IconWeight size={16} />}
-									data={displayWeightWithUnit(
-										unitSystem,
-										loaderData.workoutDetails.summary.total.weight,
-									)}
+									icon={<IconBarbell size={16} />}
+									data={`${loaderData.summary.exercises.length} Exercises`}
 								/>
-							) : null}
-							{Number(loaderData.workoutDetails.summary.total.distance) > 0 ? (
-								<DisplayStat
-									icon={<IconRun size={16} />}
-									data={displayDistanceWithUnit(
-										unitSystem,
-										loaderData.workoutDetails.summary.total.distance,
-									)}
-								/>
-							) : null}
-							<DisplayStat
-								icon={<IconBarbell size={16} />}
-								data={`${loaderData.workoutDetails.summary.exercises.length} Exercises`}
-							/>
-							{Number(
-								loaderData.workoutDetails.summary.total.personalBestsAchieved,
-							) !== 0 ? (
-								<DisplayStat
-									icon={<IconTrophy size={16} />}
-									data={`${loaderData.workoutDetails.summary.total.personalBestsAchieved} PRs`}
-								/>
-							) : null}
-							{loaderData.workoutDetails.summary.total.restTime > 0 ? (
-								<DisplayStat
-									icon={<IconZzz size={16} />}
-									data={humanizeDuration(
-										loaderData.workoutDetails.summary.total.restTime * 1e3,
-										{ round: true, units: ["m", "s"] },
-									)}
-								/>
-							) : null}
-						</SimpleGrid>
+								{Number(loaderData.summary.total.personalBestsAchieved) !==
+								0 ? (
+									<DisplayStat
+										icon={<IconTrophy size={16} />}
+										data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
+									/>
+								) : null}
+								{loaderData.summary.total.restTime > 0 ? (
+									<DisplayStat
+										icon={<IconZzz size={16} />}
+										data={humanizeDuration(
+											loaderData.summary.total.restTime * 1e3,
+											{ round: true, units: ["m", "s"] },
+										)}
+									/>
+								) : null}
+							</SimpleGrid>
+						) : null}
 					</Box>
-					{loaderData.workoutDetails.comment ? (
+					{loaderData.information.comment ? (
 						<Box>
 							<Text c="dimmed" span>
 								Commented:{" "}
 							</Text>
-							<Text span>{loaderData.workoutDetails.comment}</Text>
+							<Text span>{loaderData.information.comment}</Text>
 						</Box>
 					) : null}
-					{loaderData.workoutDetails.information.exercises.length > 0 ? (
-						loaderData.workoutDetails.information.exercises.map(
-							(exercise, idx) => (
-								<DisplayExercise
-									key={`${exercise.name}-${idx}`}
-									exercise={exercise}
-									idx={idx}
-								/>
-							),
-						)
-					) : (
-						<Paper withBorder p="xs">
-							No exercises done
-						</Paper>
-					)}
+					{loaderData.information.exercises.map((exercise, idx) => (
+						<DisplayExercise
+							key={`${exercise.name}-${idx}`}
+							exercise={exercise}
+							idx={idx}
+						/>
+					))}
 				</Stack>
 			</Container>
 		</>
@@ -378,14 +412,10 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 							fz="xs"
 							href={withFragment(
 								"",
-								`${loaderData.workoutDetails.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
+								`${loaderData.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
 							)}
 						>
-							{
-								loaderData.workoutDetails.information.exercises[
-									otherExerciseIdx
-								].name
-							}
+							{loaderData.information.exercises[otherExerciseIdx].name}
 						</Anchor>
 					))
 					.reduce((prev, curr) => [prev, ", ", curr])
@@ -420,43 +450,47 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 									<Text fz="xs">Rest time: {props.exercise.restTime}s</Text>
 								</Flex>
 							) : null}
-							{Number(props.exercise.total.reps) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconRotateClockwise size={14} />
-									<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
-								</Flex>
-							) : null}
-							{Number(props.exercise.total.duration) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconClock size={14} />
-									<Text fz="xs">
-										Duration: {props.exercise.total.duration} min
-									</Text>
-								</Flex>
-							) : null}
-							{Number(props.exercise.total.weight) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconWeight size={14} />
-									<Text fz="xs">
-										Weight:{" "}
-										{displayWeightWithUnit(
-											unitSystem,
-											props.exercise.total.weight,
-										)}
-									</Text>
-								</Flex>
-							) : null}
-							{Number(props.exercise.total.distance) > 0 ? (
-								<Flex align="center" gap="xs">
-									<IconRun size={14} />
-									<Text fz="xs">
-										Distance:{" "}
-										{displayDistanceWithUnit(
-											unitSystem,
-											props.exercise.total.distance,
-										)}
-									</Text>
-								</Flex>
+							{props.exercise.total ? (
+								<>
+									{Number(props.exercise.total.reps) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconRotateClockwise size={14} />
+											<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
+										</Flex>
+									) : null}
+									{Number(props.exercise.total.duration) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconClock size={14} />
+											<Text fz="xs">
+												Duration: {props.exercise.total.duration} min
+											</Text>
+										</Flex>
+									) : null}
+									{Number(props.exercise.total.weight) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconWeight size={14} />
+											<Text fz="xs">
+												Weight:{" "}
+												{displayWeightWithUnit(
+													unitSystem,
+													props.exercise.total.weight,
+												)}
+											</Text>
+										</Flex>
+									) : null}
+									{Number(props.exercise.total.distance) > 0 ? (
+										<Flex align="center" gap="xs">
+											<IconRun size={14} />
+											<Text fz="xs">
+												Distance:{" "}
+												{displayDistanceWithUnit(
+													unitSystem,
+													props.exercise.total.distance,
+												)}
+											</Text>
+										</Flex>
+									) : null}
+								</>
 							) : null}
 						</SimpleGrid>
 						{exerciseDetails ? (
@@ -478,7 +512,7 @@ const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 						{props.exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
 					</Text>
 				))}
-				{props.exercise.assets.images.length > 0 ? (
+				{props.exercise.assets && props.exercise.assets.images.length > 0 ? (
 					<Avatar.Group>
 						{props.exercise.assets.images.map((i) => (
 							<Anchor key={i} href={i} target="_blank">
