@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
+    miscellaneous::audiobookshelf_models,
     models::media::CommitMediaInput,
     providers::google_books::GoogleBooksService,
     utils::{get_base_http_client, ilike_sql},
@@ -339,7 +339,10 @@ impl IntegrationService {
                             })
                             .await
                             .unwrap();
-                            match itunes_podcast_episode_by_name(&pe.title, podcast) {
+                            match podcast
+                                .podcast_specifics
+                                .and_then(|p| p.episode_by_name(&pe.title))
+                            {
                                 Some(episode) => (
                                     format!("{}/{}", item.id, pe.id),
                                     itunes_id,

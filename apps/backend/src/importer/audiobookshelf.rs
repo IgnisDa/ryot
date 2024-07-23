@@ -13,7 +13,7 @@ use serde_json::json;
 use crate::{
     entities::metadata,
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
-    miscellaneous::{audiobookshelf_models, itunes_podcast_episode_by_name},
+    miscellaneous::audiobookshelf_models,
     models::media::{CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
     providers::google_books::GoogleBooksService,
     utils::get_base_http_client,
@@ -115,8 +115,9 @@ where
                                         ..Default::default()
                                     })
                                     .await?;
-                                    if let Some(pe) =
-                                        itunes_podcast_episode_by_name(&episode.title, podcast)
+                                    if let Some(pe) = podcast
+                                        .podcast_specifics
+                                        .and_then(|p| p.episode_by_name(&episode.title))
                                     {
                                         to_return.push(pe);
                                     }

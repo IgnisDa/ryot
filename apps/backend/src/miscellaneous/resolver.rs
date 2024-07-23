@@ -2132,7 +2132,7 @@ impl MiscellaneousService {
                 calc.show_extra_information = Some(s);
             } else if let Some(p) = evt.metadata_podcast_extra_information {
                 if let Some(po) = evt.m_podcast_specifics {
-                    if let Some(ep) = po.get_episode(p.episode) {
+                    if let Some(ep) = po.episode_by_number(p.episode) {
                         image = ep.thumbnail.clone();
                         title = Some(ep.title.clone());
                     }
@@ -4787,7 +4787,7 @@ impl MiscellaneousService {
             } else if let Some(item) = meta.podcast_specifics {
                 ls.unique_items.podcasts.insert(meta.id.clone());
                 if let Some(s) = seen.podcast_extra_information.to_owned() {
-                    if let Some(episode) = item.get_episode(s.episode) {
+                    if let Some(episode) = item.episode_by_number(s.episode) {
                         if let Some(r) = episode.runtime {
                             ls.media.podcasts.runtime += r;
                             units_consumed = Some(r);
@@ -6782,7 +6782,7 @@ impl MiscellaneousService {
                     }
                 } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
                     if let Some(podcast_info) = &meta.podcast_specifics {
-                        if let Some(ep) = podcast_info.get_episode(podcast.episode) {
+                        if let Some(ep) = podcast_info.episode_by_number(podcast.episode) {
                             if ep.publish_date == cal_event.date {
                                 need_to_delete = false;
                             }

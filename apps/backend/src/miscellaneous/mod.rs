@@ -6,7 +6,7 @@ use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
 
-use crate::{entities::metadata, traits::MediaProviderLanguages};
+use crate::traits::MediaProviderLanguages;
 
 pub mod resolver;
 
@@ -167,14 +167,4 @@ pub mod audiobookshelf_models {
     pub struct ListResponse {
         pub results: Vec<Item>,
     }
-}
-
-pub fn itunes_podcast_episode_by_name(name: &str, podcast: metadata::Model) -> Option<i32> {
-    podcast.podcast_specifics.and_then(|specifics| {
-        specifics
-            .episodes
-            .iter()
-            .find(|e| e.title == name)
-            .map(|e| e.number)
-    })
 }
