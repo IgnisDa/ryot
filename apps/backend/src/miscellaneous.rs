@@ -1865,24 +1865,20 @@ impl MiscellaneousService {
                         e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
                     });
                     Some(all_episodes.get(next? + 1)?.clone())
-                } else if let Some(anime_spec) = &media_details.model.anime_specifics {
-                    anime_spec.episodes.and_then(|_| {
-                        h.anime_extra_information.as_ref().and_then(|hist| {
-                            hist.episode.map(|e| UserMediaNextEntry {
-                                season: None,
-                                episode: Some(e + 1),
-                                chapter: None,
-                            })
+                } else if let Some(_anime_spec) = &media_details.model.anime_specifics {
+                    h.anime_extra_information.as_ref().and_then(|hist| {
+                        hist.episode.map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: Some(e + 1),
+                            chapter: None,
                         })
                     })
-                } else if let Some(manga_spec) = &media_details.model.manga_specifics {
-                    manga_spec.chapters.and_then(|_| {
-                        h.manga_extra_information.as_ref().and_then(|hist| {
-                            hist.chapter.map(|e| UserMediaNextEntry {
-                                season: None,
-                                episode: None,
-                                chapter: Some(e + 1),
-                            })
+                } else if let Some(_manga_spec) = &media_details.model.manga_specifics {
+                    h.manga_extra_information.as_ref().and_then(|hist| {
+                        hist.chapter.map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: None,
+                            chapter: Some(e + 1),
                         })
                     })
                 } else {
