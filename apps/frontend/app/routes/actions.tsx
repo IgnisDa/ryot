@@ -438,7 +438,6 @@ const progressUpdateSchema = z
 		showAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		showOnlySeason: zx.BoolAsString.optional(),
-		completePodcast: zx.BoolAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
 		providerWatchedOn: z.string().optional(),

@@ -1086,39 +1086,29 @@ const NewProgressUpdateForm = ({
 				) : null}
 				{metadataDetails.lot === MediaLot.Podcast ? (
 					<>
-						{metadataToUpdate.completePodcast ? (
-							<Alert color="yellow" icon={<IconAlertCircle />}>
-								This will mark all episodes for this podcast as seen
-							</Alert>
-						) : (
-							<>
-								<Text fw="bold">Select episode</Text>
-								<Select
-									required
-									label="Episode"
-									data={metadataDetails.podcastSpecifics?.episodes.map(
-										(se) => ({
-											label: se.title.toString(),
-											value: se.number.toString(),
-										}),
-									)}
-									value={metadataToUpdate.podcastEpisodeNumber?.toString()}
-									onChange={(v) => {
-										setMetadataToUpdate(
-											produce(metadataToUpdate, (draft) => {
-												draft.podcastEpisodeNumber = Number(v);
-											}),
-										);
-									}}
-									searchable
-									limit={50}
-								/>
-								<Checkbox
-									label="Mark all episodes before this as seen"
-									name="podcastAllEpisodesBefore"
-								/>
-							</>
-						)}
+						<Text fw="bold">Select episode</Text>
+						<Select
+							required
+							label="Episode"
+							data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
+								label: se.title.toString(),
+								value: se.number.toString(),
+							}))}
+							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
+							onChange={(v) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.podcastEpisodeNumber = Number(v);
+									}),
+								);
+							}}
+							searchable
+							limit={50}
+						/>
+						<Checkbox
+							label="Mark all episodes before this as seen"
+							name="podcastAllEpisodesBefore"
+						/>
 					</>
 				) : null}
 				<Select
