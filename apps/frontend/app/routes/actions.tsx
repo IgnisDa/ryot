@@ -24,7 +24,7 @@ import {
 	UserMetadataDetailsDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty, omitBy, set } from "@ryot/ts-utils";
+import { isEmpty, isNumber, omitBy, set } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -248,7 +248,6 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				mangaVolumeNumber: submission.mangaVolumeNumber,
 				providerWatchedOn: submission.providerWatchedOn,
 			};
-			let needsFinalUpdate = true;
 			const updates = [];
 			const showSpecifics = metadataDetails.showSpecifics?.seasons || [];
 			const podcastSpecifics = metadataDetails.podcastSpecifics?.episodes || [];
@@ -269,17 +268,13 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				}
 			}
 			if (submission.metadataLot === MediaLot.Manga) {
-				if (submission.mangaChapterNumber) {
-					if (submission.mangaAllChaptersOrVolumesBefore) {
-						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
-							updates.push({
-								...variables,
-								mangaChapterNumber: i,
-							});
-						}
-						needsFinalUpdate = false;
-					}
-				}
+				if (
+					isNumber(submission.mangaChapterNumber) &&
+					isNumber(submission.mangaVolumeNumber)
+				)
+					throw new Error(
+						"Cannot update both mangaChapterNumber and mangaVolumeNumber",
+					);
 			}
 			if (submission.metadataLot === MediaLot.Show) {
 				if (submission.showAllEpisodesBefore) {
@@ -337,8 +332,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					updates.push(...allUnseenEpisodesBefore);
 				}
 			}
-			if (needsFinalUpdate) updates.push(variables);
-			console.log(updates);
+			updates.push(variables);
 			const { deployBulkProgressUpdate } =
 				await serverGqlService.authenticatedRequest(
 					request,
