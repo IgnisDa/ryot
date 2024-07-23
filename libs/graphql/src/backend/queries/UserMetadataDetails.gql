@@ -20,6 +20,7 @@ query UserMetadataDetails($metadataId: String!) {
     seenByUserCount
     nextEntry {
       season
+      volume
       episode
       chapter
     }

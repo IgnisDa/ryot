@@ -643,8 +643,9 @@ struct UserMetadataDetails {
 #[derive(SimpleObject, Debug, Clone)]
 struct UserMediaNextEntry {
     season: Option<i32>,
-    episode: Option<i32>,
+    volume: Option<i32>,
     chapter: Option<i32>,
+    episode: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1840,6 +1841,7 @@ impl MiscellaneousService {
                             season: Some(s),
                             episode: Some(e.episode_number),
                             chapter: None,
+                            volume: None,
                         })
                     })
                     .collect_vec();
@@ -1856,6 +1858,7 @@ impl MiscellaneousService {
                         season: None,
                         episode: Some(e.number),
                         chapter: None,
+                        volume: None,
                     })
                     .collect_vec();
                 let next = all_episodes.iter().position(|e| {
@@ -1868,15 +1871,24 @@ impl MiscellaneousService {
                         season: None,
                         episode: Some(e + 1),
                         chapter: None,
+                        volume: None,
                     })
                 })
             } else if let Some(_manga_spec) = &media_details.model.manga_specifics {
                 h.manga_extra_information.as_ref().and_then(|hist| {
-                    hist.chapter.map(|e| UserMediaNextEntry {
-                        season: None,
-                        episode: None,
-                        chapter: Some(e + 1),
-                    })
+                    hist.chapter
+                        .map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: None,
+                            chapter: Some(e + 1),
+                            volume: None,
+                        })
+                        .or(hist.volume.map(|e| UserMediaNextEntry {
+                            season: None,
+                            episode: None,
+                            chapter: None,
+                            volume: Some(e + 1),
+                        }))
                 })
             } else {
                 None
