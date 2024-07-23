@@ -2406,12 +2406,12 @@ impl MiscellaneousService {
             ProgressUpdateAction::Update => {
                 let prev_seen = all_prev_seen[0].clone();
                 let progress = input.progress.unwrap();
-                if prev_seen.progress == progress {
+                let watched_on = prev_seen.provider_watched_on.clone();
+                if prev_seen.progress == progress && watched_on == input.provider_watched_on {
                     return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                         error: ProgressUpdateErrorVariant::UpdateWithoutProgressUpdate,
                     }));
                 }
-                let watched_on = prev_seen.provider_watched_on.clone();
                 let mut updated_at = prev_seen.updated_at.clone();
                 let now = Utc::now();
                 updated_at.push(now);
