@@ -275,7 +275,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				)
 					throw Response.json({
 						message:
-							"Either mangaChapterNumber or mangaVolumeNumber must be provided",
+							"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided",
 					});
 				if (submission.mangaAllChaptersOrVolumesBefore) {
 				}
