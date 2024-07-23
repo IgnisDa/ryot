@@ -3,11 +3,11 @@
 	"main": "src/index.ts",
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
-		"dayjs": "1.11.11",
+		"dayjs": "1.11.12",
 		"humanize-duration-ts": "2.1.1",
 		"lodash": "4.17.21"
 	},
 	"devDependencies": {
-		"@types/lodash": "4.17.6"
+		"@types/lodash": "4.17.7"
 	}
 }

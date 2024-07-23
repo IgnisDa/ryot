@@ -3,7 +3,6 @@ import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Affix,
-	Alert,
 	Anchor,
 	AppShell,
 	Box,
@@ -79,7 +78,6 @@ import {
 	snakeCase,
 } from "@ryot/ts-utils";
 import {
-	IconAlertCircle,
 	IconArchive,
 	IconBook,
 	IconBrandPagekit,
@@ -962,15 +960,6 @@ const NewProgressUpdateForm = ({
 	);
 	const [watchTime, setWatchTime] =
 		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
-	const [animeEpisodeNumber, setAnimeEpisodeNumber] = useState<
-		string | undefined
-	>(undefined);
-	const [mangaChapterNumber, setMangaChapterNumber] = useState<
-		string | undefined
-	>(undefined);
-	const [mangaVolumeNumber, setMangaVolumeNumber] = useState<
-		string | undefined
-	>(undefined);
 
 	return (
 		<Form
@@ -993,172 +982,147 @@ const NewProgressUpdateForm = ({
 					<>
 						<NumberInput
 							label="Episode"
-							name="animeEpisodeNumber"
-							description="Leaving this empty will mark the whole anime as watched"
+							required
 							hideControls
-							value={animeEpisodeNumber}
-							onChange={(e) => setAnimeEpisodeNumber(e.toString())}
+							value={metadataToUpdate.animeEpisodeNumber?.toString()}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.animeEpisodeNumber = Number(e);
+									}),
+								);
+							}}
 						/>
-						{animeEpisodeNumber ? (
-							<Checkbox
-								label="Mark all episodes before this as watched"
-								name="animeAllEpisodesBefore"
-							/>
-						) : null}
+						<Checkbox
+							label="Mark all unseen episodes before this as watched"
+							name="animeAllEpisodesBefore"
+						/>
 					</>
 				) : null}
 				{metadataDetails.lot === MediaLot.Manga ? (
 					<>
-						<Box>
-							<Text c="dimmed" size="sm">
-								Leaving the following empty will mark the whole manga as watched
-							</Text>
+						<Input.Wrapper
+							required
+							label="Enter either the chapter number or the volume number"
+						>
 							<Group wrap="nowrap">
 								<NumberInput
-									label="Chapter"
-									name="mangaChapterNumber"
+									description="Chapter"
 									hideControls
-									value={mangaChapterNumber}
-									onChange={(e) => setMangaChapterNumber(e.toString())}
+									value={metadataToUpdate.mangaChapterNumber?.toString()}
+									onChange={(e) => {
+										setMetadataToUpdate(
+											produce(metadataToUpdate, (draft) => {
+												draft.mangaChapterNumber = Number(e);
+											}),
+										);
+									}}
 								/>
 								<Text ta="center" fw="bold" mt="sm">
 									OR
 								</Text>
 								<NumberInput
-									label="Volume"
-									name="mangaVolumeNumber"
+									description="Volume"
 									hideControls
-									value={mangaVolumeNumber}
-									onChange={(e) => setMangaVolumeNumber(e.toString())}
+									value={metadataToUpdate.mangaVolumeNumber?.toString()}
+									onChange={(e) => {
+										setMetadataToUpdate(
+											produce(metadataToUpdate, (draft) => {
+												draft.mangaVolumeNumber = Number(e);
+											}),
+										);
+									}}
 								/>
 							</Group>
-						</Box>
-						{mangaChapterNumber ? (
-							<Checkbox
-								label="Mark all chapters before this as watched"
-								name="mangaAllChaptersBefore"
-							/>
-						) : null}
+						</Input.Wrapper>
+						<Checkbox
+							label="Mark all unread volumes/chapters before this as watched"
+							name="mangaAllChaptersOrVolumesBefore"
+						/>
 					</>
 				) : null}
 				{metadataDetails.lot === MediaLot.Show ? (
 					<>
-						<input
-							hidden
-							name="showSpecifics"
-							defaultValue={JSON.stringify(
-								metadataDetails.showSpecifics?.seasons.map((s) => ({
-									seasonNumber: s.seasonNumber,
-									episodes: s.episodes.map((e) => e.episodeNumber),
-								})),
-							)}
+						<Select
+							label="Season"
+							required
+							data={metadataDetails.showSpecifics?.seasons.map((s) => ({
+								label: `${s.seasonNumber}. ${s.name.toString()}`,
+								value: s.seasonNumber.toString(),
+							}))}
+							value={metadataToUpdate.showSeasonNumber?.toString()}
+							onChange={(v) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.showSeasonNumber = Number(v);
+									}),
+								);
+							}}
+							searchable
+							limit={50}
 						/>
-						{metadataToUpdate.onlySeason || metadataToUpdate.completeShow ? (
-							<Alert color="yellow" icon={<IconAlertCircle />}>
-								{metadataToUpdate.onlySeason
-									? `This will mark all episodes of season ${metadataToUpdate.showSeasonNumber} as seen`
-									: metadataToUpdate.completeShow
-										? "This will mark all episodes for this show as seen"
-										: null}
-							</Alert>
-						) : null}
-						{!metadataToUpdate.completeShow ? (
-							<Select
-								label="Season"
-								required
-								data={metadataDetails.showSpecifics?.seasons.map((s) => ({
-									label: `${s.seasonNumber}. ${s.name.toString()}`,
-									value: s.seasonNumber.toString(),
-								}))}
-								value={metadataToUpdate.showSeasonNumber?.toString()}
-								onChange={(v) => {
-									setMetadataToUpdate(
-										produce(metadataToUpdate, (draft) => {
-											draft.showSeasonNumber = Number(v);
-										}),
-									);
-								}}
-								searchable
-								limit={50}
-							/>
-						) : null}
-						{metadataToUpdate?.onlySeason ? (
-							<Checkbox
-								label="Mark all seasons before this as seen"
-								name="showAllSeasonsBefore"
-							/>
-						) : null}
-						{!metadataToUpdate.onlySeason &&
-						typeof metadataToUpdate.showSeasonNumber !== "undefined" ? (
-							<Select
-								label="Episode"
-								required
-								data={
-									metadataDetails.showSpecifics?.seasons
-										.find(
-											(s) =>
-												s.seasonNumber ===
-												Number(metadataToUpdate.showSeasonNumber),
-										)
-										?.episodes.map((e) => ({
-											label: `${e.episodeNumber}. ${e.name.toString()}`,
-											value: e.episodeNumber.toString(),
-										})) || []
-								}
-								value={metadataToUpdate.showEpisodeNumber?.toString()}
-								onChange={(v) => {
-									setMetadataToUpdate(
-										produce(metadataToUpdate, (draft) => {
-											draft.showEpisodeNumber = Number(v);
-										}),
-									);
-								}}
-								searchable
-								limit={50}
-							/>
-						) : null}
+						<Select
+							label="Episode"
+							required
+							data={
+								metadataDetails.showSpecifics?.seasons
+									.find(
+										(s) => s.seasonNumber === metadataToUpdate.showSeasonNumber,
+									)
+									?.episodes.map((e) => ({
+										label: `${e.episodeNumber}. ${e.name.toString()}`,
+										value: e.episodeNumber.toString(),
+									})) || []
+							}
+							value={metadataToUpdate.showEpisodeNumber?.toString()}
+							onChange={(v) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.showEpisodeNumber = Number(v);
+									}),
+								);
+							}}
+							searchable
+							limit={50}
+						/>
+						<Checkbox
+							label="Mark all unseen episodes before this as seen"
+							defaultChecked={metadataToUpdate.showAllEpisodesBefore}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.showAllEpisodesBefore = e.target.checked;
+									}),
+								);
+							}}
+						/>
 					</>
 				) : null}
 				{metadataDetails.lot === MediaLot.Podcast ? (
 					<>
-						<input
-							hidden
-							name="podcastSpecifics"
-							defaultValue={JSON.stringify(
-								metadataDetails.podcastSpecifics?.episodes.map((e) => ({
-									episodeNumber: e.number,
-								})),
-							)}
+						<Text fw="bold">Select episode</Text>
+						<Select
+							required
+							label="Episode"
+							data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
+								label: se.title.toString(),
+								value: se.number.toString(),
+							}))}
+							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
+							onChange={(v) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.podcastEpisodeNumber = Number(v);
+									}),
+								);
+							}}
+							searchable
+							limit={50}
 						/>
-						{metadataToUpdate.completePodcast ? (
-							<Alert color="yellow" icon={<IconAlertCircle />}>
-								This will mark all episodes for this podcast as seen
-							</Alert>
-						) : (
-							<>
-								<Text fw="bold">Select episode</Text>
-								<Select
-									required
-									label="Episode"
-									data={metadataDetails.podcastSpecifics?.episodes.map(
-										(se) => ({
-											label: se.title.toString(),
-											value: se.number.toString(),
-										}),
-									)}
-									value={metadataToUpdate.podcastEpisodeNumber?.toString()}
-									onChange={(v) => {
-										setMetadataToUpdate(
-											produce(metadataToUpdate, (draft) => {
-												draft.podcastEpisodeNumber = Number(v);
-											}),
-										);
-									}}
-									searchable
-									limit={50}
-								/>
-							</>
-						)}
+						<Checkbox
+							label="Mark all unseen episodes before this as seen"
+							name="podcastAllEpisodesBefore"
+						/>
 					</>
 				) : null}
 				<Select

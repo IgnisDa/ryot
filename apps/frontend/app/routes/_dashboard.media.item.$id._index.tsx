@@ -252,6 +252,7 @@ export default function Page() {
 	const [_m, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -660,30 +661,20 @@ export default function Page() {
 										{loaderData.metadataDetails.lot === MediaLot.Show ? (
 											<>
 												<Menu.Label>Shows</Menu.Label>
-												{loaderData.userMetadataDetails.nextEntry ? (
+												{nextEntry ? (
 													<>
 														<Menu.Item
 															onClick={() => {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
-																	showSeasonNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Show
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.season
-																			: undefined,
-																	showEpisodeNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Show
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.episode
-																			: undefined,
+																	showSeasonNumber: nextEntry.season,
+																	showEpisodeNumber: nextEntry.episode,
 																});
 															}}
 														>
 															Mark{" "}
-															{`S${loaderData.userMetadataDetails.nextEntry?.season}-E${loaderData.userMetadataDetails.nextEntry?.episode}`}{" "}
-															as seen
+															{`S${nextEntry.season}-E${nextEntry.episode}`} as
+															seen
 														</Menu.Item>
 														<PutOnHoldBtn />
 													</>
@@ -697,30 +688,63 @@ export default function Page() {
 												)}
 											</>
 										) : null}
+										{loaderData.metadataDetails.lot === MediaLot.Anime &&
+										nextEntry ? (
+											<>
+												<Menu.Label>Anime</Menu.Label>
+												<>
+													<Menu.Item
+														onClick={() => {
+															setMetadataToUpdate({
+																metadataId: loaderData.metadataId,
+																animeEpisodeNumber: nextEntry.episode,
+															});
+														}}
+													>
+														Mark EP-
+														{nextEntry.episode} as listened
+													</Menu.Item>
+												</>
+											</>
+										) : null}
+										{loaderData.metadataDetails.lot === MediaLot.Manga &&
+										nextEntry ? (
+											<>
+												<Menu.Label>Manga</Menu.Label>
+												<>
+													<Menu.Item
+														onClick={() => {
+															setMetadataToUpdate({
+																metadataId: loaderData.metadataId,
+																mangaChapterNumber: nextEntry.chapter,
+																mangaVolumeNumber: nextEntry.volume,
+															});
+														}}
+													>
+														Mark{" "}
+														{nextEntry.chapter
+															? `CH-${nextEntry.chapter}`
+															: `VOL-${nextEntry.volume}`}{" "}
+														as read
+													</Menu.Item>
+												</>
+											</>
+										) : null}
 										{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
 											<>
 												<Menu.Label>Podcasts</Menu.Label>
-												{loaderData.userMetadataDetails.nextEntry ? (
+												{nextEntry ? (
 													<>
 														<Menu.Item
 															onClick={() => {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
-																	podcastEpisodeNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Podcast
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.episode
-																			: undefined,
+																	podcastEpisodeNumber: nextEntry.episode,
 																});
 															}}
 														>
 															Mark EP-
-															{
-																loaderData.userMetadataDetails.nextEntry
-																	?.episode
-															}{" "}
-															as listened
+															{nextEntry.episode} as listened
 														</Menu.Item>
 														<PutOnHoldBtn />
 													</>
@@ -1677,7 +1701,8 @@ const DisplayShowSeason = (props: {
 							setMetadataToUpdate({
 								metadataId: loaderData.metadataId,
 								showSeasonNumber: props.season.seasonNumber,
-								onlySeason: true,
+								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
+								showAllEpisodesBefore: true,
 							});
 						}}
 					>

@@ -285,21 +285,17 @@ const UserDisplay = (props: { index: number }) => {
 				<Group>
 					<ActionIcon
 						color="indigo"
-						variant="outline"
+						variant="subtle"
 						onClick={() => setUpdateUserData(user)}
 					>
 						<IconPencil />
 					</ActionIcon>
-					<Form
-						method="POST"
-						action={withQuery("", { intent: "delete" })}
-						style={{ flex: "none" }}
-					>
+					<Form method="POST" action={withQuery("", { intent: "delete" })}>
 						<input hidden name="toDeleteUserId" defaultValue={user.id} />
 						<ActionIcon
 							color="red"
 							type="submit"
-							variant="outline"
+							variant="subtle"
 							onClick={async (e) => {
 								const form = e.currentTarget.form;
 								e.preventDefault();
@@ -309,7 +305,7 @@ const UserDisplay = (props: { index: number }) => {
 								if (conf && form) submit(form);
 							}}
 						>
-							<IconTrash size={16} />
+							<IconTrash />
 						</ActionIcon>
 					</Form>
 				</Group>

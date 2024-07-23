@@ -8,7 +8,7 @@ use sea_orm::prelude::DateTimeUtc;
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     file_storage::FileStorageService,
-    miscellaneous::resolver::MiscellaneousService,
+    miscellaneous::MiscellaneousService,
     models::{
         media::{
             MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,

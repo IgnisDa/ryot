@@ -21,24 +21,22 @@ use struson::writer::{JsonStreamWriter, JsonWriter};
 use crate::{
     background::ApplicationJob,
     entities::{
-        collection, collection_to_entity,
-        exercise::{self, ExerciseListItem},
+        collection, collection_to_entity, exercise,
         prelude::{
             CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
         },
         user_measurement, user_to_entity, workout, workout_template,
     },
     file_storage::FileStorageService,
-    miscellaneous::DefaultCollection,
     models::{
         fitness::{
-            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,
             GithubExerciseAttributes, ProcessedExercise, UserExerciseInput,
             UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
-            WorkoutInformation, WorkoutListItem, WorkoutSetRecord, WorkoutSummary,
-            WorkoutSummaryExercise,
+            WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
         },
-        ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput,
+        SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},
@@ -150,7 +148,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
-    ) -> Result<SearchResults<WorkoutListItem>> {
+    ) -> Result<SearchResults<workout::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workouts_list(user_id, input).await
@@ -474,7 +472,7 @@ impl ExerciseService {
         &self,
         user_id: String,
         input: SearchInput,
-    ) -> Result<SearchResults<WorkoutListItem>> {
+    ) -> Result<SearchResults<workout::Model>> {
         let page = input.page.unwrap_or(1);
         let query = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
@@ -484,9 +482,7 @@ impl ExerciseService {
             .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query
-            .into_partial_model::<WorkoutListItem>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
         let next_page = if total - (page * self.config.frontend.page_size) > 0 {
             Some(page + 1)

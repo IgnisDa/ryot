@@ -48,6 +48,7 @@ mod m20240718_add_columns_to_access_link;
 mod m20240719_remove_comment_from_top_level;
 mod m20240720_add_new_columns_to_workout;
 mod m20240722_remove_columns_from_user_table;
+mod m20240723_remove_integration_columns_from_user_table;
 mod m20240822_zz_add_new_preference_for_templates;
 mod m20240822_zzz_add_new_column_to_access_link;
 
@@ -121,6 +122,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240722_remove_columns_from_user_table::Migration),
             Box::new(m20240822_zz_add_new_preference_for_templates::Migration),
             Box::new(m20240822_zzz_add_new_column_to_access_link::Migration),
+            Box::new(m20240723_remove_integration_columns_from_user_table::Migration),
         ]
     }
 }

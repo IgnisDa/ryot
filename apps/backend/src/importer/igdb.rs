@@ -5,9 +5,9 @@ use itertools::Itertools;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use crate::{
-    miscellaneous::DefaultCollection,
-    models::media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
+use crate::models::{
+    media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
+    DefaultCollection,
 };
 
 use super::{DeployIgdbImportInput, ImportFailStep, ImportFailedItem, ImportResult};
