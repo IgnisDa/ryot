@@ -695,6 +695,22 @@ export default function Page() {
 												</>
 											</>
 										) : null}
+										{loaderData.metadataDetails.lot === MediaLot.Manga &&
+										nextEntry ? (
+											<>
+												<Menu.Label>Manga</Menu.Label>
+												<>
+													<Menu.Item
+														onClick={() => {
+															setMetadataToUpdate({
+																metadataId: loaderData.metadataId,
+																mangaChapterNumber: nextEntry.chapter,
+																mangaVolumeNumber: nextEntry.volume,
+															});
+														}}
+													>
+														Mark EP-
+														{nextEntry.episode} as listened
 													</Menu.Item>
 												</>
 											</>
