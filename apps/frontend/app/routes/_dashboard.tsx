@@ -981,7 +981,7 @@ const NewProgressUpdateForm = ({
 						/>
 						{animeEpisodeNumber ? (
 							<Checkbox
-								label="Mark all episodes before this as watched"
+								label="Mark all unseen episodes before this as watched"
 								name="animeAllEpisodesBefore"
 							/>
 						) : null}
@@ -1015,7 +1015,7 @@ const NewProgressUpdateForm = ({
 						</Box>
 						{mangaChapterNumber ? (
 							<Checkbox
-								label="Mark all chapters before this as watched"
+								label="Mark all unread chapters before this as watched"
 								name="mangaAllChaptersBefore"
 							/>
 						) : null}
@@ -1054,8 +1054,8 @@ const NewProgressUpdateForm = ({
 						) : null}
 						{metadataToUpdate?.onlySeason ? (
 							<Checkbox
-								label="Mark all seasons before this as seen"
-								name="showAllSeasonsBefore"
+								label="Mark all unseen episodes before this as seen"
+								name="showAllEpisodesBefore"
 							/>
 						) : null}
 						{!metadataToUpdate.onlySeason &&
@@ -1117,6 +1117,10 @@ const NewProgressUpdateForm = ({
 									}}
 									searchable
 									limit={50}
+								/>
+								<Checkbox
+									label="Mark all episodes before this as seen"
+									name="podcastAllEpisodesBefore"
 								/>
 							</>
 						)}

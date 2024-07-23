@@ -288,7 +288,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					);
 					invariant(selectedSeason);
 					needsFinalUpdate = false;
-					if (submission.showAllSeasonsBefore) {
+					if (submission.showAllEpisodesBefore) {
 						for (const season of showSpecifics) {
 							if (season.seasonNumber > selectedSeason.seasonNumber) break;
 							for (const episode of season.episodes || []) {
@@ -447,7 +447,8 @@ const progressUpdateSchema = z
 		metadataLot: z.nativeEnum(MediaLot),
 		date: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
-		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
+		showAllEpisodesBefore: zx.CheckboxAsString.optional(),
+		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		onlySeason: zx.BoolAsString.optional(),
 		completeShow: zx.BoolAsString.optional(),
 		completePodcast: zx.BoolAsString.optional(),
