@@ -709,8 +709,11 @@ export default function Page() {
 															});
 														}}
 													>
-														Mark EP-
-														{nextEntry.episode} as listened
+														Mark{" "}
+														{nextEntry.chapter
+															? `CH-${nextEntry.chapter}`
+															: `VOL-${nextEntry.volume}`}{" "}
+														as read
 													</Menu.Item>
 												</>
 											</>
