@@ -283,15 +283,6 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					(s) => s.seasonNumber === submission.showSeasonNumber,
 				);
 				invariant(selectedSeason);
-				if (submission.showOnlySeason) {
-					needsFinalUpdate = false;
-					for (const episode of selectedSeason.episodes || []) {
-						updates.push({
-							...variables,
-							showEpisodeNumber: episode.episodeNumber,
-						});
-					}
-				}
 				if (submission.showAllEpisodesBefore) {
 					for (const season of showSpecifics) {
 						if (season.seasonNumber > selectedSeason.seasonNumber) break;
@@ -456,7 +447,6 @@ const progressUpdateSchema = z
 		[redirectToQueryParam]: z.string().optional(),
 		showAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		showOnlySeason: zx.BoolAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
 		providerWatchedOn: z.string().optional(),

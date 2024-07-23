@@ -15,7 +15,7 @@ import {
 
 export type UpdateProgressData = {
 	metadataId: string;
-	showOnlySeason?: boolean;
+	showAllEpisodesBefore?: boolean;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;

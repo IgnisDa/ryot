@@ -1588,7 +1588,8 @@ const DisplayShowSeason = (props: {
 							setMetadataToUpdate({
 								metadataId: loaderData.metadataId,
 								showSeasonNumber: props.season.seasonNumber,
-								showOnlySeason: true,
+								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
+								showAllEpisodesBefore: true,
 							});
 						}}
 					>
