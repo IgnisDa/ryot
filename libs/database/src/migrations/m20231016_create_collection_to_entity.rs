@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230501_create_metadata_group::MetadataGroup, m20230504_create_collection::Collection,
-    m20230822_create_exercise::Exercise,
+    m20230819_create_workout::Workout, m20230822_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
@@ -13,6 +13,7 @@ pub static UNIQUE_INDEX_1: &str = "collection_to_entity_uqi1";
 pub static UNIQUE_INDEX_2: &str = "collection_to_entity_uqi2";
 pub static UNIQUE_INDEX_3: &str = "collection_to_entity_uqi3";
 pub static UNIQUE_INDEX_4: &str = "collection_to_entity_uqi4";
+pub static UNIQUE_INDEX_5: &str = "collection_to_entity_uqi5";
 
 #[derive(Iden)]
 pub enum CollectionToEntity {
@@ -21,12 +22,13 @@ pub enum CollectionToEntity {
     CollectionId,
     CreatedOn,
     LastUpdatedOn,
+    Information,
     // the entities that can be added to a collection
     MetadataId,
     MetadataGroupId,
     PersonId,
     ExerciseId,
-    Information,
+    WorkoutId,
 }
 
 #[async_trait::async_trait]
@@ -65,6 +67,7 @@ impl MigrationTrait for Migration {
                             .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
+                    .col(ColumnDef::new(CollectionToEntity::WorkoutId).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk1")
@@ -105,6 +108,14 @@ impl MigrationTrait for Migration {
                             .name("collection_to_entity-fk5")
                             .from(CollectionToEntity::Table, CollectionToEntity::ExerciseId)
                             .to(Exercise::Table, Exercise::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("collection_to_entity-fk6")
+                            .from(CollectionToEntity::Table, CollectionToEntity::WorkoutId)
+                            .to(Workout::Table, Workout::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -152,6 +163,17 @@ impl MigrationTrait for Migration {
                     .table(CollectionToEntity::Table)
                     .col(CollectionToEntity::CollectionId)
                     .col(CollectionToEntity::ExerciseId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(UNIQUE_INDEX_5)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::CollectionId)
+                    .col(CollectionToEntity::WorkoutId)
                     .to_owned(),
             )
             .await?;
