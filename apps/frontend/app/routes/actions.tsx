@@ -275,6 +275,13 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					throw new Error(
 						"Cannot update both mangaChapterNumber and mangaVolumeNumber",
 					);
+				if (
+					!isNumber(submission.mangaChapterNumber) &&
+					!isNumber(submission.mangaVolumeNumber)
+				)
+					throw new Error(
+						"Must update either mangaChapterNumber or mangaVolumeNumber",
+					);
 			}
 			if (submission.metadataLot === MediaLot.Show) {
 				if (submission.showAllEpisodesBefore) {
