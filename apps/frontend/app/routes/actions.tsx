@@ -267,7 +267,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			}
 			if (submission.metadataLot === MediaLot.Manga) {
 				if (submission.mangaChapterNumber) {
-					if (submission.mangaAllChaptersBefore) {
+					if (submission.mangaAllChaptersOrVolumesBefore) {
 						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
 							updates.push({
 								...variables,
@@ -465,7 +465,7 @@ const progressUpdateSchema = z
 		showAllEpisodesBefore: zx.BoolAsString.optional(),
 		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
+		mangaAllChaptersOrVolumesBefore: zx.CheckboxAsString.optional(),
 		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataIdSchema)

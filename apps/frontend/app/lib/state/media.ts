@@ -21,6 +21,7 @@ export type UpdateProgressData = {
 	podcastEpisodeNumber?: number | null;
 	animeEpisodeNumber?: number | null;
 	mangaChapterNumber?: number | null;
+	mangaVolumeNumber?: number | null;
 };
 
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
