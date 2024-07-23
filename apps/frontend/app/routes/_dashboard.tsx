@@ -980,7 +980,14 @@ const NewProgressUpdateForm = ({
 						{animeEpisodeNumber ? (
 							<Checkbox
 								label="Mark all unseen episodes before this as watched"
-								name="animeAllEpisodesBefore"
+								defaultChecked={metadataToUpdate.animeAllEpisodesBefore}
+								onChange={(e) => {
+									setMetadataToUpdate(
+										produce(metadataToUpdate, (draft) => {
+											draft.animeAllEpisodesBefore = e.target.checked;
+										}),
+									);
+								}}
 							/>
 						) : null}
 					</>

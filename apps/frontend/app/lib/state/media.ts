@@ -17,6 +17,7 @@ export type UpdateProgressData = {
 	metadataId: string;
 	showAllEpisodesBefore?: boolean;
 	podcastAllEpisodesBefore?: boolean;
+	animeAllEpisodesBefore?: boolean;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
