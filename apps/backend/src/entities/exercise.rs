@@ -8,7 +8,7 @@ use database::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
 };
-use sea_orm::{entity::prelude::*, FromQueryResult};
+use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -61,36 +61,6 @@ impl GraphqlRepresentation for Model {
             images.push(get_stored_asset(image.clone(), file_storage_service).await);
         }
         converted_exercise.attributes.images = images;
-        Ok(converted_exercise)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
-pub struct ExerciseListItem {
-    pub lot: ExerciseLot,
-    pub id: String,
-    #[graphql(skip)]
-    pub attributes: ExerciseAttributes,
-    pub num_times_interacted: Option<i32>,
-    pub last_updated_on: Option<DateTimeUtc>,
-    pub muscle: Option<ExerciseMuscle>,
-    pub image: Option<String>,
-    #[graphql(skip)]
-    pub muscles: Vec<ExerciseMuscle>,
-}
-
-#[async_trait]
-impl GraphqlRepresentation for ExerciseListItem {
-    async fn graphql_representation(
-        self,
-        file_storage_service: &Arc<FileStorageService>,
-    ) -> Result<Self> {
-        let mut converted_exercise = self.clone();
-        if let Some(img) = self.attributes.internal_images.first() {
-            converted_exercise.image =
-                Some(get_stored_asset(img.clone(), file_storage_service).await);
-        }
-        converted_exercise.muscle = self.muscles.first().cloned();
         Ok(converted_exercise)
     }
 }

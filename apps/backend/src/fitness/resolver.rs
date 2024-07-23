@@ -20,8 +20,7 @@ use struson::writer::{JsonStreamWriter, JsonWriter};
 use crate::{
     background::ApplicationJob,
     entities::{
-        collection, collection_to_entity,
-        exercise::{self, ExerciseListItem},
+        collection, collection_to_entity, exercise,
         prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
         user_measurement, user_to_entity, workout,
     },
@@ -29,7 +28,7 @@ use crate::{
     miscellaneous::DefaultCollection,
     models::{
         fitness::{
-            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory,
+            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,
             GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
             UserWorkoutInput, UserWorkoutSetRecord, WorkoutListItem,
         },

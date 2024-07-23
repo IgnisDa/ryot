@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OutputType, Result as GraphqlResult, SimpleObject, Union};
 use async_trait::async_trait;
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
@@ -25,10 +25,10 @@ use serde_with::skip_serializing_none;
 use strum::Display;
 
 use crate::{
-    entities::{exercise::ExerciseListItem, prelude::Workout, user_measurement, workout},
+    entities::{prelude::Workout, user_measurement, workout},
     file_storage::FileStorageService,
     miscellaneous::CollectionExtraInformation,
-    traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
+    traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, GraphqlRepresentation},
     utils::get_stored_asset,
 };
 
@@ -94,7 +94,7 @@ pub struct SearchDetails {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
+#[graphql(concrete(name = "ExerciseListResults", params(fitness::ExerciseListItem)))]
 #[graphql(concrete(name = "MediaCollectionContentsResults", params(media::EntityWithLot)))]
 #[graphql(concrete(
     name = "MetadataSearchResults",
@@ -1328,6 +1328,36 @@ pub mod fitness {
         pub calories: Option<Decimal>,
         // DEV: The only custom data type we allow is decimal
         pub custom: Option<HashMap<String, Decimal>>,
+    }
+
+    #[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
+    pub struct ExerciseListItem {
+        pub lot: ExerciseLot,
+        pub id: String,
+        #[graphql(skip)]
+        pub attributes: ExerciseAttributes,
+        pub num_times_interacted: Option<i32>,
+        pub last_updated_on: Option<DateTimeUtc>,
+        pub muscle: Option<ExerciseMuscle>,
+        pub image: Option<String>,
+        #[graphql(skip)]
+        pub muscles: Vec<ExerciseMuscle>,
+    }
+
+    #[async_trait]
+    impl GraphqlRepresentation for ExerciseListItem {
+        async fn graphql_representation(
+            self,
+            file_storage_service: &Arc<FileStorageService>,
+        ) -> GraphqlResult<Self> {
+            let mut converted_exercise = self.clone();
+            if let Some(img) = self.attributes.internal_images.first() {
+                converted_exercise.image =
+                    Some(get_stored_asset(img.clone(), file_storage_service).await);
+            }
+            converted_exercise.muscle = self.muscles.first().cloned();
+            Ok(converted_exercise)
+        }
     }
 
     /// The totals of a workout and the different bests achieved.
