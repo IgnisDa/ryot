@@ -253,15 +253,18 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const showSpecifics = metadataDetails.showSpecifics?.seasons || [];
 			const podcastSpecifics = metadataDetails.podcastSpecifics?.episodes || [];
 			if (submission.metadataLot === MediaLot.Anime) {
-				if (submission.animeEpisodeNumber) {
-					if (submission.animeAllEpisodesBefore) {
-						for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
-							updates.push({
-								...variables,
-								animeEpisodeNumber: i,
-							});
-						}
-						needsFinalUpdate = false;
+				if (
+					submission.animeAllEpisodesBefore &&
+					submission.animeEpisodeNumber
+				) {
+					const lastSeenEpisode =
+						latestHistoryItem?.animeExtraInformation?.episode || 0;
+					for (
+						let i = lastSeenEpisode + 1;
+						i < submission.animeEpisodeNumber;
+						i++
+					) {
+						updates.push({ ...variables, animeEpisodeNumber: i });
 					}
 				}
 			}

@@ -679,6 +679,28 @@ export default function Page() {
 												)}
 											</>
 										) : null}
+										{loaderData.metadataDetails.lot === MediaLot.Anime &&
+										loaderData.userMetadataDetails.nextEntry ? (
+											<>
+												<Menu.Label>Anime</Menu.Label>
+												<>
+													<Menu.Item
+														onClick={() => {
+															setMetadataToUpdate({
+																metadataId: loaderData.metadataId,
+																animeEpisodeNumber:
+																	loaderData.userMetadataDetails.nextEntry
+																		?.episode,
+															});
+														}}
+													>
+														Mark EP-
+														{loaderData.userMetadataDetails.nextEntry?.episode}{" "}
+														as listened
+													</Menu.Item>
+												</>
+											</>
+										) : null}
 										{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
 											<>
 												<Menu.Label>Podcasts</Menu.Label>
