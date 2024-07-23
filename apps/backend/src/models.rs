@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OutputType, Result as GraphqlResult, SimpleObject, Union};
 use async_trait::async_trait;
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
@@ -13,24 +13,100 @@ use database::{
     MediaLot, MediaSource, SeenState, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
+use enum_meta::{meta, Meta};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
-use sea_orm::{
-    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
-};
+use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
 
 use crate::{
-    entities::{exercise::ExerciseListItem, prelude::Workout, user_measurement, workout},
+    entities::{user_measurement, workout},
     file_storage::FileStorageService,
-    miscellaneous::CollectionExtraInformation,
-    traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls},
-    utils::get_stored_asset,
+    traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, GraphqlRepresentation},
 };
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum)]
+pub enum CollectionExtraInformationLot {
+    String,
+    Number,
+    Date,
+    DateTime,
+    StringArray,
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Clone,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+    InputObject,
+)]
+#[graphql(input_name = "CollectionExtraInformationInput")]
+pub struct CollectionExtraInformation {
+    pub name: String,
+    pub description: String,
+    pub lot: CollectionExtraInformationLot,
+    pub default_value: Option<String>,
+    pub required: Option<bool>,
+}
+
+#[derive(Display, EnumIter)]
+pub enum DefaultCollection {
+    Watchlist,
+    #[strum(serialize = "In Progress")]
+    InProgress,
+    Completed,
+    Monitoring,
+    Custom,
+    Owned,
+    Reminders,
+}
+
+meta! {
+    DefaultCollection, (Option<Vec<CollectionExtraInformation>>, &'static str);
+    Watchlist, (None, "Things I want to watch in the future.");
+    InProgress, (None, "Media items that I am currently watching.");
+    Completed, (None, "Media items that I have completed.");
+    Custom, (None, "Items that I have created manually.");
+    Monitoring, (None, "Items that I am keeping an eye on.");
+    Owned, (Some(
+        vec![
+            CollectionExtraInformation {
+                name: "Owned on".to_string(),
+                description: "When did you get this media?".to_string(),
+                lot: CollectionExtraInformationLot::Date,
+                default_value: None,
+                required: None,
+            }
+        ]
+    ), "Items that I have in my inventory.");
+    Reminders, (Some(
+        vec![
+            CollectionExtraInformation {
+                name: "Reminder".to_string(),
+                description: "When do you want to be reminded?".to_string(),
+                lot: CollectionExtraInformationLot::Date,
+                default_value: None,
+                required: Some(true),
+            },
+            CollectionExtraInformation {
+                name: "Text".to_string(),
+                description: "What do you want to be reminded about?".to_string(),
+                lot: CollectionExtraInformationLot::String,
+                default_value: None,
+                required: Some(true),
+            }
+        ]
+    ), "Items that I want to be reminded about.");
+}
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BackgroundJob {
@@ -94,7 +170,7 @@ pub struct SearchDetails {
 }
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "ExerciseListResults", params(ExerciseListItem)))]
+#[graphql(concrete(name = "ExerciseListResults", params(fitness::ExerciseListItem)))]
 #[graphql(concrete(name = "MediaCollectionContentsResults", params(media::EntityWithLot)))]
 #[graphql(concrete(
     name = "MetadataSearchResults",
@@ -106,7 +182,7 @@ pub struct SearchDetails {
     params(media::MetadataGroupSearchItem)
 ))]
 #[graphql(concrete(name = "GenreListResults", params(media::GenreListItem)))]
-#[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
+#[graphql(concrete(name = "WorkoutListResults", params(workout::Model)))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
@@ -442,8 +518,15 @@ pub mod media {
     }
 
     impl PodcastSpecifics {
-        pub fn get_episode(&self, episode_number: i32) -> Option<&PodcastEpisode> {
+        pub fn episode_by_number(&self, episode_number: i32) -> Option<&PodcastEpisode> {
             self.episodes.iter().find(|e| e.number == episode_number)
+        }
+
+        pub fn episode_by_name(&self, name: &str) -> Option<i32> {
+            self.episodes
+                .iter()
+                .find(|e| e.title == name)
+                .map(|e| e.number)
         }
     }
 
@@ -1007,7 +1090,7 @@ pub mod media {
         ) -> Option<String> {
             if let Some(images) = self {
                 if let Some(i) = images.first().cloned() {
-                    Some(get_stored_asset(i.url, file_storage_service).await)
+                    Some(file_storage_service.get_stored_asset(i.url).await)
                 } else {
                     None
                 }
@@ -1023,7 +1106,7 @@ pub mod media {
             let mut images = vec![];
             if let Some(imgs) = self {
                 for i in imgs.clone() {
-                    images.push(get_stored_asset(i.url, file_storage_service).await);
+                    images.push(file_storage_service.get_stored_asset(i.url).await);
                 }
             }
             images
@@ -1328,6 +1411,36 @@ pub mod fitness {
         pub calories: Option<Decimal>,
         // DEV: The only custom data type we allow is decimal
         pub custom: Option<HashMap<String, Decimal>>,
+    }
+
+    #[derive(Clone, Debug, Deserialize, SimpleObject, FromQueryResult)]
+    pub struct ExerciseListItem {
+        pub lot: ExerciseLot,
+        pub id: String,
+        #[graphql(skip)]
+        pub attributes: ExerciseAttributes,
+        pub num_times_interacted: Option<i32>,
+        pub last_updated_on: Option<DateTimeUtc>,
+        pub muscle: Option<ExerciseMuscle>,
+        pub image: Option<String>,
+        #[graphql(skip)]
+        pub muscles: Vec<ExerciseMuscle>,
+    }
+
+    #[async_trait]
+    impl GraphqlRepresentation for ExerciseListItem {
+        async fn graphql_representation(
+            self,
+            file_storage_service: &Arc<FileStorageService>,
+        ) -> GraphqlResult<Self> {
+            let mut converted_exercise = self.clone();
+            if let Some(img) = self.attributes.internal_images.first() {
+                converted_exercise.image =
+                    Some(file_storage_service.get_stored_asset(img.clone()).await)
+            }
+            converted_exercise.muscle = self.muscles.first().cloned();
+            Ok(converted_exercise)
+        }
     }
 
     /// The totals of a workout and the different bests achieved.
@@ -1693,26 +1806,6 @@ pub mod fitness {
         pub exercises: Vec<WorkoutSummaryExercise>,
     }
 
-    #[derive(
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Serialize,
-        Deserialize,
-        FromQueryResult,
-        DerivePartialModel,
-        SimpleObject,
-    )]
-    #[sea_orm(entity = "Workout")]
-    pub struct WorkoutListItem {
-        pub id: String,
-        pub start_time: DateTimeUtc,
-        pub end_time: DateTimeUtc,
-        pub summary: WorkoutSummary,
-        pub name: String,
-    }
-
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
     pub struct UserWorkoutSetRecord {
         pub lot: SetLot,
@@ -1743,5 +1836,78 @@ pub mod fitness {
         pub assets: Option<EntityAssets>,
         pub repeated_from: Option<String>,
         pub exercises: Vec<UserExerciseInput>,
+    }
+}
+
+pub mod audiobookshelf_models {
+    use super::*;
+
+    #[derive(Debug, Serialize, Deserialize, Clone, Display)]
+    #[serde(rename_all = "snake_case")]
+    pub enum MediaType {
+        Book,
+        Podcast,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ItemProgress {
+        pub progress: Decimal,
+        pub is_finished: bool,
+        pub ebook_progress: Option<Decimal>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ItemMetadata {
+        pub title: String,
+        pub id: Option<String>,
+        pub asin: Option<String>,
+        pub isbn: Option<String>,
+        pub itunes_id: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ItemMedia {
+        pub metadata: ItemMetadata,
+        pub ebook_format: Option<String>,
+        pub episodes: Option<Vec<ItemMetadata>>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct RecentEpisode {
+        pub id: String,
+        pub title: String,
+        pub season: Option<String>,
+        pub episode: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Item {
+        pub id: String,
+        pub name: Option<String>,
+        pub media: Option<ItemMedia>,
+        pub media_type: Option<MediaType>,
+        pub recent_episode: Option<RecentEpisode>,
+        pub user_media_progress: Option<ItemProgress>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Response {
+        pub library_items: Vec<Item>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct LibrariesListResponse {
+        pub libraries: Vec<Item>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct ListResponse {
+        pub results: Vec<Item>,
     }
 }

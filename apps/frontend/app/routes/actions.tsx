@@ -17,12 +17,14 @@ import {
 	EntityLot,
 	MediaLot,
 	MediaSource,
+	MetadataDetailsDocument,
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	SeenState,
+	UserMetadataDetailsDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty, omitBy, set } from "@ryot/ts-utils";
+import { isEmpty, isNumber, omitBy, set } from "@ryot/ts-utils";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -222,6 +224,18 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("progressUpdate", async () => {
 			const submission = processSubmission(formData, progressUpdateSchema);
+			const metadataId = submission.metadataId;
+			const { metadataDetails } = await serverGqlService.request(
+				MetadataDetailsDocument,
+				{ metadataId },
+			);
+			const { userMetadataDetails } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					UserMetadataDetailsDocument,
+					{ metadataId },
+				);
+			const latestHistoryItem = userMetadataDetails?.history?.[0];
 			const variables = {
 				metadataId: submission.metadataId,
 				progress: "100",
@@ -234,92 +248,115 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				mangaVolumeNumber: submission.mangaVolumeNumber,
 				providerWatchedOn: submission.providerWatchedOn,
 			};
-			let needsFinalUpdate = true;
 			const updates = [];
-			const showSpecifics = showSpecificsSchema.parse(
-				JSON.parse(submission.showSpecifics || "[]"),
-			);
-			const podcastSpecifics = podcastSpecificsSchema.parse(
-				JSON.parse(submission.podcastSpecifics || "[]"),
-			);
-			if (submission.metadataLot === MediaLot.Anime) {
-				if (submission.animeEpisodeNumber) {
-					if (submission.animeAllEpisodesBefore) {
-						for (let i = 1; i <= submission.animeEpisodeNumber; i++) {
-							updates.push({
-								...variables,
-								animeEpisodeNumber: i,
-							});
-						}
-						needsFinalUpdate = false;
-					}
+			const showSpecifics = metadataDetails.showSpecifics?.seasons || [];
+			const podcastSpecifics = metadataDetails.podcastSpecifics?.episodes || [];
+			if (
+				submission.metadataLot === MediaLot.Anime &&
+				submission.animeAllEpisodesBefore &&
+				submission.animeEpisodeNumber
+			) {
+				const lastSeenEpisode =
+					latestHistoryItem?.animeExtraInformation?.episode || 0;
+				for (
+					let i = lastSeenEpisode + 1;
+					i < submission.animeEpisodeNumber;
+					i++
+				) {
+					updates.push({ ...variables, animeEpisodeNumber: i });
 				}
 			}
 			if (submission.metadataLot === MediaLot.Manga) {
-				if (submission.mangaChapterNumber) {
-					if (submission.mangaAllChaptersBefore) {
-						for (let i = 1; i <= submission.mangaChapterNumber; i++) {
-							updates.push({
-								...variables,
-								mangaChapterNumber: i,
-							});
+				if (
+					(isNumber(submission.mangaChapterNumber) &&
+						isNumber(submission.mangaVolumeNumber)) ||
+					(!isNumber(submission.mangaChapterNumber) &&
+						!isNumber(submission.mangaVolumeNumber))
+				)
+					throw Response.json({
+						message:
+							"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided",
+					});
+				if (submission.mangaAllChaptersOrVolumesBefore) {
+					if (submission.mangaVolumeNumber) {
+						const lastSeenVolume =
+							latestHistoryItem?.mangaExtraInformation?.volume || 0;
+						for (
+							let i = lastSeenVolume + 1;
+							i < submission.mangaVolumeNumber;
+							i++
+						) {
+							updates.push({ ...variables, mangaVolumeNumber: i });
 						}
-						needsFinalUpdate = false;
 					}
-				}
-			}
-			if (submission.metadataLot === MediaLot.Show) {
-				if (submission.completeShow) {
-					for (const season of showSpecifics) {
-						for (const episode of season.episodes) {
-							updates.push({
-								...variables,
-								showSeasonNumber: season.seasonNumber,
-								showEpisodeNumber: episode,
-							});
-						}
-					}
-					needsFinalUpdate = false;
-				}
-				if (submission.onlySeason) {
-					const selectedSeason = showSpecifics.find(
-						(s) => s.seasonNumber === submission.showSeasonNumber,
-					);
-					invariant(selectedSeason);
-					needsFinalUpdate = false;
-					if (submission.showAllSeasonsBefore) {
-						for (const season of showSpecifics) {
-							if (season.seasonNumber > selectedSeason.seasonNumber) break;
-							for (const episode of season.episodes || []) {
-								updates.push({
-									...variables,
-									showSeasonNumber: season.seasonNumber,
-									showEpisodeNumber: episode,
-								});
-							}
-						}
-					} else {
-						for (const episode of selectedSeason.episodes || []) {
-							updates.push({
-								...variables,
-								showEpisodeNumber: episode,
-							});
+					if (submission.mangaChapterNumber) {
+						const lastSeenChapter =
+							latestHistoryItem?.mangaExtraInformation?.chapter || 0;
+						for (
+							let i = lastSeenChapter + 1;
+							i < submission.mangaChapterNumber;
+							i++
+						) {
+							updates.push({ ...variables, mangaChapterNumber: i });
 						}
 					}
 				}
 			}
-			if (submission.metadataLot === MediaLot.Podcast) {
-				if (submission.completePodcast) {
-					for (const episode of podcastSpecifics) {
+			if (
+				submission.metadataLot === MediaLot.Show &&
+				submission.showAllEpisodesBefore
+			) {
+				const allEpisodesInShow = showSpecifics.flatMap((s) =>
+					s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
+				);
+				const selectedEpisodeIndex = allEpisodesInShow.findIndex(
+					(e) =>
+						e.seasonNumber === submission.showSeasonNumber &&
+						e.episodeNumber === submission.showEpisodeNumber,
+				);
+				invariant(selectedEpisodeIndex !== -1);
+				const firstEpisodeOfShow = allEpisodesInShow[0];
+				const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
+					episode: firstEpisodeOfShow.episodeNumber,
+					season: firstEpisodeOfShow.seasonNumber,
+				};
+				const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
+					(e) =>
+						e.seasonNumber === lastSeenEpisode.season &&
+						e.episodeNumber === lastSeenEpisode.episode,
+				);
+				invariant(lastSeenEpisodeIndex !== -1);
+				const firstEpisodeIndexToMark = lastSeenEpisodeIndex + 1;
+				if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
+					for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
+						const episode = allEpisodesInShow[i];
 						updates.push({
 							...variables,
-							podcastEpisodeNumber: episode.episodeNumber,
+							showSeasonNumber: episode.seasonNumber,
+							showEpisodeNumber: episode.episodeNumber,
 						});
 					}
-					needsFinalUpdate = false;
 				}
 			}
-			if (needsFinalUpdate) updates.push(variables);
+			if (
+				submission.metadataLot === MediaLot.Podcast &&
+				submission.podcastAllEpisodesBefore
+			) {
+				const selectedEpisode = podcastSpecifics.find(
+					(e) => e.number === submission.podcastEpisodeNumber,
+				);
+				invariant(selectedEpisode);
+				const lastSeenEpisode =
+					latestHistoryItem?.podcastExtraInformation?.episode || 0;
+				const allUnseenEpisodesBefore = podcastSpecifics
+					.filter(
+						(e) =>
+							e.number < selectedEpisode.number && e.number > lastSeenEpisode,
+					)
+					.map((e) => ({ ...variables, podcastEpisodeNumber: e.number }));
+				updates.push(...allUnseenEpisodesBefore);
+			}
+			updates.push(variables);
 			const { deployBulkProgressUpdate } =
 				await serverGqlService.authenticatedRequest(
 					request,
@@ -446,24 +483,14 @@ const progressUpdateSchema = z
 		metadataLot: z.nativeEnum(MediaLot),
 		date: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
-		showSpecifics: z.string().optional(),
-		showAllSeasonsBefore: zx.CheckboxAsString.optional(),
-		podcastSpecifics: z.string().optional(),
-		onlySeason: zx.BoolAsString.optional(),
-		completeShow: zx.BoolAsString.optional(),
-		completePodcast: zx.BoolAsString.optional(),
+		showAllEpisodesBefore: zx.BoolAsString.optional(),
+		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
+		mangaAllChaptersOrVolumesBefore: zx.CheckboxAsString.optional(),
 		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataIdSchema)
 	.merge(MetadataSpecificsSchema);
-
-const showSpecificsSchema = z.array(
-	z.object({ seasonNumber: z.number(), episodes: z.array(z.number()) }),
-);
-
-const podcastSpecificsSchema = z.array(z.object({ episodeNumber: z.number() }));
 
 const bulkUpdateSchema = z
 	.object({

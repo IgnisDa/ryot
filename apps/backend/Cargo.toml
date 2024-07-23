@@ -10,12 +10,12 @@ anyhow = { workspace = true }
 apalis = { version = "=0.5.3", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.0"
 async-graphql = { workspace = true }
-async-graphql-axum = "=7.0.6"
+async-graphql-axum = "=7.0.7"
 async-trait = "=0.1.81"
-aws-sdk-s3 = { version = "=1.40.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
-cached = { version = "=0.52.0", features = ["disk_store"] }
+cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = "=0.9.0"
 compile-time = "=0.2.0"
@@ -63,21 +63,21 @@ reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_ur
 ], default-features = false }
 rs-utils = { path = "../../libs/rs-utils" }
 rust_decimal = "=1.35.0"
-rust_decimal_macros = "=1.34.2"
+rust_decimal_macros = "=1.35.0"
 rust_iso3166 = "=0.1.13"
 schematic = { workspace = true }
-scraper = "=0.19.0"
+scraper = "=0.19.1"
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
-sea-query = "=0.31.0-rc.8"
+sea-query = "=0.31.0-rc.9"
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { version = "=3.8.3", features = ["chrono_0_4"] }
+serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }
 serde-xml-rs = "=0.6.0"
 slug = "=0.1.5"
 strum = { workspace = true }
 struson = { version = "=0.5.0", features = ["serde"] }
-tokio = { version = "=1.38.0", features = ["full"] }
+tokio = { version = "=1.38.1", features = ["full"] }
 tokio-util = { version = "=0.7.11", features = ["codec"] }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }

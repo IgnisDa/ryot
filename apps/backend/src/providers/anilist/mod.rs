@@ -773,5 +773,5 @@ fn get_in_preferred_language(
         AnilistPreferredLanguage::English => english.clone(),
         AnilistPreferredLanguage::Romaji => romaji.clone(),
     };
-    title.or(native).unwrap()
+    title.or(native).or(english).or(romaji).unwrap()
 }

@@ -4,7 +4,7 @@ use crate::{
     exporter::{ExporterMutation, ExporterQuery},
     fitness::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
-    miscellaneous::resolver::{MiscellaneousMutation, MiscellaneousQuery},
+    miscellaneous::{MiscellaneousMutation, MiscellaneousQuery},
     utils::AppServices,
 };
 

@@ -135,6 +135,7 @@ export interface ImportOrExportMediaItem {
 	 * The type of media.
 	 *
 	 * @default 'book'
+	 * @type {'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel'}
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -145,6 +146,7 @@ export interface ImportOrExportMediaItem {
 	 * The source of media.
 	 *
 	 * @default 'audible'
+	 * @type {'anilist' | 'audible' | 'custom' | 'google_books' | 'igdb' | 'itunes' | 'listennotes' | 'manga_updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb'}
 	 */
 	source: MediaSource;
 	/** An string to help identify it in the original source. */
@@ -161,6 +163,7 @@ export interface ImportOrExportMediaGroupItem {
 	 * The type of media.
 	 *
 	 * @default 'book'
+	 * @type {'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel'}
 	 */
 	lot: MediaLot;
 	/** The review history for the user. */
@@ -169,6 +172,7 @@ export interface ImportOrExportMediaGroupItem {
 	 * The source of media.
 	 *
 	 * @default 'audible'
+	 * @type {'anilist' | 'audible' | 'custom' | 'google_books' | 'igdb' | 'itunes' | 'listennotes' | 'manga_updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb'}
 	 */
 	source: MediaSource;
 	/** Name of the group. */
@@ -194,6 +198,7 @@ export interface ImportOrExportPersonItem {
 	 * The source of data.
 	 *
 	 * @default 'audible'
+	 * @type {'anilist' | 'audible' | 'custom' | 'google_books' | 'igdb' | 'itunes' | 'listennotes' | 'manga_updates' | 'mal' | 'openlibrary' | 'tmdb' | 'vndb'}
 	 */
 	source: MediaSource;
 	/** The source specific data. */
@@ -236,6 +241,7 @@ export interface WorkoutSetTotals {
 export interface WorkoutSetRecord {
 	actual_rest_time: number | null;
 	confirmed_at: string | null;
+	/** @type {'normal' | 'warm_up' | 'drop' | 'failure'} */
 	lot: SetLot;
 	note: string | null;
 	personal_bests: WorkoutSetPersonalBest[] | null;
@@ -258,6 +264,7 @@ export interface WorkoutOrExerciseTotals {
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
+	/** @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'} */
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];

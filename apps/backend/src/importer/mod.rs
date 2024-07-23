@@ -16,7 +16,7 @@ use crate::{
     background::ApplicationJob,
     entities::{import_report, prelude::ImportReport, user_measurement},
     fitness::resolver::ExerciseService,
-    miscellaneous::resolver::MiscellaneousService,
+    miscellaneous::MiscellaneousService,
     models::{
         fitness::UserWorkoutInput,
         media::{

@@ -14,7 +14,7 @@ use serde_json::json;
 
 use crate::{
     graphql::GraphqlSchema,
-    miscellaneous::resolver::MiscellaneousService,
+    miscellaneous::MiscellaneousService,
     utils::{AuthContext, TEMP_DIR},
 };
 

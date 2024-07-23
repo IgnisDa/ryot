@@ -17,8 +17,8 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
     background::ApplicationJob, file_storage::FileStorageService,
-    fitness::resolver::ExerciseService, miscellaneous::resolver::MiscellaneousService,
-    models::ExportItem, traits::AuthProvider, utils::TEMP_DIR,
+    fitness::resolver::ExerciseService, miscellaneous::MiscellaneousService, models::ExportItem,
+    traits::AuthProvider, utils::TEMP_DIR,
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
