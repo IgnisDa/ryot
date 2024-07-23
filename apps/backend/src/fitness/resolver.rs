@@ -29,7 +29,7 @@ use crate::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,
             GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
-            UserWorkoutInput, UserWorkoutSetRecord, WorkoutListItem,
+            UserWorkoutInput, UserWorkoutSetRecord,
         },
         ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput,
         SearchResults, StoredUrl,
@@ -144,7 +144,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
-    ) -> Result<SearchResults<WorkoutListItem>> {
+    ) -> Result<SearchResults<workout::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_workouts_list(user_id, input).await
@@ -406,7 +406,7 @@ impl ExerciseService {
         &self,
         user_id: String,
         input: SearchInput,
-    ) -> Result<SearchResults<WorkoutListItem>> {
+    ) -> Result<SearchResults<workout::Model>> {
         let page = input.page.unwrap_or(1);
         let query = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
@@ -416,9 +416,7 @@ impl ExerciseService {
             .order_by_desc(workout::Column::EndTime);
         let total = query.clone().count(&self.db).await?;
         let total: i32 = total.try_into().unwrap();
-        let data = query
-            .into_partial_model::<WorkoutListItem>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let data = query.paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
         let items = data.fetch_page((page - 1).try_into().unwrap()).await?;
         let next_page = if total - (page * self.config.frontend.page_size) > 0 {
             Some(page + 1)

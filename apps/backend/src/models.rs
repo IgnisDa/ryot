@@ -18,15 +18,13 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
 use schematic::Schematic;
-use sea_orm::{
-    prelude::DateTimeUtc, DerivePartialModel, EnumIter, FromJsonQueryResult, FromQueryResult,
-};
+use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
 
 use crate::{
-    entities::{prelude::Workout, user_measurement, workout},
+    entities::{user_measurement, workout},
     file_storage::FileStorageService,
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, GraphqlRepresentation},
 };
@@ -184,7 +182,7 @@ pub struct SearchDetails {
     params(media::MetadataGroupSearchItem)
 ))]
 #[graphql(concrete(name = "GenreListResults", params(media::GenreListItem)))]
-#[graphql(concrete(name = "WorkoutListResults", params(fitness::WorkoutListItem)))]
+#[graphql(concrete(name = "WorkoutListResults", params(workout::Model)))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
@@ -1806,26 +1804,6 @@ pub mod fitness {
     pub struct WorkoutSummary {
         pub total: Option<WorkoutOrExerciseTotals>,
         pub exercises: Vec<WorkoutSummaryExercise>,
-    }
-
-    #[derive(
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Serialize,
-        Deserialize,
-        FromQueryResult,
-        DerivePartialModel,
-        SimpleObject,
-    )]
-    #[sea_orm(entity = "Workout")]
-    pub struct WorkoutListItem {
-        pub id: String,
-        pub start_time: DateTimeUtc,
-        pub end_time: DateTimeUtc,
-        pub summary: WorkoutSummary,
-        pub name: String,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

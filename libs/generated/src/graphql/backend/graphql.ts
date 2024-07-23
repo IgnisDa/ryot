@@ -2372,17 +2372,9 @@ export type WorkoutInformation = {
   exercises: Array<ProcessedExercise>;
 };
 
-export type WorkoutListItem = {
-  endTime: Scalars['DateTime']['output'];
-  id: Scalars['String']['output'];
-  name: Scalars['String']['output'];
-  startTime: Scalars['DateTime']['output'];
-  summary: WorkoutSummary;
-};
-
 export type WorkoutListResults = {
   details: SearchDetails;
-  items: Array<WorkoutListItem>;
+  items: Array<Workout>;
 };
 
 /** The totals of a workout and the different bests achieved. */
