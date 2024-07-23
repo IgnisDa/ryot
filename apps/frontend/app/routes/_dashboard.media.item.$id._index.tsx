@@ -655,17 +655,11 @@ export default function Page() {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
 																	showSeasonNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Show
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.season
-																			: undefined,
+																		loaderData.userMetadataDetails.nextEntry
+																			?.season,
 																	showEpisodeNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Show
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.episode
-																			: undefined,
+																		loaderData.userMetadataDetails.nextEntry
+																			?.episode,
 																});
 															}}
 														>
@@ -695,11 +689,8 @@ export default function Page() {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
 																	podcastEpisodeNumber:
-																		loaderData.metadataDetails.lot ===
-																		MediaLot.Podcast
-																			? loaderData.userMetadataDetails.nextEntry
-																					?.episode
-																			: undefined,
+																		loaderData.userMetadataDetails.nextEntry
+																			?.episode,
 																});
 															}}
 														>
