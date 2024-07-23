@@ -223,6 +223,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("progressUpdate", async () => {
 			const submission = processSubmission(formData, progressUpdateSchema);
+			console.log(submission);
 			const { metadataDetails } = await serverGqlService.request(
 				MetadataDetailsDocument,
 				{ metadataId: submission.metadataId },
@@ -270,39 +271,26 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				}
 			}
 			if (submission.metadataLot === MediaLot.Show) {
-				if (submission.completeShow) {
+				const selectedSeason = showSpecifics.find(
+					(s) => s.seasonNumber === submission.showSeasonNumber,
+				);
+				invariant(selectedSeason);
+				if (submission.onlySeason) {
+					needsFinalUpdate = false;
+					for (const episode of selectedSeason.episodes || []) {
+						updates.push({
+							...variables,
+							showEpisodeNumber: episode.episodeNumber,
+						});
+					}
+				}
+				if (submission.showAllEpisodesBefore) {
 					for (const season of showSpecifics) {
-						for (const episode of season.episodes) {
+						if (season.seasonNumber > selectedSeason.seasonNumber) break;
+						for (const episode of season.episodes || []) {
 							updates.push({
 								...variables,
 								showSeasonNumber: season.seasonNumber,
-								showEpisodeNumber: episode.episodeNumber,
-							});
-						}
-					}
-					needsFinalUpdate = false;
-				}
-				if (submission.onlySeason) {
-					const selectedSeason = showSpecifics.find(
-						(s) => s.seasonNumber === submission.showSeasonNumber,
-					);
-					invariant(selectedSeason);
-					needsFinalUpdate = false;
-					if (submission.showAllEpisodesBefore) {
-						for (const season of showSpecifics) {
-							if (season.seasonNumber > selectedSeason.seasonNumber) break;
-							for (const episode of season.episodes || []) {
-								updates.push({
-									...variables,
-									showSeasonNumber: season.seasonNumber,
-									showEpisodeNumber: episode.episodeNumber,
-								});
-							}
-						}
-					} else {
-						for (const episode of selectedSeason.episodes || []) {
-							updates.push({
-								...variables,
 								showEpisodeNumber: episode.episodeNumber,
 							});
 						}
@@ -450,7 +438,6 @@ const progressUpdateSchema = z
 		showAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		onlySeason: zx.BoolAsString.optional(),
-		completeShow: zx.BoolAsString.optional(),
 		completePodcast: zx.BoolAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),

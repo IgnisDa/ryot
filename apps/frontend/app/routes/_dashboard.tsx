@@ -1023,43 +1023,33 @@ const NewProgressUpdateForm = ({
 				) : null}
 				{metadataDetails.lot === MediaLot.Show ? (
 					<>
-						{metadataToUpdate.onlySeason || metadataToUpdate.completeShow ? (
+						{metadataToUpdate.onlySeason &&
+						isNumber(metadataToUpdate.showSeasonNumber) ? (
 							<Alert color="yellow" icon={<IconAlertCircle />}>
-								{metadataToUpdate.onlySeason
-									? `This will mark all episodes of season ${metadataToUpdate.showSeasonNumber} as seen`
-									: metadataToUpdate.completeShow
-										? "This will mark all episodes for this show as seen"
-										: null}
+								This will mark all episodes of season{" "}
+								{metadataToUpdate.showSeasonNumber} as seen
 							</Alert>
 						) : null}
-						{!metadataToUpdate.completeShow ? (
-							<Select
-								label="Season"
-								required
-								data={metadataDetails.showSpecifics?.seasons.map((s) => ({
-									label: `${s.seasonNumber}. ${s.name.toString()}`,
-									value: s.seasonNumber.toString(),
-								}))}
-								value={metadataToUpdate.showSeasonNumber?.toString()}
-								onChange={(v) => {
-									setMetadataToUpdate(
-										produce(metadataToUpdate, (draft) => {
-											draft.showSeasonNumber = Number(v);
-										}),
-									);
-								}}
-								searchable
-								limit={50}
-							/>
-						) : null}
-						{metadataToUpdate?.onlySeason ? (
-							<Checkbox
-								label="Mark all unseen episodes before this as seen"
-								name="showAllEpisodesBefore"
-							/>
-						) : null}
+						<Select
+							label="Season"
+							required
+							data={metadataDetails.showSpecifics?.seasons.map((s) => ({
+								label: `${s.seasonNumber}. ${s.name.toString()}`,
+								value: s.seasonNumber.toString(),
+							}))}
+							value={metadataToUpdate.showSeasonNumber?.toString()}
+							onChange={(v) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.showSeasonNumber = Number(v);
+									}),
+								);
+							}}
+							searchable
+							limit={50}
+						/>
 						{!metadataToUpdate.onlySeason &&
-						typeof metadataToUpdate.showSeasonNumber !== "undefined" ? (
+						isNumber(metadataToUpdate.showSeasonNumber) ? (
 							<Select
 								label="Episode"
 								required
@@ -1067,8 +1057,7 @@ const NewProgressUpdateForm = ({
 									metadataDetails.showSpecifics?.seasons
 										.find(
 											(s) =>
-												s.seasonNumber ===
-												Number(metadataToUpdate.showSeasonNumber),
+												s.seasonNumber === metadataToUpdate.showSeasonNumber,
 										)
 										?.episodes.map((e) => ({
 											label: `${e.episodeNumber}. ${e.name.toString()}`,
@@ -1085,6 +1074,12 @@ const NewProgressUpdateForm = ({
 								}}
 								searchable
 								limit={50}
+							/>
+						) : null}
+						{isNumber(metadataToUpdate.showEpisodeNumber) ? (
+							<Checkbox
+								label="Mark all unseen episodes before this as seen"
+								name="showAllEpisodesBefore"
 							/>
 						) : null}
 					</>
