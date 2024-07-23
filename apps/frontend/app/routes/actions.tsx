@@ -278,6 +278,28 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 							"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided",
 					});
 				if (submission.mangaAllChaptersOrVolumesBefore) {
+					if (submission.mangaVolumeNumber) {
+						const lastSeenVolume =
+							latestHistoryItem?.mangaExtraInformation?.volume || 0;
+						for (
+							let i = lastSeenVolume + 1;
+							i < submission.mangaVolumeNumber;
+							i++
+						) {
+							updates.push({ ...variables, mangaVolumeNumber: i });
+						}
+					}
+					if (submission.mangaChapterNumber) {
+						const lastSeenChapter =
+							latestHistoryItem?.mangaExtraInformation?.chapter || 0;
+						for (
+							let i = lastSeenChapter + 1;
+							i < submission.mangaChapterNumber;
+							i++
+						) {
+							updates.push({ ...variables, mangaChapterNumber: i });
+						}
+					}
 				}
 			}
 			if (
