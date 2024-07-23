@@ -2414,8 +2414,10 @@ impl MiscellaneousService {
                 }
                 let mut updated_at = prev_seen.updated_at.clone();
                 let now = Utc::now();
-                updated_at.push(now);
-                let mut last_seen: seen::ActiveModel = prev_seen.clone().into();
+                if prev_seen.progress != progress {
+                    updated_at.push(now);
+                }
+                let mut last_seen: seen::ActiveModel = prev_seen.into();
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.updated_at = ActiveValue::Set(updated_at);
