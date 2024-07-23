@@ -463,7 +463,7 @@ const progressUpdateSchema = z
 		date: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
 		showAllEpisodesBefore: zx.BoolAsString.optional(),
-		podcastAllEpisodesBefore: zx.BoolAsString.optional(),
+		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
 		providerWatchedOn: z.string().optional(),
