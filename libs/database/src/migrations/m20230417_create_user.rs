@@ -12,10 +12,6 @@ pub enum User {
     Password,
     Lot,
     Preferences,
-    // This field can be `NULL` if the user has not enabled any yank integration
-    YankIntegrations,
-    // This field can be `NULL` if the user has not enabled any sink integration
-    SinkIntegrations,
     OidcIssuerId,
     ExtraInformation,
     IsDisabled,
@@ -33,8 +29,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::Password).text())
                     .col(ColumnDef::new(User::Lot).text().not_null())
                     .col(ColumnDef::new(User::Preferences).json_binary().not_null())
-                    .col(ColumnDef::new(User::YankIntegrations).json_binary())
-                    .col(ColumnDef::new(User::SinkIntegrations).json_binary())
                     .col(ColumnDef::new(User::OidcIssuerId).text())
                     .col(
                         ColumnDef::new(User::CreatedOn)
