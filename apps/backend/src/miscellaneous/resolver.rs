@@ -118,7 +118,7 @@ use crate::{
     },
     utils::{
         add_entity_to_collection, associate_user_with_entity, entity_in_collections,
-        get_current_date, get_stored_asset, get_user_to_entity_association, ilike_sql, user_by_id,
+        get_current_date, get_user_to_entity_association, ilike_sql, user_by_id,
         user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
@@ -1528,7 +1528,10 @@ impl MiscellaneousService {
         let mut videos = vec![];
         if let Some(vids) = &meta.videos {
             for v in vids.clone() {
-                let url = get_stored_asset(v.identifier, &self.file_storage_service).await;
+                let url = self
+                    .file_storage_service
+                    .get_stored_asset(v.identifier)
+                    .await;
                 videos.push(GraphqlVideoAsset {
                     source: v.source,
                     video_id: url,
@@ -6424,7 +6427,11 @@ impl MiscellaneousService {
             .unwrap();
         let mut images = vec![];
         for image in group.images.iter() {
-            images.push(get_stored_asset(image.url.clone(), &self.file_storage_service).await);
+            images.push(
+                self.file_storage_service
+                    .get_stored_asset(image.url.clone())
+                    .await,
+            );
         }
         group.display_images = images;
         let slug = slug::slugify(&group.title);

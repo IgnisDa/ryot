@@ -38,7 +38,7 @@ use crate::{
     importer::ImporterService,
     jwt,
     miscellaneous::resolver::MiscellaneousService,
-    models::{ChangeCollectionToEntityInput, StoredUrl},
+    models::ChangeCollectionToEntityInput,
     traits::TraceOk,
 };
 
@@ -261,16 +261,6 @@ pub fn get_base_http_client(
         .base_url(url.to_owned())
         .build()
         .unwrap()
-}
-
-pub async fn get_stored_asset(
-    url: StoredUrl,
-    file_storage_service: &Arc<FileStorageService>,
-) -> String {
-    match url {
-        StoredUrl::Url(u) => u,
-        StoredUrl::S3(u) => file_storage_service.get_presigned_url(u).await,
-    }
 }
 
 type CteCol = collection_to_entity::Column;

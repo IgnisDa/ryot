@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     file_storage::FileStorageService, models::fitness::ExerciseAttributes,
-    traits::GraphqlRepresentation, utils::get_stored_asset,
+    traits::GraphqlRepresentation,
 };
 
 #[derive(
@@ -58,7 +58,7 @@ impl GraphqlRepresentation for Model {
         let mut converted_exercise = self.clone();
         let mut images = vec![];
         for image in self.attributes.internal_images.iter() {
-            images.push(get_stored_asset(image.clone(), file_storage_service).await);
+            images.push(file_storage_service.get_stored_asset(image.clone()).await);
         }
         converted_exercise.attributes.images = images;
         Ok(converted_exercise)

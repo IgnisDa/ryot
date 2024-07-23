@@ -29,7 +29,6 @@ use crate::{
     file_storage::FileStorageService,
     miscellaneous::CollectionExtraInformation,
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, GraphqlRepresentation},
-    utils::get_stored_asset,
 };
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
@@ -1007,7 +1006,7 @@ pub mod media {
         ) -> Option<String> {
             if let Some(images) = self {
                 if let Some(i) = images.first().cloned() {
-                    Some(get_stored_asset(i.url, file_storage_service).await)
+                    Some(file_storage_service.get_stored_asset(i.url).await)
                 } else {
                     None
                 }
@@ -1023,7 +1022,7 @@ pub mod media {
             let mut images = vec![];
             if let Some(imgs) = self {
                 for i in imgs.clone() {
-                    images.push(get_stored_asset(i.url, file_storage_service).await);
+                    images.push(file_storage_service.get_stored_asset(i.url).await);
                 }
             }
             images
@@ -1353,7 +1352,7 @@ pub mod fitness {
             let mut converted_exercise = self.clone();
             if let Some(img) = self.attributes.internal_images.first() {
                 converted_exercise.image =
-                    Some(get_stored_asset(img.clone(), file_storage_service).await);
+                    Some(file_storage_service.get_stored_asset(img.clone()).await)
             }
             converted_exercise.muscle = self.muscles.first().cloned();
             Ok(converted_exercise)
