@@ -640,7 +640,7 @@ struct UserMetadataDetails {
     has_interacted: bool,
 }
 
-#[derive(SimpleObject, Debug, Clone)]
+#[derive(SimpleObject, Debug, Clone, Default)]
 struct UserMediaNextEntry {
     season: Option<i32>,
     volume: Option<i32>,
@@ -1840,8 +1840,7 @@ impl MiscellaneousService {
                         e.iter().map(move |e| UserMediaNextEntry {
                             season: Some(s),
                             episode: Some(e.episode_number),
-                            chapter: None,
-                            volume: None,
+                            ..Default::default()
                         })
                     })
                     .collect_vec();
@@ -1855,10 +1854,8 @@ impl MiscellaneousService {
                     .episodes
                     .iter()
                     .map(|e| UserMediaNextEntry {
-                        season: None,
                         episode: Some(e.number),
-                        chapter: None,
-                        volume: None,
+                        ..Default::default()
                     })
                     .collect_vec();
                 let next = all_episodes.iter().position(|e| {
@@ -1868,26 +1865,20 @@ impl MiscellaneousService {
             } else if let Some(_anime_spec) = &media_details.model.anime_specifics {
                 h.anime_extra_information.as_ref().and_then(|hist| {
                     hist.episode.map(|e| UserMediaNextEntry {
-                        season: None,
                         episode: Some(e + 1),
-                        chapter: None,
-                        volume: None,
+                        ..Default::default()
                     })
                 })
             } else if let Some(_manga_spec) = &media_details.model.manga_specifics {
                 h.manga_extra_information.as_ref().and_then(|hist| {
                     hist.chapter
                         .map(|e| UserMediaNextEntry {
-                            season: None,
-                            episode: None,
                             chapter: Some(e + 1),
-                            volume: None,
+                            ..Default::default()
                         })
                         .or(hist.volume.map(|e| UserMediaNextEntry {
-                            season: None,
-                            episode: None,
-                            chapter: None,
                             volume: Some(e + 1),
+                            ..Default::default()
                         }))
                 })
             } else {
