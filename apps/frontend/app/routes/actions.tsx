@@ -251,20 +251,19 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			const updates = [];
 			const showSpecifics = metadataDetails.showSpecifics?.seasons || [];
 			const podcastSpecifics = metadataDetails.podcastSpecifics?.episodes || [];
-			if (submission.metadataLot === MediaLot.Anime) {
-				if (
-					submission.animeAllEpisodesBefore &&
-					submission.animeEpisodeNumber
+			if (
+				submission.metadataLot === MediaLot.Anime &&
+				submission.animeAllEpisodesBefore &&
+				submission.animeEpisodeNumber
+			) {
+				const lastSeenEpisode =
+					latestHistoryItem?.animeExtraInformation?.episode || 0;
+				for (
+					let i = lastSeenEpisode + 1;
+					i < submission.animeEpisodeNumber;
+					i++
 				) {
-					const lastSeenEpisode =
-						latestHistoryItem?.animeExtraInformation?.episode || 0;
-					for (
-						let i = lastSeenEpisode + 1;
-						i < submission.animeEpisodeNumber;
-						i++
-					) {
-						updates.push({ ...variables, animeEpisodeNumber: i });
-					}
+					updates.push({ ...variables, animeEpisodeNumber: i });
 				}
 			}
 			if (submission.metadataLot === MediaLot.Manga) {
@@ -283,61 +282,59 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 						"Must update either mangaChapterNumber or mangaVolumeNumber",
 					);
 			}
-			if (submission.metadataLot === MediaLot.Show) {
-				if (submission.showAllEpisodesBefore) {
-					const allEpisodesInShow = showSpecifics.flatMap((s) =>
-						s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
-					);
-					const selectedEpisodeIndex = allEpisodesInShow.findIndex(
-						(e) =>
-							e.seasonNumber === submission.showSeasonNumber &&
-							e.episodeNumber === submission.showEpisodeNumber,
-					);
-					invariant(selectedEpisodeIndex !== -1);
-					const firstEpisodeOfShow = allEpisodesInShow[0];
-					const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
-						episode: firstEpisodeOfShow.episodeNumber,
-						season: firstEpisodeOfShow.seasonNumber,
-					};
-					const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
-						(e) =>
-							e.seasonNumber === lastSeenEpisode.season &&
-							e.episodeNumber === lastSeenEpisode.episode,
-					);
-					invariant(lastSeenEpisodeIndex !== -1);
-					const firstEpisodeIndexToMark = lastSeenEpisodeIndex + 1;
-					if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
-						for (
-							let i = firstEpisodeIndexToMark;
-							i < selectedEpisodeIndex;
-							i++
-						) {
-							const episode = allEpisodesInShow[i];
-							updates.push({
-								...variables,
-								showSeasonNumber: episode.seasonNumber,
-								showEpisodeNumber: episode.episodeNumber,
-							});
-						}
+			if (
+				submission.metadataLot === MediaLot.Show &&
+				submission.showAllEpisodesBefore
+			) {
+				const allEpisodesInShow = showSpecifics.flatMap((s) =>
+					s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
+				);
+				const selectedEpisodeIndex = allEpisodesInShow.findIndex(
+					(e) =>
+						e.seasonNumber === submission.showSeasonNumber &&
+						e.episodeNumber === submission.showEpisodeNumber,
+				);
+				invariant(selectedEpisodeIndex !== -1);
+				const firstEpisodeOfShow = allEpisodesInShow[0];
+				const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
+					episode: firstEpisodeOfShow.episodeNumber,
+					season: firstEpisodeOfShow.seasonNumber,
+				};
+				const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
+					(e) =>
+						e.seasonNumber === lastSeenEpisode.season &&
+						e.episodeNumber === lastSeenEpisode.episode,
+				);
+				invariant(lastSeenEpisodeIndex !== -1);
+				const firstEpisodeIndexToMark = lastSeenEpisodeIndex + 1;
+				if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
+					for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
+						const episode = allEpisodesInShow[i];
+						updates.push({
+							...variables,
+							showSeasonNumber: episode.seasonNumber,
+							showEpisodeNumber: episode.episodeNumber,
+						});
 					}
 				}
 			}
-			if (submission.metadataLot === MediaLot.Podcast) {
-				if (submission.podcastAllEpisodesBefore) {
-					const selectedEpisode = podcastSpecifics.find(
-						(e) => e.number === submission.podcastEpisodeNumber,
-					);
-					invariant(selectedEpisode);
-					const lastSeenEpisode =
-						latestHistoryItem?.podcastExtraInformation?.episode || 0;
-					const allUnseenEpisodesBefore = podcastSpecifics
-						.filter(
-							(e) =>
-								e.number < selectedEpisode.number && e.number > lastSeenEpisode,
-						)
-						.map((e) => ({ ...variables, podcastEpisodeNumber: e.number }));
-					updates.push(...allUnseenEpisodesBefore);
-				}
+			if (
+				submission.metadataLot === MediaLot.Podcast &&
+				submission.podcastAllEpisodesBefore
+			) {
+				const selectedEpisode = podcastSpecifics.find(
+					(e) => e.number === submission.podcastEpisodeNumber,
+				);
+				invariant(selectedEpisode);
+				const lastSeenEpisode =
+					latestHistoryItem?.podcastExtraInformation?.episode || 0;
+				const allUnseenEpisodesBefore = podcastSpecifics
+					.filter(
+						(e) =>
+							e.number < selectedEpisode.number && e.number > lastSeenEpisode,
+					)
+					.map((e) => ({ ...variables, podcastEpisodeNumber: e.number }));
+				updates.push(...allUnseenEpisodesBefore);
 			}
 			updates.push(variables);
 			const { deployBulkProgressUpdate } =
