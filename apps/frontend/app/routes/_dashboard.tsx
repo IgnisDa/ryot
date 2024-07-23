@@ -1065,8 +1065,14 @@ const NewProgressUpdateForm = ({
 						/>
 						<Checkbox
 							label="Mark all unseen episodes before this as seen"
-							name="showAllEpisodesBefore"
 							defaultChecked={metadataToUpdate.showAllEpisodesBefore}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.showAllEpisodesBefore = e.target.checked;
+									}),
+								);
+							}}
 						/>
 					</>
 				) : null}
@@ -1093,7 +1099,14 @@ const NewProgressUpdateForm = ({
 						/>
 						<Checkbox
 							label="Mark all unseen episodes before this as seen"
-							name="podcastAllEpisodesBefore"
+							defaultChecked={metadataToUpdate.podcastAllEpisodesBefore}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.podcastAllEpisodesBefore = e.target.checked;
+									}),
+								);
+							}}
 						/>
 					</>
 				) : null}

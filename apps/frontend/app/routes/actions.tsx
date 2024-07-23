@@ -279,17 +279,38 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				}
 			}
 			if (submission.metadataLot === MediaLot.Show) {
-				const selectedSeason = showSpecifics.find(
-					(s) => s.seasonNumber === submission.showSeasonNumber,
-				);
-				invariant(selectedSeason);
 				if (submission.showAllEpisodesBefore) {
-					for (const season of showSpecifics) {
-						if (season.seasonNumber > selectedSeason.seasonNumber) break;
-						for (const episode of season.episodes || []) {
+					const allEpisodesInShow = showSpecifics.flatMap((s) =>
+						s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
+					);
+					const selectedEpisodeIndex = allEpisodesInShow.findIndex(
+						(e) =>
+							e.seasonNumber === submission.showSeasonNumber &&
+							e.episodeNumber === submission.showEpisodeNumber,
+					);
+					invariant(selectedEpisodeIndex !== -1);
+					const firstEpisodeOfShow = allEpisodesInShow[0];
+					const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
+						episode: firstEpisodeOfShow.episodeNumber,
+						season: firstEpisodeOfShow.seasonNumber,
+					};
+					const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
+						(e) =>
+							e.seasonNumber === lastSeenEpisode.season &&
+							e.episodeNumber === lastSeenEpisode.episode,
+					);
+					invariant(lastSeenEpisodeIndex !== -1);
+					const firstEpisodeIndexToMark = lastSeenEpisodeIndex + 1;
+					if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
+						for (
+							let i = firstEpisodeIndexToMark;
+							i < selectedEpisodeIndex;
+							i++
+						) {
+							const episode = allEpisodesInShow[i];
 							updates.push({
 								...variables,
-								showSeasonNumber: season.seasonNumber,
+								showSeasonNumber: episode.seasonNumber,
 								showEpisodeNumber: episode.episodeNumber,
 							});
 						}
@@ -314,6 +335,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
+			console.log(updates);
 			const { deployBulkProgressUpdate } =
 				await serverGqlService.authenticatedRequest(
 					request,
@@ -440,8 +462,8 @@ const progressUpdateSchema = z
 		metadataLot: z.nativeEnum(MediaLot),
 		date: z.string().optional(),
 		[redirectToQueryParam]: z.string().optional(),
-		showAllEpisodesBefore: zx.CheckboxAsString.optional(),
-		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
+		showAllEpisodesBefore: zx.BoolAsString.optional(),
+		podcastAllEpisodesBefore: zx.BoolAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersBefore: zx.CheckboxAsString.optional(),
 		providerWatchedOn: z.string().optional(),
