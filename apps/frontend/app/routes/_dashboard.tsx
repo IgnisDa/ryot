@@ -1023,7 +1023,7 @@ const NewProgressUpdateForm = ({
 				) : null}
 				{metadataDetails.lot === MediaLot.Show ? (
 					<>
-						{metadataToUpdate.onlySeason &&
+						{metadataToUpdate.showOnlySeason &&
 						isNumber(metadataToUpdate.showSeasonNumber) ? (
 							<Alert color="yellow" icon={<IconAlertCircle />}>
 								This will mark all episodes of season{" "}
@@ -1048,7 +1048,7 @@ const NewProgressUpdateForm = ({
 							searchable
 							limit={50}
 						/>
-						{!metadataToUpdate.onlySeason &&
+						{!metadataToUpdate.showOnlySeason &&
 						isNumber(metadataToUpdate.showSeasonNumber) ? (
 							<Select
 								label="Episode"

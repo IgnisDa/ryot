@@ -1588,7 +1588,7 @@ const DisplayShowSeason = (props: {
 							setMetadataToUpdate({
 								metadataId: loaderData.metadataId,
 								showSeasonNumber: props.season.seasonNumber,
-								onlySeason: true,
+								showOnlySeason: true,
 							});
 						}}
 					>
