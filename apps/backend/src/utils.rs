@@ -37,7 +37,7 @@ use crate::{
     fitness::resolver::ExerciseService,
     importer::ImporterService,
     jwt,
-    miscellaneous::resolver::MiscellaneousService,
+    miscellaneous::MiscellaneousService,
     models::ChangeCollectionToEntityInput,
     traits::TraceOk,
 };

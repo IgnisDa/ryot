@@ -11,7 +11,7 @@ use crate::{
     exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
-    miscellaneous::resolver::MiscellaneousService,
+    miscellaneous::MiscellaneousService,
     models::{
         fitness::Exercise,
         media::{CommitMediaInput, ProgressUpdateInput, ReviewPostedEvent},
