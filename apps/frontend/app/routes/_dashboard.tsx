@@ -981,10 +981,13 @@ const NewProgressUpdateForm = ({
 				) : null}
 				{metadataDetails.lot === MediaLot.Manga ? (
 					<>
-						<Box>
+						<Input.Wrapper
+							required
+							label="Enter either the chapter number or the volume number"
+						>
 							<Group wrap="nowrap">
 								<NumberInput
-									label="Chapter"
+									description="Chapter"
 									hideControls
 									value={metadataToUpdate.mangaChapterNumber?.toString()}
 									onChange={(e) => {
@@ -999,7 +1002,7 @@ const NewProgressUpdateForm = ({
 									OR
 								</Text>
 								<NumberInput
-									label="Volume"
+									description="Volume"
 									hideControls
 									value={metadataToUpdate.mangaVolumeNumber?.toString()}
 									onChange={(e) => {
@@ -1011,7 +1014,7 @@ const NewProgressUpdateForm = ({
 									}}
 								/>
 							</Group>
-						</Box>
+						</Input.Wrapper>
 						<Checkbox
 							label="Mark all unread volumes/chapters before this as watched"
 							name="mangaAllChaptersOrVolumesBefore"
