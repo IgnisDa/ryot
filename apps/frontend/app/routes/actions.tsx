@@ -302,20 +302,15 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 						(e) => e.number === submission.podcastEpisodeNumber,
 					);
 					invariant(selectedEpisode);
-					const allEpisodesBefore = podcastSpecifics.filter(
-						(e) => e.number < selectedEpisode.number,
-					);
-					const allUnseenEpisodesBefore = allEpisodesBefore.filter(
-						(e) =>
-							e.number >
-							(latestHistoryItem?.podcastExtraInformation?.episode || 0),
-					);
-					for (const episode of allUnseenEpisodesBefore) {
-						updates.push({
-							...variables,
-							podcastEpisodeNumber: episode.number,
-						});
-					}
+					const lastSeenEpisode =
+						latestHistoryItem?.podcastExtraInformation?.episode || 0;
+					const allUnseenEpisodesBefore = podcastSpecifics
+						.filter(
+							(e) =>
+								e.number < selectedEpisode.number && e.number > lastSeenEpisode,
+						)
+						.map((e) => ({ ...variables, podcastEpisodeNumber: e.number }));
+					updates.push(...allUnseenEpisodesBefore);
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
