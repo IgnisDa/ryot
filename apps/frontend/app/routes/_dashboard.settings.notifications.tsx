@@ -369,7 +369,7 @@ const DisplayNotification = (props: {
 				</Box>
 				<Group>
 					<Form method="POST" action={withQuery("", { intent: "update" })}>
-						<ActionIcon color="indigo" variant="outline" type="submit">
+						<ActionIcon color="indigo" variant="subtle" type="submit">
 							{props.notification.isDisabled ? (
 								<IconPlayerPlay />
 							) : (
@@ -398,7 +398,7 @@ const DisplayNotification = (props: {
 							<ActionIcon
 								type="submit"
 								color="red"
-								variant="outline"
+								variant="subtle"
 								onClick={async (e) => {
 									const form = e.currentTarget.form;
 									e.preventDefault();
@@ -409,7 +409,7 @@ const DisplayNotification = (props: {
 									if (conf && form) submit(form);
 								}}
 							>
-								<IconTrash size={16} />
+								<IconTrash />
 							</ActionIcon>
 						</Form>
 					</Tooltip>
