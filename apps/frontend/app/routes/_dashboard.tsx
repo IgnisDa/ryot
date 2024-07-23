@@ -962,7 +962,7 @@ const NewProgressUpdateForm = ({
 					<>
 						<NumberInput
 							label="Episode"
-							description="Leaving this empty will mark the whole anime as watched"
+							required
 							hideControls
 							value={metadataToUpdate.animeEpisodeNumber?.toString()}
 							onChange={(e) => {
@@ -973,20 +973,15 @@ const NewProgressUpdateForm = ({
 								);
 							}}
 						/>
-						{isNumber(metadataToUpdate.animeEpisodeNumber) ? (
-							<Checkbox
-								label="Mark all unseen episodes before this as watched"
-								name="animeAllEpisodesBefore"
-							/>
-						) : null}
+						<Checkbox
+							label="Mark all unseen episodes before this as watched"
+							name="animeAllEpisodesBefore"
+						/>
 					</>
 				) : null}
 				{metadataDetails.lot === MediaLot.Manga ? (
 					<>
 						<Box>
-							<Text c="dimmed" size="sm">
-								Leaving the following empty will mark the whole manga as watched
-							</Text>
 							<Group wrap="nowrap">
 								<NumberInput
 									label="Chapter"
@@ -1017,13 +1012,10 @@ const NewProgressUpdateForm = ({
 								/>
 							</Group>
 						</Box>
-						{isNumber(metadataToUpdate.mangaChapterNumber) ||
-						isNumber(metadataToUpdate.mangaVolumeNumber) ? (
-							<Checkbox
-								label="Mark all unread volumes/chapters before this as watched"
-								name="mangaAllChaptersOrVolumesBefore"
-							/>
-						) : null}
+						<Checkbox
+							label="Mark all unread volumes/chapters before this as watched"
+							name="mangaAllChaptersOrVolumesBefore"
+						/>
 					</>
 				) : null}
 				{metadataDetails.lot === MediaLot.Show ? (
