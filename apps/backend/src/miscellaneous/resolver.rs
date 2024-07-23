@@ -70,7 +70,6 @@ use crate::{
     fitness::resolver::ExerciseService,
     integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
-    miscellaneous::DefaultCollection,
     models::{
         fitness::UserUnitSystem,
         media::{
@@ -89,9 +88,9 @@ use crate::{
             SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
-        BackendError, BackgroundJob, ChangeCollectionToEntityInput, EntityLot, IdAndNamedObject,
-        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
-        UserSummaryData,
+        BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
+        DefaultCollection, EntityLot, IdAndNamedObject, MediaStateChanged, SearchDetails,
+        SearchInput, SearchResults, StoredUrl, StringIdObject, UserSummaryData,
     },
     providers::{
         anilist::{
@@ -122,8 +121,6 @@ use crate::{
         user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
-
-use super::CollectionExtraInformation;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 

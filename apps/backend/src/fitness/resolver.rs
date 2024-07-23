@@ -25,14 +25,14 @@ use crate::{
         user_measurement, user_to_entity, workout,
     },
     file_storage::FileStorageService,
-    miscellaneous::DefaultCollection,
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,
             GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
             UserWorkoutInput, UserWorkoutSetRecord, WorkoutListItem,
         },
-        ChangeCollectionToEntityInput, SearchDetails, SearchInput, SearchResults, StoredUrl,
+        ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput,
+        SearchResults, StoredUrl,
     },
     traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},

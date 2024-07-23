@@ -12,9 +12,9 @@ use crate::{
         DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
-    miscellaneous::DefaultCollection,
-    models::media::{
-        ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
+    models::{
+        media::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen},
+        DefaultCollection,
     },
 };
 
