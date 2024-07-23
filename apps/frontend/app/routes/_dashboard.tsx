@@ -1106,7 +1106,7 @@ const NewProgressUpdateForm = ({
 							limit={50}
 						/>
 						<Checkbox
-							label="Mark all episodes before this as seen"
+							label="Mark all unseen episodes before this as seen"
 							name="podcastAllEpisodesBefore"
 						/>
 					</>

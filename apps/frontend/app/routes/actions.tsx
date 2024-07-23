@@ -21,6 +21,7 @@ import {
 	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	SeenState,
+	UserMetadataDetailsDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty, omitBy, set } from "@ryot/ts-utils";
@@ -223,11 +224,18 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.with("progressUpdate", async () => {
 			const submission = processSubmission(formData, progressUpdateSchema);
-			console.log(submission);
+			const metadataId = submission.metadataId;
 			const { metadataDetails } = await serverGqlService.request(
 				MetadataDetailsDocument,
-				{ metadataId: submission.metadataId },
+				{ metadataId },
 			);
+			const { userMetadataDetails } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					UserMetadataDetailsDocument,
+					{ metadataId },
+				);
+			const latestHistoryItem = userMetadataDetails?.history?.[0];
 			const variables = {
 				metadataId: submission.metadataId,
 				progress: "100",
@@ -298,14 +306,25 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				}
 			}
 			if (submission.metadataLot === MediaLot.Podcast) {
-				if (submission.completePodcast) {
-					for (const episode of podcastSpecifics) {
+				if (submission.podcastAllEpisodesBefore) {
+					const selectedEpisode = podcastSpecifics.find(
+						(e) => e.number === submission.podcastEpisodeNumber,
+					);
+					invariant(selectedEpisode);
+					const allEpisodesBefore = podcastSpecifics.filter(
+						(e) => e.number < selectedEpisode.number,
+					);
+					const allUnseenEpisodesBefore = allEpisodesBefore.filter(
+						(e) =>
+							e.number >
+							(latestHistoryItem?.podcastExtraInformation?.episode || 0),
+					);
+					for (const episode of allUnseenEpisodesBefore) {
 						updates.push({
 							...variables,
 							podcastEpisodeNumber: episode.number,
 						});
 					}
-					needsFinalUpdate = false;
 				}
 			}
 			if (needsFinalUpdate) updates.push(variables);
