@@ -240,6 +240,7 @@ export default function Page() {
 	const [_m, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 
 	const PutOnHoldBtn = () => {
 		return (
@@ -648,24 +649,20 @@ export default function Page() {
 										{loaderData.metadataDetails.lot === MediaLot.Show ? (
 											<>
 												<Menu.Label>Shows</Menu.Label>
-												{loaderData.userMetadataDetails.nextEntry ? (
+												{nextEntry ? (
 													<>
 														<Menu.Item
 															onClick={() => {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
-																	showSeasonNumber:
-																		loaderData.userMetadataDetails.nextEntry
-																			?.season,
-																	showEpisodeNumber:
-																		loaderData.userMetadataDetails.nextEntry
-																			?.episode,
+																	showSeasonNumber: nextEntry.season,
+																	showEpisodeNumber: nextEntry.episode,
 																});
 															}}
 														>
 															Mark{" "}
-															{`S${loaderData.userMetadataDetails.nextEntry?.season}-E${loaderData.userMetadataDetails.nextEntry?.episode}`}{" "}
-															as seen
+															{`S${nextEntry.season}-E${nextEntry.episode}`} as
+															seen
 														</Menu.Item>
 														<PutOnHoldBtn />
 													</>
@@ -680,7 +677,7 @@ export default function Page() {
 											</>
 										) : null}
 										{loaderData.metadataDetails.lot === MediaLot.Anime &&
-										loaderData.userMetadataDetails.nextEntry ? (
+										nextEntry ? (
 											<>
 												<Menu.Label>Anime</Menu.Label>
 												<>
@@ -688,15 +685,16 @@ export default function Page() {
 														onClick={() => {
 															setMetadataToUpdate({
 																metadataId: loaderData.metadataId,
-																animeEpisodeNumber:
-																	loaderData.userMetadataDetails.nextEntry
-																		?.episode,
+																animeEpisodeNumber: nextEntry.episode,
 															});
 														}}
 													>
 														Mark EP-
-														{loaderData.userMetadataDetails.nextEntry?.episode}{" "}
-														as listened
+														{nextEntry.episode} as listened
+													</Menu.Item>
+												</>
+											</>
+										) : null}
 													</Menu.Item>
 												</>
 											</>
@@ -704,24 +702,18 @@ export default function Page() {
 										{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
 											<>
 												<Menu.Label>Podcasts</Menu.Label>
-												{loaderData.userMetadataDetails.nextEntry ? (
+												{nextEntry ? (
 													<>
 														<Menu.Item
 															onClick={() => {
 																setMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
-																	podcastEpisodeNumber:
-																		loaderData.userMetadataDetails.nextEntry
-																			?.episode,
+																	podcastEpisodeNumber: nextEntry.episode,
 																});
 															}}
 														>
 															Mark EP-
-															{
-																loaderData.userMetadataDetails.nextEntry
-																	?.episode
-															}{" "}
-															as listened
+															{nextEntry.episode} as listened
 														</Menu.Item>
 														<PutOnHoldBtn />
 													</>
