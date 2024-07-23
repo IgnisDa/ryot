@@ -70,7 +70,7 @@ use crate::{
     fitness::resolver::ExerciseService,
     integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
-    miscellaneous::{CustomService, DefaultCollection},
+    miscellaneous::DefaultCollection,
     models::{
         fitness::UserUnitSystem,
         media::{
@@ -775,6 +775,19 @@ fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct CustomService {}
+
+impl MediaProviderLanguages for CustomService {
+    fn supported_languages() -> Vec<String> {
+        ["us"].into_iter().map(String::from).collect()
+    }
+
+    fn default_language() -> String {
+        "us".to_owned()
+    }
 }
 
 #[derive(Default)]

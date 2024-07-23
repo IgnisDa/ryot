@@ -13,8 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    miscellaneous::audiobookshelf_models,
-    models::media::CommitMediaInput,
+    models::{audiobookshelf_models, media::CommitMediaInput},
     providers::google_books::GoogleBooksService,
     utils::{get_base_http_client, ilike_sql},
 };
