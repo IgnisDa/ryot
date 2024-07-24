@@ -1,15 +1,20 @@
 query WorkoutDetails($workoutId: String!) {
   workoutDetails(workoutId: $workoutId) {
-    id
-    name
-    endTime
-    startTime
-    repeatedFrom
-    summary {
-      ...WorkoutSummaryPart
+    collections {
+      ...CollectionPart
     }
-    information {
-      ...WorkoutInformationPart
+    details {
+      id
+      name
+      endTime
+      startTime
+      repeatedFrom
+      summary {
+        ...WorkoutSummaryPart
+      }
+      information {
+        ...WorkoutInformationPart
+      }
     }
   }
 }
