@@ -102,6 +102,12 @@ impl Related<super::collection_to_entity::Entity> for Entity {
     }
 }
 
+impl Related<super::collection_to_entity::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CollectionToEntity.def()
+    }
+}
+
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
