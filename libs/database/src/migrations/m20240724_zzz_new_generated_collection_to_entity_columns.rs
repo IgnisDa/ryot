@@ -23,6 +23,21 @@ ADD COLUMN entity_id text GENERATED ALWAYS AS (
         "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+ALTER TABLE collection_to_entity
+ADD COLUMN entity_lot text GENERATED ALWAYS AS (
+    CASE
+        WHEN metadata_id IS NOT NULL THEN 'metadata'
+        WHEN person_id IS NOT NULL THEN 'person'
+        WHEN metadata_group_id IS NOT NULL THEN 'metadata_group'
+        WHEN exercise_id IS NOT NULL THEN 'exercise'
+        WHEN workout_id IS NOT NULL THEN 'workout'
+    END
+) STORED;
+        "#,
+        )
+        .await?;
         Ok(())
     }
 

@@ -39,6 +39,17 @@ pub static ENTITY_ID_SQL: &str = indoc! { r#"
         )
     ) STORED;
 "# };
+pub static ENTITY_LOT_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        CASE
+            WHEN "metadata_id" IS NOT NULL THEN 'metadata'
+            WHEN "person_id" IS NOT NULL THEN 'person'
+            WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
+            WHEN "exercise_id" IS NOT NULL THEN 'exercise'
+            WHEN "workout_id" IS NOT NULL THEN 'workout'
+        END
+    ) STORED;
+"# };
 
 #[derive(Iden)]
 pub enum CollectionToEntity {
@@ -49,6 +60,7 @@ pub enum CollectionToEntity {
     LastUpdatedOn,
     Information,
     EntityId,
+    EntityLot,
     // the entities that can be added to a collection
     MetadataId,
     MetadataGroupId,
@@ -100,6 +112,12 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null()
                             .extra(ENTITY_ID_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionToEntity::EntityLot)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_LOT_SQL),
                     )
                     .foreign_key(
                         ForeignKey::create()
