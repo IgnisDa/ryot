@@ -257,7 +257,9 @@ export default function Page() {
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
-									onClick={() => performDecision(Entity.Workouts)}
+									onClick={() =>
+										performDecision(Entity.Workouts, loaderData.entityId)
+									}
 									leftSection={<IconRepeat size={14} />}
 								>
 									Duplicate
