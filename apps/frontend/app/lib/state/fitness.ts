@@ -11,6 +11,7 @@ import {
 	type WorkoutDetailsQuery,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
+	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
@@ -146,11 +147,21 @@ export const getWorkoutDetailsQuery = (workoutId: string) =>
 export const getWorkoutDetails = async (workoutId: string) =>
 	queryClient.ensureQueryData(getWorkoutDetailsQuery(workoutId));
 
+export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
+	queryOptions({
+		queryKey:
+			queryFactory.fitness.workoutTemplateDetails(workoutTemplateId).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(WorkoutTemplateDetailsDocument, { workoutTemplateId })
+				.then((data) => data.workoutTemplateDetails),
+	});
+
 type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
 
 export const convertHistorySetToCurrentSet = (
 	s: Pick<
-		TWorkoutDetails["information"]["exercises"][number]["sets"][number],
+		TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number],
 		"statistic" | "lot"
 	>,
 ) =>
@@ -215,11 +226,12 @@ export const addExerciseToWorkout = async (
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		const alreadyDoneSets = [];
-		for (const history of exerciseDetails.userDetails.history || []) {
+		const allHistory = exerciseDetails.userDetails.history || [];
+		for (const history of allHistory.slice(0, 3)) {
 			const workout = await getWorkoutDetails(history.workoutId);
-			const setStatistics = workout.information.exercises[history.idx].sets.map(
-				(s) => s.statistic,
-			);
+			const setStatistics = workout.details.information.exercises[
+				history.idx
+			].sets.map((s) => s.statistic);
 			alreadyDoneSets.push({ statistic: setStatistics[0] });
 		}
 		draft.exercises.push({

@@ -91,6 +91,34 @@ pub enum UserLot {
     Normal,
 }
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Deserialize,
+    Serialize,
+    Enum,
+    Display,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "String(StringLen::None)",
+    rename_all = "snake_case"
+)]
+pub enum EntityLot {
+    Metadata,
+    Person,
+    MetadataGroup,
+    Exercise,
+    Collection,
+    Workout,
+    WorkoutTemplate,
+}
+
 // The different possible states of a seen item.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize, Enum,

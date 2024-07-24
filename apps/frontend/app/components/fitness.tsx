@@ -122,7 +122,7 @@ export const DisplaySetStatistics = (props: {
 };
 
 type Exercise =
-	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
+	WorkoutDetailsQuery["workoutDetails"]["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
 
 export const DisplaySet = (props: {
@@ -217,7 +217,7 @@ export const ExerciseHistory = (props: {
 							)}
 							fw="bold"
 						>
-							{truncate(workoutData.name, { length: 36 })}
+							{truncate(workoutData.details.name, { length: 36 })}
 						</Anchor>
 						{props.onCopyButtonClick ? (
 							<ActionIcon onClick={props.onCopyButtonClick} size="sm">
@@ -226,18 +226,18 @@ export const ExerciseHistory = (props: {
 						) : null}
 					</Group>
 					<Text c="dimmed" fz="sm" mb="xs">
-						{dayjsLib(workoutData.endTime).format("LLLL")}
+						{dayjsLib(workoutData.details.endTime).format("LLLL")}
 					</Text>
-					{workoutData.information.exercises[props.history.idx].sets.map(
-						(set, idx) => (
-							<DisplaySet
-								idx={idx}
-								set={set}
-								key={`${idx}-${set.lot}`}
-								exerciseLot={props.exerciseLot}
-							/>
-						),
-					)}
+					{workoutData.details.information.exercises[
+						props.history.idx
+					].sets.map((set, idx) => (
+						<DisplaySet
+							idx={idx}
+							set={set}
+							key={`${idx}-${set.lot}`}
+							exerciseLot={props.exerciseLot}
+						/>
+					))}
 				</>
 			) : (
 				<Skeleton h={20} />

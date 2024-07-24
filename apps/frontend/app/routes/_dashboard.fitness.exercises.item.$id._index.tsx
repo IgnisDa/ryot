@@ -417,7 +417,9 @@ const DisplayPersonalBest = (props: {
 	const unitSystem = useUserUnitSystem();
 	const { data } = useQuery(getWorkoutDetailsQuery(props.set.workoutId));
 	const set =
-		data?.information.exercises[props.set.exerciseIdx].sets[props.set.setIdx];
+		data?.details.information.exercises[props.set.exerciseIdx].sets[
+			props.set.setIdx
+		];
 	if (!set) return null;
 
 	return (
@@ -445,7 +447,7 @@ const DisplayPersonalBest = (props: {
 					.exhaustive()}
 			</Text>
 			<Group>
-				<Text size="sm">{dayjsLib(data.endTime).format("ll")}</Text>
+				<Text size="sm">{dayjsLib(data.details.endTime).format("ll")}</Text>
 				<Anchor
 					component={Link}
 					to={withFragment(

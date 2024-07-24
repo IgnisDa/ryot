@@ -1,8 +1,10 @@
+use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230501_create_metadata_group::MetadataGroup, m20230504_create_collection::Collection,
+    m20230818_create_workout_template::WorkoutTemplate, m20230819_create_workout::Workout,
     m20230822_create_exercise::Exercise,
 };
 
@@ -13,6 +15,46 @@ pub static UNIQUE_INDEX_1: &str = "collection_to_entity_uqi1";
 pub static UNIQUE_INDEX_2: &str = "collection_to_entity_uqi2";
 pub static UNIQUE_INDEX_3: &str = "collection_to_entity_uqi3";
 pub static UNIQUE_INDEX_4: &str = "collection_to_entity_uqi4";
+pub static UNIQUE_INDEX_5: &str = "collection_to_entity_uqi5";
+pub static UNIQUE_INDEX_6: &str = "collection_to_entity_uqi6";
+pub static CONSTRAINT_SQL: &str = indoc! { r#"
+    ALTER TABLE "collection_to_entity" DROP CONSTRAINT IF EXISTS "collection_to_entity__ensure_one_entity";
+    ALTER TABLE "collection_to_entity"
+    ADD CONSTRAINT "collection_to_entity__ensure_one_entity"
+    CHECK (
+        (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "workout_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "workout_template_id" IS NOT NULL THEN 1 ELSE 0 END)
+        = 1
+    );
+"# };
+pub static ENTITY_ID_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        COALESCE(
+            "metadata_id",
+            "person_id",
+            "metadata_group_id",
+            "exercise_id",
+            "workout_id",
+            "workout_template_id"
+        )
+    ) STORED;
+"# };
+pub static ENTITY_LOT_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        CASE
+            WHEN "metadata_id" IS NOT NULL THEN 'metadata'
+            WHEN "person_id" IS NOT NULL THEN 'person'
+            WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
+            WHEN "exercise_id" IS NOT NULL THEN 'exercise'
+            WHEN "workout_id" IS NOT NULL THEN 'workout'
+            WHEN "workout_template_id" IS NOT NULL THEN 'workout_template'
+        END
+    ) STORED;
+"# };
 
 #[derive(Iden)]
 pub enum CollectionToEntity {
@@ -21,17 +63,22 @@ pub enum CollectionToEntity {
     CollectionId,
     CreatedOn,
     LastUpdatedOn,
+    Information,
+    EntityId,
+    EntityLot,
     // the entities that can be added to a collection
     MetadataId,
     MetadataGroupId,
     PersonId,
     ExerciseId,
-    Information,
+    WorkoutId,
+    WorkoutTemplateId,
 }
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
         manager
             .create_table(
                 Table::create()
@@ -64,6 +111,20 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(PgFunc::gen_random_uuid())
                             .primary_key(),
+                    )
+                    .col(ColumnDef::new(CollectionToEntity::WorkoutId).text())
+                    .col(ColumnDef::new(CollectionToEntity::WorkoutTemplateId).text())
+                    .col(
+                        ColumnDef::new(CollectionToEntity::EntityId)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_ID_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionToEntity::EntityLot)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_LOT_SQL),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -108,53 +169,49 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("collection_to_entity-fk6")
+                            .from(CollectionToEntity::Table, CollectionToEntity::WorkoutId)
+                            .to(Workout::Table, Workout::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("collection_to_entity-fk7")
+                            .from(
+                                CollectionToEntity::Table,
+                                CollectionToEntity::WorkoutTemplateId,
+                            )
+                            .to(WorkoutTemplate::Table, WorkoutTemplate::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_1)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::MetadataId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_2)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::PersonId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_3)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::MetadataGroupId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_4)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::ExerciseId)
-                    .to_owned(),
-            )
-            .await?;
+        for (name, column) in [
+            (UNIQUE_INDEX_1, CollectionToEntity::MetadataId),
+            (UNIQUE_INDEX_2, CollectionToEntity::PersonId),
+            (UNIQUE_INDEX_3, CollectionToEntity::MetadataGroupId),
+            (UNIQUE_INDEX_4, CollectionToEntity::ExerciseId),
+            (UNIQUE_INDEX_5, CollectionToEntity::WorkoutId),
+            (UNIQUE_INDEX_6, CollectionToEntity::WorkoutTemplateId),
+        ] {
+            manager
+                .create_index(
+                    Index::create()
+                        .unique()
+                        .name(name)
+                        .table(CollectionToEntity::Table)
+                        .col(CollectionToEntity::CollectionId)
+                        .col(column)
+                        .to_owned(),
+                )
+                .await?;
+        }
+        db.execute_unprepared(CONSTRAINT_SQL).await?;
         Ok(())
     }
 

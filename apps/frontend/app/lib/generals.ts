@@ -276,6 +276,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	workoutDetails: (workoutId: string) => ({
 		queryKey: ["workoutDetails", workoutId],
 	}),
+	workoutTemplateDetails: (workoutTemplateId: string) => ({
+		queryKey: ["workoutTemplateDetails", workoutTemplateId],
+	}),
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
@@ -301,7 +304,17 @@ export const convertEntityToIndividualId = (
 		entityLot === EntityLot.MetadataGroup ? entityId : undefined;
 	const personId = entityLot === EntityLot.Person ? entityId : undefined;
 	const exerciseId = entityLot === EntityLot.Exercise ? entityId : undefined;
-	return { metadataId, metadataGroupId, personId, exerciseId };
+	const workoutId = entityLot === EntityLot.Workout ? entityId : undefined;
+	const workoutTemplateId =
+		entityLot === EntityLot.WorkoutTemplate ? entityId : undefined;
+	return {
+		metadataId,
+		metadataGroupId,
+		personId,
+		exerciseId,
+		workoutId,
+		workoutTemplateId,
+	};
 };
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>

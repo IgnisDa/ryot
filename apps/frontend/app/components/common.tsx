@@ -2,7 +2,6 @@ import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
 import {
 	ActionIcon,
-	Alert,
 	Anchor,
 	Badge,
 	Box,
@@ -15,7 +14,6 @@ import {
 	Text,
 	TextInput,
 	Title,
-	Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate } from "@mantine/hooks";
 import { useNavigate } from "@remix-run/react";
@@ -34,11 +32,7 @@ import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { getSurroundingElements } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useFallbackImageUrl,
-} from "~/lib/hooks";
+import { useAppSearchParam, useFallbackImageUrl } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -162,23 +156,6 @@ export const DebouncedSearchInput = (props: {
 			}
 		/>
 	);
-};
-
-export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
-	const coreDetails = useCoreDetails();
-
-	return !coreDetails.isPro ? (
-		<Alert>
-			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
-				<Text size="xs">
-					<Anchor href={coreDetails.websiteUrl} target="_blank">
-						Ryot Pro
-					</Anchor>{" "}
-					required to use this feature
-				</Text>
-			</Tooltip>
-		</Alert>
-	) : null;
 };
 
 export const FiltersModal = (props: {

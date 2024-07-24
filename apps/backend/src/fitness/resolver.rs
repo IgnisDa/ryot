@@ -104,6 +104,18 @@ struct UserExerciseDetails {
     collections: Vec<collection::Model>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserWorkoutDetails {
+    details: workout::Model,
+    collections: Vec<collection::Model>,
+}
+
+#[derive(Debug, SimpleObject, Clone)]
+struct UserWorkoutTemplateDetails {
+    details: workout_template::Model,
+    collections: Vec<collection::Model>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 struct UpdateUserWorkoutInput {
     id: String,
@@ -180,7 +192,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         workout_id: String,
-    ) -> Result<workout::Model> {
+    ) -> Result<UserWorkoutDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.workout_details(&user_id, workout_id).await
@@ -202,9 +214,12 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         workout_template_id: String,
-    ) -> Result<workout_template::Model> {
+    ) -> Result<UserWorkoutTemplateDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
-        service.workout_template_details(workout_template_id).await
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .workout_template_details(user_id, workout_template_id)
+            .await
     }
 
     /// Get all the measurements for a user.
@@ -403,16 +418,33 @@ impl ExerciseService {
 
     async fn workout_template_details(
         &self,
+        user_id: String,
         workout_template_id: String,
-    ) -> Result<workout_template::Model> {
-        let maybe_template = WorkoutTemplate::find_by_id(workout_template_id)
+    ) -> Result<UserWorkoutTemplateDetails> {
+        let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
             .one(&self.db)
             .await?;
         match maybe_template {
             None => Err(Error::new(
                 "Workout template with the given ID could not be found.",
             )),
-            Some(e) => Ok(e),
+            Some(details) => {
+                let collections = entity_in_collections(
+                    &self.db,
+                    &user_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(workout_template_id),
+                )
+                .await?;
+                Ok(UserWorkoutTemplateDetails {
+                    details,
+                    collections,
+                })
+            }
         }
     }
 
@@ -420,8 +452,8 @@ impl ExerciseService {
         &self,
         user_id: &String,
         workout_id: String,
-    ) -> Result<workout::Model> {
-        let maybe_workout = Workout::find_by_id(workout_id)
+    ) -> Result<UserWorkoutDetails> {
+        let maybe_workout = Workout::find_by_id(workout_id.clone())
             .filter(workout::Column::UserId.eq(user_id))
             .one(&self.db)
             .await?;
@@ -429,7 +461,24 @@ impl ExerciseService {
             None => Err(Error::new(
                 "Workout with the given ID could not be found for this user.",
             )),
-            Some(e) => Ok(e.graphql_representation(&self.file_storage_service).await?),
+            Some(e) => {
+                let collections = entity_in_collections(
+                    &self.db,
+                    user_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(workout_id),
+                    None,
+                )
+                .await?;
+                let details = e.graphql_representation(&self.file_storage_service).await?;
+                Ok(UserWorkoutDetails {
+                    details,
+                    collections,
+                })
+            }
         }
     }
 
@@ -445,6 +494,8 @@ impl ExerciseService {
             None,
             None,
             Some(exercise_id.clone()),
+            None,
+            None,
         )
         .await?;
         let mut resp = UserExerciseDetails {

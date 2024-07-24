@@ -63,7 +63,7 @@ import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
@@ -373,9 +373,6 @@ const DisplayCollection = (props: {
 							radius="md"
 						/>
 					)}
-					<Box pos="absolute" left={0} right={0} bottom={0}>
-						<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
-					</Box>
 				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">
