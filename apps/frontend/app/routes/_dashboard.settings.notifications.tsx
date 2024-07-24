@@ -319,19 +319,11 @@ export default function Page() {
 														label="Email ID"
 														required
 														name="apiToken"
+														disabled={!coreDetails.smtpEnabled}
 														description={
-															<>
-																Make sure
-																<Anchor
-																	size="xs"
-																	href={`${coreDetails.docsLink}/configuration.html?h=smtp#all-parameters`}
-																	target="_blank"
-																>
-																	{" "}
-																	the correct{" "}
-																</Anchor>
-																configuration parameters are set
-															</>
+															coreDetails.smtpEnabled
+																? null
+																: "SMTP is not enabled"
 														}
 													/>
 												</>

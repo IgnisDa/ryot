@@ -347,6 +347,16 @@ pub struct SmtpConfig {
     pub mailbox: String,
 }
 
+impl IsFeatureEnabled for SmtpConfig {
+    fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.server.is_empty() && !self.user.is_empty() && !self.password.is_empty() {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_OIDC_")]
 pub struct OidcConfig {

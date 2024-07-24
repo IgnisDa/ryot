@@ -3,6 +3,7 @@ import { redirect, unstable_defineLoader } from "@remix-run/node";
 import {
 	GetOidcTokenDocument,
 	LoginUserDocument,
+	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";
@@ -10,6 +11,7 @@ import { zx } from "zodix";
 import {
 	getCachedCoreDetails,
 	getCookiesForApplication,
+	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -34,8 +36,15 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			input: { data: { oidc: oidcInput } },
 		}),
 	]);
-	if (registerUser.__typename === "RegisterError")
-		console.error("Registration failed:", registerUser);
+	if (
+		registerUser.__typename === "RegisterError" &&
+		registerUser.error === RegisterErrorVariant.Disabled
+	) {
+		return redirectWithToast($path("/auth"), {
+			message: "Registration is disabled",
+			type: "error",
+		});
+	}
 	const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 		input: { oidc: oidcInput },
 	});
