@@ -78,7 +78,7 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
@@ -190,7 +190,7 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
-	const [time, setTime] = useState(0);
+	const [_t, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
@@ -290,7 +290,7 @@ export default function Page() {
 									}
 								/>
 								<Group>
-									<DurationTimer key={time} />
+									<DurationTimer />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -1504,7 +1504,7 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 		currentWorkout?.exercises || [],
 	);
 
-	useEffect(() => {
+	useDidUpdate(() => {
 		const oldOrder = currentWorkout?.exercises.map((e) => e.exerciseId);
 		const newOrder = exerciseElements.map((e) => e.exerciseId);
 		if (!isEqual(oldOrder, newOrder)) {
