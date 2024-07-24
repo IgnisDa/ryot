@@ -145,7 +145,7 @@ type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
 
 export const convertHistorySetToCurrentSet = (
 	s: Pick<
-		TWorkoutDetails["information"]["exercises"][number]["sets"][number],
+		TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number],
 		"statistic" | "lot"
 	>,
 ) =>
@@ -204,9 +204,9 @@ export const addExerciseToWorkout = async (
 		const alreadyDoneSets = [];
 		for (const history of exerciseDetails.userDetails.history || []) {
 			const workout = await getWorkoutDetails(history.workoutId);
-			const setStatistics = workout.information.exercises[history.idx].sets.map(
-				(s) => s.statistic,
-			);
+			const setStatistics = workout.details.information.exercises[
+				history.idx
+			].sets.map((s) => s.statistic);
 			alreadyDoneSets.push({ statistic: setStatistics[0] });
 		}
 		draft.exercises.push({

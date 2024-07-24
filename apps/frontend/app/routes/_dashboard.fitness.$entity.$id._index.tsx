@@ -27,6 +27,7 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
+	EntityLot,
 	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
@@ -59,6 +60,7 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
+import { DisplayCollection } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -93,27 +95,28 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				}),
 			]);
 			let repeatedWorkout = null;
-			if (workoutDetails.repeatedFrom) {
+			if (workoutDetails.details.repeatedFrom) {
 				const { workoutDetails: repeatedWorkoutData } =
 					await serverGqlService.authenticatedRequest(
 						request,
 						WorkoutDetailsDocument,
-						{ workoutId: workoutDetails.repeatedFrom },
+						{ workoutId: workoutDetails.details.repeatedFrom },
 					);
 				repeatedWorkout = {
-					id: workoutDetails.repeatedFrom,
-					name: repeatedWorkoutData.name,
-					doneOn: repeatedWorkoutData.startTime,
+					id: workoutDetails.details.repeatedFrom,
+					name: repeatedWorkoutData.details.name,
+					doneOn: repeatedWorkoutData.details.startTime,
 				};
 			}
 			return {
-				entityName: workoutDetails.name,
-				startTime: workoutDetails.startTime,
-				endTime: workoutDetails.endTime,
-				information: workoutDetails.information,
-				summary: workoutDetails.summary,
+				entityName: workoutDetails.details.name,
+				startTime: workoutDetails.details.startTime,
+				endTime: workoutDetails.details.endTime,
+				information: workoutDetails.details.information,
+				summary: workoutDetails.details.summary,
 				repeatedWorkout: repeatedWorkout,
 				template: null,
+				collections: workoutDetails.collections,
 			};
 		})
 		.exhaustive();
@@ -292,6 +295,19 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</Group>
+					{loaderData.collections.length > 0 ? (
+						<Group>
+							{loaderData.collections.map((col) => (
+								<DisplayCollection
+									col={col}
+									key={col.id}
+									creatorUserId={col.userId}
+									entityLot={EntityLot.Workout}
+									entityId={loaderData.entityId}
+								/>
+							))}
+						</Group>
+					) : null}
 					{loaderData.repeatedWorkout ? (
 						<Box>
 							<Text c="dimmed" span>
@@ -392,7 +408,7 @@ export default function Page() {
 }
 
 type Exercise =
-	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
+	WorkoutDetailsQuery["workoutDetails"]["details"]["information"]["exercises"][number];
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
