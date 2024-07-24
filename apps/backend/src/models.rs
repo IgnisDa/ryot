@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use database::{
-    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaLot, MediaSource, SeenState, Visibility,
+    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseMuscle, MediaLot, MediaSource, SeenState, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use enum_meta::{meta, Meta};
@@ -117,17 +117,6 @@ pub enum BackgroundJob {
     RecalculateCalendarEvents,
     YankIntegrationsData,
     PerformBackgroundTasks,
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
-pub enum EntityLot {
-    #[default]
-    Metadata,
-    Person,
-    MetadataGroup,
-    Exercise,
-    Collection,
-    Workout,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]

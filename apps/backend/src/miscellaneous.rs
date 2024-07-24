@@ -17,8 +17,8 @@ use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
-    MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
+    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationSource,
+    MediaLot, MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
     UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
@@ -89,8 +89,8 @@ use crate::{
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
-        DefaultCollection, EntityLot, IdAndNamedObject, MediaStateChanged, SearchDetails,
-        SearchInput, SearchResults, StoredUrl, StringIdObject, UserSummaryData,
+        DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
+        SearchResults, StoredUrl, StringIdObject, UserSummaryData,
     },
     providers::{
         anilist::{
