@@ -127,6 +127,7 @@ pub enum EntityLot {
     MetadataGroup,
     Exercise,
     Collection,
+    Workout,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]

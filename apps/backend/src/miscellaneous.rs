@@ -4052,6 +4052,7 @@ impl MiscellaneousService {
                 .left_join(MetadataGroup)
                 .left_join(Person)
                 .left_join(Exercise)
+                .left_join(Workout)
                 .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
                 .apply_if(search.query, |query, v| {
                     query.filter(
@@ -4095,6 +4096,7 @@ impl MiscellaneousService {
                         EntityLot::Exercise => {
                             collection_to_entity::Column::ExerciseId.is_not_null()
                         }
+                        EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
                         EntityLot::Collection => unreachable!(),
                     };
                     query.filter(f)
@@ -4145,6 +4147,11 @@ impl MiscellaneousService {
                     EntityWithLot {
                         entity_id: id,
                         entity_lot: EntityLot::Exercise,
+                    }
+                } else if let Some(id) = cte.workout_id {
+                    EntityWithLot {
+                        entity_id: id,
+                        entity_lot: EntityLot::Workout,
                     }
                 } else {
                     unreachable!()
@@ -7130,10 +7137,11 @@ GROUP BY m.id;
     ) -> String {
         let mut url = match entity_lot {
             EntityLot::Metadata => format!("media/item/{}", id),
-            EntityLot::Person => format!("media/people/item/{}", id),
-            EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
-            EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
+            EntityLot::Person => format!("media/people/item/{}", id),
+            EntityLot::Workout => format!("fitness/workouts/{}", id),
+            EntityLot::Exercise => format!("fitness/exercises/{}", id),
+            EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
         };
         url = format!("{}/{}", self.config.frontend.url, url);
         if let Some(tab) = default_tab {

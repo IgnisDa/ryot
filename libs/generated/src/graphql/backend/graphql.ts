@@ -346,7 +346,8 @@ export enum EntityLot {
   Exercise = 'EXERCISE',
   Metadata = 'METADATA',
   MetadataGroup = 'METADATA_GROUP',
-  Person = 'PERSON'
+  Person = 'PERSON',
+  Workout = 'WORKOUT'
 }
 
 export type EntityWithLot = {
@@ -2305,7 +2306,7 @@ export type UserUpcomingCalendarEventInput = {
 
 export type UserWorkoutDetails = {
   collections: Array<Collection>;
-  details?: Maybe<Workout>;
+  details: Workout;
 };
 
 export type UserWorkoutInput = {
@@ -2897,7 +2898,7 @@ export type WorkoutDetailsQueryVariables = Exact<{
 }>;
 
 
-export type WorkoutDetailsQuery = { workoutDetails: { collections: Array<{ id: string, name: string, userId: string }>, details?: { id: string, name: string, endTime: string, startTime: string, repeatedFrom?: string | null, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot?: ExerciseLot | null, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> }, information: { comment?: string | null, assets?: { images: Array<string>, videos: Array<string> } | null, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, assets?: { images: Array<string>, videos: Array<string> } | null, sets: Array<{ note?: string | null, lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } | null } };
+export type WorkoutDetailsQuery = { workoutDetails: { collections: Array<{ id: string, name: string, userId: string }>, details: { id: string, name: string, endTime: string, startTime: string, repeatedFrom?: string | null, summary: { total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, exercises: Array<{ numSets: number, id: string, lot?: ExerciseLot | null, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> }, information: { comment?: string | null, assets?: { images: Array<string>, videos: Array<string> } | null, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, assets?: { images: Array<string>, videos: Array<string> } | null, sets: Array<{ note?: string | null, lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> } } } };
 
 export type GetOidcRedirectUrlQueryVariables = Exact<{ [key: string]: never; }>;
 

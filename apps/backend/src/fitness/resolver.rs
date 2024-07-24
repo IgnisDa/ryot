@@ -102,7 +102,7 @@ struct UserExerciseDetails {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserWorkoutDetails {
-    details: Option<workout::Model>,
+    details: workout::Model,
     collections: Vec<collection::Model>,
 }
 
@@ -382,7 +382,7 @@ impl ExerciseService {
                 .await?;
                 let details = e.graphql_representation(&self.file_storage_service).await?;
                 Ok(UserWorkoutDetails {
-                    details: Some(details),
+                    details,
                     collections,
                 })
             }
