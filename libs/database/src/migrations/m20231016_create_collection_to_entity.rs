@@ -28,6 +28,17 @@ pub static CONSTRAINT_SQL: &str = indoc! { r#"
         = 1
     );
 "# };
+pub static ENTITY_ID_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        COALESCE(
+            "metadata_id",
+            "person_id",
+            "metadata_group_id",
+            "exercise_id",
+            "workout_id"
+        )
+    ) STORED;
+"# };
 
 #[derive(Iden)]
 pub enum CollectionToEntity {
@@ -37,6 +48,7 @@ pub enum CollectionToEntity {
     CreatedOn,
     LastUpdatedOn,
     Information,
+    EntityId,
     // the entities that can be added to a collection
     MetadataId,
     MetadataGroupId,
@@ -83,6 +95,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(CollectionToEntity::WorkoutId).text())
+                    .col(
+                        ColumnDef::new(CollectionToEntity::EntityId)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_ID_SQL),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("collection_to_entity-fk1")
