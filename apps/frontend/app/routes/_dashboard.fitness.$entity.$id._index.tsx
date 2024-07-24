@@ -27,12 +27,14 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
+	EntityLot,
 	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration } from "@ryot/ts-utils";
 import {
+	IconArchive,
 	IconBarbell,
 	IconClock,
 	IconClockEdit,
@@ -59,6 +61,7 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
+import { DisplayCollection } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -69,6 +72,7 @@ import {
 	duplicateOldWorkout,
 	getExerciseDetailsQuery,
 } from "~/lib/state/fitness";
+import { useAddEntityToCollection } from "~/lib/state/media";
 import {
 	createToastHeaders,
 	processSubmission,
@@ -93,27 +97,28 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				}),
 			]);
 			let repeatedWorkout = null;
-			if (workoutDetails.repeatedFrom) {
+			if (workoutDetails.details.repeatedFrom) {
 				const { workoutDetails: repeatedWorkoutData } =
 					await serverGqlService.authenticatedRequest(
 						request,
 						WorkoutDetailsDocument,
-						{ workoutId: workoutDetails.repeatedFrom },
+						{ workoutId: workoutDetails.details.repeatedFrom },
 					);
 				repeatedWorkout = {
-					id: workoutDetails.repeatedFrom,
-					name: repeatedWorkoutData.name,
-					doneOn: repeatedWorkoutData.startTime,
+					id: workoutDetails.details.repeatedFrom,
+					name: repeatedWorkoutData.details.name,
+					doneOn: repeatedWorkoutData.details.startTime,
 				};
 			}
 			return {
-				entityName: workoutDetails.name,
-				startTime: workoutDetails.startTime,
-				endTime: workoutDetails.endTime,
-				information: workoutDetails.information,
-				summary: workoutDetails.summary,
+				entityName: workoutDetails.details.name,
+				startTime: workoutDetails.details.startTime,
+				endTime: workoutDetails.details.endTime,
+				information: workoutDetails.details.information,
+				summary: workoutDetails.details.summary,
 				repeatedWorkout: repeatedWorkout,
 				template: null,
+				collections: workoutDetails.collections,
 			};
 		})
 		.exhaustive();
@@ -178,6 +183,10 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
+	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const entityLot = match(loaderData.entity)
+		.with(Entity.Workouts, () => EntityLot.Workout)
+		.exhaustive();
 
 	const performDecision = async (
 		entity: Entity,
@@ -248,7 +257,9 @@ export default function Page() {
 							</Menu.Target>
 							<Menu.Dropdown>
 								<Menu.Item
-									onClick={() => performDecision(Entity.Workouts)}
+									onClick={() =>
+										performDecision(Entity.Workouts, loaderData.entityId)
+									}
 									leftSection={<IconRepeat size={14} />}
 								>
 									Duplicate
@@ -258,6 +269,20 @@ export default function Page() {
 									leftSection={<IconClockEdit size={14} />}
 								>
 									Adjust time
+								</Menu.Item>
+								<Menu.Item
+									onClick={() =>
+										setAddEntityToCollectionData({
+											entityLot,
+											entityId: loaderData.entityId,
+											alreadyInCollections: loaderData.collections.map(
+												(c) => c.id,
+											),
+										})
+									}
+									leftSection={<IconArchive size={14} />}
+								>
+									Add to collection
 								</Menu.Item>
 								<Form
 									method="POST"
@@ -292,6 +317,19 @@ export default function Page() {
 							</Menu.Dropdown>
 						</Menu>
 					</Group>
+					{loaderData.collections.length > 0 ? (
+						<Group>
+							{loaderData.collections.map((col) => (
+								<DisplayCollection
+									col={col}
+									key={col.id}
+									entityLot={entityLot}
+									creatorUserId={col.userId}
+									entityId={loaderData.entityId}
+								/>
+							))}
+						</Group>
+					) : null}
 					{loaderData.repeatedWorkout ? (
 						<Box>
 							<Text c="dimmed" span>
@@ -392,7 +430,7 @@ export default function Page() {
 }
 
 type Exercise =
-	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
+	WorkoutDetailsQuery["workoutDetails"]["details"]["information"]["exercises"][number];
 
 const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
 	const loaderData = useLoaderData<typeof loader>();

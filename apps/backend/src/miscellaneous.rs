@@ -17,8 +17,8 @@ use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, IntegrationLot, IntegrationSource, MediaLot,
-    MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
+    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationSource,
+    MediaLot, MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
     UserToMediaReason, Visibility,
 };
 use enum_meta::Meta;
@@ -89,8 +89,8 @@ use crate::{
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
-        DefaultCollection, EntityLot, IdAndNamedObject, MediaStateChanged, SearchDetails,
-        SearchInput, SearchResults, StoredUrl, StringIdObject, UserSummaryData,
+        DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
+        SearchResults, StoredUrl, StringIdObject, UserSummaryData,
     },
     providers::{
         anilist::{
@@ -1816,6 +1816,7 @@ impl MiscellaneousService {
             None,
             None,
             None,
+            None,
         )
         .await?;
         let reviews = self
@@ -2012,7 +2013,8 @@ impl MiscellaneousService {
             .item_reviews(&user_id, None, Some(person_id.clone()), None, None)
             .await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, None, Some(person_id), None, None).await?;
+            entity_in_collections(&self.db, &user_id, None, Some(person_id), None, None, None)
+                .await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -2030,6 +2032,7 @@ impl MiscellaneousService {
             None,
             None,
             Some(metadata_group_id.clone()),
+            None,
             None,
         )
         .await?;
@@ -4049,6 +4052,7 @@ impl MiscellaneousService {
                 .left_join(MetadataGroup)
                 .left_join(Person)
                 .left_join(Exercise)
+                .left_join(Workout)
                 .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
                 .apply_if(search.query, |query, v| {
                     query.filter(
@@ -4092,6 +4096,7 @@ impl MiscellaneousService {
                         EntityLot::Exercise => {
                             collection_to_entity::Column::ExerciseId.is_not_null()
                         }
+                        EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
                         EntityLot::Collection => unreachable!(),
                     };
                     query.filter(f)
@@ -4123,30 +4128,10 @@ impl MiscellaneousService {
                 number_of_pages,
             } = paginator.num_items_and_pages().await?;
             for cte in paginator.fetch_page(page - 1).await? {
-                let item = if let Some(id) = cte.metadata_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::Metadata,
-                    }
-                } else if let Some(id) = cte.person_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::Person,
-                    }
-                } else if let Some(id) = cte.metadata_group_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::MetadataGroup,
-                    }
-                } else if let Some(id) = cte.exercise_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::Exercise,
-                    }
-                } else {
-                    unreachable!()
-                };
-                items.push(item);
+                items.push(EntityWithLot {
+                    entity_id: cte.entity_id,
+                    entity_lot: cte.entity_lot,
+                });
             }
             SearchResults {
                 details: SearchDetails {
@@ -4428,8 +4413,8 @@ impl MiscellaneousService {
     ) -> Result<StringIdObject> {
         let collect = Collection::find()
             .left_join(UserToCollection)
+            .filter(collection::Column::Name.eq(input.collection_name))
             .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
-            .filter(collection::Column::Name.eq(input.collection_name.to_owned()))
             .one(&self.db)
             .await
             .unwrap()
@@ -4442,19 +4427,22 @@ impl MiscellaneousService {
                     .or(collection_to_entity::Column::PersonId.eq(input.person_id.clone()))
                     .or(collection_to_entity::Column::MetadataGroupId
                         .eq(input.metadata_group_id.clone()))
-                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone())),
+                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone()))
+                    .or(collection_to_entity::Column::WorkoutId.eq(input.workout_id.clone())),
             )
             .exec(&self.db)
             .await?;
-        associate_user_with_entity(
-            user_id,
-            input.metadata_id,
-            input.person_id,
-            input.exercise_id,
-            input.metadata_group_id,
-            &self.db,
-        )
-        .await?;
+        if input.workout_id.is_none() {
+            associate_user_with_entity(
+                user_id,
+                input.metadata_id,
+                input.person_id,
+                input.exercise_id,
+                input.metadata_group_id,
+                &self.db,
+            )
+            .await?;
+        }
         Ok(StringIdObject { id: collect.id })
     }
 
@@ -6582,7 +6570,7 @@ impl MiscellaneousService {
                 reviews.push(review_item);
             }
             let collections =
-                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None)
+                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None, None)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -6633,7 +6621,7 @@ impl MiscellaneousService {
                 reviews.push(review_item);
             }
             let collections =
-                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None)
+                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None, None)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -6683,7 +6671,7 @@ impl MiscellaneousService {
                 reviews.push(review_item);
             }
             let collections =
-                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None)
+                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None, None)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -7126,10 +7114,11 @@ GROUP BY m.id;
     ) -> String {
         let mut url = match entity_lot {
             EntityLot::Metadata => format!("media/item/{}", id),
-            EntityLot::Person => format!("media/people/item/{}", id),
-            EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
-            EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::Collection => format!("collections/{}", id),
+            EntityLot::Person => format!("media/people/item/{}", id),
+            EntityLot::Workout => format!("fitness/workouts/{}", id),
+            EntityLot::Exercise => format!("fitness/exercises/{}", id),
+            EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
         };
         url = format!("{}/{}", self.config.frontend.url, url);
         if let Some(tab) = default_tab {

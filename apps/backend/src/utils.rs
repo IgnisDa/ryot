@@ -272,6 +272,7 @@ pub async fn entity_in_collections(
     person_id: Option<String>,
     metadata_group_id: Option<String>,
     exercise_id: Option<String>,
+    workout_id: Option<String>,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
         .left_join(UserToCollection)
@@ -288,7 +289,8 @@ pub async fn entity_in_collections(
                 .eq(metadata_id)
                 .or(CteCol::PersonId.eq(person_id))
                 .or(CteCol::MetadataGroupId.eq(metadata_group_id))
-                .or(CteCol::ExerciseId.eq(exercise_id)),
+                .or(CteCol::ExerciseId.eq(exercise_id))
+                .or(CteCol::WorkoutId.eq(workout_id)),
         )
         .find_also_related(Collection)
         .all(db)
@@ -321,7 +323,8 @@ pub async fn add_entity_to_collection(
                 .eq(input.metadata_id.clone())
                 .or(CteCol::PersonId.eq(input.person_id.clone()))
                 .or(CteCol::MetadataGroupId.eq(input.metadata_group_id.clone()))
-                .or(CteCol::ExerciseId.eq(input.exercise_id.clone())),
+                .or(CteCol::ExerciseId.eq(input.exercise_id.clone()))
+                .or(CteCol::WorkoutId.eq(input.workout_id.clone())),
         )
         .one(db)
         .await?
@@ -332,25 +335,28 @@ pub async fn add_entity_to_collection(
     } else {
         let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
-            metadata_id: ActiveValue::Set(input.metadata_id.clone()),
-            person_id: ActiveValue::Set(input.person_id.clone()),
-            metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
-            exercise_id: ActiveValue::Set(input.exercise_id.clone()),
             information: ActiveValue::Set(input.information),
+            person_id: ActiveValue::Set(input.person_id.clone()),
+            workout_id: ActiveValue::Set(input.workout_id.clone()),
+            metadata_id: ActiveValue::Set(input.metadata_id.clone()),
+            exercise_id: ActiveValue::Set(input.exercise_id.clone()),
+            metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
             ..Default::default()
         };
         if let Ok(created) = created_collection.insert(db).await {
             tracing::debug!("Created collection to entity: {:?}", created);
-            associate_user_with_entity(
-                user_id,
-                input.metadata_id,
-                input.person_id,
-                input.exercise_id,
-                input.metadata_group_id,
-                db,
-            )
-            .await
-            .ok();
+            if input.workout_id.is_none() {
+                associate_user_with_entity(
+                    user_id,
+                    input.metadata_id,
+                    input.person_id,
+                    input.exercise_id,
+                    input.metadata_group_id,
+                    db,
+                )
+                .await
+                .ok();
+            }
         };
         true
     };

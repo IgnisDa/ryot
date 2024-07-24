@@ -1,15 +1,12 @@
 use std::sync::Arc;
 
 use apalis::prelude::MessageQueue;
-use async_graphql::{Context, Enum, InputObject, Object, Result, SimpleObject};
+use async_graphql::{Context, InputObject, Object, Result};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
-use database::{ImportSource, MediaLot};
+use database::ImportSource;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromJsonQueryResult, QueryFilter,
-    QueryOrder,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -19,6 +16,7 @@ use crate::{
     miscellaneous::MiscellaneousService,
     models::{
         fitness::UserWorkoutInput,
+        importer::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse},
         media::{
             CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
             ImportOrExportItemRating, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
@@ -129,36 +127,6 @@ pub struct DeployImportJobInput {
     pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
 }
 
-/// The various steps in which media importing can fail
-#[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
-pub enum ImportFailStep {
-    /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
-    ItemDetailsFromSource,
-    /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
-    MediaDetailsFromProvider,
-    /// Failed to transform the data into the required format
-    InputTransformation,
-    /// Failed to save a seen history item
-    SeenHistoryConversion,
-    /// Failed to save a review/rating item
-    ReviewConversion,
-}
-
-#[derive(
-    Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
-)]
-pub struct ImportFailedItem {
-    lot: Option<MediaLot>,
-    step: ImportFailStep,
-    identifier: String,
-    error: Option<String>,
-}
-
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
-pub struct ImportDetails {
-    pub total: usize,
-}
-
 #[derive(Debug, Default)]
 pub struct ImportResult {
     collections: Vec<CreateOrUpdateCollectionInput>,
@@ -168,14 +136,6 @@ pub struct ImportResult {
     measurements: Vec<user_measurement::Model>,
     workouts: Vec<UserWorkoutInput>,
     failed_items: Vec<ImportFailedItem>,
-}
-
-#[derive(
-    Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
-)]
-pub struct ImportResultResponse {
-    pub import: ImportDetails,
-    pub failed_items: Vec<ImportFailedItem>,
 }
 
 #[derive(Default)]

@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use database::{
-    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    MediaLot, MediaSource, SeenState, Visibility,
+    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseMuscle, MediaLot, MediaSource, SeenState, Visibility,
 };
 use derive_more::{Add, AddAssign, Sum};
 use enum_meta::{meta, Meta};
@@ -119,16 +119,6 @@ pub enum BackgroundJob {
     PerformBackgroundTasks,
 }
 
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Display)]
-pub enum EntityLot {
-    #[default]
-    Metadata,
-    Person,
-    MetadataGroup,
-    Exercise,
-    Collection,
-}
-
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum BackendError {
@@ -224,6 +214,7 @@ pub struct ChangeCollectionToEntityInput {
     pub person_id: Option<String>,
     pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
+    pub workout_id: Option<String>,
     pub information: Option<serde_json::Value>,
 }
 
@@ -1836,6 +1827,48 @@ pub mod fitness {
         pub assets: Option<EntityAssets>,
         pub repeated_from: Option<String>,
         pub exercises: Vec<UserExerciseInput>,
+    }
+}
+
+pub mod importer {
+    use super::*;
+
+    /// The various steps in which media importing can fail
+    #[derive(Debug, Enum, PartialEq, Eq, Copy, Clone, Serialize, Deserialize)]
+    pub enum ImportFailStep {
+        /// Failed to get details from the source itself (for eg: MediaTracker, Goodreads etc.)
+        ItemDetailsFromSource,
+        /// Failed to get metadata from the provider (for eg: Openlibrary, IGDB etc.)
+        MediaDetailsFromProvider,
+        /// Failed to transform the data into the required format
+        InputTransformation,
+        /// Failed to save a seen history item
+        SeenHistoryConversion,
+        /// Failed to save a review/rating item
+        ReviewConversion,
+    }
+
+    #[derive(
+        Debug, SimpleObject, FromJsonQueryResult, Serialize, Deserialize, Eq, PartialEq, Clone,
+    )]
+    pub struct ImportFailedItem {
+        pub lot: Option<MediaLot>,
+        pub step: ImportFailStep,
+        pub identifier: String,
+        pub error: Option<String>,
+    }
+
+    #[derive(Debug, SimpleObject, Serialize, Deserialize, Eq, PartialEq, Clone)]
+    pub struct ImportDetails {
+        pub total: usize,
+    }
+
+    #[derive(
+        Debug, SimpleObject, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, Clone,
+    )]
+    pub struct ImportResultResponse {
+        pub import: ImportDetails,
+        pub failed_items: Vec<ImportFailedItem>,
     }
 }
 

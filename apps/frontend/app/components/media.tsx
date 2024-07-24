@@ -82,6 +82,7 @@ import {
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
+	getWorkoutDetailsQuery,
 } from "~/lib/state/fitness";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
@@ -776,6 +777,32 @@ export const ExerciseDisplayItem = (props: {
 	);
 };
 
+export const WorkoutDisplayItem = (props: {
+	workoutId: string;
+	rightLabel?: ReactNode;
+	topRight?: ReactNode;
+}) => {
+	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
+		getWorkoutDetailsQuery(props.workoutId),
+	);
+
+	return (
+		<BaseMediaDisplayItem
+			name={workoutDetails?.details.name}
+			isLoading={isWorkoutDetailsLoading}
+			onImageClickBehavior={$path("/fitness/:entity/:id", {
+				id: props.workoutId,
+				entity: "workouts",
+			})}
+			labels={{
+				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
+				right: props.rightLabel,
+			}}
+			imageOverlay={{ topRight: props.topRight }}
+		/>
+	);
+};
+
 export const DisplayCollectionEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
@@ -807,6 +834,13 @@ export const DisplayCollectionEntity = (props: {
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
 				exerciseId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.Workout, () => (
+			<WorkoutDisplayItem
+				workoutId={props.entityId}
 				topRight={props.topRight}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
 			/>

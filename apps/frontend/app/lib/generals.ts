@@ -301,7 +301,8 @@ export const convertEntityToIndividualId = (
 		entityLot === EntityLot.MetadataGroup ? entityId : undefined;
 	const personId = entityLot === EntityLot.Person ? entityId : undefined;
 	const exerciseId = entityLot === EntityLot.Exercise ? entityId : undefined;
-	return { metadataId, metadataGroupId, personId, exerciseId };
+	const workoutId = entityLot === EntityLot.Workout ? entityId : undefined;
+	return { metadataId, metadataGroupId, personId, exerciseId, workoutId };
 };
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>

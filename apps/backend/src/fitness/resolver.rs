@@ -100,6 +100,12 @@ struct UserExerciseDetails {
     collections: Vec<collection::Model>,
 }
 
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+struct UserWorkoutDetails {
+    details: workout::Model,
+    collections: Vec<collection::Model>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 struct UpdateUserWorkoutInput {
     id: String,
@@ -165,7 +171,7 @@ impl ExerciseQuery {
         &self,
         gql_ctx: &Context<'_>,
         workout_id: String,
-    ) -> Result<workout::Model> {
+    ) -> Result<UserWorkoutDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.workout_details(&user_id, workout_id).await
@@ -354,8 +360,8 @@ impl ExerciseService {
         &self,
         user_id: &String,
         workout_id: String,
-    ) -> Result<workout::Model> {
-        let maybe_workout = Workout::find_by_id(workout_id)
+    ) -> Result<UserWorkoutDetails> {
+        let maybe_workout = Workout::find_by_id(workout_id.clone())
             .filter(workout::Column::UserId.eq(user_id))
             .one(&self.db)
             .await?;
@@ -363,7 +369,23 @@ impl ExerciseService {
             None => Err(Error::new(
                 "Workout with the given ID could not be found for this user.",
             )),
-            Some(e) => Ok(e.graphql_representation(&self.file_storage_service).await?),
+            Some(e) => {
+                let collections = entity_in_collections(
+                    &self.db,
+                    user_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(workout_id),
+                )
+                .await?;
+                let details = e.graphql_representation(&self.file_storage_service).await?;
+                Ok(UserWorkoutDetails {
+                    details,
+                    collections,
+                })
+            }
         }
     }
 
@@ -379,6 +401,7 @@ impl ExerciseService {
             None,
             None,
             Some(exercise_id.clone()),
+            None,
         )
         .await?;
         let mut resp = UserExerciseDetails {

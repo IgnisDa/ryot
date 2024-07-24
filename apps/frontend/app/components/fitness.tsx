@@ -5,6 +5,7 @@ import {
 	Badge,
 	Box,
 	Flex,
+	Group,
 	Paper,
 	Popover,
 	Skeleton,
@@ -121,7 +122,7 @@ export const DisplaySetStatistics = (props: {
 };
 
 type Exercise =
-	WorkoutDetailsQuery["workoutDetails"]["information"]["exercises"][number];
+	WorkoutDetailsQuery["workoutDetails"]["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
 
 export const DisplaySet = (props: {
@@ -203,32 +204,34 @@ export const ExerciseHistory = (props: {
 		<Paper key={props.history.workoutId} withBorder p="xs">
 			{workoutData ? (
 				<>
-					<Anchor
-						component={Link}
-						to={withFragment(
-							$path("/fitness/:entity/:id", {
-								entity: "workouts",
-								id: props.history.workoutId,
-							}),
-							props.history.idx.toString(),
-						)}
-						fw="bold"
-					>
-						{truncate(workoutData.name, { length: 36 })}
-					</Anchor>
+					<Group justify="space-between" wrap="nowrap">
+						<Anchor
+							component={Link}
+							to={withFragment(
+								$path("/fitness/:entity/:id", {
+									entity: "workouts",
+									id: props.history.workoutId,
+								}),
+								props.history.idx.toString(),
+							)}
+							fw="bold"
+						>
+							{truncate(workoutData.details.name, { length: 36 })}
+						</Anchor>
+					</Group>
 					<Text c="dimmed" fz="sm" mb="xs">
-						{dayjsLib(workoutData.endTime).format("LLLL")}
+						{dayjsLib(workoutData.details.endTime).format("LLLL")}
 					</Text>
-					{workoutData.information.exercises[props.history.idx].sets.map(
-						(set, idx) => (
-							<DisplaySet
-								idx={idx}
-								set={set}
-								key={`${idx}-${set.lot}`}
-								exerciseLot={props.exerciseLot}
-							/>
-						),
-					)}
+					{workoutData.details.information.exercises[
+						props.history.idx
+					].sets.map((set, idx) => (
+						<DisplaySet
+							idx={idx}
+							set={set}
+							key={`${idx}-${set.lot}`}
+							exerciseLot={props.exerciseLot}
+						/>
+					))}
 				</>
 			) : (
 				<Skeleton h={20} />
