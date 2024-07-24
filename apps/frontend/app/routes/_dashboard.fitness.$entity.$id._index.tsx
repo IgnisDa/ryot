@@ -34,6 +34,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, humanizeDuration } from "@ryot/ts-utils";
 import {
+	IconArchive,
 	IconBarbell,
 	IconClock,
 	IconClockEdit,
@@ -71,6 +72,7 @@ import {
 	duplicateOldWorkout,
 	getExerciseDetailsQuery,
 } from "~/lib/state/fitness";
+import { useAddEntityToCollection } from "~/lib/state/media";
 import {
 	createToastHeaders,
 	processSubmission,
@@ -181,6 +183,10 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [isWorkoutLoading, setIsWorkoutLoading] = useState(false);
 	const startWorkout = useGetWorkoutStarter();
+	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const entityLot = match(loaderData.entity)
+		.with(Entity.Workouts, () => EntityLot.Workout)
+		.exhaustive();
 
 	const performDecision = async (
 		entity: Entity,
@@ -262,6 +268,20 @@ export default function Page() {
 								>
 									Adjust time
 								</Menu.Item>
+								<Menu.Item
+									onClick={() =>
+										setAddEntityToCollectionData({
+											entityLot,
+											entityId: loaderData.entityId,
+											alreadyInCollections: loaderData.collections.map(
+												(c) => c.id,
+											),
+										})
+									}
+									leftSection={<IconArchive size={14} />}
+								>
+									Add to collection
+								</Menu.Item>
 								<Form
 									method="POST"
 									action={withQuery("", { intent: "delete" })}
@@ -301,8 +321,8 @@ export default function Page() {
 								<DisplayCollection
 									col={col}
 									key={col.id}
+									entityLot={entityLot}
 									creatorUserId={col.userId}
-									entityLot={EntityLot.Workout}
 									entityId={loaderData.entityId}
 								/>
 							))}
