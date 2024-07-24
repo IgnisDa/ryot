@@ -202,7 +202,8 @@ export const addExerciseToWorkout = async (
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		const alreadyDoneSets = [];
-		for (const history of exerciseDetails.userDetails.history || []) {
+		const allHistory = exerciseDetails.userDetails.history || [];
+		for (const history of allHistory.slice(0, 3)) {
 			const workout = await getWorkoutDetails(history.workoutId);
 			const setStatistics = workout.details.information.exercises[
 				history.idx
