@@ -210,9 +210,23 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
-	const interval = useInterval(() => {
-		setTime((s) => s + 1);
-	}, 1000);
+
+	useInterval(
+		() => {
+			setTime((s) => s + 1);
+			const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
+			if (timeRemaining && timeRemaining <= 3) {
+				if (navigator.vibrate) navigator.vibrate(200);
+				if (timeRemaining <= 1) {
+					playCompleteTimerSound();
+					timerDrawerClose();
+					stopTimer();
+				}
+			}
+		},
+		1000,
+		{ autoInvoke: true },
+	);
 
 	const startTimer = (
 		duration: number,
@@ -223,31 +237,11 @@ export default function Page() {
 			endAt: dayjsLib().add(duration, "second"),
 			triggeredBy: triggeredBy,
 		});
-		interval.stop();
-		interval.start();
 	};
 
 	const stopTimer = () => setCurrentTimer(RESET);
 
 	const createUserWorkoutFetcher = useFetcher<typeof action>();
-
-	useEffect(() => {
-		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
-		if (timeRemaining && timeRemaining <= 3) {
-			if (navigator.vibrate) navigator.vibrate(200);
-			if (timeRemaining <= 1) {
-				playCompleteTimerSound();
-				timerDrawerClose();
-				stopTimer();
-			}
-		}
-	}, [time]);
-
-	useEffect(() => {
-		interval.stop();
-		interval.start();
-		return interval.stop;
-	}, []);
 
 	return (
 		<Container size="sm">
@@ -296,7 +290,7 @@ export default function Page() {
 									}
 								/>
 								<Group>
-									<DurationTimer startTime={currentWorkout.startTime} />
+									<DurationTimer key={time} />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -406,7 +400,6 @@ export default function Page() {
 															});
 														}
 														stopTimer();
-														interval.stop();
 														if (!isCreatingTemplate) {
 															events.createWorkout();
 															Cookies.remove(workoutCookieName);
@@ -513,20 +506,15 @@ const StatDisplay = (props: {
 	);
 };
 
-const offsetDate = (startTime: string) => {
+const offsetDate = (startTime?: string) => {
 	const now = dayjsLib();
 	return now.diff(dayjsLib(startTime), "seconds");
 };
 
-const DurationTimer = ({ startTime }: { startTime: string }) => {
-	const [seconds, setSeconds] = useState(offsetDate(startTime));
-	const interval = useInterval(() => setSeconds((s) => s + 1), 1000);
+const DurationTimer = () => {
+	const [currentWorkout] = useCurrentWorkout();
+	const seconds = offsetDate(currentWorkout?.startTime);
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
-
-	useEffect(() => {
-		interval.start();
-		return () => interval.stop();
-	}, []);
 
 	let format = "mm:ss";
 	if (seconds > 3600) format = `H:${format}`;
