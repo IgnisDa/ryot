@@ -1816,6 +1816,7 @@ impl MiscellaneousService {
             None,
             None,
             None,
+            None,
         )
         .await?;
         let reviews = self
@@ -2012,7 +2013,8 @@ impl MiscellaneousService {
             .item_reviews(&user_id, None, Some(person_id.clone()), None, None)
             .await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, None, Some(person_id), None, None).await?;
+            entity_in_collections(&self.db, &user_id, None, Some(person_id), None, None, None)
+                .await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -2030,6 +2032,7 @@ impl MiscellaneousService {
             None,
             None,
             Some(metadata_group_id.clone()),
+            None,
             None,
         )
         .await?;
@@ -4428,8 +4431,8 @@ impl MiscellaneousService {
     ) -> Result<StringIdObject> {
         let collect = Collection::find()
             .left_join(UserToCollection)
+            .filter(collection::Column::Name.eq(input.collection_name))
             .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
-            .filter(collection::Column::Name.eq(input.collection_name.to_owned()))
             .one(&self.db)
             .await
             .unwrap()
@@ -4442,7 +4445,8 @@ impl MiscellaneousService {
                     .or(collection_to_entity::Column::PersonId.eq(input.person_id.clone()))
                     .or(collection_to_entity::Column::MetadataGroupId
                         .eq(input.metadata_group_id.clone()))
-                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone())),
+                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone()))
+                    .or(collection_to_entity::Column::WorkoutId.eq(input.workout_id.clone())),
             )
             .exec(&self.db)
             .await?;
@@ -6582,7 +6586,7 @@ impl MiscellaneousService {
                 reviews.push(review_item);
             }
             let collections =
-                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None)
+                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None, None)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -6633,7 +6637,7 @@ impl MiscellaneousService {
                 reviews.push(review_item);
             }
             let collections =
-                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None)
+                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None, None)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -6683,7 +6687,7 @@ impl MiscellaneousService {
                 reviews.push(review_item);
             }
             let collections =
-                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None)
+                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None, None)
                     .await?
                     .into_iter()
                     .map(|c| c.name)

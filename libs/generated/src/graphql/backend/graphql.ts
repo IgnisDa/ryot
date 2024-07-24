@@ -107,6 +107,7 @@ export type ChangeCollectionToEntityInput = {
   metadataGroupId?: InputMaybe<Scalars['String']['input']>;
   metadataId?: InputMaybe<Scalars['String']['input']>;
   personId?: InputMaybe<Scalars['String']['input']>;
+  workoutId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Collection = {

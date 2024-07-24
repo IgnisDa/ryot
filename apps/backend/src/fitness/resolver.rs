@@ -379,6 +379,7 @@ impl ExerciseService {
             None,
             None,
             Some(exercise_id.clone()),
+            None,
         )
         .await?;
         let mut resp = UserExerciseDetails {
