@@ -4128,35 +4128,10 @@ impl MiscellaneousService {
                 number_of_pages,
             } = paginator.num_items_and_pages().await?;
             for cte in paginator.fetch_page(page - 1).await? {
-                let item = if let Some(id) = cte.metadata_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::Metadata,
-                    }
-                } else if let Some(id) = cte.person_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::Person,
-                    }
-                } else if let Some(id) = cte.metadata_group_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::MetadataGroup,
-                    }
-                } else if let Some(id) = cte.exercise_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::Exercise,
-                    }
-                } else if let Some(id) = cte.workout_id {
-                    EntityWithLot {
-                        entity_id: id,
-                        entity_lot: EntityLot::Workout,
-                    }
-                } else {
-                    unreachable!()
-                };
-                items.push(item);
+                items.push(EntityWithLot {
+                    entity_id: cte.entity_id,
+                    entity_lot: cte.entity_lot,
+                });
             }
             SearchResults {
                 details: SearchDetails {
