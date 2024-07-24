@@ -1,3 +1,4 @@
+use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
@@ -14,6 +15,19 @@ pub static UNIQUE_INDEX_2: &str = "collection_to_entity_uqi2";
 pub static UNIQUE_INDEX_3: &str = "collection_to_entity_uqi3";
 pub static UNIQUE_INDEX_4: &str = "collection_to_entity_uqi4";
 pub static UNIQUE_INDEX_5: &str = "collection_to_entity_uqi5";
+pub static CONSTRAINT_SQL: &str = indoc! { r#"
+    ALTER TABLE "collection_to_entity" DROP CONSTRAINT IF EXISTS "collection_to_entity__ensure_one_entity";
+    ALTER TABLE "collection_to_entity"
+    ADD CONSTRAINT "collection_to_entity__ensure_one_entity"
+    CHECK (
+        (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "workout_id" IS NOT NULL THEN 1 ELSE 0 END)
+        = 1
+    );
+"# };
 
 #[derive(Iden)]
 pub enum CollectionToEntity {
@@ -34,6 +48,7 @@ pub enum CollectionToEntity {
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
         manager
             .create_table(
                 Table::create()
@@ -141,6 +156,7 @@ impl MigrationTrait for Migration {
                 )
                 .await?;
         }
+        db.execute_unprepared(CONSTRAINT_SQL).await?;
         Ok(())
     }
 
