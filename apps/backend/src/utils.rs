@@ -345,16 +345,18 @@ pub async fn add_entity_to_collection(
         };
         if let Ok(created) = created_collection.insert(db).await {
             tracing::debug!("Created collection to entity: {:?}", created);
-            associate_user_with_entity(
-                user_id,
-                input.metadata_id,
-                input.person_id,
-                input.exercise_id,
-                input.metadata_group_id,
-                db,
-            )
-            .await
-            .ok();
+            if input.workout_id.is_none() {
+                associate_user_with_entity(
+                    user_id,
+                    input.metadata_id,
+                    input.person_id,
+                    input.exercise_id,
+                    input.metadata_group_id,
+                    db,
+                )
+                .await
+                .ok();
+            }
         };
         true
     };

@@ -4457,15 +4457,17 @@ impl MiscellaneousService {
             )
             .exec(&self.db)
             .await?;
-        associate_user_with_entity(
-            user_id,
-            input.metadata_id,
-            input.person_id,
-            input.exercise_id,
-            input.metadata_group_id,
-            &self.db,
-        )
-        .await?;
+        if input.workout_id.is_none() {
+            associate_user_with_entity(
+                user_id,
+                input.metadata_id,
+                input.person_id,
+                input.exercise_id,
+                input.metadata_group_id,
+                &self.db,
+            )
+            .await?;
+        }
         Ok(StringIdObject { id: collect.id })
     }
 
