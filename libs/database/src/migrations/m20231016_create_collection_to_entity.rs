@@ -122,61 +122,25 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_1)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::MetadataId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_2)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::PersonId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_3)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::MetadataGroupId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_4)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::ExerciseId)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name(UNIQUE_INDEX_5)
-                    .table(CollectionToEntity::Table)
-                    .col(CollectionToEntity::CollectionId)
-                    .col(CollectionToEntity::WorkoutId)
-                    .to_owned(),
-            )
-            .await?;
+        for (name, column) in [
+            (UNIQUE_INDEX_1, CollectionToEntity::MetadataId),
+            (UNIQUE_INDEX_2, CollectionToEntity::PersonId),
+            (UNIQUE_INDEX_3, CollectionToEntity::MetadataGroupId),
+            (UNIQUE_INDEX_4, CollectionToEntity::ExerciseId),
+            (UNIQUE_INDEX_5, CollectionToEntity::WorkoutId),
+        ] {
+            manager
+                .create_index(
+                    Index::create()
+                        .unique()
+                        .name(name)
+                        .table(CollectionToEntity::Table)
+                        .col(CollectionToEntity::CollectionId)
+                        .col(column)
+                        .to_owned(),
+                )
+                .await?;
+        }
         Ok(())
     }
 
