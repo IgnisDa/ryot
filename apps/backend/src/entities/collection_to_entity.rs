@@ -16,6 +16,7 @@ pub struct Model {
     pub person_id: Option<String>,
     pub metadata_group_id: Option<String>,
     pub exercise_id: Option<String>,
+    pub workout_id: Option<String>,
     pub information: Option<serde_json::Value>,
 }
 
@@ -29,6 +30,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Collection,
+    #[sea_orm(
+        belongs_to = "super::exercise::Entity",
+        from = "Column::ExerciseId",
+        to = "super::exercise::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Exercise,
     #[sea_orm(
         belongs_to = "super::metadata::Entity",
         from = "Column::MetadataId",
@@ -54,18 +63,24 @@ pub enum Relation {
     )]
     Person,
     #[sea_orm(
-        belongs_to = "super::exercise::Entity",
-        from = "Column::ExerciseId",
-        to = "super::exercise::Column::Id",
+        belongs_to = "super::workout::Entity",
+        from = "Column::WorkoutId",
+        to = "super::workout::Column::Id",
         on_update = "Cascade",
         on_delete = "Cascade"
     )]
-    Exercise,
+    Workout,
 }
 
 impl Related<super::collection::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Collection.def()
+    }
+}
+
+impl Related<super::exercise::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Exercise.def()
     }
 }
 
@@ -87,9 +102,9 @@ impl Related<super::person::Entity> for Entity {
     }
 }
 
-impl Related<super::exercise::Entity> for Entity {
+impl Related<super::workout::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Exercise.def()
+        Relation::Workout.def()
     }
 }
 
