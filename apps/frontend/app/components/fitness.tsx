@@ -203,19 +203,21 @@ export const ExerciseHistory = (props: {
 		<Paper key={props.history.workoutId} withBorder p="xs">
 			{workoutData ? (
 				<>
-					<Anchor
-						component={Link}
-						to={withFragment(
-							$path("/fitness/:entity/:id", {
-								entity: "workouts",
-								id: props.history.workoutId,
-							}),
-							props.history.idx.toString(),
-						)}
-						fw="bold"
-					>
-						{truncate(workoutData.details.name, { length: 36 })}
-					</Anchor>
+					<Group justify="space-between" wrap="nowrap">
+						<Anchor
+							component={Link}
+							to={withFragment(
+								$path("/fitness/:entity/:id", {
+									entity: "workouts",
+									id: props.history.workoutId,
+								}),
+								props.history.idx.toString(),
+							)}
+							fw="bold"
+						>
+							{truncate(workoutData.details.name, { length: 36 })}
+						</Anchor>
+					</Group>
 					<Text c="dimmed" fz="sm" mb="xs">
 						{dayjsLib(workoutData.details.endTime).format("LLLL")}
 					</Text>
