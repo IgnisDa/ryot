@@ -82,7 +82,7 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
