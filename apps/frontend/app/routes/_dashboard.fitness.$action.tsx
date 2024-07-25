@@ -38,7 +38,6 @@ import {
 	useDebouncedState,
 	useDidUpdate,
 	useDisclosure,
-	useInterval,
 	useListState,
 	useToggle,
 } from "@mantine/hooks";
@@ -83,7 +82,7 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import Webcam from "react-webcam";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
@@ -107,6 +106,7 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
+	forceUpdateEverySecond,
 	useApplicationEvents,
 	useCoreDetails,
 	useUserPreferences,
@@ -130,6 +130,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import { useInterval } from "usehooks-ts";
 
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
@@ -215,7 +216,6 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
-	const [_t, setTime] = useState(0);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
@@ -236,22 +236,17 @@ export default function Page() {
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
 
-	useInterval(
-		() => {
-			setTime((s) => s + 1);
-			const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
-			if (timeRemaining && timeRemaining <= 3) {
-				if (navigator.vibrate) navigator.vibrate(200);
-				if (timeRemaining <= 1) {
-					playCompleteTimerSound();
-					timerDrawerClose();
-					stopTimer();
-				}
+	useInterval(() => {
+		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
+		if (timeRemaining && timeRemaining <= 3) {
+			if (navigator.vibrate) navigator.vibrate(200);
+			if (timeRemaining <= 1) {
+				playCompleteTimerSound();
+				timerDrawerClose();
+				stopTimer();
 			}
-		},
-		1000,
-		{ autoInvoke: true },
-	);
+		}
+	}, 1000);
 
 	const startTimer = (
 		duration: number,
@@ -372,11 +367,7 @@ export default function Page() {
 										onClick={timerDrawerToggle}
 										style={isCreatingTemplate ? { display: "none" } : undefined}
 									>
-										{currentTimer
-											? dayjsLib
-													.duration(currentTimer.endAt.diff(dayjsLib()))
-													.format("m:ss")
-											: "Timer"}
+										<RestTimer />
 									</Button>
 									{currentWorkout.exercises.length > 1 ? (
 										<>
@@ -536,7 +527,17 @@ const offsetDate = (startTime?: string) => {
 	return now.diff(dayjsLib(startTime), "seconds");
 };
 
+const RestTimer = () => {
+	forceUpdateEverySecond();
+	const [currentTimer] = useTimerAtom();
+
+	return currentTimer
+		? dayjsLib.duration(currentTimer.endAt.diff(dayjsLib())).format("m:ss")
+		: "Timer";
+};
+
 const DurationTimer = () => {
+	forceUpdateEverySecond();
 	const [currentWorkout] = useCurrentWorkout();
 	const seconds = offsetDate(currentWorkout?.startTime);
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
@@ -1532,6 +1533,7 @@ const TimerDrawer = (props: {
 	stopTimer: () => void;
 	startTimer: (duration: number) => void;
 }) => {
+	forceUpdateEverySecond();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
 
 	return (
