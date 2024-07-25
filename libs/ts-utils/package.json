@@ -2,6 +2,7 @@
 	"name": "@ryot/ts-utils",
 	"main": "src/index.ts",
 	"dependencies": {
+		"@conform-to/zod": "1.1.5",
 		"@ryot/generated": "workspace:*",
 		"dayjs": "1.11.12",
 		"humanize-duration-ts": "2.1.1",

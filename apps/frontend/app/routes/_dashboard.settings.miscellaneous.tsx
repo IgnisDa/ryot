@@ -14,13 +14,10 @@ import {
 	DeployBackgroundJobDocument,
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
+import { processSubmission } from "@ryot/ts-utils";
 import { z } from "zod";
 import { useUserDetails } from "~/lib/hooks";
-import {
-	createToastHeaders,
-	processSubmission,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 export const meta = (_args: MetaArgs_SingleFetch) => {
 	return [{ title: "Miscellaneous settings | Ryot" }];

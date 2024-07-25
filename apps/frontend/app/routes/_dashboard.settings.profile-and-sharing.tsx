@@ -11,6 +11,7 @@ import { unstable_defineAction } from "@remix-run/node";
 import { Form } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
+import { processSubmission } from "@ryot/ts-utils";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -23,7 +24,6 @@ import {
 	getAuthorizationCookie,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { processSubmission } from "~/lib/utilities.server";
 
 export const meta = (_args: MetaArgs_SingleFetch) => {
 	return [{ title: "Profile and Sharing | Ryot" }];

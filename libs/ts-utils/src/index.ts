@@ -1,3 +1,5 @@
+import { parseWithZod } from "@conform-to/zod";
+import type { ZodTypeAny, output } from "zod";
 import dayjs from "dayjs";
 import {
 	HumanizeDuration,
@@ -70,6 +72,20 @@ export const randomString = (length: number) => {
 	};
 	while (s.length < length) s += randomChar();
 	return s;
+};
+
+export const processSubmission = <Schema extends ZodTypeAny>(
+	formData: FormData,
+	schema: Schema,
+): output<Schema> => {
+	const submission = parseWithZod(formData, { schema });
+	if (submission.status !== "success")
+		throw Response.json({ status: "idle", submission } as const);
+	if (!submission.value)
+		throw Response.json({ status: "error", submission } as const, {
+			status: 400,
+		});
+	return submission.value;
 };
 
 export {

@@ -1,4 +1,3 @@
-import { parseWithZod } from "@conform-to/zod";
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import { $path } from "@ignisda/remix-routes";
 import {
@@ -29,7 +28,7 @@ import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-reques
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
-import { type ZodTypeAny, type output, z } from "zod";
+import { z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CurrentWorkoutKey,
@@ -166,20 +165,6 @@ export const MetadataSpecificsSchema = z.object({
 	mangaChapterNumber: emptyNumberString,
 	mangaVolumeNumber: emptyNumberString,
 });
-
-export const processSubmission = <Schema extends ZodTypeAny>(
-	formData: FormData,
-	schema: Schema,
-): output<Schema> => {
-	const submission = parseWithZod(formData, { schema });
-	if (submission.status !== "success")
-		throw Response.json({ status: "idle", submission } as const);
-	if (!submission.value)
-		throw Response.json({ status: "error", submission } as const, {
-			status: 400,
-		});
-	return submission.value;
-};
 
 export const getCachedCoreDetails = async () => {
 	return await queryClient.ensureQueryData({

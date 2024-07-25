@@ -32,7 +32,7 @@ import {
 	DeleteCollectionDocument,
 	type UserCollectionsListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils";
+import { processSubmission, truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
@@ -51,7 +51,6 @@ import {
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
-	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
 	serverGqlService,

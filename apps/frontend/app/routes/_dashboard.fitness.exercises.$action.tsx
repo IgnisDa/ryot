@@ -33,7 +33,7 @@ import {
 	ExerciseMuscle,
 	UpdateCustomExerciseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep, startCase } from "@ryot/ts-utils";
+import { cloneDeep, processSubmission, startCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { namedAction } from "remix-utils/named-action";
@@ -44,7 +44,6 @@ import { zx } from "zodix";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	processSubmission,
 	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";

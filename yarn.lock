@@ -3581,6 +3581,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
+    "@conform-to/zod": "npm:1.1.5"
     "@ryot/generated": "workspace:*"
     "@types/lodash": "npm:4.17.7"
     dayjs: "npm:1.11.12"

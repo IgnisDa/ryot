@@ -27,15 +27,11 @@ import {
 	CreateCustomMetadataDocument,
 	MediaLot,
 } from "@ryot/generated/graphql/backend/graphql";
-import { camelCase, changeCase } from "@ryot/ts-utils";
+import { camelCase, changeCase, processSubmission } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { z } from "zod";
 import { useCoreDetails } from "~/lib/hooks";
-import {
-	processSubmission,
-	s3FileUploader,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { s3FileUploader, serverGqlService } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async (_args) => {
 	return {};

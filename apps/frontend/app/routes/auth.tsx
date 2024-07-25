@@ -32,7 +32,7 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { processSubmission, startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
 import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
@@ -47,7 +47,6 @@ import {
 	getCachedCoreDetails,
 	getCachedUserPreferences,
 	getCookiesForApplication,
-	processSubmission,
 	redirectWithToast,
 	serverGqlService,
 	serverVariables,

@@ -84,6 +84,7 @@ import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { useInterval } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
@@ -120,7 +121,6 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { useInterval } from "usehooks-ts";
 
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";

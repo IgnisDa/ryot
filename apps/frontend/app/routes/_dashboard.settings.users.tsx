@@ -34,7 +34,12 @@ import {
 	UsersListDocument,
 	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, randomString, truncate } from "@ryot/ts-utils";
+import {
+	changeCase,
+	processSubmission,
+	randomString,
+	truncate,
+} from "@ryot/ts-utils";
 import {
 	IconPencil,
 	IconPlus,
@@ -54,7 +59,6 @@ import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
-	processSubmission,
 	redirectIfNotAuthenticatedOrUpdated,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,

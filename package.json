@@ -1,7 +1,12 @@
 {
 	"name": "@ryot/root",
 	"packageManager": "yarn@4.1.1",
-	"workspaces": ["apps/*", "libs/*"],
+	"workspaces": [
+		"apps/frontend",
+		"libs/generated",
+		"libs/graphql",
+		"libs/ts-utils"
+	],
 	"engines": {
 		"node": "20.10.0"
 	},

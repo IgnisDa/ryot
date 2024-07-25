@@ -32,7 +32,11 @@ import {
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, humanizeDuration } from "@ryot/ts-utils";
+import {
+	changeCase,
+	humanizeDuration,
+	processSubmission,
+} from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconBarbell,
@@ -75,7 +79,6 @@ import {
 import { useAddEntityToCollection } from "~/lib/state/media";
 import {
 	createToastHeaders,
-	processSubmission,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
