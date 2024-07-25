@@ -23,6 +23,7 @@ import {
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { processSubmission } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
@@ -44,11 +45,7 @@ import {
 } from "~/components/media";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
-import {
-	createToastHeaders,
-	processSubmission,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),

@@ -32,7 +32,7 @@ import {
 	MediaLot,
 	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { processSubmission, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -68,7 +68,6 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
-	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
 	serverGqlService,

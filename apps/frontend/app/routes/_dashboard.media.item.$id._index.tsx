@@ -61,6 +61,7 @@ import {
 	formatDateToNaiveDate,
 	humanizeDuration,
 	isNumber,
+	processSubmission,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
@@ -125,10 +126,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import {
-	MetadataSpecificsSchema,
-	processSubmission,
-} from "~/lib/utilities.server";
+import { MetadataSpecificsSchema } from "~/lib/utilities.server";
 
 const JUST_WATCH_URL = "https://www.justwatch.com";
 

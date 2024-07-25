@@ -48,7 +48,12 @@ import {
 	type UserCollectionsListQuery,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isString, truncate } from "@ryot/ts-utils";
+import {
+	changeCase,
+	isString,
+	processSubmission,
+	truncate,
+} from "@ryot/ts-utils";
 import {
 	IconEdit,
 	IconPlus,
@@ -81,7 +86,6 @@ import {
 import {
 	createToastHeaders,
 	getEnhancedCookieName,
-	processSubmission,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
 	serverGqlService,
