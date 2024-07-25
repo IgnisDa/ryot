@@ -3538,6 +3538,7 @@ __metadata:
     ts-pattern: "npm:5.2.0"
     typescript-plugin-css-modules: "npm:5.1.0"
     ufo: "npm:1.5.4"
+    usehooks-ts: "npm:3.1.0"
     uuid: "npm:10.0.0"
     vite: "npm:5.3.4"
     vite-tsconfig-paths: "npm:4.3.2"
@@ -12010,6 +12011,17 @@ __metadata:
   peerDependencies:
     react: ^16.8.0 || ^17.0.0 || ^18.0.0
   checksum: 10/a676216affc203876bd47981103f201f28c2731361bb186367e12d287a7566763213a8816910c6eb88265eccd4c230426eb783d64c373c4a180905be8820ed8e
+  languageName: node
+  linkType: hard
+
+"usehooks-ts@npm:3.1.0":
+  version: 3.1.0
+  resolution: "usehooks-ts@npm:3.1.0"
+  dependencies:
+    lodash.debounce: "npm:^4.0.8"
+  peerDependencies:
+    react: ^16.8.0  || ^17 || ^18
+  checksum: 10/6aef8affd3c053a3040b7421816dab85eb21601c5203496a705bafc32eb973fb519a2b0ddda527962e361d248f3a1c49df130620efe871c8f89e897451ed1cc7
   languageName: node
   linkType: hard
 

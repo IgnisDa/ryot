@@ -1,6 +1,7 @@
 import type Umami from "@bitprojects/umami-logger-typescript";
 import { $path } from "@ignisda/remix-routes";
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
+import { useForceUpdate } from "@mantine/hooks";
 import {
 	useNavigate,
 	useRouteLoaderData,
@@ -11,6 +12,7 @@ import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
+import { useInterval } from "usehooks-ts";
 import {
 	CurrentWorkoutKey,
 	getMetadataDetailsQuery,
@@ -169,4 +171,9 @@ export const useApplicationEvents = () => {
 		createMeasurement,
 		addToCollection,
 	};
+};
+
+export const forceUpdateEverySecond = () => {
+	const forceUpdate = useForceUpdate();
+	useInterval(forceUpdate, 1000);
 };
