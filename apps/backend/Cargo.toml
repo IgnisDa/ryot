@@ -9,6 +9,7 @@ license = "GPL-3.0"
 anyhow = { workspace = true }
 apalis = { version = "=0.5.3", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.0"
+askama = "0.12.1"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
 async-trait = "=0.1.81"
@@ -84,4 +85,5 @@ tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
 logs-wheel = "=0.3.1"
+unkey = "=0.4.0"
 uuid = { version = "=1.10.0", features = ["v4"], default-features = false }

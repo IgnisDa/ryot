@@ -6,6 +6,7 @@ projects:
   assets: "libs/assets"
   generated: "libs/generated"
   graphql: "libs/graphql"
+  transactional: "libs/transactional"
   ts-utils: "libs/ts-utils"
 
 vcs:

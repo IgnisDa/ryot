@@ -52,3 +52,4 @@ remix-routes.d.ts
 .astro
 dist
 .vscode/settings.json
+apps/backend/templates
