@@ -12,6 +12,9 @@
 			"path": "libs/graphql"
 		},
 		{
+			"path": "libs/transactional"
+		},
+		{
 			"path": "libs/ts-utils"
 		}
 	]

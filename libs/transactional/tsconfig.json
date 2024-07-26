@@ -1,0 +1,12 @@
+{
+	"extends": "../../tsconfig.options.json",
+	"include": ["**/*"],
+	"references": [],
+	"compilerOptions": {
+		"paths": {},
+		"module": "ESNext",
+		"jsx": "react-jsx",
+		"moduleResolution": "Bundler",
+		"outDir": "../../.moon/cache/types/libs/transactional"
+	}
+}
