@@ -11,14 +11,14 @@ RUN npm install -g @moonrepo/cli && moon --version
 FROM frontend-build-base AS frontend-workspace
 WORKDIR /app
 COPY . .
-RUN moon docker scaffold frontend
+RUN moon docker scaffold frontend transactional
 
 FROM frontend-build-base AS frontend-builder
 WORKDIR /app
 COPY --from=frontend-workspace /app/.moon/docker/workspace .
 RUN moon docker setup
 COPY --from=frontend-workspace /app/.moon/docker/sources .
-RUN moon run frontend:build
+RUN moon run frontend:build transactional:build
 RUN moon docker prune
 
 FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef AS backend-chef
@@ -51,6 +51,7 @@ COPY --from=backend-planner /app/recipe.json recipe.json
 RUN rustup target add $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH")
 RUN cargo chef cook --profile $BUILD_PROFILE --target $(eval "echo \$RUST_TARGET_TRIPLE_$TARGETARCH") --recipe-path recipe.json
 COPY . .
+COPY --from=frontend-builder /app/apps/backend/templates ./apps/backend/templates
 RUN APP_VERSION=$APP_VERSION \
     DEFAULT_TMDB_ACCESS_TOKEN=$DEFAULT_TMDB_ACCESS_TOKEN \
     DEFAULT_MAL_CLIENT_ID=$DEFAULT_MAL_CLIENT_ID \

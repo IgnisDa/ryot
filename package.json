@@ -5,6 +5,7 @@
 		"apps/frontend",
 		"libs/generated",
 		"libs/graphql",
+		"libs/transactional",
 		"libs/ts-utils"
 	],
 	"engines": {

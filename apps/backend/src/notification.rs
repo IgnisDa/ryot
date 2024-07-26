@@ -1,14 +1,20 @@
 use std::{env, sync::Arc};
 
 use anyhow::{anyhow, Result};
+use askama::Template;
 use config::AppConfig;
 use convert_case::{Case, Casing};
-use lettre::{transport::smtp::authentication::Credentials, Message, SmtpTransport, Transport};
+use lettre::{
+    message::{header, MultiPart, SinglePart},
+    transport::smtp::authentication::Credentials,
+    Message, SmtpTransport, Transport,
+};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     Client,
 };
 use rs_utils::PROJECT_NAME;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     users::NotificationPlatformSpecifics,
@@ -141,6 +147,17 @@ impl NotificationPlatformSpecifics {
                     .map_err(|e| anyhow!(e))?;
             }
             Self::Email { email } => {
+                #[derive(Template, Serialize, Deserialize, Debug, Clone)]
+                #[template(path = "Generic.html")]
+                pub struct GenericHtml {
+                    pub generic_message: String,
+                }
+
+                let body = GenericHtml {
+                    generic_message: msg.to_owned(),
+                }
+                .render()?;
+
                 let credentials = Credentials::new(
                     config.server.smtp.user.to_owned(),
                     config.server.smtp.password.to_owned(),
@@ -157,7 +174,13 @@ impl NotificationPlatformSpecifics {
                     .from(mailbox)
                     .to(email.parse().unwrap())
                     .subject(format!("{} notification", project_name))
-                    .body(msg.to_owned())
+                    .multipart(
+                        MultiPart::mixed().singlepart(
+                            SinglePart::builder()
+                                .header(header::ContentType::TEXT_HTML)
+                                .body(body),
+                        ),
+                    )
                     .unwrap();
                 mailer.send(&email).map_err(|e| anyhow!(e))?;
             }

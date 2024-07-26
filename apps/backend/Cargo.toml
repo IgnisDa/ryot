@@ -9,6 +9,7 @@ license = "GPL-3.0"
 anyhow = { workspace = true }
 apalis = { version = "=0.5.3", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.0"
+askama = "0.12.1"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
 async-trait = "=0.1.81"
