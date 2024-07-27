@@ -37,7 +37,7 @@ pub static ENTITY_ID_SQL: &str = indoc! { r#"
             "exercise_id",
             "workout_id"
         )
-    ) STORED;
+    ) STORED
 "# };
 pub static ENTITY_LOT_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
@@ -48,7 +48,7 @@ pub static ENTITY_LOT_SQL: &str = indoc! { r#"
             WHEN "exercise_id" IS NOT NULL THEN 'exercise'
             WHEN "workout_id" IS NOT NULL THEN 'workout'
         END
-    ) STORED;
+    ) STORED
 "# };
 
 #[derive(Iden)]

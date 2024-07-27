@@ -13,7 +13,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 ALTER TABLE collection_to_entity
-ADD COLUMN entity_id text GENERATED ALWAYS AS (
+ADD COLUMN IF NOT EXISTS entity_id text GENERATED ALWAYS AS (
     COALESCE(metadata_id,
              person_id,
              metadata_group_id,
@@ -26,7 +26,7 @@ ADD COLUMN entity_id text GENERATED ALWAYS AS (
         db.execute_unprepared(
             r#"
 ALTER TABLE collection_to_entity
-ADD COLUMN entity_lot text GENERATED ALWAYS AS (
+ADD COLUMN IF NOT EXISTS entity_lot text GENERATED ALWAYS AS (
     CASE
         WHEN metadata_id IS NOT NULL THEN 'metadata'
         WHEN person_id IS NOT NULL THEN 'person'
