@@ -1080,6 +1080,16 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.get_oidc_token(code).await
     }
+
+    /// Get user by OIDC issuer ID.
+    async fn user_by_oidc_issuer_id(
+        &self,
+        gql_ctx: &Context<'_>,
+        oidc_issuer_id: String,
+    ) -> Result<Option<String>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.user_by_oidc_issuer_id(oidc_issuer_id).await
+    }
 }
 
 #[derive(Default)]
@@ -7164,6 +7174,15 @@ GROUP BY m.id;
             }
             _ => Err(Error::new("OIDC client not configured")),
         }
+    }
+
+    async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
+        let user = User::find()
+            .filter(user::Column::OidcIssuerId.eq(oidc_issuer_id))
+            .one(&self.db)
+            .await?
+            .map(|u| u.id);
+        Ok(user)
     }
 
     async fn invalidate_import_jobs(&self) -> Result<()> {

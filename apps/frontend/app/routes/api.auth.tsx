@@ -5,6 +5,7 @@ import {
 	LoginUserDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
+	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -30,21 +31,25 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		email: getOidcToken.email,
 		issuerId: getOidcToken.subject,
 	};
-	const [_, { registerUser }] = await Promise.all([
-		getCachedCoreDetails(),
-		serverGqlService.request(RegisterUserDocument, {
-			input: { data: { oidc: oidcInput } },
-		}),
-	]);
-	if (
-		registerUser.__typename === "RegisterError" &&
-		registerUser.error === RegisterErrorVariant.Disabled
-	) {
-		return redirectWithToast($path("/auth"), {
-			message: "Registration is disabled",
-			type: "error",
-		});
+	const { userByOidcIssuerId } = await serverGqlService.request(
+		UserByOidcIssuerIdDocument,
+		{ oidcIssuerId: oidcInput.issuerId },
+	);
+	if (!userByOidcIssuerId) {
+		const { registerUser } = await serverGqlService.request(
+			RegisterUserDocument,
+			{ input: { data: { oidc: oidcInput } } },
+		);
+		if (
+			registerUser.__typename === "RegisterError" &&
+			registerUser.error === RegisterErrorVariant.Disabled
+		)
+			return redirectWithToast($path("/auth"), {
+				message: "Registration is disabled",
+				type: "error",
+			});
 	}
+	await getCachedCoreDetails();
 	const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 		input: { oidc: oidcInput },
 	});

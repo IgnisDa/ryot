@@ -186,7 +186,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				headers: await createToastHeaders({ message, type: "error" }),
 			});
 		},
-		getOauthRedirectUrl: async () => {
+		getOidcRedirectUrl: async () => {
 			const { getOidcRedirectUrl } = await serverGqlService.request(
 				GetOidcRedirectUrlDocument,
 			);
@@ -287,7 +287,7 @@ export default function Page() {
 					<Form
 						replace
 						method="POST"
-						action={withQuery("", { intent: "getOauthRedirectUrl" })}
+						action={withQuery("", { intent: "getOidcRedirectUrl" })}
 					>
 						<Button
 							variant="outline"
