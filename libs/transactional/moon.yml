@@ -1,5 +1,8 @@
 type: 'library'
 
+dependsOn:
+  - 'assets'
+
 fileGroups:
   email:
     - 'emails/**/*'
@@ -16,11 +19,11 @@ tasks:
 
   copy-files:
     command: 'cp -r out/. ../../apps/backend/templates'
-    inputs: ['out']
+    deps: ['~:build-html']
     platform: 'system'
 
   build:
-    deps: ['~:build-html', '~:copy-files']
+    deps: ['~:copy-files']
     options:
       runDepsInParallel: false
 
