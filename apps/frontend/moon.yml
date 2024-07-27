@@ -2,21 +2,16 @@ dependsOn:
   - 'assets'
 
 tasks:
-  routes:
-    command: 'remix-routes'
-    inputs: ['@group(remix)']
-    outputs: ['app/remix-routes.d.ts']
-
   dev:
     command: 'remix vite:dev --port 3000 --host'
     local: true
-    deps: ['~:routes']
+    deps: ['~:remix-routes']
 
   build:
     command: 'remix vite:build'
     inputs: ['@group(remix)']
     outputs: ['build']
-    deps: ['~:routes']
+    deps: ['~:remix-routes']
     options:
       runDepsInParallel: false
 
