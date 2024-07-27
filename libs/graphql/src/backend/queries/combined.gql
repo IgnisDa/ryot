@@ -2,6 +2,10 @@ query GetOidcRedirectUrl {
   getOidcRedirectUrl
 }
 
+query UserByOidcIssuerId($oidcIssuerId: String!) {
+  userByOidcIssuerId(oidcIssuerId: $oidcIssuerId)
+}
+
 query GetOidcToken($code: String!) {
   getOidcToken(code: $code) {
     subject
