@@ -245,7 +245,7 @@ impl IntegrationService {
             "episode" => {
                 let series_name = payload.metadata.show_name.as_ref().unwrap();
                 let db_show = self
-                    .get_show_by_episode_identifier(&series_name, identifier)
+                    .get_show_by_episode_identifier(series_name, identifier)
                     .await?;
                 (db_show.identifier, MediaLot::Show)
             }
