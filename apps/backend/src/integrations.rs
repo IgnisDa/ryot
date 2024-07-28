@@ -1,4 +1,4 @@
-use std::{fs::metadata, future::Future};
+use std::future::Future;
 
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
