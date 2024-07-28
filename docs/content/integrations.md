@@ -47,7 +47,7 @@ https://pro.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 ### Jellyfin
 
 Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to Ryot. It
-will work for all the media that have been a valid TMDb ID attached to their metadata.
+will work for all the media that have a valid TMDb ID attached to their metadata.
 
 !!! info
 
@@ -64,10 +64,31 @@ will work for all the media that have been a valid TMDb ID attached to their met
     - Listen to events only for => Choose your user
     - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
 
+### Emby
+
+Automatically add new [Emby](https://emby.media/) movie and show plays to Ryot. It
+will work for all the media that have a valid TMDb ID attached to their metadata.
+
+1. Generate a slug in the integration settings page. Copy the newly generated
+   webhook Url.
+2. In the Emby notification settings page, add a new notification using the
+   Webhooks option:
+    - Name => `ryot`
+    - Url => `<paste_url_copied>`
+    - Request Content Type => `application/json`
+    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
+    - Limit user events to => Choose your user
+
+!!! warning
+
+    Since Emby does not send the expected TMDb ID for shows, progress will only be synced
+    if you already have the show in the Ryot database. To do this, simply add the show to
+    your watchlist.
+
 ### Plex
 
 Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It will
-work for all the media that have been a valid TMDb ID attached to their metadata.
+work for all the media that have a valid TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page using the following settings:
     - Username => Your Plex `Fullname`. If you have no `Fullname` specified in Plex,
@@ -85,7 +106,7 @@ work for all the media that have been a valid TMDb ID attached to their metadata
 ### Kodi
 
 The [Kodi](https://kodi.tv/) integration allows syncing the current movie or TV
-show you are watching. It will work for all the media that have been a valid
+show you are watching. It will work for all the media that have a valid
 TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
