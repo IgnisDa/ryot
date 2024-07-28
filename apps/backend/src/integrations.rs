@@ -7,7 +7,7 @@ use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +50,17 @@ pub struct IntegrationService {
 impl IntegrationService {
     pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
+    }
+
+    pub async fn db_search(&self, condition: Condition) -> Result<Option<metadata::Model>> {
+        let db_show = Metadata::find()
+                    .filter(metadata::Column::Lot.eq(MediaLot::Show))
+                    .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
+                    .filter(condition)
+                    .one(&self.db)
+                    .await?;
+
+        Ok(db_show)
     }
 
     pub async fn emby_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
@@ -125,23 +136,19 @@ impl IntegrationService {
                 let series_name = payload.item.series_name.unwrap();
                 let episode_name = payload.item.episode_name.unwrap();
 
-                let db_show = Metadata::find()
-                    .filter(metadata::Column::Lot.eq(MediaLot::Show))
-                    .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-                    .filter(
-                        Expr::col(metadata::Column::Title)
-                        .ilike(ilike_sql(&series_name))
-                    )
-                    .filter(
-                        Expr::expr(Func::cast_as(
-                            Expr::col(metadata::Column::ShowSpecifics), 
-                            Alias::new("text"),
-                        ))
-                        .ilike(ilike_sql(&episode_name)),
-                    )
-                    .one(&self.db)
-                    .await?;
-                
+                let db_show = self.db_search(
+                Condition::all().add(
+                    Expr::expr(Func::cast_as(
+                        Expr::col(metadata::Column::ShowSpecifics), 
+                        Alias::new("text"),
+                    )).ilike(ilike_sql(&episode_name))
+                )
+                .add(
+                    Expr::col(metadata::Column::Title)
+                    .ilike(ilike_sql(&series_name))
+                )
+                ).await?;
+
                 if db_show.is_none() {
                     bail!("No show found with Series Name {} and Episode Name {}", series_name, episode_name);
                 }
@@ -336,18 +343,16 @@ impl IntegrationService {
                 // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
                 // TMDB ID sent by Plex (which is actually the episode ID) is also present
                 // in the media specifics we have in DB.
-                let db_show = Metadata::find()
-                    .filter(metadata::Column::Lot.eq(MediaLot::Show))
-                    .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-                    .filter(
+                let db_show = self.db_search(
+                    Condition::all().add(
                         Expr::expr(Func::cast_as(
                             Expr::col(metadata::Column::ShowSpecifics),
                             Alias::new("text"),
                         ))
                         .ilike(ilike_sql(identifier)),
                     )
-                    .one(&self.db)
-                    .await?;
+                ).await?;
+
                 if db_show.is_none() {
                     bail!("No show found with TMDb ID {}", identifier);
                 }
