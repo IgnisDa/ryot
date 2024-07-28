@@ -7,7 +7,7 @@ use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter, QueryTrait};
+use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 
@@ -54,22 +54,25 @@ impl IntegrationService {
 
     async fn get_show_by_episode_identifier(
         &self,
+        series: Option<&str>,
         episode: &str,
-        condition: Option<Condition>,
     ) -> Result<metadata::Model> {
         let db_show = Metadata::find()
             .filter(metadata::Column::Lot.eq(MediaLot::Show))
             .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
             .filter(
-                Condition::all().add(
-                    Expr::expr(Func::cast_as(
-                        Expr::col(metadata::Column::ShowSpecifics),
-                        Alias::new("text"),
-                    ))
-                    .ilike(ilike_sql(episode)),
-                ),
+                Condition::all()
+                    .add(
+                        Expr::expr(Func::cast_as(
+                            Expr::col(metadata::Column::ShowSpecifics),
+                            Alias::new("text"),
+                        ))
+                        .ilike(ilike_sql(episode)),
+                    )
+                    .add_option(
+                        series.map(|s| Expr::col(metadata::Column::Title).ilike(ilike_sql(s))),
+                    ),
             )
-            .apply_if(condition, |query, v| query.filter(v))
             .one(&self.db)
             .await?;
         match db_show {
@@ -245,7 +248,7 @@ impl IntegrationService {
                 // TMDB ID sent by Plex (which is actually the episode ID) is also present
                 // in the media specifics we have in DB.
                 let db_show = self
-                    .get_show_by_episode_identifier(identifier, None)
+                    .get_show_by_episode_identifier(None, identifier)
                     .await?;
                 (db_show.identifier, MediaLot::Show)
             }
@@ -332,6 +335,13 @@ impl IntegrationService {
         let position = payload.playback_info.position_ticks.unwrap();
 
         let (identifier, lot) = match payload.item.item_type.as_str() {
+            "Movie" => {
+                if identifier.is_none() {
+                    bail!("No TMDb ID associated with this media")
+                }
+
+                (identifier.unwrap().to_owned(), MediaLot::Movie)
+            }
             "Episode" => {
                 if payload.item.episode_name.is_none() {
                     bail!("No episode name associated with this media")
@@ -345,21 +355,9 @@ impl IntegrationService {
                 let episode_name = payload.item.episode_name.unwrap();
 
                 let db_show = self
-                    .get_show_by_episode_identifier(
-                        &episode_name,
-                        Some(Condition::all().add(
-                            Expr::col(metadata::Column::Title).ilike(ilike_sql(&series_name)),
-                        )),
-                    )
+                    .get_show_by_episode_identifier(Some(&series_name), &episode_name)
                     .await?;
                 (db_show.identifier, MediaLot::Show)
-            }
-            "Movie" => {
-                if identifier.is_none() {
-                    bail!("No TMDb ID associated with this media")
-                }
-
-                (identifier.unwrap().to_owned(), MediaLot::Movie)
             }
             _ => bail!("Only movies and shows supported"),
         };
