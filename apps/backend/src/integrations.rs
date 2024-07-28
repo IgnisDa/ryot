@@ -76,7 +76,11 @@ impl IntegrationService {
             .await?;
         match db_show {
             Some(show) => Ok(show),
-            None => bail!("No show found with Episode Name {}", episode),
+            None => bail!(
+                "No show found with Series {:#?} and Episode {:#?}",
+                series,
+                episode
+            ),
         }
     }
 
