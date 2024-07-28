@@ -52,9 +52,10 @@ impl IntegrationService {
         Self { db: db.clone() }
     }
 
+    // DEV: Fuzzy search for show by episode name and series name.
     async fn get_show_by_episode_identifier(
         &self,
-        series: Option<&str>,
+        series: &str,
         episode: &str,
     ) -> Result<metadata::Model> {
         let db_show = Metadata::find()
@@ -69,9 +70,7 @@ impl IntegrationService {
                         ))
                         .ilike(ilike_sql(episode)),
                     )
-                    .add_option(
-                        series.map(|s| Expr::col(metadata::Column::Title).ilike(ilike_sql(s))),
-                    ),
+                    .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(series))),
             )
             .one(&self.db)
             .await?;
@@ -244,11 +243,9 @@ impl IntegrationService {
         let (identifier, lot) = match payload.metadata.item_type.as_str() {
             "movie" => (identifier.to_owned(), MediaLot::Movie),
             "episode" => {
-                // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
-                // TMDB ID sent by Plex (which is actually the episode ID) is also present
-                // in the media specifics we have in DB.
+                let series_name = payload.metadata.show_name.as_ref().unwrap();
                 let db_show = self
-                    .get_show_by_episode_identifier(None, identifier)
+                    .get_show_by_episode_identifier(&series_name, identifier)
                     .await?;
                 (db_show.identifier, MediaLot::Show)
             }
@@ -353,9 +350,8 @@ impl IntegrationService {
 
                 let series_name = payload.item.series_name.unwrap();
                 let episode_name = payload.item.episode_name.unwrap();
-
                 let db_show = self
-                    .get_show_by_episode_identifier(Some(&series_name), &episode_name)
+                    .get_show_by_episode_identifier(&series_name, &episode_name)
                     .await?;
                 (db_show.identifier, MediaLot::Show)
             }
