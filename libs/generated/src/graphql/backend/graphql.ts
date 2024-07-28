@@ -714,6 +714,7 @@ export enum IntegrationLot {
 export enum IntegrationSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   Jellyfin = 'JELLYFIN',
+  Emby = 'EMBY',
   Kodi = 'KODI',
   Plex = 'PLEX'
 }
