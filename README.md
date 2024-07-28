@@ -68,7 +68,7 @@ You can also open an issue on GitHub if you find any bugs or have feature reques
 - ✅ [Supports](https://github.com/IgnisDa/ryot/discussions/4) tracking media
   and fitness
 - ✅ Import data from Goodreads, Trakt, Strong App [etc](https://docs.ryot.io/importing.html)
-- ✅ Integration with Jellyfin, Kodi, Plex, Audiobookshelf [etc](https://docs.ryot.io/integrations.html)
+- ✅ Integration with Jellyfin, Kodi, Plex, Emby, Audiobookshelf [etc](https://docs.ryot.io/integrations.html)
 - ✅ [Supports](https://docs.ryot.io/guides/openid.html) OpenID Connect
 - ✅ Sends notifications to Discord, Ntfy, Apprise etc
 - ✅ Self-hosted
