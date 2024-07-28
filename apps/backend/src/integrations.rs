@@ -7,7 +7,7 @@ use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter, QueryTrait};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 
@@ -52,129 +52,30 @@ impl IntegrationService {
         Self { db: db.clone() }
     }
 
-    pub async fn db_search(&self, condition: Condition) -> Result<Option<metadata::Model>> {
+    async fn get_show_by_episode_identifier(
+        &self,
+        episode: &str,
+        condition: Option<Condition>,
+    ) -> Result<metadata::Model> {
         let db_show = Metadata::find()
-                    .filter(metadata::Column::Lot.eq(MediaLot::Show))
-                    .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-                    .filter(condition)
-                    .one(&self.db)
-                    .await?;
-
-        Ok(db_show)
-    }
-
-    pub async fn emby_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
-        mod models {
-            use super::*;
-
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct EmbyWebhookPlaybackInfoPayload {
-                pub position_ticks: Option<Decimal>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct EmbyWebhookItemProviderIdsPayload {
-                pub tmdb: Option<String>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct EmbyWebhookItemPayload {
-                pub run_time_ticks: Option<Decimal>,
-                #[serde(rename = "Type")]
-                pub item_type: String,
-                pub provider_ids: EmbyWebhookItemProviderIdsPayload,
-                #[serde(rename = "ParentIndexNumber")]
-                pub season_number: Option<i32>,
-                #[serde(rename = "IndexNumber")]
-                pub episode_number: Option<i32>,
-                #[serde(rename = "Name")]
-                pub episode_name:  Option<String>,
-                pub series_name: Option<String>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct EmbyWebhookPayload {
-                pub event: Option<String>,
-                pub item: EmbyWebhookItemPayload,
-                pub series: Option<EmbyWebhookItemPayload>,
-                pub playback_info: EmbyWebhookPlaybackInfoPayload,
-            }
-        }
-
-        let payload = serde_json::from_str::<models::EmbyWebhookPayload>(payload)?;
-
-        let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
-            Some(id.clone())
-        } else {
-            payload
-                .series
-                .as_ref()
-                .and_then(|s| s.provider_ids.tmdb.clone())
-        };
-
-        if payload.item.run_time_ticks.is_none() {
-            bail!("No run time associated with this media")
-        }
-        if payload.playback_info.position_ticks.is_none() {
-            bail!("No position associated with this media")
-        }
-
-        let runtime = payload.item.run_time_ticks.unwrap();
-        let position = payload.playback_info.position_ticks.unwrap();
-
-        let (identifier, lot) = match payload.item.item_type.as_str() {
-            "Episode" => {
-                if payload.item.episode_name.is_none() {
-                    bail!("No episode name associated with this media")
-                }
-
-                if payload.item.series_name.is_none() {
-                    bail!("No series name associated with this media")
-                }
-
-                let series_name = payload.item.series_name.unwrap();
-                let episode_name = payload.item.episode_name.unwrap();
-
-                let db_show = self.db_search(
+            .filter(metadata::Column::Lot.eq(MediaLot::Show))
+            .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
+            .filter(
                 Condition::all().add(
                     Expr::expr(Func::cast_as(
-                        Expr::col(metadata::Column::ShowSpecifics), 
+                        Expr::col(metadata::Column::ShowSpecifics),
                         Alias::new("text"),
-                    )).ilike(ilike_sql(&episode_name))
-                )
-                .add(
-                    Expr::col(metadata::Column::Title)
-                    .ilike(ilike_sql(&series_name))
-                )
-                ).await?;
-
-                if db_show.is_none() {
-                    bail!("No show found with Series Name {} and Episode Name {}", series_name, episode_name);
-                }
-
-                (db_show.unwrap().identifier, MediaLot::Show)
-            },
-            "Movie" => {
-                if identifier.is_none() {
-                    bail!("No TMDb ID associated with this media")
-                }
-
-                (identifier.unwrap().to_owned(), MediaLot::Movie)
-            },
-            _ => bail!("Only movies and shows supported"),
-        };
-
-        Ok(IntegrationMediaSeen {
-            identifier,
-            lot,
-            source: MediaSource::Tmdb,
-            progress: position / runtime * dec!(100),
-            show_season_number: payload.item.season_number,
-            show_episode_number: payload.item.episode_number,
-            provider_watched_on: Some("Emby".to_string()),
-            ..Default::default()
-        })
+                    ))
+                    .ilike(ilike_sql(episode)),
+                ),
+            )
+            .apply_if(condition, |query, v| query.filter(v))
+            .one(&self.db)
+            .await?;
+        match db_show {
+            Some(show) => Ok(show),
+            None => bail!("No show found with Episode Name {}", episode),
+        }
     }
 
     pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
@@ -343,20 +244,10 @@ impl IntegrationService {
                 // DEV: Since Plex and Ryot both use TMDb, we can safely assume that the
                 // TMDB ID sent by Plex (which is actually the episode ID) is also present
                 // in the media specifics we have in DB.
-                let db_show = self.db_search(
-                    Condition::all().add(
-                        Expr::expr(Func::cast_as(
-                            Expr::col(metadata::Column::ShowSpecifics),
-                            Alias::new("text"),
-                        ))
-                        .ilike(ilike_sql(identifier)),
-                    )
-                ).await?;
-
-                if db_show.is_none() {
-                    bail!("No show found with TMDb ID {}", identifier);
-                }
-                (db_show.unwrap().identifier, MediaLot::Show)
+                let db_show = self
+                    .get_show_by_episode_identifier(identifier, None)
+                    .await?;
+                (db_show.identifier, MediaLot::Show)
             }
             _ => bail!("Only movies and shows supported"),
         };
@@ -376,6 +267,111 @@ impl IntegrationService {
             provider_watched_on: Some("Plex".to_string()),
             show_season_number: payload.metadata.season_number,
             show_episode_number: payload.metadata.episode_number,
+            ..Default::default()
+        })
+    }
+
+    pub async fn emby_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
+        mod models {
+            use super::*;
+
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct EmbyWebhookPlaybackInfoPayload {
+                pub position_ticks: Option<Decimal>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct EmbyWebhookItemProviderIdsPayload {
+                pub tmdb: Option<String>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct EmbyWebhookItemPayload {
+                pub run_time_ticks: Option<Decimal>,
+                #[serde(rename = "Type")]
+                pub item_type: String,
+                pub provider_ids: EmbyWebhookItemProviderIdsPayload,
+                #[serde(rename = "ParentIndexNumber")]
+                pub season_number: Option<i32>,
+                #[serde(rename = "IndexNumber")]
+                pub episode_number: Option<i32>,
+                #[serde(rename = "Name")]
+                pub episode_name: Option<String>,
+                pub series_name: Option<String>,
+            }
+            #[derive(Serialize, Deserialize, Debug, Clone)]
+            #[serde(rename_all = "PascalCase")]
+            pub struct EmbyWebhookPayload {
+                pub event: Option<String>,
+                pub item: EmbyWebhookItemPayload,
+                pub series: Option<EmbyWebhookItemPayload>,
+                pub playback_info: EmbyWebhookPlaybackInfoPayload,
+            }
+        }
+
+        let payload = serde_json::from_str::<models::EmbyWebhookPayload>(payload)?;
+
+        let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
+            Some(id.clone())
+        } else {
+            payload
+                .series
+                .as_ref()
+                .and_then(|s| s.provider_ids.tmdb.clone())
+        };
+
+        if payload.item.run_time_ticks.is_none() {
+            bail!("No run time associated with this media")
+        }
+        if payload.playback_info.position_ticks.is_none() {
+            bail!("No position associated with this media")
+        }
+
+        let runtime = payload.item.run_time_ticks.unwrap();
+        let position = payload.playback_info.position_ticks.unwrap();
+
+        let (identifier, lot) = match payload.item.item_type.as_str() {
+            "Episode" => {
+                if payload.item.episode_name.is_none() {
+                    bail!("No episode name associated with this media")
+                }
+
+                if payload.item.series_name.is_none() {
+                    bail!("No series name associated with this media")
+                }
+
+                let series_name = payload.item.series_name.unwrap();
+                let episode_name = payload.item.episode_name.unwrap();
+
+                let db_show = self
+                    .get_show_by_episode_identifier(
+                        &episode_name,
+                        Some(Condition::all().add(
+                            Expr::col(metadata::Column::Title).ilike(ilike_sql(&series_name)),
+                        )),
+                    )
+                    .await?;
+                (db_show.identifier, MediaLot::Show)
+            }
+            "Movie" => {
+                if identifier.is_none() {
+                    bail!("No TMDb ID associated with this media")
+                }
+
+                (identifier.unwrap().to_owned(), MediaLot::Movie)
+            }
+            _ => bail!("Only movies and shows supported"),
+        };
+
+        Ok(IntegrationMediaSeen {
+            identifier,
+            lot,
+            source: MediaSource::Tmdb,
+            progress: position / runtime * dec!(100),
+            show_season_number: payload.item.season_number,
+            show_episode_number: payload.item.episode_number,
+            provider_watched_on: Some("Emby".to_string()),
             ..Default::default()
         })
     }
