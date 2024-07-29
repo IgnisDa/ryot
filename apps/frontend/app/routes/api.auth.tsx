@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import { redirect, unstable_defineLoader } from "@remix-run/node";
 import {
 	GetOidcTokenDocument,
@@ -7,6 +6,7 @@ import {
 	RegisterUserDocument,
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import {

@@ -3225,21 +3225,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ignisda/remix-routes@npm:3.3.0":
-  version: 3.3.0
-  resolution: "@ignisda/remix-routes@npm:3.3.0"
-  dependencies:
-    chokidar: "npm:^3.5.2"
-    ejs: "npm:^3.1.9"
-    meow: "npm:9.0.0"
-    mkdirp: "npm:^1.0.4"
-    slash: "npm:3"
-  bin:
-    remix-routes: lib/cli.js
-  checksum: 10/0da4f3fdf1e1e11131762a754cf17872e42d03a66c814ae5ca000c2ca8fa4865dcb4be397b8334ae100a92c8c0ac7d70dbc087d647117904ee95c0da47aafc6e
-  languageName: node
-  linkType: hard
-
 "@isaacs/cliui@npm:^8.0.2":
   version: 8.0.2
   resolution: "@isaacs/cliui@npm:8.0.2"
@@ -4843,7 +4828,6 @@ __metadata:
     "@conform-to/zod": "npm:1.1.5"
     "@formkit/auto-animate": "npm:0.8.2"
     "@hello-pangea/dnd": "npm:16.6.0"
-    "@ignisda/remix-routes": "npm:3.3.0"
     "@lukemorales/query-key-factory": "npm:1.3.4"
     "@mantine/carousel": "npm:7.11.2"
     "@mantine/charts": "npm:7.11.2"
@@ -4893,11 +4877,14 @@ __metadata:
     react-virtuoso: "npm:4.7.13"
     react-webcam: "npm:7.2.0"
     recharts: "npm:2.12.7"
+    remix-routes: "npm:1.7.6"
     remix-utils: "npm:7.6.0"
     tiny-invariant: "npm:1.3.3"
     ts-essentials: "npm:10.0.1"
     ts-pattern: "npm:5.2.0"
+    typescript: "npm:5.5.4"
     typescript-plugin-css-modules: "npm:5.1.0"
+    typescript-remix-routes-plugin: "npm:1.0.1"
     ufo: "npm:1.5.4"
     usehooks-ts: "npm:3.1.0"
     uuid: "npm:10.0.0"
@@ -13269,6 +13256,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"remix-routes@npm:1.7.6":
+  version: 1.7.6
+  resolution: "remix-routes@npm:1.7.6"
+  dependencies:
+    chokidar: "npm:^3.5.2"
+    ejs: "npm:^3.1.9"
+    meow: "npm:9.0.0"
+    mkdirp: "npm:^1.0.4"
+    slash: "npm:3"
+    typescript-remix-routes-plugin: "npm:1.0.1"
+  bin:
+    remix-routes: lib/cli.js
+  checksum: 10/115203419f84a158063b09b07ae80c567b7f6a164cad7a573c3c5f50bd5151e5ce4199175a0fbd50c86a31d1847b5607d43c66e35e7ec3ad337f47f7f1bd12af
+  languageName: node
+  linkType: hard
+
 "remix-utils@npm:7.6.0":
   version: 7.6.0
   resolution: "remix-utils@npm:7.6.0"
@@ -13373,7 +13376,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"resolve@npm:^1.1.7, resolve@npm:^1.10.0, resolve@npm:^1.22.2":
+"resolve@npm:^1.1.7, resolve@npm:^1.10.0, resolve@npm:^1.22.0, resolve@npm:^1.22.2":
   version: 1.22.8
   resolution: "resolve@npm:1.22.8"
   dependencies:
@@ -13386,7 +13389,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"resolve@patch:resolve@npm%3A^1.1.7#optional!builtin<compat/resolve>, resolve@patch:resolve@npm%3A^1.10.0#optional!builtin<compat/resolve>, resolve@patch:resolve@npm%3A^1.22.2#optional!builtin<compat/resolve>":
+"resolve@patch:resolve@npm%3A^1.1.7#optional!builtin<compat/resolve>, resolve@patch:resolve@npm%3A^1.10.0#optional!builtin<compat/resolve>, resolve@patch:resolve@npm%3A^1.22.0#optional!builtin<compat/resolve>, resolve@patch:resolve@npm%3A^1.22.2#optional!builtin<compat/resolve>":
   version: 1.22.8
   resolution: "resolve@patch:resolve@npm%3A1.22.8#optional!builtin<compat/resolve>::version=1.22.8&hash=c3c19d"
   dependencies:
@@ -14756,6 +14759,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"typescript-remix-routes-plugin@npm:1.0.1":
+  version: 1.0.1
+  resolution: "typescript-remix-routes-plugin@npm:1.0.1"
+  dependencies:
+    resolve: "npm:^1.22.0"
+    slash: "npm:3"
+    typescript: "npm:^4.4.3"
+  checksum: 10/c3d17331f0a69094b50167a5775a586be54be4dd8198f99ef1d86c1fe54f34e5ad6c7a7117a8c7d56bc3acfa5da2debbb2a5896662e060bf319e230875e3c38e
+  languageName: node
+  linkType: hard
+
 "typescript@npm:5.1.6":
   version: 5.1.6
   resolution: "typescript@npm:5.1.6"
@@ -14776,6 +14790,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"typescript@npm:^4.4.3":
+  version: 4.9.5
+  resolution: "typescript@npm:4.9.5"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/458f7220ab11e0fc191514cc41be1707645ec9a8c2d609448a448e18c522cef9646f58728f6811185a4c35613dacdf6c98cf8965c88b3541d0288c47291e4300
+  languageName: node
+  linkType: hard
+
 "typescript@patch:typescript@npm%3A5.1.6#optional!builtin<compat/typescript>":
   version: 5.1.6
   resolution: "typescript@patch:typescript@npm%3A5.1.6#optional!builtin<compat/typescript>::version=5.1.6&hash=5da071"
@@ -14793,6 +14817,16 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10/2c065f0ef81855eac25c9b658a3c9da65ffc005260c12854c2286f40f3667e1b1ecf8bdbdd37b59aa0397920378ce7900bff8cb32e0f1c7af6fd86efc676718c
+  languageName: node
+  linkType: hard
+
+"typescript@patch:typescript@npm%3A^4.4.3#optional!builtin<compat/typescript>":
+  version: 4.9.5
+  resolution: "typescript@patch:typescript@npm%3A4.9.5#optional!builtin<compat/typescript>::version=4.9.5&hash=289587"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/5659316360b5cc2d6f5931b346401fa534107b68b60179cf14970e27978f0936c1d5c46f4b5b8175f8cba0430f522b3ce355b4b724c0ea36ce6c0347fab25afd
   languageName: node
   linkType: hard
 

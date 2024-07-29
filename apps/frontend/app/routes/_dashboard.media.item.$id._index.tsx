@@ -1,5 +1,4 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { $path } from "@ignisda/remix-routes";
 import {
 	Accordion,
 	ActionIcon,
@@ -77,6 +76,7 @@ import {
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, forwardRef, useState } from "react";
 import { Virtuoso, VirtuosoGrid } from "react-virtuoso";
+import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

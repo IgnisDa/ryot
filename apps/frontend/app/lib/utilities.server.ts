@@ -1,5 +1,4 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
-import { $path } from "@ignisda/remix-routes";
 import {
 	createCookie,
 	createCookieSessionStorage,
@@ -25,6 +24,7 @@ import {
 	type Variables,
 } from "graphql-request";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";

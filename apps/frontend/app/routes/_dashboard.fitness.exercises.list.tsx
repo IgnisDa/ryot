@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Affix,
@@ -47,6 +46,7 @@ import {
 	IconFilter,
 	IconPlus,
 } from "@tabler/icons-react";
+import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";

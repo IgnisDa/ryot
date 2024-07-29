@@ -1,5 +1,3 @@
-import type Umami from "@bitprojects/umami-logger-typescript";
-import { $path } from "@ignisda/remix-routes";
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import {
@@ -12,6 +10,7 @@ import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
+import { $path } from "remix-routes";
 import { useInterval } from "usehooks-ts";
 import {
 	CurrentWorkoutKey,
@@ -21,14 +20,6 @@ import {
 } from "~/lib/generals";
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
-
-declare global {
-	interface Window {
-		umami?: {
-			track: typeof Umami.trackEvent;
-		};
-	}
-}
 
 export const useGetMantineColor = () => {
 	const theme = useMantineTheme();

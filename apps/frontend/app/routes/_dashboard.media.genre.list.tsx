@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	Anchor,
 	Box,
@@ -20,6 +19,7 @@ import {
 } from "@remix-run/react";
 import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
 import { truncate } from "@ryot/ts-utils";
+import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";

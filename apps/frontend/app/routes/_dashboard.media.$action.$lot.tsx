@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Box,
@@ -48,6 +47,7 @@ import {
 	IconSortDescending,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { z } from "zod";

@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Affix,
@@ -40,6 +39,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { Virtuoso } from "react-virtuoso";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";

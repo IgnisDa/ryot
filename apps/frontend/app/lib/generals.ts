@@ -1,3 +1,4 @@
+import type Umami from "@bitprojects/umami-logger-typescript";
 import {
 	createQueryKeys,
 	mergeQueryKeys,
@@ -47,6 +48,14 @@ export const toastKey = "Toast";
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });
+
+declare global {
+	interface Window {
+		umami?: {
+			track: typeof Umami.trackEvent;
+		};
+	}
+}
 
 export const getSetColor = (l: SetLot) =>
 	match(l)

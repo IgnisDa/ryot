@@ -1,5 +1,4 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Affix,
@@ -98,6 +97,7 @@ import {
 import { produce } from "immer";
 import { type FormEvent, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import {

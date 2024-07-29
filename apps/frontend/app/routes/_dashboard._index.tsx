@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	Alert,
 	Box,
@@ -34,6 +33,7 @@ import {
 	IconServer,
 } from "@tabler/icons-react";
 import { Fragment, type ReactNode } from "react";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { ApplicationGrid } from "~/components/common";

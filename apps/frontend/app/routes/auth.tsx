@@ -1,7 +1,6 @@
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { $path } from "@ignisda/remix-routes";
 import {
 	Alert,
 	Anchor,
@@ -34,6 +33,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission, startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
+import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";

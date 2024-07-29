@@ -1,7 +1,6 @@
 import { Buffer } from "buffer";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -79,6 +78,7 @@ import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
 import { useRef } from "react";
 import Webcam from "react-webcam";
+import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
@@ -911,20 +911,7 @@ const ExerciseDisplay = (props: {
 								</Menu.Target>
 								{currentTimer?.triggeredBy?.exerciseIdentifier ===
 								exercise.identifier ? (
-									<Progress
-										pos="absolute"
-										color="violet"
-										bottom={-6}
-										value={
-											(currentTimer.endAt.diff(dayjsLib(), "seconds") * 100) /
-											currentTimer.totalTime
-										}
-										size="xs"
-										radius="md"
-										w="100%"
-										onClick={props.openTimerDrawer}
-										style={{ cursor: "pointer" }}
-									/>
+									<RestTimerProgress onClick={props.openTimerDrawer} />
 								) : null}
 							</Group>
 							{exercise.notes.map((note, idx) => (
@@ -1118,6 +1105,30 @@ const ExerciseDisplay = (props: {
 	) : null;
 };
 
+const RestTimerProgress = (props: { onClick: () => void }) => {
+	const [currentTimer] = useTimerAtom();
+	forceUpdateEverySecond();
+
+	if (!currentTimer) return null;
+
+	return (
+		<Progress
+			pos="absolute"
+			color="violet"
+			bottom={-6}
+			value={
+				(currentTimer.endAt.diff(dayjsLib(), "seconds") * 100) /
+				currentTimer.totalTime
+			}
+			size="xs"
+			radius="md"
+			w="100%"
+			onClick={props.onClick}
+			style={{ cursor: "pointer" }}
+		/>
+	);
+};
+
 const SetDisplay = (props: {
 	setIdx: number;
 	repsCol: boolean;
@@ -1214,17 +1225,20 @@ const SetDisplay = (props: {
 					{exercise.alreadyDoneSets[props.setIdx] ? (
 						<Box
 							onClick={() => {
-								if (set.confirmedAt) return;
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
-										draft.exercises[props.exerciseIdx].sets[
-											props.setIdx
-										].statistic =
-											exercise.alreadyDoneSets[props.setIdx].statistic;
+										const idxToTarget = set.confirmedAt
+											? props.setIdx + 1
+											: props.setIdx;
+										const setToTarget =
+											draft.exercises[props.exerciseIdx].sets[idxToTarget];
+										if (setToTarget)
+											setToTarget.statistic =
+												exercise.alreadyDoneSets[props.setIdx].statistic;
 									}),
 								);
 							}}
-							style={!set.confirmedAt ? { cursor: "pointer" } : undefined}
+							style={{ cursor: "pointer" }}
 						>
 							<DisplaySetStatistics
 								statistic={exercise.alreadyDoneSets[props.setIdx].statistic}

@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -37,6 +36,7 @@ import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
+import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";

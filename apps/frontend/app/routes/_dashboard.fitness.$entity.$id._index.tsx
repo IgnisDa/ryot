@@ -1,5 +1,4 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -20,6 +19,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
+import { $path } from "remix-routes";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
