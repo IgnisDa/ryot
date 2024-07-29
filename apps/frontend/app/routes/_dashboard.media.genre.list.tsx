@@ -5,8 +5,8 @@ import {
 	Container,
 	Flex,
 	Group,
+	Image,
 	Pagination,
-	Paper,
 	Stack,
 	Text,
 	Title,
@@ -17,15 +17,23 @@ import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
 } from "@remix-run/react";
-import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils";
+import {
+	GenresListDocument,
+	type GenresListQuery,
+} from "@ryot/generated/graphql/backend/graphql";
+import { getInitials, truncate } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	ProRequiredAlert,
+} from "~/components/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,
+	useFallbackImageUrl,
 	useGetMantineColor,
 } from "~/lib/hooks";
 import {
@@ -60,7 +68,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const getMantineColor = useGetMantineColor();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
@@ -84,27 +91,7 @@ export default function Page() {
 						</Box>
 						<ApplicationGrid>
 							{loaderData.genresList.items.map((genre) => (
-								<Paper key={genre.id}>
-									<Group>
-										<Box
-											h={11}
-											w={11}
-											style={{ borderRadius: 2 }}
-											bg={getMantineColor(genre.name)}
-										/>
-										<Box>
-											<Anchor
-												component={Link}
-												to={$path("/media/genre/:id", { id: genre.id })}
-											>
-												{truncate(genre.name, { length: 13 })}
-											</Anchor>
-											<Text size="sm" c="dimmed">
-												{genre.numItems} items
-											</Text>
-										</Box>
-									</Group>
-								</Paper>
+								<DisplayGenre key={genre.id} genre={genre} />
 							))}
 						</ApplicationGrid>
 					</>
@@ -127,3 +114,39 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type Genre = GenresListQuery["genresList"]["items"][number];
+
+const DisplayGenre = (props: { genre: Genre }) => {
+	const getMantineColor = useGetMantineColor();
+
+	return (
+		<Anchor
+			component={Link}
+			to={$path("/media/genre/:id", { id: props.genre.id })}
+		>
+			<Stack gap={4}>
+				<Box pos="relative">
+					<Image
+						radius="md"
+						h={260}
+						alt={props.genre.name}
+						fallbackSrc={useFallbackImageUrl(getInitials(props.genre.name))}
+					/>
+					<Box pos="absolute" left={0} right={0} bottom={0}>
+						<ProRequiredAlert tooltipLabel="Collage image using genre contents" />
+					</Box>
+				</Box>
+				<Group justify="center">
+					<Box
+						h={11}
+						w={11}
+						style={{ borderRadius: 2 }}
+						bg={getMantineColor(props.genre.name)}
+					/>
+					<Text>{truncate(props.genre.name, { length: 13 })}</Text>
+				</Group>
+			</Stack>
+		</Anchor>
+	);
+};
