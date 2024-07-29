@@ -5,8 +5,8 @@ import {
 	Container,
 	Flex,
 	Group,
+	Image,
 	Pagination,
-	Paper,
 	Stack,
 	Text,
 	Title,
@@ -116,26 +116,26 @@ const DisplayGenre = (props: { genre: Genre }) => {
 	const getMantineColor = useGetMantineColor();
 
 	return (
-		<Paper key={props.genre.id}>
-			<Group>
-				<Box
-					h={11}
-					w={11}
-					style={{ borderRadius: 2 }}
-					bg={getMantineColor(props.genre.name)}
+		<Anchor
+			component={Link}
+			to={$path("/media/genre/:id", { id: props.genre.id })}
+		>
+			<Stack gap={4}>
+				<Image
+					radius="md"
+					src="https://image.tmdb.org/t/p/original/ta1B8QQ3pBRA0TG8wH0CfgG6vlp.jpg"
+					alt={props.genre.name}
 				/>
-				<Box>
-					<Anchor
-						component={Link}
-						to={$path("/media/genre/:id", { id: props.genre.id })}
-					>
-						{truncate(props.genre.name, { length: 13 })}
-					</Anchor>
-					<Text size="sm" c="dimmed">
-						{props.genre.numItems} items
-					</Text>
-				</Box>
-			</Group>
-		</Paper>
+				<Group justify="center">
+					<Box
+						h={11}
+						w={11}
+						style={{ borderRadius: 2 }}
+						bg={getMantineColor(props.genre.name)}
+					/>
+					<Text>{truncate(props.genre.name, { length: 13 })}</Text>
+				</Group>
+			</Stack>
+		</Anchor>
 	);
 };
