@@ -21,14 +21,19 @@ import {
 	GenresListDocument,
 	type GenresListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils";
+import { getInitials, truncate } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	ProRequiredAlert,
+} from "~/components/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,
+	useFallbackImageUrl,
 	useGetMantineColor,
 } from "~/lib/hooks";
 import {
@@ -121,11 +126,17 @@ const DisplayGenre = (props: { genre: Genre }) => {
 			to={$path("/media/genre/:id", { id: props.genre.id })}
 		>
 			<Stack gap={4}>
-				<Image
-					radius="md"
-					src="https://image.tmdb.org/t/p/original/ta1B8QQ3pBRA0TG8wH0CfgG6vlp.jpg"
-					alt={props.genre.name}
-				/>
+				<Box pos="relative">
+					<Image
+						radius="md"
+						h={260}
+						alt={props.genre.name}
+						fallbackSrc={useFallbackImageUrl(getInitials(props.genre.name))}
+					/>
+					<Box pos="absolute" left={0} right={0} bottom={0}>
+						<ProRequiredAlert tooltipLabel="Collage image using genre contents" />
+					</Box>
+				</Box>
 				<Group justify="center">
 					<Box
 						h={11}
