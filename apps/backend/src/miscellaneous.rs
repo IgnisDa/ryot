@@ -6047,6 +6047,7 @@ impl MiscellaneousService {
         let service = self.get_integration_service();
         let maybe_progress_update = match integration.source {
             IntegrationSource::Kodi => service.kodi_progress(&payload).await,
+            IntegrationSource::Emby => service.emby_progress(&payload).await,
             IntegrationSource::Jellyfin => service.jellyfin_progress(&payload).await,
             IntegrationSource::Plex => {
                 let specifics = integration.clone().source_specifics.unwrap();

@@ -449,6 +449,7 @@ pub enum IntegrationLot {
 pub enum IntegrationSource {
     Audiobookshelf,
     Jellyfin,
+    Emby,
     Plex,
     Kodi,
 }
