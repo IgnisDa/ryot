@@ -5,6 +5,7 @@ import {
 	Container,
 	Flex,
 	Group,
+	Image,
 	Pagination,
 	Paper,
 	Stack,
@@ -17,12 +18,24 @@ import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
 } from "@remix-run/react";
-import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils";
+import {
+	GenreDetailsDocument,
+	GenresListDocument,
+	type GenresListQuery,
+} from "@ryot/generated/graphql/backend/graphql";
+import { isString, truncate } from "@ryot/ts-utils";
+import { useQuery } from "@tanstack/react-query";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	clientGqlService,
+	dayjsLib,
+	getPartialMetadataDetailsQuery,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -60,7 +73,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const getMantineColor = useGetMantineColor();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
@@ -84,27 +96,7 @@ export default function Page() {
 						</Box>
 						<ApplicationGrid>
 							{loaderData.genresList.items.map((genre) => (
-								<Paper key={genre.id}>
-									<Group>
-										<Box
-											h={11}
-											w={11}
-											style={{ borderRadius: 2 }}
-											bg={getMantineColor(genre.name)}
-										/>
-										<Box>
-											<Anchor
-												component={Link}
-												to={$path("/media/genre/:id", { id: genre.id })}
-											>
-												{truncate(genre.name, { length: 13 })}
-											</Anchor>
-											<Text size="sm" c="dimmed">
-												{genre.numItems} items
-											</Text>
-										</Box>
-									</Group>
-								</Paper>
+								<DisplayGenre key={genre.id} genre={genre} />
 							))}
 						</ApplicationGrid>
 					</>
@@ -127,3 +119,63 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type Genre = GenresListQuery["genresList"]["items"][number];
+
+const DisplayGenre = (props: { genre: Genre }) => {
+	const getMantineColor = useGetMantineColor();
+	const { data: genreImages } = useQuery({
+		queryKey: queryFactory.media.genreImages(props.genre.id).queryKey,
+		queryFn: async () => {
+			const { genreDetails } = await clientGqlService.request(
+				GenreDetailsDocument,
+				{ input: { genreId: props.genre.id } },
+			);
+			let images = [];
+			for (const content of genreDetails.contents.items) {
+				if (images.length === 4) break;
+				const { image } = await queryClient.ensureQueryData(
+					getPartialMetadataDetailsQuery(content),
+				);
+				if (isString(image)) images.push(image);
+			}
+			if (images.length < 4) images = images.splice(0, 1);
+			return images;
+		},
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
+	});
+
+	return (
+		<Anchor
+			component={Link}
+			to={$path("/media/genre/:id", { id: props.genre.id })}
+		>
+			<Stack gap={4}>
+				<Box pos="relative">
+					<Paper radius="md" style={{ overflow: "hidden" }}>
+						<Flex h={260} wrap="wrap">
+							{genreImages?.map((image) => (
+								<Image
+									h={genreImages.length === 1 ? "auto" : 130}
+									w={genreImages.length === 1 ? "auto" : 84}
+									key={image}
+									src={image}
+									alt={props.genre.name}
+								/>
+							))}
+						</Flex>
+					</Paper>
+				</Box>
+				<Group justify="center">
+					<Box
+						h={11}
+						w={11}
+						style={{ borderRadius: 2 }}
+						bg={getMantineColor(props.genre.name)}
+					/>
+					<Text>{truncate(props.genre.name, { length: 13 })}</Text>
+				</Group>
+			</Stack>
+		</Anchor>
+	);
+};

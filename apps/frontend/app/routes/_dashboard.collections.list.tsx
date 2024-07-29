@@ -292,7 +292,7 @@ const DisplayCollection = (props: {
 	const additionalDisplay = [];
 
 	const { data: collectionImages } = useQuery({
-		queryKey: queryFactory.collections.details(props.collection.id).queryKey,
+		queryKey: queryFactory.collections.images(props.collection.id).queryKey,
 		queryFn: async () => {
 			const { collectionContents } = await clientGqlService.request(
 				CollectionContentsDocument,
@@ -309,13 +309,14 @@ const DisplayCollection = (props: {
 			);
 			const images = [];
 			for (const content of collectionContents.results.items) {
+				if (images.length === 5) break;
 				if (content.entityLot !== EntityLot.Metadata) continue;
 				const { image } = await queryClient.ensureQueryData(
 					getPartialMetadataDetailsQuery(content.entityId),
 				);
-				images.push(image);
+				if (isString(image)) images.push(image);
 			}
-			return images.filter(isString).splice(0, 5);
+			return images;
 		},
 		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
 	});

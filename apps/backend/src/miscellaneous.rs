@@ -1614,7 +1614,7 @@ impl MiscellaneousService {
             docs_link: "https://docs.ryot.io".to_owned(),
             backend_errors: BackendError::iter().collect(),
             smtp_enabled: self.config.server.smtp.is_enabled(),
-            website_url: "https://ryot.io/features".to_owned(),
+            website_url: "https://ryot.io".to_owned(),
             signup_allowed: self.config.users.allow_registration,
             local_auth_disabled: self.config.users.disable_local_auth,
             token_valid_for_days: self.config.users.token_valid_for_days,

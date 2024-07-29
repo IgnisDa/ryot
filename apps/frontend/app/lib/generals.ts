@@ -264,6 +264,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	personDetails: (personId: string) => ({
 		queryKey: ["personDetails", personId],
 	}),
+	genreImages: (genreId: string) => ({
+		queryKey: ["genreDetails", "images", genreId],
+	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
@@ -272,6 +275,9 @@ const collectionQueryKeys = createQueryKeys("collections", {
 	}),
 	details: (collectionId: string, take?: number) => ({
 		queryKey: ["collectionDetails", collectionId, take],
+	}),
+	images: (collectionId: string) => ({
+		queryKey: ["collectionDetails", "images", collectionId],
 	}),
 });
 
