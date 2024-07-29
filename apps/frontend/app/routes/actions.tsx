@@ -31,6 +31,7 @@ import {
 	set,
 } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
+import { wait } from "remix-utils/timers";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -368,7 +369,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					DeployBulkProgressUpdateDocument,
 					{ input: updates },
 				);
-			await sleepForHalfSecond();
+			await sleepForHalfSecond(request);
 			await removeCachedUserCollectionsList(request);
 			response.headers = extendResponseHeaders(
 				response.headers,
@@ -388,7 +389,7 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				DeployBulkProgressUpdateDocument,
 				{ input: submission },
 			);
-			await sleepForHalfSecond();
+			await sleepForHalfSecond(request);
 			await removeCachedUserCollectionsList(request);
 			response.headers = extendResponseHeaders(
 				response.headers,
@@ -507,5 +508,5 @@ const bulkUpdateSchema = z
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
 
-const sleepForHalfSecond = () =>
-	new Promise((resolve) => setTimeout(resolve, 500));
+const sleepForHalfSecond = async (request: Request) =>
+	await wait(500, { signal: request.signal });
