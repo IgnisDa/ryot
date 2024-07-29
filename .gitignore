@@ -48,7 +48,6 @@ docs/site
 .plasmo
 node_modules
 .cache
-remix-routes.d.ts
 .astro
 dist
 .vscode/settings.json

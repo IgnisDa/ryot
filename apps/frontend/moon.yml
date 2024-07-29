@@ -5,15 +5,11 @@ tasks:
   dev:
     command: 'remix vite:dev --port 3000 --host'
     local: true
-    deps: ['~:remix-routes']
 
   build:
     command: 'remix vite:build'
     inputs: ['@group(remix)']
     outputs: ['build']
-    deps: ['~:remix-routes']
-    options:
-      runDepsInParallel: false
 
   typecheck:
     inputs: ['@group(remix)']
