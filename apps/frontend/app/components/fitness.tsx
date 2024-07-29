@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -24,6 +23,7 @@ import {
 import { startCase, truncate } from "@ryot/ts-utils";
 import { IconArrowLeftToArc, IconTrophy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { dayjsLib, getSetColor } from "~/lib/generals";

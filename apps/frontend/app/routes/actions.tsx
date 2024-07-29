@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	redirect,
 	unstable_defineAction,
@@ -31,6 +30,7 @@ import {
 	processSubmission,
 	set,
 } from "@ryot/ts-utils";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";

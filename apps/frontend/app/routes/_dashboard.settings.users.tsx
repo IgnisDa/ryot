@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Avatar,
@@ -48,6 +47,7 @@ import {
 } from "@tabler/icons-react";
 import { forwardRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
+import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

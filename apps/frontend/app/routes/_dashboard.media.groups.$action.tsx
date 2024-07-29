@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	Box,
 	Center,
@@ -28,6 +27,7 @@ import {
 import { changeCase, startCase } from "@ryot/ts-utils";
 import { IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";

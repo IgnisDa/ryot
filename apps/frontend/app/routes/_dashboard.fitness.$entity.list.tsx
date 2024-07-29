@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	Accordion,
 	ActionIcon,
@@ -34,6 +33,7 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import type { ReactElement } from "react";
+import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";

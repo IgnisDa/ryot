@@ -1,6 +1,6 @@
-import { $path } from "@ignisda/remix-routes";
 import { redirect, unstable_defineLoader } from "@remix-run/node";
 import { ProcessAccessLinkDocument } from "@ryot/generated/graphql/backend/graphql";
+import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { z } from "zod";
 import { zx } from "zodix";

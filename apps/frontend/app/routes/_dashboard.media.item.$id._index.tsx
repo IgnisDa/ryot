@@ -1,5 +1,4 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { $path } from "@ignisda/remix-routes";
 import {
 	Accordion,
 	ActionIcon,
@@ -87,6 +86,7 @@ import {
 	useState,
 } from "react";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
+import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

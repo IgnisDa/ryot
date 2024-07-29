@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import type { NavigateFunction } from "@remix-run/react";
 import {
 	type CreateUserWorkoutMutationVariables,
@@ -20,6 +19,7 @@ import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
+import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {

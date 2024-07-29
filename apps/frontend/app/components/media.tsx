@@ -1,4 +1,3 @@
-import { $path } from "@ignisda/remix-routes";
 import {
 	ActionIcon,
 	Anchor,
@@ -24,6 +23,7 @@ import {
 	ThemeIcon,
 	Tooltip,
 } from "@mantine/core";
+import { $path } from "remix-routes";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { Form, Link, useFetcher } from "@remix-run/react";
