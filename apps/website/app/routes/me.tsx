@@ -43,6 +43,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			const customer = await db.query.customers.findFirst({
 				where: eq(customers.id, userId),
 				columns: {
+					email: true,
 					renewOn: true,
 					planType: true,
 					productType: true,
@@ -198,6 +199,12 @@ export default function Index() {
 			loaderData.planDetails.productType ? (
 				<Card className="w-full max-w-md p-6 grid gap-6 m-auto mt-40">
 					<div className="grid grid-cols-2 gap-4">
+						<div>
+							<Label>Email</Label>
+							<p className="text-muted-foreground">
+								{loaderData.planDetails.email}
+							</p>
+						</div>
 						{loaderData.planDetails.renewOn ? (
 							<div>
 								<Label>Renewal Status</Label>
