@@ -2,7 +2,7 @@
 
 If you would like to run the pro version, please check [below](#upgrading-to-pro). To see
 the features of the pro version, check the [features page]({{extra.main_website_url
-}}/features).
+}}).
 
 ```yaml
 services:
