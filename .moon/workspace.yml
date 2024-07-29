@@ -3,12 +3,12 @@ $schema: "https://moonrepo.dev/schemas/workspace.json"
 projects:
   frontend: "apps/frontend"
   kodi: "apps/kodi"
-  landing: "apps/landing"
   assets: "libs/assets"
   generated: "libs/generated"
   graphql: "libs/graphql"
   transactional: "libs/transactional"
   ts-utils: "libs/ts-utils"
+  website: "apps/website"
 
 vcs:
   manager: "git"

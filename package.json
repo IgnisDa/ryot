@@ -3,7 +3,7 @@
 	"packageManager": "yarn@4.1.1",
 	"workspaces": [
 		"apps/frontend",
-		"apps/landing",
+		"apps/website",
 		"libs/generated",
 		"libs/graphql",
 		"libs/transactional",

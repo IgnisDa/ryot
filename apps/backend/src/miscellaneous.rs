@@ -1605,7 +1605,7 @@ impl MiscellaneousService {
             files_enabled = false;
         }
         CoreDetails {
-            is_pro: false,
+            is_pro: true,
             version: VERSION.to_owned(),
             author_name: AUTHOR.to_owned(),
             file_storage_enabled: files_enabled,

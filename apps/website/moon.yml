@@ -1,0 +1,15 @@
+dependsOn:
+  - 'assets'
+
+tasks:
+  dev:
+    command: 'remix vite:dev --port 5200 --host'
+    local: true
+
+  build:
+    command: 'remix vite:build'
+    inputs: ['@group(remix)']
+    outputs: ['build']
+
+  typecheck:
+    inputs: ['@group(remix)']

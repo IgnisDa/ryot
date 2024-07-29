@@ -153,7 +153,7 @@ const DisplayGenre = (props: { genre: Genre }) => {
 			<Stack gap={4}>
 				<Box pos="relative">
 					<Paper radius="md" style={{ overflow: "hidden" }}>
-						<Flex h={260} wrap="wrap">
+						<Flex h={260} w={168} wrap="wrap">
 							{genreImages?.map((image) => (
 								<Image
 									h={genreImages.length === 1 ? "auto" : 130}
