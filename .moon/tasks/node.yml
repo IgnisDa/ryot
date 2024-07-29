@@ -59,8 +59,3 @@ tasks:
       - "tsconfig.json"
       - "tsconfig.*.json"
       - "/tsconfig.options.json"
-
-  remix-routes:
-    command: 'remix-routes'
-    inputs: ['@group(remix)']
-    outputs: ['app/remix-routes.d.ts']
