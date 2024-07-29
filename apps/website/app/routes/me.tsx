@@ -4,7 +4,7 @@ import {
 	initializePaddle,
 } from "@paddle/paddle-js";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import { redirect, useLoaderData, useSubmit } from "@remix-run/react";
+import { Form, redirect, useLoaderData, useSubmit } from "@remix-run/react";
 import { RegisterUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import { changeCase, randomString } from "@ryot/ts-utils";
@@ -18,10 +18,12 @@ import { P, match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
+import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
 	GRACE_PERIOD,
+	authCookie,
 	db,
 	getPaddleServerClient,
 	getProductAndPlanTypeByPriceId,
@@ -62,6 +64,10 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 
 export const action = unstable_defineAction(async ({ request }) => {
 	return await namedAction(request.clone(), {
+		logout: async () => {
+			const cookies = await authCookie.serialize("", { expires: new Date(0) });
+			return Response.json({}, { headers: { "set-cookie": cookies } });
+		},
 		processPurchase: async () => {
 			const userId = await getUserIdFromCookie(request);
 			if (!userId)
@@ -241,6 +247,13 @@ export default function Index() {
 					}}
 				/>
 			)}
+			<Form
+				method="POST"
+				className="flex w-full items-end justify-end px-4 md:px-10 pb-6"
+			>
+				<input type="hidden" name="intent" defaultValue="logout" />
+				<Button type="submit">Sign out</Button>
+			</Form>
 		</>
 	);
 }
