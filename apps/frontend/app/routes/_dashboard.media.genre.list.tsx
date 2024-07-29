@@ -17,7 +17,10 @@ import {
 	type MetaArgs_SingleFetch,
 	useLoaderData,
 } from "@remix-run/react";
-import { GenresListDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	GenresListDocument,
+	type GenresListQuery,
+} from "@ryot/generated/graphql/backend/graphql";
 import { truncate } from "@ryot/ts-utils";
 import { $path } from "remix-routes";
 import { z } from "zod";
@@ -60,7 +63,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
-	const getMantineColor = useGetMantineColor();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
@@ -84,27 +86,7 @@ export default function Page() {
 						</Box>
 						<ApplicationGrid>
 							{loaderData.genresList.items.map((genre) => (
-								<Paper key={genre.id}>
-									<Group>
-										<Box
-											h={11}
-											w={11}
-											style={{ borderRadius: 2 }}
-											bg={getMantineColor(genre.name)}
-										/>
-										<Box>
-											<Anchor
-												component={Link}
-												to={$path("/media/genre/:id", { id: genre.id })}
-											>
-												{truncate(genre.name, { length: 13 })}
-											</Anchor>
-											<Text size="sm" c="dimmed">
-												{genre.numItems} items
-											</Text>
-										</Box>
-									</Group>
-								</Paper>
+								<DisplayGenre key={genre.id} genre={genre} />
 							))}
 						</ApplicationGrid>
 					</>
@@ -127,3 +109,33 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type Genre = GenresListQuery["genresList"]["items"][number];
+
+const DisplayGenre = (props: { genre: Genre }) => {
+	const getMantineColor = useGetMantineColor();
+
+	return (
+		<Paper key={props.genre.id}>
+			<Group>
+				<Box
+					h={11}
+					w={11}
+					style={{ borderRadius: 2 }}
+					bg={getMantineColor(props.genre.name)}
+				/>
+				<Box>
+					<Anchor
+						component={Link}
+						to={$path("/media/genre/:id", { id: props.genre.id })}
+					>
+						{truncate(props.genre.name, { length: 13 })}
+					</Anchor>
+					<Text size="sm" c="dimmed">
+						{props.genre.numItems} items
+					</Text>
+				</Box>
+			</Group>
+		</Paper>
+	);
+};
