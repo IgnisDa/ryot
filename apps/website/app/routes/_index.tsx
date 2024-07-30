@@ -213,25 +213,27 @@ export default function Page() {
 					<Carousel plugins={[Autoplay({ delay: 5000 })]}>
 						<CarouselContent>
 							{showCarouselContents.map((carousel) => (
-								<CarouselItem key={carousel.text}>
+								<CarouselItem key={carousel.text} className="flex flex-col">
 									<p className="mx-auto max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
 										{carousel.text}
 									</p>
-									<Image
-										src={carousel.image}
-										alt={carousel.alt}
-										className={cn(
-											carousel.smallImage && "hidden md:block",
-											"max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl",
-										)}
-									/>
-									{carousel.smallImage ? (
+									<div className="my-auto">
 										<Image
-											src={carousel.smallImage}
+											src={carousel.image}
 											alt={carousel.alt}
-											className="md:hidden"
+											className={cn(
+												carousel.smallImage && "hidden md:block",
+												"max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl",
+											)}
 										/>
-									) : null}
+										{carousel.smallImage ? (
+											<Image
+												src={carousel.smallImage}
+												alt={carousel.alt}
+												className="md:hidden"
+											/>
+										) : null}
+									</div>
 								</CarouselItem>
 							))}
 						</CarouselContent>
