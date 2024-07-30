@@ -246,6 +246,7 @@ export type CreateReviewCommentInput = {
 };
 
 export type CreateUserIntegrationInput = {
+  destinationSpecifics?: InputMaybe<IntegrationDestinationSpecificsInput>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   source: IntegrationSource;
@@ -703,7 +704,13 @@ export type Integration = {
   maximumProgress?: Maybe<Scalars['Decimal']['output']>;
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;
   source: IntegrationSource;
-  sourceSpecifics?: Maybe<IntegrationSourceSpecifics>;
+};
+
+export type IntegrationDestinationSpecificsInput = {
+  radarrApiKey?: InputMaybe<Scalars['String']['input']>;
+  radarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
+  radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
+  radarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
 };
 
 export enum IntegrationLot {
@@ -720,12 +727,6 @@ export enum IntegrationSource {
   Plex = 'PLEX',
   Radarr = 'RADARR'
 }
-
-export type IntegrationSourceSpecifics = {
-  audiobookshelfBaseUrl?: Maybe<Scalars['String']['output']>;
-  audiobookshelfToken?: Maybe<Scalars['String']['output']>;
-  plexUsername?: Maybe<Scalars['String']['output']>;
-};
 
 export type IntegrationSourceSpecificsInput = {
   audiobookshelfBaseUrl?: InputMaybe<Scalars['String']['input']>;

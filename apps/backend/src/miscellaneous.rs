@@ -77,8 +77,8 @@ use crate::{
             CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
-            MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
+            ImportOrExportPersonItem, IntegrationDestinationSpecifics, IntegrationSourceSpecifics,
+            MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
             MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
             MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
@@ -150,6 +150,7 @@ struct CreateCustomMetadataInput {
 struct CreateUserIntegrationInput {
     source: IntegrationSource,
     source_specifics: Option<IntegrationSourceSpecifics>,
+    destination_specifics: Option<IntegrationDestinationSpecifics>,
     minimum_progress: Option<Decimal>,
     maximum_progress: Option<Decimal>,
 }
@@ -5486,6 +5487,7 @@ impl MiscellaneousService {
         }
         let lot = match input.source {
             IntegrationSource::Audiobookshelf => IntegrationLot::Yank,
+            IntegrationSource::Radarr => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
         let to_insert = integration::ActiveModel {
@@ -5495,6 +5497,7 @@ impl MiscellaneousService {
             source_specifics: ActiveValue::Set(input.source_specifics),
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
+            destination_specifics: ActiveValue::Set(input.destination_specifics),
             ..Default::default()
         };
         let integration = to_insert.insert(&self.db).await?;

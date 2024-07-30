@@ -1290,6 +1290,30 @@ pub mod media {
         pub audiobookshelf_base_url: Option<String>,
         pub audiobookshelf_token: Option<String>,
     }
+
+    #[skip_serializing_none]
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        InputObject,
+        Clone,
+        SimpleObject,
+        FromJsonQueryResult,
+        Eq,
+        PartialEq,
+        Hash,
+        Default,
+        Schematic,
+    )]
+    #[graphql(input_name = "IntegrationDestinationSpecificsInput")]
+    #[serde(rename_all = "snake_case")]
+    pub struct IntegrationDestinationSpecifics {
+        pub radarr_base_url: Option<String>,
+        pub radarr_api_key: Option<String>,
+        pub radarr_profile_id: Option<i32>,
+        pub radarr_root_folder_path: Option<String>,
+    }
 }
 
 pub mod fitness {

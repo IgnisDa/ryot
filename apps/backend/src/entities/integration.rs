@@ -6,7 +6,7 @@ use database::{IntegrationLot, IntegrationSource};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 
-use crate::models::media::IntegrationSourceSpecifics;
+use crate::models::media::{IntegrationDestinationSpecifics, IntegrationSourceSpecifics};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject, InputObject)]
 #[sea_orm(table_name = "integration")]
@@ -27,7 +27,11 @@ pub struct Model {
     #[graphql(skip_input)]
     pub last_triggered_on: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]
+    #[graphql(skip)]
     pub source_specifics: Option<IntegrationSourceSpecifics>,
+    #[sea_orm(column_type = "Json")]
+    #[graphql(skip)]
+    pub destination_specifics: Option<IntegrationDestinationSpecifics>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
