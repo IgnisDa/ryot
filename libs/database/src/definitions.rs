@@ -452,6 +452,7 @@ pub enum IntegrationSource {
     Emby,
     Plex,
     Kodi,
+    Radarr,
 }
 
 #[derive(

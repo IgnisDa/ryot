@@ -717,7 +717,8 @@ export enum IntegrationSource {
   Emby = 'EMBY',
   Jellyfin = 'JELLYFIN',
   Kodi = 'KODI',
-  Plex = 'PLEX'
+  Plex = 'PLEX',
+  Radarr = 'RADARR'
 }
 
 export type IntegrationSourceSpecifics = {
