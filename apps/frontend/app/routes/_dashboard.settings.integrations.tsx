@@ -55,6 +55,7 @@ import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 const PUSH_INTEGRATIONS = [IntegrationSource.Radarr];
+const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 const NO_EDITING_ALLOWED = PUSH_INTEGRATIONS;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -313,7 +314,7 @@ const DisplayIntegration = (props: {
 						) : null}
 					</Box>
 					<Group>
-						{!YANK_INTEGRATIONS.includes(props.integration.source) ? (
+						{!NO_SHOW_URL.includes(props.integration.source) ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
