@@ -53,6 +53,7 @@ import { useConfirmSubmit } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
+const NO_EDITING_ALLOWED = [IntegrationSource.Radarr];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -306,15 +307,17 @@ const DisplayIntegration = (props: {
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
 						) : null}
-						<ActionIcon
-							color="indigo"
-							variant="subtle"
-							onClick={() =>
-								props.setUpdateIntegrationModalData(props.integration)
-							}
-						>
-							<IconPencil />
-						</ActionIcon>
+						{!NO_EDITING_ALLOWED.includes(props.integration.source) ? (
+							<ActionIcon
+								color="indigo"
+								variant="subtle"
+								onClick={() =>
+									props.setUpdateIntegrationModalData(props.integration)
+								}
+							>
+								<IconPencil />
+							</ActionIcon>
+						) : null}
 						<Form method="POST" action={withQuery("", { intent: "delete" })}>
 							<input
 								type="hidden"
