@@ -266,8 +266,10 @@ export default function Page() {
 								</CarouselItem>
 							))}
 						</CarouselContent>
-						<CarouselPrevious className="invisible md:visible" />
-						<CarouselNext className="invisible md:visible" />
+						<div className="hidden md:block">
+							<CarouselPrevious />
+							<CarouselNext />
+						</div>
 					</Carousel>
 				</div>
 			</section>
