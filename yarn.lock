@@ -5338,6 +5338,7 @@ __metadata:
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:3.11.0"
     "@tailwindcss/typography": "npm:0.5.13"
+    "@types/crypto-js": "npm:^4"
     "@types/lodash": "npm:4.17.7"
     "@types/nodemailer": "npm:6"
     "@types/react": "npm:18.2.20"
@@ -5346,6 +5347,7 @@ __metadata:
     autoprefixer: "npm:10.4.19"
     class-variance-authority: "npm:0.7.0"
     clsx: "npm:2.1.1"
+    crypto-js: "npm:4.2.0"
     dayjs: "npm:1.11.12"
     drizzle-kit: "npm:0.23.0"
     drizzle-orm: "npm:0.32.1"
@@ -5648,7 +5650,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/crypto-js@npm:4.2.2":
+"@types/crypto-js@npm:4.2.2, @types/crypto-js@npm:^4":
   version: 4.2.2
   resolution: "@types/crypto-js@npm:4.2.2"
   checksum: 10/a40fc5a9219fd33f54ba3e094c5e5ab2904d3106681a76f1029bb038976591e9c8959099963bf4474fde21c2d8d00c1f896445206a3a58f85588f9cb1bd96a9a
@@ -7711,6 +7713,13 @@ __metadata:
     shebang-command: "npm:^2.0.0"
     which: "npm:^2.0.1"
   checksum: 10/e1a13869d2f57d974de0d9ef7acbf69dc6937db20b918525a01dacb5032129bd552d290d886d981e99f1b624cb03657084cc87bd40f115c07ecf376821c729ce
+  languageName: node
+  linkType: hard
+
+"crypto-js@npm:4.2.0":
+  version: 4.2.0
+  resolution: "crypto-js@npm:4.2.0"
+  checksum: 10/c7bcc56a6e01c3c397e95aa4a74e4241321f04677f9a618a8f48a63b5781617248afb9adb0629824792e7ec20ca0d4241a49b6b2938ae6f973ec4efc5c53c924
   languageName: node
   linkType: hard
 

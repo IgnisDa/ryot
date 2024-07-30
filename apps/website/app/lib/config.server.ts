@@ -6,6 +6,7 @@ import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
 import { Issuer } from "openid-client";
 import postgres from "postgres";
+import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
 import { zx } from "zodix";
 import * as schema from "~/drizzle/schema.server";
@@ -135,3 +136,5 @@ export const serverGqlService = new GraphQLClient(
 	`${serverVariables.RYOT_BASE_URL}/graphql`,
 	{ headers: { Connection: "keep-alive" } },
 );
+
+export const honeypot = new Honeypot();

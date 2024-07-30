@@ -7,16 +7,18 @@ import {
 	ScrollRestoration,
 	useLoaderData,
 } from "@remix-run/react";
+import { HoneypotProvider } from "remix-utils/honeypot/react";
 import "./tailwind.css";
 import {
 	type LinksFunction,
 	type MetaFunction,
+	json,
 	unstable_defineLoader,
 } from "@remix-run/node";
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
 import { Toaster } from "./lib/components/ui/sonner";
-import { getUserIdFromCookie } from "./lib/config.server";
+import { getUserIdFromCookie, honeypot } from "./lib/config.server";
 
 export const links: LinksFunction = () => {
 	return [
@@ -41,7 +43,10 @@ export const links: LinksFunction = () => {
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userId = await getUserIdFromCookie(request);
-	return { isLoggedIn: !!userId };
+	return json({
+		isLoggedIn: !!userId,
+		honeypotInputProps: honeypot.getInputProps(),
+	});
 });
 
 export const meta: MetaFunction = () => {
@@ -75,7 +80,7 @@ export default function App() {
 								alt="Ryot"
 								className="size-10 mr-2"
 							/>
-							<span className="text-xl">Ryot</span>
+							<span className="text-xl hidden md:block">Ryot</span>
 						</Link>
 						<nav className="ml-auto flex gap-4 sm:gap-6">
 							<Link
@@ -89,21 +94,37 @@ export default function App() {
 								Your account
 							</Link>
 							<Link
-								to="/#pricing"
+								to={withFragment($path("/"), "pricing")}
 								className="text-sm font-medium hover:underline underline-offset-4"
 							>
 								Pricing
 							</Link>
+							<a
+								target="_blank"
+								href="https://docs.ryot.io"
+								rel="noopener noreferrer"
+								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
+							>
+								Documentation
+							</a>
+							<Link
+								to={withFragment($path("/"), "contact")}
+								className="text-sm font-medium hover:underline underline-offset-4"
+							>
+								Contact Us
+							</Link>
 							<Link
 								to={$path("/terms")}
-								className="text-sm font-medium hover:underline underline-offset-4"
+								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
 							>
 								Terms
 							</Link>
 						</nav>
 					</header>
 					<main className="flex-1">
-						<Outlet />
+						<HoneypotProvider {...loaderData.honeypotInputProps}>
+							<Outlet />
+						</HoneypotProvider>
 					</main>
 				</div>
 				<ScrollRestoration />

@@ -1,4 +1,5 @@
 import {
+	boolean,
 	date,
 	pgEnum,
 	pgTable,
@@ -30,4 +31,13 @@ export const customers = pgTable("customer", {
 	renewOn: date("renew_on"),
 	unkeyKeyId: text("unkey_key_id"),
 	ryotUserId: text("ryot_user_id"),
+});
+
+export const contactSubmissions = pgTable("contact_submission", {
+	id: uuid("id").defaultRandom().primaryKey(),
+	createdAt: timestamp("created_at").defaultNow().notNull(),
+	email: text("email").notNull(),
+	message: text("message").notNull(),
+	isSpam: boolean("is_spam"),
+	isAddressed: boolean("is_addressed"),
 });

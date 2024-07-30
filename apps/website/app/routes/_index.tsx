@@ -18,11 +18,13 @@ import duration from "dayjs/plugin/duration";
 import Autoplay from "embla-carousel-autoplay";
 import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
 import { $path } from "remix-routes";
+import { HoneypotInputs } from "remix-utils/honeypot/react";
+import { SpamError } from "remix-utils/honeypot/server";
 import { namedAction } from "remix-utils/named-action";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { customers } from "~/drizzle/schema.server";
+import { contactSubmissions, customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
 import {
@@ -38,10 +40,12 @@ import {
 	InputOTPGroup,
 	InputOTPSlot,
 } from "~/lib/components/ui/input-otp";
+import { Textarea } from "~/lib/components/ui/textarea";
 import {
 	authCookie,
 	db,
 	getUserIdFromCookie,
+	honeypot,
 	oauthClient,
 	prices,
 	sendEmail,
@@ -52,6 +56,7 @@ dayjs.extend(duration);
 
 const searchParamsSchema = z.object({
 	email: z.string().email().optional(),
+	contactSubmission: zx.BoolAsString.optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -74,7 +79,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { email } = processSubmission(formData, emailSchema);
 			const otpCode = randomString(6);
 			otpCodesCache.set(email, otpCode);
-			console.log(`OTP code for ${email}: ${otpCode}`);
+			console.log(`OTP code for ${email} is ${otpCode}`);
 			await sendEmail(
 				email,
 				LoginCodeEmail.subject,
@@ -106,17 +111,41 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const redirectUrl = client.authorizationUrl({ scope: "openid email" });
 			return redirect(redirectUrl);
 		},
+		contactSubmission: async () => {
+			let isSpam = false;
+			try {
+				honeypot.check(formData);
+			} catch (e) {
+				if (e instanceof SpamError) isSpam = true;
+			}
+			const submission = await zx.parseForm(request, contactSubmissionSchema);
+			await db
+				.insert(contactSubmissions)
+				.values({
+					isSpam: isSpam,
+					email: submission.email,
+					message: submission.message,
+				})
+				.execute();
+			return redirect(
+				withQuery(withFragment(".", "contact"), { contactSubmission: true }),
+			);
+		},
 	});
 });
 
-const emailSchema = z.object({
-	intent: z.string(),
-	email: z.string().email(),
-});
+const intentSchema = z.object({ intent: z.string() });
+
+const emailSchema = z.object({ email: z.string().email() }).merge(intentSchema);
 
 const registerSchema = z
 	.object({ otpCode: z.string().length(6) })
 	.merge(emailSchema);
+
+const contactSubmissionSchema = z.object({
+	email: z.string().email(),
+	message: z.string(),
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -376,14 +405,61 @@ export default function Page() {
 				</div>
 			</section>
 			<Pricing prices={loaderData.prices} isLoggedIn={loaderData.isLoggedIn} />
-			<section
-				id="community"
-				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
-			>
+			<section id="contact" className="w-full py-12 md:py-24 lg:py-32 bg-muted">
 				<div className="container px-4 md:px-6">
 					<div className="flex flex-col items-center justify-center space-y-4 text-center">
 						<div className="space-y-2">
 							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-white">
+								Contact Us
+							</div>
+							<h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+								Get in Touch
+							</h2>
+							<p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+								Have a question or need help with Ryot? Reach out to us and
+								we'll get back to you as soon as possible. Alternatively, join
+								the Discord community to chat with other users.
+							</p>
+						</div>
+					</div>
+					{loaderData.query.contactSubmission ? (
+						<p className="text-center text-lg text-primary mt-10">
+							Your message has been submitted. We'll get back to you soon!
+						</p>
+					) : (
+						<Form
+							method="POST"
+							className="flex flex-col items-center justify-center pt-12 gap-y-4 gap-x-4"
+						>
+							<input
+								type="hidden"
+								name="intent"
+								defaultValue="contactSubmission"
+							/>
+							<HoneypotInputs />
+							<Input
+								type="email"
+								name="email"
+								placeholder="Email"
+								className="max-w-lg"
+								required
+							/>
+							<Textarea
+								name="message"
+								placeholder="Type your message here"
+								className="max-w-lg"
+								required
+							/>
+							<Button type="submit">Submit</Button>
+						</Form>
+					)}
+				</div>
+			</section>
+			<section id="community" className="w-full py-12 md:py-24 lg:py-32">
+				<div className="container px-4 md:px-6">
+					<div className="flex flex-col items-center justify-center space-y-4 text-center">
+						<div className="space-y-2">
+							<div className="inline-block rounded-lg px-3 py-1 text-sm">
 								Open Source
 							</div>
 							<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">

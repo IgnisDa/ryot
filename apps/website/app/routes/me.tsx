@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { P, match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { withFragment, withQuery } from "ufo";
 import { customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
 import { Button } from "~/lib/components/ui/button";
@@ -37,7 +37,7 @@ import {
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userId = await getUserIdFromCookie(request);
 	const isLoggedIn = !!userId;
-	if (!isLoggedIn) return redirect($path("/"));
+	if (!isLoggedIn) return redirect(withFragment($path("/"), "start-here"));
 	const planDetails = await match(userId)
 		.with(P.string, async (userId) => {
 			const customer = await db.query.customers.findFirst({

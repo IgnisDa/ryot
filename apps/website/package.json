@@ -26,6 +26,7 @@
 		"@unkey/api": "0.23.0",
 		"class-variance-authority": "0.7.0",
 		"clsx": "2.1.1",
+		"crypto-js": "4.2.0",
 		"dayjs": "1.11.12",
 		"drizzle-orm": "0.32.1",
 		"embla-carousel-autoplay": "8.1.7",
@@ -56,6 +57,7 @@
 	"devDependencies": {
 		"@remix-run/dev": "2.10.3",
 		"@tailwindcss/typography": "0.5.13",
+		"@types/crypto-js": "^4",
 		"@types/lodash": "4.17.7",
 		"@types/nodemailer": "6",
 		"@types/react": "18.2.20",
