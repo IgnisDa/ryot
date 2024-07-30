@@ -707,6 +707,7 @@ export type Integration = {
 };
 
 export enum IntegrationLot {
+  Push = 'PUSH',
   Sink = 'SINK',
   Yank = 'YANK'
 }

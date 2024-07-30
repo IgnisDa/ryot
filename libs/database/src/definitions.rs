@@ -423,6 +423,7 @@ pub enum UserToMediaReason {
 pub enum IntegrationLot {
     Yank,
     Sink,
+    Push,
 }
 
 #[derive(
