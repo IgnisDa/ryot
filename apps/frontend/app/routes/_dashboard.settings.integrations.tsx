@@ -143,13 +143,21 @@ const MAXIMUM_PROGRESS = "95";
 
 const createSchema = z.object({
 	source: z.nativeEnum(IntegrationSource),
-	minimumProgress: z.string().default(MINIMUM_PROGRESS),
-	maximumProgress: z.string().default(MAXIMUM_PROGRESS),
+	minimumProgress: z.string().optional(),
+	maximumProgress: z.string().optional(),
 	sourceSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
+		})
+		.optional(),
+	destinationSpecifics: z
+		.object({
+			radarrBaseUrl: z.string().optional(),
+			radarrApiKey: z.string().optional(),
+			radarrProfileId: z.number().optional(),
+			radarrRootFolderPath: z.string().optional(),
 		})
 		.optional(),
 });
@@ -431,6 +439,31 @@ const CreateIntegrationModal = (props: {
 								<TextInput
 									label="Username"
 									name="sourceSpecifics.plexUsername"
+								/>
+							</>
+						))
+						.with(IntegrationSource.Radarr, () => (
+							<>
+								<TextInput
+									label="Base Url"
+									required
+									name="destinationSpecifics.radarrBaseUrl"
+								/>
+								<TextInput
+									label="Token"
+									required
+									name="destinationSpecifics.radarrApiKey"
+								/>
+								<NumberInput
+									label="Profile ID"
+									required
+									name="destinationSpecifics.radarrProfileId"
+									defaultValue={1}
+								/>
+								<TextInput
+									label="Root Folder"
+									required
+									name="destinationSpecifics.radarrRootFolderPath"
 								/>
 							</>
 						))
