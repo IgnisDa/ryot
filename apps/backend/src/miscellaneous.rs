@@ -6087,7 +6087,14 @@ impl MiscellaneousService {
                     bag.entry(ep).and_modify(|c| *c += 1);
                 });
             let values = bag.values().cloned().collect_vec();
-            let is_complete = values.iter().min() == values.iter().max();
+
+            let min_value = values.iter().min();
+            let max_value = values.iter().max();
+            let is_complete = match (min_value, max_value) {
+                (Some(min), Some(max)) => min == max && *min != 0,
+                _ => false,
+            };
+
             is_complete
         } else {
             seen_history.iter().any(|h| h.state == SeenState::Completed)
