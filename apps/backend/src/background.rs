@@ -47,6 +47,11 @@ pub async fn yank_integrations_data(
 ) -> Result<(), Error> {
     tracing::trace!("Getting data from yanked integrations for all users");
     misc_service.yank_integrations_data().await.unwrap();
+    tracing::trace!("Sending data for push integrations for all users");
+    misc_service
+        .send_data_for_push_integrations()
+        .await
+        .unwrap();
     Ok(())
 }
 
@@ -55,7 +60,7 @@ pub async fn yank_integrations_data(
 // The background jobs which cannot be throttled.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum CoreApplicationJob {
-    YankIntegrationsData(String),
+    SyncIntegrationsData(String),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 
@@ -71,10 +76,16 @@ pub async fn perform_core_application_job(
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();
     let status = match information {
-        CoreApplicationJob::YankIntegrationsData(user_id) => misc_service
-            .yank_integrations_data_for_user(&user_id)
-            .await
-            .is_ok(),
+        CoreApplicationJob::SyncIntegrationsData(user_id) => {
+            misc_service
+                .push_integrations_data_for_user(&user_id)
+                .await
+                .ok();
+            misc_service
+                .yank_integrations_data_for_user(&user_id)
+                .await
+                .is_ok()
+        }
         CoreApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
             .bulk_progress_update(user_id, input)
             .await

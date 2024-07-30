@@ -81,9 +81,9 @@ export enum BackgroundJob {
   EvaluateWorkouts = 'EVALUATE_WORKOUTS',
   PerformBackgroundTasks = 'PERFORM_BACKGROUND_TASKS',
   RecalculateCalendarEvents = 'RECALCULATE_CALENDAR_EVENTS',
+  SyncIntegrationsData = 'SYNC_INTEGRATIONS_DATA',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
-  UpdateAllMetadata = 'UPDATE_ALL_METADATA',
-  YankIntegrationsData = 'YANK_INTEGRATIONS_DATA'
+  UpdateAllMetadata = 'UPDATE_ALL_METADATA'
 }
 
 export type BookSpecifics = {

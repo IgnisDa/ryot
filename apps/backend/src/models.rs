@@ -115,7 +115,7 @@ pub enum BackgroundJob {
     UpdateAllMetadata,
     UpdateAllExercises,
     RecalculateCalendarEvents,
-    YankIntegrationsData,
+    SyncIntegrationsData,
     PerformBackgroundTasks,
 }
 

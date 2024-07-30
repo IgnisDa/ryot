@@ -2640,9 +2640,9 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
             }
-            BackgroundJob::YankIntegrationsData => {
+            BackgroundJob::SyncIntegrationsData => {
                 core_sqlite_storage
-                    .enqueue(CoreApplicationJob::YankIntegrationsData(user_id.to_owned()))
+                    .enqueue(CoreApplicationJob::SyncIntegrationsData(user_id.to_owned()))
                     .await
                     .unwrap();
             }
@@ -5823,6 +5823,25 @@ impl MiscellaneousService {
             tracing::debug!("Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
         }
+        Ok(())
+    }
+
+    pub async fn send_data_for_push_integrations(&self) -> Result<()> {
+        let users_with_integrations = Integration::find()
+            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
+            .select_only()
+            .column(integration::Column::UserId)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for user_id in users_with_integrations {
+            tracing::debug!("Pushing integrations data for user {}", user_id);
+            self.push_integrations_data_for_user(&user_id).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn push_integrations_data_for_user(&self, user_id: &String) -> Result<()> {
         Ok(())
     }
 
