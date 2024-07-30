@@ -41,7 +41,7 @@ pub async fn background_jobs(
     Ok(())
 }
 
-pub async fn yank_integrations_data(
+pub async fn sync_integrations_data(
     _information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
