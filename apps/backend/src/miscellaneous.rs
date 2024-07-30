@@ -5422,8 +5422,8 @@ impl MiscellaneousService {
                             }
                             preferences.general.dashboard = value;
                         }
-                        "disable_yank_integrations" => {
-                            preferences.general.disable_yank_integrations = value_bool.unwrap();
+                        "disable_integrations" => {
+                            preferences.general.disable_integrations = value_bool.unwrap();
                         }
                         "persist_queries" => {
                             preferences.general.persist_queries = value_bool.unwrap();
@@ -5737,7 +5737,7 @@ impl MiscellaneousService {
 
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
         let preferences = self.user_preferences(user_id).await?;
-        if preferences.general.disable_yank_integrations {
+        if preferences.general.disable_integrations {
             return Ok(false);
         }
         let integrations = Integration::find()

@@ -303,7 +303,7 @@ export default function Page() {
 								{(
 									[
 										"displayNsfw",
-										"disableYankIntegrations",
+										"disableIntegrations",
 										"disableNavigationAnimation",
 										"disableVideos",
 										"disableReviews",
@@ -320,8 +320,8 @@ export default function Page() {
 												() => "Whether NSFW will be displayed",
 											)
 											.with(
-												"disableYankIntegrations",
-												() => "Disable yank integrations",
+												"disableIntegrations",
+												() => "Disable all integrations",
 											)
 											.with(
 												"disableNavigationAnimation",

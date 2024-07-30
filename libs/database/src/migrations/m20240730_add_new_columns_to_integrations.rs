@@ -9,6 +9,13 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
             r#"
+UPDATE "user" SET preferences = JSONB_SET(preferences, '{general,disable_integrations}',
+preferences->'general'->'disable_yank_integrations', true);
+            "#,
+        )
+        .await?;
+        db.execute_unprepared(
+            r#"
 ALTER TABLE "integration" ALTER COLUMN "minimum_progress" DROP NOT NULL;
 ALTER TABLE "integration" ALTER COLUMN "maximum_progress" DROP NOT NULL;
 ALTER TABLE "integration" ADD COLUMN IF NOT EXISTS "destination_specifics" jsonb;
