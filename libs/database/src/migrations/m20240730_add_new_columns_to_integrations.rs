@@ -11,6 +11,7 @@ impl MigrationTrait for Migration {
             r#"
 ALTER TABLE "integration" ALTER COLUMN "minimum_progress" DROP NOT NULL;
 ALTER TABLE "integration" ALTER COLUMN "maximum_progress" DROP NOT NULL;
+ALTER TABLE "integration" ADD COLUMN IF NOT EXISTS "destination_specifics" jsonb;
             "#,
         )
         .await?;

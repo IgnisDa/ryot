@@ -14,6 +14,7 @@ pub enum Integration {
     CreatedOn,
     LastTriggeredOn,
     SourceSpecifics,
+    DestinationSpecifics,
     UserId,
     MinimumProgress,
     MaximumProgress,
@@ -47,6 +48,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Integration::MinimumProgress).decimal())
                     .col(ColumnDef::new(Integration::MaximumProgress).decimal())
                     .col(ColumnDef::new(Integration::IsDisabled).boolean())
+                    .col(ColumnDef::new(Integration::DestinationSpecifics).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("integration_to_user_foreign_key")
