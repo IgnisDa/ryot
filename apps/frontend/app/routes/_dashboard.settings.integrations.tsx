@@ -467,14 +467,18 @@ const UpdateIntegrationModal = (props: {
 							label="Minimum progress"
 							description="Progress will not be synced below this value"
 							name="minimumProgress"
-							defaultValue={props.updateIntegrationData?.minimumProgress}
+							defaultValue={
+								props.updateIntegrationData?.minimumProgress || undefined
+							}
 						/>
 						<NumberInput
 							size="xs"
 							label="Maximum progress"
 							description="After this value, progress will be marked as completed"
 							name="maximumProgress"
-							defaultValue={props.updateIntegrationData?.maximumProgress}
+							defaultValue={
+								props.updateIntegrationData?.maximumProgress || undefined
+							}
 						/>
 					</Group>
 					<Checkbox
