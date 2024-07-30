@@ -517,4 +517,15 @@ impl IntegrationService {
         }
         Ok((media_items, vec![]))
     }
+
+    pub async fn radarr_push(
+        &self,
+        radarr_base_url: String,
+        radarr_api_key: String,
+        radarr_profile_id: i32,
+        radarr_root_folder_path: String,
+        radarr_sync_collection_ids: Vec<String>,
+    ) -> Result<bool> {
+        Ok(true)
+    }
 }

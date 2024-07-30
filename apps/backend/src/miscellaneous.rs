@@ -5841,8 +5841,45 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn push_integrations_data_for_user(&self, user_id: &String) -> Result<()> {
-        Ok(())
+    pub async fn push_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
+        let preferences = self.user_preferences(user_id).await?;
+        if preferences.general.disable_integrations {
+            return Ok(false);
+        }
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        let mut to_update_integrations = vec![];
+        for integration in integrations.into_iter() {
+            let was_updated = match integration.source {
+                IntegrationSource::Radarr => {
+                    let specifics = integration.clone().destination_specifics.unwrap();
+                    self.get_integration_service()
+                        .radarr_push(
+                            specifics.radarr_base_url.unwrap(),
+                            specifics.radarr_api_key.unwrap(),
+                            specifics.radarr_profile_id.unwrap(),
+                            specifics.radarr_root_folder_path.unwrap(),
+                            specifics.radarr_sync_collection_ids.unwrap(),
+                        )
+                        .await
+                }
+                _ => continue,
+            };
+            if let Ok(true)= was_updated {
+                to_update_integrations.push(integration.id.clone());
+            }
+        }
+        Integration::update_many()
+            .filter(integration::Column::Id.is_in(to_update_integrations))
+            .col_expr(
+                integration::Column::LastTriggeredOn,
+                Expr::value(Utc::now()),
+            )
+            .exec(&self.db)
+            .await?;
+        Ok(true)
     }
 
     async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
