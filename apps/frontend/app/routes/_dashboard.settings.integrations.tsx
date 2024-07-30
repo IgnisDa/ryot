@@ -56,7 +56,6 @@ import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
 const PUSH_INTEGRATIONS = [IntegrationSource.Radarr];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
-const NO_EDITING_ALLOWED = PUSH_INTEGRATIONS;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -319,17 +318,15 @@ const DisplayIntegration = (props: {
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
 						) : null}
-						{!NO_EDITING_ALLOWED.includes(props.integration.source) ? (
-							<ActionIcon
-								color="indigo"
-								variant="subtle"
-								onClick={() =>
-									props.setUpdateIntegrationModalData(props.integration)
-								}
-							>
-								<IconPencil />
-							</ActionIcon>
-						) : null}
+						<ActionIcon
+							color="indigo"
+							variant="subtle"
+							onClick={() =>
+								props.setUpdateIntegrationModalData(props.integration)
+							}
+						>
+							<IconPencil />
+						</ActionIcon>
 						<Form method="POST" action={withQuery("", { intent: "delete" })}>
 							<input
 								type="hidden"
@@ -499,48 +496,52 @@ const UpdateIntegrationModal = (props: {
 			centered
 			withCloseButton={false}
 		>
-			<Form
-				replace
-				method="POST"
-				onSubmit={() => props.closeIntegrationModal()}
-				action={withQuery("", { intent: "update" })}
-			>
-				<input
-					type="hidden"
-					name="integrationId"
-					defaultValue={props.updateIntegrationData?.id}
-				/>
-				<Stack>
-					<Group wrap="nowrap">
-						<NumberInput
-							size="xs"
-							label="Minimum progress"
-							description="Progress will not be synced below this value"
-							name="minimumProgress"
-							defaultValue={
-								props.updateIntegrationData?.minimumProgress || undefined
-							}
-						/>
-						<NumberInput
-							size="xs"
-							label="Maximum progress"
-							description="After this value, progress will be marked as completed"
-							name="maximumProgress"
-							defaultValue={
-								props.updateIntegrationData?.maximumProgress || undefined
-							}
-						/>
-					</Group>
-					<Checkbox
-						name="isDisabled"
-						label="Pause integration"
-						defaultChecked={
-							props.updateIntegrationData?.isDisabled || undefined
-						}
+			{props.updateIntegrationData ? (
+				<Form
+					replace
+					method="POST"
+					onSubmit={() => props.closeIntegrationModal()}
+					action={withQuery("", { intent: "update" })}
+				>
+					<input
+						type="hidden"
+						name="integrationId"
+						defaultValue={props.updateIntegrationData.id}
 					/>
-					<Button type="submit">Submit</Button>
-				</Stack>
-			</Form>
+					<Stack>
+						{!PUSH_INTEGRATIONS.includes(props.updateIntegrationData.source) ? (
+							<Group wrap="nowrap">
+								<NumberInput
+									size="xs"
+									label="Minimum progress"
+									description="Progress will not be synced below this value"
+									name="minimumProgress"
+									defaultValue={
+										props.updateIntegrationData.minimumProgress || undefined
+									}
+								/>
+								<NumberInput
+									size="xs"
+									label="Maximum progress"
+									description="After this value, progress will be marked as completed"
+									name="maximumProgress"
+									defaultValue={
+										props.updateIntegrationData.maximumProgress || undefined
+									}
+								/>
+							</Group>
+						) : null}
+						<Checkbox
+							name="isDisabled"
+							label="Pause integration"
+							defaultChecked={
+								props.updateIntegrationData.isDisabled || undefined
+							}
+						/>
+						<Button type="submit">Submit</Button>
+					</Stack>
+				</Form>
+			) : null}
 		</Modal>
 	);
 };
