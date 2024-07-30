@@ -150,8 +150,8 @@ struct CreateCustomMetadataInput {
 struct CreateUserIntegrationInput {
     source: IntegrationSource,
     source_specifics: Option<IntegrationSourceSpecifics>,
-    minimum_progress: Decimal,
-    maximum_progress: Decimal,
+    minimum_progress: Option<Decimal>,
+    maximum_progress: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -5520,10 +5520,10 @@ impl MiscellaneousService {
         }
         let mut db_integration: integration::ActiveModel = db_integration.into();
         if let Some(s) = input.minimum_progress {
-            db_integration.minimum_progress = ActiveValue::Set(s);
+            db_integration.minimum_progress = ActiveValue::Set(Some(s));
         }
         if let Some(s) = input.maximum_progress {
-            db_integration.maximum_progress = ActiveValue::Set(s);
+            db_integration.maximum_progress = ActiveValue::Set(Some(s));
         }
         if let Some(d) = input.is_disabled {
             db_integration.is_disabled = ActiveValue::Set(Some(d));
@@ -5913,10 +5913,10 @@ impl MiscellaneousService {
         pu: IntegrationMediaSeen,
         user_id: &String,
     ) -> Result<()> {
-        if pu.progress < integration.minimum_progress {
+        if pu.progress < integration.minimum_progress.unwrap() {
             return Ok(());
         }
-        let progress = if pu.progress > integration.maximum_progress {
+        let progress = if pu.progress > integration.maximum_progress.unwrap() {
             dec!(100)
         } else {
             pu.progress

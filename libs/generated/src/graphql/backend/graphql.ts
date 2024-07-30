@@ -246,8 +246,8 @@ export type CreateReviewCommentInput = {
 };
 
 export type CreateUserIntegrationInput = {
-  maximumProgress: Scalars['Decimal']['input'];
-  minimumProgress: Scalars['Decimal']['input'];
+  maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   source: IntegrationSource;
   sourceSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
 };
@@ -700,8 +700,8 @@ export type Integration = {
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
   lastTriggeredOn?: Maybe<Scalars['DateTime']['output']>;
   lot: IntegrationLot;
-  maximumProgress: Scalars['Decimal']['output'];
-  minimumProgress: Scalars['Decimal']['output'];
+  maximumProgress?: Maybe<Scalars['Decimal']['output']>;
+  minimumProgress?: Maybe<Scalars['Decimal']['output']>;
   source: IntegrationSource;
   sourceSpecifics?: Maybe<IntegrationSourceSpecifics>;
 };
@@ -2956,7 +2956,7 @@ export type UserCollectionsListQuery = { userCollectionsList: Array<{ id: string
 export type UserIntegrationsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserIntegrationsQuery = { userIntegrations: Array<{ id: string, lot: IntegrationLot, source: IntegrationSource, createdOn: string, isDisabled?: boolean | null, maximumProgress: string, minimumProgress: string, lastTriggeredOn?: string | null }> };
+export type UserIntegrationsQuery = { userIntegrations: Array<{ id: string, lot: IntegrationLot, source: IntegrationSource, createdOn: string, isDisabled?: boolean | null, maximumProgress?: string | null, minimumProgress?: string | null, lastTriggeredOn?: string | null }> };
 
 export type UserNotificationPlatformsQueryVariables = Exact<{ [key: string]: never; }>;
 
