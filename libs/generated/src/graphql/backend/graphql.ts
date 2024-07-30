@@ -711,6 +711,7 @@ export type IntegrationDestinationSpecificsInput = {
   radarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   radarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
+  radarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export enum IntegrationLot {

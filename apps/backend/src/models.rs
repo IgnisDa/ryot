@@ -1313,6 +1313,7 @@ pub mod media {
         pub radarr_api_key: Option<String>,
         pub radarr_profile_id: Option<i32>,
         pub radarr_root_folder_path: Option<String>,
+        pub radarr_sync_collection_ids: Option<Vec<String>>,
     }
 }
 
