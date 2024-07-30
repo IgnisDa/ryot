@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Modal,
+	MultiSelect,
 	NumberInput,
 	Paper,
 	Select,
@@ -49,7 +50,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
-import { useConfirmSubmit } from "~/lib/hooks";
+import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
@@ -158,6 +159,7 @@ const createSchema = z.object({
 			radarrApiKey: z.string().optional(),
 			radarrProfileId: z.number().optional(),
 			radarrRootFolderPath: z.string().optional(),
+			radarrSyncCollectionIds: z.string().transform((v) => v.split(",")),
 		})
 		.optional(),
 });
@@ -369,6 +371,7 @@ const CreateIntegrationModal = (props: {
 	createModalOpened: boolean;
 	closeIntegrationModal: () => void;
 }) => {
+	const collections = useUserCollections();
 	const [source, setSource] = useState<IntegrationSource | null>(null);
 
 	return (
@@ -464,6 +467,15 @@ const CreateIntegrationModal = (props: {
 									label="Root Folder"
 									required
 									name="destinationSpecifics.radarrRootFolderPath"
+								/>
+								<MultiSelect
+									label="Collections"
+									required
+									name="destinationSpecifics.radarrSyncCollectionIds"
+									data={collections.map((c) => ({
+										label: c.name,
+										value: c.id,
+									}))}
 								/>
 							</>
 						))
