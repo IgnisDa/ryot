@@ -29,6 +29,8 @@ import {
 	Carousel,
 	CarouselContent,
 	CarouselItem,
+	CarouselNext,
+	CarouselPrevious,
 } from "~/lib/components/ui/carousel";
 import { Input } from "~/lib/components/ui/input";
 import {
@@ -72,6 +74,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const { email } = processSubmission(formData, emailSchema);
 			const otpCode = randomString(6);
 			otpCodesCache.set(email, otpCode);
+			console.log(`OTP code for ${email}: ${otpCode}`);
 			await sendEmail(
 				email,
 				LoginCodeEmail.subject,
@@ -205,30 +208,35 @@ export default function Page() {
 							<h1 className="lg:leading-tighter text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl xl:text-[3.4rem] 2xl:text-[3.75rem]">
 								Focus on What Matters
 							</h1>
-							<p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-								You can selectively enable or disable the facets you want to
-								track. Spend less time learning the platform and more time
-								tracking what matters to you. Get started in minutes.
-							</p>
 						</div>
 					</div>
-					<Carousel plugins={[Autoplay({ delay: 2000 })]}>
+					<Carousel plugins={[Autoplay({ delay: 5000 })]}>
 						<CarouselContent>
-							<CarouselItem>
-								<Image
-									src="/group.png"
-									alt="Grouped images"
-									className="hidden md:block md:max-w-3xl lg:max-w-4xl xl:max-w-6xl"
-								/>
-								<Image
-									src="/desktop.png"
-									alt="Movies list page"
-									className="md:hidden"
-								/>
-							</CarouselItem>
+							{showCarouselContents.map((carousel) => (
+								<CarouselItem key={carousel.text}>
+									<p className="mx-auto max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+										{carousel.text}
+									</p>
+									<Image
+										src={carousel.image}
+										alt={carousel.alt}
+										className={cn(
+											carousel.smallImage && "hidden md:block",
+											"max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl",
+										)}
+									/>
+									{carousel.smallImage ? (
+										<Image
+											src={carousel.smallImage}
+											alt={carousel.alt}
+											className="md:hidden"
+										/>
+									) : null}
+								</CarouselItem>
+							))}
 						</CarouselContent>
-						{/* <CarouselPrevious />
-						<CarouselNext /> */}
+						<CarouselPrevious className="invisible md:visible" />
+						<CarouselNext className="invisible md:visible" />
 					</Carousel>
 				</div>
 			</section>
@@ -465,3 +473,22 @@ const Image = ({ src, alt, className }: ImageProps) => (
 		)}
 	/>
 );
+
+const showCarouselContents = [
+	{
+		text: "You can selectively enable or disable the facets you want to track. Spend less time learning the platform and more time tracking what matters to you. Get started in minutes.",
+		image: "/group.png",
+		smallImage: "/desktop.png",
+		alt: "Grouped images",
+	},
+	{
+		text: "Share your profile data with friends and family without compromising your privacy. Ryot allows you to create access links with limited access so that others can view your favorite movies without logging in.",
+		image: "/sharing.png",
+		alt: "Sharing images",
+	},
+	{
+		text: "Browse your favorite genres and get recommendations based on your preferences. Ryot uses advanced algorithms to suggest movies, shows, and books you might like.",
+		image: "/genres.png",
+		alt: "Genres images",
+	},
+];
