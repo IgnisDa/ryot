@@ -53,7 +53,8 @@ import { useConfirmSubmit } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
-const NO_EDITING_ALLOWED = [IntegrationSource.Radarr];
+const PUSH_INTEGRATIONS = [IntegrationSource.Radarr];
+const NO_EDITING_ALLOWED = PUSH_INTEGRATIONS;
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -386,7 +387,7 @@ const CreateIntegrationModal = (props: {
 						}))}
 						onChange={(e) => setSource(e as IntegrationSource)}
 					/>
-					{source ? (
+					{source && !PUSH_INTEGRATIONS.includes(source) ? (
 						<Group wrap="nowrap">
 							<NumberInput
 								size="xs"
