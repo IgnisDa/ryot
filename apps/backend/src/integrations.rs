@@ -553,4 +553,15 @@ impl IntegrationService {
             .trace_ok();
         Ok(true)
     }
+
+    pub async fn sonarr_push(
+        &self,
+        sonarr_base_url: String,
+        sonarr_api_key: String,
+        sonarr_profile_id: i32,
+        sonarr_root_folder_path: String,
+        tmdb_id: String,
+    ) -> Result<bool> {
+        Ok(true)
+    }
 }
