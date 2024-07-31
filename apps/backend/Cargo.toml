@@ -77,6 +77,7 @@ serde_json = { workspace = true }
 serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }
 serde-xml-rs = "=0.6.0"
 slug = "=0.1.5"
+sonarr-api-rs = "=3.0.0"
 strum = { workspace = true }
 struson = { version = "=0.5.0", features = ["serde"] }
 tokio = { version = "=1.38.1", features = ["full"] }
