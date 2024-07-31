@@ -151,7 +151,7 @@ impl MangaUpdatesService {
         let first_part = input.split("<BR>").next().unwrap_or("").trim();
         let parts: Vec<&str> = first_part.split_whitespace().collect();
 
-        let volumes = parts.get(0).and_then(|s| s.parse::<i32>().ok());
+        let volumes = parts.first().and_then(|s| s.parse::<i32>().ok());
         let status = parts.get(2).and_then(|&s| {
             if s.starts_with('(') && s.ends_with(')') {
                 Some(s[1..s.len() - 1].to_string())
