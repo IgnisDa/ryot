@@ -44,6 +44,13 @@ movies that have a valid TMDb ID attached to their metadata.
 1. Obtain your Radarr API key by going to the Radarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
+### Sonarr
+
+Automatically add shows in the selected collections to Sonarr.
+
+1. Obtain your Sonarr API key by going to the Sonarr general settings page.
+2. Fill the inputs in the integration settings page with the correct details.
+
 ## Sink integrations
 
 All webhook URLs follow this format:
