@@ -42,6 +42,12 @@ ALTER TABLE "collection_to_entity" ADD COLUMN IF NOT EXISTS "system_information"
             "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+UPDATE "user_to_entity" SET "needs_to_be_updated" = TRUE WHERE 'finished' = ANY("media_reason");
+            "#,
+        )
+        .await?;
         Ok(())
     }
 
