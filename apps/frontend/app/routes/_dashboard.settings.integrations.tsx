@@ -54,7 +54,10 @@ import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [IntegrationProvider.Audiobookshelf];
-const PUSH_INTEGRATIONS = [IntegrationProvider.Radarr];
+const PUSH_INTEGRATIONS = [
+	IntegrationProvider.Radarr,
+	IntegrationProvider.Sonarr,
+];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -142,6 +145,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
+const commaDelimitedString = z.string().transform((v) => v.split(","));
+
 const createSchema = z.object({
 	provider: z.nativeEnum(IntegrationProvider),
 	minimumProgress: z.string().optional(),
@@ -155,7 +160,12 @@ const createSchema = z.object({
 			radarrApiKey: z.string().optional(),
 			radarrProfileId: z.number().optional(),
 			radarrRootFolderPath: z.string().optional(),
-			radarrSyncCollectionIds: z.string().transform((v) => v.split(",")),
+			radarrSyncCollectionIds: commaDelimitedString,
+			sonarrBaseUrl: z.string().optional(),
+			sonarrApiKey: z.string().optional(),
+			sonarrProfileId: z.number().optional(),
+			sonarrRootFolderPath: z.string().optional(),
+			sonarrSyncCollectionIds: commaDelimitedString,
 		})
 		.optional(),
 });
