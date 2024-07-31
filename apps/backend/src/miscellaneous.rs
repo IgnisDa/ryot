@@ -3003,6 +3003,7 @@ impl MiscellaneousService {
         meta.book_specifics = ActiveValue::Set(input.book_specifics);
         meta.video_game_specifics = ActiveValue::Set(input.video_game_specifics);
         meta.visual_novel_specifics = ActiveValue::Set(input.visual_novel_specifics);
+        meta.external_ids = ActiveValue::Set(input.external_ids);
         let metadata = meta.update(&self.db).await.unwrap();
 
         self.change_metadata_associations(
@@ -3224,6 +3225,7 @@ impl MiscellaneousService {
             provider_rating: ActiveValue::Set(details.provider_rating),
             production_status: ActiveValue::Set(details.production_status),
             original_language: ActiveValue::Set(details.original_language),
+            external_ids: ActiveValue::Set(details.external_ids),
             is_nsfw: ActiveValue::Set(details.is_nsfw),
             is_partial: ActiveValue::Set(is_partial),
             free_creators: ActiveValue::Set(if details.creators.is_empty() {

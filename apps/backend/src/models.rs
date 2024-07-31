@@ -886,6 +886,21 @@ pub mod media {
         pub languages: HashSet<String>,
     }
 
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        FromJsonQueryResult,
+        Eq,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Default,
+    )]
+    pub struct ExternalIds {
+        pub tvdb_id: Option<i32>,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -910,6 +925,7 @@ pub mod media {
         pub watch_providers: Vec<WatchProvider>,
         pub audio_book_specifics: Option<AudioBookSpecifics>,
         pub book_specifics: Option<BookSpecifics>,
+        pub external_ids: Option<ExternalIds>,
         pub movie_specifics: Option<MovieSpecifics>,
         pub podcast_specifics: Option<PodcastSpecifics>,
         pub show_specifics: Option<ShowSpecifics>,
