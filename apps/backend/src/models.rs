@@ -897,7 +897,7 @@ pub mod media {
         SimpleObject,
         Default,
     )]
-    pub struct ExternalIds {
+    pub struct ExternalIdentifiers {
         pub tvdb_id: Option<i32>,
     }
 
@@ -925,7 +925,7 @@ pub mod media {
         pub watch_providers: Vec<WatchProvider>,
         pub audio_book_specifics: Option<AudioBookSpecifics>,
         pub book_specifics: Option<BookSpecifics>,
-        pub external_ids: Option<ExternalIds>,
+        pub external_identifiers: Option<ExternalIdentifiers>,
         pub movie_specifics: Option<MovieSpecifics>,
         pub podcast_specifics: Option<PodcastSpecifics>,
         pub show_specifics: Option<ShowSpecifics>,
