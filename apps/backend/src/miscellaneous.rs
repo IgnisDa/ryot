@@ -5854,7 +5854,7 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         #[allow(clippy::too_many_arguments)]
-        async fn push_data_to_service<F>(
+        async fn push_data_to_arr_service<F>(
             db: &DatabaseConnection,
             integration: integration::Model,
             lot: MediaLot,
@@ -5883,15 +5883,15 @@ impl MiscellaneousService {
                     .unwrap_or_default()
                     .contains(&integration.id)
                 {
-                    tracing::debug!("{} {} already synced", lot, metadata.title);
+                    tracing::debug!("{} {} is already synced", lot, metadata.title);
                     continue;
                 }
                 if let Some(entity_identifier) = get_identifier(metadata) {
                     perform_push(entity_identifier, specifics.clone())
                         .await
                         .ok();
+                    cte_to_update.push(cte.id);
                 }
-                cte_to_update.push(cte.id);
             }
             CollectionToEntity::update_many()
                         .filter(collection_to_entity::Column::Id.is_in(cte_to_update))
@@ -5915,7 +5915,7 @@ impl MiscellaneousService {
             let id = integration.id.clone();
             match integration.provider {
                 IntegrationProvider::Radarr => {
-                    push_data_to_service(
+                    push_data_to_arr_service(
                         &self.db,
                         integration,
                         MediaLot::Movie,
@@ -5937,7 +5937,7 @@ impl MiscellaneousService {
                     .ok();
                 }
                 IntegrationProvider::Sonarr => {
-                    push_data_to_service(
+                    push_data_to_arr_service(
                         &self.db,
                         integration,
                         MediaLot::Show,
