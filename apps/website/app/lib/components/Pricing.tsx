@@ -18,6 +18,7 @@ export default function Pricing(props: {
 	onClick?: (priceId: string) => void;
 }) {
 	const [selectedProductTypeIndex, setSelectedProductTypeIndex] = useState(0);
+	const selectedProductType = props.prices[selectedProductTypeIndex];
 
 	return (
 		<section id="pricing" className="w-full py-12 md:py-24 lg:py-32">
@@ -51,11 +52,20 @@ export default function Pricing(props: {
 					<p className="text-center">
 						You have chosen:{" "}
 						<span className="underline">
-							{changeCase(props.prices[selectedProductTypeIndex].type)}
+							{changeCase(selectedProductType.type)}
 						</span>
+						.{" "}
+						{selectedProductType.type === "self_hosted" ? (
+							<Link
+								to={$path("/comparison-to-community")}
+								className="text-blue-400 underline"
+							>
+								See differences.
+							</Link>
+						) : null}
 					</p>
 					<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 md:gap-12 lg:max-w-5xl lg:grid-cols-3 text-center">
-						{props.prices[selectedProductTypeIndex].prices.map((p) => (
+						{selectedProductType.prices.map((p) => (
 							<div className="grid gap-y-3 border rounded-xl py-3" key={p.name}>
 								<p className="text-3xl">{changeCase(p.name)}</p>
 								<p className="text-xl font-bold text-muted-foreground">
