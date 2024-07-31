@@ -5,6 +5,7 @@ types:
 
 - _Yank_: Progress data is downloaded from an externally running server at a periodic
   interval.
+- _Push_: Ryot sends data to an external service.
 - _Sink_: An external client publishes progress updates to the Ryot server.
 
 ## Yank integrations
@@ -30,6 +31,18 @@ have an Audible ID or ITunes ID or ISBN.
    [authentication](https://api.audiobookshelf.org/#authentication) docs.
 2. Go to your Ryot user settings and add the correct details as described in the
    [yank](#yank-integrations) section.
+
+## Push integrations
+
+Follow the same instructions as the [yank](#yank-integrations) integrations to add.
+
+### Radarr
+
+Automatically add media in the selected collections to Radarr. This will work for all
+movies that have a valid TMDb ID attached to their metadata.
+
+1. Obtain your Radarr API key by going to the Radarr general settings page.
+2. Fill the inputs in the integration settings page with the correct details.
 
 ## Sink integrations
 
