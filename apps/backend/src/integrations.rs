@@ -533,7 +533,7 @@ impl IntegrationService {
         radarr_profile_id: i32,
         radarr_root_folder_path: String,
         tmdb_id: String,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let mut configuration = RadarrConfiguration::new();
         configuration.base_path = radarr_base_url;
         configuration.api_key = Some(RadarrApiKey {
@@ -551,7 +551,7 @@ impl IntegrationService {
         radarr_api_v3_movie_post(&configuration, Some(resource))
             .await
             .trace_ok();
-        Ok(true)
+        Ok(())
     }
 
     pub async fn sonarr_push(
@@ -561,7 +561,7 @@ impl IntegrationService {
         sonarr_profile_id: i32,
         sonarr_root_folder_path: String,
         tmdb_id: String,
-    ) -> Result<bool> {
-        Ok(true)
+    ) -> Result<()> {
+        Ok(())
     }
 }

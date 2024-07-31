@@ -1,12 +1,14 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
+    future::Future,
     iter::zip,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
 
+use anyhow::Result as AnyhowResult;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
@@ -5850,62 +5852,89 @@ impl MiscellaneousService {
             .filter(integration::Column::UserId.eq(user_id))
             .all(&self.db)
             .await?;
-        let mut to_update_integrations = vec![];
-        for integration in integrations.into_iter() {
-            match integration.provider {
-                IntegrationProvider::Radarr => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
-                    let tmdb_ids_to_add = CollectionToEntity::find()
-                        .filter(metadata::Column::Lot.eq(MediaLot::Movie))
-                        .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-                        .filter(
-                            collection_to_entity::Column::CollectionId
-                                .is_in(specifics.radarr_sync_collection_ids.unwrap()),
-                        )
-                        .select_only()
-                        .column(collection_to_entity::Column::Id)
-                        .column(collection_to_entity::Column::SystemInformation)
-                        .column(metadata::Column::Identifier)
-                        .left_join(Metadata)
-                        .into_tuple::<(Uuid, CollectionToEntitySystemInformation, String)>()
-                        .all(&self.db)
-                        .await?;
-                    let mut cte_to_update = vec![];
-                    for (cte_id, information, movie_tmdb_id) in tmdb_ids_to_add {
-                        if information
-                            .radarr_synced
-                            .unwrap_or_default()
-                            .contains(&integration.id)
-                        {
-                            tracing::debug!("Movie {} already synced", movie_tmdb_id);
-                            continue;
-                        }
-                        self.get_integration_service()
-                            .radarr_push(
-                                specifics.radarr_base_url.clone().unwrap(),
-                                specifics.radarr_api_key.clone().unwrap(),
-                                specifics.radarr_profile_id.unwrap(),
-                                specifics.radarr_root_folder_path.clone().unwrap(),
-                                movie_tmdb_id,
-                            )
-                            .await
-                            .ok();
-                        cte_to_update.push(cte_id);
-                    }
-                    CollectionToEntity::update_many()
+        async fn internal_fn<F>(
+            db: &DatabaseConnection,
+            integration: integration::Model,
+            lot: MediaLot,
+            get_collection_ids: impl Fn(IntegrationProviderSpecifics) -> Vec<String>,
+            skip_in: impl Fn(CollectionToEntitySystemInformation) -> Option<Vec<String>>,
+            perform_push: impl Fn(String, IntegrationProviderSpecifics) -> F,
+            column_name: &str,
+        ) -> Result<()>
+        where
+            F: Future<Output = AnyhowResult<()>>,
+        {
+            let specifics = integration.provider_specifics.unwrap();
+            let collection_ids = get_collection_ids(specifics.clone());
+            let tmdb_ids_to_add = CollectionToEntity::find()
+                .filter(metadata::Column::Lot.eq(lot))
+                .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
+                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
+                .select_only()
+                .column(collection_to_entity::Column::Id)
+                .column(collection_to_entity::Column::SystemInformation)
+                .column(metadata::Column::Identifier)
+                .left_join(Metadata)
+                .into_tuple::<(Uuid, CollectionToEntitySystemInformation, String)>()
+                .all(db)
+                .await?;
+            let mut cte_to_update = vec![];
+            for (cte_id, information, entity_tmdb_id) in tmdb_ids_to_add {
+                if skip_in(information)
+                    .unwrap_or_default()
+                    .contains(&integration.id)
+                {
+                    tracing::debug!("{} {} already synced", lot, entity_tmdb_id);
+                    continue;
+                }
+                perform_push(entity_tmdb_id, specifics.clone()).await.ok();
+                cte_to_update.push(cte_id);
+            }
+            CollectionToEntity::update_many()
                         .filter(collection_to_entity::Column::Id.is_in(cte_to_update))
                         .col_expr(
                             collection_to_entity::Column::SystemInformation,
                             Expr::cust(
-                                format!(r#"JSONB_SET(system_information, '{{radarr_synced}}', COALESCE(system_information->'radarr_synced','[]'::JSONB) || '["{}"]'::JSONB)"#, &integration.id)
+                                format!(
+                                    r#"JSONB_SET(system_information, '{{{col}}}', COALESCE(system_information->'{col}','[]'::JSONB) || '["{id}"]'::JSONB)"#,
+                                    col = column_name,
+                                    id = &integration.id
+                                )
                             ),
                         )
-                        .exec(&self.db)
+                        .exec(db)
                         .await?;
+            Ok(())
+        }
+        let mut to_update_integrations = vec![];
+        let integration_service = self.get_integration_service();
+        for integration in integrations.into_iter() {
+            let id = integration.id.clone();
+            match integration.provider {
+                IntegrationProvider::Radarr => {
+                    internal_fn(
+                        &self.db,
+                        integration,
+                        MediaLot::Movie,
+                        |specifics| specifics.radarr_sync_collection_ids.unwrap(),
+                        |info| info.radarr_synced,
+                        |entity_tmdb_id, specifics| {
+                            integration_service.radarr_push(
+                                specifics.radarr_base_url.unwrap(),
+                                specifics.radarr_api_key.unwrap(),
+                                specifics.radarr_profile_id.unwrap(),
+                                specifics.radarr_root_folder_path.unwrap(),
+                                entity_tmdb_id,
+                            )
+                        },
+                        "radarr_synced",
+                    )
+                    .await
+                    .ok();
                 }
                 _ => continue,
             };
-            to_update_integrations.push(integration.id.clone());
+            to_update_integrations.push(id);
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
