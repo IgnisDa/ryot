@@ -17,7 +17,7 @@ use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationSource,
+    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationProvider,
     MediaLot, MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
     UserToMediaReason, Visibility,
 };
@@ -78,8 +78,8 @@ use crate::{
             CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, IntegrationDestinationSpecifics, IntegrationSourceSpecifics,
-            MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
+            ImportOrExportPersonItem, IntegrationProviderSpecifics, MangaSpecifics,
+            MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
             MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
             MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
             MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
@@ -150,9 +150,8 @@ struct CreateCustomMetadataInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserIntegrationInput {
-    source: IntegrationSource,
-    source_specifics: Option<IntegrationSourceSpecifics>,
-    destination_specifics: Option<IntegrationDestinationSpecifics>,
+    provider: IntegrationProvider,
+    provider_specifics: Option<IntegrationProviderSpecifics>,
     minimum_progress: Option<Decimal>,
     maximum_progress: Option<Decimal>,
 }
@@ -5487,19 +5486,18 @@ impl MiscellaneousService {
                 "Minimum progress cannot be greater than maximum progress",
             ));
         }
-        let lot = match input.source {
-            IntegrationSource::Audiobookshelf => IntegrationLot::Yank,
-            IntegrationSource::Radarr => IntegrationLot::Push,
+        let lot = match input.provider {
+            IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
+            IntegrationProvider::Radarr => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
         let to_insert = integration::ActiveModel {
             lot: ActiveValue::Set(lot),
             user_id: ActiveValue::Set(user_id),
-            source: ActiveValue::Set(input.source),
-            source_specifics: ActiveValue::Set(input.source_specifics),
+            provider: ActiveValue::Set(input.provider),
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
-            destination_specifics: ActiveValue::Set(input.destination_specifics),
+            provider_specifics: ActiveValue::Set(input.provider_specifics),
             ..Default::default()
         };
         let integration = to_insert.insert(&self.db).await?;
@@ -5754,9 +5752,9 @@ impl MiscellaneousService {
                 tracing::debug!("Integration {} is disabled", integration.id);
                 continue;
             }
-            let response = match integration.source {
-                IntegrationSource::Audiobookshelf => {
-                    let specifics = integration.clone().source_specifics.unwrap();
+            let response = match integration.provider {
+                IntegrationProvider::Audiobookshelf => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
                     self.get_integration_service()
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
@@ -5854,9 +5852,9 @@ impl MiscellaneousService {
             .await?;
         let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
-            match integration.source {
-                IntegrationSource::Radarr => {
-                    let specifics = integration.clone().destination_specifics.unwrap();
+            match integration.provider {
+                IntegrationProvider::Radarr => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
                     let tmdb_ids_to_add = CollectionToEntity::find()
                         .filter(metadata::Column::Lot.eq(MediaLot::Movie))
                         .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
@@ -5976,12 +5974,12 @@ impl MiscellaneousService {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
         let service = self.get_integration_service();
-        let maybe_progress_update = match integration.source {
-            IntegrationSource::Kodi => service.kodi_progress(&payload).await,
-            IntegrationSource::Emby => service.emby_progress(&payload).await,
-            IntegrationSource::Jellyfin => service.jellyfin_progress(&payload).await,
-            IntegrationSource::Plex => {
-                let specifics = integration.clone().source_specifics.unwrap();
+        let maybe_progress_update = match integration.provider {
+            IntegrationProvider::Kodi => service.kodi_progress(&payload).await,
+            IntegrationProvider::Emby => service.emby_progress(&payload).await,
+            IntegrationProvider::Jellyfin => service.jellyfin_progress(&payload).await,
+            IntegrationProvider::Plex => {
+                let specifics = integration.clone().provider_specifics.unwrap();
                 service
                     .plex_progress(&payload, specifics.plex_username)
                     .await

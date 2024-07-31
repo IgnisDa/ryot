@@ -63,7 +63,7 @@ query UserIntegrations {
   userIntegrations {
     id
     lot
-    source
+    provider
     createdOn
     isDisabled
     maximumProgress

@@ -1290,30 +1290,10 @@ pub mod media {
     )]
     #[graphql(input_name = "IntegrationSourceSpecificsInput")]
     #[serde(rename_all = "snake_case")]
-    pub struct IntegrationSourceSpecifics {
+    pub struct IntegrationProviderSpecifics {
         pub plex_username: Option<String>,
         pub audiobookshelf_base_url: Option<String>,
         pub audiobookshelf_token: Option<String>,
-    }
-
-    #[skip_serializing_none]
-    #[derive(
-        Debug,
-        Serialize,
-        Deserialize,
-        InputObject,
-        Clone,
-        SimpleObject,
-        FromJsonQueryResult,
-        Eq,
-        PartialEq,
-        Hash,
-        Default,
-        Schematic,
-    )]
-    #[graphql(input_name = "IntegrationDestinationSpecificsInput")]
-    #[serde(rename_all = "snake_case")]
-    pub struct IntegrationDestinationSpecifics {
         pub radarr_base_url: Option<String>,
         pub radarr_api_key: Option<String>,
         pub radarr_profile_id: Option<i32>,

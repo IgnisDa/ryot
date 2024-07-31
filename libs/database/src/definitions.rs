@@ -446,7 +446,7 @@ pub enum IntegrationLot {
     rename_all = "snake_case"
 )]
 #[serde(rename_all = "snake_case")]
-pub enum IntegrationSource {
+pub enum IntegrationProvider {
     Audiobookshelf,
     Jellyfin,
     Emby,
