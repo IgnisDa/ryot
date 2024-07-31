@@ -14,7 +14,7 @@ to your profile. To do so, go to the "Settings" tab and add a new integration un
 "Integrations" tab.
 
 You can configure the interval at which the data is fetched from the external using the
-`integration.pull_every_minutes` configuration key. Defaults to `5` (minutes).
+`integration.sync_every_minutes` configuration key. Defaults to `5` (minutes).
 
 ### Audiobookshelf
 

@@ -112,10 +112,9 @@ frontend:
 
 # Settings related to external integrations.
 integration:
-  # Sync data from [yank](/docs/guides/integrations.md) based integrations
-  # every `n` minutes.
-  # @envvar INTEGRATION_PULL_EVERY_MINUTES
-  pull_every_minutes: 5
+  # Sync data from push and yank based integrations every `n` minutes.
+  # @envvar INTEGRATION_SYNC_EVERY_MINUTES
+  sync_every_minutes: 5
 
 # Settings related to media.
 media:
