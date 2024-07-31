@@ -49,6 +49,7 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
+use uuid::Uuid;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -5863,9 +5864,10 @@ impl MiscellaneousService {
                                 .is_in(specifics.radarr_sync_collection_ids.unwrap()),
                         )
                         .select_only()
+                        .column(collection_to_entity::Column::Id)
                         .column(metadata::Column::Identifier)
                         .left_join(Metadata)
-                        .into_tuple::<String>()
+                        .into_tuple::<(Uuid, String)>()
                         .all(&self.db)
                         .await?;
                     self.get_integration_service()
@@ -5874,9 +5876,13 @@ impl MiscellaneousService {
                             specifics.radarr_api_key.unwrap(),
                             specifics.radarr_profile_id.unwrap(),
                             specifics.radarr_root_folder_path.unwrap(),
-                            tmdb_ids_to_add,
+                            tmdb_ids_to_add
+                                .iter()
+                                .map(|(_, id)| id.to_owned())
+                                .collect(),
                         )
                         .await
+                    // TODO: Update collection_to_entity that the media has been added
                 }
                 _ => continue,
             };
