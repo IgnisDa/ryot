@@ -5871,7 +5871,8 @@ impl MiscellaneousService {
                         .all(&self.db)
                         .await?;
                     for (cte_id, movie_tmdb_id) in tmdb_ids_to_add {
-                        self.get_integration_service()
+                        if let Ok(true) = self
+                            .get_integration_service()
                             .radarr_push(
                                 specifics.radarr_base_url.clone().unwrap(),
                                 specifics.radarr_api_key.clone().unwrap(),
@@ -5879,8 +5880,11 @@ impl MiscellaneousService {
                                 specifics.radarr_root_folder_path.clone().unwrap(),
                                 movie_tmdb_id,
                             )
-                            .await;
-                        // TODO: Update collection_to_entity that the media has been added
+                            .await
+                        {
+
+                            // TODO: Update collection_to_entity that the media has been added
+                        }
                     }
                 }
                 _ => continue,
