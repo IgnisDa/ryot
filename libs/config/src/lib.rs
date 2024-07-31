@@ -320,10 +320,9 @@ pub struct FrontendConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "INTEGRATION_")]
 pub struct IntegrationConfig {
-    /// Sync data from [yank](/docs/guides/integrations.md) based integrations
-    /// every `n` minutes.
+    /// Sync data from push and yank based integrations every `n` minutes.
     #[setting(default = 5)]
-    pub pull_every_minutes: i32,
+    pub sync_every_minutes: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

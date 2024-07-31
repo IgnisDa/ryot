@@ -26,10 +26,11 @@ use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
     models::{
         media::{
-            MediaDetails, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
+            ExternalIdentifiers, MediaDetails, MetadataGroupSearchItem, MetadataImage,
+            MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
+            MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+            PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
+            WatchProvider,
         },
         IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
     },
@@ -355,6 +356,20 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
         Ok(!changes.changes.is_empty())
+    }
+
+    async fn get_external_identifiers(
+        &self,
+        type_: &str,
+        identifier: &str,
+    ) -> Result<ExternalIdentifiers> {
+        let rsp = self
+            .client
+            .get(format!("{}/{}/external_ids", type_, identifier))
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        rsp.json().await.map_err(|e| anyhow!(e))
     }
 }
 
@@ -773,6 +788,10 @@ impl MediaProvider for TmdbMovieService {
             .base
             .get_all_watch_providers("movie", identifier)
             .await?;
+        let external_identifiers = self
+            .base
+            .get_external_identifiers("movie", identifier)
+            .await?;
         Ok(MediaDetails {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
@@ -820,6 +839,7 @@ impl MediaProvider for TmdbMovieService {
                 .map(|c| c.id.to_string())
                 .collect(),
             watch_providers,
+            external_identifiers: Some(external_identifiers),
             ..Default::default()
         })
     }
@@ -1135,6 +1155,7 @@ impl MediaProvider for TmdbShowService {
             .flat_map(|s| s.episodes.iter())
             .count();
         let watch_providers = self.base.get_all_watch_providers("tv", identifier).await?;
+        let external_identifiers = self.base.get_external_identifiers("tv", identifier).await?;
         Ok(MediaDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
@@ -1221,6 +1242,7 @@ impl MediaProvider for TmdbShowService {
             }),
             suggestions,
             watch_providers,
+            external_identifiers: Some(external_identifiers),
             provider_rating: if let Some(av) = show_data.vote_average {
                 if av != dec!(0) {
                     Some(av * dec!(10))

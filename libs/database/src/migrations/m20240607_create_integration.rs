@@ -10,10 +10,10 @@ pub enum Integration {
     Table,
     Id,
     Lot,
-    Source,
+    Provider,
     CreatedOn,
     LastTriggeredOn,
-    SourceSpecifics,
+    ProviderSpecifics,
     UserId,
     SyncToOwnedCollection,
     MinimumProgress,
@@ -35,7 +35,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Integration::Lot).text().not_null())
-                    .col(ColumnDef::new(Integration::Source).text().not_null())
+                    .col(ColumnDef::new(Integration::Provider).text().not_null())
                     .col(
                         ColumnDef::new(Integration::CreatedOn)
                             .timestamp_with_time_zone()
@@ -43,18 +43,10 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Integration::LastTriggeredOn).timestamp_with_time_zone())
-                    .col(ColumnDef::new(Integration::SourceSpecifics).json_binary())
+                    .col(ColumnDef::new(Integration::ProviderSpecifics).json_binary())
                     .col(ColumnDef::new(Integration::UserId).text().not_null())
-                    .col(
-                        ColumnDef::new(Integration::MinimumProgress)
-                            .decimal()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(Integration::MaximumProgress)
-                            .decimal()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Integration::MinimumProgress).decimal())
+                    .col(ColumnDef::new(Integration::MaximumProgress).decimal())
                     .col(ColumnDef::new(Integration::SyncToOwnedCollection).boolean())
                     .col(ColumnDef::new(Integration::IsDisabled).boolean())
                     .foreign_key(

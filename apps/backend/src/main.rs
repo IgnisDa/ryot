@@ -48,7 +48,7 @@ use utils::{COMPILATION_TIMESTAMP, TEMP_DIR};
 use crate::{
     background::{
         background_jobs, perform_application_job, perform_core_application_job,
-        yank_integrations_data,
+        sync_integrations_data,
     },
     entities::prelude::Exercise,
     graphql::get_schema,
@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
         .map(|f| f.parse().unwrap())
         .collect_vec();
     let rate_limit_count = config.scheduler.rate_limit_num;
-    let pull_every_minutes = config.integration.pull_every_minutes;
+    let sync_every_minutes = config.integration.sync_every_minutes;
     let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
 
@@ -242,10 +242,10 @@ async fn main() -> Result<()> {
             )
             .register_with_count(
                 1,
-                WorkerBuilder::new("yank_integrations_data")
+                WorkerBuilder::new("sync_integrations_data")
                     .stream(
                         CronStream::new_with_timezone(
-                            Schedule::from_str(&format!("0 */{} * * * *", pull_every_minutes))
+                            Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes))
                                 .unwrap(),
                             tz,
                         )
@@ -253,7 +253,7 @@ async fn main() -> Result<()> {
                     )
                     .layer(ApalisTraceLayer::new())
                     .data(media_service_3.clone())
-                    .build_fn(yank_integrations_data),
+                    .build_fn(sync_integrations_data),
             )
             // application jobs
             .register_with_count(

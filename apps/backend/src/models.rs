@@ -108,6 +108,12 @@ meta! {
     ), "Items that I want to be reminded about.");
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct CollectionToEntitySystemInformation {
+    pub radarr_synced: Option<Vec<String>>,
+    pub sonarr_synced: Option<Vec<String>>,
+}
+
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BackgroundJob {
     CalculateSummary,
@@ -115,7 +121,7 @@ pub enum BackgroundJob {
     UpdateAllMetadata,
     UpdateAllExercises,
     RecalculateCalendarEvents,
-    YankIntegrationsData,
+    SyncIntegrationsData,
     PerformBackgroundTasks,
 }
 
@@ -882,6 +888,21 @@ pub mod media {
         pub languages: HashSet<String>,
     }
 
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        FromJsonQueryResult,
+        Eq,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Default,
+    )]
+    pub struct ExternalIdentifiers {
+        pub tvdb_id: Option<i32>,
+    }
+
     #[derive(Debug, Serialize, Deserialize, Clone, Default)]
     pub struct MediaDetails {
         pub identifier: String,
@@ -906,6 +927,7 @@ pub mod media {
         pub watch_providers: Vec<WatchProvider>,
         pub audio_book_specifics: Option<AudioBookSpecifics>,
         pub book_specifics: Option<BookSpecifics>,
+        pub external_identifiers: Option<ExternalIdentifiers>,
         pub movie_specifics: Option<MovieSpecifics>,
         pub podcast_specifics: Option<PodcastSpecifics>,
         pub show_specifics: Option<ShowSpecifics>,
@@ -1288,10 +1310,20 @@ pub mod media {
     )]
     #[graphql(input_name = "IntegrationSourceSpecificsInput")]
     #[serde(rename_all = "snake_case")]
-    pub struct IntegrationSourceSpecifics {
+    pub struct IntegrationProviderSpecifics {
         pub plex_username: Option<String>,
         pub audiobookshelf_base_url: Option<String>,
         pub audiobookshelf_token: Option<String>,
+        pub radarr_base_url: Option<String>,
+        pub radarr_api_key: Option<String>,
+        pub radarr_profile_id: Option<i32>,
+        pub radarr_root_folder_path: Option<String>,
+        pub radarr_sync_collection_ids: Option<Vec<String>>,
+        pub sonarr_base_url: Option<String>,
+        pub sonarr_api_key: Option<String>,
+        pub sonarr_profile_id: Option<i32>,
+        pub sonarr_root_folder_path: Option<String>,
+        pub sonarr_sync_collection_ids: Option<Vec<String>>,
     }
 }
 

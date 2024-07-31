@@ -153,12 +153,12 @@ export default function Page() {
 							<Box>
 								<Title order={4}>Synchronize integrations progress</Title>
 								<Text>
-									Get data from all configured integrations and update progress
-									if applicable. The more integrations you have enabled, the
-									longer this will take.
+									Get/push data for all configured integrations and update
+									progress if applicable. The more integrations you have
+									enabled, the longer this will take.
 								</Text>
 							</Box>
-							<Button {...btnProps} value={BackgroundJob.YankIntegrationsData}>
+							<Button {...btnProps} value={BackgroundJob.SyncIntegrationsData}>
 								Synchronize
 							</Button>
 						</Stack>

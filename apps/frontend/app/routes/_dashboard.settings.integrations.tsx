@@ -10,6 +10,7 @@ import {
 	Flex,
 	Group,
 	Modal,
+	MultiSelect,
 	NumberInput,
 	Paper,
 	Select,
@@ -27,12 +28,12 @@ import {
 	CreateUserIntegrationDocument,
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
-	IntegrationSource,
+	IntegrationProvider,
 	UpdateUserIntegrationDocument,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, processSubmission } from "@ryot/ts-utils";
+import { changeCase, isString, processSubmission } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconCopy,
@@ -49,10 +50,15 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
-import { useConfirmSubmit } from "~/lib/hooks";
+import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
-const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
+const YANK_INTEGRATIONS = [IntegrationProvider.Audiobookshelf];
+const PUSH_INTEGRATIONS = [
+	IntegrationProvider.Radarr,
+	IntegrationProvider.Sonarr,
+];
+const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([
@@ -139,16 +145,31 @@ export const action = unstable_defineAction(async ({ request }) => {
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
+const commaDelimitedString = z
+	.string()
+	.optional()
+	.transform((v) => (isString(v) ? v.split(",") : undefined));
+
 const createSchema = z.object({
-	source: z.nativeEnum(IntegrationSource),
-	minimumProgress: z.string().default(MINIMUM_PROGRESS),
-	maximumProgress: z.string().default(MAXIMUM_PROGRESS),
+	provider: z.nativeEnum(IntegrationProvider),
+	minimumProgress: z.string().optional(),
+	maximumProgress: z.string().optional(),
 	syncToOwnedCollection: zx.CheckboxAsString.optional(),
-	sourceSpecifics: z
+	providerSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
+			radarrBaseUrl: z.string().optional(),
+			radarrApiKey: z.string().optional(),
+			radarrProfileId: z.number().optional(),
+			radarrRootFolderPath: z.string().optional(),
+			radarrSyncCollectionIds: commaDelimitedString,
+			sonarrBaseUrl: z.string().optional(),
+			sonarrApiKey: z.string().optional(),
+			sonarrProfileId: z.number().optional(),
+			sonarrRootFolderPath: z.string().optional(),
+			sonarrSyncCollectionIds: commaDelimitedString,
 		})
 		.optional(),
 });
@@ -285,7 +306,7 @@ const DisplayIntegration = (props: {
 					<Box>
 						<Group gap={4}>
 							<Text size="sm" fw="bold">
-								{changeCase(props.integration.source)}
+								{changeCase(props.integration.provider)}
 							</Text>
 							{props.integration.isDisabled ? (
 								<Text size="xs">(Paused)</Text>
@@ -305,7 +326,7 @@ const DisplayIntegration = (props: {
 						) : null}
 					</Box>
 					<Group>
-						{!YANK_INTEGRATIONS.includes(props.integration.source) ? (
+						{!NO_SHOW_URL.includes(props.integration.provider) ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
@@ -361,7 +382,7 @@ const CreateIntegrationModal = (props: {
 	createModalOpened: boolean;
 	closeIntegrationModal: () => void;
 }) => {
-	const [source, setSource] = useState<IntegrationSource | null>(null);
+	const [provider, setProvider] = useState<IntegrationProvider | null>(null);
 
 	return (
 		<Modal
@@ -378,16 +399,16 @@ const CreateIntegrationModal = (props: {
 			>
 				<Stack>
 					<Select
-						label="Select a source"
-						name="source"
+						label="Select a provider"
+						name="provider"
 						required
-						data={Object.values(IntegrationSource).map((is) => ({
+						data={Object.values(IntegrationProvider).map((is) => ({
 							label: changeCase(is),
 							value: is,
 						}))}
-						onChange={(e) => setSource(e as IntegrationSource)}
+						onChange={(e) => setProvider(e as IntegrationProvider)}
 					/>
-					{source ? (
+					{provider && !PUSH_INTEGRATIONS.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
 								size="xs"
@@ -411,31 +432,33 @@ const CreateIntegrationModal = (props: {
 							/>
 						</Group>
 					) : null}
-					{match(source)
-						.with(IntegrationSource.Audiobookshelf, () => (
+					{match(provider)
+						.with(IntegrationProvider.Audiobookshelf, () => (
 							<>
 								<TextInput
 									label="Base Url"
 									required
-									name="sourceSpecifics.audiobookshelfBaseUrl"
+									name="providerSpecifics.audiobookshelfBaseUrl"
 								/>
 								<TextInput
 									label="Token"
 									required
-									name="sourceSpecifics.audiobookshelfToken"
+									name="providerSpecifics.audiobookshelfToken"
 								/>
 							</>
 						))
-						.with(IntegrationSource.Plex, () => (
+						.with(IntegrationProvider.Plex, () => (
 							<>
 								<TextInput
 									label="Username"
-									name="sourceSpecifics.plexUsername"
+									name="providerSpecifics.plexUsername"
 								/>
 							</>
 						))
+						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
+						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
 						.otherwise(() => undefined)}
-					{source && YANK_INTEGRATIONS.includes(source) ? (
+					{provider && YANK_INTEGRATIONS.includes(provider) ? (
 						<Checkbox
 							label="Sync to Owned collection"
 							name="syncToOwnedCollection"
@@ -450,6 +473,47 @@ const CreateIntegrationModal = (props: {
 	);
 };
 
+const ArrInputs = (props: { name: string }) => {
+	const collections = useUserCollections();
+
+	return (
+		<>
+			<TextInput
+				required
+				label="Base Url"
+				name={`providerSpecifics.${props.name}BaseUrl`}
+			/>
+			<TextInput
+				required
+				label="Token"
+				name={`providerSpecifics.${props.name}ApiKey`}
+			/>
+			<NumberInput
+				required
+				hideControls
+				defaultValue={1}
+				label="Profile ID"
+				name={`providerSpecifics.${props.name}ProfileId`}
+			/>
+			<TextInput
+				required
+				label="Root Folder"
+				name={`providerSpecifics.${props.name}RootFolderPath`}
+			/>
+			<MultiSelect
+				required
+				searchable
+				label="Collections"
+				name={`providerSpecifics.${props.name}SyncCollectionIds`}
+				data={collections.map((c) => ({
+					label: c.name,
+					value: c.id,
+				}))}
+			/>
+		</>
+	);
+};
+
 const UpdateIntegrationModal = (props: {
 	updateIntegrationData: Integration | null;
 	closeIntegrationModal: () => void;
@@ -461,44 +525,54 @@ const UpdateIntegrationModal = (props: {
 			centered
 			withCloseButton={false}
 		>
-			<Form
-				replace
-				method="POST"
-				onSubmit={() => props.closeIntegrationModal()}
-				action={withQuery("", { intent: "update" })}
-			>
-				<input
-					type="hidden"
-					name="integrationId"
-					defaultValue={props.updateIntegrationData?.id}
-				/>
-				<Stack>
-					<Group wrap="nowrap">
-						<NumberInput
-							size="xs"
-							label="Minimum progress"
-							description="Progress will not be synced below this value"
-							name="minimumProgress"
-							defaultValue={props.updateIntegrationData?.minimumProgress}
-						/>
-						<NumberInput
-							size="xs"
-							label="Maximum progress"
-							description="After this value, progress will be marked as completed"
-							name="maximumProgress"
-							defaultValue={props.updateIntegrationData?.maximumProgress}
-						/>
-					</Group>
-					<Checkbox
-						name="isDisabled"
-						label="Pause integration"
-						defaultChecked={
-							props.updateIntegrationData?.isDisabled || undefined
-						}
+			{props.updateIntegrationData ? (
+				<Form
+					replace
+					method="POST"
+					onSubmit={() => props.closeIntegrationModal()}
+					action={withQuery("", { intent: "update" })}
+				>
+					<input
+						type="hidden"
+						name="integrationId"
+						defaultValue={props.updateIntegrationData.id}
 					/>
-					<Button type="submit">Submit</Button>
-				</Stack>
-			</Form>
+					<Stack>
+						{!PUSH_INTEGRATIONS.includes(
+							props.updateIntegrationData.provider,
+						) ? (
+							<Group wrap="nowrap">
+								<NumberInput
+									size="xs"
+									label="Minimum progress"
+									description="Progress will not be synced below this value"
+									name="minimumProgress"
+									defaultValue={
+										props.updateIntegrationData.minimumProgress || undefined
+									}
+								/>
+								<NumberInput
+									size="xs"
+									label="Maximum progress"
+									description="After this value, progress will be marked as completed"
+									name="maximumProgress"
+									defaultValue={
+										props.updateIntegrationData.maximumProgress || undefined
+									}
+								/>
+							</Group>
+						) : null}
+						<Checkbox
+							name="isDisabled"
+							label="Pause integration"
+							defaultChecked={
+								props.updateIntegrationData.isDisabled || undefined
+							}
+						/>
+						<Button type="submit">Submit</Button>
+					</Stack>
+				</Form>
+			) : null}
 		</Modal>
 	);
 };

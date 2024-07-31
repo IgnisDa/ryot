@@ -391,7 +391,7 @@ pub enum MetadataToMetadataRelation {
 pub enum UserToMediaReason {
     // There is at-least one element in the seen history
     Seen,
-    // User has watched this media completely (most applies to shows, podcasts etc.)
+    // User has watched this media completely (mostly applies to shows, podcasts etc.)
     Finished,
     Reviewed,
     Collection,
@@ -424,6 +424,7 @@ pub enum UserToMediaReason {
 pub enum IntegrationLot {
     Yank,
     Sink,
+    Push,
 }
 
 #[derive(
@@ -446,12 +447,14 @@ pub enum IntegrationLot {
     rename_all = "snake_case"
 )]
 #[serde(rename_all = "snake_case")]
-pub enum IntegrationSource {
+pub enum IntegrationProvider {
     Audiobookshelf,
     Jellyfin,
     Emby,
     Plex,
     Kodi,
+    Radarr,
+    Sonarr,
 }
 
 #[derive(

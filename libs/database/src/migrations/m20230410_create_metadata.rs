@@ -55,6 +55,7 @@ pub enum Metadata {
     VisualNovelSpecifics,
     WatchProviders,
     StateChanges,
+    ExternalIdentifiers,
 }
 
 #[async_trait::async_trait]
@@ -104,6 +105,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::WatchProviders).json_binary())
                     .col(ColumnDef::new(Metadata::StateChanges).json_binary())
                     .col(ColumnDef::new(Metadata::IsRecommendation).boolean())
+                    .col(ColumnDef::new(Metadata::ExternalIdentifiers).json_binary())
                     .to_owned(),
             )
             .await?;

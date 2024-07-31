@@ -2,11 +2,11 @@
 
 use async_graphql::{InputObject, SimpleObject};
 use async_trait::async_trait;
-use database::{IntegrationLot, IntegrationSource};
+use database::{IntegrationLot, IntegrationProvider};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 
-use crate::models::media::IntegrationSourceSpecifics;
+use crate::models::media::IntegrationProviderSpecifics;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject, InputObject)]
 #[sea_orm(table_name = "integration")]
@@ -15,12 +15,12 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     #[graphql(skip_input)]
     pub id: String,
-    pub minimum_progress: Decimal,
-    pub maximum_progress: Decimal,
+    pub minimum_progress: Option<Decimal>,
+    pub maximum_progress: Option<Decimal>,
     #[graphql(skip)]
     pub user_id: String,
     pub lot: IntegrationLot,
-    pub source: IntegrationSource,
+    pub provider: IntegrationProvider,
     pub sync_to_owned_collection: Option<bool>,
     pub is_disabled: Option<bool>,
     #[graphql(skip_input)]
@@ -28,7 +28,8 @@ pub struct Model {
     #[graphql(skip_input)]
     pub last_triggered_on: Option<DateTimeUtc>,
     #[sea_orm(column_type = "Json")]
-    pub source_specifics: Option<IntegrationSourceSpecifics>,
+    #[graphql(skip)]
+    pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
