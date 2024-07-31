@@ -51,7 +51,6 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
-use uuid::Uuid;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -5869,28 +5868,25 @@ impl MiscellaneousService {
             let specifics = integration.provider_specifics.unwrap();
             let collection_ids = get_collection_ids(specifics.clone());
             let tmdb_ids_to_add = CollectionToEntity::find()
+                .find_also_related(Metadata)
                 .filter(metadata::Column::Lot.eq(lot))
                 .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
                 .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
-                .select_only()
-                .column(collection_to_entity::Column::Id)
-                .column(collection_to_entity::Column::SystemInformation)
-                .column(metadata::Column::Identifier)
-                .left_join(Metadata)
-                .into_tuple::<(Uuid, CollectionToEntitySystemInformation, String)>()
                 .all(db)
                 .await?;
             let mut cte_to_update = vec![];
-            for (cte_id, information, entity_tmdb_id) in tmdb_ids_to_add {
-                if skip_in(information)
+            for (cte, metadata) in tmdb_ids_to_add {
+                let metadata = metadata.unwrap();
+                let entity_id = metadata.identifier.clone();
+                if skip_in(cte.system_information)
                     .unwrap_or_default()
                     .contains(&integration.id)
                 {
-                    tracing::debug!("{} {} already synced", lot, entity_tmdb_id);
+                    tracing::debug!("{} {} already synced", lot, entity_id);
                     continue;
                 }
-                perform_push(entity_tmdb_id, specifics.clone()).await.ok();
-                cte_to_update.push(cte_id);
+                perform_push(entity_id, specifics.clone()).await.ok();
+                cte_to_update.push(cte.id);
             }
             CollectionToEntity::update_many()
                         .filter(collection_to_entity::Column::Id.is_in(cte_to_update))
