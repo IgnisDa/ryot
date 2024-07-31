@@ -108,6 +108,11 @@ meta! {
     ), "Items that I want to be reminded about.");
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct CollectionToEntitySystemInformation {
+    pub radarr_synced: Option<bool>,
+}
+
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BackgroundJob {
     CalculateSummary,
