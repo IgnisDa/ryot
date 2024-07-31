@@ -22,6 +22,12 @@ ALTER TABLE "integration" ADD COLUMN IF NOT EXISTS "destination_specifics" jsonb
             "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "collection_to_entity" ADD COLUMN IF NOT EXISTS "system_information" jsonb not null default '{}';
+            "#,
+        )
+        .await?;
         Ok(())
     }
 
