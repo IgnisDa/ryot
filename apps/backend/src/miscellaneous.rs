@@ -5970,7 +5970,8 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
-        if integration.is_disabled.unwrap_or_default() {
+        let preferences = self.user_preferences(&integration.user_id).await?;
+        if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
         let service = self.get_integration_service();
