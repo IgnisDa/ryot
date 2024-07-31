@@ -149,21 +149,17 @@ struct MetadataSearchResponse<T> {
 impl MangaUpdatesService {
     fn extract_status(&self, input: &str) -> (Option<i32>, Option<String>) {
         let first_part = input.split("<BR>").next().unwrap_or("").trim();
-        
         let parts: Vec<&str> = first_part.split_whitespace().collect();
-        
-        let volumes = parts.get(0)
-            .and_then(|s| s.parse::<i32>().ok());
-        
-        let status = parts.get(2)
-            .and_then(|&s| {
-                if s.starts_with('(') && s.ends_with(')') {
-                    Some(s[1..s.len()-1].to_string())
-                } else {
-                    None
-                }
-            });
-        
+
+        let volumes = parts.get(0).and_then(|s| s.parse::<i32>().ok());
+        let status = parts.get(2).and_then(|&s| {
+            if s.starts_with('(') && s.ends_with(')') {
+                Some(s[1..s.len() - 1].to_string())
+            } else {
+                None
+            }
+        });
+
         (volumes, status)
     }
 }
@@ -363,8 +359,8 @@ impl MediaProvider for MangaUpdatesService {
             publish_year: data.year.and_then(|y| y.parse().ok()),
             manga_specifics: Some(MangaSpecifics {
                 chapters: data.latest_chapter,
-                volumes: volumes,
                 url: data.url,
+                volumes,
             }),
             suggestions,
             provider_rating: data.bayesian_rating,
