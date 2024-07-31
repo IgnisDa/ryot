@@ -5859,6 +5859,7 @@ impl MiscellaneousService {
             lot: MediaLot,
             get_collection_ids: impl Fn(IntegrationProviderSpecifics) -> Vec<String>,
             skip_in: impl Fn(CollectionToEntitySystemInformation) -> Option<Vec<String>>,
+            get_identifier: impl Fn(metadata::Model) -> Option<String>,
             perform_push: impl Fn(String, IntegrationProviderSpecifics) -> F,
             column_name: &str,
         ) -> Result<()>
@@ -5877,15 +5878,18 @@ impl MiscellaneousService {
             let mut cte_to_update = vec![];
             for (cte, metadata) in tmdb_ids_to_add {
                 let metadata = metadata.unwrap();
-                let entity_id = metadata.identifier.clone();
                 if skip_in(cte.system_information)
                     .unwrap_or_default()
                     .contains(&integration.id)
                 {
-                    tracing::debug!("{} {} already synced", lot, entity_id);
+                    tracing::debug!("{} {} already synced", lot, metadata.title);
                     continue;
                 }
-                perform_push(entity_id, specifics.clone()).await.ok();
+                if let Some(entity_identifier) = get_identifier(metadata) {
+                    perform_push(entity_identifier, specifics.clone())
+                        .await
+                        .ok();
+                }
                 cte_to_update.push(cte.id);
             }
             CollectionToEntity::update_many()
@@ -5916,6 +5920,7 @@ impl MiscellaneousService {
                         MediaLot::Movie,
                         |specifics| specifics.radarr_sync_collection_ids.unwrap(),
                         |info| info.radarr_synced,
+                        |m| Some(m.identifier),
                         |entity_tmdb_id, specifics| {
                             integration_service.radarr_push(
                                 specifics.radarr_base_url.unwrap(),
@@ -5937,6 +5942,10 @@ impl MiscellaneousService {
                         MediaLot::Show,
                         |specifics| specifics.sonarr_sync_collection_ids.unwrap(),
                         |info| info.sonarr_synced,
+                        |m| {
+                            m.external_identifiers
+                                .and_then(|i| i.tvdb_id.map(|s| s.to_string()))
+                        },
                         |entity_tmdb_id, specifics| {
                             integration_service.sonarr_push(
                                 specifics.sonarr_base_url.unwrap(),
