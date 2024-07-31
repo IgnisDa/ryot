@@ -1299,6 +1299,11 @@ pub mod media {
         pub radarr_profile_id: Option<i32>,
         pub radarr_root_folder_path: Option<String>,
         pub radarr_sync_collection_ids: Option<Vec<String>>,
+        pub sonarr_base_url: Option<String>,
+        pub sonarr_api_key: Option<String>,
+        pub sonarr_profile_id: Option<i32>,
+        pub sonarr_root_folder_path: Option<String>,
+        pub sonarr_sync_collection_ids: Option<Vec<String>>,
     }
 }
 

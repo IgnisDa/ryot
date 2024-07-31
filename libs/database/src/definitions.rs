@@ -453,6 +453,7 @@ pub enum IntegrationProvider {
     Plex,
     Kodi,
     Radarr,
+    Sonarr,
 }
 
 #[derive(

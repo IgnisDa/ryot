@@ -717,7 +717,8 @@ export enum IntegrationProvider {
   Jellyfin = 'JELLYFIN',
   Kodi = 'KODI',
   Plex = 'PLEX',
-  Radarr = 'RADARR'
+  Radarr = 'RADARR',
+  Sonarr = 'SONARR'
 }
 
 export type IntegrationSourceSpecificsInput = {
@@ -729,6 +730,11 @@ export type IntegrationSourceSpecificsInput = {
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   radarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   radarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  sonarrApiKey?: InputMaybe<Scalars['String']['input']>;
+  sonarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
+  sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;
+  sonarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
+  sonarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type LoginError = {
