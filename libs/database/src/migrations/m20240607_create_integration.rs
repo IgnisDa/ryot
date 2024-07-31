@@ -11,6 +11,7 @@ pub enum Integration {
     Id,
     Lot,
     Source,
+    Destination,
     CreatedOn,
     LastTriggeredOn,
     SourceSpecifics,
@@ -35,7 +36,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Integration::Lot).text().not_null())
-                    .col(ColumnDef::new(Integration::Source).text().not_null())
+                    .col(ColumnDef::new(Integration::Source).text())
                     .col(
                         ColumnDef::new(Integration::CreatedOn)
                             .timestamp_with_time_zone()
@@ -49,6 +50,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Integration::MaximumProgress).decimal())
                     .col(ColumnDef::new(Integration::IsDisabled).boolean())
                     .col(ColumnDef::new(Integration::DestinationSpecifics).json_binary())
+                    .col(ColumnDef::new(Integration::Destination).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("integration_to_user_foreign_key")
