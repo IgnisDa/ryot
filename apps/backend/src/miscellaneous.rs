@@ -5852,7 +5852,7 @@ impl MiscellaneousService {
             .filter(integration::Column::UserId.eq(user_id))
             .all(&self.db)
             .await?;
-        async fn internal_fn<F>(
+        async fn push_data_to_service<F>(
             db: &DatabaseConnection,
             integration: integration::Model,
             lot: MediaLot,
@@ -5912,7 +5912,7 @@ impl MiscellaneousService {
             let id = integration.id.clone();
             match integration.provider {
                 IntegrationProvider::Radarr => {
-                    internal_fn(
+                    push_data_to_service(
                         &self.db,
                         integration,
                         MediaLot::Movie,
@@ -5928,6 +5928,27 @@ impl MiscellaneousService {
                             )
                         },
                         "radarr_synced",
+                    )
+                    .await
+                    .ok();
+                }
+                IntegrationProvider::Sonarr => {
+                    push_data_to_service(
+                        &self.db,
+                        integration,
+                        MediaLot::Show,
+                        |specifics| specifics.sonarr_sync_collection_ids.unwrap(),
+                        |info| info.sonarr_synced,
+                        |entity_tmdb_id, specifics| {
+                            integration_service.sonarr_push(
+                                specifics.sonarr_base_url.unwrap(),
+                                specifics.sonarr_api_key.unwrap(),
+                                specifics.sonarr_profile_id.unwrap(),
+                                specifics.sonarr_root_folder_path.unwrap(),
+                                entity_tmdb_id,
+                            )
+                        },
+                        "sonarr_synced",
                     )
                     .await
                     .ok();
