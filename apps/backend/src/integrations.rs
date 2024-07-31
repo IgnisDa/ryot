@@ -532,7 +532,7 @@ impl IntegrationService {
         radarr_api_key: String,
         radarr_profile_id: i32,
         radarr_root_folder_path: String,
-        tmdb_ids: Vec<String>,
+        tmdb_id: String,
     ) -> Result<bool> {
         let mut configuration = RadarrConfiguration::new();
         configuration.base_path = radarr_base_url;
@@ -540,19 +540,17 @@ impl IntegrationService {
             key: radarr_api_key,
             prefix: None,
         });
-        for movie in tmdb_ids {
-            let mut resource = RadarrMovieResource::new();
-            resource.tmdb_id = Some(movie.parse().unwrap());
-            resource.quality_profile_id = Some(radarr_profile_id);
-            resource.root_folder_path = Some(Some(radarr_root_folder_path.clone()));
-            resource.monitored = Some(true);
-            let mut options = RadarrAddMovieOptions::new();
-            options.search_for_movie = Some(true);
-            resource.add_options = Some(Box::new(options));
-            radarr_api_v3_movie_post(&configuration, Some(resource))
-                .await
-                .trace_ok();
-        }
-        Ok(true)
+        let mut resource = RadarrMovieResource::new();
+        resource.tmdb_id = Some(tmdb_id.parse().unwrap());
+        resource.quality_profile_id = Some(radarr_profile_id);
+        resource.root_folder_path = Some(Some(radarr_root_folder_path.clone()));
+        resource.monitored = Some(true);
+        let mut options = RadarrAddMovieOptions::new();
+        options.search_for_movie = Some(true);
+        resource.add_options = Some(Box::new(options));
+        let response = radarr_api_v3_movie_post(&configuration, Some(resource))
+            .await
+            .trace_ok();
+        Ok(response.is_some())
     }
 }

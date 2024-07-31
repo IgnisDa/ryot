@@ -5853,7 +5853,7 @@ impl MiscellaneousService {
             .await?;
         let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
-            let was_updated = match integration.source {
+            match integration.source {
                 IntegrationSource::Radarr => {
                     let specifics = integration.clone().destination_specifics.unwrap();
                     let tmdb_ids_to_add = CollectionToEntity::find()
@@ -5870,25 +5870,22 @@ impl MiscellaneousService {
                         .into_tuple::<(Uuid, String)>()
                         .all(&self.db)
                         .await?;
-                    self.get_integration_service()
-                        .radarr_push(
-                            specifics.radarr_base_url.unwrap(),
-                            specifics.radarr_api_key.unwrap(),
-                            specifics.radarr_profile_id.unwrap(),
-                            specifics.radarr_root_folder_path.unwrap(),
-                            tmdb_ids_to_add
-                                .iter()
-                                .map(|(_, id)| id.to_owned())
-                                .collect(),
-                        )
-                        .await
-                    // TODO: Update collection_to_entity that the media has been added
+                    for (cte_id, movie_tmdb_id) in tmdb_ids_to_add {
+                        self.get_integration_service()
+                            .radarr_push(
+                                specifics.radarr_base_url.clone().unwrap(),
+                                specifics.radarr_api_key.clone().unwrap(),
+                                specifics.radarr_profile_id.unwrap(),
+                                specifics.radarr_root_folder_path.clone().unwrap(),
+                                movie_tmdb_id,
+                            )
+                            .await;
+                        // TODO: Update collection_to_entity that the media has been added
+                    }
                 }
                 _ => continue,
             };
-            if let Ok(true) = was_updated {
-                to_update_integrations.push(integration.id.clone());
-            }
+            to_update_integrations.push(integration.id.clone());
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
