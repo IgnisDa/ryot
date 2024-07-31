@@ -5,10 +5,10 @@ use async_graphql::Result as GqlResult;
 use database::{MediaLot, MediaSource};
 use radarr_api_rs::{
     apis::{
-        configuration::{ApiKey, Configuration},
-        movie_api::api_v3_movie_post,
+        configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
+        movie_api::api_v3_movie_post as radarr_api_v3_movie_post,
     },
-    models::{AddMovieOptions, MovieResource},
+    models::{AddMovieOptions as RadarrAddMovieOptions, MovieResource as RadarrMovieResource},
 };
 use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
@@ -534,22 +534,22 @@ impl IntegrationService {
         radarr_root_folder_path: String,
         tmdb_ids: Vec<String>,
     ) -> Result<bool> {
-        let mut configuration = Configuration::new();
+        let mut configuration = RadarrConfiguration::new();
         configuration.base_path = radarr_base_url;
-        configuration.api_key = Some(ApiKey {
+        configuration.api_key = Some(RadarrApiKey {
             key: radarr_api_key,
             prefix: None,
         });
         for movie in tmdb_ids {
-            let mut resource = MovieResource::new();
+            let mut resource = RadarrMovieResource::new();
             resource.tmdb_id = Some(movie.parse().unwrap());
             resource.quality_profile_id = Some(radarr_profile_id);
             resource.root_folder_path = Some(Some(radarr_root_folder_path.clone()));
             resource.monitored = Some(true);
-            let mut options = AddMovieOptions::new();
+            let mut options = RadarrAddMovieOptions::new();
             options.search_for_movie = Some(true);
             resource.add_options = Some(Box::new(options));
-            api_v3_movie_post(&configuration, Some(resource))
+            radarr_api_v3_movie_post(&configuration, Some(resource))
                 .await
                 .trace_ok();
         }
