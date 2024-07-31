@@ -17,6 +17,13 @@ use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
+use sonarr_api_rs::{
+    apis::{
+        configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
+        series_api::api_v3_series_post as sonarr_api_v3_series_post,
+    },
+    models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
+};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
@@ -562,6 +569,24 @@ impl IntegrationService {
         sonarr_root_folder_path: String,
         tmdb_id: String,
     ) -> Result<()> {
+        let mut configuration = SonarrConfiguration::new();
+        configuration.base_path = sonarr_base_url;
+        configuration.api_key = Some(SonarrApiKey {
+            key: sonarr_api_key,
+            prefix: None,
+        });
+        let mut resource = SonarrSeriesResource::new();
+        resource.tmdb_id = Some(tmdb_id.parse().unwrap());
+        resource.quality_profile_id = Some(sonarr_profile_id);
+        resource.root_folder_path = Some(Some(sonarr_root_folder_path.clone()));
+        resource.monitored = Some(true);
+        resource.season_folder = Some(true);
+        let mut options = SonarrAddSeriesOptions::new();
+        options.search_for_missing_episodes = Some(true);
+        resource.add_options = Some(Box::new(options));
+        sonarr_api_v3_series_post(&configuration, Some(resource))
+            .await
+            .trace_ok();
         Ok(())
     }
 }
