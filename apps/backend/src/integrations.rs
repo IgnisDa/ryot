@@ -567,7 +567,7 @@ impl IntegrationService {
         sonarr_api_key: String,
         sonarr_profile_id: i32,
         sonarr_root_folder_path: String,
-        tmdb_id: String,
+        tvdb_id: String,
     ) -> Result<()> {
         let mut configuration = SonarrConfiguration::new();
         configuration.base_path = sonarr_base_url;
@@ -576,8 +576,8 @@ impl IntegrationService {
             prefix: None,
         });
         let mut resource = SonarrSeriesResource::new();
-        resource.title = Some(Some(tmdb_id.clone()));
-        resource.tmdb_id = Some(tmdb_id.parse().unwrap());
+        resource.title = Some(Some(tvdb_id.clone()));
+        resource.tvdb_id = Some(tvdb_id.parse().unwrap());
         resource.quality_profile_id = Some(sonarr_profile_id);
         resource.root_folder_path = Some(Some(sonarr_root_folder_path.clone()));
         resource.monitored = Some(true);

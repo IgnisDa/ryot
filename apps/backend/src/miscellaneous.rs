@@ -5853,6 +5853,7 @@ impl MiscellaneousService {
             .filter(integration::Column::UserId.eq(user_id))
             .all(&self.db)
             .await?;
+        #[allow(clippy::too_many_arguments)]
         async fn push_data_to_service<F>(
             db: &DatabaseConnection,
             integration: integration::Model,
