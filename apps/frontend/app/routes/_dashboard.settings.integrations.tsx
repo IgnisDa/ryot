@@ -33,7 +33,7 @@ import {
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, processSubmission } from "@ryot/ts-utils";
+import { changeCase, isString, processSubmission } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconCopy,
@@ -145,7 +145,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
-const commaDelimitedString = z.string().transform((v) => v.split(","));
+const commaDelimitedString = z
+	.string()
+	.optional()
+	.transform((v) => (isString(v) ? v.split(",") : undefined));
 
 const createSchema = z.object({
 	provider: z.nativeEnum(IntegrationProvider),
@@ -375,7 +378,6 @@ const CreateIntegrationModal = (props: {
 	createModalOpened: boolean;
 	closeIntegrationModal: () => void;
 }) => {
-	const collections = useUserCollections();
 	const [provider, setProvider] = useState<IntegrationProvider | null>(null);
 
 	return (
@@ -449,47 +451,54 @@ const CreateIntegrationModal = (props: {
 								/>
 							</>
 						))
-						.with(IntegrationProvider.Radarr, () => (
-							<>
-								<TextInput
-									required
-									label="Base Url"
-									name="providerSpecifics.radarrBaseUrl"
-								/>
-								<TextInput
-									required
-									label="Token"
-									name="providerSpecifics.radarrApiKey"
-								/>
-								<NumberInput
-									required
-									hideControls
-									defaultValue={1}
-									label="Profile ID"
-									name="providerSpecifics.radarrProfileId"
-								/>
-								<TextInput
-									required
-									label="Root Folder"
-									name="providerSpecifics.radarrRootFolderPath"
-								/>
-								<MultiSelect
-									required
-									searchable
-									label="Collections"
-									name="providerSpecifics.radarrSyncCollectionIds"
-									data={collections.map((c) => ({
-										label: c.name,
-										value: c.id,
-									}))}
-								/>
-							</>
-						))
+						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
+						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
 						.otherwise(() => undefined)}
 					<Button type="submit">Submit</Button>
 				</Stack>
 			</Form>
 		</Modal>
+	);
+};
+
+const ArrInputs = (props: { name: string }) => {
+	const collections = useUserCollections();
+
+	return (
+		<>
+			<TextInput
+				required
+				label="Base Url"
+				name={`providerSpecifics.${props.name}BaseUrl`}
+			/>
+			<TextInput
+				required
+				label="Token"
+				name={`providerSpecifics.${props.name}ApiKey`}
+			/>
+			<NumberInput
+				required
+				hideControls
+				defaultValue={1}
+				label="Profile ID"
+				name={`providerSpecifics.${props.name}ProfileId`}
+			/>
+			<TextInput
+				required
+				label="Root Folder"
+				name={`providerSpecifics.${props.name}RootFolderPath`}
+			/>
+			<MultiSelect
+				required
+				searchable
+				label="Collections"
+				name={`providerSpecifics.${props.name}SyncCollectionIds`}
+				data={collections.map((c) => ({
+					label: c.name,
+					value: c.id,
+				}))}
+			/>
+		</>
 	);
 };
 
