@@ -57,7 +57,7 @@ regex = "=1.10.5"
 reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_url", features = [
     "json",
     "stream",
-], default-features = false }
+] }
 rs-utils = { path = "../../libs/rs-utils" }
 rust_decimal = "=1.35.0"
 rust_decimal_macros = "=1.35.0"
