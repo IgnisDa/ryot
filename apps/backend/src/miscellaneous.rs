@@ -5875,6 +5875,7 @@ impl MiscellaneousService {
                     let mut cte_to_update = vec![];
                     for (cte_id, information, movie_tmdb_id) in tmdb_ids_to_add {
                         if matches!(information.radarr_synced, Some(true)) {
+                            tracing::debug!("Movie {} already synced", movie_tmdb_id);
                             continue;
                         }
                         if let Ok(true) = self
