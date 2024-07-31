@@ -3,18 +3,29 @@ use std::future::Future;
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
 use database::{MediaLot, MediaSource};
+use radarr_api_rs::{
+    apis::{
+        configuration::{ApiKey, Configuration},
+        movie_api::api_v3_movie_post,
+    },
+    models::{AddMovieOptions, MovieResource},
+};
 use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{metadata, prelude::Metadata},
+    entities::{
+        collection_to_entity, metadata,
+        prelude::{CollectionToEntity, Metadata},
+    },
     models::{audiobookshelf_models, media::CommitMediaInput},
     providers::google_books::GoogleBooksService,
+    traits::TraceOk,
     utils::{get_base_http_client, ilike_sql},
 };
 
@@ -526,6 +537,35 @@ impl IntegrationService {
         radarr_root_folder_path: String,
         radarr_sync_collection_ids: Vec<String>,
     ) -> Result<bool> {
+        let mut configuration = Configuration::new();
+        configuration.base_path = radarr_base_url;
+        configuration.api_key = Some(ApiKey {
+            key: radarr_api_key,
+            prefix: None,
+        });
+        let in_collections = CollectionToEntity::find()
+            .filter(metadata::Column::Lot.eq(MediaLot::Movie))
+            .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
+            .filter(collection_to_entity::Column::CollectionId.is_in(radarr_sync_collection_ids))
+            .select_only()
+            .column(metadata::Column::Identifier)
+            .left_join(Metadata)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for movie in in_collections {
+            let mut resource = MovieResource::new();
+            resource.tmdb_id = Some(movie.parse().unwrap());
+            resource.quality_profile_id = Some(radarr_profile_id);
+            resource.root_folder_path = Some(Some(radarr_root_folder_path.clone()));
+            resource.monitored = Some(true);
+            let mut options = AddMovieOptions::new();
+            options.search_for_movie = Some(true);
+            resource.add_options = Some(Box::new(options));
+            api_v3_movie_post(&configuration, Some(resource))
+                .await
+                .trace_ok();
+        }
         Ok(true)
     }
 }
