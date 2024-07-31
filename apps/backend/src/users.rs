@@ -290,7 +290,7 @@ pub struct UserGeneralPreferences {
     pub watch_providers: Vec<String>,
     pub review_scale: UserReviewScale,
     pub disable_watch_providers: bool,
-    pub disable_yank_integrations: bool,
+    pub disable_integrations: bool,
     pub disable_navigation_animation: bool,
     pub dashboard: Vec<UserGeneralDashboardElement>,
 }
@@ -318,7 +318,7 @@ impl Default for UserGeneralPreferences {
                 },
             ],
             persist_queries: true,
-            disable_yank_integrations: false,
+            disable_integrations: false,
             disable_navigation_animation: false,
             disable_videos: false,
             disable_watch_providers: false,

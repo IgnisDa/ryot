@@ -9,9 +9,9 @@ use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
 use crate::models::media::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MetadataFreeCreator,
-    MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics, PodcastSpecifics,
-    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExternalIdentifiers, MangaSpecifics,
+    MetadataFreeCreator, MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics,
+    PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
@@ -41,6 +41,8 @@ pub struct Model {
     pub free_creators: Option<Vec<MetadataFreeCreator>>,
     #[sea_orm(column_type = "Json")]
     pub watch_providers: Option<Vec<WatchProvider>>,
+    #[sea_orm(column_type = "Json")]
+    pub external_identifiers: Option<ExternalIdentifiers>,
     pub audio_book_specifics: Option<AudioBookSpecifics>,
     pub book_specifics: Option<BookSpecifics>,
     pub movie_specifics: Option<MovieSpecifics>,

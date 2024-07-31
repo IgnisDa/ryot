@@ -3,6 +3,13 @@ use std::future::Future;
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
 use database::{MediaLot, MediaSource};
+use radarr_api_rs::{
+    apis::{
+        configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
+        movie_api::api_v3_movie_post as radarr_api_v3_movie_post,
+    },
+    models::{AddMovieOptions as RadarrAddMovieOptions, MovieResource as RadarrMovieResource},
+};
 use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal::Decimal;
@@ -10,11 +17,19 @@ use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
+use sonarr_api_rs::{
+    apis::{
+        configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
+        series_api::api_v3_series_post as sonarr_api_v3_series_post,
+    },
+    models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
+};
 
 use crate::{
     entities::{metadata, prelude::Metadata},
     models::{audiobookshelf_models, media::CommitMediaInput},
     providers::google_books::GoogleBooksService,
+    traits::TraceOk,
     utils::{get_base_http_client, ilike_sql},
 };
 
@@ -516,5 +531,63 @@ impl IntegrationService {
             };
         }
         Ok((media_items, vec![]))
+    }
+
+    pub async fn radarr_push(
+        &self,
+        radarr_base_url: String,
+        radarr_api_key: String,
+        radarr_profile_id: i32,
+        radarr_root_folder_path: String,
+        tmdb_id: String,
+    ) -> Result<()> {
+        let mut configuration = RadarrConfiguration::new();
+        configuration.base_path = radarr_base_url;
+        configuration.api_key = Some(RadarrApiKey {
+            key: radarr_api_key,
+            prefix: None,
+        });
+        let mut resource = RadarrMovieResource::new();
+        resource.tmdb_id = Some(tmdb_id.parse().unwrap());
+        resource.quality_profile_id = Some(radarr_profile_id);
+        resource.root_folder_path = Some(Some(radarr_root_folder_path.clone()));
+        resource.monitored = Some(true);
+        let mut options = RadarrAddMovieOptions::new();
+        options.search_for_movie = Some(true);
+        resource.add_options = Some(Box::new(options));
+        radarr_api_v3_movie_post(&configuration, Some(resource))
+            .await
+            .trace_ok();
+        Ok(())
+    }
+
+    pub async fn sonarr_push(
+        &self,
+        sonarr_base_url: String,
+        sonarr_api_key: String,
+        sonarr_profile_id: i32,
+        sonarr_root_folder_path: String,
+        tvdb_id: String,
+    ) -> Result<()> {
+        let mut configuration = SonarrConfiguration::new();
+        configuration.base_path = sonarr_base_url;
+        configuration.api_key = Some(SonarrApiKey {
+            key: sonarr_api_key,
+            prefix: None,
+        });
+        let mut resource = SonarrSeriesResource::new();
+        resource.title = Some(Some(tvdb_id.clone()));
+        resource.tvdb_id = Some(tvdb_id.parse().unwrap());
+        resource.quality_profile_id = Some(sonarr_profile_id);
+        resource.root_folder_path = Some(Some(sonarr_root_folder_path.clone()));
+        resource.monitored = Some(true);
+        resource.season_folder = Some(true);
+        let mut options = SonarrAddSeriesOptions::new();
+        options.search_for_missing_episodes = Some(true);
+        resource.add_options = Some(Box::new(options));
+        sonarr_api_v3_series_post(&configuration, Some(resource))
+            .await
+            .trace_ok();
+        Ok(())
     }
 }

@@ -1,12 +1,14 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
+    future::Future,
     iter::zip,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
 
+use anyhow::Result as AnyhowResult;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
@@ -17,7 +19,7 @@ use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use database::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationSource,
+    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationProvider,
     MediaLot, MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
     UserToMediaReason, Visibility,
 };
@@ -77,7 +79,7 @@ use crate::{
             CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
             ImportOrExportItemReview, ImportOrExportItemReviewComment,
             ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, IntegrationSourceSpecifics, MangaSpecifics,
+            ImportOrExportPersonItem, IntegrationProviderSpecifics, MangaSpecifics,
             MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
             MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
             MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
@@ -89,8 +91,9 @@ use crate::{
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
-        DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
-        SearchResults, StoredUrl, StringIdObject, UserSummaryData,
+        CollectionToEntitySystemInformation, DefaultCollection, IdAndNamedObject,
+        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
+        UserSummaryData,
     },
     providers::{
         anilist::{
@@ -148,10 +151,10 @@ struct CreateCustomMetadataInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct CreateUserIntegrationInput {
-    source: IntegrationSource,
-    source_specifics: Option<IntegrationSourceSpecifics>,
-    minimum_progress: Decimal,
-    maximum_progress: Decimal,
+    provider: IntegrationProvider,
+    provider_specifics: Option<IntegrationProviderSpecifics>,
+    minimum_progress: Option<Decimal>,
+    maximum_progress: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2639,9 +2642,9 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
             }
-            BackgroundJob::YankIntegrationsData => {
+            BackgroundJob::SyncIntegrationsData => {
                 core_sqlite_storage
-                    .enqueue(CoreApplicationJob::YankIntegrationsData(user_id.to_owned()))
+                    .enqueue(CoreApplicationJob::SyncIntegrationsData(user_id.to_owned()))
                     .await
                     .unwrap();
             }
@@ -2999,6 +3002,7 @@ impl MiscellaneousService {
         meta.book_specifics = ActiveValue::Set(input.book_specifics);
         meta.video_game_specifics = ActiveValue::Set(input.video_game_specifics);
         meta.visual_novel_specifics = ActiveValue::Set(input.visual_novel_specifics);
+        meta.external_identifiers = ActiveValue::Set(input.external_identifiers);
         let metadata = meta.update(&self.db).await.unwrap();
 
         self.change_metadata_associations(
@@ -3220,6 +3224,7 @@ impl MiscellaneousService {
             provider_rating: ActiveValue::Set(details.provider_rating),
             production_status: ActiveValue::Set(details.production_status),
             original_language: ActiveValue::Set(details.original_language),
+            external_identifiers: ActiveValue::Set(details.external_identifiers),
             is_nsfw: ActiveValue::Set(details.is_nsfw),
             is_partial: ActiveValue::Set(is_partial),
             free_creators: ActiveValue::Set(if details.creators.is_empty() {
@@ -5421,8 +5426,8 @@ impl MiscellaneousService {
                             }
                             preferences.general.dashboard = value;
                         }
-                        "disable_yank_integrations" => {
-                            preferences.general.disable_yank_integrations = value_bool.unwrap();
+                        "disable_integrations" => {
+                            preferences.general.disable_integrations = value_bool.unwrap();
                         }
                         "persist_queries" => {
                             preferences.general.persist_queries = value_bool.unwrap();
@@ -5484,17 +5489,18 @@ impl MiscellaneousService {
                 "Minimum progress cannot be greater than maximum progress",
             ));
         }
-        let lot = match input.source {
-            IntegrationSource::Audiobookshelf => IntegrationLot::Yank,
+        let lot = match input.provider {
+            IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
+            IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
         let to_insert = integration::ActiveModel {
             lot: ActiveValue::Set(lot),
             user_id: ActiveValue::Set(user_id),
-            source: ActiveValue::Set(input.source),
-            source_specifics: ActiveValue::Set(input.source_specifics),
+            provider: ActiveValue::Set(input.provider),
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
+            provider_specifics: ActiveValue::Set(input.provider_specifics),
             ..Default::default()
         };
         let integration = to_insert.insert(&self.db).await?;
@@ -5520,10 +5526,10 @@ impl MiscellaneousService {
         }
         let mut db_integration: integration::ActiveModel = db_integration.into();
         if let Some(s) = input.minimum_progress {
-            db_integration.minimum_progress = ActiveValue::Set(s);
+            db_integration.minimum_progress = ActiveValue::Set(Some(s));
         }
         if let Some(s) = input.maximum_progress {
-            db_integration.maximum_progress = ActiveValue::Set(s);
+            db_integration.maximum_progress = ActiveValue::Set(Some(s));
         }
         if let Some(d) = input.is_disabled {
             db_integration.is_disabled = ActiveValue::Set(Some(d));
@@ -5734,7 +5740,7 @@ impl MiscellaneousService {
 
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
         let preferences = self.user_preferences(user_id).await?;
-        if preferences.general.disable_yank_integrations {
+        if preferences.general.disable_integrations {
             return Ok(false);
         }
         let integrations = Integration::find()
@@ -5744,15 +5750,16 @@ impl MiscellaneousService {
         let mut progress_updates = vec![];
         let mut collection_updates = vec![];
         let mut to_update_integrations = vec![];
+        let integration_service = self.get_integration_service();
         for integration in integrations.into_iter() {
             if integration.is_disabled.unwrap_or_default() {
                 tracing::debug!("Integration {} is disabled", integration.id);
                 continue;
             }
-            let response = match integration.source {
-                IntegrationSource::Audiobookshelf => {
-                    let specifics = integration.clone().source_specifics.unwrap();
-                    self.get_integration_service()
+            let response = match integration.provider {
+                IntegrationProvider::Audiobookshelf => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+                    integration_service
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
                             &specifics.audiobookshelf_token.unwrap(),
@@ -5823,6 +5830,153 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn send_data_for_push_integrations(&self) -> Result<()> {
+        let users_with_integrations = Integration::find()
+            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
+            .select_only()
+            .column(integration::Column::UserId)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for user_id in users_with_integrations {
+            tracing::debug!("Pushing integrations data for user {}", user_id);
+            self.push_integrations_data_for_user(&user_id).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn push_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
+        let preferences = self.user_preferences(user_id).await?;
+        if preferences.general.disable_integrations {
+            return Ok(false);
+        }
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        #[allow(clippy::too_many_arguments)]
+        async fn push_data_to_arr_service<F>(
+            db: &DatabaseConnection,
+            integration: integration::Model,
+            lot: MediaLot,
+            get_collection_ids: impl Fn(IntegrationProviderSpecifics) -> Vec<String>,
+            skip_in: impl Fn(CollectionToEntitySystemInformation) -> Option<Vec<String>>,
+            get_identifier: impl Fn(metadata::Model) -> Option<String>,
+            perform_push: impl Fn(String, IntegrationProviderSpecifics) -> F,
+            column_name: &str,
+        ) -> Result<()>
+        where
+            F: Future<Output = AnyhowResult<()>>,
+        {
+            let specifics = integration.provider_specifics.unwrap();
+            let collection_ids = get_collection_ids(specifics.clone());
+            let tmdb_ids_to_add = CollectionToEntity::find()
+                .find_also_related(Metadata)
+                .filter(metadata::Column::Lot.eq(lot))
+                .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
+                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
+                .all(db)
+                .await?;
+            let mut cte_to_update = vec![];
+            for (cte, metadata) in tmdb_ids_to_add {
+                let metadata = metadata.unwrap();
+                if skip_in(cte.system_information)
+                    .unwrap_or_default()
+                    .contains(&integration.id)
+                {
+                    tracing::debug!("{} {} is already synced", lot, metadata.title);
+                    continue;
+                }
+                if let Some(entity_identifier) = get_identifier(metadata) {
+                    perform_push(entity_identifier, specifics.clone())
+                        .await
+                        .ok();
+                    cte_to_update.push(cte.id);
+                }
+            }
+            CollectionToEntity::update_many()
+                        .filter(collection_to_entity::Column::Id.is_in(cte_to_update))
+                        .col_expr(
+                            collection_to_entity::Column::SystemInformation,
+                            Expr::cust(
+                                format!(
+                                    r#"JSONB_SET(system_information, '{{{col}}}', COALESCE(system_information->'{col}','[]'::JSONB) || '["{id}"]'::JSONB)"#,
+                                    col = column_name,
+                                    id = &integration.id
+                                )
+                            ),
+                        )
+                        .exec(db)
+                        .await?;
+            Ok(())
+        }
+        let mut to_update_integrations = vec![];
+        let integration_service = self.get_integration_service();
+        for integration in integrations.into_iter() {
+            let id = integration.id.clone();
+            match integration.provider {
+                IntegrationProvider::Radarr => {
+                    push_data_to_arr_service(
+                        &self.db,
+                        integration,
+                        MediaLot::Movie,
+                        |specifics| specifics.radarr_sync_collection_ids.unwrap(),
+                        |info| info.radarr_synced,
+                        |m| Some(m.identifier),
+                        |entity_tmdb_id, specifics| {
+                            integration_service.radarr_push(
+                                specifics.radarr_base_url.unwrap(),
+                                specifics.radarr_api_key.unwrap(),
+                                specifics.radarr_profile_id.unwrap(),
+                                specifics.radarr_root_folder_path.unwrap(),
+                                entity_tmdb_id,
+                            )
+                        },
+                        "radarr_synced",
+                    )
+                    .await
+                    .ok();
+                }
+                IntegrationProvider::Sonarr => {
+                    push_data_to_arr_service(
+                        &self.db,
+                        integration,
+                        MediaLot::Show,
+                        |specifics| specifics.sonarr_sync_collection_ids.unwrap(),
+                        |info| info.sonarr_synced,
+                        |m| {
+                            m.external_identifiers
+                                .and_then(|i| i.tvdb_id.map(|s| s.to_string()))
+                        },
+                        |entity_tmdb_id, specifics| {
+                            integration_service.sonarr_push(
+                                specifics.sonarr_base_url.unwrap(),
+                                specifics.sonarr_api_key.unwrap(),
+                                specifics.sonarr_profile_id.unwrap(),
+                                specifics.sonarr_root_folder_path.unwrap(),
+                                entity_tmdb_id,
+                            )
+                        },
+                        "sonarr_synced",
+                    )
+                    .await
+                    .ok();
+                }
+                _ => continue,
+            };
+            to_update_integrations.push(id);
+        }
+        Integration::update_many()
+            .filter(integration::Column::Id.is_in(to_update_integrations))
+            .col_expr(
+                integration::Column::LastTriggeredOn,
+                Expr::value(Utc::now()),
+            )
+            .exec(&self.db)
+            .await?;
+        Ok(true)
+    }
+
     async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
         let main_user = user_by_id(&self.db, user_id).await?;
         if main_user.lot != UserLot::Admin {
@@ -5877,16 +6031,17 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
-        if integration.is_disabled.unwrap_or_default() {
+        let preferences = self.user_preferences(&integration.user_id).await?;
+        if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
         let service = self.get_integration_service();
-        let maybe_progress_update = match integration.source {
-            IntegrationSource::Kodi => service.kodi_progress(&payload).await,
-            IntegrationSource::Emby => service.emby_progress(&payload).await,
-            IntegrationSource::Jellyfin => service.jellyfin_progress(&payload).await,
-            IntegrationSource::Plex => {
-                let specifics = integration.clone().source_specifics.unwrap();
+        let maybe_progress_update = match integration.provider {
+            IntegrationProvider::Kodi => service.kodi_progress(&payload).await,
+            IntegrationProvider::Emby => service.emby_progress(&payload).await,
+            IntegrationProvider::Jellyfin => service.jellyfin_progress(&payload).await,
+            IntegrationProvider::Plex => {
+                let specifics = integration.clone().provider_specifics.unwrap();
                 service
                     .plex_progress(&payload, specifics.plex_username)
                     .await
@@ -5913,10 +6068,10 @@ impl MiscellaneousService {
         pu: IntegrationMediaSeen,
         user_id: &String,
     ) -> Result<()> {
-        if pu.progress < integration.minimum_progress {
+        if pu.progress < integration.minimum_progress.unwrap() {
             return Ok(());
         }
-        let progress = if pu.progress > integration.maximum_progress {
+        let progress = if pu.progress > integration.maximum_progress.unwrap() {
             dec!(100)
         } else {
             pu.progress
@@ -6090,12 +6245,11 @@ impl MiscellaneousService {
 
             let min_value = values.iter().min();
             let max_value = values.iter().max();
-            let is_complete = match (min_value, max_value) {
+
+            match (min_value, max_value) {
                 (Some(min), Some(max)) => min == max && *min != 0,
                 _ => false,
-            };
-
-            is_complete
+            }
         } else {
             seen_history.iter().any(|h| h.state == SeenState::Completed)
         };

@@ -42,6 +42,7 @@ mod m20240722_remove_columns_from_user_table;
 mod m20240723_remove_integration_columns_from_user_table;
 mod m20240724_add_new_columns_to_collection_to_entity;
 mod m20240724_zzz_new_generated_collection_to_entity_columns;
+mod m20240730_changes_for_push_integrations;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -105,6 +106,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240723_remove_integration_columns_from_user_table::Migration),
             Box::new(m20240724_add_new_columns_to_collection_to_entity::Migration),
             Box::new(m20240724_zzz_new_generated_collection_to_entity_columns::Migration),
+            Box::new(m20240730_changes_for_push_integrations::Migration),
         ]
     }
 }

@@ -7,8 +7,8 @@ query UserPreferences {
       persistQueries
       watchProviders
       disableReviews
+      disableIntegrations
       disableWatchProviders
-      disableYankIntegrations
       disableNavigationAnimation
       dashboard {
         section
