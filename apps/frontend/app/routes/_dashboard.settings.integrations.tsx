@@ -28,7 +28,7 @@ import {
 	CreateUserIntegrationDocument,
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
-	IntegrationSource,
+	IntegrationProvider,
 	UpdateUserIntegrationDocument,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
@@ -53,8 +53,8 @@ import { dayjsLib } from "~/lib/generals";
 import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
-const YANK_INTEGRATIONS = [IntegrationSource.Audiobookshelf];
-const PUSH_INTEGRATIONS = [IntegrationSource.Radarr];
+const YANK_INTEGRATIONS = [IntegrationProvider.Audiobookshelf];
+const PUSH_INTEGRATIONS = [IntegrationProvider.Radarr];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -143,18 +143,14 @@ const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
 const createSchema = z.object({
-	source: z.nativeEnum(IntegrationSource),
+	provider: z.nativeEnum(IntegrationProvider),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
-	sourceSpecifics: z
+	providerSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
-		})
-		.optional(),
-	destinationSpecifics: z
-		.object({
 			radarrBaseUrl: z.string().optional(),
 			radarrApiKey: z.string().optional(),
 			radarrProfileId: z.number().optional(),
@@ -296,7 +292,7 @@ const DisplayIntegration = (props: {
 					<Box>
 						<Group gap={4}>
 							<Text size="sm" fw="bold">
-								{changeCase(props.integration.source)}
+								{changeCase(props.integration.provider)}
 							</Text>
 							{props.integration.isDisabled ? (
 								<Text size="xs">(Paused)</Text>
@@ -313,7 +309,7 @@ const DisplayIntegration = (props: {
 						) : null}
 					</Box>
 					<Group>
-						{!NO_SHOW_URL.includes(props.integration.source) ? (
+						{!NO_SHOW_URL.includes(props.integration.provider) ? (
 							<ActionIcon color="blue" onClick={integrationInputToggle}>
 								{integrationInputOpened ? <IconEyeClosed /> : <IconEye />}
 							</ActionIcon>
@@ -370,7 +366,7 @@ const CreateIntegrationModal = (props: {
 	closeIntegrationModal: () => void;
 }) => {
 	const collections = useUserCollections();
-	const [source, setSource] = useState<IntegrationSource | null>(null);
+	const [provider, setProvider] = useState<IntegrationProvider | null>(null);
 
 	return (
 		<Modal
@@ -387,16 +383,16 @@ const CreateIntegrationModal = (props: {
 			>
 				<Stack>
 					<Select
-						label="Select a source"
-						name="source"
+						label="Select a provider"
+						name="provider"
 						required
-						data={Object.values(IntegrationSource).map((is) => ({
+						data={Object.values(IntegrationProvider).map((is) => ({
 							label: changeCase(is),
 							value: is,
 						}))}
-						onChange={(e) => setSource(e as IntegrationSource)}
+						onChange={(e) => setProvider(e as IntegrationProvider)}
 					/>
-					{source && !PUSH_INTEGRATIONS.includes(source) ? (
+					{provider && !PUSH_INTEGRATIONS.includes(provider) ? (
 						<Group wrap="nowrap">
 							<NumberInput
 								size="xs"
@@ -420,58 +416,58 @@ const CreateIntegrationModal = (props: {
 							/>
 						</Group>
 					) : null}
-					{match(source)
-						.with(IntegrationSource.Audiobookshelf, () => (
+					{match(provider)
+						.with(IntegrationProvider.Audiobookshelf, () => (
 							<>
 								<TextInput
 									label="Base Url"
 									required
-									name="sourceSpecifics.audiobookshelfBaseUrl"
+									name="providerSpecifics.audiobookshelfBaseUrl"
 								/>
 								<TextInput
 									label="Token"
 									required
-									name="sourceSpecifics.audiobookshelfToken"
+									name="providerSpecifics.audiobookshelfToken"
 								/>
 							</>
 						))
-						.with(IntegrationSource.Plex, () => (
+						.with(IntegrationProvider.Plex, () => (
 							<>
 								<TextInput
 									label="Username"
-									name="sourceSpecifics.plexUsername"
+									name="providerSpecifics.plexUsername"
 								/>
 							</>
 						))
-						.with(IntegrationSource.Radarr, () => (
+						.with(IntegrationProvider.Radarr, () => (
 							<>
 								<TextInput
 									required
 									label="Base Url"
-									name="destinationSpecifics.radarrBaseUrl"
+									name="providerSpecifics.radarrBaseUrl"
 								/>
 								<TextInput
 									required
 									label="Token"
-									name="destinationSpecifics.radarrApiKey"
+									name="providerSpecifics.radarrApiKey"
 								/>
 								<NumberInput
 									required
 									hideControls
 									defaultValue={1}
 									label="Profile ID"
-									name="destinationSpecifics.radarrProfileId"
+									name="providerSpecifics.radarrProfileId"
 								/>
 								<TextInput
 									required
 									label="Root Folder"
-									name="destinationSpecifics.radarrRootFolderPath"
+									name="providerSpecifics.radarrRootFolderPath"
 								/>
 								<MultiSelect
 									required
 									searchable
 									label="Collections"
-									name="destinationSpecifics.radarrSyncCollectionIds"
+									name="providerSpecifics.radarrSyncCollectionIds"
 									data={collections.map((c) => ({
 										label: c.name,
 										value: c.id,
@@ -511,7 +507,9 @@ const UpdateIntegrationModal = (props: {
 						defaultValue={props.updateIntegrationData.id}
 					/>
 					<Stack>
-						{!PUSH_INTEGRATIONS.includes(props.updateIntegrationData.source) ? (
+						{!PUSH_INTEGRATIONS.includes(
+							props.updateIntegrationData.provider,
+						) ? (
 							<Group wrap="nowrap">
 								<NumberInput
 									size="xs"
