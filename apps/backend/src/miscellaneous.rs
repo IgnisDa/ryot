@@ -5872,6 +5872,7 @@ impl MiscellaneousService {
                         .into_tuple::<(Uuid, CollectionToEntitySystemInformation, String)>()
                         .all(&self.db)
                         .await?;
+                    let mut cte_to_update = vec![];
                     for (cte_id, information, movie_tmdb_id) in tmdb_ids_to_add {
                         if matches!(information.radarr_synced, Some(true)) {
                             continue;
@@ -5887,10 +5888,19 @@ impl MiscellaneousService {
                             )
                             .await
                         {
-
-                            // TODO: Update collection_to_entity that the media has been added
+                            cte_to_update.push(cte_id);
                         }
                     }
+                    CollectionToEntity::update_many()
+                        .filter(collection_to_entity::Column::Id.is_in(cte_to_update))
+                        .col_expr(
+                            collection_to_entity::Column::SystemInformation,
+                            Expr::cust(
+                                "JSONB_SET(system_information,'{radarr_synced}','true',true)",
+                            ),
+                        )
+                        .exec(&self.db)
+                        .await?;
                 }
                 _ => continue,
             };
