@@ -5750,6 +5750,7 @@ impl MiscellaneousService {
         let mut progress_updates = vec![];
         let mut collection_updates = vec![];
         let mut to_update_integrations = vec![];
+        let integration_service = self.get_integration_service();
         for integration in integrations.into_iter() {
             if integration.is_disabled.unwrap_or_default() {
                 tracing::debug!("Integration {} is disabled", integration.id);
@@ -5758,7 +5759,7 @@ impl MiscellaneousService {
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
                     let specifics = integration.clone().provider_specifics.unwrap();
-                    self.get_integration_service()
+                    integration_service
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
                             &specifics.audiobookshelf_token.unwrap(),
