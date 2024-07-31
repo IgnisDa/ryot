@@ -576,6 +576,7 @@ impl IntegrationService {
             prefix: None,
         });
         let mut resource = SonarrSeriesResource::new();
+        resource.title = Some(Some(tmdb_id.clone()));
         resource.tmdb_id = Some(tmdb_id.parse().unwrap());
         resource.quality_profile_id = Some(sonarr_profile_id);
         resource.root_folder_path = Some(Some(sonarr_root_folder_path.clone()));
