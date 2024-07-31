@@ -73,7 +73,6 @@ pub struct AppServices {
     pub media_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
-    pub file_storage_service: Arc<FileStorageService>,
     pub exercise_service: Arc<ExerciseService>,
 }
 
@@ -158,7 +157,6 @@ pub async fn create_app_services(
         media_service,
         importer_service,
         exporter_service,
-        file_storage_service,
         exercise_service,
     }
 }

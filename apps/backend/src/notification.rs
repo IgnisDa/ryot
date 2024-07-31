@@ -163,9 +163,8 @@ impl NotificationPlatformSpecifics {
                     config.server.smtp.password.to_owned(),
                 );
 
-                let mailer = SmtpTransport::starttls_relay(&config.server.smtp.server)
+                let mailer = SmtpTransport::relay(&config.server.smtp.server)
                     .unwrap()
-                    .port(config.server.smtp.port)
                     .credentials(credentials)
                     .build();
 
