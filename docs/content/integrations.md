@@ -38,8 +38,7 @@ Follow the same instructions as the [yank](#yank-integrations) integrations to a
 
 ### Radarr
 
-Automatically add media in the selected collections to Radarr. This will work for all
-movies that have a valid TMDb ID attached to their metadata.
+Automatically add movies in the selected collections to Radarr.
 
 1. Obtain your Radarr API key by going to the Radarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
