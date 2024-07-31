@@ -90,8 +90,9 @@ use crate::{
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
-        DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
-        SearchResults, StoredUrl, StringIdObject, UserSummaryData,
+        CollectionToEntitySystemInformation, DefaultCollection, IdAndNamedObject,
+        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
+        UserSummaryData,
     },
     providers::{
         anilist::{
@@ -5865,12 +5866,16 @@ impl MiscellaneousService {
                         )
                         .select_only()
                         .column(collection_to_entity::Column::Id)
+                        .column(collection_to_entity::Column::SystemInformation)
                         .column(metadata::Column::Identifier)
                         .left_join(Metadata)
-                        .into_tuple::<(Uuid, String)>()
+                        .into_tuple::<(Uuid, CollectionToEntitySystemInformation, String)>()
                         .all(&self.db)
                         .await?;
-                    for (cte_id, movie_tmdb_id) in tmdb_ids_to_add {
+                    for (cte_id, information, movie_tmdb_id) in tmdb_ids_to_add {
+                        if matches!(information.radarr_synced, Some(true)) {
+                            continue;
+                        }
                         if let Ok(true) = self
                             .get_integration_service()
                             .radarr_push(
