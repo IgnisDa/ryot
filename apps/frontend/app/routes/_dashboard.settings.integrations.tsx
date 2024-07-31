@@ -469,6 +469,7 @@ const CreateIntegrationModal = (props: {
 								<MultiSelect
 									label="Collections"
 									required
+									searchable
 									name="destinationSpecifics.radarrSyncCollectionIds"
 									data={collections.map((c) => ({
 										label: c.name,
