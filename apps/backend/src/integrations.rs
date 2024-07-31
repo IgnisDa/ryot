@@ -14,15 +14,12 @@ use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{
-        collection_to_entity, metadata,
-        prelude::{CollectionToEntity, Metadata},
-    },
+    entities::{metadata, prelude::Metadata},
     models::{audiobookshelf_models, media::CommitMediaInput},
     providers::google_books::GoogleBooksService,
     traits::TraceOk,
@@ -535,7 +532,7 @@ impl IntegrationService {
         radarr_api_key: String,
         radarr_profile_id: i32,
         radarr_root_folder_path: String,
-        radarr_sync_collection_ids: Vec<String>,
+        tmdb_ids: Vec<String>,
     ) -> Result<bool> {
         let mut configuration = Configuration::new();
         configuration.base_path = radarr_base_url;
@@ -543,17 +540,7 @@ impl IntegrationService {
             key: radarr_api_key,
             prefix: None,
         });
-        let in_collections = CollectionToEntity::find()
-            .filter(metadata::Column::Lot.eq(MediaLot::Movie))
-            .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-            .filter(collection_to_entity::Column::CollectionId.is_in(radarr_sync_collection_ids))
-            .select_only()
-            .column(metadata::Column::Identifier)
-            .left_join(Metadata)
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        for movie in in_collections {
+        for movie in tmdb_ids {
             let mut resource = MovieResource::new();
             resource.tmdb_id = Some(movie.parse().unwrap());
             resource.quality_profile_id = Some(radarr_profile_id);

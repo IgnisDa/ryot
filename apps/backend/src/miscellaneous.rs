@@ -5855,19 +5855,32 @@ impl MiscellaneousService {
             let was_updated = match integration.source {
                 IntegrationSource::Radarr => {
                     let specifics = integration.clone().destination_specifics.unwrap();
+                    let tmdb_ids_to_add = CollectionToEntity::find()
+                        .filter(metadata::Column::Lot.eq(MediaLot::Movie))
+                        .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
+                        .filter(
+                            collection_to_entity::Column::CollectionId
+                                .is_in(specifics.radarr_sync_collection_ids.unwrap()),
+                        )
+                        .select_only()
+                        .column(metadata::Column::Identifier)
+                        .left_join(Metadata)
+                        .into_tuple::<String>()
+                        .all(&self.db)
+                        .await?;
                     self.get_integration_service()
                         .radarr_push(
                             specifics.radarr_base_url.unwrap(),
                             specifics.radarr_api_key.unwrap(),
                             specifics.radarr_profile_id.unwrap(),
                             specifics.radarr_root_folder_path.unwrap(),
-                            specifics.radarr_sync_collection_ids.unwrap(),
+                            tmdb_ids_to_add,
                         )
                         .await
                 }
                 _ => continue,
             };
-            if let Ok(true)= was_updated {
+            if let Ok(true) = was_updated {
                 to_update_integrations.push(integration.id.clone());
             }
         }
