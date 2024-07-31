@@ -106,6 +106,7 @@ pub trait DatabaseAssetsAsUrls {
 
 #[async_trait]
 pub trait AuthProvider {
+    #[allow(dead_code)]
     fn is_mutation(&self) -> bool {
         false
     }
