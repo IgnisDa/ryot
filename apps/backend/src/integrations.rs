@@ -548,9 +548,9 @@ impl IntegrationService {
         let mut options = RadarrAddMovieOptions::new();
         options.search_for_movie = Some(true);
         resource.add_options = Some(Box::new(options));
-        let response = radarr_api_v3_movie_post(&configuration, Some(resource))
+        radarr_api_v3_movie_post(&configuration, Some(resource))
             .await
             .trace_ok();
-        Ok(response.is_some())
+        Ok(true)
     }
 }
