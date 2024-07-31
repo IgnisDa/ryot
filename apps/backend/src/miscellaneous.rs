@@ -5872,12 +5872,15 @@ impl MiscellaneousService {
                         .await?;
                     let mut cte_to_update = vec![];
                     for (cte_id, information, movie_tmdb_id) in tmdb_ids_to_add {
-                        if matches!(information.radarr_synced, Some(true)) {
+                        if information
+                            .radarr_synced
+                            .unwrap_or_default()
+                            .contains(&integration.id)
+                        {
                             tracing::debug!("Movie {} already synced", movie_tmdb_id);
                             continue;
                         }
-                        if let Ok(true) = self
-                            .get_integration_service()
+                        self.get_integration_service()
                             .radarr_push(
                                 specifics.radarr_base_url.clone().unwrap(),
                                 specifics.radarr_api_key.clone().unwrap(),
@@ -5886,16 +5889,15 @@ impl MiscellaneousService {
                                 movie_tmdb_id,
                             )
                             .await
-                        {
-                            cte_to_update.push(cte_id);
-                        }
+                            .ok();
+                        cte_to_update.push(cte_id);
                     }
                     CollectionToEntity::update_many()
                         .filter(collection_to_entity::Column::Id.is_in(cte_to_update))
                         .col_expr(
                             collection_to_entity::Column::SystemInformation,
                             Expr::cust(
-                                "JSONB_SET(system_information,'{radarr_synced}','true',true)",
+                                format!(r#"JSONB_SET(system_information, '{{radarr_synced}}', COALESCE(system_information->'radarr_synced','[]'::JSONB) || '["{}"]'::JSONB)"#, &integration.id)
                             ),
                         )
                         .exec(&self.db)

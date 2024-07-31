@@ -110,7 +110,7 @@ meta! {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, FromJsonQueryResult)]
 pub struct CollectionToEntitySystemInformation {
-    pub radarr_synced: Option<bool>,
+    pub radarr_synced: Option<Vec<String>>,
 }
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
