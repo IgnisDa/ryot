@@ -446,30 +446,31 @@ const CreateIntegrationModal = (props: {
 						.with(IntegrationSource.Radarr, () => (
 							<>
 								<TextInput
-									label="Base Url"
 									required
+									label="Base Url"
 									name="destinationSpecifics.radarrBaseUrl"
 								/>
 								<TextInput
-									label="Token"
 									required
+									label="Token"
 									name="destinationSpecifics.radarrApiKey"
 								/>
 								<NumberInput
-									label="Profile ID"
 									required
-									name="destinationSpecifics.radarrProfileId"
+									hideControls
 									defaultValue={1}
+									label="Profile ID"
+									name="destinationSpecifics.radarrProfileId"
 								/>
 								<TextInput
-									label="Root Folder"
 									required
+									label="Root Folder"
 									name="destinationSpecifics.radarrRootFolderPath"
 								/>
 								<MultiSelect
-									label="Collections"
 									required
 									searchable
+									label="Collections"
 									name="destinationSpecifics.radarrSyncCollectionIds"
 									data={collections.map((c) => ({
 										label: c.name,
