@@ -206,9 +206,6 @@ server:
     # @envvar SERVER_SMTP_PASSWORD
     password: ""
 
-    # @envvar SERVER_SMTP_PORT
-    port: 587
-
     # @envvar SERVER_SMTP_SERVER
     server: ""
 
