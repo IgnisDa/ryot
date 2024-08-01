@@ -210,6 +210,7 @@ export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
 	hideExerciseDetails?: boolean;
+	hideExtraDetailsButton?: boolean;
 }) => {
 	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
@@ -278,9 +279,11 @@ export const ExerciseHistory = (props: {
 										? workoutDetails.details.name
 										: exercise.name}
 								</Anchor>
-								<ActionIcon onClick={toggle} variant="transparent">
-									<IconInfoCircle size={18} />
-								</ActionIcon>
+								{!props.hideExtraDetailsButton ? (
+									<ActionIcon onClick={toggle} variant="transparent">
+										<IconInfoCircle size={18} />
+									</ActionIcon>
+								) : null}
 							</Group>
 							{props.hideExerciseDetails ? (
 								<Text c="dimmed" fz="sm">
