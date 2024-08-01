@@ -64,18 +64,27 @@ export default function Pricing(props: {
 							</Link>
 						) : null}
 					</p>
-					<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 md:gap-12 lg:max-w-5xl lg:grid-cols-3 text-center">
+					<div className="mx-auto flex justify-center items-center gap-8 text-center flex-wrap">
 						{selectedProductType.prices.map((p) => (
-							<div className="grid gap-y-3 border rounded-xl py-3" key={p.name}>
+							<div
+								className="grid gap-y-3 border rounded-xl py-3 w-72"
+								key={p.name}
+							>
 								<p className="text-3xl">{changeCase(p.name)}</p>
 								<p className="text-xl font-bold text-muted-foreground">
-									${p.amount}
+									{p.amount ? `$${p.amount}` : "Community Edition"}
 									{p.trial ? ` with a ${p.trial} days trial` : null}
 								</p>
 								<Link
-									to={props.isLoggedIn ? $path("/me") : "#start-here"}
+									to={
+										p.linkToGithub
+											? "https://docs.ryot.io"
+											: props.isLoggedIn
+												? $path("/me")
+												: "#start-here"
+									}
 									onClick={(e) => {
-										if (props.onClick) {
+										if (props.onClick && p.priceId) {
 											e.preventDefault();
 											props.onClick(p.priceId);
 										}

@@ -46,8 +46,9 @@ export const pricesSchema = z.array(
 		prices: z.array(
 			z.object({
 				name: z.string(),
-				priceId: z.string(),
-				amount: z.number(),
+				linkToGithub: z.boolean().optional(),
+				priceId: z.string().optional(),
+				amount: z.number().optional(),
 				trial: z.number().optional(),
 			}),
 		),
@@ -121,7 +122,7 @@ export const sendEmail = async (
 	return resp.messageId;
 };
 
-export const authCookie = createCookie("Auth", {
+export const authCookie = createCookie("WebsiteAuth", {
 	maxAge: 60 * 60 * 24 * 365,
 	path: "/",
 });
