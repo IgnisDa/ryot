@@ -4719,6 +4719,7 @@ impl MiscellaneousService {
     /// If the token has an access link, then checks that:
     /// - the access link is not revoked
     /// - if the operation is a mutation, then the access link allows mutations
+    ///
     /// If any of the above conditions are not met, then an error is returned.
     #[inline]
     pub async fn check_token(&self, token: &str, is_mutation: bool) -> Result<bool> {
