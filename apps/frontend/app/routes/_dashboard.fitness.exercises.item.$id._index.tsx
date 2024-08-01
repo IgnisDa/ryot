@@ -236,8 +236,8 @@ export default function Page() {
 									<Box mt={index !== 0 ? "md" : undefined}>
 										<ExerciseHistory
 											hideExerciseDetails
-											exerciseIdx={index}
 											key={history.workoutId}
+											exerciseIdx={history.idx}
 											entityId={history.workoutId}
 										/>
 									</Box>
