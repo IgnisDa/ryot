@@ -31,6 +31,7 @@ jobs:
         env:
           TARGET: ${{ matrix.platform.target }}
         run: |
+          echo "version=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
           echo "env=${TARGET##*-}" >> "$GITHUB_OUTPUT"
           echo "arch=$(echo $TARGET | cut -d '-' -f1)" >> "$GITHUB_OUTPUT"
           echo "docker-arch=${{ startsWith(matrix.platform.target, 'x86_64') && 'amd64' || 'arm64' }}" >> "$GITHUB_OUTPUT"
@@ -58,6 +59,10 @@ jobs:
           locked: false
 
       - name: Build
+        env:
+          APP_VERSION: ${{ steps.build.outputs.version }}
+          DEFAULT_TMDB_ACCESS_TOKEN: ${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}
+          DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
         run: |
           ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --profile ${{ steps.build.outputs.profile }}
       - name: Upload build artifact
