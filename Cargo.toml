@@ -12,6 +12,7 @@ async-graphql = { version = "=7.0.7", features = [
 ] }
 chrono = "=0.4.38"
 dotenvy_macro = "=0.15.7"
+openssl = { version = "=0.10.66", features = ["vendored"] }
 nanoid = "=0.4.0"
 schematic = { version = "=0.16.6", features = [
     "config",

@@ -1515,6 +1515,7 @@ dependencies = [
  "async-graphql",
  "indoc",
  "nanoid",
+ "openssl",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
@@ -3375,6 +3376,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
+name = "openssl-src"
+version = "300.3.0+3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eba8804a1c5765b18c4b3f907e6897ebabeedebc9830e1a0046c4a4cf44663e1"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3382,6 +3392,7 @@ checksum = "7f9e8deee91df40a943c71b917e5874b951d32a802526c85721ce3b776c929d6"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -4564,6 +4575,7 @@ dependencies = [
  "mime_guess",
  "nanoid",
  "openidconnect",
+ "openssl",
  "paginate",
  "radarr-api-rs",
  "rand 0.9.0-alpha.1",
