@@ -2890,27 +2890,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kinded"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce4bdbb2f423660b19f0e9f7115182214732d8dd5f840cd0a3aee3e22562f34c"
-dependencies = [
- "kinded_macros",
-]
-
-[[package]]
-name = "kinded_macros"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13b4ddc5dcb32f45dac3d6f606da2a52fdb9964a18427e63cd5ef6c0d13288d"
-dependencies = [
- "convert_case",
- "proc-macro2",
- "quote",
- "syn 2.0.72",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4548,7 +4527,6 @@ dependencies = [
  "isolang",
  "itertools 0.13.0",
  "jsonwebtoken",
- "kinded",
  "lettre",
  "logs-wheel",
  "markdown",

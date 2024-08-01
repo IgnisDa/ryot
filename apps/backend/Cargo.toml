@@ -43,7 +43,6 @@ http = "=1.1.0"
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.13.0"
 jsonwebtoken = { version = "=9.3.0", default-features = false }
-kinded = "=0.3.0"
 lettre = "=0.11.7"
 markdown = "=1.0.0-alpha.18"
 mime_guess = "=2.0.5"
