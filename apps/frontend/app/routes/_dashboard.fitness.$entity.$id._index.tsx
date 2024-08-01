@@ -1,20 +1,13 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Anchor,
-	Avatar,
 	Box,
 	Button,
 	Container,
-	Flex,
 	Group,
-	Image,
 	Menu,
 	Modal,
-	Paper,
-	ScrollArea,
 	SimpleGrid,
-	Skeleton,
 	Stack,
 	Text,
 	Title,
@@ -43,25 +36,22 @@ import {
 	IconClock,
 	IconClockEdit,
 	IconDotsVertical,
-	IconInfoCircle,
 	IconRepeat,
-	IconRotateClockwise,
 	IconRun,
 	IconTrash,
 	IconTrophy,
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
-import { withFragment, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
-	DisplaySet,
+	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
@@ -72,11 +62,7 @@ import {
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import {
-	duplicateOldWorkout,
-	getExerciseDetailsQuery,
-	getWorkoutDetailsQuery,
-} from "~/lib/state/fitness";
+import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import {
 	createToastHeaders,
@@ -421,7 +407,7 @@ export default function Page() {
 						</Box>
 					) : null}
 					{loaderData.information.exercises.map((exercise, idx) => (
-						<DisplayExercise
+						<ExerciseHistory
 							exerciseIdx={idx}
 							entityId={loaderData.entityId}
 							key={`${exercise.name}-${idx}`}
@@ -432,165 +418,6 @@ export default function Page() {
 		</>
 	);
 }
-
-const DisplayExercise = (props: {
-	entityId: string;
-	exerciseIdx: number;
-}) => {
-	const unitSystem = useUserUnitSystem();
-	const [opened, { toggle }] = useDisclosure(false);
-	const [parent] = useAutoAnimate();
-	const { data: workoutDetails } = useQuery(
-		getWorkoutDetailsQuery(props.entityId),
-	);
-	const exercise =
-		workoutDetails?.details.information.exercises[props.exerciseIdx];
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise?.name || ""),
-	);
-
-	const supersetLinks =
-		exercise && exercise.supersetWith.length > 0
-			? exercise.supersetWith
-					.map<ReactNode>((otherExerciseIdx) => (
-						<Anchor
-							key={otherExerciseIdx}
-							fz="xs"
-							href={withFragment(
-								$path("/fitness/:entity/:id", {
-									entity: "workouts",
-									id: props.entityId,
-								}),
-								otherExerciseIdx.toString(),
-							)}
-						>
-							{
-								workoutDetails.details.information.exercises[otherExerciseIdx]
-									.name
-							}
-						</Anchor>
-					))
-					.reduce((prev, curr) => [prev, ", ", curr])
-			: null;
-
-	return (
-		<Paper withBorder p="xs">
-			{exerciseDetails && workoutDetails && exercise ? (
-				<>
-					<Stack mb="xs" gap="xs" ref={parent}>
-						<Group justify="space-between" wrap="nowrap">
-							<Anchor
-								id={props.exerciseIdx.toString()}
-								component={Link}
-								to={$path("/fitness/exercises/item/:id", {
-									id: exercise.name,
-								})}
-								fw="bold"
-								lineClamp={1}
-								style={{ scrollMargin: 20 }}
-							>
-								{exercise.name}
-							</Anchor>
-							<ActionIcon onClick={toggle} variant="transparent">
-								<IconInfoCircle size={18} />
-							</ActionIcon>
-						</Group>
-						{opened ? (
-							<>
-								<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
-									{exercise.restTime ? (
-										<Flex align="center" gap="xs">
-											<IconZzz size={14} />
-											<Text fz="xs">Rest time: {exercise.restTime}s</Text>
-										</Flex>
-									) : null}
-									{exercise.total ? (
-										<>
-											{Number(exercise.total.reps) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconRotateClockwise size={14} />
-													<Text fz="xs">Reps: {exercise.total.reps}</Text>
-												</Flex>
-											) : null}
-											{Number(exercise.total.duration) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconClock size={14} />
-													<Text fz="xs">
-														Duration: {exercise.total.duration} min
-													</Text>
-												</Flex>
-											) : null}
-											{Number(exercise.total.weight) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconWeight size={14} />
-													<Text fz="xs">
-														Weight:{" "}
-														{displayWeightWithUnit(
-															unitSystem,
-															exercise.total.weight,
-														)}
-													</Text>
-												</Flex>
-											) : null}
-											{Number(exercise.total.distance) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconRun size={14} />
-													<Text fz="xs">
-														Distance:{" "}
-														{displayDistanceWithUnit(
-															unitSystem,
-															exercise.total.distance,
-														)}
-													</Text>
-												</Flex>
-											) : null}
-										</>
-									) : null}
-								</SimpleGrid>
-								{exerciseDetails ? (
-									<ScrollArea type="scroll">
-										<Flex gap="lg">
-											{exerciseDetails.attributes.images.map((i) => (
-												<Image key={i} radius="md" src={i} h={200} w={350} />
-											))}
-										</Flex>
-									</ScrollArea>
-								) : null}
-							</>
-						) : null}
-						{supersetLinks ? (
-							<Text fz="xs">Superset with {supersetLinks}</Text>
-						) : null}
-						{exercise.notes.map((n, idxN) => (
-							<Text c="dimmed" key={n} size="xs">
-								{exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
-							</Text>
-						))}
-						{exercise.assets && exercise.assets.images.length > 0 ? (
-							<Avatar.Group>
-								{exercise.assets.images.map((i) => (
-									<Anchor key={i} href={i} target="_blank">
-										<Avatar src={i} />
-									</Anchor>
-								))}
-							</Avatar.Group>
-						) : null}
-					</Stack>
-					{exercise.sets.map((set, idx) => (
-						<DisplaySet
-							set={set}
-							idx={idx}
-							key={set.confirmedAt}
-							exerciseLot={exercise.lot}
-						/>
-					))}
-				</>
-			) : (
-				<Skeleton h={20} />
-			)}
-		</Paper>
-	);
-};
 
 const DisplayStat = (props: { icon: ReactNode; data: string }) => {
 	return (

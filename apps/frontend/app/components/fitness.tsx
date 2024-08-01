@@ -1,13 +1,19 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Anchor,
+	Avatar,
 	Badge,
 	Box,
 	Flex,
 	Group,
+	Image,
 	Paper,
 	Popover,
+	ScrollArea,
+	SimpleGrid,
 	Skeleton,
+	Stack,
 	Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -15,20 +21,31 @@ import { Link } from "@remix-run/react";
 import {
 	ExerciseLot,
 	SetLot,
-	type UserExerciseDetailsQuery,
 	UserUnitSystem,
 	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase, truncate } from "@ryot/ts-utils";
-import { IconTrophy } from "@tabler/icons-react";
+import { startCase } from "@ryot/ts-utils";
+import {
+	IconClock,
+	IconInfoCircle,
+	IconRotateClockwise,
+	IconRun,
+	IconTrophy,
+	IconWeight,
+	IconZzz,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
-import { dayjsLib, getSetColor } from "~/lib/generals";
+import { getSetColor } from "~/lib/generals";
 import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
-import { getWorkoutDetailsQuery } from "~/lib/state/fitness";
+import {
+	getExerciseDetailsQuery,
+	getWorkoutDetailsQuery,
+} from "~/lib/state/fitness";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
@@ -190,46 +207,155 @@ export const DisplaySet = (props: {
 };
 
 export const ExerciseHistory = (props: {
-	exerciseId: string;
-	exerciseLot: ExerciseLot;
-	history: NonNullable<
-		UserExerciseDetailsQuery["userExerciseDetails"]["history"]
-	>[number];
+	entityId: string;
+	exerciseIdx: number;
+	hideEntityDetails?: boolean;
 }) => {
-	const { data: workoutData } = useQuery(
-		getWorkoutDetailsQuery(props.history.workoutId),
+	const unitSystem = useUserUnitSystem();
+	const [opened, { toggle }] = useDisclosure(false);
+	const [parent] = useAutoAnimate();
+	const { data: workoutDetails } = useQuery(
+		getWorkoutDetailsQuery(props.entityId),
+	);
+	const exercise =
+		workoutDetails?.details.information.exercises[props.exerciseIdx];
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(exercise?.name || ""),
 	);
 
-	return (
-		<Paper key={props.history.workoutId} withBorder p="xs">
-			{workoutData ? (
-				<>
-					<Group justify="space-between" wrap="nowrap">
+	const supersetLinks =
+		exercise && exercise.supersetWith.length > 0
+			? exercise.supersetWith
+					.map<ReactNode>((otherExerciseIdx) => (
 						<Anchor
-							component={Link}
-							to={withFragment(
+							key={otherExerciseIdx}
+							fz="xs"
+							href={withFragment(
 								$path("/fitness/:entity/:id", {
 									entity: "workouts",
-									id: props.history.workoutId,
+									id: props.entityId,
 								}),
-								props.history.idx.toString(),
+								otherExerciseIdx.toString(),
 							)}
-							fw="bold"
 						>
-							{truncate(workoutData.details.name, { length: 36 })}
+							{
+								workoutDetails.details.information.exercises[otherExerciseIdx]
+									.name
+							}
 						</Anchor>
-					</Group>
-					<Text c="dimmed" fz="sm" mb="xs">
-						{dayjsLib(workoutData.details.endTime).format("LLLL")}
-					</Text>
-					{workoutData.details.information.exercises[
-						props.history.idx
-					].sets.map((set, idx) => (
+					))
+					.reduce((prev, curr) => [prev, ", ", curr])
+			: null;
+
+	return (
+		<Paper withBorder p="xs">
+			{exerciseDetails && workoutDetails && exercise ? (
+				<>
+					<Stack mb="xs" gap="xs" ref={parent}>
+						<Group justify="space-between" wrap="nowrap">
+							<Anchor
+								id={props.exerciseIdx.toString()}
+								component={Link}
+								to={$path("/fitness/exercises/item/:id", {
+									id: exercise.name,
+								})}
+								fw="bold"
+								lineClamp={1}
+								style={{ scrollMargin: 20 }}
+							>
+								{exercise.name}
+							</Anchor>
+							<ActionIcon onClick={toggle} variant="transparent">
+								<IconInfoCircle size={18} />
+							</ActionIcon>
+						</Group>
+						{opened ? (
+							<>
+								<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
+									{exercise.restTime ? (
+										<Flex align="center" gap="xs">
+											<IconZzz size={14} />
+											<Text fz="xs">Rest time: {exercise.restTime}s</Text>
+										</Flex>
+									) : null}
+									{exercise.total ? (
+										<>
+											{Number(exercise.total.reps) > 0 ? (
+												<Flex align="center" gap="xs">
+													<IconRotateClockwise size={14} />
+													<Text fz="xs">Reps: {exercise.total.reps}</Text>
+												</Flex>
+											) : null}
+											{Number(exercise.total.duration) > 0 ? (
+												<Flex align="center" gap="xs">
+													<IconClock size={14} />
+													<Text fz="xs">
+														Duration: {exercise.total.duration} min
+													</Text>
+												</Flex>
+											) : null}
+											{Number(exercise.total.weight) > 0 ? (
+												<Flex align="center" gap="xs">
+													<IconWeight size={14} />
+													<Text fz="xs">
+														Weight:{" "}
+														{displayWeightWithUnit(
+															unitSystem,
+															exercise.total.weight,
+														)}
+													</Text>
+												</Flex>
+											) : null}
+											{Number(exercise.total.distance) > 0 ? (
+												<Flex align="center" gap="xs">
+													<IconRun size={14} />
+													<Text fz="xs">
+														Distance:{" "}
+														{displayDistanceWithUnit(
+															unitSystem,
+															exercise.total.distance,
+														)}
+													</Text>
+												</Flex>
+											) : null}
+										</>
+									) : null}
+								</SimpleGrid>
+								{!props.hideEntityDetails && exerciseDetails ? (
+									<ScrollArea type="scroll">
+										<Flex gap="lg">
+											{exerciseDetails.attributes.images.map((i) => (
+												<Image key={i} radius="md" src={i} h={200} w={350} />
+											))}
+										</Flex>
+									</ScrollArea>
+								) : null}
+							</>
+						) : null}
+						{!props.hideEntityDetails && supersetLinks ? (
+							<Text fz="xs">Superset with {supersetLinks}</Text>
+						) : null}
+						{exercise.notes.map((n, idxN) => (
+							<Text c="dimmed" key={n} size="xs">
+								{exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
+							</Text>
+						))}
+						{exercise.assets && exercise.assets.images.length > 0 ? (
+							<Avatar.Group>
+								{exercise.assets.images.map((i) => (
+									<Anchor key={i} href={i} target="_blank">
+										<Avatar src={i} />
+									</Anchor>
+								))}
+							</Avatar.Group>
+						) : null}
+					</Stack>
+					{exercise.sets.map((set, idx) => (
 						<DisplaySet
-							idx={idx}
 							set={set}
-							key={`${idx}-${set.lot}`}
-							exerciseLot={props.exerciseLot}
+							idx={idx}
+							key={set.confirmedAt}
+							exerciseLot={exercise.lot}
 						/>
 					))}
 				</>
