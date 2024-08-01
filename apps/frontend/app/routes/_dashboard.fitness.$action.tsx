@@ -1070,9 +1070,10 @@ const ExerciseDisplay = (props: {
 														activeHistoryIdx,
 													).includes(idx) ? (
 														<ExerciseHistory
-															history={history}
-															exerciseLot={exercise.lot}
-															exerciseId={exercise.exerciseId}
+															hideExerciseDetails
+															hideExtraDetailsButton
+															exerciseIdx={history.idx}
+															entityId={history.workoutId}
 															onCopyButtonClick={async () => {
 																const workout = await getWorkoutDetails(
 																	history.workoutId,

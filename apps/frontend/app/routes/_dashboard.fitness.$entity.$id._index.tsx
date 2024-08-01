@@ -1,18 +1,12 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Anchor,
-	Avatar,
 	Box,
 	Button,
 	Container,
-	Flex,
 	Group,
-	Image,
 	Menu,
 	Modal,
-	Paper,
-	ScrollArea,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -31,7 +25,6 @@ import {
 	EntityLot,
 	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
-	type WorkoutDetailsQuery,
 	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -45,27 +38,24 @@ import {
 	IconClock,
 	IconClockEdit,
 	IconDotsVertical,
-	IconInfoCircle,
 	IconPencil,
 	IconPlayerPlay,
 	IconRepeat,
-	IconRotateClockwise,
 	IconRun,
 	IconTrash,
 	IconTrophy,
 	IconWeight,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
-import { withFragment, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
-	DisplaySet,
+	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
@@ -76,10 +66,7 @@ import {
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
-import {
-	duplicateOldWorkout,
-	getExerciseDetailsQuery,
-} from "~/lib/state/fitness";
+import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import {
 	createToastHeaders,
@@ -520,10 +507,10 @@ export default function Page() {
 						</Box>
 					) : null}
 					{loaderData.information.exercises.map((exercise, idx) => (
-						<DisplayExercise
+						<ExerciseHistory
+							exerciseIdx={idx}
+							entityId={loaderData.entityId}
 							key={`${exercise.name}-${idx}`}
-							exercise={exercise}
-							idx={idx}
 						/>
 					))}
 				</Stack>
@@ -531,149 +518,6 @@ export default function Page() {
 		</>
 	);
 }
-
-type Exercise =
-	WorkoutDetailsQuery["workoutDetails"]["details"]["information"]["exercises"][number];
-
-const DisplayExercise = (props: { exercise: Exercise; idx: number }) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const unitSystem = useUserUnitSystem();
-	const [opened, { toggle }] = useDisclosure(false);
-	const [parent] = useAutoAnimate();
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(props.exercise.name),
-	);
-
-	const supersetLinks =
-		props.exercise.supersetWith.length > 0
-			? props.exercise.supersetWith
-					.map<ReactNode>((otherExerciseIdx) => (
-						<Anchor
-							key={otherExerciseIdx}
-							fz="xs"
-							href={withFragment(
-								"",
-								`${loaderData.information.exercises[otherExerciseIdx].name}__${otherExerciseIdx}`,
-							)}
-						>
-							{loaderData.information.exercises[otherExerciseIdx].name}
-						</Anchor>
-					))
-					.reduce((prev, curr) => [prev, ", ", curr])
-			: null;
-
-	return (
-		<Paper withBorder p="xs">
-			<Stack mb="xs" gap="xs" ref={parent}>
-				<Group justify="space-between" wrap="nowrap">
-					<Anchor
-						id={props.idx.toString()}
-						component={Link}
-						to={$path("/fitness/exercises/item/:id", {
-							id: props.exercise.name,
-						})}
-						fw="bold"
-						lineClamp={1}
-						style={{ scrollMargin: 20 }}
-					>
-						{props.exercise.name}
-					</Anchor>
-					<ActionIcon onClick={toggle} variant="transparent">
-						<IconInfoCircle size={18} />
-					</ActionIcon>
-				</Group>
-				{opened ? (
-					<>
-						<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
-							{props.exercise.restTime ? (
-								<Flex align="center" gap="xs">
-									<IconZzz size={14} />
-									<Text fz="xs">Rest time: {props.exercise.restTime}s</Text>
-								</Flex>
-							) : null}
-							{props.exercise.total ? (
-								<>
-									{Number(props.exercise.total.reps) > 0 ? (
-										<Flex align="center" gap="xs">
-											<IconRotateClockwise size={14} />
-											<Text fz="xs">Reps: {props.exercise.total.reps}</Text>
-										</Flex>
-									) : null}
-									{Number(props.exercise.total.duration) > 0 ? (
-										<Flex align="center" gap="xs">
-											<IconClock size={14} />
-											<Text fz="xs">
-												Duration: {props.exercise.total.duration} min
-											</Text>
-										</Flex>
-									) : null}
-									{Number(props.exercise.total.weight) > 0 ? (
-										<Flex align="center" gap="xs">
-											<IconWeight size={14} />
-											<Text fz="xs">
-												Weight:{" "}
-												{displayWeightWithUnit(
-													unitSystem,
-													props.exercise.total.weight,
-												)}
-											</Text>
-										</Flex>
-									) : null}
-									{Number(props.exercise.total.distance) > 0 ? (
-										<Flex align="center" gap="xs">
-											<IconRun size={14} />
-											<Text fz="xs">
-												Distance:{" "}
-												{displayDistanceWithUnit(
-													unitSystem,
-													props.exercise.total.distance,
-												)}
-											</Text>
-										</Flex>
-									) : null}
-								</>
-							) : null}
-						</SimpleGrid>
-						{exerciseDetails ? (
-							<ScrollArea type="scroll">
-								<Flex gap="lg">
-									{exerciseDetails.attributes.images.map((i) => (
-										<Image key={i} radius="md" src={i} h={200} w={350} />
-									))}
-								</Flex>
-							</ScrollArea>
-						) : null}
-					</>
-				) : null}
-				{supersetLinks ? (
-					<Text fz="xs">Superset with {supersetLinks}</Text>
-				) : null}
-				{props.exercise.notes.map((n, idxN) => (
-					<Text c="dimmed" key={n} size="xs">
-						{props.exercise.notes.length === 1 ? undefined : `${idxN + 1})`} {n}
-					</Text>
-				))}
-				{props.exercise.assets && props.exercise.assets.images.length > 0 ? (
-					<Avatar.Group>
-						{props.exercise.assets.images.map((i) => (
-							<Anchor key={i} href={i} target="_blank">
-								<Avatar src={i} />
-							</Anchor>
-						))}
-					</Avatar.Group>
-				) : null}
-			</Stack>
-			{props.exercise.sets.map((set, idx) => (
-				<DisplaySet
-					set={set}
-					idx={idx}
-					key={set.confirmedAt}
-					exerciseLot={props.exercise.lot}
-				/>
-			))}
-		</Paper>
-	);
-};
 
 const DisplayStat = (props: { icon: ReactNode; data: string }) => {
 	return (

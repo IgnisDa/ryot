@@ -2745,9 +2745,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@graphql-codegen/client-preset@npm:4.3.2":
-  version: 4.3.2
-  resolution: "@graphql-codegen/client-preset@npm:4.3.2"
+"@graphql-codegen/client-preset@npm:4.3.3":
+  version: 4.3.3
+  resolution: "@graphql-codegen/client-preset@npm:4.3.3"
   dependencies:
     "@babel/helper-plugin-utils": "npm:^7.20.2"
     "@babel/template": "npm:^7.20.7"
@@ -2764,7 +2764,7 @@ __metadata:
     tslib: "npm:~2.6.0"
   peerDependencies:
     graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
-  checksum: 10/52c66f1f0de4a1537726d2d6915f307aa650ab425a9b6ba5e24718a412f5b2aa7b27c706074d7fa086cbede7c0a0fb74ff1016ba378cc729a40e301d207a42f8
+  checksum: 10/fd58f6d0bad4f687af84015a487e02f01c9cb4a1e310b59ceda48f872885e9dbe69e87271363bf51a805e7970169a121cd13b5df20b124d1d0054530dedbcf81
   languageName: node
   linkType: hard
 
@@ -5210,8 +5210,8 @@ __metadata:
     "@ryot/graphql": "workspace:*"
     "@ryot/ts-utils": "workspace:*"
     "@tabler/icons-react": "npm:3.11.0"
-    "@tanstack/react-query": "npm:5.51.11"
-    "@tanstack/react-query-devtools": "npm:5.51.11"
+    "@tanstack/react-query": "npm:5.51.16"
+    "@tanstack/react-query-devtools": "npm:5.51.16"
     "@types/cookie": "npm:0.6.0"
     "@types/crypto-js": "npm:4.2.2"
     "@types/howler": "npm:2.2.11"
@@ -5234,14 +5234,14 @@ __metadata:
     jotai: "npm:2.9.1"
     js-cookie: "npm:3.0.5"
     jwt-decode: "npm:4.0.0"
-    mantine-datatable: "npm:7.11.2"
-    postcss: "npm:8.4.39"
+    mantine-datatable: "npm:7.11.3"
+    postcss: "npm:8.4.40"
     postcss-preset-mantine: "npm:1.17.0"
     postcss-simple-vars: "npm:7.0.1"
     react: "npm:18.3.1"
     react-confirm: "npm:0.3.0-7"
     react-dom: "npm:18.3.1"
-    react-virtuoso: "npm:4.7.13"
+    react-virtuoso: "npm:4.9.0"
     react-webcam: "npm:7.2.0"
     recharts: "npm:2.12.7"
     remix-routes: "npm:1.7.6"
@@ -5255,7 +5255,7 @@ __metadata:
     ufo: "npm:1.5.4"
     usehooks-ts: "npm:3.1.0"
     uuid: "npm:10.0.0"
-    vite: "npm:5.3.4"
+    vite: "npm:5.3.5"
     vite-tsconfig-paths: "npm:4.3.2"
     zod: "npm:3.23.8"
     zodix: "npm:0.4.4"
@@ -5267,7 +5267,7 @@ __metadata:
   resolution: "@ryot/generated@workspace:libs/generated"
   dependencies:
     "@graphql-codegen/cli": "npm:5.0.2"
-    "@graphql-codegen/client-preset": "npm:4.3.2"
+    "@graphql-codegen/client-preset": "npm:4.3.3"
     "@graphql-typed-document-node/core": "npm:3.2.0"
     graphql: "npm:16.9.0"
   languageName: unknown
@@ -5574,40 +5574,40 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tanstack/query-core@npm:5.51.9":
-  version: 5.51.9
-  resolution: "@tanstack/query-core@npm:5.51.9"
-  checksum: 10/263f64a2e9448cc412fa9f29b0b77af1a5eeb66ecba6965548d4be97b7e99cca0dd194992b686426745030240764846d9d7e39e43d3ed64b97afb47f3a9661d7
+"@tanstack/query-core@npm:5.51.16":
+  version: 5.51.16
+  resolution: "@tanstack/query-core@npm:5.51.16"
+  checksum: 10/7b5f48839d41e083fb0a00cd92a2710e4850b3e1c9daa74073b11319b4fa8a3ef335fb8da3dbc711144c7aa982597b34745bd5851b40eab17deadd56681ed798
   languageName: node
   linkType: hard
 
-"@tanstack/query-devtools@npm:5.51.9":
-  version: 5.51.9
-  resolution: "@tanstack/query-devtools@npm:5.51.9"
-  checksum: 10/ffc19f1a9b16edbb99dc8ef4fb00f6cbc6ac39d0fbdb7976d5b849005d8f1eb80081449bfe379fd1eb8a0aa1a0357b014b822a8f32a9d57644fbb14fb039d8fd
+"@tanstack/query-devtools@npm:5.51.16":
+  version: 5.51.16
+  resolution: "@tanstack/query-devtools@npm:5.51.16"
+  checksum: 10/b0e8c1f86890a515d4ddbab4743387aecd882271f7be2cbc36f69d05ba42b803ae2e9bbfd53a03450ca4827c94f6b5d7d6fa5e013bfabe6ee0aa9a7b34a223d3
   languageName: node
   linkType: hard
 
-"@tanstack/react-query-devtools@npm:5.51.11":
-  version: 5.51.11
-  resolution: "@tanstack/react-query-devtools@npm:5.51.11"
+"@tanstack/react-query-devtools@npm:5.51.16":
+  version: 5.51.16
+  resolution: "@tanstack/react-query-devtools@npm:5.51.16"
   dependencies:
-    "@tanstack/query-devtools": "npm:5.51.9"
+    "@tanstack/query-devtools": "npm:5.51.16"
   peerDependencies:
-    "@tanstack/react-query": ^5.51.11
+    "@tanstack/react-query": ^5.51.16
     react: ^18 || ^19
-  checksum: 10/2a868370db70ef37ce9185c8d1d01f837ffb15bb3c304ef3eab9261e7de07c67e8a5b09264ffbbd2c650bd33a790f80c3d0be67d528d66cab31718d31081b2d7
+  checksum: 10/c2a4ceecd77fa4ad8e6bc43b014310762237646319e85259acd82a49c18a6fc525b8733a79078b8c384b4dd571f9b9c2e2193441d775053994828db791097bf3
   languageName: node
   linkType: hard
 
-"@tanstack/react-query@npm:5.51.11":
-  version: 5.51.11
-  resolution: "@tanstack/react-query@npm:5.51.11"
+"@tanstack/react-query@npm:5.51.16":
+  version: 5.51.16
+  resolution: "@tanstack/react-query@npm:5.51.16"
   dependencies:
-    "@tanstack/query-core": "npm:5.51.9"
+    "@tanstack/query-core": "npm:5.51.16"
   peerDependencies:
     react: ^18.0.0
-  checksum: 10/e840eb5f90fb6ec1693f98be651c5fa55a2885930015a2bf1f8699def596293eac79df8b3335e31b87af0a189d40597d35986379c930faf3496fc5061861d988
+  checksum: 10/84261a5c66c4311b06618af78d1534a84d908d5bc32c04f36f39dad977365090c244e8c5e3578f38118431e7a77970fae2ba6af75e1f03e8a22a48458f8d518d
   languageName: node
   linkType: hard
 
@@ -11341,15 +11341,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mantine-datatable@npm:7.11.2":
-  version: 7.11.2
-  resolution: "mantine-datatable@npm:7.11.2"
+"mantine-datatable@npm:7.11.3":
+  version: 7.11.3
+  resolution: "mantine-datatable@npm:7.11.3"
   peerDependencies:
     "@mantine/core": ">=7.8"
     "@mantine/hooks": ">=7.8"
     clsx: ">=2"
     react: ">=18.2"
-  checksum: 10/8a7f788b6e64fb86aa303c3a371f356bd71a139a4999f11ea97c15072718e6f36fa6ee121e135483c6fd5cae1e36c3a3e189a803039f603ffd700a03f09a508e
+  checksum: 10/8fe7c5745ed3ec8278ca52d19b0826d5437d32e5973d2f11d5fb05152e1a8fe47decf8010a9ba3ef1e47f8784742044bd06b4059c8ddb787f141b98ecfbea104
   languageName: node
   linkType: hard
 
@@ -13386,18 +13386,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"postcss@npm:8.4.39, postcss@npm:^8.4.39":
-  version: 8.4.39
-  resolution: "postcss@npm:8.4.39"
-  dependencies:
-    nanoid: "npm:^3.3.7"
-    picocolors: "npm:^1.0.1"
-    source-map-js: "npm:^1.2.0"
-  checksum: 10/ad9c1add892c96433b9a5502878201ede4a20c4ce02d056251f61f8d9a3e5426dab3683fe5a086edfa78a1a19f2b4988c8cea02c5122136d29758cb5a17e2621
-  languageName: node
-  linkType: hard
-
-"postcss@npm:^8.4.23":
+"postcss@npm:8.4.40, postcss@npm:^8.4.23":
   version: 8.4.40
   resolution: "postcss@npm:8.4.40"
   dependencies:
@@ -13416,6 +13405,17 @@ __metadata:
     picocolors: "npm:^1.0.0"
     source-map-js: "npm:^1.0.2"
   checksum: 10/93a7ce50cd6188f5f486a9ca98950ad27c19dfed996c45c414fa242944497e4d084a8760d3537f078630226f2bd3c6ab84b813b488740f4432e7c7039cd73a20
+  languageName: node
+  linkType: hard
+
+"postcss@npm:^8.4.39":
+  version: 8.4.39
+  resolution: "postcss@npm:8.4.39"
+  dependencies:
+    nanoid: "npm:^3.3.7"
+    picocolors: "npm:^1.0.1"
+    source-map-js: "npm:^1.2.0"
+  checksum: 10/ad9c1add892c96433b9a5502878201ede4a20c4ce02d056251f61f8d9a3e5426dab3683fe5a086edfa78a1a19f2b4988c8cea02c5122136d29758cb5a17e2621
   languageName: node
   linkType: hard
 
@@ -13947,13 +13947,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-virtuoso@npm:4.7.13":
-  version: 4.7.13
-  resolution: "react-virtuoso@npm:4.7.13"
+"react-virtuoso@npm:4.9.0":
+  version: 4.9.0
+  resolution: "react-virtuoso@npm:4.9.0"
   peerDependencies:
     react: ">=16 || >=17 || >= 18"
     react-dom: ">=16 || >=17 || >= 18"
-  checksum: 10/0cf91b50baaaecfd2ca117b284b3298f45fa847dfba047f2da67ba4a49120e1fd55770c34b37dca4177505e8d3b11e86f5cbe7492444e87fa81d00fb7cf74a69
+  checksum: 10/24f7790b69d791e912a69f64b9d453477643e00f39310f3e0a79e008bac3a9c46ca68892496eacb8ad57bdd9b7e15836a4497c9960b67e006ed76e6623339fc0
   languageName: node
   linkType: hard
 
@@ -16506,9 +16506,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:5.3.4":
-  version: 5.3.4
-  resolution: "vite@npm:5.3.4"
+"vite@npm:5.3.5":
+  version: 5.3.5
+  resolution: "vite@npm:5.3.5"
   dependencies:
     esbuild: "npm:^0.21.3"
     fsevents: "npm:~2.3.3"
@@ -16542,7 +16542,7 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10/9eadb261be1f5f6335a67cb44a8803febd8b190202909385fd2ae7849991095ee13c5af914da53da48a421ee0901a8fedbb7519dc7d1b8ade3ea6e42bd9b2b39
+  checksum: 10/5672dde4a969349d9cf90a9e43029c8489dfff60fb04d6a10717d6224553cf12283a8cace633fa80b006df6037f72d08a459a38bf8ea66cb19075d60fe159482
   languageName: node
   linkType: hard
 
