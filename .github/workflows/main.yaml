@@ -19,19 +19,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: moonrepo/setup-toolchain@v0
         with:
-          node-version: "20.10"
-      - name: Install build tools
-        run: |
-          npm install -g @moonrepo/cli
-          moon --version
+          auto-install: true
       - name: Build frontend
         run: |
-          moon docker scaffold frontend transactional
-          moon docker setup
-          moon run frontend:build transactional:build
-          moon docker prune
+          moon ci
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
