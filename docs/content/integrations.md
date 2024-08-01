@@ -1,11 +1,11 @@
 # Integrations
 
-Integrations can be used to continuously update your media progress. They can be of two
-types:
+Integrations can be used to continuously update your media progress or inform external
+services about changes. They can be of following types:
 
 - _Yank_: Progress data is downloaded from an externally running server at a periodic
   interval.
-- _Push_: Ryot sends data to an external service.
+- _Push_: Ryot sends data to an external service at a periodic interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
 
 ## Yank integrations
@@ -25,7 +25,7 @@ You can configure the interval at which the data is fetched from the external us
       [import](./importing.md#audiobookshelf) if you want to import media that are finished.
 
 The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
-have an Audible ID or ITunes ID or ISBN.
+have a valid provider ID (Audible, ITunes or ISBN).
 
 1. Obtain an API token as described in the Audiobookshelf
    [authentication](https://api.audiobookshelf.org/#authentication) docs.
@@ -34,7 +34,7 @@ have an Audible ID or ITunes ID or ISBN.
 
 ## Push integrations
 
-Follow the same instructions as the [yank](#yank-integrations) integrations to add.
+Follow the same instructions as the [yank](#yank-integrations) integrations to add one.
 
 ### Radarr
 
@@ -52,7 +52,8 @@ Automatically add shows in the selected collections to Sonarr.
 
 ## Sink integrations
 
-All webhook URLs follow this format:
+These work via webhooks wherein an external service can inform Ryot about a change. All
+webhook URLs follow this format:
 
 ```txt
 https://<instance_url>/backend/_i/<slug>
@@ -136,19 +137,3 @@ TMDb ID attached to their metadata.
    the zipped addon to your Kodi instance. Once installed, it will be visible under
    the "Services" sub category named "Ryot".
 4. Click on "Configure" to fill in the correct details.
-
-### Flow Launcher
-
-!!! warning
-
-      This is a community maintained integration.
-
-The plugin for [Flow Launcher](https://www.flowlauncher.com/) allows you to quickly
-search your Ryot tracker by media category:
-
-![image](https://imgur.com/gVt9VBd.gif)
-
-To install, search for "Ryot" in the Flow Launcher plugin store. Or use `pm install ryot`.
-
-Refer to the [documentation](https://github.com/bretthysuik/Flow.Launcher.Plugin.Ryot#configuration)
-for post-install configuration.
