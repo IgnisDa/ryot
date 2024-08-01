@@ -40,7 +40,7 @@ import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
-import { getSetColor } from "~/lib/generals";
+import { dayjsLib, getSetColor } from "~/lib/generals";
 import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
@@ -209,7 +209,7 @@ export const DisplaySet = (props: {
 export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
-	hideEntityDetails?: boolean;
+	hideExerciseDetails?: boolean;
 }) => {
 	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
@@ -252,23 +252,42 @@ export const ExerciseHistory = (props: {
 			{exerciseDetails && workoutDetails && exercise ? (
 				<>
 					<Stack mb="xs" gap="xs" ref={parent}>
-						<Group justify="space-between" wrap="nowrap">
-							<Anchor
-								id={props.exerciseIdx.toString()}
-								component={Link}
-								to={$path("/fitness/exercises/item/:id", {
-									id: exercise.name,
-								})}
-								fw="bold"
-								lineClamp={1}
-								style={{ scrollMargin: 20 }}
-							>
-								{exercise.name}
-							</Anchor>
-							<ActionIcon onClick={toggle} variant="transparent">
-								<IconInfoCircle size={18} />
-							</ActionIcon>
-						</Group>
+						<Box>
+							<Group justify="space-between" wrap="nowrap">
+								<Anchor
+									id={props.exerciseIdx.toString()}
+									component={Link}
+									to={
+										props.hideExerciseDetails
+											? withFragment(
+													$path("/fitness/:entity/:id", {
+														entity: "workouts",
+														id: props.entityId,
+													}),
+													props.exerciseIdx.toString(),
+												)
+											: $path("/fitness/exercises/item/:id", {
+													id: exercise.name,
+												})
+									}
+									fw="bold"
+									lineClamp={1}
+									style={{ scrollMargin: 20 }}
+								>
+									{props.hideExerciseDetails
+										? workoutDetails.details.name
+										: exercise.name}
+								</Anchor>
+								<ActionIcon onClick={toggle} variant="transparent">
+									<IconInfoCircle size={18} />
+								</ActionIcon>
+							</Group>
+							{props.hideExerciseDetails ? (
+								<Text c="dimmed" fz="sm">
+									{dayjsLib(workoutDetails.details.endTime).format("LLLL")}
+								</Text>
+							) : null}
+						</Box>
 						{opened ? (
 							<>
 								<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
@@ -321,7 +340,7 @@ export const ExerciseHistory = (props: {
 										</>
 									) : null}
 								</SimpleGrid>
-								{!props.hideEntityDetails && exerciseDetails ? (
+								{!props.hideExerciseDetails && exerciseDetails ? (
 									<ScrollArea type="scroll">
 										<Flex gap="lg">
 											{exerciseDetails.attributes.images.map((i) => (
@@ -332,7 +351,7 @@ export const ExerciseHistory = (props: {
 								) : null}
 							</>
 						) : null}
-						{!props.hideEntityDetails && supersetLinks ? (
+						{!props.hideExerciseDetails && supersetLinks ? (
 							<Text fz="xs">Superset with {supersetLinks}</Text>
 						) : null}
 						{exercise.notes.map((n, idxN) => (
