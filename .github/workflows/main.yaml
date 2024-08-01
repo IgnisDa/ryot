@@ -64,6 +64,7 @@ jobs:
           DEFAULT_TMDB_ACCESS_TOKEN: ${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
         run: |
+          touch .env
           ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --profile ${{ steps.build.outputs.profile }}
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
