@@ -34,9 +34,10 @@ impl Job for ScheduledJob {
 }
 
 pub async fn background_jobs(
-    _information: ScheduledJob,
+    information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
+    tracing::debug!("Running job at {:#?}", information.0);
     misc_service.perform_background_jobs().await.unwrap();
     Ok(())
 }

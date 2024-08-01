@@ -235,10 +235,10 @@ export default function Page() {
 								itemContent={(index, history) => (
 									<Box mt={index !== 0 ? "md" : undefined}>
 										<ExerciseHistory
-											history={history}
+											hideExerciseDetails
 											key={history.workoutId}
-											exerciseId={loaderData.exerciseDetails.id}
-											exerciseLot={loaderData.exerciseDetails.lot}
+											exerciseIdx={history.idx}
+											entityId={history.workoutId}
 										/>
 									</Box>
 								)}
