@@ -1,0 +1,68 @@
+name: Main
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build-backend:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - target: x86_64-unknown-linux-gnu
+            command: cargo
+          - target: aarch64-unknown-linux-gnu
+            command: cross
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract build information
+        id: build
+        env:
+          TARGET: ${{ matrix.platform.target }}
+        run: |
+          echo "env=${TARGET##*-}" >> "$GITHUB_OUTPUT"
+          echo "arch=$(echo $TARGET | cut -d '-' -f1)" >> "$GITHUB_OUTPUT"
+          echo "docker-arch=${{ startsWith(matrix.platform.target, 'x86_64') && 'amd64' || 'arm64' }}" >> "$GITHUB_OUTPUT"
+          echo "profile=${{ (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && 'release' || 'dev' }}" >> "$GITHUB_OUTPUT"
+          echo "output-dir=${{ (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && 'release' || 'debug' }}" >> "$GITHUB_OUTPUT"
+      - name: Extract rust toolchain
+        id: toolchain
+        run: |
+          echo "channel=$(grep channel rust-toolchain.toml | awk -F' = ' '{printf $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cross
+        if: ${{ matrix.platform.command == 'cross' }}
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cross
+          git: https://github.com/cross-rs/cross
+          rev: 19be83481fd3e50ea103d800d72e0f8eddb1c90c
+          locked: false
+
+      - name: Build
+        run: |
+          ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --profile ${{ steps.build.outputs.profile }}
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.docker-arch }}-${{ steps.build.outputs.env }}
+          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/${{ steps.build.outputs.output-dir }}/ryot
+          retention-days: 1

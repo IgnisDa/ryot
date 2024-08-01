@@ -1,0 +1,2 @@
+[build]
+pre-build = "ci/cross-pre-build.sh"
