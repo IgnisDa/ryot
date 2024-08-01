@@ -12,7 +12,41 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    env:
+      MOON_TOOLCHAIN_FORCE_GLOBALS: true
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.10"
+      - name: Install build tools
+        run: |
+          npm install -g @moonrepo/cli
+          moon --version
+      - name: Build frontend
+        run: |
+          moon docker scaffold frontend transactional
+          moon docker setup
+          moon run frontend:build transactional:build
+          moon docker prune
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: |
+            backend/templates/
+            frontend/node_modules/
+            frontend/package.json
+            frontend/build/
+          retention-days: 1
+
   build-backend:
+    needs:
+      - build-frontend
+
     strategy:
       fail-fast: false
       matrix:
