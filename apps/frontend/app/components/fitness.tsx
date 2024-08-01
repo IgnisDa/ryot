@@ -375,8 +375,8 @@ export const ExerciseHistory = (props: {
 						<DisplaySet
 							set={set}
 							idx={idx}
-							key={set.confirmedAt}
 							exerciseLot={exercise.lot}
+							key={`${set.confirmedAt}-${idx}`}
 						/>
 					))}
 				</>
