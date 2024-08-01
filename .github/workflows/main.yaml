@@ -24,7 +24,9 @@ jobs:
           auto-install: true
       - name: Build frontend
         run: |
-          moon ci
+          moon docker scaffold frontend transactional
+          moon docker setup
+          moon run frontend:build transactional:build
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
