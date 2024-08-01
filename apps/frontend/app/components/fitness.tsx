@@ -249,14 +249,13 @@ export const ExerciseHistory = (props: {
 			: null;
 
 	return (
-		<Paper withBorder p="xs">
+		<Paper withBorder p="xs" id={props.exerciseIdx.toString()}>
 			{exerciseDetails && workoutDetails && exercise ? (
 				<>
 					<Stack mb="xs" gap="xs" ref={parent}>
 						<Box>
 							<Group justify="space-between" wrap="nowrap">
 								<Anchor
-									id={props.exerciseIdx.toString()}
 									component={Link}
 									to={
 										props.hideExerciseDetails
