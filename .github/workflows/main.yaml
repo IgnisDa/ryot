@@ -62,7 +62,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: templates
-          path: ${{ github.workspace }}/app/backend/templates/
+          path: ${{ github.workspace }}/apps/backend/templates/
       - name: Extract build information
         id: build
         env:
