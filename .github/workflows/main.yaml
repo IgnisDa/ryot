@@ -25,12 +25,18 @@ jobs:
       - name: Build frontend
         run: |
           moon run frontend:build transactional:build
-      - name: Upload build artifact
+      - name: Upload templates artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: templates
+          path: |
+            apps/backend/templates/
+          retention-days: 1
+      - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend
           path: |
-            apps/backend/templates/
             apps/frontend/node_modules/
             apps/frontend/package.json
             apps/frontend/build/
@@ -53,6 +59,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: templates
       - name: Extract build information
         id: build
         env:
