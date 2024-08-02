@@ -62,7 +62,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: templates
-          path: app/backend/templates/
+          path: app/backend/
+      - run: |
+          ls -a app/backend/
+          ls -a app/backend/templates/
       - name: Extract build information
         id: build
         env:
