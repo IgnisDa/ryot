@@ -3,7 +3,10 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use database::{MediaLot, MediaSource};
 use itertools::Itertools;
-use reqwest::Client;
+use reqwest::{
+    header::{HeaderName, HeaderValue},
+    Client,
+};
 use rs_utils::convert_date_to_year;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -41,7 +44,13 @@ impl MediaProviderLanguages for GoogleBooksService {
 
 impl GoogleBooksService {
     pub async fn new(config: &config::GoogleBooksConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, None);
+        let client = get_base_http_client(
+            URL,
+            Some(vec![(
+                HeaderName::from_static("x-goog-api-key"),
+                HeaderValue::from_str(&config.api_key).unwrap(),
+            )]),
+        );
         Self {
             client,
             page_limit,

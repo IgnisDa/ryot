@@ -390,12 +390,12 @@ pub struct NonMediaTmdbService {
 }
 
 impl NonMediaTmdbService {
-    pub async fn new(access_token: String, timezone: chrono_tz::Tz, language: String) -> Self {
-        let (client, settings) = get_client_config(URL, &access_token).await;
+    pub async fn new(config: &config::TmdbConfig, timezone: chrono_tz::Tz) -> Self {
+        let (client, settings) = get_client_config(URL, &config.access_token).await;
         Self {
             base: TmdbService {
                 client,
-                language,
+                language: config.locale.clone(),
                 settings,
                 timezone,
             },

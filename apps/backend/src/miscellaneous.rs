@@ -3699,12 +3699,7 @@ impl MiscellaneousService {
     }
 
     pub async fn get_tmdb_non_media_service(&self) -> Result<NonMediaTmdbService> {
-        Ok(NonMediaTmdbService::new(
-            self.config.movies_and_shows.tmdb.access_token.clone(),
-            *self.timezone,
-            self.config.movies_and_shows.tmdb.locale.clone(),
-        )
-        .await)
+        Ok(NonMediaTmdbService::new(&self.config.movies_and_shows.tmdb, *self.timezone).await)
     }
 
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
