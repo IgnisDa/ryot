@@ -37,8 +37,9 @@ jobs:
           retention-days: 1
       - name: Archive frontend directory
         run: |
-          tar -cvf node_modules.tar apps/frontend/node_modules/
-          tar -cvf build.tar apps/frontend/build/
+          cd apps/frontend/
+          tar -cvf node_modules.tar node_modules/
+          tar -cvf build.tar build/
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:
@@ -130,8 +131,8 @@ jobs:
       - name: Unarchive frontend directory
         run: |
           cd artifact/frontend/
-          tar -xvf node_modules.tar --strip-components 2
-          tar -xvf build.tar --strip-components 2
+          tar -xvf node_modules.tar
+          tar -xvf build.tar
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
