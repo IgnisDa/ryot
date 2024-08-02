@@ -27,7 +27,7 @@ use sonarr_api_rs::{
 
 use crate::{
     entities::{metadata, prelude::Metadata},
-    models::{audiobookshelf_models, media::CommitMediaInput},
+    models::{komga_models, audiobookshelf_models, media::CommitMediaInput},
     providers::google_books::GoogleBooksService,
     traits::TraceOk,
     utils::{get_base_http_client, ilike_sql},
@@ -397,6 +397,85 @@ impl IntegrationService {
         payload.source = MediaSource::Tmdb;
         payload.provider_watched_on = Some("Kodi".to_string());
         Ok(payload)
+    }
+
+    pub async fn komga_progress(
+        &self,
+        base_url: &str,
+        cookie: &str,
+        provider: MediaSource
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    {
+        let client = get_base_http_client(&format!("{}/api/v1/", base_url), None);
+
+        let response = client
+            .get("series?read_status=IN_PROGRESS")
+            .header("Cookie", cookie)
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .json::<komga_models::Response>()
+            .await.unwrap();
+
+        let mut media_items = vec![];
+        for item in response.content.iter() {
+            let mut current_chapter = item.books_read_count.unwrap();
+            let id;
+            let source;
+            let providers = item.metadata.find_providers();
+
+            if !providers.is_empty() {
+                (source, id) = match providers.iter()
+                    .find(|x| x.0.unwrap() == provider)
+                    .cloned() {
+                    Some((s, i)) => (s, i),
+                    None => providers.get(0)
+                        .map(|x| x.clone())
+                        .unwrap_or_else(|| (None, None))
+                }
+            }
+            else {
+                let db_manga = Metadata::find()
+                    .filter(metadata::Column::Lot.eq(MediaLot::Manga))
+                    .filter(
+                        Condition::all()
+                            .add(Expr::col(metadata::Column::Title).eq(&item.name)),
+                    )
+                    .one(&self.db)
+                    .await?;
+
+                if let Some(manga) = db_manga {
+                    id = Some(manga.identifier.clone());
+                    source = Some(manga.source.clone());
+                }
+                else {
+                    tracing::debug!("No MAL URL or database entry found for manga: {}", item.name);
+
+                    continue;
+                }
+            }
+
+            if source.is_some() {
+                while current_chapter > 0 {
+                    media_items.push(IntegrationMediaSeen {
+                        identifier: id.clone().unwrap(),
+                        lot: MediaLot::Manga,
+                        source: source.unwrap(),
+                        manga_chapter_number: Some(current_chapter),
+                        progress: dec!(100),
+                        provider_watched_on: Some("Komga".to_string()),
+                        ..Default::default()
+                    });
+
+                    current_chapter -= 1;
+                }
+            }
+            else {
+                tracing::debug!("No MAL URL or database entry found for manga: {}", item.name);
+            }
+        }
+
+        Ok((media_items, vec![]))
     }
 
     pub async fn audiobookshelf_progress<F>(

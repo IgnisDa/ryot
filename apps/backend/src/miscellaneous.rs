@@ -164,6 +164,7 @@ struct UpdateUserIntegrationInput {
     is_disabled: Option<bool>,
     minimum_progress: Option<Decimal>,
     maximum_progress: Option<Decimal>,
+    provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2519,6 +2520,37 @@ impl MiscellaneousService {
                     None
                 };
                 let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
+                    if respect_cache {
+                        let test = SeenMangaExtraInformation {
+                            volume: None,
+                            chapter: input.manga_chapter_number
+                        };
+
+                        let all_seen = Seen::find()
+                            .filter(seen::Column::Progress.eq(100))
+                            .filter(seen::Column::UserId.eq(user_id))
+                            .filter(seen::Column::State.ne(SeenState::Dropped))
+                            .filter(seen::Column::MetadataId.eq(&input.metadata_id))
+                            .filter(
+                                seen::Column::MangaExtraInformation.eq(test)
+                                // Expr::expr(Func::cast_as(
+                                //     Expr::col(seen::Column::MangaExtraInformation),
+                                //     Alias::new("text")
+                                // ))
+                                // .ilike(ilike_sql(format!("\"chapter\": {}", input.manga_chapter_number.unwrap()).to_string().as_ref()))
+                            )
+                            .order_by_desc(seen::Column::LastUpdatedOn)
+                            .all(&self.db)
+                            .await
+                            .unwrap();
+
+                        if !all_seen.is_empty() {
+                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                                error: ProgressUpdateErrorVariant::AlreadySeen,
+                            }));
+                        }
+                    }
+
                     Some(SeenMangaExtraInformation {
                         chapter: input.manga_chapter_number,
                         volume: input.manga_volume_number,
@@ -5492,6 +5524,7 @@ impl MiscellaneousService {
         }
         let lot = match input.provider {
             IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
+            IntegrationProvider::Komga => IntegrationLot::Yank,
             IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
@@ -5534,6 +5567,13 @@ impl MiscellaneousService {
         }
         if let Some(d) = input.is_disabled {
             db_integration.is_disabled = ActiveValue::Set(Some(d));
+        }
+        if let Some(d) = input.provider_specifics {
+            let mut existing_specifics =
+                db_integration.provider_specifics.clone().unwrap().clone().unwrap().clone();
+
+            existing_specifics.komga_provider = d.komga_provider;
+            db_integration.provider_specifics = ActiveValue::Set(Some(existing_specifics));
         }
         db_integration.update(&self.db).await?;
         Ok(true)
@@ -5768,7 +5808,17 @@ impl MiscellaneousService {
                             |input| self.commit_metadata(input),
                         )
                         .await
-                }
+                },
+                IntegrationProvider::Komga => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+                    self.get_integration_service()
+                        .komga_progress(
+                            &specifics.komga_base_url.unwrap(),
+                            &specifics.komga_cookie.unwrap(),
+                            specifics.komga_provider.unwrap(),
+                        )
+                        .await
+                },
                 _ => continue,
             };
             if let Ok((seen_progress, collection_progress)) = response {

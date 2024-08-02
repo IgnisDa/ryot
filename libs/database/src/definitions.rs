@@ -448,6 +448,7 @@ pub enum IntegrationLot {
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationProvider {
     Audiobookshelf,
+    Komga,
     Jellyfin,
     Emby,
     Plex,

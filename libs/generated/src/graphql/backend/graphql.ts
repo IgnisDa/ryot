@@ -703,6 +703,7 @@ export type Integration = {
   maximumProgress?: Maybe<Scalars['Decimal']['output']>;
   minimumProgress?: Maybe<Scalars['Decimal']['output']>;
   provider: IntegrationProvider;
+  providerSpecifics?: Maybe<IntegrationProviderSpecifics>;
 };
 
 export enum IntegrationLot {
@@ -716,14 +717,37 @@ export enum IntegrationProvider {
   Emby = 'EMBY',
   Jellyfin = 'JELLYFIN',
   Kodi = 'KODI',
+  Komga = 'KOMGA',
   Plex = 'PLEX',
   Radarr = 'RADARR',
   Sonarr = 'SONARR'
 }
 
+export type IntegrationProviderSpecifics = {
+  audiobookshelfBaseUrl?: Maybe<Scalars['String']['output']>;
+  audiobookshelfToken?: Maybe<Scalars['String']['output']>;
+  komgaBaseUrl?: Maybe<Scalars['String']['output']>;
+  komgaCookie?: Maybe<Scalars['String']['output']>;
+  komgaProvider?: Maybe<MediaSource>;
+  plexUsername?: Maybe<Scalars['String']['output']>;
+  radarrApiKey?: Maybe<Scalars['String']['output']>;
+  radarrBaseUrl?: Maybe<Scalars['String']['output']>;
+  radarrProfileId?: Maybe<Scalars['Int']['output']>;
+  radarrRootFolderPath?: Maybe<Scalars['String']['output']>;
+  radarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  sonarrApiKey?: Maybe<Scalars['String']['output']>;
+  sonarrBaseUrl?: Maybe<Scalars['String']['output']>;
+  sonarrProfileId?: Maybe<Scalars['Int']['output']>;
+  sonarrRootFolderPath?: Maybe<Scalars['String']['output']>;
+  sonarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+};
+
 export type IntegrationSourceSpecificsInput = {
   audiobookshelfBaseUrl?: InputMaybe<Scalars['String']['input']>;
   audiobookshelfToken?: InputMaybe<Scalars['String']['input']>;
+  komgaBaseUrl?: InputMaybe<Scalars['String']['input']>;
+  komgaCookie?: InputMaybe<Scalars['String']['input']>;
+  komgaProvider?: InputMaybe<MediaSource>;
   plexUsername?: InputMaybe<Scalars['String']['input']>;
   radarrApiKey?: InputMaybe<Scalars['String']['input']>;
   radarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
@@ -1906,6 +1930,7 @@ export type UpdateUserIntegrationInput = {
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
 };
 
 export type UpdateUserNotificationPlatformInput = {
@@ -2961,7 +2986,7 @@ export type UserCollectionsListQuery = { userCollectionsList: Array<{ id: string
 export type UserIntegrationsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserIntegrationsQuery = { userIntegrations: Array<{ id: string, lot: IntegrationLot, provider: IntegrationProvider, createdOn: string, isDisabled?: boolean | null, maximumProgress?: string | null, minimumProgress?: string | null, lastTriggeredOn?: string | null }> };
+export type UserIntegrationsQuery = { userIntegrations: Array<{ id: string, lot: IntegrationLot, provider: IntegrationProvider, createdOn: string, isDisabled?: boolean | null, maximumProgress?: string | null, minimumProgress?: string | null, lastTriggeredOn?: string | null, providerSpecifics?: { komgaProvider?: MediaSource | null } | null }> };
 
 export type UserNotificationPlatformsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -3126,7 +3151,7 @@ export const GetPresignedS3UrlDocument = {"kind":"Document","definitions":[{"kin
 export const ProvidersLanguageInformationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ProvidersLanguageInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"providersLanguageInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"supported"}},{"kind":"Field","name":{"kind":"Name","value":"default"}},{"kind":"Field","name":{"kind":"Name","value":"source"}}]}}]}}]} as unknown as DocumentNode<ProvidersLanguageInformationQuery, ProvidersLanguageInformationQueryVariables>;
 export const UserExportsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserExports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userExports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"endedAt"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"exported"}}]}}]}}]} as unknown as DocumentNode<UserExportsQuery, UserExportsQueryVariables>;
 export const UserCollectionsListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserCollectionsList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userCollectionsList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"count"}},{"kind":"Field","name":{"kind":"Name","value":"isDefault"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"creator"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"collaborators"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"informationTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"required"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}}]}}]}}]}}]} as unknown as DocumentNode<UserCollectionsListQuery, UserCollectionsListQueryVariables>;
-export const UserIntegrationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserIntegrations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userIntegrations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"provider"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"isDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"maximumProgress"}},{"kind":"Field","name":{"kind":"Name","value":"minimumProgress"}},{"kind":"Field","name":{"kind":"Name","value":"lastTriggeredOn"}}]}}]}}]} as unknown as DocumentNode<UserIntegrationsQuery, UserIntegrationsQueryVariables>;
+export const UserIntegrationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserIntegrations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userIntegrations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"provider"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"isDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"maximumProgress"}},{"kind":"Field","name":{"kind":"Name","value":"minimumProgress"}},{"kind":"Field","name":{"kind":"Name","value":"lastTriggeredOn"}},{"kind":"Field","name":{"kind":"Name","value":"providerSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"komgaProvider"}}]}}]}}]}}]} as unknown as DocumentNode<UserIntegrationsQuery, UserIntegrationsQueryVariables>;
 export const UserNotificationPlatformsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNotificationPlatforms"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userNotificationPlatforms"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"createdOn"}},{"kind":"Field","name":{"kind":"Name","value":"isDisabled"}},{"kind":"Field","name":{"kind":"Name","value":"description"}}]}}]}}]} as unknown as DocumentNode<UserNotificationPlatformsQuery, UserNotificationPlatformsQueryVariables>;
 export const UsersListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UsersList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"query"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"usersList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"query"},"value":{"kind":"Variable","name":{"kind":"Name","value":"query"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"isDisabled"}}]}}]}}]} as unknown as DocumentNode<UsersListQuery, UsersListQueryVariables>;
 export const UserUpcomingCalendarEventsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserUpcomingCalendarEvents"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UserUpcomingCalendarEventInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userUpcomingCalendarEvents"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"CalendarEventPart"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenShowExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenShowExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}},{"kind":"Field","name":{"kind":"Name","value":"season"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SeenPodcastExtraInformation"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episode"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"CalendarEventPart"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GraphqlCalendarEvent"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"metadataId"}},{"kind":"Field","name":{"kind":"Name","value":"metadataLot"}},{"kind":"Field","name":{"kind":"Name","value":"episodeName"}},{"kind":"Field","name":{"kind":"Name","value":"metadataTitle"}},{"kind":"Field","name":{"kind":"Name","value":"metadataImage"}},{"kind":"Field","name":{"kind":"Name","value":"calendarEventId"}},{"kind":"Field","name":{"kind":"Name","value":"showExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenShowExtraInformationPart"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastExtraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"SeenPodcastExtraInformationPart"}}]}}]}}]} as unknown as DocumentNode<UserUpcomingCalendarEventsQuery, UserUpcomingCalendarEventsQueryVariables>;
