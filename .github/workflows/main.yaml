@@ -45,8 +45,8 @@ jobs:
         with:
           name: frontend
           path: |
-            node_modules.tar
-            build.tar
+            apps/frontend/node_modules.tar
+            apps/frontend/build.tar
             apps/frontend/package.json
           retention-days: 1
 
