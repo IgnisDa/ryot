@@ -30,10 +30,10 @@ jobs:
         with:
           name: frontend
           path: |
-            backend/templates/
-            frontend/node_modules/
-            frontend/package.json
-            frontend/build/
+            apps/backend/templates/
+            apps/frontend/node_modules/
+            apps/frontend/package.json
+            apps/frontend/build/
           retention-days: 1
 
   build-backend:
