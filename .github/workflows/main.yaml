@@ -1,15 +1,18 @@
 name: Main
 
-permissions:
-  contents: read
-  packages: write
-
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
+
+env:
+  GHCR_REGISTRY: ghcr.io
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
   build-frontend:
