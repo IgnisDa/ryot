@@ -7707,6 +7707,11 @@ GROUP BY m.id;
         }
         tracing::debug!("Deleting all queued notifications");
         QueuedNotification::delete_many().exec(&self.db).await?;
+        tracing::debug!("Deleting revoked access links");
+        AccessLink::delete_many()
+            .filter(access_link::Column::IsRevoked.eq(true))
+            .exec(&self.db)
+            .await?;
         Ok(())
     }
 
