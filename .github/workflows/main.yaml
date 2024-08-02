@@ -129,8 +129,8 @@ jobs:
           path: ${{ github.workspace }}/artifact/
       - name: Unarchive frontend directory
         run: |
-          tar -xvf node_modules.tar -C artifact/frontend/
-          tar -xvf build.tar -C artifact/frontend/
+          tar -xvf artifact/node_modules.tar -C artifact/frontend/
+          tar -xvf artifact/build.tar -C artifact/frontend/
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
