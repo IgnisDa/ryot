@@ -23,6 +23,16 @@ fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_MAL_CLIENT_ID.to_owned()))
 }
 
+#[cfg(debug_assertions)]
+pub const DEFAULT_GOOGLE_BOOKS_API_KEY: &str =
+    dotenvy_macro::dotenv!("DEFAULT_GOOGLE_BOOKS_API_KEY");
+#[cfg(not(debug_assertions))]
+pub const DEFAULT_GOOGLE_BOOKS_API_KEY: &str = env!("DEFAULT_GOOGLE_BOOKS_API_KEY");
+
+fn default_google_books_api_key(_ctx: &()) -> Result<Option<String>, HandlerError> {
+    Ok(Some(DEFAULT_GOOGLE_BOOKS_API_KEY.to_owned()))
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
 pub struct MalConfig {
@@ -116,6 +126,9 @@ pub struct OpenlibraryConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "BOOKS_GOOGLE_BOOKS_")]
 pub struct GoogleBooksConfig {
+    /// The API key to be used for the Google Books API.
+    #[setting(default = default_google_books_api_key)]
+    pub api_key: String,
     /// Whether to pass the raw query string to the search API.
     pub pass_raw_query: bool,
 }
@@ -478,11 +491,11 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    // TODO: Denote masked values via attribute
     pub fn masked_value(&self) -> Self {
         let gt = || "****".to_owned();
         let mut cl = self.clone();
         cl.anime_and_manga.mal.client_id = gt();
+        cl.books.google_books.api_key = gt();
         cl.database.url = gt();
         cl.file_storage.s3_region = gt();
         cl.file_storage.s3_bucket_name = gt();
