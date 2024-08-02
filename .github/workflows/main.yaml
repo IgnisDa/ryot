@@ -107,3 +107,38 @@ jobs:
           name: backend-${{ steps.build.outputs.docker-arch }}
           path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/${{ steps.build.outputs.output-dir }}/ryot
           retention-days: 1
+
+  build-docker:
+    needs:
+      - build-frontend
+      - build-backend
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifact for docker
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ github.workspace }}/artifact/
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the ghcr container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push to ghcr
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.new
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: vnghia/ryot:test
