@@ -389,7 +389,7 @@ export default function Page() {
 					<div className="divide-y rounded-lg border">
 						<div className="mx-auto md:flex w-full items-center justify-center p-4 sm:p-8 space-y-4 gap-x-4">
 							<Image
-								src="https://fosstodon.org/avatars/original/missing.png"
+								src="https://cdn.fosstodon.org/accounts/avatars/110/575/489/884/720/641/original/7312eb6f27068401.jpeg"
 								alt="Fosstodon logo"
 								className="size-20 rounded-full flex-none"
 							/>
@@ -399,7 +399,15 @@ export default function Page() {
 								most used software on my home server, and has greatly encouraged
 								me to watch more movies! IgnisDa has put a great amount of
 								attention to detail into this software, and is always available
-								for help any step of the way!
+								for help any step of the way! -{" "}
+								<a
+									href="https://fosstodon.org/@beppi"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="hover:underline"
+								>
+									<strong>@beppi</strong>
+								</a>
 							</p>
 						</div>
 						<div className="grid w-full grid-cols-3 items-stretch justify-center divide" />
