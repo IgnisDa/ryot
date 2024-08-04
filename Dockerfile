@@ -37,9 +37,11 @@ ARG BUILD_PROFILE=release
 ARG APP_VERSION
 ARG DEFAULT_TMDB_ACCESS_TOKEN
 ARG DEFAULT_MAL_CLIENT_ID
+ARG DEFAULT_GOOGLE_BOOKS_API_KEY
 RUN test -n "$APP_VERSION" && \
     test -n "$DEFAULT_TMDB_ACCESS_TOKEN" && \
-    test -n "$DEFAULT_MAL_CLIENT_ID"
+    test -n "$DEFAULT_MAL_CLIENT_ID" && \
+    test -n "$DEFAULT_GOOGLE_BOOKS_API_KEY"
 COPY --from=backend-planner /app/recipe.json recipe.json
 RUN cargo chef cook --profile $BUILD_PROFILE --recipe-path recipe.json
 COPY . .
@@ -47,6 +49,7 @@ COPY --from=frontend-builder /app/apps/backend/templates ./apps/backend/template
 RUN APP_VERSION=$APP_VERSION \
     DEFAULT_TMDB_ACCESS_TOKEN=$DEFAULT_TMDB_ACCESS_TOKEN \
     DEFAULT_MAL_CLIENT_ID=$DEFAULT_MAL_CLIENT_ID \
+    DEFAULT_GOOGLE_BOOKS_API_KEY=$DEFAULT_GOOGLE_BOOKS_API_KEY \
     cargo build --profile ${BUILD_PROFILE} --bin ryot
 RUN cp -R /app/target/${BUILD_PROFILE}/ryot /app/ryot
 
