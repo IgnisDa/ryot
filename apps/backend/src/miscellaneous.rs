@@ -52,7 +52,7 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
-
+use tokio::sync::mpsc::Receiver;
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
@@ -95,6 +95,7 @@ use crate::{
         CollectionToEntitySystemInformation, DefaultCollection, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
         UserSummaryData,
+        komga_events
     },
     providers::{
         anilist::{
@@ -125,6 +126,7 @@ use crate::{
         user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
+use std::sync::{Mutex, OnceLock};
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -1472,6 +1474,30 @@ impl MiscellaneousMutation {
         service.development_mutation().await
     }
 }
+
+pub struct SSEObjects {
+    komga_task: OnceLock<()>,
+    komga_receiver: Mutex<Option<Receiver<komga_events::Data>>>,
+}
+
+impl SSEObjects {
+    const fn new() -> SSEObjects {
+        SSEObjects {
+            komga_task: OnceLock::new(),
+            komga_receiver: Mutex::new(None)
+        }
+    }
+
+    pub fn get_komga_receiver(&self) -> &Mutex<Option<Receiver<komga_events::Data>>> {
+        &self.komga_receiver
+    }
+
+    pub fn get_komga_task(&self) -> &OnceLock<()> {
+        &self.komga_task
+    }
+}
+
+static SSE_LISTS: SSEObjects = SSEObjects::new();
 
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
@@ -5524,7 +5550,7 @@ impl MiscellaneousService {
         }
         let lot = match input.provider {
             IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
-            IntegrationProvider::Komga => IntegrationLot::Yank,
+            IntegrationProvider::Komga => IntegrationLot::SSE,
             IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
@@ -5779,6 +5805,84 @@ impl MiscellaneousService {
             .collect()
     }
 
+    pub async fn sse_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
+        let preferences = self.user_preferences(user_id).await?;
+        if preferences.general.disable_integrations {
+            return Ok(false);
+        }
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .all(&self.db)
+            .await?;
+        let mut progress_updates = vec![];
+        let mut collection_updates = vec![];
+        let mut to_update_integrations = vec![];
+        let integration_service = self.get_integration_service();
+        for integration in integrations.into_iter() {
+            if integration.is_disabled.unwrap_or_default() {
+                tracing::debug!("Integration {} is disabled", integration.id);
+                continue;
+            }
+            let response = match integration.provider {
+                IntegrationProvider::Komga => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+
+                    integration_service
+                        .komga_progress(
+                            &specifics.komga_base_url.unwrap(),
+                            &specifics.komga_cookie.unwrap(),
+                            specifics.komga_provider.unwrap(),
+                            &SSE_LISTS
+                        )
+                        .await
+                },
+                _ => continue,
+            };
+            if let Ok((seen_progress, collection_progress)) = response {
+                collection_updates.extend(collection_progress);
+                to_update_integrations.push(integration.id.clone());
+                progress_updates.push((integration, seen_progress));
+            }
+        }
+        for (integration, progress_updates) in progress_updates.into_iter() {
+            for pu in progress_updates.into_iter() {
+                self.integration_progress_update(&integration, pu, user_id)
+                    .await
+                    .trace_ok();
+            }
+        }
+        for col_update in collection_updates.into_iter() {
+            let metadata::Model { id, .. } = self
+                .commit_metadata(CommitMediaInput {
+                    lot: col_update.lot,
+                    source: col_update.source,
+                    identifier: col_update.identifier.clone(),
+                    force_update: None,
+                })
+                .await?;
+            self.add_entity_to_collection(
+                user_id,
+                ChangeCollectionToEntityInput {
+                    creator_user_id: user_id.to_owned(),
+                    collection_name: col_update.collection,
+                    metadata_id: Some(id.clone()),
+                    ..Default::default()
+                },
+            )
+                .await
+                .trace_ok();
+        }
+        Integration::update_many()
+            .filter(integration::Column::Id.is_in(to_update_integrations))
+            .col_expr(
+                integration::Column::LastTriggeredOn,
+                Expr::value(Utc::now()),
+            )
+            .exec(&self.db)
+            .await?;
+        Ok(true)
+    }
+
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
         let preferences = self.user_preferences(user_id).await?;
         if preferences.general.disable_integrations {
@@ -5806,16 +5910,6 @@ impl MiscellaneousService {
                             &specifics.audiobookshelf_token.unwrap(),
                             &self.get_isbn_service().await.unwrap(),
                             |input| self.commit_metadata(input),
-                        )
-                        .await
-                },
-                IntegrationProvider::Komga => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
-                    self.get_integration_service()
-                        .komga_progress(
-                            &specifics.komga_base_url.unwrap(),
-                            &specifics.komga_cookie.unwrap(),
-                            specifics.komga_provider.unwrap(),
                         )
                         .await
                 },
@@ -5877,6 +5971,21 @@ impl MiscellaneousService {
         for user_id in users_with_integrations {
             tracing::debug!("Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn sse_integrations_data(&self) -> Result<()> {
+        let users_with_integrations = Integration::find()
+            .filter(integration::Column::Lot.eq(IntegrationLot::SSE))
+            .select_only()
+            .column(integration::Column::UserId)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for user_id in users_with_integrations {
+            tracing::debug!("sse integrations data for user {}", user_id);
+            self.sse_integrations_data_for_user(&user_id).await?;
         }
         Ok(())
     }

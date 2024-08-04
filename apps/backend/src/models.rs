@@ -1907,75 +1907,16 @@ pub mod importer {
     }
 }
 
-pub mod komga_models {
-    use openidconnect::url::Url;
+pub mod komga_events {
     use super::*;
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Link {
-        pub label: String,
-        pub url: String,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Metadata {
-        pub links: Vec<Link>,
-    }
-
-    impl Metadata {
-        fn extract_id(&self, url: String) -> Option<String> {
-            if let Ok(parsed_url) = Url::parse(&url) {
-                parsed_url.path_segments()
-                    .and_then(|segments| segments.collect::<Vec<_>>().get(1).cloned())
-                    .map(String::from)
-            } else {
-                None
-            }
-        }
-
-        pub fn find_providers(&self) -> Vec<(Option<MediaSource>,Option<String>)> {
-            let mut provider_links = vec![];
-            for link in self.links.iter() {
-                let source;
-
-                // NOTE: mangaupdates doesnt work here because the ID isnt in the url
-                match link.label.to_lowercase().as_str() {
-                    "anilist" => source = Some(MediaSource::Anilist),
-                    "myanimelist" => source = Some(MediaSource::Mal),
-                    _ => continue
-                }
-
-                if source.is_some() {
-                    let id = self.extract_id(link.url.clone());
-                    provider_links.push((source, id));
-                }
-            }
-
-            provider_links.sort_by_key(|a| a.1.clone());
-            provider_links
-        }
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Item {
-        pub id: String,
-        pub name: String,
-        pub books_count: Decimal,
-        pub books_read_count: Option<i32>,
-        pub books_unread_count: Decimal,
-        pub metadata: Metadata,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Response {
-        pub content: Vec<Item>,
+    pub struct Data {
+        pub book_id: String,
+        pub user_id: String,
     }
 }
-
 pub mod audiobookshelf_models {
     use super::*;
 

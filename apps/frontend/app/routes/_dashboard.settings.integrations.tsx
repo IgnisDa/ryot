@@ -54,15 +54,17 @@ import { dayjsLib } from "~/lib/generals";
 import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
+const SSE_INTEGRATION = [
+	IntegrationProvider.Komga,
+]
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Audiobookshelf,
-	IntegrationProvider.Komga
 ];
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
 	IntegrationProvider.Sonarr,
 ];
-const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
+const NO_SHOW_URL = [...SSE_INTEGRATION, ...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const [{ userIntegrations }] = await Promise.all([

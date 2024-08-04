@@ -46,6 +46,8 @@ pub async fn sync_integrations_data(
     _information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
+    tracing::trace!("Getting data from sse integrations for all users");
+    misc_service.sse_integrations_data().await.unwrap();
     tracing::trace!("Getting data from yanked integrations for all users");
     misc_service.yank_integrations_data().await.unwrap();
     tracing::trace!("Sending data for push integrations for all users");
@@ -84,6 +86,10 @@ pub async fn perform_core_application_job(
                 .ok();
             misc_service
                 .yank_integrations_data_for_user(&user_id)
+                .await
+                .ok();
+            misc_service
+                .sse_integrations_data_for_user(&user_id)
                 .await
                 .is_ok()
         }
