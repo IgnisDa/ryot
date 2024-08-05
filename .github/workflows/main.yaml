@@ -35,20 +35,6 @@ jobs:
           path: |
             apps/backend/templates/
           retention-days: 1
-      - name: Archive frontend directory
-        run: |
-          cd apps/frontend/
-          tar -cvf node_modules.tar node_modules/
-          tar -cvf build.tar build/
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend
-          path: |
-            apps/frontend/node_modules.tar
-            apps/frontend/build.tar
-            apps/frontend/package.json
-          retention-days: 1
 
   build-backend:
     needs:
@@ -118,7 +104,6 @@ jobs:
 
   build-docker:
     needs:
-      - build-frontend
       - build-backend
 
     runs-on: ubuntu-latest
@@ -128,11 +113,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ${{ github.workspace }}/artifact/
-      - name: Unarchive frontend directory
-        run: |
-          cd artifact/frontend/
-          tar -xvf node_modules.tar
-          tar -xvf build.tar
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
