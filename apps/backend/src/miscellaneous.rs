@@ -52,7 +52,6 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
-use tokio::sync::mpsc::Receiver;
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
@@ -95,7 +94,6 @@ use crate::{
         CollectionToEntitySystemInformation, DefaultCollection, IdAndNamedObject,
         MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
         UserSummaryData,
-        komga_events
     },
     providers::{
         anilist::{
@@ -126,7 +124,6 @@ use crate::{
         user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
-use std::sync::{Mutex, OnceLock};
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -1475,30 +1472,6 @@ impl MiscellaneousMutation {
     }
 }
 
-pub struct SSEObjects {
-    komga_task: OnceLock<()>,
-    komga_receiver: Mutex<Option<Receiver<komga_events::Data>>>,
-}
-
-impl SSEObjects {
-    const fn new() -> SSEObjects {
-        SSEObjects {
-            komga_task: OnceLock::new(),
-            komga_receiver: Mutex::new(None)
-        }
-    }
-
-    pub fn get_komga_receiver(&self) -> &Mutex<Option<Receiver<komga_events::Data>>> {
-        &self.komga_receiver
-    }
-
-    pub fn get_komga_task(&self) -> &OnceLock<()> {
-        &self.komga_task
-    }
-}
-
-static SSE_LISTS: SSEObjects = SSEObjects::new();
-
 pub struct MiscellaneousService {
     pub db: DatabaseConnection,
     pub perform_application_job: MemoryStorage<ApplicationJob>,
@@ -2480,6 +2453,18 @@ impl MiscellaneousService {
                 if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
+
+                // This is needed for manga as some of the apps will update in weird orders
+                // For example with komga mihon will update out of order to the server
+                if input.manga_chapter_number.is_some() {
+                    last_seen.manga_extra_information = ActiveValue::set(Some(
+                        SeenMangaExtraInformation {
+                            chapter: input.manga_chapter_number,
+                            volume: input.manga_volume_number,
+                        }
+                    ))
+                }
+
                 last_seen.update(&self.db).await.unwrap()
             }
             ProgressUpdateAction::ChangeState => {
@@ -2546,37 +2531,6 @@ impl MiscellaneousService {
                     None
                 };
                 let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
-                    if respect_cache {
-                        let test = SeenMangaExtraInformation {
-                            volume: None,
-                            chapter: input.manga_chapter_number
-                        };
-
-                        let all_seen = Seen::find()
-                            .filter(seen::Column::Progress.eq(100))
-                            .filter(seen::Column::UserId.eq(user_id))
-                            .filter(seen::Column::State.ne(SeenState::Dropped))
-                            .filter(seen::Column::MetadataId.eq(&input.metadata_id))
-                            .filter(
-                                seen::Column::MangaExtraInformation.eq(test)
-                                // Expr::expr(Func::cast_as(
-                                //     Expr::col(seen::Column::MangaExtraInformation),
-                                //     Alias::new("text")
-                                // ))
-                                // .ilike(ilike_sql(format!("\"chapter\": {}", input.manga_chapter_number.unwrap()).to_string().as_ref()))
-                            )
-                            .order_by_desc(seen::Column::LastUpdatedOn)
-                            .all(&self.db)
-                            .await
-                            .unwrap();
-
-                        if !all_seen.is_empty() {
-                            return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
-                                error: ProgressUpdateErrorVariant::AlreadySeen,
-                            }));
-                        }
-                    }
-
                     Some(SeenMangaExtraInformation {
                         chapter: input.manga_chapter_number,
                         volume: input.manga_volume_number,
@@ -5827,7 +5781,6 @@ impl MiscellaneousService {
                             &specifics.komga_base_url.unwrap(),
                             &specifics.komga_cookie.unwrap(),
                             specifics.komga_provider.unwrap(),
-                            &SSE_LISTS
                         )
                         .await
                 },

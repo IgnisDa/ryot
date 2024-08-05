@@ -1,7 +1,6 @@
 mod komga;
 
 use std::future::Future;
-
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
 use database::{MediaLot, MediaSource};
@@ -26,7 +25,6 @@ use sonarr_api_rs::{
     },
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
-
 use crate::{
     entities::{metadata, prelude::Metadata},
     models::{audiobookshelf_models, media::CommitMediaInput},

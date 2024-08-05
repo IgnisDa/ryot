@@ -1906,17 +1906,6 @@ pub mod importer {
         pub failed_items: Vec<ImportFailedItem>,
     }
 }
-
-pub mod komga_events {
-    use super::*;
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Data {
-        pub book_id: String,
-        pub user_id: String,
-    }
-}
 pub mod audiobookshelf_models {
     use super::*;
 
