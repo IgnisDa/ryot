@@ -80,7 +80,7 @@ jobs:
         uses: ryankurte/action-apt@v0.4.1
         with:
           arch: arm64
-          packages: "libsqlite3-dev:arm64"
+          packages: "libssl-dev:arm64"
         if: ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' }}
       - name: Setup arm64 environment
         run: |
