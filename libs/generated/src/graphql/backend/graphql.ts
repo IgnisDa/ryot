@@ -900,6 +900,7 @@ export type MetadataGroupSearchResults = {
 
 export type MetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
+  invert?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<MediaLot>;
   search: SearchInput;
   sort?: InputMaybe<MediaSortInput>;

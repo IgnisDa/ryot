@@ -3,6 +3,7 @@ import {
 	Box,
 	Button,
 	Center,
+	Checkbox,
 	Container,
 	Flex,
 	Group,
@@ -135,6 +136,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
 				collection: z.string().optional(),
+				invert: z.string().optional(),
 			});
 			const { metadataList } = await serverGqlService.authenticatedRequest(
 				request,
@@ -148,6 +150,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 							general: urlParse.generalFilter,
 							collection: urlParse.collection,
 						},
+						invert: (urlParse.invert === 'true')
 					},
 				},
 			);
@@ -574,24 +577,36 @@ const FiltersModalForm = () => {
 					)}
 				</ActionIcon>
 			</Flex>
-			{collections.length > 0 ? (
-				<Select
-					placeholder="Select a collection"
-					defaultValue={loaderData.mediaList.url.collection?.toString()}
-					data={[
-						{
-							group: "My collections",
-							items: collections.map((c) => ({
-								value: c.id.toString(),
-								label: c.name,
-							})),
-						},
-					]}
-					onChange={(v) => setP("collection", v)}
-					clearable
-					searchable
-				/>
-			) : null}
+			<Flex gap="xs" align="center">
+				{collections.length > 0 ? (
+					<Select
+						placeholder="Select a collection"
+						defaultValue={loaderData.mediaList.url.collection?.toString()}
+						data={[
+							{
+								group: "My collections",
+								items: collections.map((c) => ({
+									value: c.id.toString(),
+									label: c.name,
+								})),
+							},
+						]}
+						onChange={(v) => setP("collection", v)}
+						clearable
+						searchable
+					/>
+				) : null}
+				{collections.length > 0 ? (
+					<Checkbox
+						name="invert"
+						checked={loaderData.mediaList.url.invert === 'true'}
+						onChange={(e) =>
+							setP("invert", String(e.target.checked))
+						}
+						label="Invert"
+					/>
+				) : null}
+			</Flex>
 		</>
 	);
 };
