@@ -179,37 +179,6 @@ async fn main() -> Result<()> {
             .unwrap();
     }
 
-    if cfg!(debug_assertions) {
-        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
-
-        // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
-        let base_dir = PathBuf::from(BASE_DIR)
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("docs")
-            .join("includes");
-
-        let mut generator = SchemaGenerator::default();
-        generator.add::<config::AppConfig>();
-        generator
-            .generate(
-                base_dir.join("backend-config-schema.yaml"),
-                YamlTemplateRenderer::default(),
-            )
-            .unwrap();
-
-        let mut generator = SchemaGenerator::default();
-        generator.add::<CompleteExport>();
-        generator
-            .generate(
-                base_dir.join("export-schema.ts"),
-                TypeScriptRenderer::default(),
-            )
-            .unwrap();
-    }
-
     let schema = get_schema(&app_services).await;
 
     let cors = TowerCorsLayer::new()
