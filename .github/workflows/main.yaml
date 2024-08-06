@@ -77,7 +77,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Setup arm64 libssl
-        uses: ryankurte/action-apt@v0.4.0
+        uses: ryankurte/action-apt@v0.4.1
         with:
           arch: arm64
           packages: "libsqlite3-dev:arm64"
