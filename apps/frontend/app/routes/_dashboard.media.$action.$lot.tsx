@@ -150,7 +150,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 							general: urlParse.generalFilter,
 							collection: urlParse.collection,
 						},
-						invertCollection: (urlParse.invertCollection === 'true')
+						invertCollection: urlParse.invertCollection === "true",
 					},
 				},
 			);
@@ -580,6 +580,7 @@ const FiltersModalForm = () => {
 			<Flex gap="xs" align="center">
 				{collections.length > 0 ? (
 					<Select
+						flex={1}
 						placeholder="Select a collection"
 						defaultValue={loaderData.mediaList.url.collection?.toString()}
 						data={[
@@ -598,11 +599,9 @@ const FiltersModalForm = () => {
 				) : null}
 				{collections.length > 0 ? (
 					<Checkbox
-						checked={loaderData.mediaList.url.invertCollection === 'true'}
-						onChange={(e) =>
-							setP("invertCollection", String(e.target.checked))
-						}
 						label="Invert"
+						checked={loaderData.mediaList.url.invertCollection === "true"}
+						onChange={(e) => setP("invertCollection", String(e.target.checked))}
 					/>
 				) : null}
 			</Flex>
