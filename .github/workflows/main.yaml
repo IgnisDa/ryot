@@ -78,7 +78,7 @@ jobs:
 
       - name: Setup arm64 environment
         run: |
-          dpkg --add-architecture arm64
+          sudo dpkg --add-architecture arm64
           sudo apt update
           sudo apt install --assume-yes gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev:arm64
         if: ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' }}
