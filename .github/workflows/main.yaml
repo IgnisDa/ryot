@@ -71,6 +71,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.toolchain.outputs.channel }}
+          targets: ${{ matrix.platform.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
