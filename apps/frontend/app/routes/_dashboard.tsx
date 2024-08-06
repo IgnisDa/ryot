@@ -910,10 +910,10 @@ const MetadataInProgressUpdateForm = ({
 					</>
 				) : null}
 				<Select
-					data={userPreferences.general.watchProviders}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					name="providerWatchedOn"
 					defaultValue={inProgress.providerWatchedOn}
+					data={userPreferences.general.watchProviders}
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 				/>
 				<Button variant="outline" type="submit">
 					Update
@@ -1128,9 +1128,9 @@ const NewProgressUpdateForm = ({
 					/>
 				) : null}
 				<Select
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-					data={userPreferences.general.watchProviders}
 					name="providerWatchedOn"
+					data={userPreferences.general.watchProviders}
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 				/>
 				{selectedDate ? (
 					<input
