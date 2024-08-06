@@ -136,7 +136,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
 				collection: z.string().optional(),
-				invert: z.string().optional(),
+				invertCollection: z.string().optional(),
 			});
 			const { metadataList } = await serverGqlService.authenticatedRequest(
 				request,
@@ -150,7 +150,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 							general: urlParse.generalFilter,
 							collection: urlParse.collection,
 						},
-						invert: (urlParse.invert === 'true')
+						invertCollection: (urlParse.invertCollection === 'true')
 					},
 				},
 			);
@@ -598,10 +598,9 @@ const FiltersModalForm = () => {
 				) : null}
 				{collections.length > 0 ? (
 					<Checkbox
-						name="invert"
-						checked={loaderData.mediaList.url.invert === 'true'}
+						checked={loaderData.mediaList.url.invertCollection === 'true'}
 						onChange={(e) =>
-							setP("invert", String(e.target.checked))
+							setP("invertCollection", String(e.target.checked))
 						}
 						label="Invert"
 					/>
