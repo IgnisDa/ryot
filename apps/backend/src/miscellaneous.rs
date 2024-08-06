@@ -541,7 +541,7 @@ struct MetadataListInput {
     lot: Option<MediaLot>,
     filter: Option<MediaFilter>,
     sort: Option<SortInput<MediaSortBy>>,
-    invert_collection: Option<bool>
+    invert_collection: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2291,9 +2291,10 @@ impl MiscellaneousService {
                     let subquery = CollectionToEntity::find()
                         .select_only()
                         .column(collection_to_entity::Column::EntityId)
-                        .filter(collection_to_entity::Column::CollectionId.eq(v)).into_query();
+                        .filter(collection_to_entity::Column::CollectionId.eq(v))
+                        .into_query();
 
-                    if input.invert_collection.unwrap() {
+                    if input.invert_collection.unwrap_or_default() {
                         query.filter(metadata::Column::Id.not_in_subquery(subquery))
                     } else {
                         query.filter(metadata::Column::Id.in_subquery(subquery))
