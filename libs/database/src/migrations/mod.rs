@@ -53,6 +53,7 @@ mod m20240724_add_new_columns_to_collection_to_entity;
 mod m20240724_zz_add_new_columns_to_collection_to_entity;
 mod m20240724_zzz_new_generated_collection_to_entity_columns;
 mod m20240730_changes_for_push_integrations;
+mod m20240805_add_new_section_to_dashboard;
 mod m20240822_zz_add_new_preference_for_templates;
 mod m20240822_zzz_add_new_column_to_access_link;
 
@@ -131,6 +132,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240724_zz_add_new_columns_to_collection_to_entity::Migration),
             Box::new(m20240724_zzz_new_generated_collection_to_entity_columns::Migration),
             Box::new(m20240730_changes_for_push_integrations::Migration),
+            Box::new(m20240805_add_new_section_to_dashboard::Migration),
         ]
     }
 }

@@ -819,11 +819,13 @@ const MetadataProgressUpdateForm = ({
 			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
+			history={userMetadataDetails.history}
 		/>
 	);
 };
 
 type InProgress = UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
+type History = UserMetadataDetailsQuery["userMetadataDetails"]["history"];
 
 const MetadataInProgressUpdateForm = ({
 	onSubmit,
@@ -930,10 +932,10 @@ const MetadataInProgressUpdateForm = ({
 					</>
 				) : null}
 				<Select
-					data={userPreferences.general.watchProviders}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					name="providerWatchedOn"
 					defaultValue={inProgress.providerWatchedOn}
+					data={userPreferences.general.watchProviders}
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 				/>
 				<Button variant="outline" type="submit">
 					Update
@@ -947,10 +949,12 @@ const NewProgressUpdateForm = ({
 	onSubmit,
 	metadataDetails,
 	metadataToUpdate,
+	history,
 }: {
 	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
+	history: History;
 }) => {
 	const userPreferences = useUserPreferences();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
@@ -960,6 +964,7 @@ const NewProgressUpdateForm = ({
 	);
 	const [watchTime, setWatchTime] =
 		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
+	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
 	return (
 		<Form
@@ -1148,9 +1153,10 @@ const NewProgressUpdateForm = ({
 					/>
 				) : null}
 				<Select
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-					data={userPreferences.general.watchProviders}
 					name="providerWatchedOn"
+					defaultValue={lastProviderWatchedOn}
+					data={userPreferences.general.watchProviders}
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 				/>
 				{selectedDate ? (
 					<input
