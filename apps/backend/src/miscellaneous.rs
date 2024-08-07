@@ -44,7 +44,7 @@ use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
     ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait, Select
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
@@ -548,6 +548,8 @@ struct MetadataListInput {
 struct PeopleListInput {
     search: SearchInput,
     sort: Option<SortInput<PersonSortBy>>,
+    filter: Option<MediaFilter>,
+    invert_collection: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2229,6 +2231,33 @@ impl MiscellaneousService {
         Ok(seen_items)
     }
 
+    fn apply_collection_filter<E, C, D>(
+        query: Select<E>,
+        collection_id: Option<String>,
+        invert_collection: Option<bool>,
+        entity_column: C,
+        id_column: D,
+    ) -> Select<E>
+    where
+        E: EntityTrait,
+        C: ColumnTrait,
+        D: ColumnTrait,
+    {
+        query.apply_if(collection_id, |query, v| {
+            let subquery = CollectionToEntity::find()
+                .select_only()
+                .column(id_column)
+                .filter(collection_to_entity::Column::CollectionId.eq(v))
+                .into_query();
+
+            if invert_collection.unwrap_or_default() {
+                query.filter(entity_column.not_in_subquery(subquery))
+            } else {
+                query.filter(entity_column.in_subquery(subquery))
+            }
+        })
+    }
+
     async fn metadata_list(
         &self,
         user_id: String,
@@ -2288,17 +2317,13 @@ impl MiscellaneousService {
             .apply_if(
                 input.filter.clone().and_then(|f| f.collection),
                 |query, v| {
-                    let subquery = CollectionToEntity::find()
-                        .select_only()
-                        .column(collection_to_entity::Column::EntityId)
-                        .filter(collection_to_entity::Column::CollectionId.eq(v))
-                        .into_query();
-
-                    if input.invert_collection.unwrap_or_default() {
-                        query.filter(metadata::Column::Id.not_in_subquery(subquery))
-                    } else {
-                        query.filter(metadata::Column::Id.in_subquery(subquery))
-                    }
+                    Self::apply_collection_filter(
+                        query,
+                        Some(v),
+                        input.invert_collection,
+                        metadata::Column::Id,
+                        collection_to_entity::Column::EntityId
+                    )
                 },
             )
             .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
@@ -6453,6 +6478,18 @@ impl MiscellaneousService {
                     Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
                 )
             })
+            .apply_if(
+                input.filter.clone().and_then(|f| f.collection),
+                |query, v| {
+                    Self::apply_collection_filter(
+                        query,
+                        Some(v),
+                        input.invert_collection,
+                        person::Column::Id,
+                        collection_to_entity::Column::PersonId
+                    )
+                },
+            )
             .column_as(
                 Expr::expr(Func::count(Expr::col((
                     Alias::new("metadata_to_person"),

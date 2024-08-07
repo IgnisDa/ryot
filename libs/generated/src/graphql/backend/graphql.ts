@@ -1296,6 +1296,8 @@ export type PasswordUserInput = {
 };
 
 export type PeopleListInput = {
+  filter?: InputMaybe<MediaFilter>;
+  invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search: SearchInput;
   sort?: InputMaybe<PersonSortInput>;
 };

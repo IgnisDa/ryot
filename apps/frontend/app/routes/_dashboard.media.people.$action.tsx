@@ -48,7 +48,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import {useAppSearchParam, useCoreDetails, useUserCollections} from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
@@ -92,6 +92,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
+				collection: z.string().optional(),
+				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { peopleList } = await serverGqlService.authenticatedRequest(
 				request,
@@ -100,6 +102,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					input: {
 						search: { page, query },
 						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+						filter: {
+							collection: urlParse.collection,
+						},
+						invertCollection: urlParse.invertCollection,
 					},
 				},
 			);
@@ -360,32 +366,65 @@ const commitPerson = async (
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
+	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
+	if (!loaderData.peopleList) return null;
+
 	return (
-		<Flex gap="xs" align="center">
-			<Select
-				w="100%"
-				data={Object.values(PersonSortBy).map((o) => ({
-					value: o.toString(),
-					label: startCase(o.toLowerCase()),
-				}))}
-				defaultValue={loaderData.peopleList?.url.sortBy}
-				onChange={(v) => setP("sortBy", v)}
-			/>
-			<ActionIcon
-				onClick={() => {
-					if (loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc)
-						setP("orderBy", GraphqlSortOrder.Desc);
-					else setP("orderBy", GraphqlSortOrder.Asc);
-				}}
-			>
-				{loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc ? (
-					<IconSortAscending />
-				) : (
-					<IconSortDescending />
-				)}
-			</ActionIcon>
-		</Flex>
+		<>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					data={Object.values(PersonSortBy).map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+					defaultValue={loaderData.peopleList.url.sortBy}
+					onChange={(v) => setP("sortBy", v)}
+				/>
+				<ActionIcon
+					onClick={() => {
+						if (loaderData.peopleList.url.orderBy === GraphqlSortOrder.Asc)
+							setP("orderBy", GraphqlSortOrder.Desc);
+						else setP("orderBy", GraphqlSortOrder.Asc);
+					}}
+				>
+					{loaderData.peopleList.url.orderBy === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			</Flex>
+			<Flex gap="xs" align="center">
+				{collections.length > 0 ? (
+					<>
+						<Select
+							flex={1}
+							placeholder="Select a collection"
+							defaultValue={loaderData.peopleList.url.collection?.toString()}
+							data={[
+								{
+									group: "My collections",
+									items: collections.map((c) => ({
+										value: c.id.toString(),
+										label: c.name,
+									})),
+								},
+							]}
+							onChange={(v) => setP("collection", v)}
+							clearable
+							searchable
+						/>
+						<Checkbox
+							label="Invert"
+							checked={loaderData.peopleList.url.invertCollection}
+							onChange={(e) => setP("invertCollection", String(e.target.checked))}
+						/>
+					</>
+				) : null}
+			</Flex>
+		</>
 	);
 };
