@@ -40,7 +40,6 @@ import {
 import { useState } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -49,7 +48,6 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
-import { redirectToQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -347,13 +345,11 @@ const commitPerson = async (
 	isAnilistStudio?: boolean,
 ) => {
 	const data = new FormData();
-	const location = withoutHost(window.location.href);
 	data.append("identifier", identifier);
 	data.append("source", source);
 	if (name) data.append("name", name);
 	if (isTmdbCompany) data.append("isTmdbCompany", String(isTmdbCompany));
 	if (isAnilistStudio) data.append("isAnilistStudio", String(isAnilistStudio));
-	data.append(redirectToQueryParam, location);
 	const resp = await fetch($path("/actions", { intent: "commitPerson" }), {
 		method: "POST",
 		body: data,
