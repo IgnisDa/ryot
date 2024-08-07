@@ -30,7 +30,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			processAccessLink.tokenValidForDays,
 		);
 		return redirect(
-			safeRedirect(queryParams[redirectToQueryParam] || $path("/")),
+			safeRedirect(
+				queryParams[redirectToQueryParam] ||
+					processAccessLink.redirectTo ||
+					$path("/"),
+			),
 			{ headers },
 		);
 	}

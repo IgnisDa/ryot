@@ -23,6 +23,7 @@ pub struct Model {
     pub is_demo: Option<bool>,
     #[graphql(skip)]
     pub user_id: String,
+    pub redirect_to: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

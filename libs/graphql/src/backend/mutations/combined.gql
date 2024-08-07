@@ -227,6 +227,7 @@ mutation ProcessAccessLink($accessLinkId: String!) {
     }
     ... on ProcessAccessLinkResponse {
       apiKey
+      redirectTo
       tokenValidForDays
     }
   }

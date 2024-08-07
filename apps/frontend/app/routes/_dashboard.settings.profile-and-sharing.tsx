@@ -141,6 +141,7 @@ const revokeAccessLinkFormSchema = z.object({
 const createAccessLinkFormSchema = z.object({
 	name: z.string(),
 	expiresOn: z.string().optional(),
+	redirectTo: z.string().optional(),
 	maximumUses: zx.IntAsString.optional(),
 	isMutationAllowed: zx.CheckboxAsString.optional(),
 });
@@ -414,6 +415,11 @@ const CreateAccessLinkModal = (props: {
 						name="maximumUses"
 						label="Maximum uses"
 						description="This link will become invalid after this number of uses"
+					/>
+					<TextInput
+						name="redirectTo"
+						label="Redirect to"
+						description="Users will be redirected to this URL after accessing the URL"
 					/>
 					<Checkbox
 						label="Allow mutation"

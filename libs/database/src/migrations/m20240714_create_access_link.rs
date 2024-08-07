@@ -22,6 +22,8 @@ pub enum AccessLink {
     IsRevoked,
     // The number of times this link has been used to generate a token
     TimesUsed,
+    // Automatically redirect to this URL after generating a token
+    RedirectTo,
 }
 
 #[async_trait::async_trait]
@@ -62,6 +64,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(AccessLink::Name).text().not_null())
                     .col(ColumnDef::new(AccessLink::IsMutationAllowed).boolean())
                     .col(ColumnDef::new(AccessLink::IsDemo).boolean())
+                    .col(ColumnDef::new(AccessLink::RedirectTo).text())
                     .foreign_key(
                         ForeignKey::create()
                             .name("access_link_to_user_foreign_key")

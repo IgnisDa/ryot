@@ -744,6 +744,7 @@ struct CreateAccessLinkInput {
     name: String,
     maximum_uses: Option<i32>,
     expires_on: Option<DateTimeUtc>,
+    redirect_to: Option<String>,
     is_mutation_allowed: Option<bool>,
 }
 
@@ -764,6 +765,7 @@ struct ProcessAccessLinkError {
 struct ProcessAccessLinkResponse {
     api_key: String,
     token_valid_for_days: i32,
+    redirect_to: Option<String>,
 }
 
 #[derive(Union)]
@@ -7519,6 +7521,7 @@ GROUP BY m.id;
             user_id: ActiveValue::Set(user_id),
             name: ActiveValue::Set(input.name),
             expires_on: ActiveValue::Set(input.expires_on),
+            redirect_to: ActiveValue::Set(input.redirect_to),
             maximum_uses: ActiveValue::Set(input.maximum_uses),
             is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
             ..Default::default()
@@ -7573,10 +7576,11 @@ GROUP BY m.id;
         issued_tokens.push(api_key.clone());
         let mut link: access_link::ActiveModel = link.into();
         link.issued_tokens = ActiveValue::Set(issued_tokens);
-        link.update(&self.db).await?;
+        let link = link.update(&self.db).await?;
         Ok(ProcessAccessLinkResult::Ok(ProcessAccessLinkResponse {
             api_key,
             token_valid_for_days: validity,
+            redirect_to: link.redirect_to,
         }))
     }
 
