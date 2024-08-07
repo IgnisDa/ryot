@@ -93,6 +93,7 @@ jobs:
           APP_VERSION: ${{ steps.build.outputs.version }}
           DEFAULT_TMDB_ACCESS_TOKEN: ${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
+          DEFAULT_GOOGLE_BOOKS_API_KEY: ${{ secrets.DEFAULT_GOOGLE_BOOKS_API_KEY }}
         run: |
           touch .env
           cargo build --locked --target ${{ matrix.platform.target }} --profile ${{ steps.build.outputs.profile }}
