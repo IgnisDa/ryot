@@ -2248,6 +2248,7 @@ impl MiscellaneousService {
                 .select_only()
                 .column(id_column)
                 .filter(collection_to_entity::Column::CollectionId.eq(v))
+                .filter(id_column.is_not_null())
                 .into_query();
 
             if invert_collection.unwrap_or_default() {
