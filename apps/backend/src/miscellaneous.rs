@@ -2239,6 +2239,40 @@ impl MiscellaneousService {
         Ok(seen_items)
     }
 
+
+    /// Applies a collection filter (with option to invert) on the provided query intended
+    /// to be used in listing functions such as metadata_groups_list see examples
+    /// for more detail on usage
+    ///
+    /// # Arguments
+    ///
+    /// * `query`: The query object which the filter will be applied to
+    /// * `collection_id`: The collection which we are performing the filter on
+    /// * `invert_collection`: Boolean which controls if we should invert the filter to get
+    ///                        items not in the provided collection_id
+    /// * `entity_column`: The column we are performing the subquery search with
+    ///                    this should typically be the primary key for the table
+    /// * `id_column`: The Column containing the ID we are checking for non-null entries in
+    ///
+    /// returns: Select<E>
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// Metadata::find()
+    ///          .apply_if(
+    ///               input.filter.clone().and_then(|f| f.collection),
+    ///               |query, v| {
+    ///                   Self::apply_collection_filter(
+    ///                       query,
+    ///                       Some(v),
+    ///                       input.invert_collection,
+    ///                       metadata::Column::Id,
+    ///                       collection_to_entity::Column::EntityId
+    ///                   )
+    ///               },
+    ///          )
+    /// ```
     fn apply_collection_filter<E, C, D>(
         query: Select<E>,
         collection_id: Option<String>,
