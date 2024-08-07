@@ -45,7 +45,9 @@ jobs:
       matrix:
         platform:
           - target: x86_64-unknown-linux-gnu
+            command: cargo
           - target: aarch64-unknown-linux-gnu
+            command: cross
 
     runs-on: ubuntu-latest
 
@@ -77,18 +79,14 @@ jobs:
           key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Setup arm64 libssl
-        uses: ryankurte/action-apt@v0.4.1
+      - name: Install cross
+        if: ${{ matrix.platform.command == 'cross' }}
+        uses: taiki-e/cache-cargo-install-action@v2
         with:
-          arch: arm64
-          packages: "libssl-dev:arm64"
-        if: ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' }}
-      - name: Setup arm64 environment
-        run: |
-          sudo apt install --assume-yes crossbuild-essential-arm64
-          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu" >> "$GITHUB_ENV"
-        if: ${{ matrix.platform.target == 'aarch64-unknown-linux-gnu' }}
+          tool: cross
+          git: https://github.com/cross-rs/cross
+          rev: 19be83481fd3e50ea103d800d72e0f8eddb1c90c
+          locked: false
 
       - name: Build
         env:
@@ -98,7 +96,7 @@ jobs:
           DEFAULT_GOOGLE_BOOKS_API_KEY: ${{ secrets.DEFAULT_GOOGLE_BOOKS_API_KEY }}
         run: |
           touch .env
-          cargo build --locked --target ${{ matrix.platform.target }} --profile ${{ steps.build.outputs.profile }}
+          ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --profile ${{ steps.build.outputs.profile }}
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
