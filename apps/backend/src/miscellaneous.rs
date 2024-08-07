@@ -553,6 +553,14 @@ struct PeopleListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct GroupsListInput {
+    search: SearchInput,
+    sort: Option<SortInput<PersonSortBy>>,
+    filter: Option<MediaFilter>,
+    invert_collection: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaConsumedInput {
     identifier: String,
     lot: MediaLot,
@@ -922,7 +930,7 @@ impl MiscellaneousQuery {
     async fn metadata_groups_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: GroupsListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
@@ -6412,19 +6420,48 @@ impl MiscellaneousService {
     async fn metadata_groups_list(
         &self,
         user_id: String,
-        input: SearchInput,
+        input: GroupsListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let alias = "parts";
+        let media_items_col = Expr::col(Alias::new(alias));
+        let (order_by, sort_order) = match input.sort {
+            None => (media_items_col, Order::Desc),
+            Some(ord) => (
+                match ord.by {
+                    PersonSortBy::Name => Expr::col(metadata_group::Column::Title),
+                    PersonSortBy::MediaItems => media_items_col,
+                },
+                ord.order.into(),
+            ),
+        };
         let query = MetadataGroup::find()
-            .apply_if(input.query, |query, v| {
+            .select_only()
+            .column(metadata_group::Column::Id)
+            .group_by(metadata_group::Column::Id)
+            .inner_join(UserToEntity)
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
+            .filter(metadata_group::Column::Id.is_not_null())
+            .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::all()
                         .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
                 )
             })
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .inner_join(UserToEntity)
-            .order_by_asc(metadata_group::Column::Title);
+            .apply_if(
+                input.filter.clone().and_then(|f| f.collection),
+                |query, v| {
+                    Self::apply_collection_filter(
+                        query,
+                        Some(v),
+                        input.invert_collection,
+                        metadata_group::Column::Id,
+                        collection_to_entity::Column::MetadataGroupId
+                    )
+                },
+            )
+
+            .order_by(order_by, sort_order);
         let paginator = query
             .column(metadata_group::Column::Id)
             .clone()

@@ -1,7 +1,10 @@
 import {
+	ActionIcon,
 	Box,
 	Center,
+	Checkbox,
 	Container,
+	Flex,
 	Group,
 	Loader,
 	Pagination,
@@ -18,33 +21,41 @@ import {
 	useNavigate,
 } from "@remix-run/react";
 import {
+	GraphqlSortOrder,
 	MediaLot,
 	MediaSource,
 	MetadataGroupSearchDocument,
 	type MetadataGroupSearchQuery,
 	MetadataGroupsListDocument,
+	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
-import { IconListCheck, IconSearch } from "@tabler/icons-react";
+import {IconFilter, IconListCheck, IconSearch, IconSortAscending, IconSortDescending} from "@tabler/icons-react";
 import { useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {ApplicationGrid, DebouncedSearchInput, FiltersModal} from "~/components/common";
 import {
 	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import {useAppSearchParam, useCoreDetails, useUserCollections} from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import {useDisclosure} from "@mantine/hooks";
 
 export type SearchParams = {
 	query?: string;
+};
+
+const defaultFilters = {
+	sortBy: PersonSortBy.MediaItems,
+	orderBy: GraphqlSortOrder.Desc,
 };
 
 enum Action {
@@ -66,13 +77,28 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const [list, search] = await match(action)
 		.with(Action.List, async () => {
+			const urlParse = zx.parseQuery(request, {
+				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
+				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
+				collection: z.string().optional(),
+				invertCollection: zx.BoolAsString.optional(),
+			});
 			const { metadataGroupsList } =
 				await serverGqlService.authenticatedRequest(
 					request,
 					MetadataGroupsListDocument,
-					{ input: { page, query } },
+					{
+						input: {
+							search: { page, query },
+							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+							filter: {
+								collection: urlParse.collection,
+							},
+							invertCollection: urlParse.invertCollection,
+						}
+					},
 				);
-			return [{ list: metadataGroupsList, url: {} }, undefined] as const;
+			return [{ list: metadataGroupsList, url: urlParse }, undefined] as const;
 		})
 		.with(Action.Search, async () => {
 			const urlParse = zx.parseQuery(request, {
@@ -104,6 +130,10 @@ export default function Page() {
 	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const navigate = useNavigate();
+	const [
+		filtersModalOpened,
+		{ open: openFiltersModal, close: closeFiltersModal },
+	] = useDisclosure(false);
 
 	return (
 		<Container>
@@ -139,6 +169,29 @@ export default function Page() {
 						initialValue={loaderData.query}
 						enhancedQueryParams={loaderData.cookieName}
 					/>
+					{loaderData.action === Action.List ? (
+						<>
+							<ActionIcon
+								onClick={openFiltersModal}
+								color={
+									loaderData.peopleList?.url.orderBy !==
+									defaultFilters.orderBy ||
+									loaderData.peopleList?.url.sortBy !== defaultFilters.sortBy
+										? "blue"
+										: "gray"
+								}
+							>
+								<IconFilter size={24} />
+							</ActionIcon>
+							<FiltersModal
+								closeFiltersModal={closeFiltersModal}
+								cookieName={loaderData.cookieName}
+								opened={filtersModalOpened}
+							>
+								<FiltersModalForm />
+							</FiltersModal>
+						</>
+					) : null}
 					{loaderData.action === Action.Search ? (
 						<>
 							<Select
@@ -274,4 +327,69 @@ const commitGroup = async (
 	);
 	const json = await resp.json();
 	return json.commitMetadataGroup.id;
+};
+
+const FiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const collections = useUserCollections();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+
+	if (!loaderData.list) return null;
+
+	return (
+		<>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					data={Object.values(PersonSortBy).map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+					defaultValue={loaderData.list.url.sortBy}
+					onChange={(v) => setP("sortBy", v)}
+				/>
+				<ActionIcon
+					onClick={() => {
+						if (loaderData.list.url.orderBy === GraphqlSortOrder.Asc)
+							setP("orderBy", GraphqlSortOrder.Desc);
+						else setP("orderBy", GraphqlSortOrder.Asc);
+					}}
+				>
+					{loaderData.list.url.orderBy === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			</Flex>
+			<Flex gap="xs" align="center">
+				{collections.length > 0 ? (
+					<>
+						<Select
+							flex={1}
+							placeholder="Select a collection"
+							defaultValue={loaderData.list.url.collection?.toString()}
+							data={[
+								{
+									group: "My collections",
+									items: collections.map((c) => ({
+										value: c.id.toString(),
+										label: c.name,
+									})),
+								},
+							]}
+							onChange={(v) => setP("collection", v)}
+							clearable
+							searchable
+						/>
+						<Checkbox
+							label="Invert"
+							checked={loaderData.list.url.invertCollection}
+							onChange={(e) => setP("invertCollection", String(e.target.checked))}
+						/>
+					</>
+				) : null}
+			</Flex>
+		</>
+	);
 };
