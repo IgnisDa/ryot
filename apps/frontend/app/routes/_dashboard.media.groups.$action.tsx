@@ -30,7 +30,6 @@ import { useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
@@ -38,7 +37,6 @@ import {
 	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
-import { redirectToQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -267,11 +265,9 @@ const commitGroup = async (
 	lot: MediaLot,
 ) => {
 	const data = new FormData();
-	const location = withoutHost(window.location.href);
 	data.append("identifier", identifier);
 	data.append("source", source);
 	data.append("lot", lot);
-	data.append(redirectToQueryParam, location);
 	const resp = await fetch(
 		$path("/actions", { intent: "commitMetadataGroup" }),
 		{ method: "POST", body: data },
