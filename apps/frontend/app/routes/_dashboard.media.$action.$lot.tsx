@@ -600,7 +600,9 @@ const FiltersModalForm = () => {
 						<Checkbox
 							label="Invert"
 							checked={loaderData.mediaList.url.invertCollection}
-							onChange={(e) => setP("invertCollection", String(e.target.checked))}
+							onChange={(e) =>
+								setP("invertCollection", String(e.target.checked))
+							}
 						/>
 					</>
 				) : null}

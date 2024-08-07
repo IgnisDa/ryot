@@ -48,7 +48,11 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
-import {useAppSearchParam, useCoreDetails, useUserCollections} from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useCoreDetails,
+	useUserCollections,
+} from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
@@ -420,7 +424,9 @@ const FiltersModalForm = () => {
 						<Checkbox
 							label="Invert"
 							checked={loaderData.peopleList.url.invertCollection}
-							onChange={(e) => setP("invertCollection", String(e.target.checked))}
+							onChange={(e) =>
+								setP("invertCollection", String(e.target.checked))
+							}
 						/>
 					</>
 				) : null}

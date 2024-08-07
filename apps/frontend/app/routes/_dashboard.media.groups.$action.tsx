@@ -14,6 +14,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import {
 	type MetaArgs_SingleFetch,
@@ -30,24 +31,37 @@ import {
 	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
-import {IconFilter, IconListCheck, IconSearch, IconSortAscending, IconSortDescending} from "@tabler/icons-react";
+import {
+	IconFilter,
+	IconListCheck,
+	IconSearch,
+	IconSortAscending,
+	IconSortDescending,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import {ApplicationGrid, DebouncedSearchInput, FiltersModal} from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common";
 import {
 	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
-import {useAppSearchParam, useCoreDetails, useUserCollections} from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useCoreDetails,
+	useUserCollections,
+} from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import {useDisclosure} from "@mantine/hooks";
 
 export type SearchParams = {
 	query?: string;
@@ -95,7 +109,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 								collection: urlParse.collection,
 							},
 							invertCollection: urlParse.invertCollection,
-						}
+						},
 					},
 				);
 			return [{ list: metadataGroupsList, url: urlParse }, undefined] as const;
@@ -175,7 +189,7 @@ export default function Page() {
 								onClick={openFiltersModal}
 								color={
 									loaderData.peopleList?.url.orderBy !==
-									defaultFilters.orderBy ||
+										defaultFilters.orderBy ||
 									loaderData.peopleList?.url.sortBy !== defaultFilters.sortBy
 										? "blue"
 										: "gray"
@@ -385,7 +399,9 @@ const FiltersModalForm = () => {
 						<Checkbox
 							label="Invert"
 							checked={loaderData.list.url.invertCollection}
-							onChange={(e) => setP("invertCollection", String(e.target.checked))}
+							onChange={(e) =>
+								setP("invertCollection", String(e.target.checked))
+							}
 						/>
 					</>
 				) : null}
