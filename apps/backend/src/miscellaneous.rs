@@ -2362,7 +2362,7 @@ impl MiscellaneousService {
                         Some(v),
                         input.invert_collection,
                         metadata::Column::Id,
-                        collection_to_entity::Column::EntityId,
+                        collection_to_entity::Column::MetadataId,
                     )
                 },
             )
