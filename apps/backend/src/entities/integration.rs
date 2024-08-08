@@ -26,8 +26,8 @@ pub struct Model {
     pub created_on: DateTimeUtc,
     #[graphql(skip_input)]
     pub last_triggered_on: Option<DateTimeUtc>,
-    #[graphql(skip)]
     #[sea_orm(column_type = "Json")]
+    #[graphql(skip)]
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 
