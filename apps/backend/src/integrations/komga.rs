@@ -35,7 +35,7 @@ mod komga_book {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Metadata {
-        pub links: Vec<Link>,
+        pub number: String,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -53,6 +53,7 @@ mod komga_book {
         pub series_id: String,
         pub media: Media,
         pub number: i32,
+        pub metadata: Metadata,
         pub read_progress: ReadProgress,
     }
 }
@@ -354,7 +355,7 @@ impl IntegrationService {
             identifier: id,
             lot: MediaLot::Manga,
             source: source.unwrap(),
-            manga_chapter_number: Some(book.number),
+            manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
             progress: Self::calculate_percentage(book.read_progress.page,
                                                  book.media.pages_count),
             provider_watched_on: Some("Komga".to_string()),
