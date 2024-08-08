@@ -69,9 +69,6 @@ query UserIntegrations {
     maximumProgress
     minimumProgress
     lastTriggeredOn
-    providerSpecifics {
-        komgaProvider
-    }
   }
 }
 

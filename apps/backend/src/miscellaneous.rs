@@ -5543,13 +5543,6 @@ impl MiscellaneousService {
         if let Some(d) = input.is_disabled {
             db_integration.is_disabled = ActiveValue::Set(Some(d));
         }
-        if let Some(d) = input.provider_specifics {
-            let mut existing_specifics =
-                db_integration.provider_specifics.clone().unwrap().clone().unwrap().clone();
-
-            existing_specifics.komga_provider = d.komga_provider;
-            db_integration.provider_specifics = ActiveValue::Set(Some(existing_specifics));
-        }
         db_integration.update(&self.db).await?;
         Ok(true)
     }

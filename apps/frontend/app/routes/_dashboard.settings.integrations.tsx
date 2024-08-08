@@ -189,11 +189,6 @@ const updateSchema = z.object({
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	isDisabled: zx.CheckboxAsString.optional(),
-	providerSpecifics: z
-		.object({
-			komgaProvider: z.nativeEnum(MediaSource),
-		})
-		.optional(),
 });
 
 export default function Page() {
@@ -471,7 +466,7 @@ const CreateIntegrationModal = (props: {
 									label="Select a provider"
 									name="providerSpecifics.komgaProvider"
 									required
-									data={[MediaSource.Anilist,MediaSource.Mal].map((is) => ({
+									data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
 										label: changeCase(is),
 										value: is,
 									}))}
@@ -585,24 +580,6 @@ const UpdateIntegrationModal = (props: {
 								/>
 							</Group>
 						) : null}
-						{match(props.updateIntegrationData.provider)
-							.with(IntegrationProvider.Komga, () => (
-								<>
-									<Select
-										label="Select a provider"
-										name="providerSpecifics.komgaProvider"
-										required
-										defaultValue = {
-											props.updateIntegrationData?.providerSpecifics?.komgaProvider || undefined
-										}
-										data={[MediaSource.Anilist,MediaSource.Mal].map((is) => ({
-											label: changeCase(is),
-											value: is,
-										}))}
-									/>
-								</>
-							))
-							.otherwise(() => undefined)}
 						<Checkbox
 							name="isDisabled"
 							label="Pause integration"

@@ -424,7 +424,6 @@ pub enum IntegrationLot {
     Yank,
     Sink,
     Push,
-    SSE
 }
 
 #[derive(
