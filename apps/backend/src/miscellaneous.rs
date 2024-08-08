@@ -44,7 +44,7 @@ use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
     ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait, Select
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Select, Statement, TransactionTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
@@ -553,7 +553,7 @@ struct PeopleListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct GroupsListInput {
+struct MetadataGroupsListInput {
     search: SearchInput,
     sort: Option<SortInput<PersonSortBy>>,
     filter: Option<MediaFilter>,
@@ -930,7 +930,7 @@ impl MiscellaneousQuery {
     async fn metadata_groups_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: GroupsListInput,
+        input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
@@ -2239,7 +2239,6 @@ impl MiscellaneousService {
         Ok(seen_items)
     }
 
-
     /// Applies a collection filter (with option to invert) on the provided query intended
     /// to be used in listing functions such as metadata_groups_list see examples
     /// for more detail on usage
@@ -2253,8 +2252,6 @@ impl MiscellaneousService {
     /// * `entity_column`: The column we are performing the subquery search with
     ///                    this should typically be the primary key for the table
     /// * `id_column`: The Column containing the ID we are checking for non-null entries in
-    ///
-    /// returns: Select<E>
     ///
     /// # Examples
     ///
@@ -2365,7 +2362,7 @@ impl MiscellaneousService {
                         Some(v),
                         input.invert_collection,
                         metadata::Column::Id,
-                        collection_to_entity::Column::EntityId
+                        collection_to_entity::Column::EntityId,
                     )
                 },
             )
@@ -6454,7 +6451,7 @@ impl MiscellaneousService {
     async fn metadata_groups_list(
         &self,
         user_id: String,
-        input: GroupsListInput,
+        input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
         let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
         let alias = "parts";
@@ -6490,11 +6487,10 @@ impl MiscellaneousService {
                         Some(v),
                         input.invert_collection,
                         metadata_group::Column::Id,
-                        collection_to_entity::Column::MetadataGroupId
+                        collection_to_entity::Column::MetadataGroupId,
                     )
                 },
             )
-
             .order_by(order_by, sort_order);
         let paginator = query
             .column(metadata_group::Column::Id)
@@ -6558,7 +6554,7 @@ impl MiscellaneousService {
                         Some(v),
                         input.invert_collection,
                         person::Column::Id,
-                        collection_to_entity::Column::PersonId
+                        collection_to_entity::Column::PersonId,
                     )
                 },
             )
