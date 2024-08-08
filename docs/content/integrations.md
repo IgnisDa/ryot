@@ -34,15 +34,10 @@ have a valid provider ID (Audible, ITunes or ISBN).
 
 ### Komga
 
-!!! warning
-
-      This will only import media that are in progress. An import process will be added in
-      the future
-
 The [Komga](https://komga.org/) integration can sync all media if they
 have a valid metadata provider.
 
-#### Komga side steps
+#### Komga steps
 If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these urls will be
 populated automatically. If you don't use komf youll either need to manually add the manga to your collection
 or you can perform the following steps.
@@ -60,24 +55,12 @@ To retrieve your Cookie youll need to perform the following steps:
 6. Select any of the urls and look for the `Cookie` Header
 7. Copy the entire cookie it should look something like this `remember-me=REDACTED; SESSION=REDACTED`
 
-If you are using NGINX as your reverse proxy youll probably need to add the following to your configuration
-to allow the SSE stream to work correctly.
-
-```nginx
-# Needs to be added to the location / section of the file
-# If you dont the transfers will be chunked so youll get updates every 1000-2000 events
-proxy_set_header Connection '';
-proxy_http_version 1.1;
-chunked_transfer_encoding off;
-proxy_buffering off;
-proxy_cache off;
-```
-#### Ryot side steps
+#### Ryot steps
 1. Obtain your cookie as described above
 2. Create the integration and select Komga as the source
 3. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
 4. Provide your Cookie.
-5. Provide your prefered metadata provider it will attempt the others if the first doesn't work and will fallback to title search otherwise
+5. Provide your preferred metadata provider it will attempt the others if the preferred is unavailable and will fallback to title search otherwise
 
 ## Push integrations
 
