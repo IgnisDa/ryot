@@ -7,7 +7,6 @@ services about changes. They can be of following types:
   interval.
 - _Push_: Ryot sends data to an external service at a periodic interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
-- _SSE_: A server publishes event data for clients to use. Ryot subscribes to the event stream to capture updates.
 
 ## Yank integrations
 
@@ -32,6 +31,53 @@ have a valid provider ID (Audible, ITunes or ISBN).
    [authentication](https://api.audiobookshelf.org/#authentication) docs.
 2. Go to your Ryot user settings and add the correct details as described in the
    [yank](#yank-integrations) section.
+
+### Komga
+
+!!! warning
+
+      This will only import media that are in progress. An import process will be added in
+      the future
+
+The [Komga](https://komga.org/) integration can sync all media if they
+have a valid metadata provider.
+
+#### Komga side steps
+If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these urls will be
+populated automatically. If you don't use komf youll either need to manually add the manga to your collection
+or you can perform the following steps.
+1. Navigate to the manga
+2. Open the edit tab
+3. Navigate to the Links tab
+4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
+
+To retrieve your Cookie youll need to perform the following steps:
+1. Log out of Komga
+2. Log back in while selecting `Remember me`
+3. Press F12
+4. Navigate to the Network tab
+5. Refresh the page
+6. Select any of the urls and look for the `Cookie` Header
+7. Copy the entire cookie it should look something like this `remember-me=REDACTED; SESSION=REDACTED`
+
+If you are using NGINX as your reverse proxy youll probably need to add the following to your configuration
+to allow the SSE stream to work correctly.
+
+```nginx
+# Needs to be added to the location / section of the file
+# If you dont the transfers will be chunked so youll get updates every 1000-2000 events
+proxy_set_header Connection '';
+proxy_http_version 1.1;
+chunked_transfer_encoding off;
+proxy_buffering off;
+proxy_cache off;
+```
+#### Ryot side steps
+1. Obtain your cookie as described above
+2. Create the integration and select Komga as the source
+3. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
+4. Provide your Cookie.
+5. Provide your prefered metadata provider it will attempt the others if the first doesn't work and will fallback to title search otherwise
 
 ## Push integrations
 
@@ -138,59 +184,3 @@ TMDb ID attached to their metadata.
    the zipped addon to your Kodi instance. Once installed, it will be visible under
    the "Services" sub category named "Ryot".
 4. Click on "Configure" to fill in the correct details.
-
-
-## SSE integrations
-For each integration you want to enable, credentials for the external server must be saved
-to your profile. To do so, go to the "Settings" tab and add a new integration under the
-"Integrations" tab.
-
-You can configure the interval at which the data is handled from the sse listener using the
-`integration.sync_every_minutes` configuration key. Defaults to `5` (minutes).
-
-### Komga
-
-!!! warning
-
-      This will only import media that are in progress. An import process will be added in
-      the future
-
-The [Komga](https://komga.org/) integration can sync all media if they
-have a valid metadata provider.
-
-#### Komga side steps
-If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these urls will be 
-populated automatically. If you don't use komf youll either need to manually add the manga to your collection
-or you can perform the following steps.
-1. Navigate to the manga
-2. Open the edit tab
-3. Navigate to the Links tab
-4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
-
-To retrieve your Cookie youll need to perform the following steps:
-1. Log out of Komga
-2. Log back in while selecting `Remember me`
-3. Press F12
-4. Navigate to the Network tab
-5. Refresh the page
-6. Select any of the urls and look for the `Cookie` Header
-7. Copy the entire cookie it should look something like this `remember-me=REDACTED; SESSION=REDACTED`
-
-If you are using NGINX as your reverse proxy youll probably need to add the following to your configuration
-to allow the SSE stream to work correctly. 
-
-```nginx
-# Needs to be added to the location / section of the file
-# If you dont the transfers will be chunked so youll get updates every 1000-2000 events
-proxy_set_header Connection '';
-proxy_http_version 1.1;
-chunked_transfer_encoding off;
-proxy_buffering off;
-proxy_cache off;
-```
-#### Ryot side steps
-1. Obtain your cookie as described above
-2. Create the integration and select Komga as the source
-3. Provide your BaseURL. Should look something like this `komga.acme.com` or `127.0.0.1:25600`
-4. Provide your Cookie.
-5. Provide your prefered metadata provider it will attempt the others if the first doesn't work and will fallback to title search otherwise
