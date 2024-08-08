@@ -578,34 +578,28 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Flex gap="xs" align="center">
-				{collections.length > 0 ? (
-					<>
-						<Select
-							flex={1}
-							placeholder="Select a collection"
-							defaultValue={loaderData.mediaList.url.collection?.toString()}
-							data={[
-								{
-									group: "My collections",
-									items: collections.map((c) => ({
-										value: c.id.toString(),
-										label: c.name,
-									})),
-								},
-							]}
-							onChange={(v) => setP("collection", v)}
-							clearable
-							searchable
-						/>
-						<Checkbox
-							label="Invert"
-							checked={loaderData.mediaList.url.invertCollection}
-							onChange={(e) =>
-								setP("invertCollection", String(e.target.checked))
-							}
-						/>
-					</>
-				) : null}
+				<Select
+					flex={1}
+					placeholder="Select a collection"
+					defaultValue={loaderData.mediaList.url.collection?.toString()}
+					data={[
+						{
+							group: "My collections",
+							items: collections.map((c) => ({
+								value: c.id.toString(),
+								label: c.name,
+							})),
+						},
+					]}
+					onChange={(v) => setP("collection", v)}
+					clearable
+					searchable
+				/>
+				<Checkbox
+					label="Invert"
+					checked={loaderData.mediaList.url.invertCollection}
+					onChange={(e) => setP("invertCollection", String(e.target.checked))}
+				/>
 			</Flex>
 		</>
 	);

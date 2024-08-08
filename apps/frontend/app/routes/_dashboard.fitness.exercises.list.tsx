@@ -363,23 +363,21 @@ const FiltersModalForm = () => {
 							onChange={(v) => setP(f, v)}
 						/>
 					))}
-				{collections.length > 0 ? (
-					<Select
-						label="Collection"
-						defaultValue={loaderData.query.collection?.toString()}
-						data={[
-							{
-								group: "My collections",
-								items: collections.map((c) => ({
-									value: c.id.toString(),
-									label: c.name,
-								})),
-							},
-						]}
-						onChange={(v) => setP("collection", v)}
-						clearable
-					/>
-				) : null}
+				<Select
+					label="Collection"
+					defaultValue={loaderData.query.collection?.toString()}
+					data={[
+						{
+							group: "My collections",
+							items: collections.map((c) => ({
+								value: c.id.toString(),
+								label: c.name,
+							})),
+						},
+					]}
+					onChange={(v) => setP("collection", v)}
+					clearable
+				/>
 			</Stack>
 		</MantineThemeProvider>
 	);
