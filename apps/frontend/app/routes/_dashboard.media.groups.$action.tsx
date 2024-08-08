@@ -30,7 +30,7 @@ import {
 	MetadataGroupsListDocument,
 	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, isString, startCase } from "@ryot/ts-utils";
 import {
 	IconFilter,
 	IconListCheck,
@@ -187,7 +187,8 @@ export default function Page() {
 								onClick={openFiltersModal}
 								color={
 									loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
-									loaderData.list?.url.sortBy !== defaultFilters.sortBy
+									loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
+									isString(loaderData.list?.url.collection)
 										? "blue"
 										: "gray"
 								}
