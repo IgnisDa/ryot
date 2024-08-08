@@ -389,7 +389,7 @@ const FiltersModalForm = () => {
 				/>
 				<ActionIcon
 					onClick={() => {
-						if (loaderData.peopleList.url.orderBy === GraphqlSortOrder.Asc)
+						if (loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc)
 							setP("orderBy", GraphqlSortOrder.Desc);
 						else setP("orderBy", GraphqlSortOrder.Asc);
 					}}

@@ -105,9 +105,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						input: {
 							search: { page, query },
 							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-							filter: {
-								collection: urlParse.collection,
-							},
+							filter: { collection: urlParse.collection },
 							invertCollection: urlParse.invertCollection,
 						},
 					},
@@ -188,9 +186,8 @@ export default function Page() {
 							<ActionIcon
 								onClick={openFiltersModal}
 								color={
-									loaderData.peopleList?.url.orderBy !==
-										defaultFilters.orderBy ||
-									loaderData.peopleList?.url.sortBy !== defaultFilters.sortBy
+									loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
+									loaderData.list?.url.sortBy !== defaultFilters.sortBy
 										? "blue"
 										: "gray"
 								}
@@ -364,7 +361,7 @@ const FiltersModalForm = () => {
 				/>
 				<ActionIcon
 					onClick={() => {
-						if (loaderData.list.url.orderBy === GraphqlSortOrder.Asc)
+						if (loaderData.list?.url.orderBy === GraphqlSortOrder.Asc)
 							setP("orderBy", GraphqlSortOrder.Desc);
 						else setP("orderBy", GraphqlSortOrder.Asc);
 					}}
