@@ -36,7 +36,7 @@ import { Fragment, type ReactNode } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { ApplicationGrid } from "~/components/common";
+import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import {
 	DisplayCollectionEntity,
@@ -161,6 +161,15 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
+						.with([DashboardElementLot.Recommendations, false], () => (
+							<Section
+								key={DashboardElementLot.Recommendations}
+								lot={DashboardElementLot.Recommendations}
+							>
+								<Title>Recommendations</Title>
+								<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+							</Section>
+						))
 						.with([DashboardElementLot.Summary, false], () => (
 							<Section
 								key={DashboardElementLot.Summary}
