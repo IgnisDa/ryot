@@ -91,9 +91,6 @@ pub async fn perform_core_application_job(
         CoreApplicationJob::ReviewPosted(event) => {
             misc_service.handle_review_posted_event(event).await.is_ok()
         }
-        CoreApplicationJob::EventOccurred(event) => {
-            misc_service.handle_event_occurred(event).await.is_ok()
-        }
         CoreApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
             .bulk_progress_update(user_id, input)
             .await
