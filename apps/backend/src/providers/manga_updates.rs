@@ -149,7 +149,7 @@ struct MetadataSearchResponse<T> {
 impl MangaUpdatesService {
     fn extract_status(&self, input: Option<String>) -> (Option<i32>, Option<String>) {
         if input.is_none() {
-            return (None, None)
+            return (None, None);
         }
 
         let input = input.unwrap();

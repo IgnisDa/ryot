@@ -1,6 +1,10 @@
-mod komga;
-
-use std::future::Future;
+use crate::{
+    entities::{metadata, prelude::Metadata},
+    models::{audiobookshelf_models, media::CommitMediaInput},
+    providers::google_books::GoogleBooksService,
+    traits::TraceOk,
+    utils::{get_base_http_client, ilike_sql},
+};
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
 use database::{MediaLot, MediaSource};
@@ -25,13 +29,9 @@ use sonarr_api_rs::{
     },
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
-use crate::{
-    entities::{metadata, prelude::Metadata},
-    models::{audiobookshelf_models, media::CommitMediaInput},
-    providers::google_books::GoogleBooksService,
-    traits::TraceOk,
-    utils::{get_base_http_client, ilike_sql},
-};
+use std::future::Future;
+
+mod komga;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IntegrationMediaSeen {

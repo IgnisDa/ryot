@@ -1,20 +1,20 @@
-use std::collections::{hash_map::Entry, HashMap};
-use std::sync::{Mutex, OnceLock};
-use anyhow::{anyhow, Result, Context};
-use futures::StreamExt;
-use rust_decimal::Decimal;
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait};
-use sea_query::Expr;
-use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
-use database::{MediaLot, MediaSource, };
-use eventsource_stream::Eventsource;
-use rust_decimal::prelude::{FromPrimitive, Zero};
-use serde::de::DeserializeOwned;
 use super::{IntegrationMediaCollection, IntegrationMediaSeen, IntegrationService};
 use crate::{
     entities::{metadata, prelude::Metadata},
-    utils::{get_base_http_client, },
+    utils::get_base_http_client,
 };
+use anyhow::{anyhow, Context, Result};
+use database::{MediaLot, MediaSource};
+use eventsource_stream::Eventsource;
+use futures::StreamExt;
+use rust_decimal::prelude::{FromPrimitive, Zero};
+use rust_decimal::Decimal;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_query::Expr;
+use serde::de::DeserializeOwned;
+use std::collections::{hash_map::Entry, HashMap};
+use std::sync::{Mutex, OnceLock};
+use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
 mod komga_book {
     use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ mod komga_book {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Media {
-        pub pages_count: i32
+        pub pages_count: i32,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -59,9 +59,9 @@ mod komga_book {
 }
 
 mod komga_series {
+    use super::*;
     use openidconnect::url::Url;
     use serde::{Deserialize, Serialize};
-    use super::*;
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -90,7 +90,8 @@ mod komga_series {
         /// returns: Option<String> The ID number if the extraction is successful
         fn extract_id(&self, url: String) -> Option<String> {
             if let Ok(parsed_url) = Url::parse(&url) {
-                parsed_url.path_segments()
+                parsed_url
+                    .path_segments()
                     .and_then(|segments| segments.collect::<Vec<_>>().get(1).cloned())
                     .map(String::from)
             } else {
@@ -108,7 +109,7 @@ mod komga_series {
         ///
         /// returns: Vec<(Option<MediaSource>,Option<String>)> list of providers with a
         ///          MediaSource,ID Tuple
-        pub fn find_providers(&self) -> Vec<(Option<MediaSource>,Option<String>)> {
+        pub fn find_providers(&self) -> Vec<(Option<MediaSource>, Option<String>)> {
             let mut provider_links = vec![];
             for link in self.links.iter() {
                 let source;
@@ -117,7 +118,7 @@ mod komga_series {
                 match link.label.to_lowercase().as_str() {
                     "anilist" => source = Some(MediaSource::Anilist),
                     "myanimelist" => source = Some(MediaSource::Mal),
-                    _ => continue
+                    _ => continue,
                 }
 
                 if source.is_some() {
@@ -160,16 +161,16 @@ mod komga_events {
     }
 }
 
-struct KomgaEventHandler  {
+struct KomgaEventHandler {
     task: OnceLock<()>,
     receiver: Mutex<Option<UnboundedReceiver<komga_events::Data>>>,
 }
 
-impl KomgaEventHandler  {
+impl KomgaEventHandler {
     pub const fn new() -> Self {
         Self {
             task: OnceLock::new(),
-            receiver: Mutex::new(None)
+            receiver: Mutex::new(None),
         }
     }
 
@@ -194,9 +195,11 @@ impl IntegrationService {
     /// * `cookie`: The komga cookie with the remember-me included
     ///
     /// returns: Never Returns
-    async fn sse_listener(sender: mpsc::UnboundedSender<komga_events::Data>,
-                          base_url: String,
-                          cookie: String,) -> anyhow::Result<(), Box<dyn std::error::Error>> {
+    async fn sse_listener(
+        sender: mpsc::UnboundedSender<komga_events::Data>,
+        base_url: String,
+        cookie: String,
+    ) -> anyhow::Result<(), Box<dyn std::error::Error>> {
         let client = get_base_http_client(&format!("{}/sse/v1/", base_url), None);
 
         loop {
@@ -250,10 +253,12 @@ impl IntegrationService {
     ///             api_endpoint doesn't require a prepended `/`
     ///
     /// returns: Result<T, Error> This only preforms basic error handling on the json parsing
-    async fn fetch_api<T: DeserializeOwned>(client: &reqwest::Client,
-                          cookie: &str,
-                          api_endpoint: &str,
-                          api_id: &str) -> Result<T> {
+    async fn fetch_api<T: DeserializeOwned>(
+        client: &reqwest::Client,
+        cookie: &str,
+        api_endpoint: &str,
+        api_id: &str,
+    ) -> Result<T> {
         client
             .get(format!("{}/{}", api_endpoint, api_id))
             .header("Cookie", cookie)
@@ -264,7 +269,6 @@ impl IntegrationService {
             .await
             .map_err(|e| anyhow!("Failed to parse JSON: {}", e))
     }
-
 
     /// Finds the metadata provider and ID of the provided series
     ///
@@ -283,7 +287,7 @@ impl IntegrationService {
     async fn find_provider_and_id(
         series: &komga_series::Item,
         provider: MediaSource,
-        db: &DatabaseConnection
+        db: &DatabaseConnection,
     ) -> Result<(Option<MediaSource>, Option<String>)> {
         let providers = series.metadata.find_providers();
         if !providers.is_empty() {
@@ -316,7 +320,6 @@ impl IntegrationService {
         Decimal::from_f64(percentage).unwrap_or(Decimal::zero())
     }
 
-
     /// Processes the events which are provided by the receiver
     ///
     /// # Arguments
@@ -329,25 +332,32 @@ impl IntegrationService {
     ///
     /// returns: Option<IntegrationMediaSeen> If the event had no issues processing contains the
     ///          media which was read otherwise none
-    async fn process_events (
+    async fn process_events(
         &self,
         base_url: &str,
         cookie: &str,
         provider: MediaSource,
-        data: komga_events::Data
+        data: komga_events::Data,
     ) -> Option<IntegrationMediaSeen> {
         let client = get_base_http_client(&format!("{}/api/v1/", base_url), None);
 
-        let book: komga_book::Item =
-            Self::fetch_api(&client, cookie, "books", &data.book_id).await.ok()?;
+        let book: komga_book::Item = Self::fetch_api(&client, cookie, "books", &data.book_id)
+            .await
+            .ok()?;
         let series: komga_series::Item =
-            Self::fetch_api(&client, cookie, "series", &book.series_id).await.ok()?;
+            Self::fetch_api(&client, cookie, "series", &book.series_id)
+                .await
+                .ok()?;
 
-        let (source, id) =
-            Self::find_provider_and_id(&series, provider, &self.db).await.ok()?;
+        let (source, id) = Self::find_provider_and_id(&series, provider, &self.db)
+            .await
+            .ok()?;
 
         let Some(id) = id else {
-            tracing::debug!("No MAL URL or database entry found for manga: {}", series.name);
+            tracing::debug!(
+                "No MAL URL or database entry found for manga: {}",
+                series.name
+            );
             return None;
         };
 
@@ -356,8 +366,7 @@ impl IntegrationService {
             lot: MediaLot::Manga,
             source: source.unwrap(),
             manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
-            progress: Self::calculate_percentage(book.read_progress.page,
-                                                 book.media.pages_count),
+            progress: Self::calculate_percentage(book.read_progress.page, book.media.pages_count),
             provider_watched_on: Some("Komga".to_string()),
             ..Default::default()
         })
@@ -374,7 +383,7 @@ impl IntegrationService {
         // Controller or make a housekeeping function to make sure the background
         // threads are running correctly and kill them when the app is killed
         // (though rust should handle this)
-        static SSE_LISTS: KomgaEventHandler  = KomgaEventHandler ::new();
+        static SSE_LISTS: KomgaEventHandler = KomgaEventHandler::new();
 
         let mutex_receiver = SSE_LISTS.get_receiver();
         let mut receiver = {
@@ -392,8 +401,7 @@ impl IntegrationService {
 
             mutex_task.get_or_init(|| {
                 tokio::spawn(async move {
-                    if let Err(e) =
-                        IntegrationService::sse_listener(tx, base_url, cookie).await {
+                    if let Err(e) = IntegrationService::sse_listener(tx, base_url, cookie).await {
                         tracing::error!("SSE listener error: {}", e);
                     }
                 });
@@ -410,16 +418,21 @@ impl IntegrationService {
                         tracing::debug!("Received event {:?}", event);
                         match unique_media_items.entry(event.book_id.clone()) {
                             Entry::Vacant(entry) => {
-                                if let Some(processed_event) =
-                                    self.process_events(base_url, cookie, provider, event.clone()).await {
+                                if let Some(processed_event) = self
+                                    .process_events(base_url, cookie, provider, event.clone())
+                                    .await
+                                {
                                     entry.insert(processed_event);
                                 } else {
-                                    tracing::warn!("Failed to process event for book_id: {}", event.book_id);
+                                    tracing::warn!(
+                                        "Failed to process event for book_id: {}",
+                                        event.book_id
+                                    );
                                 }
-                            },
-                            _ => continue
+                            }
+                            _ => continue,
                         }
-                    },
+                    }
                     Err(TryRecvError::Empty) => break,
                     Err(e) => return Err(anyhow::anyhow!("Receiver error: {}", e)),
                 }
