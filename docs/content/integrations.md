@@ -32,6 +32,38 @@ have a valid provider ID (Audible, ITunes or ISBN).
 2. Go to your Ryot user settings and add the correct details as described in the
    [yank](#yank-integrations) section.
 
+### Komga
+
+The [Komga](https://komga.org/) integration can sync all media if they
+have a valid metadata provider.
+
+#### Steps
+
+If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these
+urls will be populated automatically. If you don't use komf you will either need to
+manually add the manga to your collection or you can perform the following steps.
+
+1. Navigate to the manga
+2. Open the edit tab
+3. Navigate to the Links tab
+4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
+
+To retrieve your Cookie you will need to perform the following steps:
+
+1. Log out of Komga and log back in while selecting `Remember me`
+2. Press F12 and navigate to the Network tab
+3. Refresh the page
+4. Select any of the urls and look for the `Cookie` Header
+5. Copy the entire cookie it should look something like this `remember-me=REDACTED; SESSION=REDACTED`
+
+Then perform these steps on Ryot
+
+1. Create the integration and select Komga as the source
+2. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
+3. Provide your Cookie.
+4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
+   is unavailable and will fallback to title search otherwise.
+
 ## Push integrations
 
 Follow the same instructions as the [yank](#yank-integrations) integrations to add one.

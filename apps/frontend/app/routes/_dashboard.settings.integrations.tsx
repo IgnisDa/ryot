@@ -29,6 +29,7 @@ import {
 	DeleteUserIntegrationDocument,
 	GenerateAuthTokenDocument,
 	IntegrationProvider,
+	MediaSource,
 	UpdateUserIntegrationDocument,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
@@ -53,7 +54,10 @@ import { dayjsLib } from "~/lib/generals";
 import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
-const YANK_INTEGRATIONS = [IntegrationProvider.Audiobookshelf];
+const YANK_INTEGRATIONS = [
+	IntegrationProvider.Audiobookshelf,
+	IntegrationProvider.Komga,
+];
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
 	IntegrationProvider.Sonarr,
@@ -159,6 +163,9 @@ const createSchema = z.object({
 			plexUsername: z.string().optional(),
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
+			komgaBaseUrl: z.string().optional(),
+			komgaCookie: z.string().optional(),
+			komgaProvider: z.nativeEnum(MediaSource).optional(),
 			radarrBaseUrl: z.string().optional(),
 			radarrApiKey: z.string().optional(),
 			radarrProfileId: z.number().optional(),
@@ -440,6 +447,29 @@ const CreateIntegrationModal = (props: {
 									label="Token"
 									required
 									name="providerSpecifics.audiobookshelfToken"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.Komga, () => (
+							<>
+								<TextInput
+									label="Base Url"
+									required
+									name="providerSpecifics.komgaBaseUrl"
+								/>
+								<TextInput
+									label="Cookie"
+									required
+									name="providerSpecifics.komgaCookie"
+								/>
+								<Select
+									label="Select a provider"
+									name="providerSpecifics.komgaProvider"
+									required
+									data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
+										label: changeCase(is),
+										value: is,
+									}))}
 								/>
 							</>
 						))

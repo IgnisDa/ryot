@@ -9,50 +9,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Result as AnyhowResult;
-use apalis::prelude::{MemoryStorage, MessageQueue};
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use async_graphql::{
-    Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
-};
-use cached::{DiskCache, IOCached};
-use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
-use database::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationProvider,
-    MediaLot, MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
-    UserToMediaReason, Visibility,
-};
-use enum_meta::Meta;
-use futures::TryStreamExt;
-use itertools::Itertools;
-use markdown::{
-    to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
-    Options,
-};
-use nanoid::nanoid;
-use openidconnect::{
-    core::{CoreClient, CoreResponseType},
-    reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
-};
-use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use sea_orm::{
-    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
-};
-use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
-};
-use serde::{Deserialize, Serialize};
-use struson::writer::{JsonStreamWriter, JsonWriter};
-
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
@@ -125,6 +81,49 @@ use crate::{
         user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
+use anyhow::Result as AnyhowResult;
+use apalis::prelude::{MemoryStorage, MessageQueue};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use async_graphql::{
+    Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
+};
+use cached::{DiskCache, IOCached};
+use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
+use database::{
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
+    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
+    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationProvider,
+    MediaLot, MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
+    UserToMediaReason, Visibility,
+};
+use enum_meta::Meta;
+use futures::TryStreamExt;
+use itertools::Itertools;
+use markdown::{
+    to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
+    Options,
+};
+use nanoid::nanoid;
+use openidconnect::{
+    core::{CoreClient, CoreResponseType},
+    reqwest::async_http_client,
+    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
+};
+use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use sea_orm::{
+    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
+    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+};
+use sea_query::{
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
+    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
+};
+use serde::{Deserialize, Serialize};
+use struson::writer::{JsonStreamWriter, JsonWriter};
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -164,6 +163,7 @@ struct UpdateUserIntegrationInput {
     is_disabled: Option<bool>,
     minimum_progress: Option<Decimal>,
     maximum_progress: Option<Decimal>,
+    provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2468,6 +2468,17 @@ impl MiscellaneousService {
                 if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
+
+                // This is needed for manga as some of the apps will update in weird orders
+                // For example with komga mihon will update out of order to the server
+                if input.manga_chapter_number.is_some() {
+                    last_seen.manga_extra_information =
+                        ActiveValue::set(Some(SeenMangaExtraInformation {
+                            chapter: input.manga_chapter_number,
+                            volume: input.manga_volume_number,
+                        }))
+                }
+
                 last_seen.update(&self.db).await.unwrap()
             }
             ProgressUpdateAction::ChangeState => {
@@ -5502,6 +5513,7 @@ impl MiscellaneousService {
         }
         let lot = match input.provider {
             IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
+            IntegrationProvider::Komga => IntegrationLot::Yank,
             IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
@@ -5776,6 +5788,17 @@ impl MiscellaneousService {
                             &specifics.audiobookshelf_token.unwrap(),
                             &self.get_isbn_service().await.unwrap(),
                             |input| self.commit_metadata(input),
+                        )
+                        .await
+                }
+                IntegrationProvider::Komga => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+
+                    integration_service
+                        .komga_progress(
+                            &specifics.komga_base_url.unwrap(),
+                            &specifics.komga_cookie.unwrap(),
+                            specifics.komga_provider.unwrap(),
                         )
                         .await
                 }

@@ -1311,6 +1311,9 @@ pub mod media {
         pub plex_username: Option<String>,
         pub audiobookshelf_base_url: Option<String>,
         pub audiobookshelf_token: Option<String>,
+        pub komga_base_url: Option<String>,
+        pub komga_cookie: Option<String>,
+        pub komga_provider: Option<MediaSource>,
         pub radarr_base_url: Option<String>,
         pub radarr_api_key: Option<String>,
         pub radarr_profile_id: Option<i32>,
@@ -1903,7 +1906,6 @@ pub mod importer {
         pub failed_items: Vec<ImportFailedItem>,
     }
 }
-
 pub mod audiobookshelf_models {
     use super::*;
 

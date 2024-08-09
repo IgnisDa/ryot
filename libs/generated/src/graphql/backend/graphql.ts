@@ -717,6 +717,7 @@ export enum IntegrationProvider {
   Emby = 'EMBY',
   Jellyfin = 'JELLYFIN',
   Kodi = 'KODI',
+  Komga = 'KOMGA',
   Plex = 'PLEX',
   Radarr = 'RADARR',
   Sonarr = 'SONARR'
@@ -725,6 +726,9 @@ export enum IntegrationProvider {
 export type IntegrationSourceSpecificsInput = {
   audiobookshelfBaseUrl?: InputMaybe<Scalars['String']['input']>;
   audiobookshelfToken?: InputMaybe<Scalars['String']['input']>;
+  komgaBaseUrl?: InputMaybe<Scalars['String']['input']>;
+  komgaCookie?: InputMaybe<Scalars['String']['input']>;
+  komgaProvider?: InputMaybe<MediaSource>;
   plexUsername?: InputMaybe<Scalars['String']['input']>;
   radarrApiKey?: InputMaybe<Scalars['String']['input']>;
   radarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
@@ -1917,6 +1921,7 @@ export type UpdateUserIntegrationInput = {
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
 };
 
 export type UpdateUserNotificationPlatformInput = {
