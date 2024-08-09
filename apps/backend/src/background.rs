@@ -62,6 +62,7 @@ pub async fn sync_integrations_data(
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum CoreApplicationJob {
     SyncIntegrationsData(String),
+    ReviewPosted(ReviewPostedEvent),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
 }
 
@@ -87,6 +88,12 @@ pub async fn perform_core_application_job(
                 .await
                 .is_ok()
         }
+        CoreApplicationJob::ReviewPosted(event) => {
+            misc_service.handle_review_posted_event(event).await.is_ok()
+        }
+        CoreApplicationJob::EventOccurred(event) => {
+            misc_service.handle_event_occurred(event).await.is_ok()
+        }
         CoreApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
             .bulk_progress_update(user_id, input)
             .await
@@ -99,11 +106,6 @@ pub async fn perform_core_application_job(
         status
     );
     Ok(())
-}
-
-#[derive(Debug, Deserialize, Serialize, Display)]
-pub enum ApplicationEvent {
-    ReviewPosted(ReviewPostedEvent),
 }
 
 // The background jobs which can be deployed by the application.
@@ -119,7 +121,6 @@ pub enum ApplicationJob {
     PerformExport(String, Vec<ExportItem>),
     RecalculateUserSummary(String),
     PerformBackgroundTasks,
-    EventOccurred(ApplicationEvent),
 }
 
 impl Message for ApplicationJob {
@@ -176,9 +177,6 @@ pub async fn perform_application_job(
             })
             .await
             .is_ok(),
-        ApplicationJob::EventOccurred(event) => {
-            misc_service.handle_event_occurred(event).await.is_ok()
-        }
         ApplicationJob::PerformExport(user_id, to_export) => exporter_service
             .perform_export(user_id, to_export)
             .await
