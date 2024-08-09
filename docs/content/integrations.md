@@ -37,30 +37,32 @@ have a valid provider ID (Audible, ITunes or ISBN).
 The [Komga](https://komga.org/) integration can sync all media if they
 have a valid metadata provider.
 
-#### Komga steps
-If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these urls will be
-populated automatically. If you don't use komf youll either need to manually add the manga to your collection
-or you can perform the following steps.
+#### Steps
+
+If you use [Komf](https://github.com/Snd-R/komf) or some similar metadata provider these
+urls will be populated automatically. If you don't use komf you will either need to
+manually add the manga to your collection or you can perform the following steps.
+
 1. Navigate to the manga
 2. Open the edit tab
 3. Navigate to the Links tab
 4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
 
-To retrieve your Cookie youll need to perform the following steps:
-1. Log out of Komga
-2. Log back in while selecting `Remember me`
-3. Press F12
-4. Navigate to the Network tab
-5. Refresh the page
-6. Select any of the urls and look for the `Cookie` Header
-7. Copy the entire cookie it should look something like this `remember-me=REDACTED; SESSION=REDACTED`
+To retrieve your Cookie you will need to perform the following steps:
 
-#### Ryot steps
-1. Obtain your cookie as described above
-2. Create the integration and select Komga as the source
-3. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
-4. Provide your Cookie.
-5. Provide your preferred metadata provider it will attempt the others if the preferred is unavailable and will fallback to title search otherwise
+1. Log out of Komga and log back in while selecting `Remember me`
+2. Press F12 and navigate to the Network tab
+3. Refresh the page
+4. Select any of the urls and look for the `Cookie` Header
+5. Copy the entire cookie it should look something like this `remember-me=REDACTED; SESSION=REDACTED`
+
+Then perform these steps on Ryot
+
+1. Create the integration and select Komga as the source
+2. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
+3. Provide your Cookie.
+4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
+   is unavailable and will fallback to title search otherwise.
 
 ## Push integrations
 
