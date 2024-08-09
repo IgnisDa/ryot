@@ -36,7 +36,7 @@ COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
 RUN apt-get update && apt-get install -y --no-install-recommends libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install --global concurrently@8.2.2 && concurrently --version
 RUN useradd -m -u 1001 ryot
-RUN if [[ "${TARGETARCH}" == "arm64" ]]; then apt-get update && apt-get install -y --no-install-recommends wget && wget http://ftp.debian.org/debian/pool/main/o/openssl/libssl1.1_1.1.1w-0+deb11u1_arm64.deb && dpkg -i libssl1.1_1.1.1w-0+deb11u1_arm64.deb && rm -rf libssl1.1_1.1.1w-0+deb11u1_arm64.deb && apt-get remove wget && rm -rf  rm -rf /var/lib/apt/lists/*; fi
+RUN if [ "${TARGETARCH}" = "arm64" ]; then apt-get update && apt-get install -y --no-install-recommends wget && wget http://ftp.debian.org/debian/pool/main/o/openssl/libssl1.1_1.1.1w-0+deb11u1_arm64.deb && dpkg -i libssl1.1_1.1.1w-0+deb11u1_arm64.deb && rm -rf libssl1.1_1.1.1w-0+deb11u1_arm64.deb && apt-get remove wget && rm -rf  rm -rf /var/lib/apt/lists/*; fi
 WORKDIR /home/ryot
 USER ryot
 COPY ci/Caddyfile /etc/caddy/Caddyfile
