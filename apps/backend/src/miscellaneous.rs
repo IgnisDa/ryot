@@ -54,7 +54,7 @@ use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 
 use crate::{
-    background::{ApplicationJob, CoreApplicationJob},
+    background::{ApplicationEvent, ApplicationJob, CoreApplicationJob},
     entities::{
         calendar_event, collection, collection_to_entity, genre, import_report, integration,
         metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
@@ -4309,13 +4309,15 @@ impl MiscellaneousService {
             if input.review_id.is_none() {
                 self.perform_application_job
                     .clone()
-                    .enqueue(ApplicationJob::ReviewPosted(ReviewPostedEvent {
-                        obj_id,
-                        obj_title,
-                        entity_lot,
-                        username: user.name,
-                        review_id: insert.id.clone().unwrap(),
-                    }))
+                    .enqueue(ApplicationJob::EventOccurred(
+                        ApplicationEvent::ReviewPosted(ReviewPostedEvent {
+                            obj_id,
+                            obj_title,
+                            entity_lot,
+                            username: user.name,
+                            review_id: insert.id.clone().unwrap(),
+                        }),
+                    ))
                     .await
                     .unwrap();
             }
@@ -7291,7 +7293,14 @@ GROUP BY m.id;
         Ok((meta_map, meta_group_map, person_map))
     }
 
-    pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
+    pub async fn handle_event_occurred(&self, event: ApplicationEvent) -> Result<()> {
+        match event {
+            ApplicationEvent::ReviewPosted(event) => self.handle_review_posted_event(event).await?,
+        };
+        Ok(())
+    }
+
+    async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let (meta_map, meta_group_map, person_map) = self.get_entities_monitored_by().await?;
         let monitored_by = match event.entity_lot {
             EntityLot::Metadata => meta_map.get(&event.obj_id).cloned().unwrap_or_default(),

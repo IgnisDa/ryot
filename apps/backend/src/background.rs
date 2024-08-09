@@ -101,6 +101,11 @@ pub async fn perform_core_application_job(
     Ok(())
 }
 
+#[derive(Debug, Deserialize, Serialize, Display)]
+pub enum ApplicationEvent {
+    ReviewPosted(ReviewPostedEvent),
+}
+
 // The background jobs which can be deployed by the application.
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum ApplicationJob {
@@ -111,10 +116,10 @@ pub enum ApplicationJob {
     UpdatePerson(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
-    ReviewPosted(ReviewPostedEvent),
     PerformExport(String, Vec<ExportItem>),
     RecalculateUserSummary(String),
     PerformBackgroundTasks,
+    EventOccurred(ApplicationEvent),
 }
 
 impl Message for ApplicationJob {
@@ -171,8 +176,8 @@ pub async fn perform_application_job(
             })
             .await
             .is_ok(),
-        ApplicationJob::ReviewPosted(event) => {
-            misc_service.handle_review_posted_event(event).await.is_ok()
+        ApplicationJob::EventOccurred(event) => {
+            misc_service.handle_event_occurred(event).await.is_ok()
         }
         ApplicationJob::PerformExport(user_id, to_export) => exporter_service
             .perform_export(user_id, to_export)
