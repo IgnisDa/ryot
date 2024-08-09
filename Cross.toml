@@ -1,0 +1,13 @@
+[build.env]
+passthrough = [
+    "APP_VERSION",
+    "DEFAULT_TMDB_ACCESS_TOKEN",
+    "DEFAULT_MAL_CLIENT_ID",
+]
+
+[build]
+pre-build = "ci/cross-pre-build.sh"
+
+
+[target.aarch64-unknown-linux-gnu]
+dockerfile = "ci/cross/Dockerfile.aarch64"
