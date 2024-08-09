@@ -121,7 +121,7 @@ query MetadataPartialDetails($metadataId: String!) {
   }
 }
 
-query MetadataGroupsList($input: SearchInput!) {
+query MetadataGroupsList($input: MetadataGroupsListInput!) {
   metadataGroupsList(input: $input) {
     details {
       total
