@@ -4,6 +4,5 @@
 	"service": "ryot-app",
 	"forwardPorts": [],
 	"workspaceFolder": "/workspaces/ryot",
-	"postCreateCommand": ". ${containerWorkspaceFolder}/.devcontainer/scripts/post-create.sh",
 	"remoteUser": "archlinux"
 }
