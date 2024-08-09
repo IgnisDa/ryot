@@ -44,7 +44,7 @@ use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
     ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Select, Statement, TransactionTrait,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
@@ -120,9 +120,9 @@ use crate::{
         UserPreferences, UserReviewScale,
     },
     utils::{
-        add_entity_to_collection, associate_user_with_entity, entity_in_collections,
-        get_current_date, get_user_to_entity_association, ilike_sql, user_by_id,
-        user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+        add_entity_to_collection, apply_collection_filter, associate_user_with_entity,
+        entity_in_collections, get_current_date, get_user_to_entity_association, ilike_sql,
+        user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
 
@@ -2239,34 +2239,6 @@ impl MiscellaneousService {
         Ok(seen_items)
     }
 
-    fn apply_collection_filter<E, C, D>(
-        query: Select<E>,
-        collection_id: Option<String>,
-        invert_collection: Option<bool>,
-        entity_column: C,
-        id_column: D,
-    ) -> Select<E>
-    where
-        E: EntityTrait,
-        C: ColumnTrait,
-        D: ColumnTrait,
-    {
-        query.apply_if(collection_id, |query, v| {
-            let subquery = CollectionToEntity::find()
-                .select_only()
-                .column(id_column)
-                .filter(collection_to_entity::Column::CollectionId.eq(v))
-                .filter(id_column.is_not_null())
-                .into_query();
-
-            if invert_collection.unwrap_or_default() {
-                query.filter(entity_column.not_in_subquery(subquery))
-            } else {
-                query.filter(entity_column.in_subquery(subquery))
-            }
-        })
-    }
-
     async fn metadata_list(
         &self,
         user_id: String,
@@ -2326,7 +2298,7 @@ impl MiscellaneousService {
             .apply_if(
                 input.filter.clone().and_then(|f| f.collection),
                 |query, v| {
-                    Self::apply_collection_filter(
+                    apply_collection_filter(
                         query,
                         Some(v),
                         input.invert_collection,
@@ -6451,7 +6423,7 @@ impl MiscellaneousService {
             .apply_if(
                 input.filter.clone().and_then(|f| f.collection),
                 |query, v| {
-                    Self::apply_collection_filter(
+                    apply_collection_filter(
                         query,
                         Some(v),
                         input.invert_collection,
@@ -6518,7 +6490,7 @@ impl MiscellaneousService {
             .apply_if(
                 input.filter.clone().and_then(|f| f.collection),
                 |query, v| {
-                    Self::apply_collection_filter(
+                    apply_collection_filter(
                         query,
                         Some(v),
                         input.invert_collection,
