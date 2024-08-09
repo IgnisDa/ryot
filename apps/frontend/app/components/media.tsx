@@ -605,7 +605,7 @@ export const MetadataDisplayItem = (props: {
 								? Math.round(Number(averageRating)).toString()
 								: Number(averageRating).toFixed(1)}
 							{userPreferences.general.reviewScale === UserReviewScale.OutOfFive
-								? undefined
+								? null
 								: " %"}
 						</Text>
 					</Group>
