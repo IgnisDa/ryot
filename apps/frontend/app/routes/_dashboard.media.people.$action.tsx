@@ -40,7 +40,6 @@ import {
 import { useState } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -49,8 +48,11 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
-import { redirectToQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useCoreDetails,
+	useUserCollections,
+} from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
@@ -94,6 +96,8 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
+				collection: z.string().optional(),
+				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { peopleList } = await serverGqlService.authenticatedRequest(
 				request,
@@ -102,6 +106,10 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					input: {
 						search: { page, query },
 						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+						filter: {
+							collection: urlParse.collection,
+						},
+						invertCollection: urlParse.invertCollection,
 					},
 				},
 			);
@@ -347,13 +355,11 @@ const commitPerson = async (
 	isAnilistStudio?: boolean,
 ) => {
 	const data = new FormData();
-	const location = withoutHost(window.location.href);
 	data.append("identifier", identifier);
 	data.append("source", source);
 	if (name) data.append("name", name);
 	if (isTmdbCompany) data.append("isTmdbCompany", String(isTmdbCompany));
 	if (isAnilistStudio) data.append("isAnilistStudio", String(isAnilistStudio));
-	data.append(redirectToQueryParam, location);
 	const resp = await fetch($path("/actions", { intent: "commitPerson" }), {
 		method: "POST",
 		body: data,
@@ -364,32 +370,61 @@ const commitPerson = async (
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
+	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
+	if (!loaderData.peopleList) return null;
+
 	return (
-		<Flex gap="xs" align="center">
-			<Select
-				w="100%"
-				data={Object.values(PersonSortBy).map((o) => ({
-					value: o.toString(),
-					label: startCase(o.toLowerCase()),
-				}))}
-				defaultValue={loaderData.peopleList?.url.sortBy}
-				onChange={(v) => setP("sortBy", v)}
-			/>
-			<ActionIcon
-				onClick={() => {
-					if (loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc)
-						setP("orderBy", GraphqlSortOrder.Desc);
-					else setP("orderBy", GraphqlSortOrder.Asc);
-				}}
-			>
-				{loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc ? (
-					<IconSortAscending />
-				) : (
-					<IconSortDescending />
-				)}
-			</ActionIcon>
-		</Flex>
+		<>
+			<Flex gap="xs" align="center">
+				<Select
+					w="100%"
+					data={Object.values(PersonSortBy).map((o) => ({
+						value: o.toString(),
+						label: startCase(o.toLowerCase()),
+					}))}
+					defaultValue={loaderData.peopleList.url.sortBy}
+					onChange={(v) => setP("sortBy", v)}
+				/>
+				<ActionIcon
+					onClick={() => {
+						if (loaderData.peopleList?.url.orderBy === GraphqlSortOrder.Asc)
+							setP("orderBy", GraphqlSortOrder.Desc);
+						else setP("orderBy", GraphqlSortOrder.Asc);
+					}}
+				>
+					{loaderData.peopleList.url.orderBy === GraphqlSortOrder.Asc ? (
+						<IconSortAscending />
+					) : (
+						<IconSortDescending />
+					)}
+				</ActionIcon>
+			</Flex>
+			<Flex gap="xs" align="center">
+				<Select
+					flex={1}
+					placeholder="Select a collection"
+					defaultValue={loaderData.peopleList.url.collection?.toString()}
+					data={[
+						{
+							group: "My collections",
+							items: collections.map((c) => ({
+								value: c.id.toString(),
+								label: c.name,
+							})),
+						},
+					]}
+					onChange={(v) => setP("collection", v)}
+					clearable
+					searchable
+				/>
+				<Checkbox
+					label="Invert"
+					checked={loaderData.peopleList.url.invertCollection}
+					onChange={(e) => setP("invertCollection", String(e.target.checked))}
+				/>
+			</Flex>
+		</>
 	);
 };

@@ -737,7 +737,7 @@ export const PersonDisplayItem = (props: {
 			imageUrl={personDetails?.details.displayImages.at(0)}
 			labels={{
 				left: personDetails
-					? `${personDetails.contents.length} items`
+					? `${personDetails.contents.reduce((sum, content) => sum + content.items.length, 0)} items`
 					: undefined,
 				right: props.rightLabel,
 			}}
