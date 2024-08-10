@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use apalis::prelude::MemoryStorage;
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
 use axum::{
     async_trait,
@@ -24,7 +24,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     QueryFilter, QuerySelect, QueryTrait, Select,
 };
-use uuid::Uuid;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -304,7 +303,8 @@ pub async fn add_entity_to_collection(
     db: &DatabaseConnection,
     user_id: &String,
     input: ChangeCollectionToEntityInput,
-) -> Result<Uuid> {
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+) -> Result<bool> {
     let collection = Collection::find()
         .left_join(UserToCollection)
         .filter(user_to_collection::Column::UserId.eq(user_id))
@@ -359,7 +359,11 @@ pub async fn add_entity_to_collection(
         }
         created
     };
-    Ok(resp.id)
+    perform_core_application_job
+        .enqueue(CoreApplicationJob::EntityAddedToCollection(resp.id))
+        .await
+        .unwrap();
+    Ok(true)
 }
 
 pub fn apply_collection_filter<E, C, D>(

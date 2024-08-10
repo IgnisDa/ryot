@@ -4427,12 +4427,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
-        let resp = add_entity_to_collection(&self.db, user_id, input).await?;
-        self.perform_core_application_job
-            .enqueue(CoreApplicationJob::EntityAddedToCollection(resp))
-            .await
-            .unwrap();
-        Ok(true)
+        add_entity_to_collection(&self.db, user_id, input, &self.perform_core_application_job).await
     }
 
     pub async fn remove_entity_from_collection(

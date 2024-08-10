@@ -790,6 +790,7 @@ impl ExerciseService {
                 exercise_id: Some(exercise.id.clone()),
                 ..Default::default()
             },
+            &self.perform_core_application_job,
         )
         .await?;
         Ok(exercise.id)
