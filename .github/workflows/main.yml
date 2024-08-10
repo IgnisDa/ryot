@@ -7,6 +7,7 @@ on:
       - "*-?v[0-9]+*"
   pull_request:
     branches: ["main"]
+    types: [opened, synchronize]
 
 env:
   GHCR_REGISTRY: ghcr.io
@@ -16,7 +17,33 @@ permissions:
   packages: write
 
 jobs:
+  check-commit-message:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Check commit message
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            COMMIT_MSG=$(git log -1 --pretty=format:%s)
+            if [[ $COMMIT_MSG == *"Run CI"* ]]; then
+              echo "should-run=true" >> $GITHUB_OUTPUT
+            else
+              echo "should-run=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "should-run=false" >> $GITHUB_OUTPUT
+          fi
+
   build-frontend:
+    needs: check-commit-message
+    if: needs.check-commit-message.outputs.should-run == 'true'
     runs-on: ubuntu-latest
     env:
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
@@ -39,7 +66,9 @@ jobs:
 
   build-backend:
     needs:
+      - check-commit-message
       - build-frontend
+    if: needs.check-commit-message.outputs.should-run == 'true'
 
     strategy:
       fail-fast: false
@@ -107,7 +136,9 @@ jobs:
 
   build-docker:
     needs:
+      - check-commit-message
       - build-backend
+    if: needs.check-commit-message.outputs.should-run == 'true'
 
     runs-on: ubuntu-latest
     steps:
