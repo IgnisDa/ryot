@@ -1,20 +1,24 @@
-use super::{IntegrationMediaCollection, IntegrationMediaSeen, IntegrationService};
-use crate::{
-    entities::{metadata, prelude::Metadata},
-    utils::get_base_http_client,
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    sync::{Mutex, OnceLock},
 };
+
 use anyhow::{anyhow, Context, Result};
 use database::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
-use rust_decimal::prelude::{FromPrimitive, Zero};
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::{FromPrimitive, Zero}, Decimal};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;
 use serde::de::DeserializeOwned;
-use std::collections::{hash_map::Entry, HashMap};
-use std::sync::{Mutex, OnceLock};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
+
+use super::{IntegrationMediaCollection, IntegrationMediaSeen, IntegrationService};
+
+use crate::{
+    entities::{metadata, prelude::Metadata},
+    utils::get_base_http_client,
+};
 
 mod komga_book {
     use serde::{Deserialize, Serialize};
