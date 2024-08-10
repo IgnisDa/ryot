@@ -53,6 +53,11 @@ jobs:
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
+      - name: Set up Node.js and caching
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'yarn'
       - name: Build frontend
         run: |
           moon run frontend:build transactional:build
