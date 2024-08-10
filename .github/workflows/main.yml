@@ -32,7 +32,8 @@ jobs:
             echo "should-run=true" >> $GITHUB_OUTPUT
             echo "Event type is push, should-run is set to true"
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            COMMIT_MSG=$(git log -1 --pretty=format:%s)
+            # Get the last commit message on the PR branch
+            COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.event.pull_request.head.sha }})
             echo "Commit message: $COMMIT_MSG"
             if [[ "$COMMIT_MSG" == *"Run CI"* ]]; then
               echo "should-run=true" >> $GITHUB_OUTPUT
