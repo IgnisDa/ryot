@@ -24,6 +24,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
     QueryFilter, QuerySelect, QueryTrait, Select,
 };
+use uuid::Uuid;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -302,7 +303,7 @@ pub async fn add_entity_to_collection(
     db: &DatabaseConnection,
     user_id: &String,
     input: ChangeCollectionToEntityInput,
-) -> Result<bool> {
+) -> Result<Uuid> {
     let collection = Collection::find()
         .left_join(UserToCollection)
         .filter(user_to_collection::Column::UserId.eq(user_id))
@@ -329,7 +330,7 @@ pub async fn add_entity_to_collection(
     {
         let mut to_update: collection_to_entity::ActiveModel = etc.into();
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(db).await.is_ok()
+        to_update.update(db).await?
     } else {
         let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
@@ -341,24 +342,23 @@ pub async fn add_entity_to_collection(
             metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
             ..Default::default()
         };
-        if let Ok(created) = created_collection.insert(db).await {
-            tracing::debug!("Created collection to entity: {:?}", created);
-            if input.workout_id.is_none() {
-                associate_user_with_entity(
-                    user_id,
-                    input.metadata_id,
-                    input.person_id,
-                    input.exercise_id,
-                    input.metadata_group_id,
-                    db,
-                )
-                .await
-                .ok();
-            }
-        };
-        true
+        let created = created_collection.insert(db).await?;
+        tracing::debug!("Created collection to entity: {:?}", created);
+        if input.workout_id.is_none() {
+            associate_user_with_entity(
+                user_id,
+                input.metadata_id,
+                input.person_id,
+                input.exercise_id,
+                input.metadata_group_id,
+                db,
+            )
+            .await
+            .ok();
+        }
+        created
     };
-    Ok(resp)
+    Ok(resp.id)
 }
 
 pub fn apply_collection_filter<E, C, D>(

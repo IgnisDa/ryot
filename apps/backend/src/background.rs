@@ -6,6 +6,7 @@ use chrono_tz::Tz;
 use database::{MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
+use uuid::Uuid;
 
 use crate::{
     exporter::ExporterService,
@@ -64,6 +65,7 @@ pub enum CoreApplicationJob {
     SyncIntegrationsData(String),
     ReviewPosted(ReviewPostedEvent),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
+    EntityAddedToCollection(Uuid),
 }
 
 impl Message for CoreApplicationJob {
@@ -95,6 +97,7 @@ pub async fn perform_core_application_job(
             .bulk_progress_update(user_id, input)
             .await
             .is_ok(),
+        CoreApplicationJob::EntityAddedToCollection(collection_to_entity_id) => todo!(),
     };
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
