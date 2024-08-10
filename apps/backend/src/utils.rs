@@ -361,8 +361,8 @@ pub async fn add_entity_to_collection(
     };
     perform_core_application_job
         .enqueue(CoreApplicationJob::EntityAddedToCollection(
-            resp.id,
             user_id.to_owned(),
+            resp.id,
         ))
         .await
         .unwrap();
