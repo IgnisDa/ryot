@@ -22,6 +22,7 @@ RUN moon run website:build
 RUN moon docker prune
 
 FROM $NODE_BASE_IMAGE
+LABEL org.opencontainers.image.source="https://github.com/IgnisDa/ryot"
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 RUN useradd -m -u 1001 ryot
