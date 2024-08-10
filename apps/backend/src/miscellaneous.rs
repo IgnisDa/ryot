@@ -163,7 +163,6 @@ struct UpdateUserIntegrationInput {
     is_disabled: Option<bool>,
     minimum_progress: Option<Decimal>,
     maximum_progress: Option<Decimal>,
-    provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

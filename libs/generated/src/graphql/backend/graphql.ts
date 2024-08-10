@@ -1911,7 +1911,6 @@ export type UpdateUserIntegrationInput = {
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
-  providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
 };
 
 export type UpdateUserNotificationPlatformInput = {
