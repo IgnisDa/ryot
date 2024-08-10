@@ -602,6 +602,7 @@ impl IntegrationService {
         let mut options = RadarrAddMovieOptions::new();
         options.search_for_movie = Some(true);
         resource.add_options = Some(Box::new(options));
+        tracing::debug!("Pushing movie to Radarr {:?}", resource);
         radarr_api_v3_movie_post(&configuration, Some(resource))
             .await
             .trace_ok();
@@ -632,6 +633,7 @@ impl IntegrationService {
         let mut options = SonarrAddSeriesOptions::new();
         options.search_for_missing_episodes = Some(true);
         resource.add_options = Some(Box::new(options));
+        tracing::debug!("Pushing series to Sonarr {:?}", resource);
         sonarr_api_v3_series_post(&configuration, Some(resource))
             .await
             .trace_ok();

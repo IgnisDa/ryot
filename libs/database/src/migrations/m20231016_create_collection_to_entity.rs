@@ -64,7 +64,6 @@ pub enum CollectionToEntity {
     CreatedOn,
     LastUpdatedOn,
     Information,
-    SystemInformation,
     EntityId,
     EntityLot,
     // the entities that can be added to a collection
@@ -126,12 +125,6 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null()
                             .extra(ENTITY_LOT_SQL),
-                    )
-                    .col(
-                        ColumnDef::new(CollectionToEntity::SystemInformation)
-                            .json_binary()
-                            .not_null()
-                            .default("{}"),
                     )
                     .foreign_key(
                         ForeignKey::create()
