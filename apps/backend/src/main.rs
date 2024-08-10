@@ -198,7 +198,7 @@ async fn main() -> Result<()> {
                 base_dir.join("backend-config-schema.yaml"),
                 YamlTemplateRenderer::default(),
             )
-            .unwrap();
+            .ok();
 
         let mut generator = SchemaGenerator::default();
         generator.add::<CompleteExport>();
@@ -207,7 +207,7 @@ async fn main() -> Result<()> {
                 base_dir.join("export-schema.ts"),
                 TypeScriptRenderer::default(),
             )
-            .unwrap();
+            .ok();
     }
 
     let schema = get_schema(&app_services).await;
