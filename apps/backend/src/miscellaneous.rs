@@ -1706,7 +1706,7 @@ impl MiscellaneousService {
             .one(&self.db)
             .await
             .unwrap()
-            .unwrap();
+            .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
         metadata.image = metadata
             .images
             .first_as_url(&self.file_storage_service)
