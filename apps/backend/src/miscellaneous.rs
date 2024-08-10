@@ -5987,23 +5987,66 @@ impl MiscellaneousService {
 
     pub async fn handle_entity_added_to_collection_event(
         &self,
-        collection_to_entity_id: Uuid,
         user_id: String,
+        collection_to_entity_id: Uuid,
     ) -> Result<()> {
         let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
-        let collection = Collection::find_by_id(cte.collection_id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| Error::new("Collection does not exist"))?;
+        if !matches!(cte.entity_lot, EntityLot::Metadata) {
+            return Ok(());
+        }
+        let integration_service = self.get_integration_service();
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
             .filter(integration::Column::Lot.eq(IntegrationLot::Push))
             .all(&self.db)
             .await?;
-        todo!()
+        for integration in integrations {
+            let possible_collection_ids = match integration.provider_specifics.clone() {
+                Some(s) => match integration.provider {
+                    IntegrationProvider::Radarr => s.radarr_sync_collection_ids.unwrap_or_default(),
+                    IntegrationProvider::Sonarr => s.sonarr_sync_collection_ids.unwrap_or_default(),
+                    _ => vec![],
+                },
+                None => vec![],
+            };
+            if !possible_collection_ids.contains(&cte.collection_id) {
+                continue;
+            }
+            let specifics = integration.provider_specifics.unwrap();
+            let metadata = Metadata::find_by_id(&cte.entity_id)
+                .one(&self.db)
+                .await?
+                .ok_or_else(|| Error::new("Metadata does not exist"))?;
+            let _push_result = match integration.provider {
+                IntegrationProvider::Radarr => {
+                    integration_service
+                        .radarr_push(
+                            specifics.radarr_base_url.unwrap(),
+                            specifics.radarr_api_key.unwrap(),
+                            specifics.radarr_profile_id.unwrap(),
+                            specifics.radarr_root_folder_path.unwrap(),
+                            metadata.identifier,
+                        )
+                        .await
+                }
+                IntegrationProvider::Sonarr => {
+                    integration_service
+                        .sonarr_push(
+                            specifics.sonarr_base_url.unwrap(),
+                            specifics.sonarr_api_key.unwrap(),
+                            specifics.sonarr_profile_id.unwrap(),
+                            specifics.sonarr_root_folder_path.unwrap(),
+                            metadata.identifier,
+                        )
+                        .await
+                }
+                _ => unreachable!(),
+            };
+        }
+        Ok(())
     }
 
     async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
