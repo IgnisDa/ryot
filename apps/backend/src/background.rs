@@ -121,6 +121,7 @@ pub enum ApplicationJob {
     PerformExport(String, Vec<ExportItem>),
     RecalculateUserSummary(String),
     PerformBackgroundTasks,
+    UpdateExerciseLibrary,
 }
 
 impl Message for ApplicationJob {
@@ -179,6 +180,10 @@ pub async fn perform_application_job(
             .is_ok(),
         ApplicationJob::PerformExport(user_id, to_export) => exporter_service
             .perform_export(user_id, to_export)
+            .await
+            .is_ok(),
+        ApplicationJob::UpdateExerciseLibrary => exercise_service
+            .deploy_update_exercise_library_job()
             .await
             .is_ok(),
     };

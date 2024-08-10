@@ -70,7 +70,6 @@ use crate::{
         user_to_collection, user_to_entity, workout,
     },
     file_storage::FileStorageService,
-    fitness::resolver::ExerciseService,
     integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
     models::{
@@ -2638,14 +2637,10 @@ impl MiscellaneousService {
                 }
             }
             BackgroundJob::UpdateAllExercises => {
-                let service = ExerciseService::new(
-                    &self.db,
-                    self.config.clone(),
-                    self.file_storage_service.clone(),
-                    &self.perform_application_job,
-                    &self.perform_core_application_job,
-                );
-                service.deploy_update_exercise_library_job().await?;
+                self.perform_application_job
+                    .enqueue(ApplicationJob::UpdateExerciseLibrary)
+                    .await
+                    .unwrap();
             }
             BackgroundJob::RecalculateCalendarEvents => {
                 sqlite_storage
