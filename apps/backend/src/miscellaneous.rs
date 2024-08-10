@@ -5870,31 +5870,39 @@ impl MiscellaneousService {
                 .one(&self.db)
                 .await?
                 .ok_or_else(|| Error::new("Metadata does not exist"))?;
-            let _push_result = match integration.provider {
-                IntegrationProvider::Radarr => {
-                    integration_service
-                        .radarr_push(
-                            specifics.radarr_base_url.unwrap(),
-                            specifics.radarr_api_key.unwrap(),
-                            specifics.radarr_profile_id.unwrap(),
-                            specifics.radarr_root_folder_path.unwrap(),
-                            metadata.identifier,
-                        )
-                        .await
-                }
-                IntegrationProvider::Sonarr => {
-                    integration_service
-                        .sonarr_push(
-                            specifics.sonarr_base_url.unwrap(),
-                            specifics.sonarr_api_key.unwrap(),
-                            specifics.sonarr_profile_id.unwrap(),
-                            specifics.sonarr_root_folder_path.unwrap(),
-                            metadata.identifier,
-                        )
-                        .await
-                }
-                _ => unreachable!(),
+            let maybe_entity_id = match metadata.lot {
+                MediaLot::Show => metadata
+                    .external_identifiers
+                    .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
+                _ => Some(metadata.identifier.clone()),
             };
+            if let Some(entity_id) = maybe_entity_id {
+                let _push_result = match integration.provider {
+                    IntegrationProvider::Radarr => {
+                        integration_service
+                            .radarr_push(
+                                specifics.radarr_base_url.unwrap(),
+                                specifics.radarr_api_key.unwrap(),
+                                specifics.radarr_profile_id.unwrap(),
+                                specifics.radarr_root_folder_path.unwrap(),
+                                entity_id,
+                            )
+                            .await
+                    }
+                    IntegrationProvider::Sonarr => {
+                        integration_service
+                            .sonarr_push(
+                                specifics.sonarr_base_url.unwrap(),
+                                specifics.sonarr_api_key.unwrap(),
+                                specifics.sonarr_profile_id.unwrap(),
+                                specifics.sonarr_root_folder_path.unwrap(),
+                                entity_id,
+                            )
+                            .await
+                    }
+                    _ => unreachable!(),
+                };
+            }
         }
         Ok(())
     }
