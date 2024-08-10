@@ -158,7 +158,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.GHCR_REGISTRY }}
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to the docker hub container registry
@@ -172,8 +172,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            name=${{ env.GHCR_REGISTRY }}/${{ github.actor }}/${{ github.event.repository.name }}
             name=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }},enable={{is_default_branch}}
+            name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
           tags: |
             type=ref,event=pr
             type=semver,pattern=v{{version}},enable={{is_default_branch}}
