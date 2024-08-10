@@ -52,6 +52,7 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
+use uuid::Uuid;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -5982,6 +5983,27 @@ impl MiscellaneousService {
             .exec(&self.db)
             .await?;
         Ok(true)
+    }
+
+    pub async fn handle_entity_added_to_collection_event(
+        &self,
+        collection_to_entity_id: Uuid,
+        user_id: String,
+    ) -> Result<()> {
+        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
+        let collection = Collection::find_by_id(cte.collection_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Collection does not exist"))?;
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
+            .all(&self.db)
+            .await?;
+        todo!()
     }
 
     async fn admin_account_guard(&self, user_id: &String) -> Result<()> {

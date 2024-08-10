@@ -65,7 +65,7 @@ pub enum CoreApplicationJob {
     SyncIntegrationsData(String),
     ReviewPosted(ReviewPostedEvent),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
-    EntityAddedToCollection(Uuid),
+    EntityAddedToCollection(Uuid, String),
 }
 
 impl Message for CoreApplicationJob {
@@ -97,10 +97,12 @@ pub async fn perform_core_application_job(
             .bulk_progress_update(user_id, input)
             .await
             .is_ok(),
-        CoreApplicationJob::EntityAddedToCollection(collection_to_entity_id) => misc_service
-            .handle_entity_added_to_collection_event(collection_to_entity_id)
-            .await
-            .is_ok(),
+        CoreApplicationJob::EntityAddedToCollection(collection_to_entity_id, user_id) => {
+            misc_service
+                .handle_entity_added_to_collection_event(collection_to_entity_id, user_id)
+                .await
+                .is_ok()
+        }
     };
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
