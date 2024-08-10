@@ -2,14 +2,12 @@ use std::{
     collections::{HashMap, HashSet},
     fmt,
     fs::File,
-    future::Future,
     iter::zip,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
 
-use anyhow::Result as AnyhowResult;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
@@ -92,9 +90,8 @@ use crate::{
             ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
         },
         BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
-        CollectionToEntitySystemInformation, DefaultCollection, IdAndNamedObject,
-        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
-        UserSummaryData,
+        DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
+        SearchResults, StoredUrl, StringIdObject, UserSummaryData,
     },
     providers::{
         anilist::{
