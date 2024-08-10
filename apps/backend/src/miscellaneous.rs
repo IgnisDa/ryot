@@ -2643,6 +2643,7 @@ impl MiscellaneousService {
                     self.config.clone(),
                     self.file_storage_service.clone(),
                     &self.perform_application_job,
+                    &self.perform_core_application_job,
                 );
                 service.deploy_update_exercise_library_job().await?;
             }

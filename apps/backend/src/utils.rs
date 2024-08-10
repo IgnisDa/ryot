@@ -128,6 +128,7 @@ pub async fn create_app_services(
         config.clone(),
         file_storage_service.clone(),
         perform_application_job,
+        perform_core_application_job,
     ));
     let oidc_client = Arc::new(create_oidc_client(&config).await);
 
