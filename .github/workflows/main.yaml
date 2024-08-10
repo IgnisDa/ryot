@@ -3,9 +3,10 @@ name: Main
 on:
   push:
     branches: ["main"]
+    tags:
+      - "*-?v[0-9]+*"
   pull_request:
     branches: ["main"]
-  workflow_dispatch:
 
 env:
   GHCR_REGISTRY: ghcr.io
@@ -64,8 +65,8 @@ jobs:
         run: |
           echo "version=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
           echo "docker-arch=${{ startsWith(matrix.platform.target, 'x86_64') && 'amd64' || 'arm64' }}" >> "$GITHUB_OUTPUT"
-          echo "profile=${{ (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && 'release' || 'dev' }}" >> "$GITHUB_OUTPUT"
-          echo "output-dir=${{ (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && 'release' || 'debug' }}" >> "$GITHUB_OUTPUT"
+          echo "profile=${{ github.event.ref_type == 'tag' && 'release' || 'dev' }}" >> "$GITHUB_OUTPUT"
+          echo "output-dir=${{ github.event.ref_type == 'tag' && 'release' || 'debug' }}" >> "$GITHUB_OUTPUT"
       - name: Extract rust toolchain
         id: toolchain
         run: |
@@ -129,6 +130,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            name=ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=pr,enable={{!is_default_branch}}
+            type=semver,pattern=v{{version}},enable={{is_default_branch}}
+            type=semver,pattern=v{{major}}.{{minor}},enable={{is_default_branch}}
+            type=semver,pattern=v{{major}},enable={{is_default_branch}}
+            type=raw,value=develop,enable={{is_default_branch}}
+
       - name: Build and push to ghcr
         uses: docker/build-push-action@v5
         with:
@@ -136,4 +150,4 @@ jobs:
           file: Dockerfile.new
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/vnghia/ryot:test
+          tags: ${{ steps.meta.outputs.tags }}
