@@ -30,22 +30,16 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
             echo "should-run=true" >> $GITHUB_OUTPUT
-            echo "Event type is push, should-run is set to true"
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
             COMMIT_MSG=$(git log --format=%B ${{ github.event.pull_request.head.sha }})
-            echo "Commit message: $COMMIT_MSG"
             if [[ "$COMMIT_MSG" == *"Run CI"* ]]; then
               echo "should-run=true" >> $GITHUB_OUTPUT
-              echo "Commit message contains 'Run CI', should-run is set to true"
             else
               echo "should-run=false" >> $GITHUB_OUTPUT
-              echo "Commit message does not contain 'Run CI', should-run is set to false"
             fi
           else
             echo "should-run=false" >> $GITHUB_OUTPUT
-            echo "Event type is neither push nor pull_request, should-run is set to false"
           fi
-          echo "Final should-run value: $(cat $GITHUB_OUTPUT | grep should-run | cut -d'=' -f2)"
 
   build-frontend:
     needs: check-commit-message
