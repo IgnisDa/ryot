@@ -18,7 +18,7 @@ use slug::slugify;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 
 use crate::{
-    background::ApplicationJob,
+    background::{ApplicationJob, CoreApplicationJob},
     entities::{
         collection, collection_to_entity, exercise,
         prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
@@ -290,6 +290,7 @@ pub struct ExerciseService {
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
 impl ExerciseService {
@@ -298,12 +299,14 @@ impl ExerciseService {
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
+        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {
             config,
             db: db.clone(),
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
+            perform_core_application_job: perform_core_application_job.clone(),
         }
     }
 }
@@ -787,6 +790,7 @@ impl ExerciseService {
                 exercise_id: Some(exercise.id.clone()),
                 ..Default::default()
             },
+            &self.perform_core_application_job,
         )
         .await?;
         Ok(exercise.id)

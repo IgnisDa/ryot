@@ -3,16 +3,30 @@
 Integrations can be used to continuously update your media progress or inform external
 services about changes. They can be of following types:
 
+- _Push_: Ryot sends data to an external service when an event occurs.
 - _Yank_: Progress data is downloaded from an externally running server at a periodic
   interval.
-- _Push_: Ryot sends data to an external service at a periodic interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
 
-## Yank integrations
+## Push integrations
 
-For each integration you want to enable, credentials for the external server must be saved
-to your profile. To do so, go to the "Settings" tab and add a new integration under the
-"Integrations" tab.
+You can enable the following push integrations:
+
+### Radarr
+
+Automatically add movies in the selected collections to Radarr.
+
+1. Obtain your Radarr API key by going to the Radarr general settings page.
+2. Fill the inputs in the integration settings page with the correct details.
+
+### Sonarr
+
+Automatically add shows in the selected collections to Sonarr.
+
+1. Obtain your Sonarr API key by going to the Sonarr general settings page.
+2. Fill the inputs in the integration settings page with the correct details.
+
+## Yank integrations
 
 You can configure the interval at which the data is fetched from the external using the
 `integration.sync_every_minutes` configuration key. Defaults to `5` (minutes).
@@ -63,24 +77,6 @@ Then perform these steps on Ryot
 3. Provide your Cookie.
 4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
    is unavailable and will fallback to title search otherwise.
-
-## Push integrations
-
-Follow the same instructions as the [yank](#yank-integrations) integrations to add one.
-
-### Radarr
-
-Automatically add movies in the selected collections to Radarr.
-
-1. Obtain your Radarr API key by going to the Radarr general settings page.
-2. Fill the inputs in the integration settings page with the correct details.
-
-### Sonarr
-
-Automatically add shows in the selected collections to Sonarr.
-
-1. Obtain your Sonarr API key by going to the Sonarr general settings page.
-2. Fill the inputs in the integration settings page with the correct details.
 
 ## Sink integrations
 

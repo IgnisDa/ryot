@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use apalis::prelude::MemoryStorage;
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
 use axum::{
     async_trait,
@@ -22,7 +22,7 @@ use reqwest::{
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    QueryFilter,
+    QueryFilter, QuerySelect, QueryTrait, Select,
 };
 
 use crate::{
@@ -127,6 +127,7 @@ pub async fn create_app_services(
         config.clone(),
         file_storage_service.clone(),
         perform_application_job,
+        perform_core_application_job,
     ));
     let oidc_client = Arc::new(create_oidc_client(&config).await);
 
@@ -302,6 +303,7 @@ pub async fn add_entity_to_collection(
     db: &DatabaseConnection,
     user_id: &String,
     input: ChangeCollectionToEntityInput,
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
 ) -> Result<bool> {
     let collection = Collection::find()
         .left_join(UserToCollection)
@@ -329,7 +331,7 @@ pub async fn add_entity_to_collection(
     {
         let mut to_update: collection_to_entity::ActiveModel = etc.into();
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(db).await.is_ok()
+        to_update.update(db).await?
     } else {
         let created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
@@ -341,24 +343,57 @@ pub async fn add_entity_to_collection(
             metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
             ..Default::default()
         };
-        if let Ok(created) = created_collection.insert(db).await {
-            tracing::debug!("Created collection to entity: {:?}", created);
-            if input.workout_id.is_none() {
-                associate_user_with_entity(
-                    user_id,
-                    input.metadata_id,
-                    input.person_id,
-                    input.exercise_id,
-                    input.metadata_group_id,
-                    db,
-                )
-                .await
-                .ok();
-            }
-        };
-        true
+        let created = created_collection.insert(db).await?;
+        tracing::debug!("Created collection to entity: {:?}", created);
+        if input.workout_id.is_none() {
+            associate_user_with_entity(
+                user_id,
+                input.metadata_id,
+                input.person_id,
+                input.exercise_id,
+                input.metadata_group_id,
+                db,
+            )
+            .await
+            .ok();
+        }
+        created
     };
-    Ok(resp)
+    perform_core_application_job
+        .enqueue(CoreApplicationJob::EntityAddedToCollection(
+            user_id.to_owned(),
+            resp.id,
+        ))
+        .await
+        .unwrap();
+    Ok(true)
+}
+
+pub fn apply_collection_filter<E, C, D>(
+    query: Select<E>,
+    collection_id: Option<String>,
+    invert_collection: Option<bool>,
+    entity_column: C,
+    id_column: D,
+) -> Select<E>
+where
+    E: EntityTrait,
+    C: ColumnTrait,
+    D: ColumnTrait,
+{
+    query.apply_if(collection_id, |query, v| {
+        let subquery = CollectionToEntity::find()
+            .select_only()
+            .column(id_column)
+            .filter(collection_to_entity::Column::CollectionId.eq(v))
+            .filter(id_column.is_not_null())
+            .into_query();
+        if invert_collection.unwrap_or_default() {
+            query.filter(entity_column.not_in_subquery(subquery))
+        } else {
+            query.filter(entity_column.in_subquery(subquery))
+        }
+    })
 }
 
 pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {

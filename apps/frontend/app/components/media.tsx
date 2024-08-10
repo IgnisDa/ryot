@@ -601,14 +601,11 @@ export const MetadataDisplayItem = (props: {
 					<Group gap={4}>
 						<IconStarFilled size={12} style={{ color: "#EBE600FF" }} />
 						<Text c="white" size="xs" fw="bold" pr={4}>
-							{match(userPreferences.general.reviewScale)
-								.with(UserReviewScale.OutOfFive, () =>
-									Number.parseFloat(averageRating.toString()).toFixed(1),
-								)
-								.with(UserReviewScale.OutOfHundred, () => averageRating)
-								.exhaustive()}
+							{Number(averageRating) % 1 === 0
+								? Math.round(Number(averageRating)).toString()
+								: Number(averageRating).toFixed(1)}
 							{userPreferences.general.reviewScale === UserReviewScale.OutOfFive
-								? undefined
+								? null
 								: " %"}
 						</Text>
 					</Group>
@@ -737,7 +734,7 @@ export const PersonDisplayItem = (props: {
 			imageUrl={personDetails?.details.displayImages.at(0)}
 			labels={{
 				left: personDetails
-					? `${personDetails.contents.length} items`
+					? `${personDetails.contents.reduce((sum, content) => sum + content.items.length, 0)} items`
 					: undefined,
 				right: props.rightLabel,
 			}}

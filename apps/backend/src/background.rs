@@ -6,6 +6,7 @@ use chrono_tz::Tz;
 use database::{MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
+use uuid::Uuid;
 
 use crate::{
     exporter::ExporterService,
@@ -48,11 +49,6 @@ pub async fn sync_integrations_data(
 ) -> Result<(), Error> {
     tracing::trace!("Getting data from yanked integrations for all users");
     misc_service.yank_integrations_data().await.unwrap();
-    tracing::trace!("Sending data for push integrations for all users");
-    misc_service
-        .send_data_for_push_integrations()
-        .await
-        .unwrap();
     Ok(())
 }
 
@@ -62,7 +58,9 @@ pub async fn sync_integrations_data(
 #[derive(Debug, Deserialize, Serialize, Display)]
 pub enum CoreApplicationJob {
     SyncIntegrationsData(String),
+    ReviewPosted(ReviewPostedEvent),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
+    EntityAddedToCollection(String, Uuid),
 }
 
 impl Message for CoreApplicationJob {
@@ -77,20 +75,23 @@ pub async fn perform_core_application_job(
     tracing::trace!("Started job: {:#?}", name);
     let start = Instant::now();
     let status = match information {
-        CoreApplicationJob::SyncIntegrationsData(user_id) => {
-            misc_service
-                .push_integrations_data_for_user(&user_id)
-                .await
-                .ok();
-            misc_service
-                .yank_integrations_data_for_user(&user_id)
-                .await
-                .is_ok()
+        CoreApplicationJob::SyncIntegrationsData(user_id) => misc_service
+            .yank_integrations_data_for_user(&user_id)
+            .await
+            .is_ok(),
+        CoreApplicationJob::ReviewPosted(event) => {
+            misc_service.handle_review_posted_event(event).await.is_ok()
         }
         CoreApplicationJob::BulkProgressUpdate(user_id, input) => misc_service
             .bulk_progress_update(user_id, input)
             .await
             .is_ok(),
+        CoreApplicationJob::EntityAddedToCollection(user_id, collection_to_entity_id) => {
+            misc_service
+                .handle_entity_added_to_collection_event(user_id, collection_to_entity_id)
+                .await
+                .is_ok()
+        }
     };
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
@@ -111,10 +112,10 @@ pub enum ApplicationJob {
     UpdatePerson(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
-    ReviewPosted(ReviewPostedEvent),
     PerformExport(String, Vec<ExportItem>),
     RecalculateUserSummary(String),
     PerformBackgroundTasks,
+    UpdateExerciseLibrary,
 }
 
 impl Message for ApplicationJob {
@@ -171,11 +172,12 @@ pub async fn perform_application_job(
             })
             .await
             .is_ok(),
-        ApplicationJob::ReviewPosted(event) => {
-            misc_service.handle_review_posted_event(event).await.is_ok()
-        }
         ApplicationJob::PerformExport(user_id, to_export) => exporter_service
             .perform_export(user_id, to_export)
+            .await
+            .is_ok(),
+        ApplicationJob::UpdateExerciseLibrary => exercise_service
+            .deploy_update_exercise_library_job()
             .await
             .is_ok(),
     };

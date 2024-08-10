@@ -2,86 +2,12 @@ use std::{
     collections::{HashMap, HashSet},
     fmt,
     fs::File,
-    future::Future,
     iter::zip,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
 };
 
-use crate::{
-    background::{ApplicationJob, CoreApplicationJob},
-    entities::{
-        calendar_event, collection, collection_to_entity, genre, import_report, integration,
-        metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-        metadata_to_metadata_group, metadata_to_person, notification_platform, person,
-        prelude::{
-            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
-            Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-            MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
-            QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
-            UserToEntity, Workout,
-        },
-        queued_notification, review, seen, user, user_measurement, user_summary,
-        user_to_collection, user_to_entity, workout,
-    },
-    file_storage::FileStorageService,
-    fitness::resolver::ExerciseService,
-    integrations::{IntegrationMediaSeen, IntegrationService},
-    jwt,
-    models::{
-        fitness::UserUnitSystem,
-        media::{
-            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
-            CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemReviewComment,
-            ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, IntegrationProviderSpecifics, MangaSpecifics,
-            MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
-            MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-            MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
-            MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-            PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
-        },
-        BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
-        CollectionToEntitySystemInformation, DefaultCollection, IdAndNamedObject,
-        MediaStateChanged, SearchDetails, SearchInput, SearchResults, StoredUrl, StringIdObject,
-        UserSummaryData,
-    },
-    providers::{
-        anilist::{
-            AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService,
-        },
-        audible::AudibleService,
-        google_books::GoogleBooksService,
-        igdb::IgdbService,
-        itunes::ITunesService,
-        listennotes::ListennotesService,
-        mal::{MalAnimeService, MalMangaService, MalService, NonMediaMalService},
-        manga_updates::MangaUpdatesService,
-        openlibrary::OpenlibraryService,
-        tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
-        vndb::VndbService,
-    },
-    traits::{
-        AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, MediaProvider,
-        MediaProviderLanguages, TraceOk,
-    },
-    users::{
-        NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
-        UserPreferences, UserReviewScale,
-    },
-    utils::{
-        add_entity_to_collection, associate_user_with_entity, entity_in_collections,
-        get_current_date, get_user_to_entity_association, ilike_sql, user_by_id,
-        user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
-    },
-};
-use anyhow::Result as AnyhowResult;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
@@ -124,6 +50,78 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use struson::writer::{JsonStreamWriter, JsonWriter};
+use uuid::Uuid;
+
+use crate::{
+    background::{ApplicationJob, CoreApplicationJob},
+    entities::{
+        calendar_event, collection, collection_to_entity, genre, import_report, integration,
+        metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+        metadata_to_metadata_group, metadata_to_person, notification_platform, person,
+        prelude::{
+            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
+            Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+            MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
+            QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
+            UserToEntity, Workout,
+        },
+        queued_notification, review, seen, user, user_measurement, user_summary,
+        user_to_collection, user_to_entity, workout,
+    },
+    file_storage::FileStorageService,
+    integrations::{IntegrationMediaSeen, IntegrationService},
+    jwt,
+    models::{
+        fitness::UserUnitSystem,
+        media::{
+            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
+            CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
+            ImportOrExportItemReview, ImportOrExportItemReviewComment,
+            ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+            ImportOrExportPersonItem, IntegrationProviderSpecifics, MangaSpecifics,
+            MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
+            MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+            MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
+            MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+            PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics, PostReviewInput,
+            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+            ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+            ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+        },
+        BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
+        DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
+        SearchResults, StoredUrl, StringIdObject, UserSummaryData,
+    },
+    providers::{
+        anilist::{
+            AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService,
+        },
+        audible::AudibleService,
+        google_books::GoogleBooksService,
+        igdb::IgdbService,
+        itunes::ITunesService,
+        listennotes::ListennotesService,
+        mal::{MalAnimeService, MalMangaService, MalService, NonMediaMalService},
+        manga_updates::MangaUpdatesService,
+        openlibrary::OpenlibraryService,
+        tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
+        vndb::VndbService,
+    },
+    traits::{
+        AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, MediaProvider,
+        MediaProviderLanguages, TraceOk,
+    },
+    users::{
+        NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
+        UserPreferences, UserReviewScale,
+    },
+    utils::{
+        add_entity_to_collection, apply_collection_filter, associate_user_with_entity,
+        entity_in_collections, get_current_date, get_user_to_entity_association, ilike_sql,
+        user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+    },
+};
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -540,12 +538,23 @@ struct MetadataListInput {
     lot: Option<MediaLot>,
     filter: Option<MediaFilter>,
     sort: Option<SortInput<MediaSortBy>>,
+    invert_collection: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct PeopleListInput {
     search: SearchInput,
     sort: Option<SortInput<PersonSortBy>>,
+    filter: Option<MediaFilter>,
+    invert_collection: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+struct MetadataGroupsListInput {
+    search: SearchInput,
+    sort: Option<SortInput<PersonSortBy>>,
+    filter: Option<MediaFilter>,
+    invert_collection: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -918,7 +927,7 @@ impl MiscellaneousQuery {
     async fn metadata_groups_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
@@ -1697,7 +1706,7 @@ impl MiscellaneousService {
             .one(&self.db)
             .await
             .unwrap()
-            .unwrap();
+            .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
         metadata.image = metadata
             .images
             .first_as_url(&self.file_storage_service)
@@ -2286,9 +2295,13 @@ impl MiscellaneousService {
             .apply_if(
                 input.filter.clone().and_then(|f| f.collection),
                 |query, v| {
-                    query
-                        .inner_join(CollectionToEntity)
-                        .filter(collection_to_entity::Column::CollectionId.eq(v))
+                    apply_collection_filter(
+                        query,
+                        Some(v),
+                        input.invert_collection,
+                        metadata::Column::Id,
+                        collection_to_entity::Column::MetadataId,
+                    )
                 },
             )
             .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
@@ -2633,13 +2646,10 @@ impl MiscellaneousService {
                 }
             }
             BackgroundJob::UpdateAllExercises => {
-                let service = ExerciseService::new(
-                    &self.db,
-                    self.config.clone(),
-                    self.file_storage_service.clone(),
-                    &self.perform_application_job,
-                );
-                service.deploy_update_exercise_library_job().await?;
+                self.perform_application_job
+                    .enqueue(ApplicationJob::UpdateExerciseLibrary)
+                    .await
+                    .unwrap();
             }
             BackgroundJob::RecalculateCalendarEvents => {
                 sqlite_storage
@@ -4302,9 +4312,9 @@ impl MiscellaneousService {
             let user = user_by_id(&self.db, &insert.user_id.unwrap()).await?;
             // DEV: Do not send notification if updating a review
             if input.review_id.is_none() {
-                self.perform_application_job
+                self.perform_core_application_job
                     .clone()
-                    .enqueue(ApplicationJob::ReviewPosted(ReviewPostedEvent {
+                    .enqueue(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
                         obj_id,
                         obj_title,
                         entity_lot,
@@ -4426,7 +4436,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
-        add_entity_to_collection(&self.db, user_id, input).await
+        add_entity_to_collection(&self.db, user_id, input, &self.perform_core_application_job).await
     }
 
     pub async fn remove_entity_from_collection(
@@ -5848,151 +5858,76 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn send_data_for_push_integrations(&self) -> Result<()> {
-        let users_with_integrations = Integration::find()
-            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
-            .select_only()
-            .column(integration::Column::UserId)
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        for user_id in users_with_integrations {
-            tracing::debug!("Pushing integrations data for user {}", user_id);
-            self.push_integrations_data_for_user(&user_id).await?;
+    pub async fn handle_entity_added_to_collection_event(
+        &self,
+        user_id: String,
+        collection_to_entity_id: Uuid,
+    ) -> Result<()> {
+        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
+        if !matches!(cte.entity_lot, EntityLot::Metadata) {
+            return Ok(());
         }
-        Ok(())
-    }
-
-    pub async fn push_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
-        let preferences = self.user_preferences(user_id).await?;
-        if preferences.general.disable_integrations {
-            return Ok(false);
-        }
+        let integration_service = self.get_integration_service();
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
+            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
             .all(&self.db)
             .await?;
-        #[allow(clippy::too_many_arguments)]
-        async fn push_data_to_arr_service<F>(
-            db: &DatabaseConnection,
-            integration: integration::Model,
-            lot: MediaLot,
-            get_collection_ids: impl Fn(IntegrationProviderSpecifics) -> Vec<String>,
-            skip_in: impl Fn(CollectionToEntitySystemInformation) -> Option<Vec<String>>,
-            get_identifier: impl Fn(metadata::Model) -> Option<String>,
-            perform_push: impl Fn(String, IntegrationProviderSpecifics) -> F,
-            column_name: &str,
-        ) -> Result<()>
-        where
-            F: Future<Output = AnyhowResult<()>>,
-        {
-            let specifics = integration.provider_specifics.unwrap();
-            let collection_ids = get_collection_ids(specifics.clone());
-            let tmdb_ids_to_add = CollectionToEntity::find()
-                .find_also_related(Metadata)
-                .filter(metadata::Column::Lot.eq(lot))
-                .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-                .filter(collection_to_entity::Column::CollectionId.is_in(collection_ids))
-                .all(db)
-                .await?;
-            let mut cte_to_update = vec![];
-            for (cte, metadata) in tmdb_ids_to_add {
-                let metadata = metadata.unwrap();
-                if skip_in(cte.system_information)
-                    .unwrap_or_default()
-                    .contains(&integration.id)
-                {
-                    tracing::debug!("{} {} is already synced", lot, metadata.title);
-                    continue;
-                }
-                if let Some(entity_identifier) = get_identifier(metadata) {
-                    perform_push(entity_identifier, specifics.clone())
-                        .await
-                        .ok();
-                    cte_to_update.push(cte.id);
-                }
+        for integration in integrations {
+            let possible_collection_ids = match integration.provider_specifics.clone() {
+                Some(s) => match integration.provider {
+                    IntegrationProvider::Radarr => s.radarr_sync_collection_ids.unwrap_or_default(),
+                    IntegrationProvider::Sonarr => s.sonarr_sync_collection_ids.unwrap_or_default(),
+                    _ => vec![],
+                },
+                None => vec![],
+            };
+            if !possible_collection_ids.contains(&cte.collection_id) {
+                continue;
             }
-            CollectionToEntity::update_many()
-                        .filter(collection_to_entity::Column::Id.is_in(cte_to_update))
-                        .col_expr(
-                            collection_to_entity::Column::SystemInformation,
-                            Expr::cust(
-                                format!(
-                                    r#"JSONB_SET(system_information, '{{{col}}}', COALESCE(system_information->'{col}','[]'::JSONB) || '["{id}"]'::JSONB)"#,
-                                    col = column_name,
-                                    id = &integration.id
-                                )
-                            ),
-                        )
-                        .exec(db)
-                        .await?;
-            Ok(())
-        }
-        let mut to_update_integrations = vec![];
-        let integration_service = self.get_integration_service();
-        for integration in integrations.into_iter() {
-            let id = integration.id.clone();
-            match integration.provider {
-                IntegrationProvider::Radarr => {
-                    push_data_to_arr_service(
-                        &self.db,
-                        integration,
-                        MediaLot::Movie,
-                        |specifics| specifics.radarr_sync_collection_ids.unwrap(),
-                        |info| info.radarr_synced,
-                        |m| Some(m.identifier),
-                        |entity_tmdb_id, specifics| {
-                            integration_service.radarr_push(
+            let specifics = integration.provider_specifics.unwrap();
+            let metadata = Metadata::find_by_id(&cte.entity_id)
+                .one(&self.db)
+                .await?
+                .ok_or_else(|| Error::new("Metadata does not exist"))?;
+            let maybe_entity_id = match metadata.lot {
+                MediaLot::Show => metadata
+                    .external_identifiers
+                    .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
+                _ => Some(metadata.identifier.clone()),
+            };
+            if let Some(entity_id) = maybe_entity_id {
+                let _push_result = match integration.provider {
+                    IntegrationProvider::Radarr => {
+                        integration_service
+                            .radarr_push(
                                 specifics.radarr_base_url.unwrap(),
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
                                 specifics.radarr_root_folder_path.unwrap(),
-                                entity_tmdb_id,
+                                entity_id,
                             )
-                        },
-                        "radarr_synced",
-                    )
-                    .await
-                    .ok();
-                }
-                IntegrationProvider::Sonarr => {
-                    push_data_to_arr_service(
-                        &self.db,
-                        integration,
-                        MediaLot::Show,
-                        |specifics| specifics.sonarr_sync_collection_ids.unwrap(),
-                        |info| info.sonarr_synced,
-                        |m| {
-                            m.external_identifiers
-                                .and_then(|i| i.tvdb_id.map(|s| s.to_string()))
-                        },
-                        |entity_tmdb_id, specifics| {
-                            integration_service.sonarr_push(
+                            .await
+                    }
+                    IntegrationProvider::Sonarr => {
+                        integration_service
+                            .sonarr_push(
                                 specifics.sonarr_base_url.unwrap(),
                                 specifics.sonarr_api_key.unwrap(),
                                 specifics.sonarr_profile_id.unwrap(),
                                 specifics.sonarr_root_folder_path.unwrap(),
-                                entity_tmdb_id,
+                                entity_id,
                             )
-                        },
-                        "sonarr_synced",
-                    )
-                    .await
-                    .ok();
-                }
-                _ => continue,
-            };
-            to_update_integrations.push(id);
+                            .await
+                    }
+                    _ => unreachable!(),
+                };
+            }
         }
-        Integration::update_many()
-            .filter(integration::Column::Id.is_in(to_update_integrations))
-            .col_expr(
-                integration::Column::LastTriggeredOn,
-                Expr::value(Utc::now()),
-            )
-            .exec(&self.db)
-            .await?;
-        Ok(true)
+        Ok(())
     }
 
     async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
@@ -6399,19 +6334,47 @@ impl MiscellaneousService {
     async fn metadata_groups_list(
         &self,
         user_id: String,
-        input: SearchInput,
+        input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let alias = "parts";
+        let media_items_col = Expr::col(Alias::new(alias));
+        let (order_by, sort_order) = match input.sort {
+            None => (media_items_col, Order::Desc),
+            Some(ord) => (
+                match ord.by {
+                    PersonSortBy::Name => Expr::col(metadata_group::Column::Title),
+                    PersonSortBy::MediaItems => media_items_col,
+                },
+                ord.order.into(),
+            ),
+        };
         let query = MetadataGroup::find()
-            .apply_if(input.query, |query, v| {
+            .select_only()
+            .column(metadata_group::Column::Id)
+            .group_by(metadata_group::Column::Id)
+            .inner_join(UserToEntity)
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
+            .filter(metadata_group::Column::Id.is_not_null())
+            .apply_if(input.search.query, |query, v| {
                 query.filter(
                     Condition::all()
                         .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
                 )
             })
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .inner_join(UserToEntity)
-            .order_by_asc(metadata_group::Column::Title);
+            .apply_if(
+                input.filter.clone().and_then(|f| f.collection),
+                |query, v| {
+                    apply_collection_filter(
+                        query,
+                        Some(v),
+                        input.invert_collection,
+                        metadata_group::Column::Id,
+                        collection_to_entity::Column::MetadataGroupId,
+                    )
+                },
+            )
+            .order_by(order_by, sort_order);
         let paginator = query
             .column(metadata_group::Column::Id)
             .clone()
@@ -6466,6 +6429,18 @@ impl MiscellaneousService {
                     Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
                 )
             })
+            .apply_if(
+                input.filter.clone().and_then(|f| f.collection),
+                |query, v| {
+                    apply_collection_filter(
+                        query,
+                        Some(v),
+                        input.invert_collection,
+                        person::Column::Id,
+                        collection_to_entity::Column::PersonId,
+                    )
+                },
+            )
             .column_as(
                 Expr::expr(Func::count(Expr::col((
                     Alias::new("metadata_to_person"),
