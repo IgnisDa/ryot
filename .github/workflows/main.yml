@@ -99,8 +99,6 @@ jobs:
         run: |
           echo "version=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
           echo "docker-arch=${{ startsWith(matrix.platform.target, 'x86_64') && 'amd64' || 'arm64' }}" >> "$GITHUB_OUTPUT"
-          echo "profile=${{ github.event.ref_type == 'tag' && 'release' || 'dev' }}" >> "$GITHUB_OUTPUT"
-          echo "output-dir=${{ github.event.ref_type == 'tag' && 'release' || 'debug' }}" >> "$GITHUB_OUTPUT"
       - name: Extract rust toolchain
         id: toolchain
         run: |
@@ -113,7 +111,6 @@ jobs:
         with:
           key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
           save-if: ${{ github.event_name != 'pull_request' }}
-
       - name: Install cross
         if: ${{ matrix.platform.command == 'cross' }}
         uses: taiki-e/cache-cargo-install-action@v2
@@ -130,13 +127,12 @@ jobs:
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
           DEFAULT_GOOGLE_BOOKS_API_KEY: ${{ secrets.DEFAULT_GOOGLE_BOOKS_API_KEY }}
         run: |
-          touch .env
-          ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --profile ${{ steps.build.outputs.profile }}
+          ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --release
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-${{ steps.build.outputs.docker-arch }}
-          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/${{ steps.build.outputs.output-dir }}/ryot
+          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/ryot
           retention-days: 1
 
   build-docker:
