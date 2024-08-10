@@ -40,7 +40,6 @@ jobs:
           else
             echo "should-run=false" >> $GITHUB_OUTPUT
           fi
-          cat $GITHUB_OUTPUT
 
   build-frontend:
     needs: check-commit-message
