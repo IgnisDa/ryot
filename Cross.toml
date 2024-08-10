@@ -3,6 +3,7 @@ passthrough = [
     "APP_VERSION",
     "DEFAULT_TMDB_ACCESS_TOKEN",
     "DEFAULT_MAL_CLIENT_ID",
+    "DEFAULT_GOOGLE_BOOKS_API_KEY",
 ]
 
 [build]
