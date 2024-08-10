@@ -13,7 +13,7 @@ use apalis::{
     layers::{
         limit::RateLimitLayer as ApalisRateLimitLayer, tracing::TraceLayer as ApalisTraceLayer,
     },
-    prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
+    prelude::{MemoryStorage, MessageQueue, Monitor, WorkerBuilder, WorkerFactoryFn},
     utils::TokioExecutor,
 };
 use aws_sdk_s3::config::Region;
@@ -23,6 +23,7 @@ use axum::{
     routing::{get, post, Router},
     Extension,
 };
+use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
 use database::Migrator;
 use itertools::Itertools;
@@ -172,9 +173,8 @@ async fn main() -> Result<()> {
 
     if Exercise::find().count(&db).await? == 0 {
         tracing::info!("Instance does not have exercises data. Deploying job to download them...");
-        app_services
-            .exercise_service
-            .deploy_update_exercise_library_job()
+        perform_application_job_storage
+            .enqueue(ApplicationJob::UpdateExerciseLibrary)
             .await
             .unwrap();
     }
@@ -198,7 +198,7 @@ async fn main() -> Result<()> {
                 base_dir.join("backend-config-schema.yaml"),
                 YamlTemplateRenderer::default(),
             )
-            .unwrap();
+            .ok();
 
         let mut generator = SchemaGenerator::default();
         generator.add::<CompleteExport>();
@@ -207,7 +207,7 @@ async fn main() -> Result<()> {
                 base_dir.join("export-schema.ts"),
                 TypeScriptRenderer::default(),
             )
-            .unwrap();
+            .ok();
     }
 
     let schema = get_schema(&app_services).await;

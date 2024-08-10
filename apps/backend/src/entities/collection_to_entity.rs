@@ -5,8 +5,6 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::CollectionToEntitySystemInformation;
-
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "collection_to_entity")]
 pub struct Model {
@@ -23,8 +21,6 @@ pub struct Model {
     pub exercise_id: Option<String>,
     pub workout_id: Option<String>,
     pub information: Option<serde_json::Value>,
-    #[sea_orm(column_type = "Json")]
-    pub system_information: CollectionToEntitySystemInformation,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
