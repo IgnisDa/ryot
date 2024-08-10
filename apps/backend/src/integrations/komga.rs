@@ -442,7 +442,8 @@ impl IntegrationService {
             mutex_receiver.lock().unwrap().replace(recv);
         }
 
-        let media_items = unique_media_items.into_values().collect();
+        let mut media_items: Vec<IntegrationMediaSeen> = unique_media_items.into_values().collect();
+        media_items.sort_by(|a, b| a.manga_chapter_number.cmp(&b.manga_chapter_number));
         tracing::debug!("Media Items: {:?}", media_items);
 
         Ok((media_items, vec![]))
