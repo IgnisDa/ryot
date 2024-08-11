@@ -7,7 +7,10 @@ use anyhow::{anyhow, Context, Result};
 use database::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
-use rust_decimal::{prelude::{FromPrimitive, Zero}, Decimal};
+use rust_decimal::{
+    prelude::{FromPrimitive, Zero},
+    Decimal,
+};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;
 use serde::de::DeserializeOwned;

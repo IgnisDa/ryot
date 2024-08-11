@@ -84,7 +84,7 @@ impl IntegrationService {
                             Expr::col(metadata::Column::ShowSpecifics),
                             Alias::new("text"),
                         ))
-                            .ilike(ilike_sql(episode)),
+                        .ilike(ilike_sql(episode)),
                     )
                     .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(series))),
             )
@@ -408,7 +408,7 @@ impl IntegrationService {
         commit_metadata: impl Fn(CommitMediaInput) -> F,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
     where
-        F: Future<Output=GqlResult<metadata::Model>>,
+        F: Future<Output = GqlResult<metadata::Model>>,
     {
         let client = get_base_http_client(
             &format!("{}/api/", base_url),
@@ -469,8 +469,8 @@ impl IntegrationService {
                                 source,
                                 ..Default::default()
                             })
-                                .await
-                                .unwrap();
+                            .await
+                            .unwrap();
                             match podcast
                                 .podcast_specifics
                                 .and_then(|p| p.episode_by_name(&pe.title))
