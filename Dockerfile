@@ -9,14 +9,14 @@ RUN npm install -g @moonrepo/cli && moon --version
 FROM frontend-build-base AS frontend-workspace
 WORKDIR /app
 COPY . .
-RUN moon docker scaffold frontend transactional
+RUN moon docker scaffold frontend
 
 FROM frontend-build-base AS frontend-builder
 WORKDIR /app
 COPY --from=frontend-workspace /app/.moon/docker/workspace .
 RUN moon docker setup
 COPY --from=frontend-workspace /app/.moon/docker/sources .
-RUN moon run frontend:build transactional:build
+RUN moon run frontend:build
 RUN moon docker prune
 
 FROM --platform=${BUILDPLATFORM} alpine as artifact
