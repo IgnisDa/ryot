@@ -19,7 +19,7 @@ COPY --from=frontend-workspace /app/.moon/docker/sources .
 RUN moon run frontend:build
 RUN moon docker prune
 
-FROM --platform=${BUILDPLATFORM} alpine as artifact
+FROM --platform=${BUILDPLATFORM} alpine AS artifact
 COPY artifact/ /artifact/
 ARG TARGETARCH
 ENV TARGETARCH=${TARGETARCH}
