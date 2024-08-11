@@ -17,7 +17,7 @@ permissions:
   packages: write
 
 jobs:
-  check-commit-message:
+  pre-workflow-checks:
     runs-on: ubuntu-latest
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
@@ -51,8 +51,8 @@ jobs:
           fi
 
   build-frontend:
-    needs: check-commit-message
-    if: needs.check-commit-message.outputs.should-run == 'true'
+    needs: pre-workflow-checks
+    if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
     env:
       MOON_TOOLCHAIN_FORCE_GLOBALS: true
@@ -80,9 +80,9 @@ jobs:
 
   build-backend:
     needs:
-      - check-commit-message
+      - pre-workflow-checks
       - build-frontend
-    if: needs.check-commit-message.outputs.should-run == 'true'
+    if: needs.pre-workflow-checks.outputs.should-run == 'true'
 
     strategy:
       fail-fast: false
@@ -146,9 +146,9 @@ jobs:
 
   build-docker:
     needs:
-      - check-commit-message
+      - pre-workflow-checks
       - build-backend
-    if: needs.check-commit-message.outputs.should-run == 'true'
+    if: needs.pre-workflow-checks.outputs.should-run == 'true'
 
     runs-on: ubuntu-latest
     steps:
@@ -203,9 +203,9 @@ jobs:
 
   upload-kodi-plugin:
     needs:
-      - check-commit-message
+      - pre-workflow-checks
       - build-docker
-    if: needs.check-commit-message.outputs.is-release == 'true'
+    if: needs.pre-workflow-checks.outputs.is-release == 'true'
     runs-on: ubuntu-20.04
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -229,9 +229,9 @@ jobs:
 
   deploy-demo-instance:
     needs:
-      - check-commit-message
+      - pre-workflow-checks
       - build-docker
-    if: needs.check-commit-message.outputs.is-release == 'true'
+    if: needs.pre-workflow-checks.outputs.is-release == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -245,9 +245,9 @@ jobs:
 
   deploy-docs:
     needs:
-      - check-commit-message
+      - pre-workflow-checks
       - build-docker
-    if: needs.check-commit-message.outputs.is-release == 'true'
+    if: needs.pre-workflow-checks.outputs.is-release == 'true'
     runs-on: ubuntu-latest
 
     steps:
