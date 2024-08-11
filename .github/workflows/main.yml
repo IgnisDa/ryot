@@ -90,7 +90,7 @@ jobs:
         with:
           auto-install: true
       - name: Set up Node.js and caching
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'yarn'
@@ -201,7 +201,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            name=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }},enable={{is_default_branch}}
+            name=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}
             name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
           tags: |
             type=ref,event=pr
@@ -236,7 +236,7 @@ jobs:
         with:
           auto-install: true
       - name: Set up Node.js and caching
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'yarn'
