@@ -5858,6 +5858,7 @@ impl MiscellaneousService {
     }
 
     pub async fn sync_integrations_data(&self) -> Result<()> {
+        tracing::trace!("Syncing integrations data...");
         self.yank_integrations_data().await.unwrap();
         Ok(())
     }

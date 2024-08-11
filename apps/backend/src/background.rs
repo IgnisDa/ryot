@@ -47,7 +47,6 @@ pub async fn sync_integrations_data(
     _information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
-    tracing::trace!("Syncing integrations data...");
     misc_service.sync_integrations_data().await.unwrap();
     Ok(())
 }
