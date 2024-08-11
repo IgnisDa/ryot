@@ -126,7 +126,7 @@ mod komga_series {
                 };
 
                 let id = self.extract_id(link.url.clone());
-                provider_links.push((source, id));
+                provider_links.push((Some(source), id));
             }
 
             provider_links.sort_by_key(|a| a.1.clone());
