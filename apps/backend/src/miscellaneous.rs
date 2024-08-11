@@ -2744,7 +2744,7 @@ impl MiscellaneousService {
                     if !seen_history.is_empty() {
                         new_reasons.insert(UserToMediaReason::Seen);
                     }
-                    if is_finished {
+                    if !seen_history.is_empty() && is_finished {
                         new_reasons.insert(UserToMediaReason::Finished);
                     }
                 } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
