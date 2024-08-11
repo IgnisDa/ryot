@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
+      is-release: ${{ steps.tag.outputs.is-release }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,6 +40,14 @@ jobs:
             fi
           else
             echo "should-run=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Check tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/tags/${{ github.ref_name }}" ]]; then
+            echo "is-release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-release=false" >> $GITHUB_OUTPUT
           fi
 
   build-frontend:
@@ -191,3 +200,71 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
+
+  upload-kodi-plugin:
+    needs:
+      - check-commit-message
+      - build-docker
+    if: needs.check-commit-message.outputs.is-release == 'true'
+    runs-on: ubuntu-20.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MOON_TOOLCHAIN_FORCE_GLOBALS: true
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Moon
+        uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - name: Set up Node.js and caching
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'yarn'
+      - name: Build plugin
+        run: moon run kodi:build
+      - name: Upload plugin to releases
+        run: gh release upload --clobber ${{ github.ref_name }} "tmp/script.ryot.zip"
+
+  deploy-demo-instance:
+    needs:
+      - check-commit-message
+      - build-docker
+    if: needs.check-commit-message.outputs.is-release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        run: flyctl deploy --remote-only --detach --config ci/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-docs:
+    needs:
+      - check-commit-message
+      - build-docker
+    if: needs.check-commit-message.outputs.is-release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+      - name: Install dependencies
+        run: cd docs && poetry install
+      - name: Build docs
+        run: cd docs && poetry run mkdocs build
+      - name: Push to deployment branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/site
+          publish_branch: nf-docs
+          force_orphan: true
