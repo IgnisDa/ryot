@@ -5787,7 +5787,6 @@ impl MiscellaneousService {
                 }
                 IntegrationProvider::Komga => {
                     let specifics = integration.clone().provider_specifics.unwrap();
-
                     integration_service
                         .komga_progress(
                             &specifics.komga_base_url.unwrap(),

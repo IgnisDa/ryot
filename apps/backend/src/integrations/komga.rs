@@ -94,7 +94,7 @@ mod komga_series {
         ///
         /// * `url`: The url to extact from
         ///
-        /// returns: Option<String> The ID number if the extraction is successful
+        /// returns: The ID number if the extraction is successful
         fn extract_id(&self, url: String) -> Option<String> {
             if let Ok(parsed_url) = Url::parse(&url) {
                 parsed_url
@@ -108,30 +108,25 @@ mod komga_series {
 
         /// Extracts the list of providers with a MediaSource,ID Tuple
         ///
-        /// Currently only works for myanimelist and anilist as mangaupdates doesn't store the ID
-        /// in the url
+        /// Currently only works for myanimelist and anilist as mangaupdates doesn't store
+        /// the ID in the url
         ///
-        /// Requires that the metadata is stored with the label anilist or myanimelist other
-        /// spellings wont work
+        /// Requires that the metadata is stored with the label anilist or myanimelist
+        /// other spellings wont work
         ///
-        /// returns: Vec<(Option<MediaSource>,Option<String>)> list of providers with a
-        ///          MediaSource,ID Tuple
+        /// returns: list of providers with a MediaSource, ID Tuple
         pub fn find_providers(&self) -> Vec<(Option<MediaSource>, Option<String>)> {
             let mut provider_links = vec![];
             for link in self.links.iter() {
-                let source;
-
-                // NOTE: mangaupdates doesnt work here because the ID isnt in the url
-                match link.label.to_lowercase().as_str() {
-                    "anilist" => source = Some(MediaSource::Anilist),
-                    "myanimelist" => source = Some(MediaSource::Mal),
+                // NOTE: manga_updates doesn't work here because the ID isn't in the url
+                let source = match link.label.to_lowercase().as_str() {
+                    "anilist" => MediaSource::Anilist,
+                    "myanimelist" => MediaSource::Mal,
                     _ => continue,
-                }
+                };
 
-                if source.is_some() {
-                    let id = self.extract_id(link.url.clone());
-                    provider_links.push((source, id));
-                }
+                let id = self.extract_id(link.url.clone());
+                provider_links.push((source, id));
             }
 
             provider_links.sort_by_key(|a| a.1.clone());
@@ -191,8 +186,8 @@ impl KomgaEventHandler {
 }
 
 impl IntegrationService {
-    /// Generates the sse listener for komga. This is intended to be run from another thread
-    /// if you run this in the main thread it will lock it up
+    /// Generates the sse listener for komga. This is intended to be run from another
+    /// thread if you run this in the main thread it will lock it up
     ///
     /// # Arguments
     ///
@@ -255,11 +250,12 @@ impl IntegrationService {
     ///
     /// * `client`: Prepopulated client please use `get_base_http_client` to construct this
     /// * `cookie`: The komga cookie with the remember-me included
-    /// * `api_endpoint`: Endpoint which comes after the base_url doesn't require a prepended `/`
+    /// * `api_endpoint`: Endpoint which comes after the base_url doesn't require a
+    ///   prepended `/`
     /// * `api_id`: The ID of the object you are searching for added to the end of the
     ///             api_endpoint doesn't require a prepended `/`
     ///
-    /// returns: Result<T, Error> This only preforms basic error handling on the json parsing
+    /// returns: This only preforms basic error handling on the json parsing
     async fn fetch_api<T: DeserializeOwned>(
         client: &reqwest::Client,
         cookie: &str,
@@ -283,14 +279,13 @@ impl IntegrationService {
     ///
     /// * `series`: The series object from which we want to grab the provider from. There
     ///             should be a links section which is populated with urls from which we
-    ///             can extract the series ID. If not a simple search of the db for a manga with
-    ///             the same title will be preformed
+    ///             can extract the series ID. If not a simple search of the db for a manga
+    ///             with the same title will be preformed
     /// * `provider`: The preferred provider if this isn't available another will be used
     ///               in its place
     /// * `db`: The metadata db connection
     ///
-    /// returns: Result<(Option<MediaSource>, Option<String>), Error> This contains the mediasource
-    ///          and the ID of the series.
+    /// returns: This contains the MediaSource and the ID of the series.
     async fn find_provider_and_id(
         series: &komga_series::Item,
         provider: MediaSource,
@@ -337,8 +332,8 @@ impl IntegrationService {
     ///               in its place
     /// * `data`: The data from the event
     ///
-    /// returns: Option<IntegrationMediaSeen> If the event had no issues processing contains the
-    ///          media which was read otherwise none
+    /// returns: If the event had no issues processing contains the media which was read
+    ///          otherwise none
     async fn process_events(
         &self,
         base_url: &str,
@@ -385,11 +380,11 @@ impl IntegrationService {
         cookie: &str,
         provider: MediaSource,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
-        // This object needs global lifetime so we can continue to use the receiver
-        // If we ever create more SSE Objects we may want to implement a higher level
-        // Controller or make a housekeeping function to make sure the background
-        // threads are running correctly and kill them when the app is killed
-        // (though rust should handle this)
+        // DEV: This object needs global lifetime so we can continue to use the receiver If
+        // we ever create more SSE Objects we may want to implement a higher level
+        // Controller or make a housekeeping function to make sure the background threads
+        // are running correctly and kill them when the app is killed (though rust should
+        // handle this).
         static SSE_LISTS: KomgaEventHandler = KomgaEventHandler::new();
 
         let mutex_receiver = SSE_LISTS.get_receiver();
@@ -415,7 +410,7 @@ impl IntegrationService {
             });
         }
 
-        // Use hashmap here so we dont dupe pulls for a single book
+        // Use hashmap here so we don't dupe pulls for a single book
         let mut unique_media_items: HashMap<String, IntegrationMediaSeen> = HashMap::new();
 
         if let Some(mut recv) = receiver {
