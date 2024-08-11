@@ -8,8 +8,8 @@ use database::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use rust_decimal::{
-    prelude::{FromPrimitive, Zero},
     Decimal,
+    prelude::{FromPrimitive, Zero},
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;
@@ -115,7 +115,7 @@ mod komga_series {
         /// other spellings wont work
         ///
         /// returns: list of providers with a MediaSource, ID Tuple
-        pub fn find_providers(&self) -> Vec<(Option<MediaSource>, Option<String>)> {
+        pub fn find_providers(&self) -> Vec<(MediaSource, Option<String>)> {
             let mut provider_links = vec![];
             for link in self.links.iter() {
                 // NOTE: manga_updates doesn't work here because the ID isn't in the url
@@ -126,7 +126,7 @@ mod komga_series {
                 };
 
                 let id = self.extract_id(link.url.clone());
-                provider_links.push((Some(source), id));
+                provider_links.push((source, id));
             }
 
             provider_links.sort_by_key(|a| a.1.clone());
@@ -290,15 +290,15 @@ impl IntegrationService {
         series: &komga_series::Item,
         provider: MediaSource,
         db: &DatabaseConnection,
-    ) -> Result<(Option<MediaSource>, Option<String>)> {
+    ) -> Result<(MediaSource, Option<String>)> {
         let providers = series.metadata.find_providers();
         if !providers.is_empty() {
             Ok(providers
                 .iter()
-                .find(|x| x.0.unwrap() == provider)
+                .find(|x| x.0 == provider)
                 .cloned()
                 .or_else(|| providers.first().cloned())
-                .unwrap_or((None, None)))
+                .unwrap_or_default())
         } else {
             let db_manga = Metadata::find()
                 .filter(metadata::Column::Lot.eq(MediaLot::Manga))
@@ -307,8 +307,8 @@ impl IntegrationService {
                 .await?;
 
             Ok(db_manga
-                .map(|manga| (Some(manga.source), Some(manga.identifier)))
-                .unwrap_or((None, None)))
+                .map(|manga| (manga.source, Some(manga.identifier)))
+                .unwrap_or_default())
         }
     }
 
@@ -366,7 +366,7 @@ impl IntegrationService {
         Some(IntegrationMediaSeen {
             identifier: id,
             lot: MediaLot::Manga,
-            source: source.unwrap(),
+            source,
             manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
             progress: Self::calculate_percentage(book.read_progress.page, book.media.pages_count),
             provider_watched_on: Some("Komga".to_string()),
