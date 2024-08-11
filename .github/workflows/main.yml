@@ -63,11 +63,11 @@ jobs:
           fetch-depth: 0
       - name: Generate changelog
         id: changelog
-        uses: metcalfc/changelog-generator@v4.1.0
+        uses: metcalfc/changelog-generator@v4.3.1
         with:
           myToken: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body: |
             ## What's Changed
@@ -205,10 +205,10 @@ jobs:
             name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
           tags: |
             type=ref,event=pr
-            type=semver,pattern=v{{version}},enable={{is_default_branch}}
-            type=semver,pattern=v{{major}}.{{minor}},enable={{is_default_branch}}
-            type=semver,pattern=v{{major}},enable={{is_default_branch}}
             type=raw,value=develop,enable={{is_default_branch}}
+            type=semver,pattern=v{{version}},enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
+            type=semver,pattern=v{{major}},enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=raw,value=latest,enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
       - name: Build and push
         uses: docker/build-push-action@v5
