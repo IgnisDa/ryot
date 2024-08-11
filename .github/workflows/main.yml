@@ -94,9 +94,8 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
-      - name: Build frontend
-        run: |
-          moon run transactional:build
+      - name: Build emails
+        run: moon run transactional:build
       - name: Upload templates artifact
         uses: actions/upload-artifact@v4
         with:
