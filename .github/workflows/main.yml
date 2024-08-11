@@ -77,7 +77,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-frontend:
+  build-transactional:
     needs: pre-workflow-checks
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
@@ -96,7 +96,7 @@ jobs:
           cache: 'yarn'
       - name: Build frontend
         run: |
-          moon run frontend:build transactional:build
+          moon run transactional:build
       - name: Upload templates artifact
         uses: actions/upload-artifact@v4
         with:
@@ -108,7 +108,7 @@ jobs:
   build-backend:
     needs:
       - pre-workflow-checks
-      - build-frontend
+      - build-transactional
     if: needs.pre-workflow-checks.outputs.should-run == 'true'
     runs-on: ubuntu-latest
 
