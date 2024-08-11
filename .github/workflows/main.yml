@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
-      is-release: ${{ steps.tag.outputs.is-release }}
+      should-release: ${{ steps.tag.outputs.should-release }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,9 +45,9 @@ jobs:
         id: tag
         run: |
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/tags/${{ github.ref_name }}" ]]; then
-            echo "is-release=true" >> $GITHUB_OUTPUT
+            echo "should-release=true" >> $GITHUB_OUTPUT
           else
-            echo "is-release=false" >> $GITHUB_OUTPUT
+            echo "should-release=false" >> $GITHUB_OUTPUT
           fi
 
   build-frontend:
@@ -205,7 +205,7 @@ jobs:
     needs:
       - pre-workflow-checks
       - build-docker
-    if: needs.pre-workflow-checks.outputs.is-release == 'true'
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
     runs-on: ubuntu-20.04
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -231,7 +231,7 @@ jobs:
     needs:
       - pre-workflow-checks
       - build-docker
-    if: needs.pre-workflow-checks.outputs.is-release == 'true'
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -247,7 +247,7 @@ jobs:
     needs:
       - pre-workflow-checks
       - build-docker
-    if: needs.pre-workflow-checks.outputs.is-release == 'true'
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
     runs-on: ubuntu-latest
 
     steps:
