@@ -4,6 +4,7 @@ import {
 	Center,
 	Container,
 	Flex,
+	type MantineColor,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -45,7 +46,6 @@ import {
 import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
 import {
 	useDashboardLayoutData,
-	useGetMantineColor,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -104,6 +104,18 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
+};
+
+const MediaColors: Record<MediaLot, MantineColor> = {
+	ANIME: "blue",
+	AUDIO_BOOK: "orange",
+	BOOK: "lime",
+	MANGA: "purple",
+	MOVIE: "cyan",
+	PODCAST: "yellow",
+	SHOW: "red",
+	VISUAL_NOVEL: "pink",
+	VIDEO_GAME: "teal",
 };
 
 export default function Page() {
@@ -562,7 +574,6 @@ const DisplayStatForMediaType = (props: {
 	lot: MediaLot;
 	data: Array<{ type: "duration" | "number"; label: string; value: number }>;
 }) => {
-	const getMantineColor = useGetMantineColor();
 	const userPreferences = useUserPreferences();
 	const isEnabled = Object.entries(
 		userPreferences.featuresEnabled.media || {},
@@ -581,7 +592,7 @@ const DisplayStatForMediaType = (props: {
 				data={props.data}
 				icon={icon}
 				lot={props.lot.toString()}
-				color={getMantineColor(props.lot)}
+				color={MediaColors[props.lot]}
 			/>
 		</UnstyledLink>
 	) : null;
