@@ -5842,7 +5842,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn yank_integrations_data(&self) -> Result<()> {
+    async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .select_only()
@@ -5854,6 +5854,11 @@ impl MiscellaneousService {
             tracing::debug!("Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
         }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data(&self) -> Result<()> {
+        self.yank_integrations_data().await.unwrap();
         Ok(())
     }
 
