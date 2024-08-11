@@ -32,6 +32,7 @@ use crate::{
     traits::TraceOk,
     utils::{get_base_http_client, ilike_sql},
 };
+
 mod komga;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
