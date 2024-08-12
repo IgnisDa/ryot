@@ -1206,7 +1206,11 @@ dependencies = [
 name = "common_models"
 version = "0.1.0"
 dependencies = [
+ "async-graphql",
+ "schematic",
+ "sea-orm",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3067,6 +3071,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "media_models"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "async-trait",
+ "boilermates",
+ "chrono",
+ "common_models",
+ "enums",
+ "file_storage_service",
+ "rust_decimal",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
+ "strum",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4564,6 +4589,7 @@ dependencies = [
  "lettre",
  "logs-wheel",
  "markdown",
+ "media_models",
  "migrations",
  "mime_guess",
  "nanoid",

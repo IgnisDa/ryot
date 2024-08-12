@@ -7,6 +7,7 @@ members = [
     "libs/rs-utils",
     "crates/models/common",
     "crates/services/file_storage",
+    "crates/models/media",
 ]
 resolver = "2"
 
@@ -18,10 +19,13 @@ async-graphql = { version = "=7.0.7", features = [
     "log",
     "tracing",
 ] }
+async-trait = "=0.1.81"
 aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
+boilermates = "=0.3.0"
 chrono = "=0.4.38"
 dotenvy_macro = "=0.15.7"
 nanoid = "=0.4.0"
+rust_decimal = "=1.35.0"
 schematic = { version = "=0.16.6", features = [
     "config",
     "json",
@@ -48,5 +52,6 @@ sea-orm = { version = "=1.0.0-rc.5", features = [
 sea-orm-migration = "=1.0.0-rc.5"
 serde = { version = "=1.0.204", features = ["derive"] }
 serde_json = "=1.0.120"
+serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }
 strum = { version = "=0.26.2", features = ["derive"] }
 tracing = { version = "=0.1.40", features = ["attributes"] }

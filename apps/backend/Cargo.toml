@@ -12,10 +12,10 @@ argon2 = "=0.6.0-pre.1"
 askama = "0.12.1"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
-async-trait = "=0.1.81"
+async-trait = { workspace = true }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 aws-sdk-s3 = { workspace = true }
-boilermates = "=0.3.0"
+boilermates = { workspace = true }
 cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = "=0.9.0"
@@ -47,6 +47,7 @@ itertools = "=0.13.0"
 jsonwebtoken = { version = "=9.3.0", default-features = false }
 lettre = "=0.11.7"
 markdown = "=1.0.0-alpha.18"
+media_models = { path = "../../crates/models/media" }
 migrations = { path = "../../crates/migrations" }
 mime_guess = "=2.0.5"
 nanoid = { workspace = true }
@@ -61,7 +62,7 @@ reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_ur
     "stream",
 ] }
 rs-utils = { path = "../../libs/rs-utils" }
-rust_decimal = "=1.35.0"
+rust_decimal = { workspace = true }
 rust_decimal_macros = "=1.35.0"
 rust_iso3166 = "=0.1.13"
 schematic = { workspace = true }
@@ -71,7 +72,7 @@ sea-orm-migration = { workspace = true }
 sea-query = "=0.31.0-rc.9"
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }
+serde_with = { workspace = true }
 serde-xml-rs = "=0.6.0"
 slug = "=0.1.5"
 sonarr-api-rs = "=3.0.0"
