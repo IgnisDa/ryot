@@ -240,12 +240,6 @@ where
     })
 }
 
-pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
-    jwt::verify(token, jwt_secret)
-        .map(|c| c.sub)
-        .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
-}
-
 pub fn get_base_http_client(
     url: &str,
     headers: Option<Vec<(HeaderName, HeaderValue)>>,
@@ -406,41 +400,6 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<use
         .await
         .unwrap()
         .ok_or_else(|| Error::new("No user found"))
-}
-
-#[derive(Debug, Default)]
-pub struct AuthContext {
-    pub auth_token: Option<String>,
-    pub user_id: Option<String>,
-}
-
-#[async_trait]
-impl<S> FromRequestParts<S> for AuthContext
-where
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, &'static str);
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let mut ctx = AuthContext {
-            ..Default::default()
-        };
-        if let Some(h) = parts.headers.get(AUTHORIZATION) {
-            ctx.auth_token = h.to_str().map(|s| s.replace("Bearer ", "")).ok();
-        } else if let Some(h) = parts.headers.get("x-auth-token") {
-            ctx.auth_token = h.to_str().map(String::from).ok();
-        }
-        if let Some(auth_token) = ctx.auth_token.as_ref() {
-            let Extension(config) = parts
-                .extract::<Extension<Arc<config::AppConfig>>>()
-                .await
-                .unwrap();
-            if let Ok(user_id) = user_id_from_token(auth_token, &config.users.jwt_secret) {
-                ctx.user_id = Some(user_id);
-            }
-        }
-        Ok(ctx)
-    }
 }
 
 pub fn ilike_sql(value: &str) -> String {

@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 dotenvy_macro = { workspace = true }
-utils = { path = "../../crates/utils" }
+common_utils = { path = "../utils/common" }
 schematic = { workspace = true }
 serde = { workspace = true }

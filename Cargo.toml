@@ -2,7 +2,7 @@
 members = [
     "apps/backend",
     "crates/enums",
-    "libs/config",
+    "crates/config",
     "crates/migrations",
     "crates/models",
     "crates/models/common",
@@ -12,6 +12,7 @@ members = [
     "crates/services",
     "crates/services/file_storage",
     "crates/utils",
+    "crates/utils/application",
     "crates/utils/common",
 ]
 resolver = "2"
@@ -26,6 +27,7 @@ async-graphql = { version = "=7.0.7", features = [
 ] }
 async-trait = "=0.1.81"
 aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
+axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 chrono = "=0.4.38"
 dotenvy_macro = "=0.15.7"

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use rs_utils::{IsFeatureEnabled, PROJECT_NAME};
+use common_utils::{IsFeatureEnabled, PROJECT_NAME};
 use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
 use serde::{Deserialize, Serialize};
 
