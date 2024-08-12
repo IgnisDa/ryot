@@ -11,6 +11,6 @@ dependent_models = { path = "../models/dependent" }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
 media_models = { path = "../models/media" }
-services = { path = "../services" }
+file_storage_service = { path = "../services/file_storage" }
 sea-orm = { workspace = true }
-utils = { path = "../utils" }
+application_utils = { path = "../utils/application" }

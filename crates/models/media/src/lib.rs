@@ -6,12 +6,12 @@ use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use common_models::{CollectionExtraInformation, IdAndNamedObject, StoredUrl, StringIdObject};
 use enums::{EntityLot, MediaLot, MediaSource, SeenState, Visibility};
+use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use services::FileStorageService;
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
