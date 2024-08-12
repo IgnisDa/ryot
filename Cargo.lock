@@ -1509,23 +1509,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 
 [[package]]
-name = "database"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "enums",
- "indoc",
- "nanoid",
- "schematic",
- "sea-orm",
- "sea-orm-migration",
- "serde",
- "serde_json",
- "strum",
- "tracing",
-]
-
-[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3095,6 +3078,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "migrations"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "enums",
+ "indoc",
+ "nanoid",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "strum",
+ "tracing",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4527,7 +4527,6 @@ dependencies = [
  "convert_case",
  "csv",
  "data-encoding",
- "database",
  "derive_more 1.0.0-beta.6",
  "dotenvy",
  "dotenvy_macro",
@@ -4544,6 +4543,7 @@ dependencies = [
  "lettre",
  "logs-wheel",
  "markdown",
+ "migrations",
  "mime_guess",
  "nanoid",
  "openidconnect",

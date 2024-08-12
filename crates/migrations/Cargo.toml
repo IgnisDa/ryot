@@ -1,11 +1,11 @@
 [package]
-name = "database"
+name = "migrations"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-enums = { path = "../../crates/enums" }
 async-graphql = { workspace = true }
+enums = { path = "../enums" }
 indoc = "=2.0.5"
 nanoid = { workspace = true }
 schematic = { workspace = true }

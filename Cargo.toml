@@ -1,5 +1,11 @@
 [workspace]
-members = ["apps/backend", "crates/enums", "libs/config", "libs/database", "libs/rs-utils"]
+members = [
+    "apps/backend",
+    "crates/enums",
+    "libs/config",
+    "crates/migrations",
+    "libs/rs-utils",
+]
 resolver = "2"
 
 [workspace.dependencies]
