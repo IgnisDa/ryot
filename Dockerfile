@@ -33,7 +33,7 @@ LABEL org.opencontainers.image.source="https://github.com/IgnisDa/ryot"
 ENV FRONTEND_UMAMI_SCRIPT_URL="https://umami.diptesh.me/script.js"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy
-RUN apt-get update && apt-get install -y --no-install-recommends libssl3 ca-certificates procps && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl libssl3 ca-certificates procps && rm -rf /var/lib/apt/lists/*
 RUN npm install --global concurrently@8.2.2 && concurrently --version
 RUN useradd -m -u 1001 ryot
 RUN if [ "${TARGETARCH}" = "arm64" ]; then apt-get update && apt-get install -y --no-install-recommends wget && wget http://ftp.debian.org/debian/pool/main/o/openssl/libssl1.1_1.1.1w-0+deb11u1_arm64.deb && dpkg -i libssl1.1_1.1.1w-0+deb11u1_arm64.deb && rm -rf libssl1.1_1.1.1w-0+deb11u1_arm64.deb && apt-get remove -y wget && rm -rf  rm -rf /var/lib/apt/lists/*; fi
