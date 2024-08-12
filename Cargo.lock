@@ -1525,6 +1525,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 
 [[package]]
+name = "database_models"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "async-trait",
+ "boilermates",
+ "chrono",
+ "common_models",
+ "enums",
+ "file_storage_service",
+ "rust_decimal",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
+ "strum",
+]
+
+[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
