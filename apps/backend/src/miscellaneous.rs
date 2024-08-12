@@ -15,6 +15,7 @@ use async_graphql::{
 };
 use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
+use common_models::StoredUrl;
 use enum_meta::Meta;
 use enums::{
     EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
@@ -94,7 +95,7 @@ use crate::{
         },
         BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
         DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
-        SearchResults, StoredUrl, StringIdObject, UserSummaryData,
+        SearchResults, StringIdObject, UserSummaryData,
     },
     providers::{
         anilist::{

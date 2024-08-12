@@ -8,6 +8,7 @@ use async_graphql::{Enum, InputObject, OutputType, Result as GraphqlResult, Simp
 use async_trait::async_trait;
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
+use common_models::StoredUrl;
 use derive_more::{Add, AddAssign, Sum};
 use enum_meta::{meta, Meta};
 use enums::{
@@ -127,18 +128,6 @@ pub enum BackendError {
     SessionExpired,
     AdminOnlyAction,
     MutationNotAllowed,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-pub enum StoredUrl {
-    S3(String),
-    Url(String),
-}
-
-impl Default for StoredUrl {
-    fn default() -> Self {
-        Self::Url("".to_owned())
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, SimpleObject, InputObject)]

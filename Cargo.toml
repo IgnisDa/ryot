@@ -5,6 +5,7 @@ members = [
     "libs/config",
     "crates/migrations",
     "libs/rs-utils",
+    "crates/models/common",
 ]
 resolver = "2"
 

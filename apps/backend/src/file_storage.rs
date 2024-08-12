@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
+use common_models::StoredUrl;
 use nanoid::nanoid;
-
-use crate::models::StoredUrl;
 
 #[derive(Debug)]
 pub struct FileStorageService {

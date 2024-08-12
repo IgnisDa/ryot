@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use common_models::StoredUrl;
 use config::AnilistPreferredLanguage;
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
@@ -16,7 +17,7 @@ use crate::{
             PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
             PersonSourceSpecifics,
         },
-        SearchDetails, SearchResults, StoredUrl,
+        SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::get_base_http_client,

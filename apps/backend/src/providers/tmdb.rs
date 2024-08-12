@@ -8,6 +8,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use chrono_tz::Tz;
+use common_models::StoredUrl;
 use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
@@ -32,7 +33,7 @@ use crate::{
             PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics,
             WatchProvider,
         },
-        IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
+        IdObject, NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client, get_current_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR},

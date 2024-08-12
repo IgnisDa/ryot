@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_models::StoredUrl;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use reqwest::{
@@ -24,7 +25,7 @@ use crate::{
             MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
             PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
         },
-        IdObject, NamedObject, SearchDetails, SearchResults, StoredUrl,
+        IdObject, NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
     utils::{get_base_http_client, TEMP_DIR},

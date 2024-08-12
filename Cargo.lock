@@ -1202,6 +1202,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "common_models"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "compact_str"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4521,6 +4528,7 @@ dependencies = [
  "cached",
  "chrono",
  "chrono-tz",
+ "common_models",
  "compile-time",
  "config",
  "const-str",

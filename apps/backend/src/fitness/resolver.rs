@@ -2,6 +2,7 @@ use std::{fs::File, sync::Arc};
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
+use common_models::StoredUrl;
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
@@ -33,7 +34,7 @@ use crate::{
             UserWorkoutInput, UserWorkoutSetRecord,
         },
         ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput,
-        SearchResults, StoredUrl,
+        SearchResults,
     },
     traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},
