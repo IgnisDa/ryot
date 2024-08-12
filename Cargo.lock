@@ -1513,6 +1513,7 @@ name = "database"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "enums",
  "indoc",
  "nanoid",
  "schematic",
@@ -1901,6 +1902,19 @@ name = "enum_meta"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea6bd8eac0d352f66b6ba30dbb38bb0f68410d5aa538eaff17fa791b97279ae"
+
+[[package]]
+name = "enums"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "strum",
+]
 
 [[package]]
 name = "equivalent"

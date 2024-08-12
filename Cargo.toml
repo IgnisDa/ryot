@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/backend", "libs/config", "libs/database", "libs/rs-utils"]
+members = ["apps/backend", "crates/enums", "libs/config", "libs/database", "libs/rs-utils"]
 resolver = "2"
 
 [workspace.dependencies]

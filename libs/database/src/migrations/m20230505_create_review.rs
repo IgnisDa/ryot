@@ -1,11 +1,11 @@
 use sea_orm_migration::prelude::*;
+use enums::Visibility;
 
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
     m20230504_create_collection::Collection,
 };
-use crate::Visibility;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
