@@ -8,3 +8,4 @@ async-graphql = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true }
 config = { path = "../../config" }
+jwt_service = { path = "../../services/jwt" }

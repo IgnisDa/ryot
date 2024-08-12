@@ -9,7 +9,7 @@ use axum::{
 };
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
-    jwt::verify(token, jwt_secret)
+    jwt_service::verify(token, jwt_secret)
         .map(|c| c.sub)
         .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
 }

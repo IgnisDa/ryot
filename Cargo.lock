@@ -235,6 +235,7 @@ dependencies = [
  "async-trait",
  "axum",
  "config",
+ "jwt_service",
 ]
 
 [[package]]
