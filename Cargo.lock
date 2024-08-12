@@ -1224,7 +1224,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_with 3.9.0",
  "strum",
 ]
 
@@ -1561,6 +1560,16 @@ dependencies = [
  "serde_with 3.9.0",
  "services",
  "strum",
+]
+
+[[package]]
+name = "dependent_models"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "fitness_models",
+ "media_models",
+ "serde",
 ]
 
 [[package]]
@@ -3264,6 +3273,7 @@ version = "0.1.0"
 dependencies = [
  "common_models",
  "database_models",
+ "dependent_models",
  "fitness_models",
  "media_models",
 ]

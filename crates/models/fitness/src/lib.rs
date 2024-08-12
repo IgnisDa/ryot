@@ -7,13 +7,13 @@ use derive_more::{Add, AddAssign, Sum};
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
-use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use services::FileStorageService;
 
 #[derive(Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]

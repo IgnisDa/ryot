@@ -1,0 +1,10 @@
+[package]
+name = "dependent_models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+media_models = { path = "../media" }
+fitness_models = { path = "../fitness" }
+serde = { workspace = true }
