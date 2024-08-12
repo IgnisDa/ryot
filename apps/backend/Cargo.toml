@@ -55,7 +55,7 @@ reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_ur
     "json",
     "stream",
 ] }
-rs-utils = { path = "../../libs/rs-utils" }
+utils = { path = "../../crates/utils" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_iso3166 = "=0.1.13"

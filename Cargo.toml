@@ -4,7 +4,6 @@ members = [
     "crates/enums",
     "libs/config",
     "crates/migrations",
-    "libs/rs-utils",
     "crates/models",
     "crates/models/common",
     "crates/models/database",
@@ -12,6 +11,8 @@ members = [
     "crates/models/media",
     "crates/services",
     "crates/services/file_storage",
+    "crates/utils",
+    "crates/utils/common",
 ]
 resolver = "2"
 
