@@ -29,6 +29,21 @@ use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
     Options,
 };
+use media_models::{
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
+    ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaGroupItem,
+    ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
+    IntegrationProviderSpecifics, MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails,
+    MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
+    MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics, PostReviewInput,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+};
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
@@ -76,26 +91,9 @@ use crate::{
     integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
     models::{
-        fitness::UserUnitSystem,
-        media::{
-            AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
-            CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
-            ImportOrExportItemReview, ImportOrExportItemReviewComment,
-            ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-            ImportOrExportPersonItem, IntegrationProviderSpecifics, MangaSpecifics,
-            MediaAssociatedPersonStateChanges, MediaDetails, MetadataFreeCreator,
-            MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-            MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
-            MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-            PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics, PostReviewInput,
-            ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-            ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-            SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-            ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
-        },
-        BackendError, BackgroundJob, ChangeCollectionToEntityInput, CollectionExtraInformation,
-        DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput,
-        SearchResults, StringIdObject, UserSummaryData,
+        fitness::UserUnitSystem, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
+        CollectionExtraInformation, DefaultCollection, IdAndNamedObject, MediaStateChanged,
+        SearchDetails, SearchInput, SearchResults, StringIdObject, UserSummaryData,
     },
     providers::{
         anilist::{

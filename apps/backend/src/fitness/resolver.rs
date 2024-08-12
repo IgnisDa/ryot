@@ -8,6 +8,11 @@ use enums::{
     ExerciseSource,
 };
 use file_storage_service::FileStorageService;
+use fitness_models::{
+    Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,
+    GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
+    UserWorkoutInput, UserWorkoutSetRecord,
+};
 use itertools::Itertools;
 use migrations::AliasedExercise;
 use sea_orm::{
@@ -28,13 +33,7 @@ use crate::{
         user_measurement, user_to_entity, workout,
     },
     models::{
-        fitness::{
-            Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,
-            GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
-            UserWorkoutInput, UserWorkoutSetRecord,
-        },
-        ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput,
-        SearchResults,
+        ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput, SearchResults,
     },
     traits::{AuthProvider, GraphqlRepresentation},
     utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},
