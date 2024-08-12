@@ -11,6 +11,7 @@ members = [
     "crates/models/media",
     "crates/services",
     "crates/services/file_storage",
+    "crates/services/jwt",
     "crates/utils",
     "crates/utils/application",
     "crates/utils/common",

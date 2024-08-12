@@ -1,0 +1,12 @@
+[package]
+name = "jwt_service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+jsonwebtoken = { version = "=9.3.0", default-features = false }
+uuid = { version = "=1.10.0", features = ["v4"], default-features = false }

@@ -39,7 +39,6 @@ hashbag = "=0.1.12"
 http = "=1.1.0"
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.13.0"
-jsonwebtoken = { version = "=9.3.0", default-features = false }
 lettre = "=0.11.7"
 markdown = "=1.0.0-alpha.18"
 migrations = { path = "../../crates/migrations" }
@@ -79,4 +78,3 @@ tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
 logs-wheel = "=0.3.1"
-uuid = { version = "=1.10.0", features = ["v4"], default-features = false }

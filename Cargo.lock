@@ -2974,6 +2974,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwt_service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "jsonwebtoken",
+ "serde",
+ "serde_with 3.9.0",
+ "uuid",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4650,7 +4662,6 @@ dependencies = [
  "http 1.1.0",
  "isolang",
  "itertools 0.13.0",
- "jsonwebtoken",
  "lettre",
  "logs-wheel",
  "markdown",
@@ -4688,7 +4699,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "utils",
- "uuid",
 ]
 
 [[package]]
@@ -5190,6 +5200,7 @@ name = "services"
 version = "0.1.0"
 dependencies = [
  "file_storage_service",
+ "jwt_service",
 ]
 
 [[package]]
