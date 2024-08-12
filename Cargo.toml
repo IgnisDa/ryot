@@ -7,6 +7,7 @@ members = [
     "libs/rs-utils",
     "crates/models/common",
     "crates/services/file_storage",
+    "crates/models/fitness",
     "crates/models/media",
 ]
 resolver = "2"
@@ -26,6 +27,7 @@ chrono = "=0.4.38"
 dotenvy_macro = "=0.15.7"
 nanoid = "=0.4.0"
 rust_decimal = "=1.35.0"
+rust_decimal_macros = "=1.35.0"
 schematic = { version = "=0.16.6", features = [
     "config",
     "json",

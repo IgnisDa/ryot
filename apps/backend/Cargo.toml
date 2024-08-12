@@ -26,17 +26,13 @@ convert_case = "=0.6.0"
 const-str = "=0.5.7"
 csv = "=1.3.0"
 data-encoding = "=2.6.0"
-derive_more = { version = "=1.0.0-beta.6", features = [
-    "add",
-    "sum",
-    "add_assign",
-], default-features = false }
 dotenvy = "=0.15.7"
 dotenvy_macro = { workspace = true }
 educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
 enums = { path = "../../crates/enums" }
 enum_meta = "=0.7.0"
 file_storage_service = { path = "../../crates/services/file_storage" }
+fitness_models = { path = "../../crates/models/fitness" }
 flate2 = "=1.0.30"
 futures = "=0.3.30"
 graphql_client = "=0.14.0"
@@ -63,7 +59,7 @@ reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_ur
 ] }
 rs-utils = { path = "../../libs/rs-utils" }
 rust_decimal = { workspace = true }
-rust_decimal_macros = "=1.35.0"
+rust_decimal_macros = { workspace = true }
 rust_iso3166 = "=0.1.13"
 schematic = { workspace = true }
 scraper = "=0.19.1"
