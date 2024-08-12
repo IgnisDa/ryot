@@ -7,6 +7,7 @@ use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
 };
+use file_storage_service::FileStorageService;
 use itertools::Itertools;
 use migrations::AliasedExercise;
 use sea_orm::{
@@ -26,7 +27,6 @@ use crate::{
         prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
         user_measurement, user_to_entity, workout,
     },
-    file_storage::FileStorageService,
     models::{
         fitness::{
             Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,

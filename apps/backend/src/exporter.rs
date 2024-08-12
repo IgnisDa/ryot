@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use apalis::prelude::MessageQueue;
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
+use file_storage_service::FileStorageService;
 use nanoid::nanoid;
 use reqwest::{
     header::{CONTENT_LENGTH, CONTENT_TYPE},
@@ -16,9 +17,8 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
-    background::ApplicationJob, file_storage::FileStorageService,
-    fitness::resolver::ExerciseService, miscellaneous::MiscellaneousService, models::ExportItem,
-    traits::AuthProvider, utils::TEMP_DIR,
+    background::ApplicationJob, fitness::resolver::ExerciseService,
+    miscellaneous::MiscellaneousService, models::ExportItem, traits::AuthProvider, utils::TEMP_DIR,
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

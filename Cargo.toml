@@ -6,6 +6,7 @@ members = [
     "crates/migrations",
     "libs/rs-utils",
     "crates/models/common",
+    "crates/services/file_storage",
 ]
 resolver = "2"
 
@@ -17,6 +18,7 @@ async-graphql = { version = "=7.0.7", features = [
     "log",
     "tracing",
 ] }
+aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
 chrono = "=0.4.38"
 dotenvy_macro = "=0.15.7"
 nanoid = "=0.4.0"

@@ -9,6 +9,7 @@ use axum::{
     Extension, RequestPartsExt,
 };
 use chrono::{NaiveDate, Utc};
+use file_storage_service::FileStorageService;
 use itertools::Itertools;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
@@ -33,7 +34,6 @@ use crate::{
         user, user_to_collection, user_to_entity,
     },
     exporter::ExporterService,
-    file_storage::FileStorageService,
     fitness::resolver::ExerciseService,
     importer::ImporterService,
     jwt,

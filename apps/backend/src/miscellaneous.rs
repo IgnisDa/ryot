@@ -22,6 +22,7 @@ use enums::{
     MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot, UserToMediaReason,
     Visibility,
 };
+use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{
@@ -72,7 +73,6 @@ use crate::{
         queued_notification, review, seen, user, user_measurement, user_summary,
         user_to_collection, user_to_entity, workout,
     },
-    file_storage::FileStorageService,
     integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
     models::{

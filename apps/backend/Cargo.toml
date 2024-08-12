@@ -13,8 +13,8 @@ askama = "0.12.1"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
 async-trait = "=0.1.81"
-aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
+aws-sdk-s3 = { workspace = true }
 boilermates = "=0.3.0"
 cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
@@ -36,6 +36,7 @@ dotenvy_macro = { workspace = true }
 educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
 enums = { path = "../../crates/enums" }
 enum_meta = "=0.7.0"
+file_storage_service = { path = "../../crates/services/file_storage" }
 flate2 = "=1.0.30"
 futures = "=0.3.30"
 graphql_client = "=0.14.0"

@@ -4,12 +4,12 @@ use std::sync::Arc;
 
 use async_graphql::{Result, SimpleObject};
 use async_trait::async_trait;
+use file_storage_service::FileStorageService;
 use schematic::Schematic;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    file_storage::FileStorageService,
     models::fitness::{WorkoutInformation, WorkoutSummary},
     traits::GraphqlRepresentation,
 };

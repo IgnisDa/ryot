@@ -8,13 +8,11 @@ use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
 };
+use file_storage_service::FileStorageService;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    file_storage::FileStorageService, models::fitness::ExerciseAttributes,
-    traits::GraphqlRepresentation,
-};
+use crate::{models::fitness::ExerciseAttributes, traits::GraphqlRepresentation};
 
 #[derive(
     Clone,

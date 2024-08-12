@@ -15,6 +15,7 @@ use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
     ExerciseMuscle, MediaLot, MediaSource, SeenState, Visibility,
 };
+use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::ConfigEnum;
@@ -26,7 +27,6 @@ use strum::Display;
 
 use crate::{
     entities::{user_measurement, workout},
-    file_storage::FileStorageService,
     traits::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, GraphqlRepresentation},
 };
 

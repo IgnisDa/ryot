@@ -3,11 +3,11 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
+use file_storage_service::FileStorageService;
 use sea_orm::prelude::DateTimeUtc;
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
-    file_storage::FileStorageService,
     models::{
         media::{
             MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
