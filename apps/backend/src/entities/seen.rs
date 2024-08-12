@@ -3,7 +3,7 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::SeenState;
+use enums::SeenState;
 use educe::Educe;
 use nanoid::nanoid;
 use rust_decimal::Decimal;

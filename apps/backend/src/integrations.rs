@@ -2,7 +2,7 @@ use std::future::Future;
 
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use radarr_api_rs::{
     apis::{
         configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},

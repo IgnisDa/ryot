@@ -3,7 +3,7 @@ use std::sync::Arc;
 use apalis::prelude::MessageQueue;
 use async_graphql::{Context, InputObject, Object, Result};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
-use database::ImportSource;
+use enums::ImportSource;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};

@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use database::ExerciseLot;
+use enums::ExerciseLot;
 use nanoid::nanoid;
 use rs_utils::LengthVec;
 use rust_decimal_macros::dec;

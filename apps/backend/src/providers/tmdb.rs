@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use chrono_tz::Tz;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use reqwest::{

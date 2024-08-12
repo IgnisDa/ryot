@@ -1,7 +1,7 @@
 use async_graphql::Result;
 use chrono::NaiveDate;
 use csv::Reader;
-use database::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot, MediaSource};
 use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

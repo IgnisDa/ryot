@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::*;
 use chrono::DateTime;
 use chrono_tz::Tz;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;

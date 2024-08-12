@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;

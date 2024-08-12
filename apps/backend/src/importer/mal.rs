@@ -5,7 +5,7 @@ use std::{
 
 use async_graphql::Result;
 use chrono::NaiveDate;
-use database::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 use rs_utils::convert_string_to_date;

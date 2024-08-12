@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use reqwest::{
     header::{HeaderName, HeaderValue},

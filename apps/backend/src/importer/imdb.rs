@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use csv::Reader;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use serde::Deserialize;
 

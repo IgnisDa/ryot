@@ -1,7 +1,7 @@
 use std::{fs, sync::Arc};
 
 use async_graphql::Result;
-use database::ImportSource;
+use enums::ImportSource;
 use itertools::Itertools;
 
 use crate::{

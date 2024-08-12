@@ -3,7 +3,7 @@ use std::future::Future;
 use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
-use database::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot, MediaSource};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,

@@ -2,7 +2,7 @@
 
 use async_graphql::{InputObject, SimpleObject};
 use async_trait::async_trait;
-use database::{IntegrationLot, IntegrationProvider};
+use enums::{IntegrationLot, IntegrationProvider};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 

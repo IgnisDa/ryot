@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use paginate::Pages;
 use reqwest::Client;

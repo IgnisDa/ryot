@@ -33,6 +33,7 @@ derive_more = { version = "=1.0.0-beta.6", features = [
 dotenvy = "=0.15.7"
 dotenvy_macro = { workspace = true }
 educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
+enums = { path = "../../crates/enums" }
 enum_meta = "=0.7.0"
 flate2 = "=1.0.30"
 futures = "=0.3.30"

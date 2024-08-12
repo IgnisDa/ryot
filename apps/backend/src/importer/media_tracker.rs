@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use database::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot, MediaSource};
 use reqwest::{
     header::{HeaderMap, HeaderValue, USER_AGENT},
     ClientBuilder,

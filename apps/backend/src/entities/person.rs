@@ -3,7 +3,7 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::MediaSource;
+use enums::MediaSource;
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};

@@ -2,11 +2,12 @@ use std::{fs::File, sync::Arc};
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
-use database::{
-    AliasedExercise, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot,
-    ExerciseMechanic, ExerciseMuscle, ExerciseSource,
+use enums::{
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    ExerciseSource,
 };
 use itertools::Itertools;
+use migrations::AliasedExercise;
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,

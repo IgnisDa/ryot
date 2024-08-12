@@ -25,9 +25,9 @@ use axum::{
 };
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
-use database::Migrator;
 use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
+use migrations::Migrator;
 use rs_utils::PROJECT_NAME;
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,

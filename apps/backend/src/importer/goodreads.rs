@@ -2,7 +2,7 @@ use async_graphql::Result;
 use chrono::NaiveDate;
 use convert_case::{Case, Casing};
 use csv::Reader;
-use database::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

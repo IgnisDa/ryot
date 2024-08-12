@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use enum_meta::HashMap;
 use reqwest::{
     header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT},

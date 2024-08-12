@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use reqwest::Client;
 use rs_utils::{convert_date_to_year, convert_string_to_date};

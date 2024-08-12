@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use async_graphql::{InputObject, Result, SimpleObject};
 use async_trait::async_trait;
-use database::{
+use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
 };

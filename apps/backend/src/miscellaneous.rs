@@ -15,19 +15,22 @@ use async_graphql::{
 };
 use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
-use database::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, EntityLot, IntegrationLot, IntegrationProvider,
-    MediaLot, MediaSource, MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot,
-    UserToMediaReason, Visibility,
-};
 use enum_meta::Meta;
+use enums::{
+    EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
+    MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot, UserToMediaReason,
+    Visibility,
+};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
     Options,
+};
+use migrations::{
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
+    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
+    AliasedUserToCollection, AliasedUserToEntity,
 };
 use nanoid::nanoid;
 use openidconnect::{

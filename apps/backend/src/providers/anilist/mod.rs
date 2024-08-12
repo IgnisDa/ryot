@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use config::AnilistPreferredLanguage;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Client;

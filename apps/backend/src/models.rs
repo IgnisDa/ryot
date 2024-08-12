@@ -8,12 +8,12 @@ use async_graphql::{Enum, InputObject, OutputType, Result as GraphqlResult, Simp
 use async_trait::async_trait;
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
-use database::{
+use derive_more::{Add, AddAssign, Sum};
+use enum_meta::{meta, Meta};
+use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
     ExerciseMuscle, MediaLot, MediaSource, SeenState, Visibility,
 };
-use derive_more::{Add, AddAssign, Sum};
-use enum_meta::{meta, Meta};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::ConfigEnum;

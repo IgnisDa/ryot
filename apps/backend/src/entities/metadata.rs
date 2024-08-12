@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use database::{MediaLot, MediaSource};
+use enums::{MediaLot, MediaSource};
 use nanoid::nanoid;
 use rust_decimal::Decimal;
 use sea_orm::{entity::prelude::*, ActiveValue};

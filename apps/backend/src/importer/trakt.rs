@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use convert_case::{Case, Casing};
-use database::{ImportSource, MediaLot, MediaSource};
+use enums::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use rust_decimal::Decimal;
