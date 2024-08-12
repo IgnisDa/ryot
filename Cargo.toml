@@ -7,10 +7,11 @@ members = [
     "libs/rs-utils",
     "crates/models",
     "crates/models/common",
-    "crates/services/file_storage",
     "crates/models/database",
     "crates/models/fitness",
     "crates/models/media",
+    "crates/services",
+    "crates/services/file_storage",
 ]
 resolver = "2"
 

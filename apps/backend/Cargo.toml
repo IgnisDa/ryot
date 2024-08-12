@@ -19,7 +19,6 @@ boilermates = { workspace = true }
 cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = "=0.9.0"
-common_models = { path = "../../crates/models/common" }
 compile-time = "=0.2.0"
 config = { path = "../../libs/config" }
 convert_case = "=0.6.0"
@@ -31,8 +30,8 @@ dotenvy_macro = { workspace = true }
 educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
 enums = { path = "../../crates/enums" }
 enum_meta = { workspace = true }
-file_storage_service = { path = "../../crates/services/file_storage" }
-fitness_models = { path = "../../crates/models/fitness" }
+services = { path = "../../crates/services" }
+models = { path = "../../crates/models" }
 flate2 = "=1.0.30"
 futures = "=0.3.30"
 graphql_client = "=0.14.0"
@@ -43,7 +42,6 @@ itertools = "=0.13.0"
 jsonwebtoken = { version = "=9.3.0", default-features = false }
 lettre = "=0.11.7"
 markdown = "=1.0.0-alpha.18"
-media_models = { path = "../../crates/models/media" }
 migrations = { path = "../../crates/migrations" }
 mime_guess = "=2.0.5"
 nanoid = { workspace = true }

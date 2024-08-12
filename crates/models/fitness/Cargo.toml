@@ -15,7 +15,7 @@ derive_more = { version = "=1.0.0-beta.6", features = [
   "add_assign",
 ], default-features = false }
 enums = { path = "../../enums" }
-file_storage_service = { path = "../../services/file_storage" }
+services = { path = "../../services" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
