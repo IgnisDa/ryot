@@ -5,6 +5,7 @@ members = [
     "libs/config",
     "crates/migrations",
     "libs/rs-utils",
+    "crates/models",
     "crates/models/common",
     "crates/services/file_storage",
     "crates/models/database",

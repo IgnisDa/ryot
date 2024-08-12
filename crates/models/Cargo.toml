@@ -1,0 +1,10 @@
+[package]
+name = "models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common_models = { path = "./common" }
+database_models = { path = "./database" }
+fitness_models = { path = "./fitness" }
+media_models = { path = "./media" }
