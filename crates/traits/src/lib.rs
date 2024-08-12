@@ -3,20 +3,16 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
-use file_storage_service::FileStorageService;
-use sea_orm::prelude::DateTimeUtc;
-
-use crate::{
-    entities::metadata_group::MetadataGroupWithoutId,
-    models::{
-        media::{
-            MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
-            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-        },
-        BackendError, SearchResults,
-    },
-    utils::AuthContext,
+use common_models::BackendError;
+use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::SearchResults;
+use media_models::{
+    MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
 };
+use sea_orm::prelude::DateTimeUtc;
+use services::FileStorageService;
+use utils::AuthContext;
 
 #[async_trait]
 pub trait MediaProvider {

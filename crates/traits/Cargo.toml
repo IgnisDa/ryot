@@ -1,0 +1,16 @@
+[package]
+name = "traits"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+common_models = { path = "../models/common" }
+database_models = { path = "../models/database" }
+dependent_models = { path = "../models/dependent" }
+async-graphql = { workspace = true }
+async-trait = { workspace = true }
+media_models = { path = "../models/media" }
+services = { path = "../services" }
+sea-orm = { workspace = true }
+utils = { path = "../utils" }

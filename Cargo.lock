@@ -2068,6 +2068,7 @@ dependencies = [
  "serde_with 3.9.0",
  "services",
  "strum",
+ "traits",
 ]
 
 [[package]]
@@ -6203,6 +6204,20 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "traits"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-graphql",
+ "async-trait",
+ "database_models",
+ "media_models",
+ "sea-orm",
+ "services",
+ "utils",
 ]
 
 [[package]]
