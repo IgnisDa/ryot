@@ -1208,10 +1208,12 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "enum_meta",
+ "rust_decimal",
  "schematic",
  "sea-orm",
  "serde",
  "serde_json",
+ "serde_with 3.9.0",
  "strum",
 ]
 

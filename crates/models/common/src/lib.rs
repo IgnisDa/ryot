@@ -1,9 +1,13 @@
+use std::collections::HashSet;
+
 use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
+use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
-use strum::{EnumIter,Display};
+use serde_with::skip_serializing_none;
+use strum::{Display, EnumIter};
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct IdObject {
@@ -155,4 +159,229 @@ pub struct NamedObject {
 pub struct SearchInput {
     pub query: Option<String>,
     pub page: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
+pub struct SearchDetails {
+    pub total: i32,
+    pub next_page: Option<i32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "ExerciseListResults", params(fitness::ExerciseListItem)))]
+#[graphql(concrete(name = "MediaCollectionContentsResults", params(media::EntityWithLot)))]
+#[graphql(concrete(
+    name = "MetadataSearchResults",
+    params(media::MetadataSearchItemResponse)
+))]
+#[graphql(concrete(name = "PeopleSearchResults", params(media::PeopleSearchItem)))]
+#[graphql(concrete(
+    name = "MetadataGroupSearchResults",
+    params(media::MetadataGroupSearchItem)
+))]
+#[graphql(concrete(name = "GenreListResults", params(media::GenreListItem)))]
+#[graphql(concrete(name = "WorkoutListResults", params(workout::Model)))]
+#[graphql(concrete(name = "IdResults", params(String)))]
+pub struct SearchResults<T: OutputType> {
+    pub details: SearchDetails,
+    pub items: Vec<T>,
+}
+
+/// Complete export of the user.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[serde(rename_all = "snake_case")]
+pub struct CompleteExport {
+    /// Data about user's media.
+    pub media: Option<Vec<media::ImportOrExportMediaItem>>,
+    /// Data about user's people.
+    pub people: Option<Vec<media::ImportOrExportPersonItem>>,
+    /// Data about user's measurements.
+    pub measurements: Option<Vec<user_measurement::Model>>,
+    /// Data about user's workouts.
+    pub workouts: Option<Vec<workout::Model>>,
+    /// Data about user's media groups.
+    pub media_group: Option<Vec<media::ImportOrExportMediaGroupItem>>,
+}
+
+#[derive(Debug, InputObject, Default)]
+pub struct ChangeCollectionToEntityInput {
+    pub creator_user_id: String,
+    pub collection_name: String,
+    pub metadata_id: Option<String>,
+    pub person_id: Option<String>,
+    pub metadata_group_id: Option<String>,
+    pub exercise_id: Option<String>,
+    pub workout_id: Option<String>,
+    pub information: Option<serde_json::Value>,
+}
+
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum ExportItem {
+    Media,
+    People,
+    Workouts,
+    MediaGroup,
+    Measurements,
+}
+
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
+pub enum MediaStateChanged {
+    MetadataPublished,
+    MetadataStatusChanged,
+    MetadataReleaseDateChanged,
+    MetadataNumberOfSeasonsChanged,
+    MetadataEpisodeReleased,
+    MetadataEpisodeNameChanged,
+    MetadataChaptersOrEpisodesChanged,
+    MetadataEpisodeImagesChanged,
+    PersonMediaAssociated,
+    ReviewPosted,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct AudioBooksSummary {
+    pub runtime: i32,
+    pub played: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct VideoGamesSummary {
+    pub played: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct VisualNovelsSummary {
+    pub played: usize,
+    pub runtime: i32,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct BooksSummary {
+    pub pages: i32,
+    pub read: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct MoviesSummary {
+    pub runtime: i32,
+    pub watched: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct PodcastsSummary {
+    pub runtime: i32,
+    pub played: usize,
+    pub played_episodes: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct ShowsSummary {
+    pub runtime: i32,
+    pub watched: usize,
+    pub watched_episodes: usize,
+    pub watched_seasons: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct MangaSummary {
+    pub chapters: usize,
+    pub read: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct AnimeSummary {
+    pub episodes: usize,
+    pub watched: usize,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct MediaOverallSummary {
+    pub reviewed: u64,
+    pub interacted_with: u64,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct UserMediaSummary {
+    pub books: BooksSummary,
+    pub movies: MoviesSummary,
+    pub podcasts: PodcastsSummary,
+    pub shows: ShowsSummary,
+    pub video_games: VideoGamesSummary,
+    pub visual_novels: VisualNovelsSummary,
+    pub audio_books: AudioBooksSummary,
+    pub anime: AnimeSummary,
+    pub manga: MangaSummary,
+    pub metadata_overall: MediaOverallSummary,
+    pub people_overall: MediaOverallSummary,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct UserFitnessWorkoutSummary {
+    pub recorded: u64,
+    pub duration: Decimal,
+    pub weight: Decimal,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct UserFitnessSummary {
+    pub measurements_recorded: u64,
+    pub exercises_interacted_with: u64,
+    pub workouts: UserFitnessWorkoutSummary,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct UserSummaryUniqueItems {
+    pub audio_books: HashSet<String>,
+    pub anime_episodes: HashSet<(String, i32)>,
+    pub anime: HashSet<String>,
+    pub manga_volumes: HashSet<(String, i32)>,
+    pub manga_chapters: HashSet<(String, i32)>,
+    pub manga: HashSet<String>,
+    pub books: HashSet<String>,
+    pub movies: HashSet<String>,
+    pub visual_novels: HashSet<String>,
+    pub video_games: HashSet<String>,
+    pub show_episodes: HashSet<(String, i32, i32)>,
+    pub show_seasons: HashSet<(String, i32)>,
+    pub shows: HashSet<String>,
+    pub podcast_episodes: HashSet<(String, i32)>,
+    pub podcasts: HashSet<String>,
+}
+
+#[derive(
+    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
+)]
+pub struct UserSummaryData {
+    pub fitness: UserFitnessSummary,
+    pub media: UserMediaSummary,
+    #[graphql(skip)]
+    pub unique_items: UserSummaryUniqueItems,
 }
