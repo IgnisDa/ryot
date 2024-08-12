@@ -25,6 +25,7 @@ aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
 boilermates = "=0.3.0"
 chrono = "=0.4.38"
 dotenvy_macro = "=0.15.7"
+enum_meta = "=0.7.0"
 nanoid = "=0.4.0"
 rust_decimal = "=1.35.0"
 rust_decimal_macros = "=1.35.0"

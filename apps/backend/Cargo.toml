@@ -30,7 +30,7 @@ dotenvy = "=0.15.7"
 dotenvy_macro = { workspace = true }
 educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
 enums = { path = "../../crates/enums" }
-enum_meta = "=0.7.0"
+enum_meta = { workspace = true }
 file_storage_service = { path = "../../crates/services/file_storage" }
 fitness_models = { path = "../../crates/models/fitness" }
 flate2 = "=1.0.30"

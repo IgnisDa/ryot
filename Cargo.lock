@@ -1207,10 +1207,12 @@ name = "common_models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "enum_meta",
  "schematic",
  "sea-orm",
  "serde",
  "serde_json",
+ "strum",
 ]
 
 [[package]]
