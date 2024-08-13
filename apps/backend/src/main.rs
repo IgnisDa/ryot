@@ -58,7 +58,6 @@ use crate::{
     },
 };
 
-mod app_models;
 mod app_utils;
 mod background;
 mod exporter;
@@ -177,6 +176,8 @@ async fn main() -> Result<()> {
 
         // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
+            .parent()
+            .unwrap()
             .parent()
             .unwrap()
             .parent()

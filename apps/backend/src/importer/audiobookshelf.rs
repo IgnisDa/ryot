@@ -4,7 +4,10 @@ use anyhow::anyhow;
 use async_graphql::Result;
 use data_encoding::BASE64;
 use enums::{ImportSource, MediaLot, MediaSource};
-use models::{metadata, CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use models::{
+    audiobookshelf as audiobookshelf_models, metadata, CommitMediaInput, ImportOrExportMediaItem,
+    ImportOrExportMediaItemSeen,
+};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
@@ -13,7 +16,6 @@ use serde_json::json;
 use utils::get_base_http_client;
 
 use crate::{
-    app_models::audiobookshelf_models,
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
     providers::google_books::GoogleBooksService,
 };

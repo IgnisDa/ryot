@@ -2,7 +2,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-pub mod audiobookshelf_models {
+pub mod audiobookshelf {
     use super::*;
 
     #[derive(Debug, Serialize, Deserialize, Clone, Display)]

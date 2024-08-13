@@ -3298,6 +3298,7 @@ dependencies = [
  "fitness_models",
  "importer_models",
  "media_models",
+ "specific_models",
  "user_models",
 ]
 
@@ -5386,6 +5387,16 @@ dependencies = [
  "serde_with 3.9.0",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "specific_models"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "rust_decimal",
+ "serde",
+ "strum",
 ]
 
 [[package]]

@@ -10,4 +10,5 @@ dependent_models = { path = "./dependent" }
 fitness_models = { path = "./fitness" }
 importer_models = { path = "./importer" }
 media_models = { path = "./media" }
+specific_models = { path = "./specific" }
 user_models = { path = "./user" }

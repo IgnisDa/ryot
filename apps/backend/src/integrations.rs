@@ -3,7 +3,9 @@ use std::future::Future;
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
 use enums::{MediaLot, MediaSource};
-use models::{metadata, prelude::Metadata, CommitMediaInput};
+use models::{
+    audiobookshelf as audiobookshelf_models, metadata, prelude::Metadata, CommitMediaInput,
+};
 use radarr_api_rs::{
     apis::{
         configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
@@ -28,10 +30,7 @@ use sonarr_api_rs::{
 use traits::TraceOk;
 use utils::get_base_http_client;
 
-use crate::{
-    app_models::audiobookshelf_models, app_utils::ilike_sql,
-    providers::google_books::GoogleBooksService,
-};
+use crate::{app_utils::ilike_sql, providers::google_books::GoogleBooksService};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IntegrationMediaSeen {
