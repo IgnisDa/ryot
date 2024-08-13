@@ -715,9 +715,9 @@ pub mod media {
         FromJsonQueryResult,
         InputObject,
     )]
-    #[graphql(input_name = "AnimeAiringScheduleSpecifics")]
+    #[graphql(input_name = "AnimeAiringScheduleSpecificsInput")]
     pub struct AnimeAiringScheduleSpecifics {
-        pub episode: i32,
+        pub episode: i64,
         pub airing_at: NaiveDate,
     }
 

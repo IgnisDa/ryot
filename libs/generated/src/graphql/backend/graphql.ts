@@ -37,11 +37,23 @@ export type Scalars = {
   NaiveDate: { input: string; output: string; }
 };
 
+export type AnimeAiringScheduleSpecifics = {
+  airingAt: Scalars['NaiveDate']['output'];
+  episode: Scalars['Int']['output'];
+};
+
+export type AnimeAiringScheduleSpecificsInput = {
+  airingAt: Scalars['NaiveDate']['input'];
+  episode: Scalars['Int']['input'];
+};
+
 export type AnimeSpecifics = {
+  airingSchedule?: Maybe<Array<AnimeAiringScheduleSpecifics>>;
   episodes?: Maybe<Scalars['Int']['output']>;
 };
 
 export type AnimeSpecificsInput = {
+  airingSchedule?: InputMaybe<Array<AnimeAiringScheduleSpecificsInput>>;
   episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 

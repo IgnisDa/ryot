@@ -9,7 +9,6 @@ query MediaDetailsQuery($id: Int!) {
     airingSchedule {
       nodes {
         airingAt
-        timeUntilAiring
         episode
       }
     }
