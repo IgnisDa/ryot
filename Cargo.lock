@@ -3303,6 +3303,7 @@ dependencies = [
  "database_models",
  "dependent_models",
  "fitness_models",
+ "importer_models",
  "media_models",
  "user_models",
 ]
