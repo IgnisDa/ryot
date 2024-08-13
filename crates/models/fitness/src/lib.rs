@@ -514,3 +514,27 @@ pub struct UserWorkoutInput {
     pub repeated_from: Option<String>,
     pub exercises: Vec<UserExerciseInput>,
 }
+
+impl UserWorkoutSetRecord {
+    /// Set the invalid statistics to `None` according to the type of exercise.
+    pub fn remove_invalids(&mut self, exercise_lot: &ExerciseLot) {
+        let mut stats = WorkoutSetStatistic {
+            ..Default::default()
+        };
+        match exercise_lot {
+            ExerciseLot::Duration => stats.duration = self.statistic.duration,
+            ExerciseLot::DistanceAndDuration => {
+                stats.distance = self.statistic.distance;
+                stats.duration = self.statistic.duration;
+            }
+            ExerciseLot::RepsAndWeight => {
+                stats.reps = self.statistic.reps;
+                stats.weight = self.statistic.weight;
+            }
+            ExerciseLot::Reps => {
+                stats.reps = self.statistic.reps;
+            }
+        }
+        self.statistic = stats;
+    }
+}

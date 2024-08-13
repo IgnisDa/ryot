@@ -35,6 +35,8 @@ use crate::{
     background::{ApplicationJob, CoreApplicationJob},
 };
 
+use super::logic::{calculate_and_commit, delete_existing_workout};
+
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
 const JSON_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/dist/exercises.json");
 const IMAGES_PREFIX_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/exercises");
@@ -710,13 +712,13 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let preferences = user_by_id(&self.db, user_id).await?.preferences;
-        let identifier = input
-            .calculate_and_commit(
-                user_id,
-                &self.db,
-                preferences.fitness.exercises.save_history,
-            )
-            .await?;
+        let identifier = calculate_and_commit(
+            input,
+            user_id,
+            &self.db,
+            preferences.fitness.exercises.save_history,
+        )
+        .await?;
         Ok(identifier)
     }
 
@@ -819,7 +821,7 @@ impl ExerciseService {
             .one(&self.db)
             .await?
         {
-            wkt.delete_existing(&self.db, user_id).await?;
+            delete_existing_workout(wkt, &self.db, user_id).await?;
             Ok(true)
         } else {
             Err(Error::new("Workout does not exist for user"))
