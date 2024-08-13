@@ -67,7 +67,6 @@ mod importer;
 mod integrations;
 mod miscellaneous;
 mod notification;
-mod providers;
 mod routes;
 
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");

@@ -21,8 +21,8 @@ static STUDIO_ROLE: &str = "Production Studio";
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/media_search.graphql",
+    schema_path = "src/anilist/schema.json",
+    query_path = "src/anilist/media_search.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
@@ -30,8 +30,8 @@ struct MediaSearchQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/staff_search.graphql",
+    schema_path = "src/anilist/schema.json",
+    query_path = "src/anilist/staff_search.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
@@ -39,8 +39,8 @@ struct StaffSearchQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/studio_search.graphql",
+    schema_path = "src/anilist/schema.json",
+    query_path = "src/anilist/studio_search.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
@@ -48,8 +48,8 @@ struct StudioSearchQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/media_details.graphql",
+    schema_path = "src/anilist/schema.json",
+    query_path = "src/anilist/media_details.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
@@ -57,8 +57,8 @@ struct MediaDetailsQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/staff_details.graphql",
+    schema_path = "src/anilist/schema.json",
+    query_path = "src/anilist/staff_details.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]
@@ -66,8 +66,8 @@ struct StaffQuery;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "src/providers/anilist/schema.json",
-    query_path = "src/providers/anilist/studio_details.graphql",
+    schema_path = "src/anilist/schema.json",
+    query_path = "src/anilist/studio_details.graphql",
     response_derives = "Debug,Clone",
     variables_derives = "Debug"
 )]

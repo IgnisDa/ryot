@@ -19,7 +19,7 @@ cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 config = { path = "../../crates/config" }
-convert_case = "=0.6.0"
+convert_case = { workspace = true }
 const-str = { workspace = true }
 csv = "=1.3.0"
 data-encoding = "=2.6.0"
@@ -28,11 +28,8 @@ enums = { path = "../../crates/enums" }
 enum_meta = { workspace = true }
 flate2 = "=1.0.30"
 futures = "=0.3.30"
-graphql_client = "=0.14.0"
-hashbag = "=0.1.12"
 http = "=1.1.0"
-isolang = { version = "=2.4.0", features = ["list_languages"] }
-itertools = "=0.13.0"
+itertools = { workspace = true }
 lettre = "=0.11.7"
 markdown = "=1.0.0-alpha.18"
 migrations = { path = "../../crates/migrations" }
@@ -40,16 +37,13 @@ mime_guess = "=2.0.5"
 models = { path = "../../crates/models" }
 nanoid = { workspace = true }
 openidconnect = "=3.5.0"
-paginate = "=1.1.11"
+providers = { path = "../../crates/providers" }
 radarr-api-rs = "=3.0.1"
-rand = "=0.9.0-alpha.2"
 regex = "=1.10.5"
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
-rust_iso3166 = "=0.1.13"
 schematic = { workspace = true }
-scraper = "=0.19.1"
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 sea-query = "=0.31.0-rc.9"

@@ -4027,6 +4027,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "providers"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "chrono-tz",
+ "config",
+ "const-str",
+ "convert_case",
+ "enums",
+ "graphql_client",
+ "hashbag",
+ "isolang",
+ "itertools 0.13.0",
+ "models",
+ "paginate",
+ "rand 0.9.0-alpha.2",
+ "reqwest 0.11.23",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "rust_iso3166",
+ "scraper",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
+ "strum",
+ "tracing",
+ "traits",
+ "utils",
+]
+
+[[package]]
 name = "psm"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4690,10 +4724,7 @@ dependencies = [
  "enums",
  "flate2",
  "futures",
- "graphql_client",
- "hashbag",
  "http 1.1.0",
- "isolang",
  "itertools 0.13.0",
  "lettre",
  "logs-wheel",
@@ -4703,16 +4734,13 @@ dependencies = [
  "models",
  "nanoid",
  "openidconnect",
- "paginate",
+ "providers",
  "radarr-api-rs",
- "rand 0.9.0-alpha.2",
  "regex",
  "reqwest 0.11.23",
  "rust_decimal",
  "rust_decimal_macros",
- "rust_iso3166",
  "schematic",
- "scraper",
  "sea-orm",
  "sea-orm-migration",
  "sea-query",

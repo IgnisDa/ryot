@@ -13,6 +13,7 @@ members = [
     "crates/models/media",
     "crates/models/specific",
     "crates/models/user",
+    "crates/providers",
     "crates/services",
     "crates/services/file_storage",
     "crates/services/jwt",
@@ -39,8 +40,10 @@ boilermates = "=0.3.0"
 chrono = "=0.4.38"
 chrono-tz = "=0.9.0"
 const-str = "=0.5.7"
+convert_case = "=0.6.0"
 dotenvy_macro = "=0.15.7"
 enum_meta = "=0.7.0"
+itertools = "=0.13.0"
 nanoid = "=0.4.0"
 rust_decimal = "=1.35.0"
 rust_decimal_macros = "=1.35.0"
