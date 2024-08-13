@@ -45,6 +45,7 @@ mod m20240724_zzz_new_generated_collection_to_entity_columns;
 mod m20240730_changes_for_push_integrations;
 mod m20240805_add_new_section_to_dashboard;
 mod m20240810_remove_useless_columns_for_cte;
+mod m20240814_new_column_from_anime_calendar_events;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -111,6 +112,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240730_changes_for_push_integrations::Migration),
             Box::new(m20240805_add_new_section_to_dashboard::Migration),
             Box::new(m20240810_remove_useless_columns_for_cte::Migration),
+            Box::new(m20240814_new_column_from_anime_calendar_events::Migration),
         ]
     }
 }

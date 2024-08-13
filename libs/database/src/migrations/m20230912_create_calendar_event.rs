@@ -13,6 +13,7 @@ pub enum CalendarEvent {
     MetadataId,
     MetadataShowExtraInformation,
     MetadataPodcastExtraInformation,
+    MetadataAnimeExtraInformation,
 }
 
 pub static UNIQUE_KEY: &str = "calendar_event-date-metadataid-info__uq-idx";
@@ -37,6 +38,7 @@ impl MigrationTrait for Migration {
                             .json_binary(),
                     )
                     .col(ColumnDef::new(CalendarEvent::MetadataId).text())
+                    .col(ColumnDef::new(CalendarEvent::MetadataAnimeExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-calendar_event_to_metadata")
@@ -58,6 +60,7 @@ impl MigrationTrait for Migration {
                     .col(CalendarEvent::MetadataId)
                     .col(CalendarEvent::MetadataShowExtraInformation)
                     .col(CalendarEvent::MetadataPodcastExtraInformation)
+                    .col(CalendarEvent::MetadataAnimeExtraInformation)
                     .nulls_not_distinct()
                     .to_owned(),
             )
