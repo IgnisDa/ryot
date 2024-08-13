@@ -8,6 +8,7 @@ async-graphql = { workspace = true }
 async-trait = { workspace = true }
 boilermates = { workspace = true }
 chrono = { workspace = true }
+application_utils = { path = "../../utils/application" }
 common_models = { path = "../../models/common" }
 enums = { path = "../../enums" }
 file_storage_service = { path = "../../services/file_storage" }

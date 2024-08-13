@@ -91,16 +91,6 @@ pub trait MediaProviderLanguages {
 }
 
 #[async_trait]
-pub trait DatabaseAssetsAsSingleUrl {
-    async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
-}
-
-#[async_trait]
-pub trait DatabaseAssetsAsUrls {
-    async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String>;
-}
-
-#[async_trait]
 pub trait AuthProvider {
     #[allow(dead_code)]
     fn is_mutation(&self) -> bool {
@@ -122,16 +112,6 @@ pub trait AuthProvider {
             .clone()
             .ok_or_else(|| Error::new(BackendError::NoUserId.to_string()))
     }
-}
-
-#[async_trait]
-pub trait GraphqlRepresentation {
-    async fn graphql_representation(
-        self,
-        file_storage_service: &Arc<FileStorageService>,
-    ) -> GraphqlResult<Self>
-    where
-        Self: Sized;
 }
 
 pub trait TraceOk<T, E> {

@@ -1,5 +1,6 @@
 use std::{collections::HashSet, fmt, sync::Arc};
 
+use application_utils::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls};
 use async_graphql::{Enum, InputObject, SimpleObject, Union};
 use async_trait::async_trait;
 use boilermates::boilermates;

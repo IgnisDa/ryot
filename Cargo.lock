@@ -235,6 +235,7 @@ dependencies = [
  "async-trait",
  "axum",
  "config",
+ "file_storage_service",
  "jwt_service",
 ]
 
@@ -2051,6 +2052,7 @@ dependencies = [
 name = "fitness_models"
 version = "0.1.0"
 dependencies = [
+ "application_utils",
  "async-graphql",
  "async-trait",
  "boilermates",
@@ -2058,6 +2060,7 @@ dependencies = [
  "common_models",
  "derive_more 1.0.0-beta.6",
  "enums",
+ "file_storage_service",
  "rust_decimal",
  "rust_decimal_macros",
  "schematic",
@@ -2066,9 +2069,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "services",
  "strum",
- "traits",
 ]
 
 [[package]]
@@ -3162,12 +3163,14 @@ dependencies = [
 name = "media_models"
 version = "0.1.0"
 dependencies = [
+ "application_utils",
  "async-graphql",
  "async-trait",
  "boilermates",
  "chrono",
  "common_models",
  "enums",
+ "file_storage_service",
  "rust_decimal",
  "schematic",
  "sea-orm",
@@ -3175,7 +3178,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "services",
  "strum",
 ]
 
@@ -6211,13 +6213,15 @@ name = "traits"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "application_utils",
  "async-graphql",
  "async-trait",
+ "common_models",
  "database_models",
+ "dependent_models",
+ "file_storage_service",
  "media_models",
  "sea-orm",
- "services",
- "utils",
 ]
 
 [[package]]

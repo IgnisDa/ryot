@@ -9,3 +9,4 @@ async-trait = { workspace = true }
 axum = { workspace = true }
 config = { path = "../../config" }
 jwt_service = { path = "../../services/jwt" }
+file_storage_service = { path = "../../services/file_storage" }

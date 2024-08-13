@@ -16,6 +16,7 @@ derive_more = { version = "=1.0.0-beta.6", features = [
 ], default-features = false }
 enums = { path = "../../enums" }
 file_storage_service = { path = "../../services/file_storage" }
+application_utils = { path = "../../utils/application" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
@@ -25,4 +26,3 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 strum = { workspace = true }
-traits = { path = "../../traits" }

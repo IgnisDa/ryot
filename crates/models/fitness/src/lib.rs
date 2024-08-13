@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use application_utils::GraphqlRepresentation;
 use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
 use async_trait::async_trait;
 use common_models::StoredUrl;

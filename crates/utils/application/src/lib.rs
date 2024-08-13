@@ -7,6 +7,7 @@ use axum::{
     http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
+use file_storage_service::FileStorageService;
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
     jwt_service::verify(token, jwt_secret)
@@ -47,4 +48,24 @@ where
         }
         Ok(ctx)
     }
+}
+
+#[async_trait]
+pub trait GraphqlRepresentation {
+    async fn graphql_representation(
+        self,
+        file_storage_service: &Arc<FileStorageService>,
+    ) -> Result<Self>
+    where
+        Self: Sized;
+}
+
+#[async_trait]
+pub trait DatabaseAssetsAsSingleUrl {
+    async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
+}
+
+#[async_trait]
+pub trait DatabaseAssetsAsUrls {
+    async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String>;
 }
