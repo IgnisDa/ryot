@@ -6,6 +6,13 @@ query MediaDetailsQuery($id: Int!) {
       native
       romaji
     }
+    airingSchedule {
+      nodes {
+        airingAt
+        timeUntilAiring
+        episode
+      }
+    }
     isAdult
     episodes
     chapters
