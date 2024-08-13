@@ -15,39 +15,53 @@ use async_graphql::{
 };
 use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
-use common_models::StoredUrl;
 use enum_meta::Meta;
 use enums::{
     EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
     MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot, UserToMediaReason,
     Visibility,
 };
-use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{
     to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
     Options,
 };
-use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CommitMediaInput, CommitPersonInput,
-    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, ImportOrExportItemRating,
-    ImportOrExportItemReview, ImportOrExportItemReviewComment, ImportOrExportMediaGroupItem,
-    ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
-    IntegrationProviderSpecifics, MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails,
-    MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
-    MovieSpecifics, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics, PostReviewInput,
-    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
-};
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
     AliasedUserToCollection, AliasedUserToEntity,
+};
+use models::{
+    calendar_event, collection, collection_to_entity,
+    functions::{associate_user_with_entity, get_user_to_entity_association},
+    genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
+    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
+    person,
+    prelude::{
+        CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Integration,
+        Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
+        MetadataToPerson, NotificationPlatform, Person, QueuedNotification, Review, Seen, User,
+        UserMeasurement, UserSummary, UserToCollection, UserToEntity, Workout,
+    },
+    queued_notification, review, seen, user, user_measurement, user_summary, user_to_collection,
+    user_to_entity, workout, AnimeSpecifics, AudioBookSpecifics, BackendError, BackgroundJob,
+    BookSpecifics, ChangeCollectionToEntityInput, CollectionExtraInformation, CommitMediaInput,
+    CommitPersonInput, CreateOrUpdateCollectionInput, DefaultCollection, EntityWithLot,
+    GenreListItem, IdAndNamedObject, ImportOrExportItemRating, ImportOrExportItemReview,
+    ImportOrExportItemReviewComment, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+    ImportOrExportMediaItemSeen, ImportOrExportPersonItem, IntegrationProviderSpecifics,
+    MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails, MediaStateChanged,
+    MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
+    MovieSpecifics, NotificationPlatformSpecifics, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
+    PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SearchDetails, SearchInput, SearchResults,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, StoredUrl, StringIdObject,
+    UserGeneralDashboardElement, UserGeneralPreferences, UserPreferences, UserReviewScale,
+    UserSummaryData, UserUnitSystem, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
 };
 use nanoid::nanoid;
 use openidconnect::{
@@ -55,7 +69,6 @@ use openidconnect::{
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
-use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -69,37 +82,19 @@ use sea_query::{
     PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
+use services::FileStorageService;
 use struson::writer::{JsonStreamWriter, JsonWriter};
+use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
+use utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
 use uuid::Uuid;
 
 use crate::{
-    app_models::{
-        fitness::UserUnitSystem, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
-        CollectionExtraInformation, DefaultCollection, IdAndNamedObject, MediaStateChanged,
-        SearchDetails, SearchInput, SearchResults, StringIdObject, UserSummaryData,
-    },
     app_utils::{
-        add_entity_to_collection, apply_collection_filter, associate_user_with_entity,
-        entity_in_collections, get_current_date, get_user_to_entity_association, ilike_sql,
-        user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+        add_entity_to_collection, apply_collection_filter, entity_in_collections, get_current_date,
+        ilike_sql, user_by_id, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
     background::{ApplicationJob, CoreApplicationJob},
-    entities::{
-        calendar_event, collection, collection_to_entity, genre, import_report, integration,
-        metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
-        metadata_to_metadata_group, metadata_to_person, notification_platform, person,
-        prelude::{
-            CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
-            Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-            MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
-            QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
-            UserToEntity, Workout,
-        },
-        queued_notification, review, seen, user, user_measurement, user_summary,
-        user_to_collection, user_to_entity, workout,
-    },
     integrations::{IntegrationMediaSeen, IntegrationService},
-    jwt,
     providers::{
         anilist::{
             AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService,
@@ -114,14 +109,6 @@ use crate::{
         openlibrary::OpenlibraryService,
         tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
         vndb::VndbService,
-    },
-    traits::{
-        AuthProvider, DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls, MediaProvider,
-        MediaProviderLanguages, TraceOk,
-    },
-    users::{
-        NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
-        UserPreferences, UserReviewScale,
     },
 };
 
