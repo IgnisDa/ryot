@@ -1,5 +1,6 @@
 use async_graphql::{OutputType, SimpleObject};
 use common_models::SearchDetails;
+use database_models::{user_measurement, workout};
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
