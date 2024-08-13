@@ -2,27 +2,22 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use enums::{MediaLot, MediaSource};
+use models::{
+    AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataSearchItem,
+    NamedObject, PartialMetadataWithoutId, SearchDetails, SearchResults,
+};
 use rand::{seq::SliceRandom, thread_rng};
 use reqwest::{
     header::{HeaderName, HeaderValue},
     Client,
 };
-use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use traits::{MediaProvider, MediaProviderLanguages};
+use utils::{convert_date_to_year, convert_string_to_date};
 
-use crate::{
-    app_models::{
-        media::{
-            AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
-            MetadataSearchItem, PartialMetadataWithoutId,
-        },
-        NamedObject, SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static URL: &str = "https://api.myanimelist.net/v2/";
 

@@ -3,9 +3,15 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::StoredUrl;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    metadata_group::MetadataGroupWithoutId, IdObject, MediaDetails, MetadataGroupSearchItem,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
+    MetadataVideoSource, NamedObject, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics, SearchDetails, SearchResults, StoredUrl,
+    VideoGameSpecifics,
+};
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
     Client,
@@ -16,20 +22,9 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
+use traits::{MediaProvider, MediaProviderLanguages};
 
-use crate::{
-    entities::metadata_group::MetadataGroupWithoutId,
-    app_models::{
-        media::{
-            MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
-            MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-            PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
-        },
-        IdObject, NamedObject, SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::{get_base_http_client, TEMP_DIR},
-};
+use crate::app_utils::{get_base_http_client, TEMP_DIR};
 
 static URL: &str = "https://api.igdb.com/v4/";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";

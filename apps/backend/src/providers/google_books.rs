@@ -3,25 +3,20 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+    MetadataSearchItem, SearchDetails, SearchResults,
+};
 use reqwest::{
     header::{HeaderName, HeaderValue},
     Client,
 };
-use rs_utils::convert_date_to_year;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use traits::{MediaProvider, MediaProviderLanguages};
+use utils::convert_date_to_year;
 
-use crate::{
-    app_models::{
-        media::{
-            BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataSearchItem,
-        },
-        SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
 

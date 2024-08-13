@@ -3,27 +3,22 @@ use async_trait::async_trait;
 use convert_case::{Case, Casing};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    metadata_group::MetadataGroupWithoutId, AudioBookSpecifics, MediaDetails, MetadataFreeCreator,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, NamedObject,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    SearchDetails, SearchResults,
+};
 use paginate::Pages;
 use reqwest::Client;
-use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
+use traits::{MediaProvider, MediaProviderLanguages};
+use utils::{convert_date_to_year, convert_string_to_date};
 
-use crate::{
-    entities::metadata_group::MetadataGroupWithoutId,
-    app_models::{
-        media::{
-            AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-            MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
-            PeopleSearchItem, PersonSourceSpecifics,
-        },
-        NamedObject, SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
 static AUDNEX_URL: &str = "https://api.audnex.us";

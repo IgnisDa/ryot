@@ -5,28 +5,23 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
+    PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics, SearchDetails, SearchResults,
+};
 use reqwest::{
     header::{HeaderName, HeaderValue},
     Client,
 };
-use rs_utils::convert_naive_to_utc;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
+use traits::{MediaProvider, MediaProviderLanguages};
+use utils::convert_naive_to_utc;
 
-use crate::{
-    app_models::{
-        media::{
-            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-            PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
-        },
-        SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::{get_base_http_client, TEMP_DIR},
-};
+use crate::app_utils::{get_base_http_client, TEMP_DIR};
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
 static FILE: &str = "listennotes.json";

@@ -1,27 +1,21 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::StoredUrl;
 use config::AnilistPreferredLanguage;
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
+use models::{
+    AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, SearchDetails,
+    SearchResults, StoredUrl,
+};
 use reqwest::Client;
 use rust_decimal::Decimal;
+use traits::{MediaProvider, MediaProviderLanguages};
 
-use crate::{
-    app_models::{
-        media::{
-            AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
-            MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
-            PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics,
-        },
-        SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static URL: &str = "https://graphql.anilist.co";
 static STUDIO_ROLE: &str = "Production Studio";

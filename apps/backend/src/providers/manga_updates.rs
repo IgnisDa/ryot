@@ -3,22 +3,17 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    SearchDetails, SearchResults,
+};
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use traits::{MediaProvider, MediaProviderLanguages};
 
-use crate::{
-    app_models::{
-        media::{
-            MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
-            MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics,
-        },
-        SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static URL: &str = "https://api.mangaupdates.com/v1/";
 

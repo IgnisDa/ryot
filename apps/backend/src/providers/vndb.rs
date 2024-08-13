@@ -2,22 +2,18 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, NamedObject,
+    PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics, SearchDetails, SearchResults,
+    VisualNovelSpecifics,
+};
 use reqwest::Client;
-use rs_utils::{convert_date_to_year, convert_string_to_date};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use traits::{MediaProvider, MediaProviderLanguages};
+use utils::{convert_date_to_year, convert_string_to_date};
 
-use crate::{
-    app_models::{
-        media::{
-            MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
-            PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics, VisualNovelSpecifics,
-        },
-        NamedObject, SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static URL: &str = "https://api.vndb.org/kana/";
 const METADATA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";

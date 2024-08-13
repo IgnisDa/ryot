@@ -4,23 +4,18 @@ use chrono::{Datelike, NaiveDate};
 use convert_case::{Case, Casing};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    SearchDetails, SearchResults,
+};
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use traits::{MediaProvider, MediaProviderLanguages};
 
-use crate::{
-    app_models::{
-        media::{
-            BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
-            MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-            PersonSourceSpecifics,
-        },
-        SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";

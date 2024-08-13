@@ -3,21 +3,16 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
+    NamedObject, PodcastEpisode, PodcastSpecifics, SearchDetails, SearchResults,
+};
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
+use traits::{MediaProvider, MediaProviderLanguages};
 
-use crate::{
-    app_models::{
-        media::{
-            MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-            PodcastEpisode, PodcastSpecifics,
-        },
-        NamedObject, SearchDetails, SearchResults,
-    },
-    traits::{MediaProvider, MediaProviderLanguages},
-    app_utils::get_base_http_client,
-};
+use crate::app_utils::get_base_http_client;
 
 static URL: &str = "https://itunes.apple.com/";
 
