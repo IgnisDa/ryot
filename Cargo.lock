@@ -1564,11 +1564,9 @@ dependencies = [
  "rust_decimal_macros",
  "schematic",
  "sea-orm",
- "sea-orm-migration",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "strum",
  "user_models",
  "uuid",
 ]
@@ -2069,8 +2067,6 @@ dependencies = [
  "application_utils",
  "async-graphql",
  "async-trait",
- "boilermates",
- "chrono",
  "common_models",
  "derive_more 1.0.0-beta.6",
  "enums",
@@ -2079,11 +2075,9 @@ dependencies = [
  "rust_decimal_macros",
  "schematic",
  "sea-orm",
- "sea-orm-migration",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "strum",
 ]
 
 [[package]]
@@ -3188,9 +3182,7 @@ dependencies = [
 name = "media_models"
 version = "0.1.0"
 dependencies = [
- "application_utils",
  "async-graphql",
- "async-trait",
  "boilermates",
  "chrono",
  "common_models",
@@ -3199,11 +3191,9 @@ dependencies = [
  "rust_decimal",
  "schematic",
  "sea-orm",
- "sea-orm-migration",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "strum",
 ]
 
 [[package]]
@@ -3239,16 +3229,13 @@ dependencies = [
 name = "migrations"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
  "enums",
  "indoc",
  "nanoid",
- "schematic",
  "sea-orm",
  "sea-orm-migration",
  "serde",
  "serde_json",
- "strum",
  "tracing",
 ]
 
@@ -4681,7 +4668,6 @@ dependencies = [
  "async-trait",
  "aws-sdk-s3",
  "axum",
- "boilermates",
  "cached",
  "chrono",
  "chrono-tz",

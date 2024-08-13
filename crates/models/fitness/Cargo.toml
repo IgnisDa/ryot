@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+application_utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
-boilermates = { workspace = true }
-chrono = { workspace = true }
 common_models = { path = "../../models/common" }
 derive_more = { version = "=1.0.0-beta.6", features = [
   "add",
@@ -16,13 +15,13 @@ derive_more = { version = "=1.0.0-beta.6", features = [
 ], default-features = false }
 enums = { path = "../../enums" }
 file_storage_service = { path = "../../services/file_storage" }
-application_utils = { path = "../../utils/application" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }
-sea-orm-migration = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-strum = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["serde_json"]

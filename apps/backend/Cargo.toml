@@ -15,7 +15,6 @@ async-graphql-axum = "=7.0.7"
 async-trait = { workspace = true }
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
-boilermates = { workspace = true }
 cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = "=0.9.0"
@@ -29,8 +28,6 @@ dotenvy = "=0.15.7"
 dotenvy_macro = { workspace = true }
 enums = { path = "../../crates/enums" }
 enum_meta = { workspace = true }
-services = { path = "../../crates/services" }
-models = { path = "../../crates/models" }
 flate2 = "=1.0.30"
 futures = "=0.3.30"
 graphql_client = "=0.14.0"
@@ -42,6 +39,7 @@ lettre = "=0.11.7"
 markdown = "=1.0.0-alpha.18"
 migrations = { path = "../../crates/migrations" }
 mime_guess = "=2.0.5"
+models = { path = "../../crates/models" }
 nanoid = { workspace = true }
 openidconnect = "=3.5.0"
 paginate = "=1.1.11"
@@ -53,7 +51,6 @@ reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_ur
     "json",
     "stream",
 ] }
-utils = { path = "../../crates/utils" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_iso3166 = "=0.1.13"
@@ -66,6 +63,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 serde-xml-rs = "=0.6.0"
+services = { path = "../../crates/services" }
 slug = "=0.1.5"
 sonarr-api-rs = "=3.0.0"
 strum = { workspace = true }
@@ -78,4 +76,5 @@ tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
 traits = { path = "../../crates/traits" }
 logs-wheel = "=0.3.1"
+utils = { path = "../../crates/utils" }
 uuid = { workspace = true }

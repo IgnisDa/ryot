@@ -4,17 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-async-graphql = { workspace = true }
 enums = { path = "../enums" }
 indoc = "=2.0.5"
 nanoid = { workspace = true }
-schematic = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-strum = { workspace = true }
 tracing = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["serde_json", "tracing"]
+ignored = ["tracing"]
