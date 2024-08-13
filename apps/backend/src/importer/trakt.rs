@@ -2,6 +2,10 @@ use async_graphql::Result;
 use convert_case::{Case, Casing};
 use enums::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{
+    CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
+    ImportOrExportMediaItemSeen,
+};
 use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -9,15 +13,11 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    app_utils::{get_base_http_client, JSON},
     importer::{
         DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
-    app_models::media::{
-        CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
-        ImportOrExportMediaItemSeen,
-    },
-    app_utils::{get_base_http_client, JSON},
 };
 
 const API_URL: &str = "https://api.trakt.tv";

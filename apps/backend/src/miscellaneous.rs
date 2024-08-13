@@ -85,7 +85,7 @@ use serde::{Deserialize, Serialize};
 use services::FileStorageService;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
-use utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
+use utils::{get_first_and_last_day_of_month, user_id_from_token, IsFeatureEnabled};
 use uuid::Uuid;
 
 use crate::{

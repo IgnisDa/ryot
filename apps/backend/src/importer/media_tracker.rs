@@ -1,5 +1,9 @@
 use async_graphql::Result;
 use enums::{ImportSource, MediaLot, MediaSource};
+use models::{
+    CreateOrUpdateCollectionInput, IdObject, ImportOrExportItemRating, ImportOrExportItemReview,
+    ImportOrExportMediaItemSeen,
+};
 use reqwest::{
     header::{HeaderMap, HeaderValue, USER_AGENT},
     ClientBuilder,
@@ -11,19 +15,12 @@ use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 
 use crate::{
+    app_utils::USER_AGENT_STR,
     importer::{
         DeployUrlAndKeyImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
-    app_models::{
-        media::{
-            CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
-            ImportOrExportMediaItemSeen,
-        },
-        IdObject,
-    },
     providers::openlibrary::get_key,
-    app_utils::USER_AGENT_STR,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

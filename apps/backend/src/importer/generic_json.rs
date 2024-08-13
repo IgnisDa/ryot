@@ -3,11 +3,11 @@ use std::{fs, sync::Arc};
 use async_graphql::Result;
 use enums::ImportSource;
 use itertools::Itertools;
+use models::CompleteExport;
 
 use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
-    app_models::CompleteExport,
 };
 
 pub async fn import(

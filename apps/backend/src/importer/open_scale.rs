@@ -4,15 +4,12 @@ use async_graphql::Result;
 use chrono::NaiveDateTime;
 use csv::ReaderBuilder;
 use itertools::Itertools;
+use models::{user_measurement, UserMeasurementStats};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::{
-    entities::user_measurement,
-    importer::{
-        utils, DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
-    },
-    app_models::fitness::UserMeasurementStats,
+use crate::importer::{
+    utils, DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
 };
 
 #[derive(Debug, Deserialize)]

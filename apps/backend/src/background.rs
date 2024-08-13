@@ -4,6 +4,9 @@ use apalis::prelude::*;
 use chrono::DateTime;
 use chrono_tz::Tz;
 use enums::{MediaLot, MediaSource};
+use models::{
+    CommitMediaInput, ExportItem, GithubExercise, ProgressUpdateInput, ReviewPostedEvent,
+};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -13,11 +16,6 @@ use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::MiscellaneousService,
-    app_models::{
-        fitness::Exercise,
-        media::{CommitMediaInput, ProgressUpdateInput, ReviewPostedEvent},
-        ExportItem,
-    },
 };
 
 // Cron Jobs
@@ -108,7 +106,7 @@ pub enum ApplicationJob {
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
     ReEvaluateUserWorkouts(String),
     UpdateMetadata(String, bool),
-    UpdateGithubExerciseJob(Exercise),
+    UpdateGithubExerciseJob(GithubExercise),
     UpdatePerson(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),

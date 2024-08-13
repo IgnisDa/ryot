@@ -4,14 +4,12 @@ use convert_case::{Case, Casing};
 use csv::Reader;
 use enums::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
+use models::{ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app_models::media::{
-        ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
-    },
     importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult},
     providers::google_books::GoogleBooksService,
 };

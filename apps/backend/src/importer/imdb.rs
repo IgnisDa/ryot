@@ -3,10 +3,10 @@ use csv::Reader;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use serde::Deserialize;
+use models::{ImportOrExportMediaItem, DefaultCollection};
 
 use crate::{
     importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
-    app_models::{media::ImportOrExportMediaItem, DefaultCollection},
     providers::tmdb::NonMediaTmdbService,
 };
 

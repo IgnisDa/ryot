@@ -8,12 +8,12 @@ use reqwest::{
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 
 use crate::{
     importer::{
         DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
     },
-    app_models::media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
     app_utils::{JSON, USER_AGENT_STR},
 };
 

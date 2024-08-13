@@ -4,17 +4,15 @@ use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
 use csv::ReaderBuilder;
 use itertools::Itertools;
+use models::{
+    SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
+};
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    importer::{utils, DeployStrongAppImportInput, ImportResult},
-    app_models::fitness::{
-        SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
-    },
-};
+use crate::importer::{utils, DeployStrongAppImportInput, ImportResult};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
