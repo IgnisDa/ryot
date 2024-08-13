@@ -1,8 +1,6 @@
 use std::{collections::HashSet, fmt, sync::Arc};
 
-use application_utils::{DatabaseAssetsAsSingleUrl, DatabaseAssetsAsUrls};
 use async_graphql::{Enum, InputObject, SimpleObject, Union};
-use async_trait::async_trait;
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use common_models::{CollectionExtraInformation, IdAndNamedObject, StoredUrl, StringIdObject};
@@ -678,34 +676,32 @@ pub struct MetadataVideo {
     pub source: MetadataVideoSource,
 }
 
-pub struct OptionalMetadataImages(Option<Vec<MetadataImage>>);
-
-#[async_trait]
-impl DatabaseAssetsAsSingleUrl for OptionalMetadataImages {
-    async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String> {
-        if let Some(images) = &self.0 {
-            if let Some(i) = images.first().cloned() {
-                Some(file_storage_service.get_stored_asset(i.url).await)
-            } else {
-                None
-            }
+pub async fn first_metadata_image_as_url(
+    value: &Option<Vec<MetadataImage>>,
+    file_storage_service: &Arc<FileStorageService>,
+) -> Option<String> {
+    if let Some(images) = value {
+        if let Some(i) = images.first().cloned() {
+            Some(file_storage_service.get_stored_asset(i.url).await)
         } else {
             None
         }
+    } else {
+        None
     }
 }
 
-#[async_trait]
-impl DatabaseAssetsAsUrls for OptionalMetadataImages {
-    async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
-        let mut images = vec![];
-        if let Some(imgs) = &self.0 {
-            for i in imgs.clone() {
-                images.push(file_storage_service.get_stored_asset(i.url).await);
-            }
+pub async fn metadata_images_as_urls(
+    value: &Option<Vec<MetadataImage>>,
+    file_storage_service: &Arc<FileStorageService>,
+) -> Vec<String> {
+    let mut images = vec![];
+    if let Some(imgs) = value {
+        for i in imgs.clone() {
+            images.push(file_storage_service.get_stored_asset(i.url).await);
         }
-        images
     }
+    images
 }
 
 /// Comments left in replies to posted reviews.

@@ -59,13 +59,3 @@ pub trait GraphqlRepresentation {
     where
         Self: Sized;
 }
-
-#[async_trait]
-pub trait DatabaseAssetsAsSingleUrl {
-    async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String>;
-}
-
-#[async_trait]
-pub trait DatabaseAssetsAsUrls {
-    async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String>;
-}
