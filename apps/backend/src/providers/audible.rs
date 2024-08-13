@@ -13,7 +13,7 @@ use strum::{Display, EnumIter, IntoEnumIterator};
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
-    models::{
+    app_models::{
         media::{
             AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
             MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
@@ -22,7 +22,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    app_utils::get_base_http_client,
 };
 
 static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];

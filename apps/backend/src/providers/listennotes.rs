@@ -17,7 +17,7 @@ use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 
 use crate::{
-    models::{
+    app_models::{
         media::{
             MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
             PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
@@ -25,7 +25,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, TEMP_DIR},
+    app_utils::{get_base_http_client, TEMP_DIR},
 };
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";

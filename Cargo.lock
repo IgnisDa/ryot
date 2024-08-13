@@ -4737,6 +4737,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "traits",
  "utils",
 ]
 
@@ -6244,9 +6245,9 @@ dependencies = [
  "common_models",
  "database_models",
  "dependent_models",
- "file_storage_service",
  "media_models",
  "sea-orm",
+ "tracing",
 ]
 
 [[package]]

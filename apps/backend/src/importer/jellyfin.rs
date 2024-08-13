@@ -13,8 +13,8 @@ use crate::{
     importer::{
         DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
     },
-    models::media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
-    utils::{JSON, USER_AGENT_STR},
+    app_models::media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
+    app_utils::{JSON, USER_AGENT_STR},
 };
 
 static EMBY_HEADER_VALUE: &str =

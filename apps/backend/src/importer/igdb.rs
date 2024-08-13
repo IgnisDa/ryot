@@ -5,7 +5,7 @@ use itertools::Itertools;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use crate::models::{
+use crate::app_models::{
     media::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
     DefaultCollection,
 };

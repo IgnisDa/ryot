@@ -76,4 +76,5 @@ tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
+traits = { path = "../../crates/traits" }
 logs-wheel = "=0.3.1"

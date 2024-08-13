@@ -5,7 +5,7 @@ use crate::{
     fitness::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::{MiscellaneousMutation, MiscellaneousQuery},
-    utils::AppServices,
+    app_utils::AppServices,
 };
 
 #[derive(MergedObject, Default)]

@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::{
     importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
-    models::{media::ImportOrExportMediaItem, DefaultCollection},
+    app_models::{media::ImportOrExportMediaItem, DefaultCollection},
     providers::tmdb::NonMediaTmdbService,
 };
 

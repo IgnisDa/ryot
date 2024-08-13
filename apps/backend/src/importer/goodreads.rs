@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::{
     importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
-    models::media::{
+    app_models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItem,
         ImportOrExportMediaItemSeen,
     },

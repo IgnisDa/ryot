@@ -7,7 +7,7 @@ use itertools::Itertools;
 use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployJsonImportInput, ImportResult},
-    models::CompleteExport,
+    app_models::CompleteExport,
 };
 
 pub async fn import(

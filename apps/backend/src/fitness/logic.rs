@@ -1,26 +1,20 @@
 use anyhow::{bail, Result};
 use enums::ExerciseLot;
+use models::{
+    prelude::{Exercise, UserToEntity, Workout},
+    user_to_entity, workout, ExerciseBestSetRecord, ProcessedExercise,
+    UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
+    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
+    WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
+    WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
+};
 use nanoid::nanoid;
-use rs_utils::LengthVec;
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
     QueryFilter,
 };
-
-use crate::{
-    entities::{
-        prelude::{Exercise, UserToEntity, Workout},
-        user_to_entity, workout,
-    },
-    models::fitness::{
-        ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
-        UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
-        UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest,
-        WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
-        WorkoutSummaryExercise,
-    },
-};
+use utils::LengthVec;
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
     records

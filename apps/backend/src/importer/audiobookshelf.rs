@@ -13,12 +13,12 @@ use serde_json::json;
 use crate::{
     entities::metadata,
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
-    models::{
+    app_models::{
         audiobookshelf_models,
         media::{CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen},
     },
     providers::google_books::GoogleBooksService,
-    utils::get_base_http_client,
+    app_utils::get_base_http_client,
 };
 
 use super::DeployUrlAndKeyImportInput;

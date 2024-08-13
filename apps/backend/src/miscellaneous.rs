@@ -73,6 +73,16 @@ use struson::writer::{JsonStreamWriter, JsonWriter};
 use uuid::Uuid;
 
 use crate::{
+    app_models::{
+        fitness::UserUnitSystem, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
+        CollectionExtraInformation, DefaultCollection, IdAndNamedObject, MediaStateChanged,
+        SearchDetails, SearchInput, SearchResults, StringIdObject, UserSummaryData,
+    },
+    app_utils::{
+        add_entity_to_collection, apply_collection_filter, associate_user_with_entity,
+        entity_in_collections, get_current_date, get_user_to_entity_association, ilike_sql,
+        user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+    },
     background::{ApplicationJob, CoreApplicationJob},
     entities::{
         calendar_event, collection, collection_to_entity, genre, import_report, integration,
@@ -90,11 +100,6 @@ use crate::{
     },
     integrations::{IntegrationMediaSeen, IntegrationService},
     jwt,
-    models::{
-        fitness::UserUnitSystem, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
-        CollectionExtraInformation, DefaultCollection, IdAndNamedObject, MediaStateChanged,
-        SearchDetails, SearchInput, SearchResults, StringIdObject, UserSummaryData,
-    },
     providers::{
         anilist::{
             AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService,
@@ -117,11 +122,6 @@ use crate::{
     users::{
         NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
         UserPreferences, UserReviewScale,
-    },
-    utils::{
-        add_entity_to_collection, apply_collection_filter, associate_user_with_entity,
-        entity_in_collections, get_current_date, get_user_to_entity_association, ilike_sql,
-        user_by_id, user_id_from_token, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
     },
 };
 

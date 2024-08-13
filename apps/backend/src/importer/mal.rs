@@ -15,7 +15,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     importer::{DeployMalImportInput, ImportResult},
-    models::media::{
+    app_models::media::{
         ImportOrExportItemRating, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
     },
 };

@@ -13,11 +13,11 @@ use crate::{
         DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
-    models::media::{
+    app_models::media::{
         CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
         ImportOrExportMediaItemSeen,
     },
-    utils::{get_base_http_client, JSON},
+    app_utils::{get_base_http_client, JSON},
 };
 
 const API_URL: &str = "https://api.trakt.tv";

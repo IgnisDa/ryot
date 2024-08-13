@@ -19,7 +19,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
-    models::{
+    app_models::{
         media::{
             MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
             MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
@@ -28,7 +28,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, TEMP_DIR},
+    app_utils::{get_base_http_client, TEMP_DIR},
 };
 
 static URL: &str = "https://api.igdb.com/v4/";

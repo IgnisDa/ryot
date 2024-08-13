@@ -1,16 +1,15 @@
-use std::{fmt::Debug, sync::Arc};
+use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
-use axum::{
-    async_trait,
-    extract::FromRequestParts,
-    http::{header::AUTHORIZATION, request::Parts, StatusCode},
-    Extension, RequestPartsExt,
-};
 use chrono::{NaiveDate, Utc};
-use file_storage_service::FileStorageService;
 use itertools::Itertools;
+use models::{
+    collection, collection_to_entity,
+    functions::associate_user_with_entity,
+    prelude::{Collection, CollectionToEntity, User, UserToCollection},
+    user, user_to_collection, ChangeCollectionToEntityInput,
+};
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
@@ -20,26 +19,19 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
     ClientBuilder,
 };
-use rs_utils::PROJECT_NAME;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    QueryFilter, QuerySelect, QueryTrait, Select,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QuerySelect, QueryTrait, Select,
 };
+use services::FileStorageService;
+use utils::PROJECT_NAME;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
-    entities::{
-        collection, collection_to_entity,
-        prelude::{Collection, CollectionToEntity, User, UserToCollection, UserToEntity},
-        user, user_to_collection, user_to_entity,
-    },
     exporter::ExporterService,
     fitness::resolver::ExerciseService,
     importer::ImporterService,
-    jwt,
     miscellaneous::MiscellaneousService,
-    models::ChangeCollectionToEntityInput,
-    traits::TraceOk,
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -327,13 +319,4 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<use
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
-}
-
-impl<T, E: Debug> TraceOk<T, E> for Result<T, E> {
-    fn trace_ok(self) -> Option<T> {
-        if let Err(err) = &self {
-            tracing::debug!("Error: {:?}", err);
-        };
-        self.ok()
-    }
 }

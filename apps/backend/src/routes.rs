@@ -11,12 +11,9 @@ use axum::{
 };
 use nanoid::nanoid;
 use serde_json::json;
+use utils::AuthContext;
 
-use crate::{
-    graphql::GraphqlSchema,
-    miscellaneous::MiscellaneousService,
-    utils::{AuthContext, TEMP_DIR},
-};
+use crate::{app_utils::TEMP_DIR, graphql::GraphqlSchema, miscellaneous::MiscellaneousService};
 
 pub async fn graphql_handler(
     schema: Extension<GraphqlSchema>,

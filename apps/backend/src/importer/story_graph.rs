@@ -9,10 +9,10 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult},
-    models::media::{
+    app_models::media::{
         ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItemSeen,
     },
+    importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult},
     providers::google_books::GoogleBooksService,
 };
 

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     importer::{utils, DeployStrongAppImportInput, ImportResult},
-    models::fitness::{
+    app_models::fitness::{
         SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
     },
 };

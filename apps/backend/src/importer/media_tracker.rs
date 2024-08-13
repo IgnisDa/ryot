@@ -15,7 +15,7 @@ use crate::{
         DeployUrlAndKeyImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
     },
-    models::{
+    app_models::{
         media::{
             CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
             ImportOrExportMediaItemSeen,
@@ -23,7 +23,7 @@ use crate::{
         IdObject,
     },
     providers::openlibrary::get_key,
-    utils::USER_AGENT_STR,
+    app_utils::USER_AGENT_STR,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

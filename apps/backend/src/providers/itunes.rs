@@ -8,7 +8,7 @@ use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    models::{
+    app_models::{
         media::{
             MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
             PodcastEpisode, PodcastSpecifics,
@@ -16,7 +16,7 @@ use crate::{
         NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    app_utils::get_base_http_client,
 };
 
 static URL: &str = "https://itunes.apple.com/";

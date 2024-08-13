@@ -10,11 +10,12 @@ use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilt
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    app_utils::user_by_id,
     background::ApplicationJob,
     entities::{import_report, prelude::ImportReport, user_measurement},
     fitness::resolver::ExerciseService,
     miscellaneous::MiscellaneousService,
-    models::{
+    app_models::{
         fitness::UserWorkoutInput,
         importer::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse},
         media::{
@@ -26,7 +27,6 @@ use crate::{
     },
     traits::{AuthProvider, TraceOk},
     users::{UserPreferences, UserReviewScale},
-    utils::user_by_id,
 };
 
 mod audiobookshelf;

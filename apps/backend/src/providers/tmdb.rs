@@ -25,7 +25,7 @@ use serde_json::json;
 
 use crate::{
     entities::metadata_group::MetadataGroupWithoutId,
-    models::{
+    app_models::{
         media::{
             ExternalIdentifiers, MediaDetails, MetadataGroupSearchItem, MetadataImage,
             MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
@@ -36,7 +36,7 @@ use crate::{
         IdObject, NamedObject, SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::{get_base_http_client, get_current_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR},
+    app_utils::{get_base_http_client, get_current_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR},
 };
 
 static URL: &str = "https://api.themoviedb.org/3/";

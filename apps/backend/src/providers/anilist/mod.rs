@@ -10,7 +10,7 @@ use reqwest::Client;
 use rust_decimal::Decimal;
 
 use crate::{
-    models::{
+    app_models::{
         media::{
             AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails,
             MetadataPerson, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
@@ -20,7 +20,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    app_utils::get_base_http_client,
 };
 
 static URL: &str = "https://graphql.anilist.co";

@@ -12,7 +12,7 @@ use crate::{
     importer::{
         utils, DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
     },
-    models::fitness::UserMeasurementStats,
+    app_models::fitness::UserMeasurementStats,
 };
 
 #[derive(Debug, Deserialize)]

@@ -3,6 +3,7 @@ use std::future::Future;
 use anyhow::{anyhow, bail, Result};
 use async_graphql::Result as GqlResult;
 use enums::{MediaLot, MediaSource};
+use models::{metadata, prelude::Metadata, CommitMediaInput};
 use radarr_api_rs::{
     apis::{
         configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
@@ -24,13 +25,12 @@ use sonarr_api_rs::{
     },
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
+use traits::TraceOk;
 
 use crate::{
-    entities::{metadata, prelude::Metadata},
-    models::{audiobookshelf_models, media::CommitMediaInput},
+    app_models::audiobookshelf_models,
+    app_utils::{get_base_http_client, ilike_sql},
     providers::google_books::GoogleBooksService,
-    traits::TraceOk,
-    utils::{get_base_http_client, ilike_sql},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

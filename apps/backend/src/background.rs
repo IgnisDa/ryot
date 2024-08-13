@@ -13,7 +13,7 @@ use crate::{
     fitness::resolver::ExerciseService,
     importer::{DeployImportJobInput, ImporterService},
     miscellaneous::MiscellaneousService,
-    models::{
+    app_models::{
         fitness::Exercise,
         media::{CommitMediaInput, ProgressUpdateInput, ReviewPostedEvent},
         ExportItem,

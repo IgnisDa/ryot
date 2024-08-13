@@ -28,10 +28,8 @@ use chrono::{TimeZone, Utc};
 use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
-use rs_utils::PROJECT_NAME;
-use sea_orm::{
-    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
-};
+use models::{prelude::Exercise, CompleteExport};
+use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use tokio::{
     join,
@@ -44,22 +42,22 @@ use tower_http::{
     trace::TraceLayer as TowerTraceLayer,
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::{COMPILATION_TIMESTAMP, TEMP_DIR};
+use utils::PROJECT_NAME;
 
 use crate::{
+    app_utils::{create_app_services, BASE_DIR, COMPILATION_TIMESTAMP, TEMP_DIR, VERSION},
     background::{
         background_jobs, perform_application_job, perform_core_application_job,
         sync_integrations_data,
     },
-    entities::prelude::Exercise,
     graphql::get_schema,
-    models::CompleteExport,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
-    utils::{create_app_services, BASE_DIR, VERSION},
 };
 
+mod app_models;
+mod app_utils;
 mod background;
 mod exporter;
 mod fitness;
@@ -67,11 +65,9 @@ mod graphql;
 mod importer;
 mod integrations;
 mod miscellaneous;
-mod models;
 mod notification;
 mod providers;
 mod routes;
-mod utils;
 
 #[tokio::main]
 async fn main() -> Result<()> {

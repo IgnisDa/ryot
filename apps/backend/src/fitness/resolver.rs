@@ -2,19 +2,21 @@ use std::{fs::File, sync::Arc};
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
-use common_models::StoredUrl;
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
 };
-use file_storage_service::FileStorageService;
-use fitness_models::{
-    Exercise as GithubExercise, ExerciseAttributes, ExerciseCategory, ExerciseListItem,
-    GithubExerciseAttributes, UserExerciseInput, UserToExerciseHistoryExtraInformation,
-    UserWorkoutInput, UserWorkoutSetRecord,
-};
 use itertools::Itertools;
 use migrations::AliasedExercise;
+use models::{
+    collection, collection_to_entity, exercise,
+    prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
+    user_measurement, user_to_entity, workout, ChangeCollectionToEntityInput, DefaultCollection,
+    ExerciseAttributes, ExerciseCategory, ExerciseListItem, GithubExercise,
+    GithubExerciseAttributes, SearchDetails, SearchInput, SearchResults, StoredUrl,
+    UserExerciseInput, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+    UserWorkoutSetRecord,
+};
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
     EntityTrait, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
@@ -22,21 +24,15 @@ use sea_orm::{
 };
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType};
 use serde::{Deserialize, Serialize};
+use services::FileStorageService;
 use slug::slugify;
 use struson::writer::{JsonStreamWriter, JsonWriter};
+use traits::AuthProvider;
+use utils::GraphqlRepresentation;
 
 use crate::{
+    app_utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},
     background::{ApplicationJob, CoreApplicationJob},
-    entities::{
-        collection, collection_to_entity, exercise,
-        prelude::{CollectionToEntity, Exercise, UserMeasurement, UserToEntity, Workout},
-        user_measurement, user_to_entity, workout,
-    },
-    models::{
-        ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput, SearchResults,
-    },
-    traits::{AuthProvider, GraphqlRepresentation},
-    utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},
 };
 
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";

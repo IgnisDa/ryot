@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    models::{
+    app_models::{
         media::{
             MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
             MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
@@ -17,7 +17,7 @@ use crate::{
         SearchDetails, SearchResults,
     },
     traits::{MediaProvider, MediaProviderLanguages},
-    utils::get_base_http_client,
+    app_utils::get_base_http_client,
 };
 
 static URL: &str = "https://api.mangaupdates.com/v1/";
