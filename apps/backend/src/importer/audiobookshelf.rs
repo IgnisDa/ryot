@@ -8,6 +8,7 @@ use models::{
     audiobookshelf as audiobookshelf_models, metadata, CommitMediaInput, ImportOrExportMediaItem,
     ImportOrExportMediaItemSeen,
 };
+use providers::google_books::GoogleBooksService;
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
     Client,
@@ -15,10 +16,7 @@ use reqwest::{
 use serde_json::json;
 use utils::get_base_http_client;
 
-use crate::{
-    importer::{ImportFailStep, ImportFailedItem, ImportResult},
-    providers::google_books::GoogleBooksService,
-};
+use crate::importer::{ImportFailStep, ImportFailedItem, ImportResult};
 
 use super::DeployUrlAndKeyImportInput;
 

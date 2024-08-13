@@ -69,6 +69,19 @@ use openidconnect::{
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
+use providers::{
+    anilist::{AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService},
+    audible::AudibleService,
+    google_books::GoogleBooksService,
+    igdb::IgdbService,
+    itunes::ITunesService,
+    listennotes::ListennotesService,
+    mal::{MalAnimeService, MalMangaService, MalService, NonMediaMalService},
+    manga_updates::MangaUpdatesService,
+    openlibrary::OpenlibraryService,
+    tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
+    vndb::VndbService,
+};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -99,21 +112,6 @@ use crate::{
     background::{ApplicationJob, CoreApplicationJob},
     integrations::{IntegrationMediaSeen, IntegrationService},
     notification::send_notification,
-    providers::{
-        anilist::{
-            AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService,
-        },
-        audible::AudibleService,
-        google_books::GoogleBooksService,
-        igdb::IgdbService,
-        itunes::ITunesService,
-        listennotes::ListennotesService,
-        mal::{MalAnimeService, MalMangaService, MalService, NonMediaMalService},
-        manga_updates::MangaUpdatesService,
-        openlibrary::OpenlibraryService,
-        tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
-        vndb::VndbService,
-    },
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;

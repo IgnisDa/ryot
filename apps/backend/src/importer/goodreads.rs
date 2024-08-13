@@ -8,13 +8,13 @@ use models::{
     ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMediaItem,
     ImportOrExportMediaItemSeen,
 };
+use providers::google_books::GoogleBooksService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use crate::{
-    importer::{DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult},
-    providers::google_books::GoogleBooksService,
+use crate::importer::{
+    DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
 };
 
 #[derive(Debug, Deserialize)]

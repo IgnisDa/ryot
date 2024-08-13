@@ -6,6 +6,7 @@ use enums::{MediaLot, MediaSource};
 use models::{
     audiobookshelf as audiobookshelf_models, metadata, prelude::Metadata, CommitMediaInput,
 };
+use providers::google_books::GoogleBooksService;
 use radarr_api_rs::{
     apis::{
         configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
@@ -30,7 +31,7 @@ use sonarr_api_rs::{
 use traits::TraceOk;
 use utils::get_base_http_client;
 
-use crate::{app_utils::ilike_sql, providers::google_books::GoogleBooksService};
+use crate::app_utils::ilike_sql;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IntegrationMediaSeen {

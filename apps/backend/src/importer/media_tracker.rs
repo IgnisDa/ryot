@@ -4,6 +4,7 @@ use models::{
     CreateOrUpdateCollectionInput, IdObject, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMediaItemSeen,
 };
+use providers::openlibrary::get_key;
 use reqwest::{
     header::{HeaderMap, HeaderValue, USER_AGENT},
     ClientBuilder,
@@ -15,12 +16,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use utils::USER_AGENT_STR;
 
-use crate::{
-    importer::{
-        DeployUrlAndKeyImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
-        ImportResult,
-    },
-    providers::openlibrary::get_key,
+use crate::importer::{
+    DeployUrlAndKeyImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
+    ImportResult,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

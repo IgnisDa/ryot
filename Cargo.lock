@@ -4708,7 +4708,6 @@ dependencies = [
  "askama",
  "async-graphql",
  "async-graphql-axum",
- "async-trait",
  "aws-sdk-s3",
  "axum",
  "cached",
