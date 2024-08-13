@@ -14,8 +14,7 @@ use reqwest::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::convert_date_to_year;
-use utils::get_base_http_client;
+use utils::{convert_date_to_year, get_base_http_client};
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
 

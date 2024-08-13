@@ -7,6 +7,7 @@ use axum::{
     http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
+use chrono::{NaiveDate, Utc};
 use common_utils::USER_AGENT_STR;
 use file_storage_service::FileStorageService;
 use reqwest::{
@@ -79,4 +80,8 @@ pub fn get_base_http_client(
         .base_url(url.to_owned())
         .build()
         .unwrap()
+}
+
+pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
+    Utc::now().with_timezone(timezone).date_naive()
 }

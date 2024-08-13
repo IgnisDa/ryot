@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
-use chrono::{NaiveDate, Utc};
+use chrono::Utc;
 use itertools::Itertools;
 use models::{
     collection, collection_to_entity,
@@ -257,10 +257,6 @@ where
             query.filter(entity_column.in_subquery(subquery))
         }
     })
-}
-
-pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
-    Utc::now().with_timezone(timezone).date_naive()
 }
 
 pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<user::Model> {

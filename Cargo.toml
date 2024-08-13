@@ -37,6 +37,7 @@ aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
 chrono = "=0.4.38"
+chrono-tz = "=0.9.0"
 const-str = "=0.5.7"
 dotenvy_macro = "=0.15.7"
 enum_meta = "=0.7.0"
