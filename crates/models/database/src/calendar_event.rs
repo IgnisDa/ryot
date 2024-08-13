@@ -2,11 +2,10 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use media_models::{SeenPodcastExtraInformation, SeenShowExtraInformation};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
-
-use crate::models::media::{SeenPodcastExtraInformation, SeenShowExtraInformation};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "calendar_event")]

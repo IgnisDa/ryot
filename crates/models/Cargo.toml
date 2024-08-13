@@ -9,3 +9,4 @@ database_models = { path = "./database" }
 dependent_models = { path = "./dependent" }
 fitness_models = { path = "./fitness" }
 media_models = { path = "./media" }
+user_models = { path = "./user" }

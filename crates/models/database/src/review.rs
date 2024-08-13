@@ -2,18 +2,16 @@
 
 use async_trait::async_trait;
 use enums::Visibility;
+use media_models::{
+    ImportOrExportItemReviewComment, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation,
+};
 use nanoid::nanoid;
 use rust_decimal::Decimal;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    models::media::{
-        ImportOrExportItemReviewComment, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-        SeenPodcastExtraInformation, SeenShowExtraInformation,
-    },
-    utils::associate_user_with_entity,
-};
+use crate::models::utils::associate_user_with_entity;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "review")]

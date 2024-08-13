@@ -3,10 +3,9 @@
 use async_graphql::{InputObject, SimpleObject};
 use async_trait::async_trait;
 use enums::{IntegrationLot, IntegrationProvider};
+use media_models::IntegrationProviderSpecifics;
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
-
-use crate::models::media::IntegrationProviderSpecifics;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject, InputObject)]
 #[sea_orm(table_name = "integration")]

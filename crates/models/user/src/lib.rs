@@ -1,10 +1,10 @@
 use async_graphql::{Enum, SimpleObject};
+use common_models::MediaStateChanged;
+use fitness_models::UserUnitSystem;
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
-
-use crate::models::{fitness::UserUnitSystem, MediaStateChanged};
 
 const WATCH_PROVIDERS: [&str; 8] = [
     "Netflix",

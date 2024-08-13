@@ -5,8 +5,7 @@ use async_trait::async_trait;
 use enums::NotificationPlatformLot;
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
-
-use crate::users::NotificationPlatformSpecifics;
+use user_models::NotificationPlatformSpecifics;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject)]
 #[sea_orm(table_name = "notification_platform")]

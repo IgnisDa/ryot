@@ -8,7 +8,7 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { version = "=0.5.3", features = ["cron", "limit"] }
-argon2 = "=0.6.0-pre.1"
+argon2 = { workspace = true }
 askama = "0.12.1"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
@@ -27,7 +27,6 @@ csv = "=1.3.0"
 data-encoding = "=2.6.0"
 dotenvy = "=0.15.7"
 dotenvy_macro = { workspace = true }
-educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
 enums = { path = "../../crates/enums" }
 enum_meta = { workspace = true }
 services = { path = "../../crates/services" }

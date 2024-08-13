@@ -2,11 +2,10 @@
 
 use async_graphql::SimpleObject;
 use enums::UserToMediaReason;
+use fitness_models::UserToExerciseExtraInformation;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-use crate::models::fitness::UserToExerciseExtraInformation;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "user_to_entity")]

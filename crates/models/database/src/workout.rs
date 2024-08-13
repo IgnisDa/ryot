@@ -2,17 +2,14 @@
 
 use std::sync::Arc;
 
+use application_utils::GraphqlRepresentation;
 use async_graphql::{Result, SimpleObject};
 use async_trait::async_trait;
 use file_storage_service::FileStorageService;
+use fitness_models::{WorkoutInformation, WorkoutSummary};
 use schematic::Schematic;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    models::fitness::{WorkoutInformation, WorkoutSummary},
-    traits::GraphqlRepresentation,
-};
 
 /// A workout that was completed by the user.
 #[derive(

@@ -2,12 +2,11 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
+use common_models::CollectionExtraInformation;
 use nanoid::nanoid;
 use sea_orm::entity::prelude::*;
 use sea_orm::ActiveValue;
 use serde::{Deserialize, Serialize};
-
-use crate::models::CollectionExtraInformation;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "collection")]

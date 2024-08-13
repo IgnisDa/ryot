@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use application_utils::GraphqlRepresentation;
 use async_graphql::{InputObject, Result, SimpleObject};
 use async_trait::async_trait;
 use enums::{
@@ -9,10 +10,9 @@ use enums::{
     ExerciseSource,
 };
 use file_storage_service::FileStorageService;
+use fitness_models::ExerciseAttributes;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-
-use crate::{models::fitness::ExerciseAttributes, traits::GraphqlRepresentation};
 
 #[derive(
     Clone,

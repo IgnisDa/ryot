@@ -1546,21 +1546,31 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 name = "database_models"
 version = "0.1.0"
 dependencies = [
+ "application_utils",
+ "argon2",
  "async-graphql",
  "async-trait",
  "boilermates",
  "chrono",
  "common_models",
+ "educe 0.6.0",
  "enums",
+ "file_storage_service",
+ "fitness_models",
+ "importer_models",
+ "media_models",
+ "nanoid",
  "rust_decimal",
+ "rust_decimal_macros",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "services",
  "strum",
+ "user_models",
+ "uuid",
 ]
 
 [[package]]
@@ -1568,9 +1578,13 @@ name = "dependent_models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "common_models",
+ "database_models",
  "fitness_models",
  "media_models",
+ "schematic",
  "serde",
+ "serde_with 3.9.0",
 ]
 
 [[package]]
@@ -2854,6 +2868,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "importer_models"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "enums",
+ "sea-orm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3279,6 +3304,7 @@ dependencies = [
  "dependent_models",
  "fitness_models",
  "media_models",
+ "user_models",
 ]
 
 [[package]]
@@ -4666,7 +4692,6 @@ dependencies = [
  "data-encoding",
  "dotenvy",
  "dotenvy_macro",
- "educe 0.6.0",
  "enum_meta",
  "enums",
  "flate2",
@@ -6370,6 +6395,20 @@ name = "urlencoding"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
+
+[[package]]
+name = "user_models"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common_models",
+ "fitness_models",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with 3.9.0",
+ "strum",
+]
 
 [[package]]
 name = "utf-8"

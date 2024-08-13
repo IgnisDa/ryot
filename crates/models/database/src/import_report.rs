@@ -3,11 +3,10 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use enums::ImportSource;
+use importer_models::ImportResultResponse;
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
-
-use crate::models::importer::ImportResultResponse;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "import_report")]

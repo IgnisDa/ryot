@@ -71,7 +71,6 @@ mod models;
 mod notification;
 mod providers;
 mod routes;
-mod users;
 mod utils;
 
 #[tokio::main]

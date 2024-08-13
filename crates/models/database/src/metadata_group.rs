@@ -4,11 +4,10 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use boilermates::boilermates;
 use enums::{MediaLot, MediaSource};
+use media_models::MetadataImage;
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
-
-use crate::models::media::MetadataImage;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[sea_orm(table_name = "metadata_group")]

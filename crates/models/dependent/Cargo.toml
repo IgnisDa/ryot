@@ -5,6 +5,10 @@ edition = "2021"
 
 [dependencies]
 async-graphql = { workspace = true }
+common_models = { path = "../common" }
+database_models = { path = "../database" }
 media_models = { path = "../media" }
 fitness_models = { path = "../fitness" }
+schematic = { workspace = true }
 serde = { workspace = true }
+serde_with = { workspace = true }

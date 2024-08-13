@@ -4,11 +4,10 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use enums::MediaSource;
+use media_models::{MetadataImage, PersonSourceSpecifics, PersonStateChanges};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
-
-use crate::models::media::{MetadataImage, PersonSourceSpecifics, PersonStateChanges};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
 #[graphql(name = "Person")]

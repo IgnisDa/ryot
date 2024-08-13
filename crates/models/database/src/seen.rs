@@ -3,21 +3,19 @@
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use enums::SeenState;
 use educe::Educe;
+use enums::SeenState;
+use media_models::{
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation,
+};
 use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    models::media::{
-        SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-        SeenShowExtraInformation,
-    },
-    utils::associate_user_with_entity,
-};
+use crate::utils::associate_user_with_entity;
 
 // When updating a media item's progress, here are the things that should happen:
 // - remove from watchlist if it was in there

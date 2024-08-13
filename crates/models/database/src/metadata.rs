@@ -3,16 +3,15 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use enums::{MediaLot, MediaSource};
-use nanoid::nanoid;
-use rust_decimal::Decimal;
-use sea_orm::{entity::prelude::*, ActiveValue};
-use serde::{Deserialize, Serialize};
-
-use crate::models::media::{
+use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, ExternalIdentifiers, MangaSpecifics,
     MetadataFreeCreator, MetadataImage, MetadataStateChanges, MetadataVideo, MovieSpecifics,
     PodcastSpecifics, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
 };
+use nanoid::nanoid;
+use rust_decimal::Decimal;
+use sea_orm::{entity::prelude::*, ActiveValue};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default)]
 #[sea_orm(table_name = "metadata")]

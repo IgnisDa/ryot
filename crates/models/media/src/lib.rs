@@ -678,10 +678,12 @@ pub struct MetadataVideo {
     pub source: MetadataVideoSource,
 }
 
+pub struct OptionalMetadataImages(Option<Vec<MetadataImage>>);
+
 #[async_trait]
-impl DatabaseAssetsAsSingleUrl for Option<Vec<MetadataImage>> {
+impl DatabaseAssetsAsSingleUrl for OptionalMetadataImages {
     async fn first_as_url(&self, file_storage_service: &Arc<FileStorageService>) -> Option<String> {
-        if let Some(images) = self {
+        if let Some(images) = &self.0 {
             if let Some(i) = images.first().cloned() {
                 Some(file_storage_service.get_stored_asset(i.url).await)
             } else {
@@ -694,10 +696,10 @@ impl DatabaseAssetsAsSingleUrl for Option<Vec<MetadataImage>> {
 }
 
 #[async_trait]
-impl DatabaseAssetsAsUrls for Option<Vec<MetadataImage>> {
+impl DatabaseAssetsAsUrls for OptionalMetadataImages {
     async fn as_urls(&self, file_storage_service: &Arc<FileStorageService>) -> Vec<String> {
         let mut images = vec![];
-        if let Some(imgs) = self {
+        if let Some(imgs) = &self.0 {
             for i in imgs.clone() {
                 images.push(file_storage_service.get_stored_asset(i.url).await);
             }

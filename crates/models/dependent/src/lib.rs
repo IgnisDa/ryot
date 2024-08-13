@@ -1,19 +1,25 @@
-use async_graphql::SimpleObject;
+use async_graphql::{OutputType, SimpleObject};
+use common_models::SearchDetails;
+use schematic::Schematic;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
-#[graphql(concrete(name = "ExerciseListResults", params(fitness::ExerciseListItem)))]
-#[graphql(concrete(name = "MediaCollectionContentsResults", params(media::EntityWithLot)))]
+#[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
+#[graphql(concrete(
+    name = "MediaCollectionContentsResults",
+    params(media_models::EntityWithLot)
+))]
 #[graphql(concrete(
     name = "MetadataSearchResults",
-    params(media::MetadataSearchItemResponse)
+    params(media_models::MetadataSearchItemResponse)
 ))]
-#[graphql(concrete(name = "PeopleSearchResults", params(media::PeopleSearchItem)))]
+#[graphql(concrete(name = "PeopleSearchResults", params(media_models::PeopleSearchItem)))]
 #[graphql(concrete(
     name = "MetadataGroupSearchResults",
-    params(media::MetadataGroupSearchItem)
+    params(media_models::MetadataGroupSearchItem)
 ))]
-#[graphql(concrete(name = "GenreListResults", params(media::GenreListItem)))]
+#[graphql(concrete(name = "GenreListResults", params(media_models::GenreListItem)))]
 #[graphql(concrete(name = "WorkoutListResults", params(workout::Model)))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
@@ -27,13 +33,13 @@ pub struct SearchResults<T: OutputType> {
 #[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
     /// Data about user's media.
-    pub media: Option<Vec<media::ImportOrExportMediaItem>>,
+    pub media: Option<Vec<media_models::ImportOrExportMediaItem>>,
     /// Data about user's people.
-    pub people: Option<Vec<media::ImportOrExportPersonItem>>,
+    pub people: Option<Vec<media_models::ImportOrExportPersonItem>>,
     /// Data about user's measurements.
     pub measurements: Option<Vec<user_measurement::Model>>,
     /// Data about user's workouts.
     pub workouts: Option<Vec<workout::Model>>,
     /// Data about user's media groups.
-    pub media_group: Option<Vec<media::ImportOrExportMediaGroupItem>>,
+    pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
 }
