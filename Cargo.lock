@@ -4684,7 +4684,6 @@ dependencies = [
  "csv",
  "data-encoding",
  "dotenvy",
- "dotenvy_macro",
  "enum_meta",
  "enums",
  "flate2",
@@ -5393,7 +5392,6 @@ dependencies = [
 name = "specific_models"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
  "rust_decimal",
  "serde",
  "strum",
