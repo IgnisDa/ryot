@@ -1,6 +1,7 @@
 use async_graphql::Result;
-use enums::{MediaLot, MediaSource};
 use enum_meta::HashMap;
+use enums::{MediaLot, MediaSource};
+use models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use reqwest::{
     header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT},
     Client, ClientBuilder,
@@ -8,13 +9,13 @@ use reqwest::{
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use utils::USER_AGENT_STR;
 
 use crate::{
+    app_utils::APPLICATION_JSON_HEADER,
     importer::{
         DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
     },
-    app_utils::{JSON, USER_AGENT_STR},
 };
 
 static EMBY_HEADER_VALUE: &str =
@@ -87,7 +88,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
 
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
-    headers.insert(ACCEPT, JSON.clone());
+    headers.insert(ACCEPT, APPLICATION_JSON_HEADER.clone());
     headers.insert(
         "X-Emby-Token",
         HeaderValue::from_str(&authenticate.access_token).unwrap(),

@@ -85,13 +85,15 @@ use serde::{Deserialize, Serialize};
 use services::{sign, FileStorageService};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
-use utils::{get_first_and_last_day_of_month, user_id_from_token, IsFeatureEnabled};
+use utils::{
+    get_first_and_last_day_of_month, user_id_from_token, IsFeatureEnabled, AUTHOR, VERSION,
+};
 use uuid::Uuid;
 
 use crate::{
     app_utils::{
         add_entity_to_collection, apply_collection_filter, entity_in_collections, get_current_date,
-        ilike_sql, user_by_id, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+        ilike_sql, user_by_id, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
     },
     background::{ApplicationJob, CoreApplicationJob},
     integrations::{IntegrationMediaSeen, IntegrationService},

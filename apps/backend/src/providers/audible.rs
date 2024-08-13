@@ -16,9 +16,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
 use traits::{MediaProvider, MediaProviderLanguages};
+use utils::get_base_http_client;
 use utils::{convert_date_to_year, convert_string_to_date};
-
-use crate::app_utils::get_base_http_client;
 
 static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
 static AUDNEX_URL: &str = "https://api.audnex.us";

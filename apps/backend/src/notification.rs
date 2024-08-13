@@ -17,7 +17,7 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use utils::PROJECT_NAME;
 
-use crate::app_utils::{AVATAR_URL, JSON};
+use crate::app_utils::{APPLICATION_JSON_HEADER, AVATAR_URL};
 
 // TODO: Allow formatting messages
 pub async fn send_notification(
@@ -35,7 +35,7 @@ pub async fn send_notification(
         NotificationPlatformSpecifics::Apprise { url, key } => {
             client
                 .post(format!("{}/notify/{}", url, key))
-                .header(CONTENT_TYPE, JSON.clone())
+                .header(CONTENT_TYPE, APPLICATION_JSON_HEADER.clone())
                 .json(&serde_json::json!({
                     "body": msg,
                     "title": project_name,

@@ -13,9 +13,9 @@ use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
+use utils::USER_AGENT_STR;
 
 use crate::{
-    app_utils::USER_AGENT_STR,
     importer::{
         DeployUrlAndKeyImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,

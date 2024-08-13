@@ -234,9 +234,13 @@ dependencies = [
  "async-graphql",
  "async-trait",
  "axum",
+ "common_utils",
  "config",
+ "const-str",
+ "dotenvy_macro",
  "file_storage_service",
  "jwt_service",
+ "reqwest 0.11.23",
 ]
 
 [[package]]

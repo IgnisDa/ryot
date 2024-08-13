@@ -12,8 +12,7 @@ use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-
-use crate::app_utils::get_base_http_client;
+use utils::get_base_http_client;
 
 static URL: &str = "https://api.mangaupdates.com/v1/";
 

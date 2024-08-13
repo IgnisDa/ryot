@@ -28,11 +28,9 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_date_to_year, convert_string_to_date};
+use utils::{convert_date_to_year, convert_string_to_date, get_base_http_client};
 
-use crate::app_utils::{
-    get_base_http_client, get_current_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
-};
+use crate::app_utils::{get_current_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR};
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";

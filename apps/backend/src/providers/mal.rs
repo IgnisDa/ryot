@@ -15,9 +15,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_date_to_year, convert_string_to_date};
-
-use crate::app_utils::get_base_http_client;
+use utils::{convert_date_to_year, convert_string_to_date, get_base_http_client};
 
 static URL: &str = "https://api.myanimelist.net/v2/";
 

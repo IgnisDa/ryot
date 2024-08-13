@@ -26,10 +26,10 @@ use sonarr_api_rs::{
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
 use traits::TraceOk;
+use utils::get_base_http_client;
 
 use crate::{
-    app_models::audiobookshelf_models,
-    app_utils::{get_base_http_client, ilike_sql},
+    app_models::audiobookshelf_models, app_utils::ilike_sql,
     providers::google_books::GoogleBooksService,
 };
 

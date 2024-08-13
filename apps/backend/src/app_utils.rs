@@ -15,16 +15,12 @@ use openidconnect::{
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use reqwest::{
-    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
-    ClientBuilder,
-};
+use reqwest::header::HeaderValue;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QuerySelect, QueryTrait, Select,
 };
 use services::FileStorageService;
-use utils::PROJECT_NAME;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -35,28 +31,12 @@ use crate::{
 };
 
 pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
-#[cfg(debug_assertions)]
-pub const VERSION: &str = dotenvy_macro::dotenv!("APP_VERSION");
-#[cfg(not(debug_assertions))]
-pub const VERSION: &str = env!("APP_VERSION");
 pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
-pub const AUTHOR: &str = "ignisda";
-pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
-pub const USER_AGENT_STR: &str = const_str::concat!(
-    AUTHOR,
-    "/",
-    PROJECT_NAME,
-    "-v",
-    VERSION,
-    " (",
-    AUTHOR_EMAIL,
-    ")"
-);
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 pub const TEMP_DIR: &str = "tmp";
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
-pub static JSON: HeaderValue = HeaderValue::from_static("application/json");
+pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 
 const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 
@@ -153,22 +133,6 @@ pub async fn create_app_services(
         exporter_service,
         exercise_service,
     }
-}
-
-pub fn get_base_http_client(
-    url: &str,
-    headers: Option<Vec<(HeaderName, HeaderValue)>>,
-) -> reqwest::Client {
-    let mut req_headers = HeaderMap::new();
-    req_headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
-    for (header, value) in headers.unwrap_or_default().into_iter() {
-        req_headers.insert(header, value);
-    }
-    ClientBuilder::new()
-        .default_headers(req_headers)
-        .base_url(url.to_owned())
-        .build()
-        .unwrap()
 }
 
 type CteCol = collection_to_entity::Column;

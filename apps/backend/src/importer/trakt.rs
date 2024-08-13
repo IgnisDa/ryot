@@ -11,9 +11,10 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use utils::get_base_http_client;
 
 use crate::{
-    app_utils::{get_base_http_client, JSON},
+    app_utils::APPLICATION_JSON_HEADER,
     importer::{
         DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
         ImportResult,
@@ -64,7 +65,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     let client = get_base_http_client(
         &format!("{}/users/{}/", API_URL, input.username),
         Some(vec![
-            (CONTENT_TYPE, JSON.clone()),
+            (CONTENT_TYPE, APPLICATION_JSON_HEADER.clone()),
             (
                 HeaderName::from_static("trakt-api-key"),
                 HeaderValue::from_static(CLIENT_ID),

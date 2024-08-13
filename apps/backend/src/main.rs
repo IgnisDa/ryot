@@ -44,10 +44,10 @@ use tower_http::{
     trace::TraceLayer as TowerTraceLayer,
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::PROJECT_NAME;
+use utils::{PROJECT_NAME, VERSION};
 
 use crate::{
-    app_utils::{create_app_services, BASE_DIR, COMPILATION_TIMESTAMP, TEMP_DIR, VERSION},
+    app_utils::{create_app_services, BASE_DIR, COMPILATION_TIMESTAMP, TEMP_DIR},
     background::{
         background_jobs, perform_application_job, perform_core_application_job,
         sync_integrations_data,

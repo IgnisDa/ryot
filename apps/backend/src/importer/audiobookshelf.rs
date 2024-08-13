@@ -10,10 +10,10 @@ use reqwest::{
     Client,
 };
 use serde_json::json;
+use utils::get_base_http_client;
 
 use crate::{
     app_models::audiobookshelf_models,
-    app_utils::get_base_http_client,
     importer::{ImportFailStep, ImportFailedItem, ImportResult},
     providers::google_books::GoogleBooksService,
 };

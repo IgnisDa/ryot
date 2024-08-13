@@ -23,8 +23,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
+use utils::get_base_http_client;
 
-use crate::app_utils::{get_base_http_client, TEMP_DIR};
+use crate::app_utils::TEMP_DIR;
 
 static URL: &str = "https://api.igdb.com/v4/";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";

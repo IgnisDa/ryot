@@ -14,8 +14,7 @@ use models::{
 use reqwest::Client;
 use rust_decimal::Decimal;
 use traits::{MediaProvider, MediaProviderLanguages};
-
-use crate::app_utils::get_base_http_client;
+use utils::get_base_http_client;
 
 static URL: &str = "https://graphql.anilist.co";
 static STUDIO_ROLE: &str = "Production Studio";
