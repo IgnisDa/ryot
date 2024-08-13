@@ -44,7 +44,7 @@ use tower_http::{
     trace::TraceLayer as TowerTraceLayer,
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::{BASE_DIR, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
+use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
     app_utils::create_app_services,
@@ -69,6 +69,8 @@ mod miscellaneous;
 mod notification;
 mod providers;
 mod routes;
+
+static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -176,8 +178,6 @@ async fn main() -> Result<()> {
 
         // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
         let base_dir = PathBuf::from(BASE_DIR)
-            .parent()
-            .unwrap()
             .parent()
             .unwrap()
             .parent()

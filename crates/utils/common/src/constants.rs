@@ -17,7 +17,6 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR_EMAIL,
     ")"
 );
-pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
