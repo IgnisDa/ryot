@@ -33,11 +33,11 @@ use migrations::{
     AliasedUserToCollection, AliasedUserToEntity,
 };
 use models::{
-    calendar_event, collection, collection_to_entity,
+    calendar_event, collection, collection_to_entity, first_metadata_image_as_url,
     functions::{associate_user_with_entity, get_user_to_entity_association},
-    genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
-    person,
+    genre, import_report, integration, metadata, metadata_group, metadata_images_as_urls,
+    metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group, metadata_to_person,
+    notification_platform, person,
     prelude::{
         CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Integration,
         Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
@@ -82,7 +82,7 @@ use sea_query::{
     PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
-use services::FileStorageService;
+use services::{sign, FileStorageService};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
 use utils::{get_first_and_last_day_of_month, user_id_from_token, IsFeatureEnabled};
@@ -95,6 +95,7 @@ use crate::{
     },
     background::{ApplicationJob, CoreApplicationJob},
     integrations::{IntegrationMediaSeen, IntegrationService},
+    notification::send_notification,
     providers::{
         anilist::{
             AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService,
@@ -1548,7 +1549,7 @@ impl MiscellaneousService {
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
-        let images = meta.images.as_urls(&self.file_storage_service).await;
+        let images = metadata_images_as_urls(&meta.images, &self.file_storage_service).await;
         let mut videos = vec![];
         if let Some(vids) = &meta.videos {
             for v in vids.clone() {
@@ -1609,7 +1610,7 @@ impl MiscellaneousService {
             .await?;
         let mut creators: HashMap<String, Vec<_>> = HashMap::new();
         for cr in crts {
-            let image = cr.images.first_as_url(&self.file_storage_service).await;
+            let image = first_metadata_image_as_url(&cr.images, &self.file_storage_service).await;
             let creator = MetadataCreator {
                 image,
                 name: cr.name,
@@ -1696,10 +1697,8 @@ impl MiscellaneousService {
             .await
             .unwrap()
             .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
-        metadata.image = metadata
-            .images
-            .first_as_url(&self.file_storage_service)
-            .await;
+        metadata.image =
+            first_metadata_image_as_url(&metadata.images, &self.file_storage_service).await;
         Ok(metadata)
     }
 
@@ -2162,7 +2161,7 @@ impl MiscellaneousService {
             };
 
             if image.is_none() {
-                image = evt.m_images.first_as_url(&self.file_storage_service).await
+                image = first_metadata_image_as_url(&evt.m_images, &self.file_storage_service).await
             }
             calc.metadata_image = image;
             calc.episode_name = title;
@@ -6453,7 +6452,8 @@ impl MiscellaneousService {
         if details.is_partial.unwrap_or_default() {
             self.deploy_update_person_job(person_id.clone()).await?;
         }
-        details.display_images = details.images.as_urls(&self.file_storage_service).await;
+        details.display_images =
+            metadata_images_as_urls(&details.images, &self.file_storage_service).await;
         let associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(person_id))
             .order_by_asc(metadata_to_person::Column::Index)
@@ -6823,7 +6823,7 @@ impl MiscellaneousService {
     }
 
     async fn generate_auth_token(&self, user_id: String) -> Result<String> {
-        let auth_token = jwt::sign(
+        let auth_token = sign(
             user_id,
             &self.config.users.jwt_secret,
             self.config.users.token_valid_for_days,
@@ -7421,10 +7421,7 @@ GROUP BY m.id;
                 continue;
             }
             let msg = format!("This is a test notification for platform: {}", platform.lot);
-            platform
-                .platform_specifics
-                .send_message(&self.config, &msg)
-                .await?;
+            send_notification(platform.platform_specifics, &self.config, &msg).await?;
         }
         Ok(true)
     }
@@ -7459,10 +7456,8 @@ GROUP BY m.id;
                     );
                     continue;
                 }
-                if let Err(err) = notification
-                    .platform_specifics
-                    .send_message(&self.config, &msg)
-                    .await
+                if let Err(err) =
+                    send_notification(notification.platform_specifics, &self.config, &msg).await
                 {
                     tracing::trace!("Error sending notification: {:?}", err);
                 }

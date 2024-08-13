@@ -20,7 +20,7 @@ use utils::PROJECT_NAME;
 use crate::app_utils::{AVATAR_URL, JSON};
 
 // TODO: Allow formatting messages
-pub async fn send_message(
+pub async fn send_notification(
     specifics: NotificationPlatformSpecifics,
     config: &Arc<AppConfig>,
     msg: &str,
