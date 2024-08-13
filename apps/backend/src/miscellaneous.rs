@@ -697,6 +697,7 @@ struct GraphqlCalendarEvent {
     metadata_image: Option<String>,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    anime_extra_information: Option<SeenAnimeExtraInformation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -2089,6 +2090,7 @@ impl MiscellaneousService {
             m_podcast_specifics: Option<PodcastSpecifics>,
             metadata_show_extra_information: Option<SeenShowExtraInformation>,
             metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
+            metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -2170,6 +2172,8 @@ impl MiscellaneousService {
                     }
                 };
                 calc.podcast_extra_information = Some(p);
+            } else if let Some(a) = evt.metadata_anime_extra_information {
+                calc.anime_extra_information = Some(a);
             };
 
             if image.is_none() {
