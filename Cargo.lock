@@ -236,8 +236,6 @@ dependencies = [
  "axum",
  "common_utils",
  "config",
- "const-str",
- "dotenvy_macro",
  "file_storage_service",
  "jwt_service",
  "reqwest 0.11.23",
@@ -1237,6 +1235,10 @@ name = "common_utils"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "compile-time",
+ "const-str",
+ "dotenvy_macro",
+ "reqwest 0.11.23",
 ]
 
 [[package]]
@@ -4675,7 +4677,6 @@ dependencies = [
  "cached",
  "chrono",
  "chrono-tz",
- "compile-time",
  "config",
  "const-str",
  "convert_case",

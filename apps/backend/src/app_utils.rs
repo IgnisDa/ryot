@@ -15,12 +15,12 @@ use openidconnect::{
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use reqwest::header::HeaderValue;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QuerySelect, QueryTrait, Select,
 };
 use services::FileStorageService;
+use utils::FRONTEND_OAUTH_ENDPOINT;
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -29,16 +29,6 @@ use crate::{
     importer::ImporterService,
     miscellaneous::MiscellaneousService,
 };
-
-pub static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
-pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
-pub const AVATAR_URL: &str =
-    "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
-pub const TEMP_DIR: &str = "tmp";
-pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
-pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
-
-const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 
 /// All the services that are used by the app
 pub struct AppServices {

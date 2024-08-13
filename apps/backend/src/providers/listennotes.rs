@@ -19,9 +19,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_naive_to_utc, get_base_http_client};
+use utils::{convert_naive_to_utc,TEMP_DIR, get_base_http_client};
 
-use crate::app_utils::TEMP_DIR;
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
 static FILE: &str = "listennotes.json";

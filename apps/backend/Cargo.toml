@@ -18,7 +18,6 @@ aws-sdk-s3 = { workspace = true }
 cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = "=0.9.0"
-compile-time = "=0.2.0"
 config = { path = "../../crates/config" }
 convert_case = "=0.6.0"
 const-str = { workspace = true }

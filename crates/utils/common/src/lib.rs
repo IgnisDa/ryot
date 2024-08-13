@@ -1,10 +1,10 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 
+mod constants;
 mod length_vec;
 
+pub use constants::*;
 pub use length_vec::LengthVec;
-
-pub const PROJECT_NAME: &str = "ryot";
 
 /// Determine whether a feature is enabled
 pub trait IsFeatureEnabled {

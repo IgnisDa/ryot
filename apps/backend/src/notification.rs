@@ -15,9 +15,7 @@ use reqwest::{
     Client,
 };
 use serde::{Deserialize, Serialize};
-use utils::PROJECT_NAME;
-
-use crate::app_utils::{APPLICATION_JSON_HEADER, AVATAR_URL};
+use utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME};
 
 // TODO: Allow formatting messages
 pub async fn send_notification(

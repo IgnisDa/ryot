@@ -9,8 +9,6 @@ async-trait = { workspace = true }
 axum = { workspace = true }
 common_utils = { path = "../common" }
 config = { path = "../../config" }
-const-str = { workspace = true }
-dotenvy_macro = { workspace = true }
 file_storage_service = { path = "../../services/file_storage" }
 jwt_service = { path = "../../services/jwt" }
 reqwest = { workspace = true }

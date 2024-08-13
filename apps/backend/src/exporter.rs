@@ -16,10 +16,10 @@ use struson::writer::{JsonStreamWriter, JsonWriter};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use traits::AuthProvider;
-use utils::IsFeatureEnabled;
+use utils::{TEMP_DIR,IsFeatureEnabled};
 
 use crate::{
-    app_utils::TEMP_DIR, background::ApplicationJob, fitness::resolver::ExerciseService,
+    background::ApplicationJob, fitness::resolver::ExerciseService,
     miscellaneous::MiscellaneousService,
 };
 

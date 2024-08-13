@@ -11,14 +11,10 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use utils::get_base_http_client;
+use utils::{get_base_http_client, APPLICATION_JSON_HEADER};
 
-use crate::{
-    app_utils::APPLICATION_JSON_HEADER,
-    importer::{
-        DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
-        ImportResult,
-    },
+use crate::importer::{
+    DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult,
 };
 
 const API_URL: &str = "https://api.trakt.tv";

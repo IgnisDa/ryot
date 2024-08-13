@@ -9,13 +9,10 @@ use reqwest::{
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use utils::USER_AGENT_STR;
+use utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR};
 
-use crate::{
-    app_utils::APPLICATION_JSON_HEADER,
-    importer::{
-        DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
-    },
+use crate::importer::{
+    DeployUrlAndKeyAndUsernameImportInput, ImportFailStep, ImportFailedItem, ImportResult,
 };
 
 static EMBY_HEADER_VALUE: &str =

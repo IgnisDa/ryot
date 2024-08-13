@@ -7,29 +7,12 @@ use axum::{
     http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
-use common_utils::PROJECT_NAME;
+use common_utils::USER_AGENT_STR;
 use file_storage_service::FileStorageService;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
     ClientBuilder,
 };
-
-pub const AUTHOR: &str = "ignisda";
-pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
-#[cfg(debug_assertions)]
-pub const VERSION: &str = dotenvy_macro::dotenv!("APP_VERSION");
-#[cfg(not(debug_assertions))]
-pub const VERSION: &str = env!("APP_VERSION");
-pub const USER_AGENT_STR: &str = const_str::concat!(
-    AUTHOR,
-    "/",
-    PROJECT_NAME,
-    "-v",
-    VERSION,
-    " (",
-    AUTHOR_EMAIL,
-    ")"
-);
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
     jwt_service::verify(token, jwt_secret)
