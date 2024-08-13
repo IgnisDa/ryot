@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::fmt::Debug;
 
 use anyhow::{bail, Result};
 use application_utils::AuthContext;
@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use common_models::BackendError;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
-use file_storage_service::FileStorageService;
 use media_models::{
     MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
@@ -116,4 +115,13 @@ pub trait AuthProvider {
 
 pub trait TraceOk<T, E> {
     fn trace_ok(self) -> Option<T>;
+}
+
+impl<T, E: Debug> TraceOk<T, E> for Result<T, E> {
+    fn trace_ok(self) -> Option<T> {
+        if let Err(err) = &self {
+            tracing::debug!("Error: {:?}", err);
+        };
+        self.ok()
+    }
 }
