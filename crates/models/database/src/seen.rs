@@ -15,7 +15,7 @@ use rust_decimal_macros::dec;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::associate_user_with_entity;
+use crate::functions::associate_user_with_entity;
 
 // When updating a media item's progress, here are the things that should happen:
 // - remove from watchlist if it was in there

@@ -6,6 +6,7 @@ pub mod calendar_event;
 pub mod collection;
 pub mod collection_to_entity;
 pub mod exercise;
+pub mod functions;
 pub mod genre;
 pub mod import_report;
 pub mod integration;
