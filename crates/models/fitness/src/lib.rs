@@ -12,7 +12,10 @@ use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use schematic::{ConfigEnum, Schematic};
-use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
+use sea_orm::{
+    prelude::{DateTime, DateTimeUtc},
+    FromJsonQueryResult, FromQueryResult,
+};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -507,9 +510,9 @@ pub struct UserWorkoutInput {
     // If specified, the workout will be created with this ID.
     #[graphql(skip_input)]
     pub id: Option<String>,
-    pub end_time: DateTimeUtc,
+    pub end_time: DateTime,
     pub comment: Option<String>,
-    pub start_time: DateTimeUtc,
+    pub start_time: DateTime,
     pub assets: Option<EntityAssets>,
     pub repeated_from: Option<String>,
     pub exercises: Vec<UserExerciseInput>,
