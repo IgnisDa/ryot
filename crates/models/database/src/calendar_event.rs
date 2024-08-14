@@ -2,7 +2,9 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use media_models::{SeenPodcastExtraInformation, SeenShowExtraInformation};
+use media_models::{
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+};
 use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
@@ -12,10 +14,12 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub timestamp: DateTimeUtc,
     pub date: NaiveDate,
     pub metadata_id: Option<String>,
     pub metadata_show_extra_information: Option<SeenShowExtraInformation>,
     pub metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

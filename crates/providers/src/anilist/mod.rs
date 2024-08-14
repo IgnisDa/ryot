@@ -6,13 +6,14 @@ use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use models::{
-    AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
-    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, SearchDetails,
-    SearchResults, StoredUrl,
+    AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MediaDetails,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
+    MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    PersonSourceSpecifics, SearchDetails, SearchResults, StoredUrl,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
+use sea_orm::prelude::DateTimeUtc;
 use traits::{MediaProvider, MediaProviderLanguages};
 use utils::get_base_http_client;
 
@@ -599,11 +600,26 @@ async fn media_details(
             }),
     );
     let people = people.into_iter().unique().collect_vec();
+    let airing_schedule = details.airing_schedule.and_then(|a| a.nodes).map(|a| {
+        a.into_iter()
+            .flat_map(|s| {
+                s.and_then(|data| {
+                    DateTimeUtc::from_timestamp(data.airing_at, 0).map(|airing_at| {
+                        AnimeAiringScheduleSpecifics {
+                            episode: data.episode.try_into().unwrap(),
+                            airing_at,
+                        }
+                    })
+                })
+            })
+            .collect_vec()
+    });
     let (lot, anime_specifics, manga_specifics) = match details.type_.unwrap() {
         media_details_query::MediaType::ANIME => (
             MediaLot::Anime,
             Some(AnimeSpecifics {
                 episodes: details.episodes.and_then(|c| c.try_into().ok()),
+                airing_schedule,
             }),
             None,
         ),

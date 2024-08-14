@@ -99,8 +99,8 @@ use services::{sign, FileStorageService};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
 use utils::{
-    get_current_date, get_first_and_last_day_of_month, user_id_from_token, IsFeatureEnabled,
-    AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+    convert_naive_to_utc, get_current_date, get_first_and_last_day_of_month, user_id_from_token,
+    IsFeatureEnabled, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
 };
 use uuid::Uuid;
 
@@ -520,7 +520,7 @@ enum MediaGeneralFilter {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaFilter {
     general: Option<MediaGeneralFilter>,
-    collection: Option<String>,
+    collections: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -688,6 +688,7 @@ struct GraphqlCalendarEvent {
     metadata_image: Option<String>,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    anime_extra_information: Option<SeenAnimeExtraInformation>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -2078,6 +2079,7 @@ impl MiscellaneousService {
             m_podcast_specifics: Option<PodcastSpecifics>,
             metadata_show_extra_information: Option<SeenShowExtraInformation>,
             metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
+            metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
         }
         let all_events = CalendarEvent::find()
             .column_as(
@@ -2159,6 +2161,8 @@ impl MiscellaneousService {
                     }
                 };
                 calc.podcast_extra_information = Some(p);
+            } else if let Some(a) = evt.metadata_anime_extra_information {
+                calc.anime_extra_information = Some(a);
             };
 
             if image.is_none() {
@@ -2282,7 +2286,7 @@ impl MiscellaneousService {
                 )
             })
             .apply_if(
-                input.filter.clone().and_then(|f| f.collection),
+                input.filter.clone().and_then(|f| f.collections),
                 |query, v| {
                     apply_collection_filter(
                         query,
@@ -6329,7 +6333,7 @@ impl MiscellaneousService {
                 )
             })
             .apply_if(
-                input.filter.clone().and_then(|f| f.collection),
+                input.filter.clone().and_then(|f| f.collections),
                 |query, v| {
                     apply_collection_filter(
                         query,
@@ -6396,7 +6400,7 @@ impl MiscellaneousService {
                 )
             })
             .apply_if(
-                input.filter.clone().and_then(|f| f.collection),
+                input.filter.clone().and_then(|f| f.collections),
                 |query, v| {
                     apply_collection_filter(
                         query,
@@ -6915,6 +6919,18 @@ impl MiscellaneousService {
                             }
                         }
                     }
+                } else if let Some(anime) = cal_event.metadata_anime_extra_information {
+                    if let Some(anime_info) = &meta.anime_specifics {
+                        if let Some(schedule) = &anime_info.airing_schedule {
+                            schedule.iter().for_each(|s| {
+                                if Some(s.episode) == anime.episode
+                                    && s.airing_at == cal_event.timestamp
+                                {
+                                    need_to_delete = false;
+                                }
+                            });
+                        }
+                    }
                 } else if cal_event.date == meta.publish_date.unwrap() {
                     need_to_delete = false;
                 };
@@ -6935,7 +6951,6 @@ impl MiscellaneousService {
 
         let mut metadata_stream = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(metadata::Column::PublishDate.is_not_null())
             .filter(
                 metadata::Column::IsPartial
                     .is_null()
@@ -6947,18 +6962,18 @@ impl MiscellaneousService {
         let mut calendar_events_inserts = vec![];
         let mut metadata_updates = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {
+            let calendar_event_template = calendar_event::ActiveModel {
+                metadata_id: ActiveValue::Set(Some(meta.id.clone())),
+                ..Default::default()
+            };
             if let Some(ps) = &meta.podcast_specifics {
                 for episode in ps.episodes.iter() {
-                    let event = calendar_event::ActiveModel {
-                        metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                        date: ActiveValue::Set(episode.publish_date),
-                        metadata_podcast_extra_information: ActiveValue::Set(Some(
-                            SeenPodcastExtraInformation {
-                                episode: episode.number,
-                            },
-                        )),
-                        ..Default::default()
-                    };
+                    let mut event = calendar_event_template.clone();
+                    event.timestamp = ActiveValue::Set(convert_naive_to_utc(episode.publish_date));
+                    event.metadata_podcast_extra_information =
+                        ActiveValue::Set(Some(SeenPodcastExtraInformation {
+                            episode: episode.number,
+                        }));
                     calendar_events_inserts.push(event);
                 }
             } else if let Some(ss) = &meta.show_specifics {
@@ -6968,36 +6983,39 @@ impl MiscellaneousService {
                     }
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
-                            let event = calendar_event::ActiveModel {
-                                metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                                date: ActiveValue::Set(date),
-                                metadata_show_extra_information: ActiveValue::Set(Some(
-                                    SeenShowExtraInformation {
-                                        season: season.season_number,
-                                        episode: episode.episode_number,
-                                    },
-                                )),
-                                ..Default::default()
-                            };
+                            let mut event = calendar_event_template.clone();
+                            event.timestamp = ActiveValue::Set(convert_naive_to_utc(date));
+                            event.metadata_show_extra_information =
+                                ActiveValue::Set(Some(SeenShowExtraInformation {
+                                    season: season.season_number,
+                                    episode: episode.episode_number,
+                                }));
+
                             calendar_events_inserts.push(event);
                         }
                     }
                 }
-            } else {
-                let event = calendar_event::ActiveModel {
-                    metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                    date: ActiveValue::Set(meta.publish_date.unwrap()),
-                    ..Default::default()
-                };
+            } else if let Some(ans) = &meta.anime_specifics {
+                if let Some(schedule) = &ans.airing_schedule {
+                    for episode in schedule.iter() {
+                        let mut event = calendar_event_template.clone();
+                        event.timestamp = ActiveValue::Set(episode.airing_at);
+                        event.metadata_anime_extra_information =
+                            ActiveValue::Set(Some(SeenAnimeExtraInformation {
+                                episode: Some(episode.episode),
+                            }));
+                        calendar_events_inserts.push(event);
+                    }
+                }
+            } else if let Some(publish_date) = meta.publish_date {
+                let mut event = calendar_event_template.clone();
+                event.timestamp = ActiveValue::Set(convert_naive_to_utc(publish_date));
                 calendar_events_inserts.push(event);
             };
             metadata_updates.push(meta.id.clone());
         }
-        tracing::debug!(
-            "Inserting {} calendar events",
-            calendar_events_inserts.len()
-        );
         for cal_insert in calendar_events_inserts {
+            tracing::debug!("Inserting calendar event: {:?}", cal_insert);
             cal_insert.insert(&self.db).await.ok();
         }
         tracing::debug!("Finished updating calendar events");
@@ -7509,6 +7527,7 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.recalculate_calendar_events().await?;
         Ok(true)
     }
 }

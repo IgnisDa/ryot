@@ -159,6 +159,11 @@ const CalendarEvent = (props: {
 								(EP-{evt.podcastExtraInformation.episode})
 							</Text>
 						) : null}
+						{isNumber(evt.animeExtraInformation?.episode) ? (
+							<Text span c="dimmed" size="sm">
+								(EP-{evt.animeExtraInformation.episode})
+							</Text>
+						) : null}
 					</Text>
 					<Text size="sm" c="dimmed">
 						{startCase(snakeCase(evt.metadataLot))}
