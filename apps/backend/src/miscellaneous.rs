@@ -23,10 +23,7 @@ use enums::{
 };
 use futures::TryStreamExt;
 use itertools::Itertools;
-use markdown::{
-    to_html as markdown_to_html, to_html_with_options as markdown_to_html_opts, CompileOptions,
-    Options,
-};
+use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
@@ -48,8 +45,7 @@ use models::{
     user_to_entity, workout, AnimeSpecifics, AudioBookSpecifics, BackendError, BackgroundJob,
     BookSpecifics, ChangeCollectionToEntityInput, CollectionExtraInformation, CommitMediaInput,
     CommitPersonInput, CreateOrUpdateCollectionInput, DefaultCollection, EntityWithLot,
-    GenreListItem, IdAndNamedObject, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportItemReviewComment, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+    GenreListItem, IdAndNamedObject, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
     ImportOrExportMediaItemSeen, ImportOrExportPersonItem, IntegrationProviderSpecifics,
     MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails, MediaStateChanged,
     MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
@@ -57,11 +53,12 @@ use models::{
     MovieSpecifics, NotificationPlatformSpecifics, PartialMetadata, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
     PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewPostedEvent, SearchDetails, SearchInput, SearchResults,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, StoredUrl, StringIdObject,
-    UserGeneralDashboardElement, UserGeneralPreferences, UserPreferences, UserReviewScale,
-    UserSummaryData, UserUnitSystem, VideoGameSpecifics, VisualNovelSpecifics, WatchProvider,
+    ProgressUpdateResultUnion, ReviewItem, ReviewPostedEvent, SearchDetails, SearchInput,
+    SearchResults, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, StoredUrl,
+    StringIdObject, UserGeneralDashboardElement, UserGeneralPreferences, UserPreferences,
+    UserReviewScale, UserSummaryData, UserUnitSystem, VideoGameSpecifics, VisualNovelSpecifics,
+    WatchProvider,
 };
 use nanoid::nanoid;
 use openidconnect::{
@@ -106,8 +103,8 @@ use uuid::Uuid;
 
 use crate::{
     app_utils::{
-        add_entity_to_collection, apply_collection_filter, entity_in_collections, ilike_sql,
-        user_by_id,
+        add_entity_to_collection, apply_collection_filter, entity_in_collections,
+        get_review_export_item, ilike_sql, review_by_id, user_by_id,
     },
     background::{ApplicationJob, CoreApplicationJob},
     integrations::{IntegrationMediaSeen, IntegrationService},
@@ -323,23 +320,6 @@ struct CollectionContents {
     results: SearchResults<EntityWithLot>,
     reviews: Vec<ReviewItem>,
     user: user::Model,
-}
-
-#[derive(Debug, SimpleObject)]
-struct ReviewItem {
-    id: String,
-    posted_on: DateTimeUtc,
-    rating: Option<Decimal>,
-    text_original: Option<String>,
-    text_rendered: Option<String>,
-    visibility: Visibility,
-    is_spoiler: bool,
-    posted_by: IdAndNamedObject,
-    show_extra_information: Option<SeenShowExtraInformation>,
-    podcast_extra_information: Option<SeenPodcastExtraInformation>,
-    anime_extra_information: Option<SeenAnimeExtraInformation>,
-    manga_extra_information: Option<SeenMangaExtraInformation>,
-    comments: Vec<ImportOrExportItemReviewComment>,
 }
 
 #[derive(Debug, SimpleObject, FromQueryResult)]
@@ -746,34 +726,6 @@ struct GroupedCalendarEvent {
 
 fn get_password_hasher() -> Argon2<'static> {
     Argon2::default()
-}
-
-fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
-    let (show_season_number, show_episode_number) = match rev.show_extra_information {
-        Some(d) => (Some(d.season), Some(d.episode)),
-        None => (None, None),
-    };
-    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
-    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
-    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
-    ImportOrExportItemRating {
-        review: Some(ImportOrExportItemReview {
-            visibility: Some(rev.visibility),
-            date: Some(rev.posted_on),
-            spoiler: Some(rev.is_spoiler),
-            text: rev.text_original,
-        }),
-        rating: rev.rating,
-        show_season_number,
-        show_episode_number,
-        podcast_episode_number,
-        anime_episode_number,
-        manga_chapter_number,
-        comments: match rev.comments.is_empty() {
-            true => None,
-            false => Some(rev.comments),
-        },
-    }
 }
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -3838,53 +3790,6 @@ impl MiscellaneousService {
         Ok(StringIdObject { id: group_id })
     }
 
-    async fn review_by_id(
-        &self,
-        review_id: String,
-        user_id: &String,
-        respect_preferences: bool,
-    ) -> Result<ReviewItem> {
-        let review = Review::find_by_id(review_id).one(&self.db).await?;
-        match review {
-            Some(r) => {
-                let user = r.find_related(User).one(&self.db).await.unwrap().unwrap();
-                let rating = match respect_preferences {
-                    true => {
-                        let preferences = user_by_id(&self.db, user_id).await?.preferences;
-                        r.rating.map(|s| {
-                            s.checked_div(match preferences.general.review_scale {
-                                UserReviewScale::OutOfFive => dec!(20),
-                                UserReviewScale::OutOfHundred => dec!(1),
-                            })
-                            .unwrap()
-                            .round_dp(1)
-                        })
-                    }
-                    false => r.rating,
-                };
-                Ok(ReviewItem {
-                    id: r.id,
-                    posted_on: r.posted_on,
-                    rating,
-                    is_spoiler: r.is_spoiler,
-                    text_original: r.text.clone(),
-                    text_rendered: r.text.map(|t| markdown_to_html(&t)),
-                    visibility: r.visibility,
-                    show_extra_information: r.show_extra_information,
-                    podcast_extra_information: r.podcast_extra_information,
-                    anime_extra_information: r.anime_extra_information,
-                    manga_extra_information: r.manga_extra_information,
-                    posted_by: IdAndNamedObject {
-                        id: user.id,
-                        name: user.name,
-                    },
-                    comments: r.comments,
-                })
-            }
-            None => Err(Error::new("Unable to find review".to_owned())),
-        }
-    }
-
     async fn item_reviews(
         &self,
         user_id: &String,
@@ -3915,7 +3820,7 @@ impl MiscellaneousService {
             .unwrap();
         let mut reviews = vec![];
         for r_id in all_reviews {
-            reviews.push(self.review_by_id(r_id, user_id, true).await?);
+            reviews.push(review_by_id(&self.db, r_id, user_id, true).await?);
         }
         let all_reviews = reviews
             .into_iter()
@@ -6703,7 +6608,9 @@ impl MiscellaneousService {
             let mut reviews = vec![];
             for review in db_reviews {
                 let review_item = get_review_export_item(
-                    self.review_by_id(review.id, user_id, false).await.unwrap(),
+                    review_by_id(&self.db, review.id, user_id, false)
+                        .await
+                        .unwrap(),
                 );
                 reviews.push(review_item);
             }
@@ -6719,56 +6626,6 @@ impl MiscellaneousService {
                 source: m.source,
                 identifier: m.identifier.clone(),
                 seen_history,
-                reviews,
-                collections,
-            };
-            writer.serialize_value(&exp).unwrap();
-        }
-        Ok(true)
-    }
-
-    pub async fn export_media_group(
-        &self,
-        user_id: &String,
-        writer: &mut JsonStreamWriter<File>,
-    ) -> Result<bool> {
-        let related_metadata = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
-            .all(&self.db)
-            .await
-            .unwrap();
-        for rm in related_metadata.iter() {
-            let m = rm
-                .find_related(MetadataGroup)
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    self.review_by_id(review.id, user_id, false).await.unwrap(),
-                );
-                reviews.push(review_item);
-            }
-            let collections =
-                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None, None)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
-            let exp = ImportOrExportMediaGroupItem {
-                title: m.title,
-                lot: m.lot,
-                source: m.source,
-                identifier: m.identifier.clone(),
                 reviews,
                 collections,
             };
@@ -6804,7 +6661,9 @@ impl MiscellaneousService {
             let mut reviews = vec![];
             for review in db_reviews {
                 let review_item = get_review_export_item(
-                    self.review_by_id(review.id, user_id, false).await.unwrap(),
+                    review_by_id(&self.db, review.id, user_id, false)
+                        .await
+                        .unwrap(),
                 );
                 reviews.push(review_item);
             }

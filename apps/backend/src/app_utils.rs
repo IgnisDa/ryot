@@ -4,21 +4,24 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use itertools::Itertools;
+use markdown::to_html as markdown_to_html;
 use migrations::AliasedCollectionToEntity;
 use models::{
     collection, collection_to_entity,
     functions::associate_user_with_entity,
-    prelude::{Collection, CollectionToEntity, User, UserToCollection},
-    user, user_to_collection, ChangeCollectionToEntityInput,
+    prelude::{Collection, CollectionToEntity, Review, User, UserToCollection},
+    user, user_to_collection, ChangeCollectionToEntityInput, IdAndNamedObject,
+    ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem, UserReviewScale,
 };
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
+use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QuerySelect, QueryTrait, Select,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    QueryFilter, QuerySelect, QueryTrait, Select,
 };
 use sea_query::{Expr, PgFunc};
 use services::FileStorageService;
@@ -113,9 +116,10 @@ pub async fn create_app_services(
         timezone.clone(),
     ));
     let exporter_service = Arc::new(ExporterService::new(
+        &db,
         config.clone(),
+        perform_application_job,
         file_storage_service.clone(),
-        media_service.clone(),
         exercise_service.clone(),
     ));
     AppServices {
@@ -285,4 +289,79 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<use
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
+}
+
+pub fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
+    let (show_season_number, show_episode_number) = match rev.show_extra_information {
+        Some(d) => (Some(d.season), Some(d.episode)),
+        None => (None, None),
+    };
+    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
+    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
+    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
+    ImportOrExportItemRating {
+        review: Some(ImportOrExportItemReview {
+            visibility: Some(rev.visibility),
+            date: Some(rev.posted_on),
+            spoiler: Some(rev.is_spoiler),
+            text: rev.text_original,
+        }),
+        rating: rev.rating,
+        show_season_number,
+        show_episode_number,
+        podcast_episode_number,
+        anime_episode_number,
+        manga_chapter_number,
+        comments: match rev.comments.is_empty() {
+            true => None,
+            false => Some(rev.comments),
+        },
+    }
+}
+
+pub async fn review_by_id(
+    db: &DatabaseConnection,
+    review_id: String,
+    user_id: &String,
+    respect_preferences: bool,
+) -> Result<ReviewItem> {
+    let review = Review::find_by_id(review_id).one(db).await?;
+    match review {
+        Some(r) => {
+            let user = r.find_related(User).one(db).await.unwrap().unwrap();
+            let rating = match respect_preferences {
+                true => {
+                    let preferences = user_by_id(db, user_id).await?.preferences;
+                    r.rating.map(|s| {
+                        s.checked_div(match preferences.general.review_scale {
+                            UserReviewScale::OutOfFive => dec!(20),
+                            UserReviewScale::OutOfHundred => dec!(1),
+                        })
+                        .unwrap()
+                        .round_dp(1)
+                    })
+                }
+                false => r.rating,
+            };
+            Ok(ReviewItem {
+                id: r.id,
+                posted_on: r.posted_on,
+                rating,
+                is_spoiler: r.is_spoiler,
+                text_original: r.text.clone(),
+                text_rendered: r.text.map(|t| markdown_to_html(&t)),
+                visibility: r.visibility,
+                show_extra_information: r.show_extra_information,
+                podcast_extra_information: r.podcast_extra_information,
+                anime_extra_information: r.anime_extra_information,
+                manga_extra_information: r.manga_extra_information,
+                posted_by: IdAndNamedObject {
+                    id: user.id,
+                    name: user.name,
+                },
+                comments: r.comments,
+            })
+        }
+        None => Err(Error::new("Unable to find review".to_owned())),
+    }
 }

@@ -1,26 +1,32 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 
-use apalis::prelude::MessageQueue;
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
-use models::ExportItem;
+use models::{
+    prelude::{MetadataGroup, Review, UserToEntity},
+    review, user_to_entity, ExportItem, ImportOrExportMediaGroupItem,
+};
 use nanoid::nanoid;
 use reqwest::{
     header::{CONTENT_LENGTH, CONTENT_TYPE},
     Body, Client,
 };
-use sea_orm::prelude::DateTimeUtc;
+use sea_orm::{
+    prelude::DateTimeUtc, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter,
+};
 use serde::{Deserialize, Serialize};
 use services::FileStorageService;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use traits::AuthProvider;
-use utils::{TEMP_DIR,IsFeatureEnabled};
+use utils::{IsFeatureEnabled, TEMP_DIR};
 
 use crate::{
-    background::ApplicationJob, fitness::resolver::ExerciseService,
-    miscellaneous::MiscellaneousService,
+    app_utils::{entity_in_collections, get_review_export_item, review_by_id},
+    background::ApplicationJob,
+    fitness::resolver::ExerciseService,
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -70,30 +76,32 @@ impl ExporterMutation {
 }
 
 pub struct ExporterService {
+    db: DatabaseConnection,
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
-    media_service: Arc<MiscellaneousService>,
     exercise_service: Arc<ExerciseService>,
+    perform_application_job: MemoryStorage<ApplicationJob>,
 }
 
 impl ExporterService {
     pub fn new(
+        db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
         file_storage_service: Arc<FileStorageService>,
-        media_service: Arc<MiscellaneousService>,
         exercise_service: Arc<ExerciseService>,
     ) -> Self {
         Self {
+            db: db.clone(),
             config,
             file_storage_service,
-            media_service,
             exercise_service,
+            perform_application_job: perform_application_job.clone(),
         }
     }
 
     async fn deploy_export_job(&self, user_id: String, to_export: Vec<ExportItem>) -> Result<bool> {
-        self.media_service
-            .perform_application_job
+        self.perform_application_job
             .clone()
             .enqueue(ApplicationJob::PerformExport(user_id, to_export))
             .await
@@ -126,9 +134,7 @@ impl ExporterService {
                         .await?;
                 }
                 ExportItem::MediaGroup => {
-                    self.media_service
-                        .export_media_group(&user_id, &mut writer)
-                        .await?;
+                    self.export_media_group(&user_id, &mut writer).await?;
                 }
                 ExportItem::People => {
                     self.media_service
@@ -228,5 +234,57 @@ impl ExporterService {
         }
         resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
         Ok(resp)
+    }
+
+    async fn export_media_group(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<bool> {
+        let related_metadata = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
+        for rm in related_metadata.iter() {
+            let m = rm
+                .find_related(MetadataGroup)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let db_reviews = m
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item = get_review_export_item(
+                    review_by_id(&self.db, review.id, user_id, false)
+                        .await
+                        .unwrap(),
+                );
+                reviews.push(review_item);
+            }
+            let collections =
+                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None, None)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportMediaGroupItem {
+                title: m.title,
+                lot: m.lot,
+                source: m.source,
+                identifier: m.identifier.clone(),
+                reviews,
+                collections,
+            };
+            writer.serialize_value(&exp).unwrap();
+        }
+        Ok(true)
     }
 }

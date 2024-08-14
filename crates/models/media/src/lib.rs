@@ -917,3 +917,20 @@ pub struct IntegrationProviderSpecifics {
     pub sonarr_root_folder_path: Option<String>,
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
 }
+
+#[derive(Debug, SimpleObject)]
+pub struct ReviewItem {
+    pub id: String,
+    pub posted_on: DateTimeUtc,
+    pub rating: Option<Decimal>,
+    pub text_original: Option<String>,
+    pub text_rendered: Option<String>,
+    pub visibility: Visibility,
+    pub is_spoiler: bool,
+    pub posted_by: IdAndNamedObject,
+    pub show_extra_information: Option<SeenShowExtraInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub anime_extra_information: Option<SeenAnimeExtraInformation>,
+    pub manga_extra_information: Option<SeenMangaExtraInformation>,
+    pub comments: Vec<ImportOrExportItemReviewComment>,
+}
