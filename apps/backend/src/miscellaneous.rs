@@ -6971,34 +6971,30 @@ impl MiscellaneousService {
         let mut calendar_events_inserts = vec![];
         let mut metadata_updates = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {
+            let calendar_event_template = calendar_event::ActiveModel {
+                metadata_id: ActiveValue::Set(Some(meta.id.clone())),
+                ..Default::default()
+            };
             if let Some(ps) = &meta.podcast_specifics {
                 for episode in ps.episodes.iter() {
-                    let event = calendar_event::ActiveModel {
-                        metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                        date: ActiveValue::Set(episode.publish_date),
-                        metadata_podcast_extra_information: ActiveValue::Set(Some(
-                            SeenPodcastExtraInformation {
-                                episode: episode.number,
-                            },
-                        )),
-                        ..Default::default()
-                    };
+                    let mut event = calendar_event_template.clone();
+                    event.date = ActiveValue::Set(episode.publish_date);
+                    event.metadata_podcast_extra_information =
+                        ActiveValue::Set(Some(SeenPodcastExtraInformation {
+                            episode: episode.number,
+                        }));
                     calendar_events_inserts.push(event);
                 }
             }
             if let Some(ans) = &meta.anime_specifics {
                 if let Some(schedule) = &ans.airing_schedule {
                     for episode in schedule.iter() {
-                        let event = calendar_event::ActiveModel {
-                            metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                            date: ActiveValue::Set(episode.airing_at),
-                            metadata_anime_extra_information: ActiveValue::Set(Some(
-                                SeenAnimeExtraInformation {
-                                    episode: Some(episode.episode),
-                                },
-                            )),
-                            ..Default::default()
-                        };
+                        let mut event = calendar_event_template.clone();
+                        event.date = ActiveValue::Set(episode.airing_at);
+                        event.metadata_anime_extra_information =
+                            ActiveValue::Set(Some(SeenAnimeExtraInformation {
+                                episode: Some(episode.episode),
+                            }));
                         calendar_events_inserts.push(event);
                     }
                 }
@@ -7009,36 +7005,27 @@ impl MiscellaneousService {
                     }
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
-                            let event = calendar_event::ActiveModel {
-                                metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                                date: ActiveValue::Set(date),
-                                metadata_show_extra_information: ActiveValue::Set(Some(
-                                    SeenShowExtraInformation {
-                                        season: season.season_number,
-                                        episode: episode.episode_number,
-                                    },
-                                )),
-                                ..Default::default()
-                            };
+                            let mut event = calendar_event_template.clone();
+                            event.date = ActiveValue::Set(date);
+                            event.metadata_show_extra_information =
+                                ActiveValue::Set(Some(SeenShowExtraInformation {
+                                    season: season.season_number,
+                                    episode: episode.episode_number,
+                                }));
+
                             calendar_events_inserts.push(event);
                         }
                     }
                 }
             } else if let Some(publish_date) = meta.publish_date {
-                let event = calendar_event::ActiveModel {
-                    metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                    date: ActiveValue::Set(publish_date),
-                    ..Default::default()
-                };
+                let mut event = calendar_event_template.clone();
+                event.date = ActiveValue::Set(publish_date);
                 calendar_events_inserts.push(event);
             };
             metadata_updates.push(meta.id.clone());
         }
-        tracing::debug!(
-            "Inserting {} calendar events",
-            calendar_events_inserts.len()
-        );
         for cal_insert in calendar_events_inserts {
+            tracing::debug!("Inserting calendar event: {:#?}", cal_insert,);
             cal_insert.insert(&self.db).await.ok();
         }
         tracing::debug!("Finished updating calendar events");
