@@ -63,7 +63,7 @@ impl MigrationTrait for Migration {
                     .table(UserToEntity::Table)
                     .col(
                         ColumnDef::new(UserToEntity::LastUpdatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
@@ -74,7 +74,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::MediaReason).array(ColumnType::Text))
                     .col(
                         ColumnDef::new(UserToEntity::CreatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )

@@ -79,7 +79,7 @@ impl MigrationTrait for Migration {
                     .table(CollectionToEntity::Table)
                     .col(
                         ColumnDef::new(CollectionToEntity::LastUpdatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
@@ -95,7 +95,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(CollectionToEntity::MetadataId).text())
                     .col(
                         ColumnDef::new(CollectionToEntity::CreatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )

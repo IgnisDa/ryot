@@ -70,13 +70,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::Source).text().not_null())
                     .col(
                         ColumnDef::new(Metadata::CreatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(
                         ColumnDef::new(Metadata::LastUpdatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )

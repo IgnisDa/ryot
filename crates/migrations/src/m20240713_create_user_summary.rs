@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserSummary::UserId).text().not_null())
                     .col(
                         ColumnDef::new(UserSummary::CalculatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null(),
                     )
                     .col(ColumnDef::new(UserSummary::IsFresh).boolean().not_null())

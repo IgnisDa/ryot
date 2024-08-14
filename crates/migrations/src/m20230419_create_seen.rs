@@ -48,10 +48,10 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null()
                             .default(SeenState::InProgress),
-                        )
+                    )
                     .col(
                         ColumnDef::new(Seen::UpdatedAt)
-                            .array(ColumnType::TimestampWithTimeZone)
+                            .array(ColumnType::Timestamp)
                             .not_null()
                             .extra("DEFAULT ARRAY[CURRENT_TIMESTAMP]"),
                     )
@@ -62,15 +62,17 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
-                            .extra("GENERATED ALWAYS AS (updated_at[array_length(updated_at, 1)]) STORED")
+                            .extra(
+                            "GENERATED ALWAYS AS (updated_at[array_length(updated_at, 1)]) STORED",
+                        ),
                     )
                     .col(
                         ColumnDef::new(Seen::NumTimesUpdated)
                             .integer()
                             .not_null()
-                            .extra("GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED")
+                            .extra("GENERATED ALWAYS AS (array_length(updated_at, 1)) STORED"),
                     )
                     .col(ColumnDef::new(Seen::MetadataId).text().not_null())
                     .col(ColumnDef::new(Seen::UserId).text().not_null())

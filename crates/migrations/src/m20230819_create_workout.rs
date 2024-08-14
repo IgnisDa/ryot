@@ -29,16 +29,8 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Workout::Table)
                     .col(ColumnDef::new(Workout::Id).primary_key().text().not_null())
-                    .col(
-                        ColumnDef::new(Workout::StartTime)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(Workout::EndTime)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Workout::StartTime).timestamp().not_null())
+                    .col(ColumnDef::new(Workout::EndTime).timestamp().not_null())
                     .col(ColumnDef::new(Workout::Summary).json_binary().not_null())
                     .col(
                         ColumnDef::new(Workout::Information)

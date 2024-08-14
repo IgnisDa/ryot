@@ -34,7 +34,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Collection::CreatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
@@ -42,7 +42,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Collection::Description).text())
                     .col(
                         ColumnDef::new(Collection::LastUpdatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )

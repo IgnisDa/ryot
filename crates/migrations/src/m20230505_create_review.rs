@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::Id).text().not_null().primary_key())
                     .col(
                         ColumnDef::new(Review::PostedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )

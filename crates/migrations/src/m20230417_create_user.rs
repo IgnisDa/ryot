@@ -32,7 +32,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::OidcIssuerId).text())
                     .col(
                         ColumnDef::new(User::CreatedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )

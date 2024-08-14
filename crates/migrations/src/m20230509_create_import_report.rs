@@ -33,11 +33,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ImportReport::Source).text().not_null())
                     .col(
                         ColumnDef::new(ImportReport::StartedOn)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
-                    .col(ColumnDef::new(ImportReport::FinishedOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(ImportReport::FinishedOn).timestamp())
                     .col(ColumnDef::new(ImportReport::WasSuccess).boolean())
                     .col(ColumnDef::new(ImportReport::Details).json_binary())
                     .col(ColumnDef::new(ImportReport::UserId).text().not_null())
