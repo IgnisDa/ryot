@@ -9,6 +9,8 @@ pub struct Migration;
 pub enum CalendarEvent {
     Table,
     Id,
+    // Always stored in UTC
+    Timestamp,
     Date,
     MetadataId,
     MetadataShowExtraInformation,
@@ -31,7 +33,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(CalendarEvent::Date).date().not_null())
                     .col(ColumnDef::new(CalendarEvent::MetadataShowExtraInformation).json_binary())
                     .col(
                         ColumnDef::new(CalendarEvent::MetadataPodcastExtraInformation)
@@ -39,6 +40,17 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(CalendarEvent::MetadataId).text())
                     .col(ColumnDef::new(CalendarEvent::MetadataAnimeExtraInformation).json_binary())
+                    .col(
+                        ColumnDef::new(CalendarEvent::Timestamp)
+                            .timestamp()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(CalendarEvent::Date)
+                            .date()
+                            .not_null()
+                            .extra(r#"GENERATED ALWAYS AS (DATE("timestamp")) STORED"#),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-calendar_event_to_metadata")
@@ -56,7 +68,7 @@ impl MigrationTrait for Migration {
                     .unique()
                     .name(UNIQUE_KEY)
                     .table(CalendarEvent::Table)
-                    .col(CalendarEvent::Date)
+                    .col(CalendarEvent::Timestamp)
                     .col(CalendarEvent::MetadataId)
                     .col(CalendarEvent::MetadataShowExtraInformation)
                     .col(CalendarEvent::MetadataPodcastExtraInformation)
