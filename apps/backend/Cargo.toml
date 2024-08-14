@@ -45,7 +45,7 @@ rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
-sea-query = "=0.31.0-rc.9"
+sea-query = "=0.31.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
