@@ -6,17 +6,21 @@ use nanoid::nanoid;
 use sea_orm::{entity::prelude::*, ActiveValue};
 use serde::{Deserialize, Serialize};
 
-use crate::models::media::{SeenPodcastExtraInformation, SeenShowExtraInformation};
+use crate::models::media::{
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "calendar_event")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub timestamp: DateTimeUtc,
     pub date: NaiveDate,
     pub metadata_id: Option<String>,
     pub metadata_show_extra_information: Option<SeenShowExtraInformation>,
     pub metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

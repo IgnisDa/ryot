@@ -56,6 +56,8 @@ mod m20240730_changes_for_push_integrations;
 mod m20240805_add_new_section_to_dashboard;
 mod m20240807_add_columns_to_access_link;
 mod m20240810_remove_useless_columns_for_cte;
+mod m20240814_aa_new_column_from_anime_calendar_events;
+mod m20240814_bb_add_timestamp_column_to_calendar_event;
 mod m20240822_zz_add_new_preference_for_templates;
 mod m20240822_zzz_add_new_column_to_access_link;
 
@@ -137,6 +139,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240805_add_new_section_to_dashboard::Migration),
             Box::new(m20240807_add_columns_to_access_link::Migration),
             Box::new(m20240810_remove_useless_columns_for_cte::Migration),
+            Box::new(m20240814_aa_new_column_from_anime_calendar_events::Migration),
+            Box::new(m20240814_bb_add_timestamp_column_to_calendar_event::Migration),
         ]
     }
 }

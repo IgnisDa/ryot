@@ -233,9 +233,10 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
                 volumes: Some(v),
                 url: None,
             });
-    let anime_specifics = details
-        .num_episodes
-        .map(|e| AnimeSpecifics { episodes: Some(e) });
+    let anime_specifics = details.num_episodes.map(|e| AnimeSpecifics {
+        episodes: Some(e),
+        airing_schedule: None,
+    });
     let mut suggestions = vec![];
     for rel in details.related_anime.unwrap_or_default().into_iter() {
         suggestions.push(PartialMetadataWithoutId {

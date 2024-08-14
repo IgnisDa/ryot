@@ -717,9 +717,28 @@ pub mod media {
         FromJsonQueryResult,
         InputObject,
     )]
+    #[graphql(input_name = "AnimeAiringScheduleSpecificsInput")]
+    pub struct AnimeAiringScheduleSpecifics {
+        pub episode: i32,
+        pub airing_at: DateTimeUtc,
+    }
+
+    #[derive(
+        Debug,
+        PartialEq,
+        Eq,
+        Serialize,
+        Deserialize,
+        SimpleObject,
+        Clone,
+        Default,
+        FromJsonQueryResult,
+        InputObject,
+    )]
     #[graphql(input_name = "AnimeSpecificsInput")]
     pub struct AnimeSpecifics {
         pub episodes: Option<i32>,
+        pub airing_schedule: Option<Vec<AnimeAiringScheduleSpecifics>>,
     }
 
     #[derive(
