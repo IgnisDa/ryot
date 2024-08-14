@@ -7025,7 +7025,7 @@ impl MiscellaneousService {
             metadata_updates.push(meta.id.clone());
         }
         for cal_insert in calendar_events_inserts {
-            tracing::debug!("Inserting calendar event: {:#?}", cal_insert,);
+            tracing::debug!("Inserting calendar event: {:?}", cal_insert);
             cal_insert.insert(&self.db).await.ok();
         }
         tracing::debug!("Finished updating calendar events");
