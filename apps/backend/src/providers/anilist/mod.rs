@@ -612,7 +612,7 @@ async fn media_details(
                 s.and_then(|data| {
                     DateTimeUtc::from_timestamp(data.airing_at, 0).map(|airing_at| {
                         AnimeAiringScheduleSpecifics {
-                            episode: data.episode,
+                            episode: data.episode.try_into().unwrap(),
                             airing_at: airing_at.date_naive(),
                         }
                     })

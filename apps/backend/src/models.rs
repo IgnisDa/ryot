@@ -717,7 +717,7 @@ pub mod media {
     )]
     #[graphql(input_name = "AnimeAiringScheduleSpecificsInput")]
     pub struct AnimeAiringScheduleSpecifics {
-        pub episode: i64,
+        pub episode: i32,
         pub airing_at: NaiveDate,
     }
 
