@@ -23,8 +23,8 @@ pub struct Model {
     pub id: String,
     #[serde(skip)]
     pub repeated_from: Option<String>,
-    pub start_time: DateTimeUtc,
-    pub end_time: DateTimeUtc,
+    pub start_time: DateTime,
+    pub end_time: DateTime,
     #[graphql(skip)]
     #[serde(skip)]
     pub user_id: String,

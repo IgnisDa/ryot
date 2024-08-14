@@ -16,8 +16,8 @@ pub struct Model {
     pub id: String,
     pub user_id: String,
     pub source: ImportSource,
-    pub started_on: DateTimeUtc,
-    pub finished_on: Option<DateTimeUtc>,
+    pub started_on: DateTime,
+    pub finished_on: Option<DateTime>,
     pub details: Option<ImportResultResponse>,
     pub was_success: Option<bool>,
 }

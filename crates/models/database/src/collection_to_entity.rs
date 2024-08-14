@@ -10,8 +10,8 @@ use uuid::Uuid;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
-    pub created_on: DateTimeUtc,
-    pub last_updated_on: DateTimeUtc,
+    pub created_on: DateTime,
+    pub last_updated_on: DateTime,
     pub collection_id: String,
     pub entity_id: String,
     pub entity_lot: EntityLot,

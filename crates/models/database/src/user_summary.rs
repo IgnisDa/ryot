@@ -12,7 +12,7 @@ pub struct Model {
     #[graphql(skip)]
     pub user_id: String,
     pub data: UserSummaryData,
-    pub calculated_on: DateTimeUtc,
+    pub calculated_on: DateTime,
     #[graphql(skip)]
     pub is_fresh: bool,
 }

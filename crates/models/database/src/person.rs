@@ -17,8 +17,8 @@ pub struct Model {
     pub id: String,
     pub identifier: String,
     pub source: MediaSource,
-    pub created_on: DateTimeUtc,
-    pub last_updated_on: DateTimeUtc,
+    pub created_on: DateTime,
+    pub last_updated_on: DateTime,
     pub name: String,
     pub is_partial: Option<bool>,
     #[sea_orm(column_type = "Json")]

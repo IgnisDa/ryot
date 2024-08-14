@@ -37,13 +37,13 @@ pub struct Model {
     #[graphql(skip)]
     #[serde(skip)]
     #[educe(Debug(ignore))]
-    pub updated_at: Vec<DateTimeUtc>,
+    pub updated_at: Vec<DateTime>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
     // Generated columns
-    pub last_updated_on: DateTimeUtc,
+    pub last_updated_on: DateTime,
     pub num_times_updated: i32,
 }
 

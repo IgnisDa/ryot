@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    pub timestamp: DateTimeUtc,
+    pub timestamp: DateTime,
     pub date: NaiveDate,
     pub metadata_id: Option<String>,
     pub metadata_show_extra_information: Option<SeenShowExtraInformation>,

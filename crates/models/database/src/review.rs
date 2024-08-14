@@ -18,7 +18,7 @@ use crate::functions::associate_user_with_entity;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    pub posted_on: DateTimeUtc,
+    pub posted_on: DateTime,
     pub rating: Option<Decimal>,
     pub text: Option<String>,
     pub visibility: Visibility,

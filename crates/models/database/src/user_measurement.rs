@@ -27,7 +27,7 @@ use serde_with::skip_serializing_none;
 pub struct Model {
     /// The date and time this measurement was made.
     #[sea_orm(primary_key, auto_increment = false)]
-    pub timestamp: DateTimeUtc,
+    pub timestamp: DateTime,
     #[graphql(skip)]
     #[sea_orm(primary_key, auto_increment = false)]
     #[serde(skip)]

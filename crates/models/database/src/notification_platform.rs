@@ -14,7 +14,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: String,
     pub lot: NotificationPlatformLot,
-    pub created_on: DateTimeWithTimeZone,
+    pub created_on: DateTime,
     pub is_disabled: Option<bool>,
     #[graphql(skip)]
     pub platform_specifics: NotificationPlatformSpecifics,

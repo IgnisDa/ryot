@@ -14,8 +14,8 @@ pub struct Model {
     #[sea_orm(primary_key)]
     #[graphql(skip)]
     pub id: Uuid,
-    pub created_on: DateTimeUtc,
-    pub last_updated_on: DateTimeUtc,
+    pub created_on: DateTime,
+    pub last_updated_on: DateTime,
     pub user_id: String,
     pub person_id: Option<String>,
     pub metadata_id: Option<String>,

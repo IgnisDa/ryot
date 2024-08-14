@@ -22,9 +22,9 @@ pub struct Model {
     pub provider: IntegrationProvider,
     pub is_disabled: Option<bool>,
     #[graphql(skip_input)]
-    pub created_on: DateTimeUtc,
+    pub created_on: DateTime,
     #[graphql(skip_input)]
-    pub last_triggered_on: Option<DateTimeUtc>,
+    pub last_triggered_on: Option<DateTime>,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
