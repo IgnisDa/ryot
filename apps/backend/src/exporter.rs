@@ -4,8 +4,8 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use models::{
-    prelude::{MetadataGroup, Review, UserToEntity},
-    review, user_to_entity, ExportItem, ImportOrExportMediaGroupItem,
+    prelude::{MetadataGroup, Person, Review, UserToEntity},
+    review, user_to_entity, ExportItem, ImportOrExportMediaGroupItem, ImportOrExportPersonItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -137,9 +137,7 @@ impl ExporterService {
                     self.export_media_group(&user_id, &mut writer).await?;
                 }
                 ExportItem::People => {
-                    self.media_service
-                        .export_people(&user_id, &mut writer)
-                        .await?;
+                    self.export_people(&user_id, &mut writer).await?;
                 }
                 ExportItem::Measurements => {
                     self.exercise_service
@@ -280,6 +278,58 @@ impl ExporterService {
                 lot: m.lot,
                 source: m.source,
                 identifier: m.identifier.clone(),
+                reviews,
+                collections,
+            };
+            writer.serialize_value(&exp).unwrap();
+        }
+        Ok(true)
+    }
+
+    async fn export_people(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<bool> {
+        let related_people = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::PersonId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
+        for rm in related_people.iter() {
+            let p = rm
+                .find_related(Person)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let db_reviews = p
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item = get_review_export_item(
+                    review_by_id(&self.db, review.id, user_id, false)
+                        .await
+                        .unwrap(),
+                );
+                reviews.push(review_item);
+            }
+            let collections =
+                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None, None)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportPersonItem {
+                identifier: p.identifier,
+                source: p.source,
+                source_specifics: p.source_specifics,
+                name: p.name,
                 reviews,
                 collections,
             };

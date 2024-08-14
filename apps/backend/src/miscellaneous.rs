@@ -46,11 +46,11 @@ use models::{
     BookSpecifics, ChangeCollectionToEntityInput, CollectionExtraInformation, CommitMediaInput,
     CommitPersonInput, CreateOrUpdateCollectionInput, DefaultCollection, EntityWithLot,
     GenreListItem, IdAndNamedObject, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
-    ImportOrExportMediaItemSeen, ImportOrExportPersonItem, IntegrationProviderSpecifics,
-    MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails, MediaStateChanged,
-    MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
-    MovieSpecifics, NotificationPlatformSpecifics, PartialMetadata, PartialMetadataPerson,
+    ImportOrExportMediaItemSeen, IntegrationProviderSpecifics, MangaSpecifics,
+    MediaAssociatedPersonStateChanges, MediaDetails, MediaStateChanged, MetadataFreeCreator,
+    MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataPartialDetails,
+    MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, MovieSpecifics,
+    NotificationPlatformSpecifics, PartialMetadata, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
     PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ReviewItem, ReviewPostedEvent, SearchDetails, SearchInput,
@@ -6626,58 +6626,6 @@ impl MiscellaneousService {
                 source: m.source,
                 identifier: m.identifier.clone(),
                 seen_history,
-                reviews,
-                collections,
-            };
-            writer.serialize_value(&exp).unwrap();
-        }
-        Ok(true)
-    }
-
-    pub async fn export_people(
-        &self,
-        user_id: &String,
-        writer: &mut JsonStreamWriter<File>,
-    ) -> Result<bool> {
-        let related_people = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::PersonId.is_not_null())
-            .all(&self.db)
-            .await
-            .unwrap();
-        for rm in related_people.iter() {
-            let p = rm
-                .find_related(Person)
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let db_reviews = p
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
-            let collections =
-                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None, None)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
-            let exp = ImportOrExportPersonItem {
-                identifier: p.identifier,
-                source: p.source,
-                source_specifics: p.source_specifics,
-                name: p.name,
                 reviews,
                 collections,
             };
