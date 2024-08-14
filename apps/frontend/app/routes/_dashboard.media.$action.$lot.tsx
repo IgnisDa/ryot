@@ -235,7 +235,7 @@ export default function Page() {
 							$path(
 								"/media/:action/:lot",
 								{ action: v, lot: loaderData.lot.toLowerCase() },
-								{ query: loaderData.query },
+								{ ...(loaderData.query && { query: loaderData.query }) },
 							),
 						);
 				}}
