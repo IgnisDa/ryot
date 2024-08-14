@@ -12,6 +12,7 @@ import {
 	SetLot,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { isString } from "@ryot/ts-utils";
 import {
 	IconBook,
 	IconBook2,
@@ -31,12 +32,26 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
 import { match } from "ts-pattern";
+import { z } from "zod";
+
+declare global {
+	interface Window {
+		umami?: {
+			track: typeof Umami.trackEvent;
+		};
+	}
+}
 
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
+
+export const commaDelimitedString = z
+	.string()
+	.optional()
+	.transform((v) => (isString(v) ? v.split(",") : undefined));
 
 export const CurrentWorkoutKey = "CurrentWorkout";
 export const LOGO_IMAGE_URL =
@@ -48,14 +63,6 @@ export const toastKey = "Toast";
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });
-
-declare global {
-	interface Window {
-		umami?: {
-			track: typeof Umami.trackEvent;
-		};
-	}
-}
 
 export const getSetColor = (l: SetLot) =>
 	match(l)
