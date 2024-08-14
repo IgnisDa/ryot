@@ -38,12 +38,12 @@ export type Scalars = {
 };
 
 export type AnimeAiringScheduleSpecifics = {
-  airingAt: Scalars['NaiveDate']['output'];
+  airingAt: Scalars['DateTime']['output'];
   episode: Scalars['Int']['output'];
 };
 
 export type AnimeAiringScheduleSpecificsInput = {
-  airingAt: Scalars['NaiveDate']['input'];
+  airingAt: Scalars['DateTime']['input'];
   episode: Scalars['Int']['input'];
 };
 

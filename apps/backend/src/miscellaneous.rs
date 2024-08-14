@@ -35,7 +35,7 @@ use openidconnect::{
     reqwest::async_http_client,
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
-use rs_utils::{get_first_and_last_day_of_month, IsFeatureEnabled};
+use rs_utils::{convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -6933,7 +6933,8 @@ impl MiscellaneousService {
                     if let Some(anime_info) = &meta.anime_specifics {
                         if let Some(schedule) = &anime_info.airing_schedule {
                             schedule.iter().for_each(|s| {
-                                if Some(s.episode) == anime.episode && s.airing_at == cal_event.date
+                                if Some(s.episode) == anime.episode
+                                    && s.airing_at == cal_event.timestamp
                                 {
                                     need_to_delete = false;
                                 }
@@ -6978,25 +6979,12 @@ impl MiscellaneousService {
             if let Some(ps) = &meta.podcast_specifics {
                 for episode in ps.episodes.iter() {
                     let mut event = calendar_event_template.clone();
-                    event.date = ActiveValue::Set(episode.publish_date);
+                    event.timestamp = ActiveValue::Set(convert_naive_to_utc(episode.publish_date));
                     event.metadata_podcast_extra_information =
                         ActiveValue::Set(Some(SeenPodcastExtraInformation {
                             episode: episode.number,
                         }));
                     calendar_events_inserts.push(event);
-                }
-            }
-            if let Some(ans) = &meta.anime_specifics {
-                if let Some(schedule) = &ans.airing_schedule {
-                    for episode in schedule.iter() {
-                        let mut event = calendar_event_template.clone();
-                        event.date = ActiveValue::Set(episode.airing_at);
-                        event.metadata_anime_extra_information =
-                            ActiveValue::Set(Some(SeenAnimeExtraInformation {
-                                episode: Some(episode.episode),
-                            }));
-                        calendar_events_inserts.push(event);
-                    }
                 }
             } else if let Some(ss) = &meta.show_specifics {
                 for season in ss.seasons.iter() {
@@ -7006,7 +6994,7 @@ impl MiscellaneousService {
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
                             let mut event = calendar_event_template.clone();
-                            event.date = ActiveValue::Set(date);
+                            event.timestamp = ActiveValue::Set(convert_naive_to_utc(date));
                             event.metadata_show_extra_information =
                                 ActiveValue::Set(Some(SeenShowExtraInformation {
                                     season: season.season_number,
@@ -7017,9 +7005,21 @@ impl MiscellaneousService {
                         }
                     }
                 }
+            } else if let Some(ans) = &meta.anime_specifics {
+                if let Some(schedule) = &ans.airing_schedule {
+                    for episode in schedule.iter() {
+                        let mut event = calendar_event_template.clone();
+                        event.timestamp = ActiveValue::Set(episode.airing_at);
+                        event.metadata_anime_extra_information =
+                            ActiveValue::Set(Some(SeenAnimeExtraInformation {
+                                episode: Some(episode.episode),
+                            }));
+                        calendar_events_inserts.push(event);
+                    }
+                }
             } else if let Some(publish_date) = meta.publish_date {
                 let mut event = calendar_event_template.clone();
-                event.date = ActiveValue::Set(publish_date);
+                event.timestamp = ActiveValue::Set(convert_naive_to_utc(publish_date));
                 calendar_events_inserts.push(event);
             };
             metadata_updates.push(meta.id.clone());
@@ -7542,6 +7542,7 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     async fn development_mutation(&self) -> Result<bool> {
+        self.recalculate_calendar_events().await?;
         Ok(true)
     }
 }
