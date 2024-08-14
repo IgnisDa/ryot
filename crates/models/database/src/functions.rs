@@ -68,7 +68,7 @@ where
                 person_id: ActiveValue::Set(person_id),
                 exercise_id: ActiveValue::Set(exercise_id),
                 metadata_group_id: ActiveValue::Set(metadata_group_id),
-                last_updated_on: ActiveValue::Set(Utc::now()),
+                last_updated_on: ActiveValue::Set(Utc::now().naive_utc()),
                 needs_to_be_updated: ActiveValue::Set(Some(true)),
                 ..Default::default()
             };
@@ -76,7 +76,7 @@ where
         }
         Some(u) => {
             let mut to_update: user_to_entity::ActiveModel = u.into();
-            to_update.last_updated_on = ActiveValue::Set(Utc::now());
+            to_update.last_updated_on = ActiveValue::Set(Utc::now().naive_utc());
             to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
             to_update.update(db).await.unwrap()
         }
