@@ -7,6 +7,7 @@ import {
 	Flex,
 	Group,
 	Loader,
+	MultiSelect,
 	Pagination,
 	Select,
 	Stack,
@@ -48,6 +49,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
+import { commaDelimitedString } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -96,7 +98,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
-				collection: z.string().optional(),
+				collection: commaDelimitedString,
 				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { peopleList } = await serverGqlService.authenticatedRequest(
@@ -106,9 +108,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					input: {
 						search: { page, query },
 						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-						filter: {
-							collection: urlParse.collection,
-						},
+						filter: { collection: urlParse.collection },
 						invertCollection: urlParse.invertCollection,
 					},
 				},
@@ -402,10 +402,9 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Flex gap="xs" align="center">
-				<Select
-					flex={1}
+				<MultiSelect
 					placeholder="Select a collection"
-					defaultValue={loaderData.peopleList.url.collection?.toString()}
+					defaultValue={loaderData.peopleList.url.collection}
 					data={[
 						{
 							group: "My collections",
@@ -415,7 +414,7 @@ const FiltersModalForm = () => {
 							})),
 						},
 					]}
-					onChange={(v) => setP("collection", v)}
+					onChange={(v) => setP("collection", v.join(","))}
 					clearable
 					searchable
 				/>

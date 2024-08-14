@@ -9,6 +9,7 @@ import {
 	Group,
 	Loader,
 	Menu,
+	MultiSelect,
 	Pagination,
 	Select,
 	Stack,
@@ -59,7 +60,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, MetadataDisplayItem } from "~/components/media";
-import { Verb, getLot, getVerb } from "~/lib/generals";
+import { Verb, commaDelimitedString, getLot, getVerb } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useApplicationEvents,
@@ -135,7 +136,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				generalFilter: z
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
-				collection: z.string().optional(),
+				collection: commaDelimitedString,
 				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { metadataList } = await serverGqlService.authenticatedRequest(
@@ -578,10 +579,9 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Flex gap="xs" align="center">
-				<Select
-					flex={1}
+				<MultiSelect
 					placeholder="Select a collection"
-					defaultValue={loaderData.mediaList.url.collection?.toString()}
+					defaultValue={loaderData.mediaList.url.collection}
 					data={[
 						{
 							group: "My collections",
@@ -591,7 +591,7 @@ const FiltersModalForm = () => {
 							})),
 						},
 					]}
-					onChange={(v) => setP("collection", v)}
+					onChange={(v) => setP("collection", v.join(","))}
 					clearable
 					searchable
 				/>
