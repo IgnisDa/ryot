@@ -26,15 +26,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
-      - name: Check commit message
+          fetch-depth: 0
+      - name: Check maintainer status
+        uses: actions/github-script@v6
+        id: check-maintainer
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          result-encoding: string
+          script: |
+            const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.actor
+            });
+            const hasPermission = (permission.permission === 'admin' || permission.permission === 'maintain') ? 'true' : 'false';
+            console.log({ hasPermission });
+            return hasPermission;
+      - name: Check commit message and run status
         id: check
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "should-run=true" >> $GITHUB_OUTPUT
+            if [[ "${{ steps.check-maintainer.outputs.result }}" == "true" ]]; then
+              echo "should-run=true" >> $GITHUB_OUTPUT
+            else
+              echo "should-run=false" >> $GITHUB_OUTPUT
+            fi
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
             COMMIT_MSG=$(git log --format=%B ${{ github.event.pull_request.head.sha }})
-            if [[ "$COMMIT_MSG" == *"Run CI"* ]]; then
+            if [[ "$COMMIT_MSG" == *"Run CI"* ]] && [[ "${{ steps.check-maintainer.outputs.result }}" == "true" ]]; then
               echo "should-run=true" >> $GITHUB_OUTPUT
             else
               echo "should-run=false" >> $GITHUB_OUTPUT
