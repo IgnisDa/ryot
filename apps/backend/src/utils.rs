@@ -371,7 +371,7 @@ pub async fn add_entity_to_collection(
 
 pub fn apply_collection_filter<E, C, D>(
     query: Select<E>,
-    collection_id: Option<String>,
+    collection_id: Option<Vec<String>>,
     invert_collection: Option<bool>,
     entity_column: C,
     id_column: D,
@@ -385,7 +385,7 @@ where
         let subquery = CollectionToEntity::find()
             .select_only()
             .column(id_column)
-            .filter(collection_to_entity::Column::CollectionId.eq(v))
+            .filter(collection_to_entity::Column::CollectionId.is_in(v))
             .filter(id_column.is_not_null())
             .into_query();
         if invert_collection.unwrap_or_default() {

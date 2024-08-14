@@ -791,7 +791,7 @@ export type MediaCollectionContentsResults = {
 };
 
 export type MediaFilter = {
-  collection?: InputMaybe<Scalars['String']['input']>;
+  collection?: InputMaybe<Array<Scalars['String']['input']>>;
   general?: InputMaybe<MediaGeneralFilter>;
 };
 
