@@ -1,6 +1,6 @@
 use async_graphql::{OutputType, SimpleObject};
 use common_models::SearchDetails;
-use database_models::{user_measurement, workout};
+use database_models::{collection, user_measurement, workout};
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -43,4 +43,10 @@ pub struct CompleteExport {
     pub workouts: Option<Vec<workout::Model>>,
     /// Data about user's media groups.
     pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct UserWorkoutDetails {
+    pub details: workout::Model,
+    pub collections: Vec<collection::Model>,
 }

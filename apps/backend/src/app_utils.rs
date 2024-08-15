@@ -9,9 +9,10 @@ use migrations::AliasedCollectionToEntity;
 use models::{
     collection, collection_to_entity,
     functions::associate_user_with_entity,
-    prelude::{Collection, CollectionToEntity, Review, User, UserToCollection},
-    user, user_to_collection, ChangeCollectionToEntityInput, IdAndNamedObject,
+    prelude::{Collection, CollectionToEntity, Review, User, UserToCollection, Workout},
+    user, user_to_collection, workout, ChangeCollectionToEntityInput, IdAndNamedObject,
     ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem, UserReviewScale,
+    UserWorkoutDetails,
 };
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
@@ -25,7 +26,7 @@ use sea_orm::{
 };
 use sea_query::{Expr, PgFunc};
 use services::FileStorageService;
-use utils::FRONTEND_OAUTH_ENDPOINT;
+use utils::{GraphqlRepresentation, FRONTEND_OAUTH_ENDPOINT};
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -120,7 +121,6 @@ pub async fn create_app_services(
         config.clone(),
         perform_application_job,
         file_storage_service.clone(),
-        exercise_service.clone(),
     ));
     AppServices {
         config,
@@ -363,5 +363,32 @@ pub async fn review_by_id(
             })
         }
         None => Err(Error::new("Unable to find review".to_owned())),
+    }
+}
+
+pub async fn workout_details(
+    db: &DatabaseConnection,
+    file_storage_service: &Arc<FileStorageService>,
+    user_id: &String,
+    workout_id: String,
+) -> Result<UserWorkoutDetails> {
+    let maybe_workout = Workout::find_by_id(workout_id.clone())
+        .filter(workout::Column::UserId.eq(user_id))
+        .one(db)
+        .await?;
+    match maybe_workout {
+        None => Err(Error::new(
+            "Workout with the given ID could not be found for this user.",
+        )),
+        Some(e) => {
+            let collections =
+                entity_in_collections(db, user_id, None, None, None, None, Some(workout_id))
+                    .await?;
+            let details = e.graphql_representation(file_storage_service).await?;
+            Ok(UserWorkoutDetails {
+                details,
+                collections,
+            })
+        }
     }
 }

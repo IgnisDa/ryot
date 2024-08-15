@@ -483,6 +483,12 @@ pub struct WorkoutSummary {
     pub exercises: Vec<WorkoutSummaryExercise>,
 }
 
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UserMeasurementsListInput {
+    pub start_time: Option<DateTimeUtc>,
+    pub end_time: Option<DateTimeUtc>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutSetRecord {
     pub lot: SetLot,

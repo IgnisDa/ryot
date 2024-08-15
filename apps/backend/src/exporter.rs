@@ -4,9 +4,10 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use models::{
-    prelude::{Metadata, MetadataGroup, Person, Review, Seen, UserToEntity},
-    review, seen, user_to_entity, ExportItem, ImportOrExportMediaGroupItem,
+    prelude::{Metadata, MetadataGroup, Person, Review, Seen, UserToEntity, Workout},
+    review, seen, user_to_entity, workout, ExportItem, ImportOrExportMediaGroupItem,
     ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
+    UserMeasurementsListInput,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -15,6 +16,7 @@ use reqwest::{
 };
 use sea_orm::{
     prelude::DateTimeUtc, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter,
+    QueryOrder, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 use services::FileStorageService;
@@ -25,9 +27,8 @@ use traits::AuthProvider;
 use utils::{IsFeatureEnabled, TEMP_DIR};
 
 use crate::{
-    app_utils::{entity_in_collections, get_review_export_item, review_by_id},
+    app_utils::{entity_in_collections, get_review_export_item, review_by_id, workout_details},
     background::ApplicationJob,
-    fitness::resolver::ExerciseService,
 };
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -80,7 +81,6 @@ pub struct ExporterService {
     db: DatabaseConnection,
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
-    exercise_service: Arc<ExerciseService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
 }
 
@@ -90,13 +90,11 @@ impl ExporterService {
         config: Arc<config::AppConfig>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
         file_storage_service: Arc<FileStorageService>,
-        exercise_service: Arc<ExerciseService>,
     ) -> Self {
         Self {
             db: db.clone(),
             config,
             file_storage_service,
-            exercise_service,
             perform_application_job: perform_application_job.clone(),
         }
     }
@@ -139,14 +137,10 @@ impl ExporterService {
                     self.export_people(&user_id, &mut writer).await?;
                 }
                 ExportItem::Measurements => {
-                    self.exercise_service
-                        .export_measurements(&user_id, &mut writer)
-                        .await?;
+                    self.export_measurements(&user_id, &mut writer).await?;
                 }
                 ExportItem::Workouts => {
-                    self.exercise_service
-                        .export_workouts(&user_id, &mut writer)
-                        .await?;
+                    self.export_workouts(&user_id, &mut writer).await?;
                 }
             };
             writer.end_array().unwrap();
@@ -418,6 +412,47 @@ impl ExporterService {
                 collections,
             };
             writer.serialize_value(&exp).unwrap();
+        }
+        Ok(true)
+    }
+
+    async fn export_workouts(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<bool> {
+        let workout_ids = Workout::find()
+            .select_only()
+            .column(workout::Column::Id)
+            .filter(workout::Column::UserId.eq(user_id))
+            .order_by_desc(workout::Column::EndTime)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for workout_id in workout_ids {
+            let details =
+                workout_details(&self.db, &self.file_storage_service, user_id, workout_id).await?;
+            writer.serialize_value(&details).unwrap();
+        }
+        Ok(true)
+    }
+
+    async fn export_measurements(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<bool> {
+        let measurements = self
+            .user_measurements_list(
+                user_id,
+                UserMeasurementsListInput {
+                    start_time: None,
+                    end_time: None,
+                },
+            )
+            .await?;
+        for measurement in measurements {
+            writer.serialize_value(&measurement).unwrap();
         }
         Ok(true)
     }

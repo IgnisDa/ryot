@@ -1,4 +1,4 @@
-use std::{fs::File, sync::Arc};
+use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
@@ -14,8 +14,8 @@ use models::{
     user_measurement, user_to_entity, workout, ChangeCollectionToEntityInput, DefaultCollection,
     ExerciseAttributes, ExerciseCategory, ExerciseListItem, GithubExercise,
     GithubExerciseAttributes, SearchDetails, SearchInput, SearchResults, StoredUrl,
-    UserExerciseInput, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
-    UserWorkoutSetRecord,
+    UserExerciseInput, UserMeasurementsListInput, UserToExerciseHistoryExtraInformation,
+    UserWorkoutDetails, UserWorkoutInput, UserWorkoutSetRecord,
 };
 use sea_orm::{
     prelude::DateTimeUtc, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection,
@@ -26,12 +26,13 @@ use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinT
 use serde::{Deserialize, Serialize};
 use services::FileStorageService;
 use slug::slugify;
-use struson::writer::{JsonStreamWriter, JsonWriter};
 use traits::AuthProvider;
 use utils::GraphqlRepresentation;
 
 use crate::{
-    app_utils::{add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id},
+    app_utils::{
+        add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id, workout_details,
+    },
     background::{ApplicationJob, CoreApplicationJob},
 };
 
@@ -86,22 +87,10 @@ struct ExerciseFilters {
     muscle: Vec<ExerciseMuscle>,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
-struct UserMeasurementsListInput {
-    start_time: Option<DateTimeUtc>,
-    end_time: Option<DateTimeUtc>,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct UserExerciseDetails {
     details: Option<user_to_entity::Model>,
     history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
-    collections: Vec<collection::Model>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-struct UserWorkoutDetails {
-    details: workout::Model,
     collections: Vec<collection::Model>,
 }
 
@@ -363,32 +352,7 @@ impl ExerciseService {
         user_id: &String,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
-        let maybe_workout = Workout::find_by_id(workout_id.clone())
-            .filter(workout::Column::UserId.eq(user_id))
-            .one(&self.db)
-            .await?;
-        match maybe_workout {
-            None => Err(Error::new(
-                "Workout with the given ID could not be found for this user.",
-            )),
-            Some(e) => {
-                let collections = entity_in_collections(
-                    &self.db,
-                    user_id,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(workout_id),
-                )
-                .await?;
-                let details = e.graphql_representation(&self.file_storage_service).await?;
-                Ok(UserWorkoutDetails {
-                    details,
-                    collections,
-                })
-            }
-        }
+        workout_details(&self.db, &self.file_storage_service, user_id, workout_id).await
     }
 
     async fn user_exercise_details(
@@ -639,26 +603,6 @@ impl ExerciseService {
         Ok(())
     }
 
-    pub async fn export_measurements(
-        &self,
-        user_id: &String,
-        writer: &mut JsonStreamWriter<File>,
-    ) -> Result<bool> {
-        let measurements = self
-            .user_measurements_list(
-                user_id,
-                UserMeasurementsListInput {
-                    start_time: None,
-                    end_time: None,
-                },
-            )
-            .await?;
-        for measurement in measurements {
-            writer.serialize_value(&measurement).unwrap();
-        }
-        Ok(true)
-    }
-
     async fn user_measurements_list(
         &self,
         user_id: &String,
@@ -793,26 +737,6 @@ impl ExerciseService {
         )
         .await?;
         Ok(exercise.id)
-    }
-
-    pub async fn export_workouts(
-        &self,
-        user_id: &String,
-        writer: &mut JsonStreamWriter<File>,
-    ) -> Result<bool> {
-        let workout_ids = Workout::find()
-            .select_only()
-            .column(workout::Column::Id)
-            .filter(workout::Column::UserId.eq(user_id))
-            .order_by_desc(workout::Column::EndTime)
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        for workout_id in workout_ids {
-            let details = self.workout_details(user_id, workout_id).await?;
-            writer.serialize_value(&details).unwrap();
-        }
-        Ok(true)
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
