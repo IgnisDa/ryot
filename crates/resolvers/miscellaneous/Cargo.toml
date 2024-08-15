@@ -4,3 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-graphql = { workspace = true }
+common_models = { path = "../../models/common" }
+database_models = { path = "../../models/database" }
+dependent_models = { path = "../../models/dependent" }
+media_models = { path = "../../models/media" }
+miscellaneous_service = { path = "../../services/miscellaneous" }
+traits = { path = "../../traits" }
+user_models = { path = "../../models/user" }

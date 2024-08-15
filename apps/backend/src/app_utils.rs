@@ -8,15 +8,15 @@ use openidconnect::{
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use resolvers::{ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery};
+use resolvers::{
+    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, MiscellaneousMutation,
+    MiscellaneousQuery,
+};
 use sea_orm::DatabaseConnection;
-use services::{ExerciseService, ExporterService, FileStorageService};
+use services::{ExerciseService, ExporterService, FileStorageService, MiscellaneousService};
 use utils::FRONTEND_OAUTH_ENDPOINT;
 
-use crate::{
-    importer::{ImporterMutation, ImporterQuery, ImporterService},
-    miscellaneous::{MiscellaneousMutation, MiscellaneousQuery, MiscellaneousService},
-};
+use crate::importer::{ImporterMutation, ImporterQuery, ImporterService};
 
 /// All the services that are used by the app
 pub struct AppServices {

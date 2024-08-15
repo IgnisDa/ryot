@@ -1625,8 +1625,10 @@ dependencies = [
  "async-graphql",
  "common_models",
  "database_models",
+ "enums",
  "fitness_models",
  "media_models",
+ "rust_decimal",
  "schematic",
  "serde",
  "serde_with 3.9.0",
@@ -3440,10 +3442,63 @@ dependencies = [
 [[package]]
 name = "miscellaneous_resolver"
 version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common_models",
+ "database_models",
+ "dependent_models",
+ "media_models",
+ "miscellaneous_service",
+ "traits",
+ "user_models",
+]
 
 [[package]]
 name = "miscellaneous_service"
 version = "0.1.0"
+dependencies = [
+ "apalis",
+ "application_utils",
+ "argon2",
+ "async-graphql",
+ "background",
+ "cached",
+ "chrono",
+ "chrono-tz",
+ "common_models",
+ "common_utils",
+ "config",
+ "database_models",
+ "database_utils",
+ "dependent_models",
+ "enum_meta",
+ "enums",
+ "file_storage_service",
+ "fitness_models",
+ "futures",
+ "integration_service",
+ "itertools 0.13.0",
+ "jwt_service",
+ "markdown",
+ "media_models",
+ "migrations",
+ "nanoid",
+ "notification_service",
+ "openidconnect",
+ "providers",
+ "reqwest 0.11.23",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "sea-query",
+ "serde",
+ "serde_json",
+ "slug",
+ "tracing",
+ "traits",
+ "user_models",
+ "uuid",
+]
 
 [[package]]
 name = "models"

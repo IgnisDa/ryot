@@ -5,9 +5,9 @@ use background::{ApplicationJob, CoreApplicationJob};
 use chrono::DateTime;
 use chrono_tz::Tz;
 use models::CommitMediaInput;
-use services::{ExerciseService, ExporterService};
+use services::{ExerciseService, ExporterService, MiscellaneousService};
 
-use crate::{importer::ImporterService, miscellaneous::MiscellaneousService};
+use crate::importer::ImporterService;
 
 // Cron Jobs
 

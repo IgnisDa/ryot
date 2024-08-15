@@ -1,14 +1,19 @@
 use std::{collections::HashSet, fmt, sync::Arc};
 
-use async_graphql::{Enum, InputObject, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
-use common_models::{CollectionExtraInformation, IdAndNamedObject, StoredUrl, StringIdObject};
-use enums::{EntityLot, ImportSource, MediaLot, MediaSource, SeenState, Visibility};
+use common_models::{
+    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
+};
+use enums::{
+    EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
+    SeenState, UserLot, Visibility,
+};
 use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult};
+use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult, Order};
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -1041,4 +1046,512 @@ pub struct IntegrationMediaCollection {
     pub lot: MediaLot,
     pub source: MediaSource,
     pub collection: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateCustomMetadataInput {
+    pub title: String,
+    pub lot: MediaLot,
+    pub description: Option<String>,
+    pub creators: Option<Vec<String>>,
+    pub genres: Option<Vec<String>>,
+    pub images: Option<Vec<String>>,
+    pub videos: Option<Vec<String>>,
+    pub is_nsfw: Option<bool>,
+    pub publish_year: Option<i32>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub manga_specifics: Option<MangaSpecifics>,
+    pub anime_specifics: Option<AnimeSpecifics>,
+    pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateUserIntegrationInput {
+    pub provider: IntegrationProvider,
+    pub provider_specifics: Option<IntegrationProviderSpecifics>,
+    pub minimum_progress: Option<Decimal>,
+    pub maximum_progress: Option<Decimal>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateUserIntegrationInput {
+    pub integration_id: String,
+    pub is_disabled: Option<bool>,
+    pub minimum_progress: Option<Decimal>,
+    pub maximum_progress: Option<Decimal>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateUserNotificationPlatformInput {
+    pub lot: NotificationPlatformLot,
+    pub base_url: Option<String>,
+    #[graphql(secret)]
+    pub api_token: Option<String>,
+    #[graphql(secret)]
+    pub auth_header: Option<String>,
+    pub priority: Option<i32>,
+    pub chat_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateUserNotificationPlatformInput {
+    pub notification_id: String,
+    pub is_disabled: Option<bool>,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum CreateCustomMediaErrorVariant {
+    LotDoesNotMatchSpecifics,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct ProviderLanguageInformation {
+    pub source: MediaSource,
+    pub supported: Vec<String>,
+    pub default: String,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum UserDetailsErrorVariant {
+    AuthTokenInvalid,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserDetailsError {
+    pub error: UserDetailsErrorVariant,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct PasswordUserInput {
+    pub username: String,
+    #[graphql(secret)]
+    pub password: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct OidcUserInput {
+    pub email: String,
+    #[graphql(secret)]
+    pub issuer_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum AuthUserInput {
+    Password(PasswordUserInput),
+    Oidc(OidcUserInput),
+}
+
+#[derive(Debug, InputObject)]
+pub struct RegisterUserInput {
+    pub data: AuthUserInput,
+    /// If registration is disabled, this can be used to override it.
+    pub admin_access_token: Option<String>,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum RegisterErrorVariant {
+    IdentifierAlreadyExists,
+    Disabled,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct RegisterError {
+    pub error: RegisterErrorVariant,
+}
+
+#[derive(Union)]
+pub enum RegisterResult {
+    Ok(StringIdObject),
+    Error(RegisterError),
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum LoginErrorVariant {
+    AccountDisabled,
+    UsernameDoesNotExist,
+    CredentialsMismatch,
+    IncorrectProviderChosen,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct LoginError {
+    pub error: LoginErrorVariant,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct LoginResponse {
+    pub api_key: String,
+}
+
+#[derive(Union)]
+pub enum LoginResult {
+    Ok(LoginResponse),
+    Error(LoginError),
+}
+
+#[derive(Debug, InputObject)]
+pub struct UpdateUserInput {
+    pub user_id: String,
+    pub is_disabled: Option<bool>,
+    pub lot: Option<UserLot>,
+    #[graphql(secret)]
+    pub password: Option<String>,
+    pub username: Option<String>,
+    pub extra_information: Option<serde_json::Value>,
+    pub admin_access_token: Option<String>,
+}
+
+#[derive(Debug, InputObject)]
+pub struct UpdateUserPreferenceInput {
+    /// Dot delimited path to the property that needs to be changed. Setting it\
+    /// to empty resets the preferences to default.
+    pub property: String,
+    pub value: String,
+}
+
+#[derive(Debug, InputObject)]
+pub struct GenreDetailsInput {
+    pub genre_id: String,
+    pub page: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum CollectionContentsSortBy {
+    Title,
+    #[default]
+    LastUpdatedOn,
+    Date,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct CollectionContentsFilter {
+    pub entity_type: Option<EntityLot>,
+    pub metadata_lot: Option<MediaLot>,
+}
+
+#[derive(Debug, InputObject)]
+pub struct CollectionContentsInput {
+    pub collection_id: String,
+    pub search: Option<SearchInput>,
+    pub filter: Option<CollectionContentsFilter>,
+    pub take: Option<u64>,
+    pub sort: Option<SortInput<CollectionContentsSortBy>>,
+}
+
+#[derive(Debug, SimpleObject, FromQueryResult)]
+pub struct CollectionItem {
+    pub id: String,
+    pub name: String,
+    pub count: i64,
+    pub is_default: bool,
+    pub description: Option<String>,
+    pub information_template: Option<Vec<CollectionExtraInformation>>,
+    pub creator: IdAndNamedObject,
+    pub collaborators: Vec<IdAndNamedObject>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct MetadataCreator {
+    pub id: Option<String>,
+    pub name: String,
+    pub image: Option<String>,
+    pub character: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct MetadataCreatorGroupedByRole {
+    pub name: String,
+    pub items: Vec<MetadataCreator>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct PersonDetailsItemWithCharacter {
+    pub media_id: String,
+    pub character: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct PersonDetailsGroupedByRole {
+    /// The name of the role performed.
+    pub name: String,
+    /// The media items in which this role was performed.
+    pub items: Vec<PersonDetailsItemWithCharacter>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlMetadataGroup {
+    pub id: String,
+    pub name: String,
+    pub part: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlVideoAsset {
+    pub video_id: String,
+    pub source: MetadataVideoSource,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlMediaAssets {
+    pub images: Vec<String>,
+    pub videos: Vec<GraphqlVideoAsset>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlMetadataDetails {
+    pub id: String,
+    pub title: String,
+    pub identifier: String,
+    pub is_nsfw: Option<bool>,
+    pub is_partial: Option<bool>,
+    pub description: Option<String>,
+    pub original_language: Option<String>,
+    pub provider_rating: Option<Decimal>,
+    pub production_status: Option<String>,
+    pub lot: MediaLot,
+    pub source: MediaSource,
+    pub creators: Vec<MetadataCreatorGroupedByRole>,
+    pub watch_providers: Vec<WatchProvider>,
+    pub genres: Vec<GenreListItem>,
+    pub assets: GraphqlMediaAssets,
+    pub publish_year: Option<i32>,
+    pub publish_date: Option<NaiveDate>,
+    pub book_specifics: Option<BookSpecifics>,
+    pub movie_specifics: Option<MovieSpecifics>,
+    pub show_specifics: Option<ShowSpecifics>,
+    pub video_game_specifics: Option<VideoGameSpecifics>,
+    pub visual_novel_specifics: Option<VisualNovelSpecifics>,
+    pub audio_book_specifics: Option<AudioBookSpecifics>,
+    pub podcast_specifics: Option<PodcastSpecifics>,
+    pub manga_specifics: Option<MangaSpecifics>,
+    pub anime_specifics: Option<AnimeSpecifics>,
+    pub source_url: Option<String>,
+    pub suggestions: Vec<String>,
+    pub group: Option<GraphqlMetadataGroup>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum GraphqlSortOrder {
+    Desc,
+    #[default]
+    Asc,
+}
+
+impl From<GraphqlSortOrder> for Order {
+    fn from(value: GraphqlSortOrder) -> Self {
+        match value {
+            GraphqlSortOrder::Desc => Self::Desc,
+            GraphqlSortOrder::Asc => Self::Asc,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum MediaSortBy {
+    LastUpdated,
+    Title,
+    #[default]
+    ReleaseDate,
+    LastSeen,
+    Rating,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum PersonSortBy {
+    #[default]
+    Name,
+    MediaItems,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+#[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
+#[graphql(concrete(name = "PersonSortInput", params(PersonSortBy)))]
+#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
+pub struct SortInput<T: InputType + Default> {
+    #[graphql(default)]
+    pub order: GraphqlSortOrder,
+    #[graphql(default)]
+    pub by: T,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
+pub enum MediaGeneralFilter {
+    All,
+    Rated,
+    Unrated,
+    Dropped,
+    OnAHold,
+    Unfinished,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MediaFilter {
+    pub general: Option<MediaGeneralFilter>,
+    pub collections: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MetadataListInput {
+    pub search: SearchInput,
+    pub lot: Option<MediaLot>,
+    pub filter: Option<MediaFilter>,
+    pub sort: Option<SortInput<MediaSortBy>>,
+    pub invert_collection: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct PeopleListInput {
+    pub search: SearchInput,
+    pub sort: Option<SortInput<PersonSortBy>>,
+    pub filter: Option<MediaFilter>,
+    pub invert_collection: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MetadataGroupsListInput {
+    pub search: SearchInput,
+    pub sort: Option<SortInput<PersonSortBy>>,
+    pub filter: Option<MediaFilter>,
+    pub invert_collection: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MediaConsumedInput {
+    pub identifier: String,
+    pub lot: MediaLot,
+}
+
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
+pub struct ProgressUpdateCache {
+    pub user_id: String,
+    pub metadata_id: String,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<i32>,
+}
+
+impl fmt::Display for ProgressUpdateCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#?}", self)
+    }
+}
+
+#[derive(SimpleObject)]
+pub struct UserMetadataDetailsEpisodeProgress {
+    pub episode_number: i32,
+    pub times_seen: usize,
+}
+
+#[derive(SimpleObject)]
+pub struct UserMetadataDetailsShowSeasonProgress {
+    pub season_number: i32,
+    pub times_seen: usize,
+    pub episodes: Vec<UserMetadataDetailsEpisodeProgress>,
+}
+
+#[derive(SimpleObject, Debug, Clone, Default)]
+pub struct UserMediaNextEntry {
+    pub season: Option<i32>,
+    pub volume: Option<i32>,
+    pub chapter: Option<i32>,
+    pub episode: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct UpdateSeenItemInput {
+    pub seen_id: String,
+    pub started_on: Option<NaiveDate>,
+    pub finished_on: Option<NaiveDate>,
+    pub provider_watched_on: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct PresignedPutUrlResponse {
+    pub upload_url: String,
+    pub key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateReviewCommentInput {
+    /// The review this comment belongs to.
+    pub review_id: String,
+    pub comment_id: Option<String>,
+    pub text: Option<String>,
+    pub increment_likes: Option<bool>,
+    pub decrement_likes: Option<bool>,
+    pub should_delete: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+pub struct GraphqlCalendarEvent {
+    pub date: NaiveDate,
+    pub metadata_id: String,
+    pub metadata_title: String,
+    pub metadata_lot: MediaLot,
+    pub calendar_event_id: String,
+    pub episode_name: Option<String>,
+    pub metadata_image: Option<String>,
+    pub show_extra_information: Option<SeenShowExtraInformation>,
+    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    pub anime_extra_information: Option<SeenAnimeExtraInformation>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+pub struct OidcTokenOutput {
+    pub subject: String,
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
+pub struct UserCalendarEventInput {
+    pub year: i32,
+    pub month: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum UserUpcomingCalendarEventInput {
+    /// The number of media to select
+    NextMedia(u64),
+    /// The number of days to select
+    NextDays(u64),
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct PresignedPutUrlInput {
+    pub file_name: String,
+    pub prefix: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct PeopleSearchInput {
+    pub search: SearchInput,
+    pub source: MediaSource,
+    pub source_specifics: Option<PersonSourceSpecifics>,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MetadataGroupSearchInput {
+    pub search: SearchInput,
+    pub lot: MediaLot,
+    pub source: MediaSource,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MetadataSearchInput {
+    pub search: SearchInput,
+    pub lot: MediaLot,
+    pub source: MediaSource,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
+pub struct GroupedCalendarEvent {
+    pub events: Vec<GraphqlCalendarEvent>,
+    pub date: NaiveDate,
 }

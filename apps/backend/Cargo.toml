@@ -33,7 +33,7 @@ markdown = { workspace = true }
 migrations = { path = "../../crates/migrations" }
 models = { path = "../../crates/models" }
 nanoid = { workspace = true }
-openidconnect = "=3.5.0"
+openidconnect = { workspace = true }
 providers = { path = "../../crates/providers" }
 regex = { workspace = true }
 reqwest = { workspace = true }
