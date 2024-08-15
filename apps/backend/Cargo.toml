@@ -40,6 +40,7 @@ providers = { path = "../../crates/providers" }
 radarr-api-rs = "=3.0.1"
 regex = "=1.10.5"
 reqwest = { workspace = true }
+resolvers = { path = "../../crates/resolvers" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
@@ -53,7 +54,6 @@ serde-xml-rs = "=0.6.0"
 services = { path = "../../crates/services" }
 slug = "=0.1.5"
 sonarr-api-rs = "=3.0.0"
-struson = { workspace = true }
 tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }

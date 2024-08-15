@@ -1,11 +1,11 @@
 use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
+use resolvers::{ExporterMutation, ExporterQuery};
 
 use crate::{
-    exporter::{ExporterMutation, ExporterQuery},
+    app_utils::AppServices,
     fitness::resolver::{ExerciseMutation, ExerciseQuery},
     importer::{ImporterMutation, ImporterQuery},
     miscellaneous::{MiscellaneousMutation, MiscellaneousQuery},
-    app_utils::AppServices,
 };
 
 #[derive(MergedObject, Default)]

@@ -22,11 +22,11 @@ use sea_orm::{
     QuerySelect, QueryTrait, Select,
 };
 use sea_query::{Expr, PgFunc};
-use services::FileStorageService;
+use services::{ExporterService, FileStorageService};
 use utils::{CteColAlias, FRONTEND_OAUTH_ENDPOINT};
 
 use crate::{
-    exporter::ExporterService, fitness::resolver::ExerciseService, importer::ImporterService,
+    fitness::resolver::ExerciseService, importer::ImporterService,
     miscellaneous::MiscellaneousService,
 };
 

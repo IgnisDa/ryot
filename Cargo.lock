@@ -2052,6 +2052,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "exporter_resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common_models",
+ "exporter_service",
+ "traits",
+]
+
+[[package]]
 name = "exporter_service"
 version = "0.1.0"
 dependencies = [
@@ -4497,6 +4507,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "resolvers"
+version = "0.1.0"
+dependencies = [
+ "exporter_resolver",
+]
+
+[[package]]
 name = "rfc6979"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4797,6 +4814,7 @@ dependencies = [
  "radarr-api-rs",
  "regex",
  "reqwest 0.11.23",
+ "resolvers",
  "rust_decimal",
  "rust_decimal_macros",
  "schematic",
@@ -4810,7 +4828,6 @@ dependencies = [
  "services",
  "slug",
  "sonarr-api-rs",
- "struson",
  "tokio",
  "tower",
  "tower-http",

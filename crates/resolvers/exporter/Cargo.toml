@@ -1,0 +1,10 @@
+[package]
+name = "exporter_resolver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+common_models = { path = "../../models/common" }
+exporter_service = { path = "../../services/exporter" }
+traits = { path = "../../traits" }

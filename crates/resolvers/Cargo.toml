@@ -1,0 +1,7 @@
+[package]
+name = "resolvers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+exporter_resolver = { path = "./exporter" }

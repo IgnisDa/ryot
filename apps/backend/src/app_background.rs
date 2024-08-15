@@ -5,9 +5,10 @@ use background::{ApplicationJob, CoreApplicationJob};
 use chrono::DateTime;
 use chrono_tz::Tz;
 use models::CommitMediaInput;
+use services::ExporterService;
 
 use crate::{
-    exporter::ExporterService, fitness::resolver::ExerciseService, importer::ImporterService,
+    fitness::resolver::ExerciseService, importer::ImporterService,
     miscellaneous::MiscellaneousService,
 };
 
