@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt,
-    fs::File,
     iter::zip,
     path::PathBuf,
     str::FromStr,
@@ -45,12 +44,11 @@ use models::{
     user_to_entity, workout, AnimeSpecifics, AudioBookSpecifics, BackendError, BackgroundJob,
     BookSpecifics, ChangeCollectionToEntityInput, CollectionExtraInformation, CommitMediaInput,
     CommitPersonInput, CreateOrUpdateCollectionInput, DefaultCollection, EntityWithLot,
-    GenreListItem, IdAndNamedObject, ImportOrExportItemReviewComment, ImportOrExportMediaItem,
-    ImportOrExportMediaItemSeen, IntegrationProviderSpecifics, MangaSpecifics,
-    MediaAssociatedPersonStateChanges, MediaDetails, MediaStateChanged, MetadataFreeCreator,
-    MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataPartialDetails,
-    MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, MovieSpecifics,
-    NotificationPlatformSpecifics, PartialMetadata, PartialMetadataPerson,
+    GenreListItem, IdAndNamedObject, ImportOrExportItemReviewComment, IntegrationProviderSpecifics,
+    MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails, MediaStateChanged,
+    MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
+    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
+    MovieSpecifics, NotificationPlatformSpecifics, PartialMetadata, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
     PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ReviewItem, ReviewPostedEvent, SearchDetails, SearchInput,
@@ -93,7 +91,6 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use services::{sign, FileStorageService};
-use struson::writer::{JsonStreamWriter, JsonWriter};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
 use utils::{
     convert_naive_to_utc, get_current_date, get_first_and_last_day_of_month, user_id_from_token,
@@ -103,8 +100,8 @@ use uuid::Uuid;
 
 use crate::{
     app_utils::{
-        add_entity_to_collection, apply_collection_filter, entity_in_collections,
-        get_review_export_item, ilike_sql, review_by_id, user_by_id,
+        add_entity_to_collection, apply_collection_filter, entity_in_collections, ilike_sql,
+        review_by_id, user_by_id,
     },
     background::{ApplicationJob, CoreApplicationJob},
     integrations::{IntegrationMediaSeen, IntegrationService},
@@ -6547,91 +6544,6 @@ impl MiscellaneousService {
             }
         }
         Ok(())
-    }
-
-    pub async fn export_media(
-        &self,
-        user_id: &String,
-        writer: &mut JsonStreamWriter<File>,
-    ) -> Result<bool> {
-        let related_metadata = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .all(&self.db)
-            .await
-            .unwrap();
-        for rm in related_metadata.iter() {
-            let m = rm
-                .find_related(Metadata)
-                .one(&self.db)
-                .await
-                .unwrap()
-                .unwrap();
-            let seen_history = m
-                .find_related(Seen)
-                .filter(seen::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let seen_history = seen_history
-                .into_iter()
-                .map(|s| {
-                    let (show_season_number, show_episode_number) = match s.show_extra_information {
-                        Some(d) => (Some(d.season), Some(d.episode)),
-                        None => (None, None),
-                    };
-                    let podcast_episode_number = s.podcast_extra_information.map(|d| d.episode);
-                    let anime_episode_number = s.anime_extra_information.and_then(|d| d.episode);
-                    let manga_chapter_number =
-                        s.manga_extra_information.clone().and_then(|d| d.chapter);
-                    let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
-                    ImportOrExportMediaItemSeen {
-                        progress: Some(s.progress),
-                        started_on: s.started_on,
-                        ended_on: s.finished_on,
-                        provider_watched_on: s.provider_watched_on,
-                        show_season_number,
-                        show_episode_number,
-                        podcast_episode_number,
-                        anime_episode_number,
-                        manga_chapter_number,
-                        manga_volume_number,
-                    }
-                })
-                .collect();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
-            let collections =
-                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None, None)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
-            let exp = ImportOrExportMediaItem {
-                source_id: m.title,
-                lot: m.lot,
-                source: m.source,
-                identifier: m.identifier.clone(),
-                seen_history,
-                reviews,
-                collections,
-            };
-            writer.serialize_value(&exp).unwrap();
-        }
-        Ok(true)
     }
 
     async fn generate_auth_token(&self, user_id: String) -> Result<String> {

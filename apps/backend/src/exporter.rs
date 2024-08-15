@@ -4,8 +4,9 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use models::{
-    prelude::{MetadataGroup, Person, Review, UserToEntity},
-    review, user_to_entity, ExportItem, ImportOrExportMediaGroupItem, ImportOrExportPersonItem,
+    prelude::{Metadata, MetadataGroup, Person, Review, Seen, UserToEntity},
+    review, seen, user_to_entity, ExportItem, ImportOrExportMediaGroupItem,
+    ImportOrExportMediaItem, ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -129,9 +130,7 @@ impl ExporterService {
             writer.begin_array().unwrap();
             match export {
                 ExportItem::Media => {
-                    self.media_service
-                        .export_media(&user_id, &mut writer)
-                        .await?;
+                    self.export_media(&user_id, &mut writer).await?;
                 }
                 ExportItem::MediaGroup => {
                     self.export_media_group(&user_id, &mut writer).await?;
@@ -232,6 +231,91 @@ impl ExporterService {
         }
         resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
         Ok(resp)
+    }
+
+    async fn export_media(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<bool> {
+        let related_metadata = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
+        for rm in related_metadata.iter() {
+            let m = rm
+                .find_related(Metadata)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let seen_history = m
+                .find_related(Seen)
+                .filter(seen::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let seen_history = seen_history
+                .into_iter()
+                .map(|s| {
+                    let (show_season_number, show_episode_number) = match s.show_extra_information {
+                        Some(d) => (Some(d.season), Some(d.episode)),
+                        None => (None, None),
+                    };
+                    let podcast_episode_number = s.podcast_extra_information.map(|d| d.episode);
+                    let anime_episode_number = s.anime_extra_information.and_then(|d| d.episode);
+                    let manga_chapter_number =
+                        s.manga_extra_information.clone().and_then(|d| d.chapter);
+                    let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
+                    ImportOrExportMediaItemSeen {
+                        progress: Some(s.progress),
+                        started_on: s.started_on,
+                        ended_on: s.finished_on,
+                        provider_watched_on: s.provider_watched_on,
+                        show_season_number,
+                        show_episode_number,
+                        podcast_episode_number,
+                        anime_episode_number,
+                        manga_chapter_number,
+                        manga_volume_number,
+                    }
+                })
+                .collect();
+            let db_reviews = m
+                .find_related(Review)
+                .filter(review::Column::UserId.eq(user_id))
+                .all(&self.db)
+                .await
+                .unwrap();
+            let mut reviews = vec![];
+            for review in db_reviews {
+                let review_item = get_review_export_item(
+                    review_by_id(&self.db, review.id, user_id, false)
+                        .await
+                        .unwrap(),
+                );
+                reviews.push(review_item);
+            }
+            let collections =
+                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None, None)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportMediaItem {
+                source_id: m.title,
+                lot: m.lot,
+                source: m.source,
+                identifier: m.identifier.clone(),
+                seen_history,
+                reviews,
+                collections,
+            };
+            writer.serialize_value(&exp).unwrap();
+        }
+        Ok(true)
     }
 
     async fn export_media_group(
