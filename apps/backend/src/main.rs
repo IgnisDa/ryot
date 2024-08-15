@@ -60,7 +60,6 @@ use crate::{
 
 mod app_background;
 mod app_utils;
-mod fitness;
 mod importer;
 mod miscellaneous;
 mod routes;

@@ -4,8 +4,9 @@ use async_graphql::Result;
 use enums::ImportSource;
 use itertools::Itertools;
 use models::{CompleteExport, DeployJsonImportInput};
+use services::ExerciseService;
 
-use crate::{fitness::resolver::ExerciseService, importer::ImportResult};
+use crate::importer::ImportResult;
 
 pub async fn import(
     input: DeployJsonImportInput,

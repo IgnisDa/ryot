@@ -1,6 +1,7 @@
-use async_graphql::{OutputType, SimpleObject};
+use async_graphql::{InputObject, OutputType, SimpleObject};
 use common_models::SearchDetails;
-use database_models::{collection, user_measurement, workout};
+use database_models::{collection, exercise, user_measurement, user_to_entity, workout};
+use fitness_models::UserToExerciseHistoryExtraInformation;
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -49,4 +50,19 @@ pub struct CompleteExport {
 pub struct UserWorkoutDetails {
     pub details: workout::Model,
     pub collections: Vec<collection::Model>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct UserExerciseDetails {
+    pub details: Option<user_to_entity::Model>,
+    pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
+    pub collections: Vec<collection::Model>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+pub struct UpdateCustomExerciseInput {
+    pub old_name: String,
+    pub should_delete: Option<bool>,
+    #[graphql(flatten)]
+    pub update: exercise::Model,
 }

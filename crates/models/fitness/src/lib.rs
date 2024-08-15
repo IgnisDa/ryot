@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
 use async_trait::async_trait;
-use common_models::StoredUrl;
+use common_models::{SearchInput, StoredUrl};
 use derive_more::{Add, AddAssign, Sum};
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -543,4 +543,56 @@ impl UserWorkoutSetRecord {
         }
         self.statistic = stats;
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct ExerciseListFilter {
+    #[graphql(name = "type")]
+    pub lot: Option<ExerciseLot>,
+    pub level: Option<ExerciseLevel>,
+    pub force: Option<ExerciseForce>,
+    pub mechanic: Option<ExerciseMechanic>,
+    pub equipment: Option<ExerciseEquipment>,
+    pub muscle: Option<ExerciseMuscle>,
+    pub collection: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+pub enum ExerciseSortBy {
+    Name,
+    #[default]
+    LastPerformed,
+    TimesPerformed,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct ExercisesListInput {
+    pub search: SearchInput,
+    pub filter: Option<ExerciseListFilter>,
+    pub sort_by: Option<ExerciseSortBy>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseParameters {
+    /// All filters applicable to an exercises query.
+    pub filters: ExerciseFilters,
+    pub download_required: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseFilters {
+    #[graphql(name = "type")]
+    pub lot: Vec<ExerciseLot>,
+    pub level: Vec<ExerciseLevel>,
+    pub force: Vec<ExerciseForce>,
+    pub mechanic: Vec<ExerciseMechanic>,
+    pub equipment: Vec<ExerciseEquipment>,
+    pub muscle: Vec<ExerciseMuscle>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
+pub struct UpdateUserWorkoutInput {
+    pub id: String,
+    pub start_time: Option<DateTimeUtc>,
+    pub end_time: Option<DateTimeUtc>,
 }

@@ -8,13 +8,12 @@ use openidconnect::{
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use resolvers::{ExporterMutation, ExporterQuery};
+use resolvers::{ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery};
 use sea_orm::DatabaseConnection;
-use services::{ExporterService, FileStorageService};
+use services::{ExerciseService, ExporterService, FileStorageService};
 use utils::FRONTEND_OAUTH_ENDPOINT;
 
 use crate::{
-    fitness::resolver::{ExerciseMutation, ExerciseQuery, ExerciseService},
     importer::{ImporterMutation, ImporterQuery, ImporterService},
     miscellaneous::{MiscellaneousMutation, MiscellaneousQuery, MiscellaneousService},
 };

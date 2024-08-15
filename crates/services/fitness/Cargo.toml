@@ -4,3 +4,28 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = { workspace = true }
+apalis = { workspace = true }
+application_utils = { path = "../../utils/application" }
+async-graphql = { workspace = true }
+background = { path = "../../background" }
+common_models = { path = "../../models/common" }
+common_utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+const-str = { workspace = true }
+database_models = { path = "../../models/database" }
+database_utils = { path = "../../utils/database" }
+dependent_models = { path = "../../models/dependent" }
+enums = { path = "../../enums" }
+file_storage_service = { path = "../../services/file_storage" }
+fitness_models = { path = "../../models/fitness" }
+itertools = { workspace = true }
+migrations = { path = "../../migrations" }
+nanoid = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+slug = { workspace = true }
+tracing = { workspace = true }

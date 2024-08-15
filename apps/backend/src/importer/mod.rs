@@ -15,10 +15,11 @@ use models::{
 };
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use services::ExerciseService;
 use traits::{AuthProvider, TraceOk};
 use utils::user_by_id;
 
-use crate::{fitness::resolver::ExerciseService, miscellaneous::MiscellaneousService};
+use crate::miscellaneous::MiscellaneousService;
 
 mod audiobookshelf;
 mod generic_json;
