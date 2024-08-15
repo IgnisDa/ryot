@@ -62,7 +62,6 @@ mod app_background;
 mod app_utils;
 mod fitness;
 mod importer;
-mod integrations;
 mod miscellaneous;
 mod routes;
 

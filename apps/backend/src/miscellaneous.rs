@@ -45,19 +45,19 @@ use models::{
     user_to_entity, workout, AnimeSpecifics, AudioBookSpecifics, BackendError, BackgroundJob,
     BookSpecifics, ChangeCollectionToEntityInput, CollectionExtraInformation, CommitMediaInput,
     CommitPersonInput, CreateOrUpdateCollectionInput, DefaultCollection, EntityWithLot,
-    GenreListItem, IdAndNamedObject, ImportOrExportItemReviewComment, IntegrationProviderSpecifics,
-    MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails, MediaStateChanged,
-    MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails,
-    MetadataPartialDetails, MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource,
-    MovieSpecifics, NotificationPlatformSpecifics, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, PodcastSpecifics,
-    PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewItem, ReviewPostedEvent, SearchDetails, SearchInput,
-    SearchResults, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, StoredUrl,
-    StringIdObject, UserGeneralDashboardElement, UserGeneralPreferences, UserPreferences,
-    UserReviewScale, UserSummaryData, UserUnitSystem, VideoGameSpecifics, VisualNovelSpecifics,
-    WatchProvider,
+    GenreListItem, IdAndNamedObject, ImportOrExportItemReviewComment, IntegrationMediaSeen,
+    IntegrationProviderSpecifics, MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails,
+    MediaStateChanged, MetadataFreeCreator, MetadataGroupSearchItem, MetadataImage,
+    MetadataImageForMediaDetails, MetadataPartialDetails, MetadataSearchItemResponse,
+    MetadataVideo, MetadataVideoSource, MovieSpecifics, NotificationPlatformSpecifics,
+    PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    PersonSourceSpecifics, PodcastSpecifics, PostReviewInput, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewItem,
+    ReviewPostedEvent, SearchDetails, SearchInput, SearchResults, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, StoredUrl, StringIdObject, UserGeneralDashboardElement, UserGeneralPreferences,
+    UserPreferences, UserReviewScale, UserSummaryData, UserUnitSystem, VideoGameSpecifics,
+    VisualNovelSpecifics, WatchProvider,
 };
 use nanoid::nanoid;
 use openidconnect::{
@@ -91,7 +91,7 @@ use sea_query::{
     PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
-use services::{send_notification, sign, FileStorageService};
+use services::{send_notification, sign, FileStorageService, IntegrationService};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
 use utils::{
     apply_collection_filter, convert_naive_to_utc, entity_in_collections, get_current_date,
@@ -100,10 +100,7 @@ use utils::{
 };
 use uuid::Uuid;
 
-use crate::{
-    app_utils::add_entity_to_collection,
-    integrations::{IntegrationMediaSeen, IntegrationService},
-};
+use crate::app_utils::add_entity_to_collection;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 

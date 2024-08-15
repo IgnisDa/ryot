@@ -3002,6 +3002,29 @@ dependencies = [
 [[package]]
 name = "integration_service"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application_utils",
+ "async-graphql",
+ "database_models",
+ "database_utils",
+ "enums",
+ "media_models",
+ "providers",
+ "radarr-api-rs",
+ "regex",
+ "reqwest 0.11.23",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "sea-query",
+ "serde",
+ "serde_json",
+ "sonarr-api-rs",
+ "specific_models",
+ "tracing",
+ "traits",
+]
 
 [[package]]
 name = "ipnet"
@@ -4831,7 +4854,6 @@ dependencies = [
  "nanoid",
  "openidconnect",
  "providers",
- "radarr-api-rs",
  "regex",
  "reqwest 0.11.23",
  "resolvers",
@@ -4847,7 +4869,6 @@ dependencies = [
  "serde_with 3.9.0",
  "services",
  "slug",
- "sonarr-api-rs",
  "tokio",
  "tower",
  "tower-http",

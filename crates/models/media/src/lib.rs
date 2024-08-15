@@ -1018,3 +1018,27 @@ pub struct DeployImportJobInput {
     pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IntegrationMediaSeen {
+    pub identifier: String,
+    pub lot: MediaLot,
+    #[serde(default)]
+    pub source: MediaSource,
+    pub progress: Decimal,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<i32>,
+    pub manga_volume_number: Option<i32>,
+    pub provider_watched_on: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IntegrationMediaCollection {
+    pub identifier: String,
+    pub lot: MediaLot,
+    pub source: MediaSource,
+    pub collection: String,
+}
