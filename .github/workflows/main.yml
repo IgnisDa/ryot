@@ -165,7 +165,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-${{ steps.build.outputs.docker-arch }}
-          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/ryot
+          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/backend
           retention-days: 1
 
   build-docker:
