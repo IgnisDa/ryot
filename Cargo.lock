@@ -1604,7 +1604,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 
 [[package]]
-name = "database_models"
+name = "database-models"
 version = "0.1.0"
 dependencies = [
  "application_utils",
@@ -1642,7 +1642,7 @@ dependencies = [
  "background",
  "chrono",
  "common-models",
- "database_models",
+ "database-models",
  "dependent_models",
  "file_storage_service",
  "fitness_models",
@@ -1663,7 +1663,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "database_models",
+ "database-models",
  "enums",
  "fitness_models",
  "importer_models",
@@ -2119,7 +2119,7 @@ dependencies = [
  "common-models",
  "common_utils",
  "config",
- "database_models",
+ "database-models",
  "database_utils",
  "file_storage_service",
  "fitness_models",
@@ -2211,7 +2211,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "database_models",
+ "database-models",
  "dependent_models",
  "fitness_models",
  "fitness_service",
@@ -2232,7 +2232,7 @@ dependencies = [
  "common_utils",
  "config",
  "const-str",
- "database_models",
+ "database-models",
  "database_utils",
  "dependent_models",
  "enums",
@@ -3047,7 +3047,7 @@ name = "importer_resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "database_models",
+ "database-models",
  "importer_service",
  "media_models",
  "traits",
@@ -3069,7 +3069,7 @@ dependencies = [
  "convert_case",
  "csv",
  "data-encoding",
- "database_models",
+ "database-models",
  "database_utils",
  "dependent_models",
  "enum_meta",
@@ -3152,7 +3152,7 @@ dependencies = [
  "anyhow",
  "application_utils",
  "async-graphql",
- "database_models",
+ "database-models",
  "database_utils",
  "enums",
  "media_models",
@@ -3540,7 +3540,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "database_models",
+ "database-models",
  "dependent_models",
  "media_models",
  "miscellaneous_service",
@@ -3563,7 +3563,7 @@ dependencies = [
  "common-models",
  "common_utils",
  "config",
- "database_models",
+ "database-models",
  "database_utils",
  "dependent_models",
  "enum_meta",
@@ -3600,7 +3600,7 @@ name = "models"
 version = "0.1.0"
 dependencies = [
  "common-models",
- "database_models",
+ "database-models",
  "dependent_models",
  "fitness_models",
  "importer_models",
@@ -6547,7 +6547,7 @@ dependencies = [
  "async-graphql",
  "async-trait",
  "common-models",
- "database_models",
+ "database-models",
  "dependent_models",
  "media_models",
  "sea-orm",

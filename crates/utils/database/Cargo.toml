@@ -10,7 +10,7 @@ async-graphql = { workspace = true }
 background = { path = "../../background" }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
-database_models = { path = "../../models/database" }
+database-models = { path = "../../models/database" }
 dependent_models = { path = "../../models/dependent" }
 file_storage_service = { path = "../../services/file_storage" }
 fitness_models = { path = "../../models/fitness" }

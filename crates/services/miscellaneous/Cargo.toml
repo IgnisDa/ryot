@@ -16,7 +16,7 @@ enum_meta = { workspace = true }
 common-models = { path = "../../models/common" }
 common_utils = { path = "../../utils/common" }
 config = { path = "../../config" }
-database_models = { path = "../../models/database" }
+database-models = { path = "../../models/database" }
 database_utils = { path = "../../utils/database" }
 dependent_models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }

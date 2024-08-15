@@ -10,7 +10,7 @@ background = { path = "../../background" }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 common_utils = { path = "../../utils/common" }
-database_models = { path = "../../models/database" }
+database-models = { path = "../../models/database" }
 database_utils = { path = "../../utils/database" }
 config = { path = "../../config" }
 file_storage_service = { path = "../file_storage" }
