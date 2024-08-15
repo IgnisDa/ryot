@@ -3003,6 +3003,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "importer_resolver"
+version = "0.1.0"
+
+[[package]]
+name = "importer_service"
+version = "0.1.0"
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4669,6 +4677,7 @@ version = "0.1.0"
 dependencies = [
  "exporter_resolver",
  "fitness_resolver",
+ "importer_resolver",
  "miscellaneous_resolver",
 ]
 
@@ -5493,6 +5502,7 @@ dependencies = [
  "exporter_service",
  "file_storage_service",
  "fitness_service",
+ "importer_service",
  "integration_service",
  "jwt_service",
  "miscellaneous_service",
