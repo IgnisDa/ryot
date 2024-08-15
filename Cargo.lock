@@ -3438,6 +3438,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous_resolver"
+version = "0.1.0"
+
+[[package]]
+name = "miscellaneous_service"
+version = "0.1.0"
+
+[[package]]
 name = "models"
 version = "0.1.0"
 dependencies = [
@@ -4606,6 +4614,7 @@ version = "0.1.0"
 dependencies = [
  "exporter_resolver",
  "fitness_resolver",
+ "miscellaneous_resolver",
 ]
 
 [[package]]
@@ -5431,6 +5440,7 @@ dependencies = [
  "fitness_service",
  "integration_service",
  "jwt_service",
+ "miscellaneous_service",
  "notification_service",
 ]
 

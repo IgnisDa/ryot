@@ -9,4 +9,5 @@ file_storage_service = { path = "./file_storage" }
 fitness_service = { path = "./fitness" }
 integration_service = { path = "./integration" }
 jwt_service = { path = "./jwt" }
+miscellaneous_service = { path = "./miscellaneous" }
 notification_service = { path = "./notification" }
