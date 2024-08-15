@@ -2054,6 +2054,28 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 [[package]]
 name = "exporter_service"
 version = "0.1.0"
+dependencies = [
+ "apalis",
+ "async-graphql",
+ "background",
+ "chrono",
+ "common_models",
+ "common_utils",
+ "config",
+ "database_models",
+ "database_utils",
+ "file_storage_service",
+ "fitness_models",
+ "media_models",
+ "mime_guess",
+ "nanoid",
+ "reqwest 0.11.23",
+ "sea-orm",
+ "serde_json",
+ "struson",
+ "tokio",
+ "tokio-util",
+]
 
 [[package]]
 name = "fast_chemail"
@@ -4768,7 +4790,6 @@ dependencies = [
  "logs-wheel",
  "markdown",
  "migrations",
- "mime_guess",
  "models",
  "nanoid",
  "openidconnect",
@@ -4791,7 +4812,6 @@ dependencies = [
  "sonarr-api-rs",
  "struson",
  "tokio",
- "tokio-util",
  "tower",
  "tower-http",
  "tracing",

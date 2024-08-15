@@ -4,7 +4,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::FromJsonQueryResult;
+use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
 
@@ -346,4 +346,12 @@ pub struct UserSummaryData {
     pub media: UserMediaSummary,
     #[graphql(skip)]
     pub unique_items: UserSummaryUniqueItems,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExportJob {
+    pub started_at: DateTimeUtc,
+    pub ended_at: DateTimeUtc,
+    pub exported: Vec<ExportItem>,
+    pub url: String,
 }

@@ -4,3 +4,23 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+apalis = { workspace = true }
+async-graphql = { workspace = true }
+background = { path = "../../background" }
+chrono = { workspace = true }
+common_models = { path = "../../models/common" }
+common_utils = { path = "../../utils/common" }
+database_models = { path = "../../models/database" }
+config = { path = "../../config" }
+file_storage_service = { path = "../file_storage" }
+fitness_models = { path = "../../models/fitness" }
+media_models = { path = "../../models/media" }
+mime_guess = "=2.0.5"
+nanoid = { workspace = true }
+reqwest = { workspace = true }
+sea-orm = { workspace = true }
+serde_json = { workspace = true }
+struson = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { version = "=0.7.11", features = ["codec"] }
+database_utils = { path = "../../utils/database" }

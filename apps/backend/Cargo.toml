@@ -33,7 +33,6 @@ itertools = { workspace = true }
 lettre = "=0.11.7"
 markdown = { workspace = true }
 migrations = { path = "../../crates/migrations" }
-mime_guess = "=2.0.5"
 models = { path = "../../crates/models" }
 nanoid = { workspace = true }
 openidconnect = "=3.5.0"
@@ -54,9 +53,8 @@ serde-xml-rs = "=0.6.0"
 services = { path = "../../crates/services" }
 slug = "=0.1.5"
 sonarr-api-rs = "=3.0.0"
-struson = { version = "=0.5.0", features = ["serde"] }
-tokio = { version = "=1.39.2", features = ["full"] }
-tokio-util = { version = "=0.7.11", features = ["codec"] }
+struson = { workspace = true }
+tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
