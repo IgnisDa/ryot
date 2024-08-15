@@ -16,6 +16,7 @@ use apalis::{
     prelude::{MemoryStorage, MessageQueue, Monitor, WorkerBuilder, WorkerFactoryFn},
     utils::TokioExecutor,
 };
+use app_utils::get_graphql_schema;
 use aws_sdk_s3::config::Region;
 use axum::{
     extract::DefaultBodyLimit,
@@ -52,7 +53,6 @@ use crate::{
         sync_integrations_data,
     },
     app_utils::create_app_services,
-    graphql::get_schema,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
@@ -61,7 +61,6 @@ use crate::{
 mod app_background;
 mod app_utils;
 mod fitness;
-mod graphql;
 mod importer;
 mod integrations;
 mod miscellaneous;
@@ -201,7 +200,7 @@ async fn main() -> Result<()> {
             .ok();
     }
 
-    let schema = get_schema(&app_services).await;
+    let schema = get_graphql_schema(&app_services).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])

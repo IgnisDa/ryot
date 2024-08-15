@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use async_graphql::Result;
+use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Result, Schema};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use itertools::Itertools;
@@ -17,6 +17,7 @@ use openidconnect::{
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
+use resolvers::{ExporterMutation, ExporterQuery};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QuerySelect, QueryTrait, Select,
@@ -26,8 +27,9 @@ use services::{ExporterService, FileStorageService};
 use utils::{CteColAlias, FRONTEND_OAUTH_ENDPOINT};
 
 use crate::{
-    fitness::resolver::ExerciseService, importer::ImporterService,
-    miscellaneous::MiscellaneousService,
+    fitness::resolver::{ExerciseMutation, ExerciseQuery, ExerciseService},
+    importer::{ImporterMutation, ImporterQuery, ImporterService},
+    miscellaneous::{MiscellaneousMutation, MiscellaneousQuery, MiscellaneousService},
 };
 
 /// All the services that are used by the app
@@ -239,4 +241,36 @@ where
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
+}
+
+#[derive(MergedObject, Default)]
+pub struct QueryRoot(
+    MiscellaneousQuery,
+    ImporterQuery,
+    ExporterQuery,
+    ExerciseQuery,
+);
+
+#[derive(MergedObject, Default)]
+pub struct MutationRoot(
+    MiscellaneousMutation,
+    ImporterMutation,
+    ExporterMutation,
+    ExerciseMutation,
+);
+
+pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
+
+pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
+    Schema::build(
+        QueryRoot::default(),
+        MutationRoot::default(),
+        EmptySubscription,
+    )
+    .extension(Tracing)
+    .data(app_services.media_service.clone())
+    .data(app_services.importer_service.clone())
+    .data(app_services.exporter_service.clone())
+    .data(app_services.exercise_service.clone())
+    .finish()
 }

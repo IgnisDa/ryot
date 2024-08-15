@@ -13,7 +13,7 @@ use nanoid::nanoid;
 use serde_json::json;
 use utils::{AuthContext, TEMP_DIR};
 
-use crate::{graphql::GraphqlSchema, miscellaneous::MiscellaneousService};
+use crate::{app_utils::GraphqlSchema, miscellaneous::MiscellaneousService};
 
 pub async fn graphql_handler(
     schema: Extension<GraphqlSchema>,
