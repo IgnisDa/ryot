@@ -9,14 +9,14 @@ use openidconnect::{
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
 use resolvers::{
-    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, MiscellaneousMutation,
-    MiscellaneousQuery,
+    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, ImporterMutation,
+    ImporterQuery, MiscellaneousMutation, MiscellaneousQuery,
 };
 use sea_orm::DatabaseConnection;
-use services::{ExerciseService, ExporterService, FileStorageService, MiscellaneousService};
+use services::{
+    ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
+};
 use utils::FRONTEND_OAUTH_ENDPOINT;
-
-use crate::importer::{ImporterMutation, ImporterQuery, ImporterService};
 
 /// All the services that are used by the app
 pub struct AppServices {

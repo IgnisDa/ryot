@@ -8,6 +8,7 @@ async-graphql = { workspace = true }
 common_models = { path = "../common" }
 database_models = { path = "../database" }
 enums = { path = "../../enums" }
+importer_models = { path = "../importer" }
 media_models = { path = "../media" }
 fitness_models = { path = "../fitness" }
 rust_decimal = { workspace = true }

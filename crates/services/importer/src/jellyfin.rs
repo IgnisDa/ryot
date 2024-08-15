@@ -1,7 +1,9 @@
 use async_graphql::Result;
+use common_utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR};
+use dependent_models::ImportResult;
 use enum_meta::HashMap;
 use enums::{MediaLot, MediaSource};
-use models::{
+use media_models::{
     DeployUrlAndKeyAndUsernameImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
 };
 use reqwest::{
@@ -11,9 +13,8 @@ use reqwest::{
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR};
 
-use super::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem};
 
 static EMBY_HEADER_VALUE: &str =
     r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#;

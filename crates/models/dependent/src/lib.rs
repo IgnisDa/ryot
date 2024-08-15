@@ -5,11 +5,13 @@ use database_models::{
     user_to_entity, workout,
 };
 use enums::UserToMediaReason;
-use fitness_models::UserToExerciseHistoryExtraInformation;
+use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
+use importer_models::ImportFailedItem;
 use media_models::{
-    EntityWithLot, GenreListItem, GraphqlMediaAssets, MetadataCreatorGroupedByRole,
-    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
+    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportPersonItem,
+    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -178,4 +180,15 @@ pub struct UserMetadataDetails {
     pub podcast_progress: Option<Vec<UserMetadataDetailsEpisodeProgress>>,
     /// Whether this media has been interacted with
     pub has_interacted: bool,
+}
+
+#[derive(Debug, Default)]
+pub struct ImportResult {
+    pub collections: Vec<CreateOrUpdateCollectionInput>,
+    pub media: Vec<ImportOrExportMediaItem>,
+    pub media_groups: Vec<ImportOrExportMediaGroupItem>,
+    pub people: Vec<ImportOrExportPersonItem>,
+    pub measurements: Vec<user_measurement::Model>,
+    pub workouts: Vec<UserWorkoutInput>,
+    pub failed_items: Vec<ImportFailedItem>,
 }

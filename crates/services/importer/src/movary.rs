@@ -1,17 +1,19 @@
 use async_graphql::Result;
 use chrono::NaiveDate;
+use common_models::DefaultCollection;
+use common_utils::convert_naive_to_utc;
 use csv::Reader;
+use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
-use models::{
-    DefaultCollection, DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
+use media_models::{
+    DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMediaItemSeen,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use utils::convert_naive_to_utc;
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

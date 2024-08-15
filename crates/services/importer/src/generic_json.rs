@@ -1,12 +1,11 @@
 use std::{fs, sync::Arc};
 
 use async_graphql::Result;
+use dependent_models::{CompleteExport, ImportResult};
 use enums::ImportSource;
+use fitness_service::ExerciseService;
 use itertools::Itertools;
-use models::{CompleteExport, DeployJsonImportInput};
-use services::ExerciseService;
-
-use crate::importer::ImportResult;
+use media_models::DeployJsonImportInput;
 
 pub async fn import(
     input: DeployJsonImportInput,

@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-graphql = { workspace = true }
+database_models = { path = "../../models/database" }
+importer_service = { path = "../../services/importer" }
+media_models = { path = "../../models/media" }
+traits = { path = "../../traits" }

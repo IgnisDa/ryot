@@ -1,7 +1,10 @@
 use async_graphql::Result;
+use common_models::IdObject;
+use common_utils::USER_AGENT_STR;
+use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
-use models::{
-    CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, IdObject, ImportOrExportItemRating,
+use media_models::{
+    CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
     ImportOrExportItemReview, ImportOrExportMediaItemSeen,
 };
 use providers::openlibrary::get_key;
@@ -14,9 +17,8 @@ use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
-use utils::USER_AGENT_STR;
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -132,7 +134,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .unwrap();
 
     let rsp = client.get("user").send().await.unwrap();
-    let data: IdObject = rsp.json().await.unwrap();
+    let data = rsp.json::<IdObject>().await.unwrap();
 
     let user_id: i32 = data.id;
 

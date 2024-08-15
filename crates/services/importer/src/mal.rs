@@ -5,19 +5,18 @@ use std::{
 
 use async_graphql::Result;
 use chrono::NaiveDate;
+use common_utils::convert_string_to_date;
+use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
-use models::{
+use media_models::{
     DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMediaItem,
     ImportOrExportMediaItemSeen,
 };
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use utils::convert_string_to_date;
-
-use super::ImportResult;
 
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     let anime_data = input

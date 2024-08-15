@@ -3,12 +3,15 @@ use std::sync::Arc;
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use csv::ReaderBuilder;
+use database_models::user_measurement;
+use dependent_models::ImportResult;
+use fitness_models::UserMeasurementStats;
 use itertools::Itertools;
-use models::{user_measurement, DeployGenericCsvImportInput, UserMeasurementStats};
+use media_models::DeployGenericCsvImportInput;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use super::{app_utils, ImportFailStep, ImportFailedItem, ImportResult};
+use super::{utils, ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct Record {
@@ -61,7 +64,7 @@ pub async fn import(
         };
         let ndt = NaiveDateTime::parse_from_str(&record.date_time, "%Y-%m-%d %H:%M")
             .expect("Failed to parse input string");
-        let timestamp = app_utils::get_date_time_with_offset(ndt, timezone.clone());
+        let timestamp = utils::get_date_time_with_offset(ndt, timezone.clone());
         measurements.push(user_measurement::Model {
             timestamp,
             user_id: "".to_string(),

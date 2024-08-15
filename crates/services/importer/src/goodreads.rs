@@ -2,9 +2,10 @@ use async_graphql::Result;
 use chrono::NaiveDate;
 use convert_case::{Case, Casing};
 use csv::Reader;
+use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
 };
@@ -13,7 +14,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use super::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct Book {

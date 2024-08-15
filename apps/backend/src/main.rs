@@ -60,7 +60,6 @@ use crate::{
 
 mod app_background;
 mod app_utils;
-mod importer;
 mod routes;
 
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");

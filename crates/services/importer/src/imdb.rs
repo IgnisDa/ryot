@@ -1,12 +1,14 @@
 use async_graphql::Result;
+use common_models::DefaultCollection;
 use csv::Reader;
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{DefaultCollection, DeployGenericCsvImportInput, ImportOrExportMediaItem};
+use media_models::{DeployGenericCsvImportInput, ImportOrExportMediaItem};
 pub use providers::tmdb::NonMediaTmdbService;
 use serde::Deserialize;
 
-use super::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]

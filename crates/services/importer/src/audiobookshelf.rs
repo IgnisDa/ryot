@@ -1,12 +1,15 @@
 use std::future::Future;
 
 use anyhow::anyhow;
+use application_utils::get_base_http_client;
 use async_graphql::Result;
 use data_encoding::BASE64;
+use database_models::metadata;
+use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
-use models::{
-    audiobookshelf as audiobookshelf_models, metadata, CommitMediaInput,
-    DeployUrlAndKeyImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+use media_models::{
+    CommitMediaInput, DeployUrlAndKeyImportInput, ImportOrExportMediaItem,
+    ImportOrExportMediaItemSeen,
 };
 use providers::google_books::GoogleBooksService;
 use reqwest::{
@@ -14,9 +17,9 @@ use reqwest::{
     Client,
 };
 use serde_json::json;
-use utils::get_base_http_client;
+use specific_models::audiobookshelf as audiobookshelf_models;
 
-use super::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem};
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,

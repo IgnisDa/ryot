@@ -8,53 +8,32 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
-argon2 = { workspace = true }
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
-cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 config = { path = "../../crates/config" }
-convert_case = { workspace = true }
-csv = "=1.3.0"
-data-encoding = "=2.6.0"
 dotenvy = "=0.15.7"
-enums = { path = "../../crates/enums" }
-enum_meta = { workspace = true }
-flate2 = "=1.0.30"
-futures = "=0.3.30"
 http = "=1.1.0"
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
-markdown = { workspace = true }
 migrations = { path = "../../crates/migrations" }
 models = { path = "../../crates/models" }
 nanoid = { workspace = true }
 openidconnect = { workspace = true }
-providers = { path = "../../crates/providers" }
-regex = { workspace = true }
 reqwest = { workspace = true }
 resolvers = { path = "../../crates/resolvers" }
-rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
-sea-query = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
-serde_with = { workspace = true }
-serde-xml-rs = "=0.6.0"
 services = { path = "../../crates/services" }
-slug = { workspace = true }
 tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
-traits = { path = "../../crates/traits" }
 utils = { path = "../../crates/utils" }
-uuid = { workspace = true }
