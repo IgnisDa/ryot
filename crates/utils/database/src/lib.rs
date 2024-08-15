@@ -1,10 +1,14 @@
 use std::sync::Arc;
 
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use common_models::IdAndNamedObject;
+use background::CoreApplicationJob;
+use chrono::Utc;
+use common_models::{ChangeCollectionToEntityInput, IdAndNamedObject};
 use database_models::{
     collection, collection_to_entity,
+    functions::associate_user_with_entity,
     prelude::{
         Collection, CollectionToEntity, Review, User, UserMeasurement, UserToCollection, Workout,
     },
@@ -19,8 +23,9 @@ use media_models::{ImportOrExportItemRating, ImportOrExportItemReview, ReviewIte
 use migrations::AliasedCollectionToEntity;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::Expr, sea_query::PgFunc, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
+    prelude::Expr, sea_query::PgFunc, ActiveModelTrait, ActiveValue, ColumnTrait,
+    DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    Select,
 };
 use user_models::UserReviewScale;
 
@@ -55,7 +60,7 @@ pub async fn user_measurements_list(
     Ok(resp)
 }
 
-pub type CteColAlias = collection_to_entity::Column;
+type CteColAlias = collection_to_entity::Column;
 
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
@@ -234,4 +239,74 @@ where
             query.filter(entity_column.in_subquery(subquery))
         }
     })
+}
+
+pub async fn add_entity_to_collection(
+    db: &DatabaseConnection,
+    user_id: &String,
+    input: ChangeCollectionToEntityInput,
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+) -> Result<bool> {
+    let collection = Collection::find()
+        .left_join(UserToCollection)
+        .filter(user_to_collection::Column::UserId.eq(user_id))
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut updated: collection::ActiveModel = collection.into();
+    updated.last_updated_on = ActiveValue::Set(Utc::now());
+    let collection = updated.update(db).await.unwrap();
+    let resp = if let Some(etc) = CollectionToEntity::find()
+        .filter(CteColAlias::CollectionId.eq(collection.id.clone()))
+        .filter(
+            CteColAlias::MetadataId
+                .eq(input.metadata_id.clone())
+                .or(CteColAlias::PersonId.eq(input.person_id.clone()))
+                .or(CteColAlias::MetadataGroupId.eq(input.metadata_group_id.clone()))
+                .or(CteColAlias::ExerciseId.eq(input.exercise_id.clone()))
+                .or(CteColAlias::WorkoutId.eq(input.workout_id.clone())),
+        )
+        .one(db)
+        .await?
+    {
+        let mut to_update: collection_to_entity::ActiveModel = etc.into();
+        to_update.last_updated_on = ActiveValue::Set(Utc::now());
+        to_update.update(db).await?
+    } else {
+        let created_collection = collection_to_entity::ActiveModel {
+            collection_id: ActiveValue::Set(collection.id),
+            information: ActiveValue::Set(input.information),
+            person_id: ActiveValue::Set(input.person_id.clone()),
+            workout_id: ActiveValue::Set(input.workout_id.clone()),
+            metadata_id: ActiveValue::Set(input.metadata_id.clone()),
+            exercise_id: ActiveValue::Set(input.exercise_id.clone()),
+            metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
+            ..Default::default()
+        };
+        let created = created_collection.insert(db).await?;
+        tracing::debug!("Created collection to entity: {:?}", created);
+        if input.workout_id.is_none() {
+            associate_user_with_entity(
+                user_id,
+                input.metadata_id,
+                input.person_id,
+                input.exercise_id,
+                input.metadata_group_id,
+                db,
+            )
+            .await
+            .ok();
+        }
+        created
+    };
+    perform_core_application_job
+        .enqueue(CoreApplicationJob::EntityAddedToCollection(
+            user_id.to_owned(),
+            resp.id,
+        ))
+        .await
+        .unwrap();
+    Ok(true)
 }

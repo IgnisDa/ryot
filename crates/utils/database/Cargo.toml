@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+apalis = { workspace = true }
 application_utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
+background = { path = "../../background" }
+chrono = { workspace = true }
 common_models = { path = "../../models/common" }
 database_models = { path = "../../models/database" }
 dependent_models = { path = "../../models/dependent" }
@@ -18,4 +21,5 @@ rust_decimal = { workspace = true }
 markdown = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
+tracing = { workspace = true }
 user_models = { path = "../../models/user" }

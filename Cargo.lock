@@ -1597,8 +1597,11 @@ dependencies = [
 name = "database_utils"
 version = "0.1.0"
 dependencies = [
+ "apalis",
  "application_utils",
  "async-graphql",
+ "background",
+ "chrono",
  "common_models",
  "database_models",
  "dependent_models",
@@ -1611,6 +1614,7 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
+ "tracing",
  "user_models",
 ]
 
