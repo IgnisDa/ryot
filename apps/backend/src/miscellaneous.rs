@@ -1422,9 +1422,9 @@ impl MiscellaneousMutation {
 }
 
 pub struct MiscellaneousService {
-    pub db: DatabaseConnection,
-    pub perform_application_job: MemoryStorage<ApplicationJob>,
-    pub perform_core_application_job: MemoryStorage<CoreApplicationJob>,
+    db: DatabaseConnection,
+    perform_application_job: MemoryStorage<ApplicationJob>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     timezone: Arc<chrono_tz::Tz>,
     file_storage_service: Arc<FileStorageService>,
     config: Arc<config::AppConfig>,
