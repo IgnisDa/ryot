@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 apalis = { workspace = true }
-common_models = { path = "../models/common" }
+common-models = { path = "../models/common" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 enums = { path = "../enums" }

@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 async-graphql = { workspace = true }
-common_models = { path = "../../models/common" }
+common-models = { path = "../../models/common" }
 fitness_models = { path = "../../models/fitness" }
 sea-orm = { workspace = true }
 serde = { workspace = true }

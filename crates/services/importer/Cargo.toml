@@ -15,7 +15,7 @@ convert_case = { workspace = true }
 csv = "=1.3.0"
 data-encoding = "=2.6.0"
 enum_meta = { workspace = true }
-common_models = { path = "../../models/common" }
+common-models = { path = "../../models/common" }
 common_utils = { path = "../../utils/common" }
 database_models = { path = "../../models/database" }
 database_utils = { path = "../../utils/database" }

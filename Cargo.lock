@@ -866,7 +866,7 @@ dependencies = [
  "apalis",
  "chrono",
  "chrono-tz",
- "common_models",
+ "common-models",
  "enums",
  "fitness_models",
  "media_models",
@@ -1272,7 +1272,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "common_models"
+name = "common-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
@@ -1613,7 +1613,7 @@ dependencies = [
  "async-trait",
  "boilermates",
  "chrono",
- "common_models",
+ "common-models",
  "educe 0.6.0",
  "enums",
  "file_storage_service",
@@ -1641,7 +1641,7 @@ dependencies = [
  "async-graphql",
  "background",
  "chrono",
- "common_models",
+ "common-models",
  "database_models",
  "dependent_models",
  "file_storage_service",
@@ -1662,7 +1662,7 @@ name = "dependent_models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common_models",
+ "common-models",
  "database_models",
  "enums",
  "fitness_models",
@@ -2103,7 +2103,7 @@ name = "exporter_resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common_models",
+ "common-models",
  "exporter_service",
  "traits",
 ]
@@ -2116,7 +2116,7 @@ dependencies = [
  "async-graphql",
  "background",
  "chrono",
- "common_models",
+ "common-models",
  "common_utils",
  "config",
  "database_models",
@@ -2181,7 +2181,7 @@ version = "0.1.0"
 dependencies = [
  "aws-sdk-s3",
  "chrono",
- "common_models",
+ "common-models",
  "nanoid",
 ]
 
@@ -2192,7 +2192,7 @@ dependencies = [
  "application_utils",
  "async-graphql",
  "async-trait",
- "common_models",
+ "common-models",
  "derive_more 1.0.0-beta.6",
  "enums",
  "file_storage_service",
@@ -2210,7 +2210,7 @@ name = "fitness_resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common_models",
+ "common-models",
  "database_models",
  "dependent_models",
  "fitness_models",
@@ -2228,7 +2228,7 @@ dependencies = [
  "application_utils",
  "async-graphql",
  "background",
- "common_models",
+ "common-models",
  "common_utils",
  "config",
  "const-str",
@@ -3064,7 +3064,7 @@ dependencies = [
  "background",
  "chrono",
  "chrono-tz",
- "common_models",
+ "common-models",
  "common_utils",
  "convert_case",
  "csv",
@@ -3437,7 +3437,7 @@ dependencies = [
  "async-graphql",
  "boilermates",
  "chrono",
- "common_models",
+ "common-models",
  "enums",
  "file_storage_service",
  "rust_decimal",
@@ -3539,7 +3539,7 @@ name = "miscellaneous_resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common_models",
+ "common-models",
  "database_models",
  "dependent_models",
  "media_models",
@@ -3560,7 +3560,7 @@ dependencies = [
  "cached",
  "chrono",
  "chrono-tz",
- "common_models",
+ "common-models",
  "common_utils",
  "config",
  "database_models",
@@ -3599,7 +3599,7 @@ dependencies = [
 name = "models"
 version = "0.1.0"
 dependencies = [
- "common_models",
+ "common-models",
  "database_models",
  "dependent_models",
  "fitness_models",
@@ -6546,7 +6546,7 @@ dependencies = [
  "application_utils",
  "async-graphql",
  "async-trait",
- "common_models",
+ "common-models",
  "database_models",
  "dependent_models",
  "media_models",
@@ -6706,7 +6706,7 @@ name = "user_models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common_models",
+ "common-models",
  "fitness_models",
  "sea-orm",
  "serde",

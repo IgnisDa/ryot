@@ -9,7 +9,7 @@ apalis = { workspace = true }
 application_utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
-common_models = { path = "../../models/common" }
+common-models = { path = "../../models/common" }
 common_utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 const-str = { workspace = true }

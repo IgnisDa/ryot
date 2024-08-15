@@ -8,7 +8,7 @@ apalis = { workspace = true }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
 chrono = { workspace = true }
-common_models = { path = "../../models/common" }
+common-models = { path = "../../models/common" }
 common_utils = { path = "../../utils/common" }
 database_models = { path = "../../models/database" }
 database_utils = { path = "../../utils/database" }

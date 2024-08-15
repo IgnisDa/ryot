@@ -13,7 +13,7 @@ cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 enum_meta = { workspace = true }
-common_models = { path = "../../models/common" }
+common-models = { path = "../../models/common" }
 common_utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 database_models = { path = "../../models/database" }

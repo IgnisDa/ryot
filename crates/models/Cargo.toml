@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-common_models = { path = "./common" }
+common-models = { path = "./common" }
 database_models = { path = "./database" }
 dependent_models = { path = "./dependent" }
 fitness_models = { path = "./fitness" }

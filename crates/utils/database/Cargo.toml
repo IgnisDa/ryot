@@ -9,7 +9,7 @@ application_utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
 chrono = { workspace = true }
-common_models = { path = "../../models/common" }
+common-models = { path = "../../models/common" }
 database_models = { path = "../../models/database" }
 dependent_models = { path = "../../models/dependent" }
 file_storage_service = { path = "../../services/file_storage" }

@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 aws-sdk-s3 = { workspace = true }
 chrono = { workspace = true }
-common_models = { path = "../../models/common" }
+common-models = { path = "../../models/common" }
 nanoid = { workspace = true }
