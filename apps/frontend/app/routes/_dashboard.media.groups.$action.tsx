@@ -46,6 +46,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	ApplicationGrid,
+	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common";
@@ -53,11 +54,8 @@ import {
 	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useUserCollections,
-} from "~/lib/hooks";
+import { commaDelimitedString } from "~/lib/generals";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	serverGqlService,
@@ -94,7 +92,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
-				collection: z.string().optional(),
+				collections: commaDelimitedString,
 				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { metadataGroupsList } =
@@ -105,7 +103,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						input: {
 							search: { page, query },
 							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-							filter: { collection: urlParse.collection },
+							filter: { collections: urlParse.collections },
 							invertCollection: urlParse.invertCollection,
 						},
 					},
@@ -188,7 +186,7 @@ export default function Page() {
 								color={
 									loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
 									loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
-									isString(loaderData.list?.url.collection)
+									isString(loaderData.list?.url.collections)
 										? "blue"
 										: "gray"
 								}
@@ -343,7 +341,6 @@ const commitGroup = async (
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	if (!loaderData.list) return null;
@@ -375,22 +372,9 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Flex gap="xs" align="center">
-				<Select
-					flex={1}
-					placeholder="Select a collection"
-					defaultValue={loaderData.list.url.collection?.toString()}
-					data={[
-						{
-							group: "My collections",
-							items: collections.map((c) => ({
-								value: c.id.toString(),
-								label: c.name,
-							})),
-						},
-					]}
-					onChange={(v) => setP("collection", v)}
-					clearable
-					searchable
+				<CollectionsFilter
+					cookieName={loaderData.cookieName}
+					collections={loaderData.list.url.collections}
 				/>
 				<Checkbox
 					label="Invert"

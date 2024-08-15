@@ -530,7 +530,7 @@ enum MediaGeneralFilter {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 struct MediaFilter {
     general: Option<MediaGeneralFilter>,
-    collection: Option<String>,
+    collections: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -2427,7 +2427,7 @@ impl MiscellaneousService {
                 )
             })
             .apply_if(
-                input.filter.clone().and_then(|f| f.collection),
+                input.filter.clone().and_then(|f| f.collections),
                 |query, v| {
                     apply_collection_filter(
                         query,
@@ -6511,7 +6511,7 @@ impl MiscellaneousService {
                 )
             })
             .apply_if(
-                input.filter.clone().and_then(|f| f.collection),
+                input.filter.clone().and_then(|f| f.collections),
                 |query, v| {
                     apply_collection_filter(
                         query,
@@ -6578,7 +6578,7 @@ impl MiscellaneousService {
                 )
             })
             .apply_if(
-                input.filter.clone().and_then(|f| f.collection),
+                input.filter.clone().and_then(|f| f.collections),
                 |query, v| {
                     apply_collection_filter(
                         query,

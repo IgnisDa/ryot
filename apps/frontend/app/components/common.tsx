@@ -9,6 +9,7 @@ import {
 	Group,
 	Image,
 	Modal,
+	MultiSelect,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -32,7 +33,11 @@ import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { getSurroundingElements } from "~/lib/generals";
-import { useAppSearchParam, useFallbackImageUrl } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useFallbackImageUrl,
+	useUserCollections,
+} from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {
@@ -190,5 +195,32 @@ export const FiltersModal = (props: {
 				{props.children}
 			</Stack>
 		</Modal>
+	);
+};
+
+export const CollectionsFilter = (props: {
+	cookieName: string;
+	collections?: string[];
+}) => {
+	const collections = useUserCollections();
+	const [_, { setP }] = useAppSearchParam(props.cookieName);
+
+	return (
+		<MultiSelect
+			placeholder="Select a collection"
+			defaultValue={props.collections}
+			data={[
+				{
+					group: "My collections",
+					items: collections.map((c) => ({
+						value: c.id.toString(),
+						label: c.name,
+					})),
+				},
+			]}
+			onChange={(v) => setP("collections", v.join(","))}
+			clearable
+			searchable
+		/>
 	);
 };
