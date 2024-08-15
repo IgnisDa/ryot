@@ -4,8 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+application_utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
+common_models = { path = "../../models/common" }
 database_models = { path = "../../models/database" }
+dependent_models = { path = "../../models/dependent" }
+file_storage_service = { path = "../../services/file_storage" }
 fitness_models = { path = "../../models/fitness" }
 itertools = { workspace = true }
+media_models = { path = "../../models/media" }
+rust_decimal = { workspace = true }
+markdown = { workspace = true }
+rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
+user_models = { path = "../../models/user" }

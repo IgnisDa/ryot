@@ -94,14 +94,13 @@ use services::{sign, FileStorageService};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
 use utils::{
     convert_naive_to_utc, entity_in_collections, get_current_date, get_first_and_last_day_of_month,
-    user_id_from_token, IsFeatureEnabled, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+    review_by_id, user_by_id, user_id_from_token, IsFeatureEnabled, AUTHOR,
+    SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
 };
 use uuid::Uuid;
 
 use crate::{
-    app_utils::{
-        add_entity_to_collection, apply_collection_filter, ilike_sql, review_by_id, user_by_id,
-    },
+    app_utils::{add_entity_to_collection, apply_collection_filter, ilike_sql},
     background::{ApplicationJob, CoreApplicationJob},
     integrations::{IntegrationMediaSeen, IntegrationService},
     notification::send_notification,

@@ -27,10 +27,13 @@ use serde::{Deserialize, Serialize};
 use services::FileStorageService;
 use slug::slugify;
 use traits::AuthProvider;
-use utils::{entity_in_collections, user_measurements_list, GraphqlRepresentation};
+use utils::{
+    entity_in_collections, user_by_id, user_measurements_list, workout_details,
+    GraphqlRepresentation,
+};
 
 use crate::{
-    app_utils::{add_entity_to_collection, ilike_sql, user_by_id, workout_details},
+    app_utils::{add_entity_to_collection, ilike_sql},
     background::{ApplicationJob, CoreApplicationJob},
 };
 

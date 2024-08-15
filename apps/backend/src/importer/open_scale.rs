@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use crate::importer::{
-    utils, DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
+    app_utils, DeployGenericCsvImportInput, ImportFailStep, ImportFailedItem, ImportResult,
 };
 
 #[derive(Debug, Deserialize)]
@@ -63,7 +63,7 @@ pub async fn import(
         };
         let ndt = NaiveDateTime::parse_from_str(&record.date_time, "%Y-%m-%d %H:%M")
             .expect("Failed to parse input string");
-        let timestamp = utils::get_date_time_with_offset(ndt, timezone.clone());
+        let timestamp = app_utils::get_date_time_with_offset(ndt, timezone.clone());
         measurements.push(user_measurement::Model {
             timestamp,
             user_id: "".to_string(),

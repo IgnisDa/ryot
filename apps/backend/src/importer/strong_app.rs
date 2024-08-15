@@ -12,7 +12,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use crate::importer::{utils, DeployStrongAppImportInput, ImportResult};
+use crate::importer::{app_utils, DeployStrongAppImportInput, ImportResult};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
@@ -106,7 +106,7 @@ pub async fn import(
         if next_entry.date != entry.date {
             let ndt = NaiveDateTime::parse_from_str(&entry.date, "%Y-%m-%d %H:%M:%S")
                 .expect("Failed to parse input string");
-            let ndt = utils::get_date_time_with_offset(ndt, timezone.clone());
+            let ndt = app_utils::get_date_time_with_offset(ndt, timezone.clone());
             let re = Regex::new(r"^(\d+h)?\s?(\d+m)?$").unwrap();
             let workout_duration = if let Some(captures) = re.captures(&entry.workout_duration) {
                 let hours = captures.get(1).map_or(0, |m| {

@@ -1583,11 +1583,20 @@ dependencies = [
 name = "database_utils"
 version = "0.1.0"
 dependencies = [
+ "application_utils",
  "async-graphql",
+ "common_models",
  "database_models",
+ "dependent_models",
+ "file_storage_service",
  "fitness_models",
  "itertools 0.13.0",
+ "markdown",
+ "media_models",
+ "rust_decimal",
+ "rust_decimal_macros",
  "sea-orm",
+ "user_models",
 ]
 
 [[package]]

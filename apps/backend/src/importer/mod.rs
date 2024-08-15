@@ -17,9 +17,10 @@ use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use traits::{AuthProvider, TraceOk};
+use utils::user_by_id;
 
 use crate::{
-    app_utils::user_by_id, background::ApplicationJob, fitness::resolver::ExerciseService,
+    background::ApplicationJob, fitness::resolver::ExerciseService,
     miscellaneous::MiscellaneousService,
 };
 
@@ -649,7 +650,7 @@ fn convert_review_into_input(
     })
 }
 
-pub mod utils {
+pub mod app_utils {
     use super::*;
 
     pub fn get_date_time_with_offset(

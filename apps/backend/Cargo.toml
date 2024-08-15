@@ -30,7 +30,7 @@ futures = "=0.3.30"
 http = "=1.1.0"
 itertools = { workspace = true }
 lettre = "=0.11.7"
-markdown = "=1.0.0-alpha.18"
+markdown = { workspace = true }
 migrations = { path = "../../crates/migrations" }
 mime_guess = "=2.0.5"
 models = { path = "../../crates/models" }
