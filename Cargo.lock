@@ -823,6 +823,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "background"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "common_models",
+ "enums",
+ "fitness_models",
+ "media_models",
+ "serde",
+ "strum",
+ "uuid",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4730,6 +4744,7 @@ dependencies = [
  "async-graphql-axum",
  "aws-sdk-s3",
  "axum",
+ "background",
  "cached",
  "chrono",
  "chrono-tz",
@@ -4770,7 +4785,6 @@ dependencies = [
  "services",
  "slug",
  "sonarr-api-rs",
- "strum",
  "struson",
  "tokio",
  "tokio-util",

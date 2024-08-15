@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use itertools::Itertools;
 use migrations::AliasedCollectionToEntity;
@@ -25,10 +26,7 @@ use services::FileStorageService;
 use utils::{CteColAlias, FRONTEND_OAUTH_ENDPOINT};
 
 use crate::{
-    background::{ApplicationJob, CoreApplicationJob},
-    exporter::ExporterService,
-    fitness::resolver::ExerciseService,
-    importer::ImporterService,
+    exporter::ExporterService, fitness::resolver::ExerciseService, importer::ImporterService,
     miscellaneous::MiscellaneousService,
 };
 

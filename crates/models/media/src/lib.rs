@@ -4,7 +4,7 @@ use async_graphql::{Enum, InputObject, SimpleObject, Union};
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate};
 use common_models::{CollectionExtraInformation, IdAndNamedObject, StoredUrl, StringIdObject};
-use enums::{EntityLot, MediaLot, MediaSource, SeenState, Visibility};
+use enums::{EntityLot, ImportSource, MediaLot, MediaSource, SeenState, Visibility};
 use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -933,4 +933,88 @@ pub struct ReviewItem {
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
     pub comments: Vec<ImportOrExportItemReviewComment>,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployGenericCsvImportInput {
+    // The file path of the uploaded CSV export file.
+    pub csv_path: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployTraktImportInput {
+    // The public username in Trakt.
+    pub username: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMovaryImportInput {
+    // The file path of the uploaded CSV history file.
+    pub history: String,
+    // The file path of the uploaded CSV ratings file.
+    pub ratings: String,
+    // The file path of the uploaded CSV watchlist file.
+    pub watchlist: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployMalImportInput {
+    /// The anime export file path (uploaded via temporary upload).
+    pub anime_path: Option<String>,
+    /// The manga export file path (uploaded via temporary upload).
+    pub manga_path: Option<String>,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct StrongAppImportMapping {
+    pub source_name: String,
+    pub target_name: String,
+    pub multiplier: Option<Decimal>,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployStrongAppImportInput {
+    // The path to the CSV file in the local file system.
+    pub export_path: String,
+    pub mapping: Vec<StrongAppImportMapping>,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployIgdbImportInput {
+    // The path to the CSV file in the local file system.
+    pub csv_path: String,
+    pub collection: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployJsonImportInput {
+    // The file path of the uploaded JSON export.
+    pub export: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployUrlAndKeyImportInput {
+    pub api_url: String,
+    pub api_key: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployUrlAndKeyAndUsernameImportInput {
+    pub api_url: String,
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct DeployImportJobInput {
+    pub source: ImportSource,
+    pub mal: Option<DeployMalImportInput>,
+    pub igdb: Option<DeployIgdbImportInput>,
+    pub trakt: Option<DeployTraktImportInput>,
+    pub movary: Option<DeployMovaryImportInput>,
+    pub generic_json: Option<DeployJsonImportInput>,
+    pub strong_app: Option<DeployStrongAppImportInput>,
+    pub url_and_key: Option<DeployUrlAndKeyImportInput>,
+    pub generic_csv: Option<DeployGenericCsvImportInput>,
+    pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
 }

@@ -1,28 +1,24 @@
 use std::sync::Arc;
 
 use apalis::prelude::MessageQueue;
-use async_graphql::{Context, InputObject, Object, Result};
+use async_graphql::{Context, Object, Result};
+use background::ApplicationJob;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use enums::ImportSource;
 use models::{
     import_report, prelude::ImportReport, user_measurement, BackgroundJob,
     ChangeCollectionToEntityInput, CommitMediaInput, CommitPersonInput,
-    CreateOrUpdateCollectionInput, ImportDetails, ImportFailStep, ImportFailedItem,
-    ImportOrExportItemRating, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
-    ImportOrExportPersonItem, ImportResultResponse, PostReviewInput, ProgressUpdateInput,
-    UserPreferences, UserReviewScale, UserWorkoutInput,
+    CreateOrUpdateCollectionInput, DeployImportJobInput, ImportDetails, ImportFailStep,
+    ImportFailedItem, ImportOrExportItemRating, ImportOrExportMediaGroupItem,
+    ImportOrExportMediaItem, ImportOrExportPersonItem, ImportResultResponse, PostReviewInput,
+    ProgressUpdateInput, UserPreferences, UserReviewScale, UserWorkoutInput,
 };
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
-use serde::{Deserialize, Serialize};
 use traits::{AuthProvider, TraceOk};
 use utils::user_by_id;
 
-use crate::{
-    background::ApplicationJob, fitness::resolver::ExerciseService,
-    miscellaneous::MiscellaneousService,
-};
+use crate::{fitness::resolver::ExerciseService, miscellaneous::MiscellaneousService};
 
 mod audiobookshelf;
 mod generic_json;
@@ -37,90 +33,6 @@ mod open_scale;
 mod story_graph;
 mod strong_app;
 mod trakt;
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployGenericCsvImportInput {
-    // The file path of the uploaded CSV export file.
-    csv_path: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployTraktImportInput {
-    // The public username in Trakt.
-    username: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployMovaryImportInput {
-    // The file path of the uploaded CSV history file.
-    history: String,
-    // The file path of the uploaded CSV ratings file.
-    ratings: String,
-    // The file path of the uploaded CSV watchlist file.
-    watchlist: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployMalImportInput {
-    /// The anime export file path (uploaded via temporary upload).
-    anime_path: Option<String>,
-    /// The manga export file path (uploaded via temporary upload).
-    manga_path: Option<String>,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct StrongAppImportMapping {
-    source_name: String,
-    target_name: String,
-    multiplier: Option<Decimal>,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployStrongAppImportInput {
-    // The path to the CSV file in the local file system.
-    export_path: String,
-    mapping: Vec<StrongAppImportMapping>,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployIgdbImportInput {
-    // The path to the CSV file in the local file system.
-    csv_path: String,
-    collection: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployJsonImportInput {
-    // The file path of the uploaded JSON export.
-    export: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployUrlAndKeyImportInput {
-    api_url: String,
-    api_key: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployUrlAndKeyAndUsernameImportInput {
-    api_url: String,
-    username: String,
-    password: String,
-}
-
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployImportJobInput {
-    pub source: ImportSource,
-    pub mal: Option<DeployMalImportInput>,
-    pub igdb: Option<DeployIgdbImportInput>,
-    pub trakt: Option<DeployTraktImportInput>,
-    pub movary: Option<DeployMovaryImportInput>,
-    pub generic_json: Option<DeployJsonImportInput>,
-    pub strong_app: Option<DeployStrongAppImportInput>,
-    pub url_and_key: Option<DeployUrlAndKeyImportInput>,
-    pub generic_csv: Option<DeployGenericCsvImportInput>,
-    pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
-}
 
 #[derive(Debug, Default)]
 pub struct ImportResult {

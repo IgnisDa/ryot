@@ -3,8 +3,8 @@ use convert_case::{Case, Casing};
 use enums::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use models::{
-    CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMediaItemSeen,
+    CreateOrUpdateCollectionInput, DeployTraktImportInput, ImportOrExportItemRating,
+    ImportOrExportItemReview, ImportOrExportMediaItemSeen,
 };
 use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use rust_decimal::Decimal;
@@ -13,9 +13,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use utils::{get_base_http_client, APPLICATION_JSON_HEADER};
 
-use crate::importer::{
-    DeployTraktImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult,
-};
+use crate::importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
 
 const API_URL: &str = "https://api.trakt.tv";
 const CLIENT_ID: &str = "b3d93fd4c53d78d61b18e0f0bf7ad5153de323788dbc0be1a3627205a36e89f5";

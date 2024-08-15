@@ -12,6 +12,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{
     Context, Enum, Error, InputObject, InputType, Object, OneofObject, Result, SimpleObject, Union,
 };
+use background::{ApplicationJob, CoreApplicationJob};
 use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use enum_meta::Meta;
@@ -101,7 +102,6 @@ use uuid::Uuid;
 
 use crate::{
     app_utils::{add_entity_to_collection, apply_collection_filter, ilike_sql},
-    background::{ApplicationJob, CoreApplicationJob},
     integrations::{IntegrationMediaSeen, IntegrationService},
     notification::send_notification,
 };

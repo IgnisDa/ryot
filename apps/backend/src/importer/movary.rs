@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 use csv::Reader;
 use enums::{ImportSource, MediaLot, MediaSource};
 use models::{
-    DefaultCollection, ImportOrExportItemRating, ImportOrExportItemReview,
+    DefaultCollection, DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMediaItemSeen,
 };
 use rust_decimal::Decimal;
@@ -11,10 +11,7 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use utils::convert_naive_to_utc;
 
-use crate::importer::{
-    DeployMovaryImportInput, ImportFailStep, ImportFailedItem, ImportOrExportMediaItem,
-    ImportResult,
-};
+use crate::importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

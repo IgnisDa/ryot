@@ -8,13 +8,16 @@ use chrono::NaiveDate;
 use enums::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
-use models::{ImportOrExportItemRating, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use models::{
+    DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMediaItem,
+    ImportOrExportMediaItemSeen,
+};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use utils::convert_string_to_date;
 
-use crate::importer::{DeployMalImportInput, ImportResult};
+use crate::importer::ImportResult;
 
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     let anime_data = input

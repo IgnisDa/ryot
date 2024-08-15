@@ -1,20 +1,13 @@
 use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::*;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::DateTime;
 use chrono_tz::Tz;
-use enums::{MediaLot, MediaSource};
-use models::{
-    CommitMediaInput, ExportItem, GithubExercise, ProgressUpdateInput, ReviewPostedEvent,
-};
-use serde::{Deserialize, Serialize};
-use strum::Display;
-use uuid::Uuid;
+use models::CommitMediaInput;
 
 use crate::{
-    exporter::ExporterService,
-    fitness::resolver::ExerciseService,
-    importer::{DeployImportJobInput, ImporterService},
+    exporter::ExporterService, fitness::resolver::ExerciseService, importer::ImporterService,
     miscellaneous::MiscellaneousService,
 };
 
@@ -52,19 +45,6 @@ pub async fn sync_integrations_data(
 
 // Application Jobs
 
-// The background jobs which cannot be throttled.
-#[derive(Debug, Deserialize, Serialize, Display)]
-pub enum CoreApplicationJob {
-    SyncIntegrationsData(String),
-    ReviewPosted(ReviewPostedEvent),
-    BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
-    EntityAddedToCollection(String, Uuid),
-}
-
-impl Message for CoreApplicationJob {
-    const NAME: &'static str = "apalis::CoreApplicationJob";
-}
-
 pub async fn perform_core_application_job(
     information: CoreApplicationJob,
     misc_service: Data<Arc<MiscellaneousService>>,
@@ -98,26 +78,6 @@ pub async fn perform_core_application_job(
         status
     );
     Ok(())
-}
-
-// The background jobs which can be deployed by the application.
-#[derive(Debug, Deserialize, Serialize, Display)]
-pub enum ApplicationJob {
-    ImportFromExternalSource(String, Box<DeployImportJobInput>),
-    ReEvaluateUserWorkouts(String),
-    UpdateMetadata(String, bool),
-    UpdateGithubExerciseJob(GithubExercise),
-    UpdatePerson(String),
-    RecalculateCalendarEvents,
-    AssociateGroupWithMetadata(MediaLot, MediaSource, String),
-    PerformExport(String, Vec<ExportItem>),
-    RecalculateUserSummary(String),
-    PerformBackgroundTasks,
-    UpdateExerciseLibrary,
-}
-
-impl Message for ApplicationJob {
-    const NAME: &'static str = "apalis::ApplicationJob";
 }
 
 pub async fn perform_application_job(

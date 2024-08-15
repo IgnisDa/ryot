@@ -7,13 +7,14 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = { workspace = true }
-apalis = { version = "=0.5.3", features = ["cron", "limit"] }
+apalis = { workspace = true }
 argon2 = { workspace = true }
 askama = "0.12.1"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
+background = { path = "../../crates/background" }
 cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
@@ -53,7 +54,6 @@ serde-xml-rs = "=0.6.0"
 services = { path = "../../crates/services" }
 slug = "=0.1.5"
 sonarr-api-rs = "=3.0.0"
-strum = { workspace = true }
 struson = { version = "=0.5.0", features = ["serde"] }
 tokio = { version = "=1.39.2", features = ["full"] }
 tokio-util = { version = "=0.7.11", features = ["codec"] }

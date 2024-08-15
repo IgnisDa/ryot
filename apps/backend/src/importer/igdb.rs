@@ -2,11 +2,13 @@ use async_graphql::Result;
 use csv::Reader;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{DefaultCollection, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
+use models::{
+    DefaultCollection, DeployIgdbImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+};
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use super::{DeployIgdbImportInput, ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportResult};
 
 #[derive(Debug, Deserialize)]
 struct Item {

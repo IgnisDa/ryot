@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Enum, Error, InputObject, Object, Result, SimpleObject};
+use background::{ApplicationJob, CoreApplicationJob};
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
     ExerciseSource,
@@ -32,10 +33,7 @@ use utils::{
     GraphqlRepresentation,
 };
 
-use crate::{
-    app_utils::{add_entity_to_collection, ilike_sql},
-    background::{ApplicationJob, CoreApplicationJob},
-};
+use crate::app_utils::{add_entity_to_collection, ilike_sql};
 
 use super::logic::{calculate_and_commit, delete_existing_workout};
 

@@ -5,14 +5,15 @@ use chrono::{Duration, NaiveDateTime};
 use csv::ReaderBuilder;
 use itertools::Itertools;
 use models::{
-    SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
+    DeployStrongAppImportInput, SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord,
+    WorkoutSetStatistic,
 };
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use crate::importer::{app_utils, DeployStrongAppImportInput, ImportResult};
+use crate::importer::{app_utils, ImportResult};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]

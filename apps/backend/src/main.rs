@@ -47,19 +47,19 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
-    app_utils::create_app_services,
-    background::{
+    app_background::{
         background_jobs, perform_application_job, perform_core_application_job,
         sync_integrations_data,
     },
+    app_utils::create_app_services,
     graphql::get_schema,
     routes::{
         config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
     },
 };
 
+mod app_background;
 mod app_utils;
-mod background;
 mod exporter;
 mod fitness;
 mod graphql;

@@ -2,6 +2,7 @@ use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Context, Error, Object, Result, SimpleObject};
+use background::ApplicationJob;
 use chrono::{DateTime, Utc};
 use models::{
     prelude::{Metadata, MetadataGroup, Person, Review, Seen, UserToEntity, Workout},
@@ -28,8 +29,6 @@ use utils::{
     entity_in_collections, get_review_export_item, review_by_id, user_measurements_list,
     workout_details, IsFeatureEnabled, TEMP_DIR,
 };
-
-use crate::background::ApplicationJob;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 struct ExportJob {

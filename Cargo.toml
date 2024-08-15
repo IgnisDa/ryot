@@ -1,8 +1,9 @@
 [workspace]
 members = [
     "apps/backend",
-    "crates/enums",
+    "crates/background",
     "crates/config",
+    "crates/enums",
     "crates/migrations",
     "crates/models",
     "crates/providers",
@@ -14,6 +15,7 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "=1.0.82"
+apalis = { version = "=0.5.3", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.1"
 async-graphql = { version = "=7.0.7", features = [
     "chrono",

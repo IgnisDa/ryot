@@ -5,8 +5,8 @@ use async_graphql::Result;
 use data_encoding::BASE64;
 use enums::{ImportSource, MediaLot, MediaSource};
 use models::{
-    audiobookshelf as audiobookshelf_models, metadata, CommitMediaInput, ImportOrExportMediaItem,
-    ImportOrExportMediaItemSeen,
+    audiobookshelf as audiobookshelf_models, metadata, CommitMediaInput,
+    DeployUrlAndKeyImportInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
 };
 use providers::google_books::GoogleBooksService;
 use reqwest::{
@@ -17,8 +17,6 @@ use serde_json::json;
 use utils::get_base_http_client;
 
 use crate::importer::{ImportFailStep, ImportFailedItem, ImportResult};
-
-use super::DeployUrlAndKeyImportInput;
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,
