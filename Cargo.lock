@@ -3000,6 +3000,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration_service"
+version = "0.1.0"
+
+[[package]]
 name = "ipnet"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5354,6 +5358,7 @@ version = "0.1.0"
 dependencies = [
  "exporter_service",
  "file_storage_service",
+ "integration_service",
  "jwt_service",
  "notification_service",
 ]
