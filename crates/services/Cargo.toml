@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 exporter_service = { path = "./exporter" }
 file_storage_service = { path = "./file_storage" }
+fitness_service = { path = "./fitness" }
 integration_service = { path = "./integration" }
 jwt_service = { path = "./jwt" }
 notification_service = { path = "./notification" }

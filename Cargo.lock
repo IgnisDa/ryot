@@ -2164,6 +2164,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fitness_resolver"
+version = "0.1.0"
+
+[[package]]
+name = "fitness_service"
+version = "0.1.0"
+
+[[package]]
 name = "flate2"
 version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4560,6 +4568,7 @@ name = "resolvers"
 version = "0.1.0"
 dependencies = [
  "exporter_resolver",
+ "fitness_resolver",
 ]
 
 [[package]]
@@ -5383,6 +5392,7 @@ version = "0.1.0"
 dependencies = [
  "exporter_service",
  "file_storage_service",
+ "fitness_service",
  "integration_service",
  "jwt_service",
  "notification_service",

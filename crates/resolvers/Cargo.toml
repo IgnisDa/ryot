@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 exporter_resolver = { path = "./exporter" }
+fitness_resolver = { path = "./fitness" }
