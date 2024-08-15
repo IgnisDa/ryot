@@ -29,9 +29,7 @@ use sonarr_api_rs::{
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
 use traits::TraceOk;
-use utils::get_base_http_client;
-
-use crate::app_utils::ilike_sql;
+use utils::{get_base_http_client, ilike_sql};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IntegrationMediaSeen {

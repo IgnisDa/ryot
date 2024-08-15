@@ -13,6 +13,7 @@ file_storage_service = { path = "../../services/file_storage" }
 fitness_models = { path = "../../models/fitness" }
 itertools = { workspace = true }
 media_models = { path = "../../models/media" }
+migrations = { path = "../../migrations" }
 rust_decimal = { workspace = true }
 markdown = { workspace = true }
 rust_decimal_macros = { workspace = true }

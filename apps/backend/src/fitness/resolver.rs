@@ -29,11 +29,11 @@ use services::FileStorageService;
 use slug::slugify;
 use traits::AuthProvider;
 use utils::{
-    entity_in_collections, user_by_id, user_measurements_list, workout_details,
+    entity_in_collections, ilike_sql, user_by_id, user_measurements_list, workout_details,
     GraphqlRepresentation,
 };
 
-use crate::app_utils::{add_entity_to_collection, ilike_sql};
+use crate::app_utils::add_entity_to_collection;
 
 use super::logic::{calculate_and_commit, delete_existing_workout};
 

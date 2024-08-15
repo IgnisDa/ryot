@@ -4,8 +4,6 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Result, Schema};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
-use itertools::Itertools;
-use migrations::AliasedCollectionToEntity;
 use models::{
     collection, collection_to_entity,
     functions::associate_user_with_entity,
@@ -20,9 +18,7 @@ use openidconnect::{
 use resolvers::{ExporterMutation, ExporterQuery};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QuerySelect, QueryTrait, Select,
 };
-use sea_query::{Expr, PgFunc};
 use services::{ExporterService, FileStorageService};
 use utils::{CteColAlias, FRONTEND_OAUTH_ENDPOINT};
 
@@ -196,51 +192,6 @@ pub async fn add_entity_to_collection(
         .await
         .unwrap();
     Ok(true)
-}
-
-pub fn apply_collection_filter<E, C, D>(
-    query: Select<E>,
-    collection_id: Option<Vec<String>>,
-    invert_collection: Option<bool>,
-    entity_column: C,
-    id_column: D,
-) -> Select<E>
-where
-    E: EntityTrait,
-    C: ColumnTrait,
-    D: ColumnTrait,
-{
-    query.apply_if(collection_id, |query, v| {
-        let unique_collections = v.into_iter().unique().collect_vec();
-        let count = unique_collections.len() as i32;
-        let subquery = CollectionToEntity::find()
-            .select_only()
-            .column(id_column)
-            .filter(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
-                ))
-                .eq(PgFunc::any(unique_collections)),
-            )
-            .filter(id_column.is_not_null())
-            .group_by(id_column)
-            .having(
-                collection_to_entity::Column::CollectionId
-                    .count()
-                    .eq(Expr::val(count)),
-            )
-            .into_query();
-        if invert_collection.unwrap_or_default() {
-            query.filter(entity_column.not_in_subquery(subquery))
-        } else {
-            query.filter(entity_column.in_subquery(subquery))
-        }
-    })
-}
-
-pub fn ilike_sql(value: &str) -> String {
-    format!("%{value}%")
 }
 
 #[derive(MergedObject, Default)]
