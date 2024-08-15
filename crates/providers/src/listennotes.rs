@@ -19,8 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_naive_to_utc,TEMP_DIR, get_base_http_client};
-
+use utils::{convert_naive_to_utc, get_base_http_client, TEMP_DIR};
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
 static FILE: &str = "listennotes.json";
@@ -275,13 +274,13 @@ async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
     let settings = if !path.exists() {
         #[derive(Debug, Serialize, Deserialize, Default)]
         #[serde(rename_all = "snake_case")]
-        pub struct IdAndNamedObject {
+        pub struct ListennotesIdAndNamedObject {
             pub id: i32,
             pub name: String,
         }
         #[derive(Debug, Serialize, Deserialize, Default)]
         struct GenreResponse {
-            genres: Vec<IdAndNamedObject>,
+            genres: Vec<ListennotesIdAndNamedObject>,
         }
         let rsp = client.get("genres").send().await.unwrap();
         let data: GenreResponse = rsp.json().await.unwrap_or_default();
