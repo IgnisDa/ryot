@@ -1,0 +1,10 @@
+[package]
+name = "database_utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+database_models = { path = "../../models/database" }
+fitness_models = { path = "../../models/fitness" }
+sea-orm = { workspace = true }

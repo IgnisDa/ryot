@@ -24,13 +24,10 @@ use struson::writer::{JsonStreamWriter, JsonWriter};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use traits::AuthProvider;
-use utils::{IsFeatureEnabled, TEMP_DIR};
+use utils::{user_measurements_list, IsFeatureEnabled, TEMP_DIR};
 
 use crate::{
-    app_utils::{
-        entity_in_collections, get_review_export_item, review_by_id, user_measurements_list,
-        workout_details,
-    },
+    app_utils::{entity_in_collections, get_review_export_item, review_by_id, workout_details},
     background::ApplicationJob,
 };
 

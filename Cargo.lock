@@ -1580,6 +1580,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "database_utils"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "database_models",
+ "fitness_models",
+ "sea-orm",
+]
+
+[[package]]
 name = "dependent_models"
 version = "0.1.0"
 dependencies = [
@@ -6460,6 +6470,7 @@ version = "0.1.0"
 dependencies = [
  "application_utils",
  "common_utils",
+ "database_utils",
 ]
 
 [[package]]

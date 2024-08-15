@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 application_utils = { path = "./application" }
 common_utils = { path = "./common" }
+database_utils = { path = "./database" }

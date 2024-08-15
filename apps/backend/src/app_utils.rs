@@ -9,12 +9,10 @@ use migrations::AliasedCollectionToEntity;
 use models::{
     collection, collection_to_entity,
     functions::associate_user_with_entity,
-    prelude::{
-        Collection, CollectionToEntity, Review, User, UserMeasurement, UserToCollection, Workout,
-    },
-    user, user_measurement, user_to_collection, workout, ChangeCollectionToEntityInput,
-    IdAndNamedObject, ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem,
-    UserMeasurementsListInput, UserReviewScale, UserWorkoutDetails,
+    prelude::{Collection, CollectionToEntity, Review, User, UserToCollection, Workout},
+    user, user_to_collection, workout, ChangeCollectionToEntityInput, IdAndNamedObject,
+    ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem, UserReviewScale,
+    UserWorkoutDetails,
 };
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
@@ -24,7 +22,7 @@ use openidconnect::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
+    QueryFilter, QuerySelect, QueryTrait, Select,
 };
 use sea_query::{Expr, PgFunc};
 use services::FileStorageService;
@@ -393,23 +391,4 @@ pub async fn workout_details(
             })
         }
     }
-}
-
-pub async fn user_measurements_list(
-    db: &DatabaseConnection,
-    user_id: &String,
-    input: UserMeasurementsListInput,
-) -> Result<Vec<user_measurement::Model>> {
-    let resp = UserMeasurement::find()
-        .apply_if(input.start_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.lte(v))
-        })
-        .apply_if(input.end_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.gte(v))
-        })
-        .filter(user_measurement::Column::UserId.eq(user_id))
-        .order_by_asc(user_measurement::Column::Timestamp)
-        .all(db)
-        .await?;
-    Ok(resp)
 }
