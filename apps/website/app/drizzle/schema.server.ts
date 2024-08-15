@@ -31,6 +31,7 @@ export const customers = pgTable("customer", {
 	renewOn: date("renew_on"),
 	unkeyKeyId: text("unkey_key_id"),
 	ryotUserId: text("ryot_user_id"),
+	hasCancelled: boolean("has_cancelled"),
 });
 
 export const contactSubmissions = pgTable("contact_submission", {
