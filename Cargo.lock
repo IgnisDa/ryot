@@ -823,6 +823,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "backend"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "apalis",
+ "async-graphql",
+ "async-graphql-axum",
+ "aws-sdk-s3",
+ "axum",
+ "background",
+ "chrono",
+ "chrono-tz",
+ "config",
+ "dotenvy",
+ "http 1.1.0",
+ "itertools 0.13.0",
+ "logs-wheel",
+ "migrations",
+ "models",
+ "nanoid",
+ "openidconnect",
+ "reqwest 0.11.23",
+ "resolvers",
+ "schematic",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde_json",
+ "services",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "utils",
+]
+
+[[package]]
 name = "background"
 version = "0.1.0"
 dependencies = [
@@ -4990,43 +5027,6 @@ name = "rustversion"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
-
-[[package]]
-name = "ryot"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "apalis",
- "async-graphql",
- "async-graphql-axum",
- "aws-sdk-s3",
- "axum",
- "background",
- "chrono",
- "chrono-tz",
- "config",
- "dotenvy",
- "http 1.1.0",
- "itertools 0.13.0",
- "logs-wheel",
- "migrations",
- "models",
- "nanoid",
- "openidconnect",
- "reqwest 0.11.23",
- "resolvers",
- "schematic",
- "sea-orm",
- "sea-orm-migration",
- "serde_json",
- "services",
- "tokio",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "utils",
-]
 
 [[package]]
 name = "ryu"
