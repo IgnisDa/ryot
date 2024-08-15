@@ -26,7 +26,7 @@ use sea_orm::{
 };
 use sea_query::{Expr, PgFunc};
 use services::FileStorageService;
-use utils::{GraphqlRepresentation, FRONTEND_OAUTH_ENDPOINT};
+use utils::{entity_in_collections, CteColAlias, GraphqlRepresentation, FRONTEND_OAUTH_ENDPOINT};
 
 use crate::{
     background::{ApplicationJob, CoreApplicationJob},
@@ -131,43 +131,6 @@ pub async fn create_app_services(
     }
 }
 
-type CteCol = collection_to_entity::Column;
-
-pub async fn entity_in_collections(
-    db: &DatabaseConnection,
-    user_id: &String,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    metadata_group_id: Option<String>,
-    exercise_id: Option<String>,
-    workout_id: Option<String>,
-) -> Result<Vec<collection::Model>> {
-    let user_collections = Collection::find()
-        .left_join(UserToCollection)
-        .filter(user_to_collection::Column::UserId.eq(user_id))
-        .all(db)
-        .await
-        .unwrap();
-    let mtc = CollectionToEntity::find()
-        .filter(
-            CteCol::CollectionId.is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
-        )
-        .filter(
-            CteCol::MetadataId
-                .eq(metadata_id)
-                .or(CteCol::PersonId.eq(person_id))
-                .or(CteCol::MetadataGroupId.eq(metadata_group_id))
-                .or(CteCol::ExerciseId.eq(exercise_id))
-                .or(CteCol::WorkoutId.eq(workout_id)),
-        )
-        .find_also_related(Collection)
-        .all(db)
-        .await
-        .unwrap();
-    let resp = mtc.into_iter().flat_map(|(_, b)| b).collect_vec();
-    Ok(resp)
-}
-
 pub async fn add_entity_to_collection(
     db: &DatabaseConnection,
     user_id: &String,
@@ -186,14 +149,14 @@ pub async fn add_entity_to_collection(
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(db).await.unwrap();
     let resp = if let Some(etc) = CollectionToEntity::find()
-        .filter(CteCol::CollectionId.eq(collection.id.clone()))
+        .filter(CteColAlias::CollectionId.eq(collection.id.clone()))
         .filter(
-            CteCol::MetadataId
+            CteColAlias::MetadataId
                 .eq(input.metadata_id.clone())
-                .or(CteCol::PersonId.eq(input.person_id.clone()))
-                .or(CteCol::MetadataGroupId.eq(input.metadata_group_id.clone()))
-                .or(CteCol::ExerciseId.eq(input.exercise_id.clone()))
-                .or(CteCol::WorkoutId.eq(input.workout_id.clone())),
+                .or(CteColAlias::PersonId.eq(input.person_id.clone()))
+                .or(CteColAlias::MetadataGroupId.eq(input.metadata_group_id.clone()))
+                .or(CteColAlias::ExerciseId.eq(input.exercise_id.clone()))
+                .or(CteColAlias::WorkoutId.eq(input.workout_id.clone())),
         )
         .one(db)
         .await?

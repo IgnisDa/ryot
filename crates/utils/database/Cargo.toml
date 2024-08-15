@@ -7,4 +7,5 @@ edition = "2021"
 async-graphql = { workspace = true }
 database_models = { path = "../../models/database" }
 fitness_models = { path = "../../models/fitness" }
+itertools = { workspace = true }
 sea-orm = { workspace = true }
