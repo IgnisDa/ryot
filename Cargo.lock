@@ -1960,9 +1960,9 @@ dependencies = [
 
 [[package]]
 name = "email_address"
-version = "0.2.7"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46b7a0ac6570e31bfe2c6cf575a576a55af9893d1a6b30b4444e6e90b216bb84"
+checksum = "e079f19b08ca6239f47f8ba8509c11cf3ea30095831f7fed61441475edd8c449"
 
 [[package]]
 name = "encode_unicode"
@@ -3434,6 +3434,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "notification_service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "askama",
+ "common_utils",
+ "config",
+ "convert_case",
+ "lettre",
+ "reqwest 0.11.23",
+ "serde",
+ "serde_json",
+ "tracing",
+ "user_models",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4782,7 +4799,6 @@ dependencies = [
  "anyhow",
  "apalis",
  "argon2",
- "askama",
  "async-graphql",
  "async-graphql-axum",
  "aws-sdk-s3",
@@ -4803,7 +4819,6 @@ dependencies = [
  "futures",
  "http 1.1.0",
  "itertools 0.13.0",
- "lettre",
  "logs-wheel",
  "markdown",
  "migrations",
@@ -5339,6 +5354,7 @@ dependencies = [
  "exporter_service",
  "file_storage_service",
  "jwt_service",
+ "notification_service",
 ]
 
 [[package]]

@@ -2,6 +2,7 @@ use std::{env, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use askama::Template;
+use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME};
 use config::AppConfig;
 use convert_case::{Case, Casing};
 use lettre::{
@@ -9,13 +10,12 @@ use lettre::{
     transport::smtp::authentication::Credentials,
     Message, SmtpTransport, Transport,
 };
-use models::NotificationPlatformSpecifics;
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     Client,
 };
 use serde::{Deserialize, Serialize};
-use utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME};
+use user_models::NotificationPlatformSpecifics;
 
 // TODO: Allow formatting messages
 pub async fn send_notification(

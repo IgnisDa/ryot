@@ -9,7 +9,6 @@ license = "GPL-3.0"
 anyhow = { workspace = true }
 apalis = { workspace = true }
 argon2 = { workspace = true }
-askama = "0.12.1"
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
 axum = { workspace = true }
@@ -30,7 +29,7 @@ flate2 = "=1.0.30"
 futures = "=0.3.30"
 http = "=1.1.0"
 itertools = { workspace = true }
-lettre = "=0.11.7"
+logs-wheel = "=0.3.1"
 markdown = { workspace = true }
 migrations = { path = "../../crates/migrations" }
 models = { path = "../../crates/models" }
@@ -60,6 +59,5 @@ tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
 traits = { path = "../../crates/traits" }
-logs-wheel = "=0.3.1"
 utils = { path = "../../crates/utils" }
 uuid = { workspace = true }

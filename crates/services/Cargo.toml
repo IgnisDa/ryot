@@ -7,3 +7,4 @@ edition = "2021"
 exporter_service = { path = "./exporter" }
 file_storage_service = { path = "./file_storage" }
 jwt_service = { path = "./jwt" }
+notification_service = { path = "./notification" }

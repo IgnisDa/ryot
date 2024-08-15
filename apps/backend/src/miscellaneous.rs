@@ -91,7 +91,7 @@ use sea_query::{
     PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
-use services::{sign, FileStorageService};
+use services::{send_notification, sign, FileStorageService};
 use traits::{AuthProvider, MediaProvider, MediaProviderLanguages, TraceOk};
 use utils::{
     convert_naive_to_utc, entity_in_collections, get_current_date, get_first_and_last_day_of_month,
@@ -103,7 +103,6 @@ use uuid::Uuid;
 use crate::{
     app_utils::{add_entity_to_collection, apply_collection_filter, ilike_sql},
     integrations::{IntegrationMediaSeen, IntegrationService},
-    notification::send_notification,
 };
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
