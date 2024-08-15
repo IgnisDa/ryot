@@ -1,4 +1,6 @@
-use apalis::prelude::Message;
+use apalis::prelude::{Job, Message};
+use chrono::DateTime;
+use chrono_tz::Tz;
 use common_models::ExportItem;
 use enums::{MediaLot, MediaSource};
 use fitness_models::GithubExercise;
@@ -38,4 +40,17 @@ pub enum ApplicationJob {
 
 impl Message for ApplicationJob {
     const NAME: &'static str = "apalis::ApplicationJob";
+}
+
+// Cron Jobs
+pub struct ScheduledJob(pub DateTime<Tz>);
+
+impl From<DateTime<Tz>> for ScheduledJob {
+    fn from(value: DateTime<Tz>) -> Self {
+        Self(value)
+    }
+}
+
+impl Job for ScheduledJob {
+    const NAME: &'static str = "apalis::ScheduledJob";
 }

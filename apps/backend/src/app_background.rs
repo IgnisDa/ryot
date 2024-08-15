@@ -1,25 +1,9 @@
 use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::*;
-use background::{ApplicationJob, CoreApplicationJob};
-use chrono::DateTime;
-use chrono_tz::Tz;
+use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
 use models::CommitMediaInput;
 use services::{ExerciseService, ExporterService, ImporterService, MiscellaneousService};
-
-// Cron Jobs
-
-pub struct ScheduledJob(pub DateTime<Tz>);
-
-impl From<DateTime<Tz>> for ScheduledJob {
-    fn from(value: DateTime<Tz>) -> Self {
-        Self(value)
-    }
-}
-
-impl Job for ScheduledJob {
-    const NAME: &'static str = "apalis::ScheduledJob";
-}
 
 pub async fn background_jobs(
     information: ScheduledJob,

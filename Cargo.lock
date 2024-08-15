@@ -864,6 +864,8 @@ name = "background"
 version = "0.1.0"
 dependencies = [
  "apalis",
+ "chrono",
+ "chrono-tz",
  "common_models",
  "enums",
  "fitness_models",
