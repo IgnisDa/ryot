@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+exporter_service = { path = "./exporter" }
 file_storage_service = { path = "./file_storage" }
 jwt_service = { path = "./jwt" }
