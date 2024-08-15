@@ -31,7 +31,8 @@ use utils::GraphqlRepresentation;
 
 use crate::{
     app_utils::{
-        add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id, workout_details,
+        add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id,
+        user_measurements_list, workout_details,
     },
     background::{ApplicationJob, CoreApplicationJob},
 };
@@ -608,18 +609,7 @@ impl ExerciseService {
         user_id: &String,
         input: UserMeasurementsListInput,
     ) -> Result<Vec<user_measurement::Model>> {
-        let resp = UserMeasurement::find()
-            .apply_if(input.start_time, |query, v| {
-                query.filter(user_measurement::Column::Timestamp.lte(v))
-            })
-            .apply_if(input.end_time, |query, v| {
-                query.filter(user_measurement::Column::Timestamp.gte(v))
-            })
-            .filter(user_measurement::Column::UserId.eq(user_id))
-            .order_by_asc(user_measurement::Column::Timestamp)
-            .all(&self.db)
-            .await?;
-        Ok(resp)
+        user_measurements_list(&self.db, user_id, input).await
     }
 
     pub async fn create_user_measurement(

@@ -27,7 +27,10 @@ use traits::AuthProvider;
 use utils::{IsFeatureEnabled, TEMP_DIR};
 
 use crate::{
-    app_utils::{entity_in_collections, get_review_export_item, review_by_id, workout_details},
+    app_utils::{
+        entity_in_collections, get_review_export_item, review_by_id, user_measurements_list,
+        workout_details,
+    },
     background::ApplicationJob,
 };
 
@@ -442,15 +445,15 @@ impl ExporterService {
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<bool> {
-        let measurements = self
-            .user_measurements_list(
-                user_id,
-                UserMeasurementsListInput {
-                    start_time: None,
-                    end_time: None,
-                },
-            )
-            .await?;
+        let measurements = user_measurements_list(
+            &self.db,
+            user_id,
+            UserMeasurementsListInput {
+                start_time: None,
+                end_time: None,
+            },
+        )
+        .await?;
         for measurement in measurements {
             writer.serialize_value(&measurement).unwrap();
         }
