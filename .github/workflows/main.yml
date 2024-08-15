@@ -101,7 +101,7 @@ jobs:
         with:
           name: templates
           path: |
-            apps/backend/templates/
+            crates/services/notification/templates/
           retention-days: 1
 
   build-backend:
@@ -125,7 +125,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: templates
-          path: ${{ github.workspace }}/apps/backend/templates/
+          path: ${{ github.workspace }}/crates/services/notification/templates
       - name: Extract build information
         id: build
         env:
