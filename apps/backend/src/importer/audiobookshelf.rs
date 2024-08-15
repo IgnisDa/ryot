@@ -16,7 +16,7 @@ use reqwest::{
 use serde_json::json;
 use utils::get_base_http_client;
 
-use crate::importer::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportResult};
 
 pub async fn import<F>(
     input: DeployUrlAndKeyImportInput,

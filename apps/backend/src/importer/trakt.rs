@@ -13,7 +13,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use utils::{get_base_http_client, APPLICATION_JSON_HEADER};
 
-use crate::importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
 
 const API_URL: &str = "https://api.trakt.tv";
 const CLIENT_ID: &str = "b3d93fd4c53d78d61b18e0f0bf7ad5153de323788dbc0be1a3627205a36e89f5";

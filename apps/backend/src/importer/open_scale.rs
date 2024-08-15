@@ -8,7 +8,7 @@ use models::{user_measurement, DeployGenericCsvImportInput, UserMeasurementStats
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::importer::{app_utils, ImportFailStep, ImportFailedItem, ImportResult};
+use super::{app_utils, ImportFailStep, ImportFailedItem, ImportResult};
 
 #[derive(Debug, Deserialize)]
 struct Record {

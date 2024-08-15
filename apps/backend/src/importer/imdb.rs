@@ -6,7 +6,7 @@ use models::{DefaultCollection, DeployGenericCsvImportInput, ImportOrExportMedia
 pub use providers::tmdb::NonMediaTmdbService;
 use serde::Deserialize;
 
-use crate::importer::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportResult};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]

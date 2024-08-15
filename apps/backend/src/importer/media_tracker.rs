@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use utils::USER_AGENT_STR;
 
-use crate::importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR};
 
-use crate::importer::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportResult};
 
 static EMBY_HEADER_VALUE: &str =
     r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#;

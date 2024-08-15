@@ -13,7 +13,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;
 
-use crate::importer::{ImportFailStep, ImportFailedItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportResult};
 
 #[derive(Debug, Deserialize)]
 struct Book {

@@ -17,7 +17,7 @@ use rust_decimal_macros::dec;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use utils::convert_string_to_date;
 
-use crate::importer::ImportResult;
+use super::ImportResult;
 
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
     let anime_data = input

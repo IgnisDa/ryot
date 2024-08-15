@@ -11,7 +11,7 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use utils::convert_naive_to_utc;
 
-use crate::importer::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
+use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem, ImportResult};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
