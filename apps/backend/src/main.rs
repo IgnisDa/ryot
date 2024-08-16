@@ -16,7 +16,6 @@ use apalis::{
     prelude::{MemoryStorage, MessageQueue, Monitor, WorkerBuilder, WorkerFactoryFn},
     utils::TokioExecutor,
 };
-use app_utils::get_graphql_schema;
 use aws_sdk_s3::config::Region;
 use axum::{
     extract::DefaultBodyLimit,
@@ -26,6 +25,7 @@ use axum::{
 };
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
+use common::get_graphql_schema;
 use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
@@ -51,15 +51,15 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
-    app_background::{
+    common::create_app_services,
+    job::{
         background_jobs, perform_application_job, perform_core_application_job,
         sync_integrations_data,
     },
-    app_utils::create_app_services,
 };
 
-mod app_background;
-mod app_utils;
+mod common;
+mod job;
 
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
