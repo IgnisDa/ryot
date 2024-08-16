@@ -20,8 +20,8 @@ use common_models::{
     UserSummaryData,
 };
 use common_utils::{
-    convert_naive_to_utc, get_first_and_last_day_of_month, IsFeatureEnabled, AUTHOR,
-    SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+    get_first_and_last_day_of_month, IsFeatureEnabled, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
+    VERSION,
 };
 use database_models::{
     calendar_event, collection, collection_to_entity,
@@ -5450,7 +5450,8 @@ impl MiscellaneousService {
             if let Some(ps) = &meta.podcast_specifics {
                 for episode in ps.episodes.iter() {
                     let mut event = calendar_event_template.clone();
-                    event.timestamp = ActiveValue::Set(convert_naive_to_utc(episode.publish_date));
+                    event.timestamp =
+                        ActiveValue::Set(episode.publish_date.and_hms_opt(0, 0, 0).unwrap());
                     event.metadata_podcast_extra_information =
                         ActiveValue::Set(Some(SeenPodcastExtraInformation {
                             episode: episode.number,
@@ -5465,7 +5466,7 @@ impl MiscellaneousService {
                     for episode in season.episodes.iter() {
                         if let Some(date) = episode.publish_date {
                             let mut event = calendar_event_template.clone();
-                            event.timestamp = ActiveValue::Set(convert_naive_to_utc(date));
+                            event.timestamp = ActiveValue::Set(date.and_hms_opt(0, 0, 0).unwrap());
                             event.metadata_show_extra_information =
                                 ActiveValue::Set(Some(SeenShowExtraInformation {
                                     season: season.season_number,
@@ -5490,7 +5491,7 @@ impl MiscellaneousService {
                 }
             } else if let Some(publish_date) = meta.publish_date {
                 let mut event = calendar_event_template.clone();
-                event.timestamp = ActiveValue::Set(convert_naive_to_utc(publish_date));
+                event.timestamp = ActiveValue::Set(publish_date.and_hms_opt(0, 0, 0).unwrap());
                 calendar_events_inserts.push(event);
             };
             metadata_updates.push(meta.id.clone());

@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt, sync::Arc};
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
-use chrono::{DateTime, NaiveDate};
+use chrono::{DateTime, NaiveDate,NaiveDateTime};
 use common_models::{
     CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };
@@ -326,7 +326,7 @@ pub struct VisualNovelSpecifics {
 #[graphql(input_name = "AnimeAiringScheduleSpecificsInput")]
 pub struct AnimeAiringScheduleSpecifics {
     pub episode: i32,
-    pub airing_at: DateTimeUtc,
+    pub airing_at: NaiveDateTime,
 }
 
 #[derive(
