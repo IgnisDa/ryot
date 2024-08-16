@@ -217,7 +217,7 @@ async fn main() -> Result<()> {
         .route("/graphql", gql)
         .route("/upload", post(upload_file))
         .layer(Extension(app_services.config.clone()))
-        .layer(Extension(app_services.media_service.clone()))
+        .layer(Extension(app_services.miscellaneous_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
@@ -233,10 +233,10 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let media_service_2 = app_services.media_service.clone();
-    let media_service_3 = app_services.media_service.clone();
-    let media_service_4 = app_services.media_service.clone();
-    let media_service_5 = app_services.media_service.clone();
+    let media_service_2 = app_services.miscellaneous_service.clone();
+    let media_service_3 = app_services.miscellaneous_service.clone();
+    let media_service_4 = app_services.miscellaneous_service.clone();
+    let media_service_5 = app_services.miscellaneous_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {

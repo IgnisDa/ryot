@@ -18,7 +18,7 @@ use utils::FRONTEND_OAUTH_ENDPOINT;
 /// All the services that are used by the app
 pub struct AppServices {
     pub config: Arc<config::AppConfig>,
-    pub media_service: Arc<MiscellaneousService>,
+    pub miscellaneous_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
@@ -75,7 +75,7 @@ pub async fn create_app_services(
     ));
     AppServices {
         config,
-        media_service,
+        miscellaneous_service: media_service,
         importer_service,
         exporter_service,
         exercise_service,
@@ -121,7 +121,7 @@ pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
         EmptySubscription,
     )
     .extension(Tracing)
-    .data(app_services.media_service.clone())
+    .data(app_services.miscellaneous_service.clone())
     .data(app_services.importer_service.clone())
     .data(app_services.exporter_service.clone())
     .data(app_services.exercise_service.clone())
