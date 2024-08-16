@@ -21,7 +21,6 @@ itertools = { workspace = true }
 logs-wheel = "=0.3.1"
 migrations = { path = "../../crates/migrations" }
 models = { path = "../../crates/models" }
-nanoid = { workspace = true }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
 resolvers = { path = "../../crates/resolvers" }

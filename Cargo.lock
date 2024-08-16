@@ -841,7 +841,6 @@ dependencies = [
  "logs-wheel",
  "migrations",
  "models",
- "nanoid",
  "openidconnect",
  "reqwest 0.11.23",
  "resolvers",
