@@ -1,0 +1,15 @@
+[package]
+name = "router-resolver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+async-graphql = { workspace = true }
+axum = { workspace = true }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+nanoid = { workspace = true }
+serde_json = { workspace = true }
+miscellaneous-service = { path = "../../services/miscellaneous" }
+tracing = { workspace = true }

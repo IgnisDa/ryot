@@ -86,7 +86,7 @@ const defaultFilters = {
 	mineCollection: undefined,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineSortOrder: GraphqlSortOrder.Desc,
-	mineSortBy: MediaSortBy.LastUpdated,
+	mineSortBy: MediaSortBy.LastSeen,
 };
 
 enum Action {
@@ -235,7 +235,7 @@ export default function Page() {
 							$path(
 								"/media/:action/:lot",
 								{ action: v, lot: loaderData.lot.toLowerCase() },
-								{ query: loaderData.query },
+								{ ...(loaderData.query && { query: loaderData.query }) },
 							),
 						);
 				}}

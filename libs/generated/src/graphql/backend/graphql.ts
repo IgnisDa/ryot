@@ -35,6 +35,14 @@ export type Scalars = {
    * * `2000-02-24`
    */
   NaiveDate: { input: string; output: string; }
+  /**
+   * ISO 8601 combined date and time without timezone.
+   *
+   * # Examples
+   *
+   * * `2015-07-01T08:59:60.123`,
+   */
+  NaiveDateTime: { input: any; output: any; }
 };
 
 export type AccessLink = {
@@ -51,12 +59,12 @@ export type AccessLink = {
 };
 
 export type AnimeAiringScheduleSpecifics = {
-  airingAt: Scalars['DateTime']['output'];
+  airingAt: Scalars['NaiveDateTime']['output'];
   episode: Scalars['Int']['output'];
 };
 
 export type AnimeAiringScheduleSpecificsInput = {
-  airingAt: Scalars['DateTime']['input'];
+  airingAt: Scalars['NaiveDateTime']['input'];
   episode: Scalars['Int']['input'];
 };
 
@@ -133,7 +141,6 @@ export type ChangeCollectionToEntityInput = {
   metadataId?: InputMaybe<Scalars['String']['input']>;
   personId?: InputMaybe<Scalars['String']['input']>;
   workoutId?: InputMaybe<Scalars['String']['input']>;
-  workoutTemplateId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Collection = {
@@ -183,14 +190,6 @@ export type CollectionExtraInformation = {
   lot: CollectionExtraInformationLot;
   name: Scalars['String']['output'];
   required?: Maybe<Scalars['Boolean']['output']>;
-};
-
-export type CollectionExtraInformationInput = {
-  defaultValue?: InputMaybe<Scalars['String']['input']>;
-  description: Scalars['String']['input'];
-  lot: CollectionExtraInformationLot;
-  name: Scalars['String']['input'];
-  required?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export enum CollectionExtraInformationLot {
@@ -272,9 +271,7 @@ export type CreateCustomMetadataInput = {
 };
 
 export type CreateOrUpdateCollectionInput = {
-  collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
-  informationTemplate?: InputMaybe<Array<CollectionExtraInformationInput>>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;
 };

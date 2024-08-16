@@ -1,0 +1,29 @@
+[package]
+name = "database-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apalis = { workspace = true }
+application-utils = { path = "../../utils/application" }
+async-graphql = { workspace = true }
+background = { path = "../../background" }
+chrono = { workspace = true }
+common-models = { path = "../../models/common" }
+database-models = { path = "../../models/database" }
+dependent-models = { path = "../../models/dependent" }
+file-storage-service = { path = "../../services/file-storage" }
+fitness-models = { path = "../../models/fitness" }
+itertools = { workspace = true }
+jwt-service = { path = "../../services/jwt" }
+media-models = { path = "../../models/media" }
+migrations = { path = "../../migrations" }
+rust_decimal = { workspace = true }
+markdown = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+user-models = { path = "../../models/user" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal"]

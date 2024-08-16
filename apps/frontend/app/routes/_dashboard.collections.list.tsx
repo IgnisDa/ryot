@@ -110,6 +110,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
+			console.log(submission);
 			try {
 				await serverGqlService.authenticatedRequest(
 					request,
@@ -133,8 +134,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 					const err = e.response.errors?.[0].message;
 					if (err) message = err;
 				}
+				console.error(e);
 				return Response.json(
-					{},
+					{ error: JSON.stringify(e) },
 					{
 						status: 400,
 						headers: await createToastHeaders({ type: "error", message }),
