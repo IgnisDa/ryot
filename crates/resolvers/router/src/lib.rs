@@ -2,26 +2,16 @@ use std::{fs::write, path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use async_graphql::http::GraphiQLSource;
-use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
     extract::{Multipart, Path},
     http::StatusCode,
     response::{Html, IntoResponse},
     Extension, Json,
 };
+use common_utils::TEMP_DIR;
+use miscellaneous_service::MiscellaneousService;
 use nanoid::nanoid;
-use resolvers::GraphqlSchema;
 use serde_json::json;
-use services::MiscellaneousService;
-use utils::{AuthContext, TEMP_DIR};
-
-pub async fn graphql_handler(
-    schema: Extension<GraphqlSchema>,
-    gql_ctx: AuthContext,
-    req: GraphQLRequest,
-) -> GraphQLResponse {
-    schema.execute(req.into_inner().data(gql_ctx)).await.into()
-}
 
 pub async fn graphql_playground() -> impl IntoResponse {
     Html(

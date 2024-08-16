@@ -829,7 +829,6 @@ dependencies = [
  "anyhow",
  "apalis",
  "async-graphql",
- "async-graphql-axum",
  "aws-sdk-s3",
  "axum",
  "background",
@@ -4771,12 +4770,16 @@ dependencies = [
 name = "resolvers"
 version = "0.1.0"
 dependencies = [
+ "application-utils",
  "async-graphql",
+ "async-graphql-axum",
+ "axum",
  "exporter-resolver",
  "file-storage-resolver",
  "fitness-resolver",
  "importer-resolver",
  "miscellaneous-resolver",
+ "router-resolver",
 ]
 
 [[package]]
@@ -4864,6 +4867,21 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
+]
+
+[[package]]
+name = "router-resolver"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-graphql",
+ "axum",
+ "common-utils",
+ "config",
+ "miscellaneous-service",
+ "nanoid",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

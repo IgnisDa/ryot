@@ -30,6 +30,9 @@ use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use models::{prelude::Exercise, CompleteExport};
+use resolvers::{
+    config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
+};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
@@ -53,14 +56,10 @@ use crate::{
         sync_integrations_data,
     },
     app_utils::create_app_services,
-    routes::{
-        config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
-    },
 };
 
 mod app_background;
 mod app_utils;
-mod routes;
 
 static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
