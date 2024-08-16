@@ -159,7 +159,7 @@ pub struct MiscellaneousService {
     pub perform_application_job: MemoryStorage<ApplicationJob>,
     pub perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     timezone: Arc<chrono_tz::Tz>,
-    pub file_storage_service: Arc<FileStorageService>,
+    file_storage_service: Arc<FileStorageService>,
     config: Arc<config::AppConfig>,
     oidc_client: Arc<Option<CoreClient>>,
     seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,

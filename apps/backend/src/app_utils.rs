@@ -9,8 +9,8 @@ use openidconnect::{
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
 use resolvers::{
-    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, ImporterMutation,
-    ImporterQuery, MiscellaneousMutation, MiscellaneousQuery,
+    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, FileStorageMutation,
+    FileStorageQuery, ImporterMutation, ImporterQuery, MiscellaneousMutation, MiscellaneousQuery,
 };
 use sea_orm::DatabaseConnection;
 use services::{
@@ -25,37 +25,7 @@ pub struct AppServices {
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
-}
-
-async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
-    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
-        Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
-            Ok(issuer_url) => {
-                match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
-                    Ok(provider) => Some(
-                        CoreClient::from_provider_metadata(
-                            provider,
-                            ClientId::new(config.server.oidc.client_id.clone()),
-                            Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
-                        )
-                        .set_redirect_uri(redirect_url),
-                    ),
-                    Err(e) => {
-                        tracing::debug!("Error while creating OIDC client: {:?}", e);
-                        None
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::debug!("Error while processing OIDC issuer url: {:?}", e);
-                None
-            }
-        },
-        Err(e) => {
-            tracing::debug!("Error while processing OIDC redirect url: {:?}", e);
-            None
-        }
-    }
+    pub file_storage_service: Arc<FileStorageService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -110,15 +80,47 @@ pub async fn create_app_services(
         importer_service,
         exporter_service,
         exercise_service,
+        file_storage_service,
     }
 }
 
+async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
+    match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
+        Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {
+            Ok(issuer_url) => {
+                match CoreProviderMetadata::discover_async(issuer_url, &async_http_client).await {
+                    Ok(provider) => Some(
+                        CoreClient::from_provider_metadata(
+                            provider,
+                            ClientId::new(config.server.oidc.client_id.clone()),
+                            Some(ClientSecret::new(config.server.oidc.client_secret.clone())),
+                        )
+                        .set_redirect_uri(redirect_url),
+                    ),
+                    Err(e) => {
+                        tracing::debug!("Error while creating OIDC client: {:?}", e);
+                        None
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!("Error while processing OIDC issuer url: {:?}", e);
+                None
+            }
+        },
+        Err(e) => {
+            tracing::debug!("Error while processing OIDC redirect url: {:?}", e);
+            None
+        }
+    }
+}
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(
     MiscellaneousQuery,
     ImporterQuery,
     ExporterQuery,
     ExerciseQuery,
+    FileStorageQuery,
 );
 
 #[derive(MergedObject, Default)]
@@ -127,6 +129,7 @@ pub struct MutationRoot(
     ImporterMutation,
     ExporterMutation,
     ExerciseMutation,
+    FileStorageMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
@@ -142,5 +145,6 @@ pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
     .data(app_services.importer_service.clone())
     .data(app_services.exporter_service.clone())
     .data(app_services.exercise_service.clone())
+    .data(app_services.file_storage_service.clone())
     .finish()
 }

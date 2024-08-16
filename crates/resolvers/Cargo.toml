@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 exporter-resolver = { path = "./exporter" }
+file-storage-resolver = { path = "./file-storage" }
 fitness-resolver = { path = "./fitness" }
 importer-resolver = { path = "./importer" }
 miscellaneous-resolver = { path = "./miscellaneous" }

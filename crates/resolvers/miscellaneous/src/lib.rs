@@ -15,11 +15,10 @@ use media_models::{
     GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent, LoginResult,
     MetadataGroupSearchInput, MetadataGroupSearchItem, MetadataGroupsListInput, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, OidcTokenOutput,
-    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PostReviewInput, PresignedPutUrlInput,
-    PresignedPutUrlResponse, ProgressUpdateInput, ProviderLanguageInformation, RegisterResult,
-    RegisterUserInput, UpdateSeenItemInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserCalendarEventInput,
-    UserUpcomingCalendarEventInput,
+    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PostReviewInput, ProgressUpdateInput,
+    ProviderLanguageInformation, RegisterResult, RegisterUserInput, UpdateSeenItemInput,
+    UpdateUserInput, UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
+    UpdateUserPreferenceInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -118,12 +117,6 @@ impl MiscellaneousQuery {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_list(user_id, input).await
-    }
-
-    /// Get a presigned URL (valid for 90 minutes) for a given key.
-    async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> String {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.file_storage_service.get_presigned_url(key).await
     }
 
     /// Search for a list of media for a given type.
@@ -632,27 +625,6 @@ impl MiscellaneousMutation {
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.admin_account_guard(&user_id).await?;
         service.delete_user(to_delete_user_id).await
-    }
-
-    /// Get a presigned URL (valid for 10 minutes) for a given file name.
-    async fn presigned_put_s3_url(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: PresignedPutUrlInput,
-    ) -> Result<PresignedPutUrlResponse> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let (key, upload_url) = service
-            .file_storage_service
-            .get_presigned_put_url(input.file_name, input.prefix, true, None)
-            .await;
-        Ok(PresignedPutUrlResponse { upload_url, key })
-    }
-
-    /// Delete an S3 object by the given key.
-    async fn delete_s3_object(&self, gql_ctx: &Context<'_>, key: String) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let resp = service.file_storage_service.delete_object(key).await;
-        Ok(resp)
     }
 
     /// Generate an auth token without any expiry.
