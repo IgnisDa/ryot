@@ -64,6 +64,8 @@ pub async fn create_app_services(
         .await,
     );
     let importer_service = Arc::new(ImporterService::new(
+        &db,
+        perform_application_job,
         media_service.clone(),
         exercise_service.clone(),
         timezone.clone(),

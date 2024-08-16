@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::prelude::MessageQueue;
+use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background::ApplicationJob;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
@@ -16,7 +16,10 @@ use media_models::{
 };
 use miscellaneous_service::MiscellaneousService;
 use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder,
+};
 use traits::TraceOk;
 use user_models::{UserPreferences, UserReviewScale};
 
@@ -35,6 +38,8 @@ mod strong_app;
 mod trakt;
 
 pub struct ImporterService {
+    db: DatabaseConnection,
+    perform_application_job: MemoryStorage<ApplicationJob>,
     media_service: Arc<MiscellaneousService>,
     exercise_service: Arc<ExerciseService>,
     timezone: Arc<chrono_tz::Tz>,
@@ -42,6 +47,8 @@ pub struct ImporterService {
 
 impl ImporterService {
     pub fn new(
+        db: &DatabaseConnection,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
         media_service: Arc<MiscellaneousService>,
         exercise_service: Arc<ExerciseService>,
         timezone: Arc<chrono_tz::Tz>,
@@ -50,6 +57,8 @@ impl ImporterService {
             media_service,
             exercise_service,
             timezone,
+            db: db.clone(),
+            perform_application_job: perform_application_job.clone(),
         }
     }
 
@@ -59,8 +68,7 @@ impl ImporterService {
         input: DeployImportJobInput,
     ) -> Result<bool> {
         let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-        self.media_service
-            .perform_application_job
+        self.perform_application_job
             .clone()
             .enqueue(job)
             .await
@@ -73,7 +81,7 @@ impl ImporterService {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)
-            .all(&self.media_service.db)
+            .all(&self.db)
             .await
             .unwrap();
         Ok(reports)
@@ -86,9 +94,7 @@ impl ImporterService {
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
         let db_import_job = self.start_import_job(&user_id, input.source).await?;
-        let preferences = user_by_id(&self.media_service.db, &user_id)
-            .await?
-            .preferences;
+        let preferences = user_by_id(&self.db, &user_id).await?.preferences;
         let mut import = match input.source {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), self.timezone.clone())
@@ -459,7 +465,7 @@ impl ImporterService {
             source: ActiveValue::Set(source),
             ..Default::default()
         };
-        let model = model.insert(&self.media_service.db).await.unwrap();
+        let model = model.insert(&self.db).await.unwrap();
         tracing::debug!("Started import job with id = {id}", id = model.id);
         Ok(model)
     }
@@ -473,7 +479,7 @@ impl ImporterService {
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
         model.was_success = ActiveValue::Set(Some(true));
-        let model = model.update(&self.media_service.db).await.unwrap();
+        let model = model.update(&self.db).await.unwrap();
         Ok(model)
     }
 }
