@@ -1,0 +1,21 @@
+[package]
+name = "media-models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+boilermates = { workspace = true }
+chrono = { workspace = true }
+common-models = { path = "../../models/common" }
+enums = { path = "../../enums" }
+file-storage-service = { path = "../../services/file-storage" }
+rust_decimal = { workspace = true }
+schematic = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["serde_json"]

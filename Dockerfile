@@ -23,8 +23,8 @@ FROM --platform=${BUILDPLATFORM} alpine AS artifact
 COPY artifact/ /artifact/
 ARG TARGETARCH
 ENV TARGETARCH=${TARGETARCH}
-RUN mv /artifact/backend-${TARGETARCH}/ryot /artifact/ryot
-RUN chmod +x /artifact/ryot
+RUN mv /artifact/backend-${TARGETARCH}/backend /artifact/backend
+RUN chmod +x /artifact/backend
 
 FROM $NODE_BASE_IMAGE
 ARG TARGETARCH
@@ -43,10 +43,10 @@ COPY ci/Caddyfile /etc/caddy/Caddyfile
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules ./node_modules
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
-COPY --from=artifact --chown=ryot:ryot /artifact/ryot /usr/local/bin/ryot
+COPY --from=artifact --chown=ryot:ryot /artifact/backend /usr/local/bin/backend
 CMD [ \
     "concurrently", "--names", "frontend,backend,proxy", "--kill-others", \
     "PORT=3000 npx remix-serve ./build/server/index.js", \
-    "BACKEND_PORT=5000 /usr/local/bin/ryot", \
+    "BACKEND_PORT=5000 /usr/local/bin/backend", \
     "caddy run --config /etc/caddy/Caddyfile" \
 ]
