@@ -4771,6 +4771,7 @@ dependencies = [
 name = "resolvers"
 version = "0.1.0"
 dependencies = [
+ "async-graphql",
  "exporter-resolver",
  "file-storage-resolver",
  "fitness-resolver",

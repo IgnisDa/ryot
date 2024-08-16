@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-graphql = { workspace = true }
 exporter-resolver = { path = "./exporter" }
 file-storage-resolver = { path = "./file-storage" }
 fitness-resolver = { path = "./fitness" }

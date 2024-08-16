@@ -1,17 +1,14 @@
 use std::sync::Arc;
 
 use apalis::prelude::MemoryStorage;
-use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
+use async_graphql::{extensions::Tracing, EmptySubscription, Schema};
 use background::{ApplicationJob, CoreApplicationJob};
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use resolvers::{
-    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, FileStorageMutation,
-    FileStorageQuery, ImporterMutation, ImporterQuery, MiscellaneousMutation, MiscellaneousQuery,
-};
+use resolvers::{GraphqlSchema, MutationRoot, QueryRoot};
 use sea_orm::DatabaseConnection;
 use services::{
     ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
@@ -116,25 +113,6 @@ async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
         }
     }
 }
-#[derive(MergedObject, Default)]
-pub struct QueryRoot(
-    MiscellaneousQuery,
-    ImporterQuery,
-    ExporterQuery,
-    ExerciseQuery,
-    FileStorageQuery,
-);
-
-#[derive(MergedObject, Default)]
-pub struct MutationRoot(
-    MiscellaneousMutation,
-    ImporterMutation,
-    ExporterMutation,
-    ExerciseMutation,
-    FileStorageMutation,
-);
-
-pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
     Schema::build(
