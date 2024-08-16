@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-application_utils = { path = "./application" }
-common_utils = { path = "./common" }
-database_utils = { path = "./database" }
+application-utils = { path = "./application" }
+common-utils = { path = "./common" }
+database-utils = { path = "./database" }

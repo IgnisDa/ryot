@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-exporter_resolver = { path = "./exporter" }
-fitness_resolver = { path = "./fitness" }
-importer_resolver = { path = "./importer" }
-miscellaneous_resolver = { path = "./miscellaneous" }
+exporter-resolver = { path = "./exporter" }
+fitness-resolver = { path = "./fitness" }
+importer-resolver = { path = "./importer" }
+miscellaneous-resolver = { path = "./miscellaneous" }

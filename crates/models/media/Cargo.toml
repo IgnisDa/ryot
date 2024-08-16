@@ -1,5 +1,5 @@
 [package]
-name = "media_models"
+name = "media-models"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,7 @@ boilermates = { workspace = true }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 enums = { path = "../../enums" }
-file_storage_service = { path = "../../services/file_storage" }
+file-storage-service = { path = "../../services/file-storage" }
 rust_decimal = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }

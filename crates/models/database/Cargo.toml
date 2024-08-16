@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-application_utils = { path = "../../utils/application" }
+application-utils = { path = "../../utils/application" }
 argon2 = { workspace = true }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
@@ -13,10 +13,10 @@ chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
 enums = { path = "../../enums" }
-importer_models = { path = "../../models/importer" }
-file_storage_service = { path = "../../services/file_storage" }
-fitness_models = { path = "../../models/fitness" }
-media_models = { path = "../../models/media" }
+importer-models = { path = "../../models/importer" }
+file-storage-service = { path = "../../services/file-storage" }
+fitness-models = { path = "../../models/fitness" }
+media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
@@ -25,5 +25,5 @@ sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-user_models = { path = "../../models/user" }
+user-models = { path = "../../models/user" }
 uuid = { workspace = true }

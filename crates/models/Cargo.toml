@@ -6,9 +6,9 @@ edition = "2021"
 [dependencies]
 common-models = { path = "./common" }
 database-models = { path = "./database" }
-dependent_models = { path = "./dependent" }
-fitness_models = { path = "./fitness" }
-importer_models = { path = "./importer" }
-media_models = { path = "./media" }
-specific_models = { path = "./specific" }
-user_models = { path = "./user" }
+dependent-models = { path = "./dependent" }
+fitness-models = { path = "./fitness" }
+importer-models = { path = "./importer" }
+media-models = { path = "./media" }
+specific-models = { path = "./specific" }
+user-models = { path = "./user" }

@@ -1,12 +1,12 @@
 [package]
-name = "notification_service"
+name = "notification-service"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
 askama = "0.12.1"
-common_utils = { path = "../../utils/common" }
+common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 convert_case = { workspace = true }
 lettre = "=0.11.7"
@@ -14,4 +14,4 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-user_models = { path = "../../models/user" }
+user-models = { path = "../../models/user" }

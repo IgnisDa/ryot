@@ -1,16 +1,16 @@
 [package]
-name = "integration_service"
+name = "integration-service"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-application_utils = { path = "../../utils/application" }
+application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 enums = { path = "../../enums" }
 database-models = { path = "../../models/database" }
-database_utils = { path = "../../utils/database" }
-media_models = { path = "../../models/media" }
+database-utils = { path = "../../utils/database" }
+media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }
 radarr-api-rs = "=3.0.1"
 regex = { workspace = true }
@@ -22,6 +22,6 @@ sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = "=3.0.0"
-specific_models = { path = "../../models/specific" }
+specific-models = { path = "../../models/specific" }
 tracing = { workspace = true }
 traits = { path = "../../traits" }

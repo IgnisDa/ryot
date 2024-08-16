@@ -228,7 +228,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "application_utils"
+name = "application-utils"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
@@ -236,10 +236,10 @@ dependencies = [
  "axum",
  "chrono",
  "chrono-tz",
- "common_utils",
+ "common-utils",
  "config",
- "file_storage_service",
- "jwt_service",
+ "file-storage-service",
+ "jwt-service",
  "reqwest 0.11.23",
 ]
 
@@ -868,8 +868,8 @@ dependencies = [
  "chrono-tz",
  "common-models",
  "enums",
- "fitness_models",
- "media_models",
+ "fitness-models",
+ "media-models",
  "serde",
  "strum",
  "uuid",
@@ -1286,7 +1286,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "common_utils"
+name = "common-utils"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -1328,7 +1328,7 @@ name = "config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "common_utils",
+ "common-utils",
  "dotenvy_macro",
  "schematic",
  "serde",
@@ -1607,7 +1607,7 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 name = "database-models"
 version = "0.1.0"
 dependencies = [
- "application_utils",
+ "application-utils",
  "argon2",
  "async-graphql",
  "async-trait",
@@ -1616,10 +1616,10 @@ dependencies = [
  "common-models",
  "educe 0.6.0",
  "enums",
- "file_storage_service",
- "fitness_models",
- "importer_models",
- "media_models",
+ "file-storage-service",
+ "fitness-models",
+ "importer-models",
+ "media-models",
  "nanoid",
  "rust_decimal",
  "rust_decimal_macros",
@@ -1628,46 +1628,46 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "user_models",
+ "user-models",
  "uuid",
 ]
 
 [[package]]
-name = "database_utils"
+name = "database-utils"
 version = "0.1.0"
 dependencies = [
  "apalis",
- "application_utils",
+ "application-utils",
  "async-graphql",
  "background",
  "chrono",
  "common-models",
  "database-models",
- "dependent_models",
- "file_storage_service",
- "fitness_models",
+ "dependent-models",
+ "file-storage-service",
+ "fitness-models",
  "itertools 0.13.0",
  "markdown",
- "media_models",
+ "media-models",
  "migrations",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
  "tracing",
- "user_models",
+ "user-models",
 ]
 
 [[package]]
-name = "dependent_models"
+name = "dependent-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
  "database-models",
  "enums",
- "fitness_models",
- "importer_models",
- "media_models",
+ "fitness-models",
+ "importer-models",
+ "media-models",
  "rust_decimal",
  "schematic",
  "serde",
@@ -2099,17 +2099,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
-name = "exporter_resolver"
+name = "exporter-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "exporter_service",
+ "exporter-service",
  "traits",
 ]
 
 [[package]]
-name = "exporter_service"
+name = "exporter-service"
 version = "0.1.0"
 dependencies = [
  "apalis",
@@ -2117,13 +2117,13 @@ dependencies = [
  "background",
  "chrono",
  "common-models",
- "common_utils",
+ "common-utils",
  "config",
  "database-models",
- "database_utils",
- "file_storage_service",
- "fitness_models",
- "media_models",
+ "database-utils",
+ "file-storage-service",
+ "fitness-models",
+ "media-models",
  "mime_guess",
  "nanoid",
  "reqwest 0.11.23",
@@ -2176,7 +2176,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
-name = "file_storage_service"
+name = "file-storage-service"
 version = "0.1.0"
 dependencies = [
  "aws-sdk-s3",
@@ -2186,16 +2186,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "fitness_models"
+name = "fitness-models"
 version = "0.1.0"
 dependencies = [
- "application_utils",
+ "application-utils",
  "async-graphql",
  "async-trait",
  "common-models",
  "derive_more 1.0.0-beta.6",
  "enums",
- "file_storage_service",
+ "file-storage-service",
  "rust_decimal",
  "rust_decimal_macros",
  "schematic",
@@ -2206,38 +2206,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "fitness_resolver"
+name = "fitness-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
  "database-models",
- "dependent_models",
- "fitness_models",
- "fitness_service",
+ "dependent-models",
+ "fitness-models",
+ "fitness-service",
  "sea-orm",
  "traits",
 ]
 
 [[package]]
-name = "fitness_service"
+name = "fitness-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
- "application_utils",
+ "application-utils",
  "async-graphql",
  "background",
  "common-models",
- "common_utils",
+ "common-utils",
  "config",
  "const-str",
  "database-models",
- "database_utils",
- "dependent_models",
+ "database-utils",
+ "dependent-models",
  "enums",
- "file_storage_service",
- "fitness_models",
+ "file-storage-service",
+ "fitness-models",
  "itertools 0.13.0",
  "migrations",
  "nanoid",
@@ -3032,7 +3032,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "importer_models"
+name = "importer-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
@@ -3043,44 +3043,44 @@ dependencies = [
 ]
 
 [[package]]
-name = "importer_resolver"
+name = "importer-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
  "database-models",
- "importer_service",
- "media_models",
+ "importer-service",
+ "media-models",
  "traits",
 ]
 
 [[package]]
-name = "importer_service"
+name = "importer-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
- "application_utils",
+ "application-utils",
  "async-graphql",
  "background",
  "chrono",
  "chrono-tz",
  "common-models",
- "common_utils",
+ "common-utils",
  "convert_case",
  "csv",
  "data-encoding",
  "database-models",
- "database_utils",
- "dependent_models",
+ "database-utils",
+ "dependent-models",
  "enum_meta",
  "enums",
- "fitness_models",
- "fitness_service",
+ "fitness-models",
+ "fitness-service",
  "flate2",
- "importer_models",
+ "importer-models",
  "itertools 0.13.0",
- "media_models",
- "miscellaneous_service",
+ "media-models",
+ "miscellaneous-service",
  "providers",
  "regex",
  "reqwest 0.11.23",
@@ -3091,10 +3091,10 @@ dependencies = [
  "serde-xml-rs",
  "serde_json",
  "serde_with 3.9.0",
- "specific_models",
+ "specific-models",
  "tracing",
  "traits",
- "user_models",
+ "user-models",
 ]
 
 [[package]]
@@ -3146,16 +3146,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "integration_service"
+name = "integration-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application_utils",
+ "application-utils",
  "async-graphql",
  "database-models",
- "database_utils",
+ "database-utils",
  "enums",
- "media_models",
+ "media-models",
  "providers",
  "radarr-api-rs",
  "regex",
@@ -3167,7 +3167,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sonarr-api-rs",
- "specific_models",
+ "specific-models",
  "tracing",
  "traits",
 ]
@@ -3257,7 +3257,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwt_service"
+name = "jwt-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -3431,7 +3431,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "media_models"
+name = "media-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
@@ -3439,7 +3439,7 @@ dependencies = [
  "chrono",
  "common-models",
  "enums",
- "file_storage_service",
+ "file-storage-service",
  "rust_decimal",
  "schematic",
  "sea-orm",
@@ -3535,25 +3535,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "miscellaneous_resolver"
+name = "miscellaneous-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
  "database-models",
- "dependent_models",
- "media_models",
- "miscellaneous_service",
+ "dependent-models",
+ "media-models",
+ "miscellaneous-service",
  "traits",
- "user_models",
+ "user-models",
 ]
 
 [[package]]
-name = "miscellaneous_service"
+name = "miscellaneous-service"
 version = "0.1.0"
 dependencies = [
  "apalis",
- "application_utils",
+ "application-utils",
  "argon2",
  "async-graphql",
  "background",
@@ -3561,24 +3561,24 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "common-models",
- "common_utils",
+ "common-utils",
  "config",
  "database-models",
- "database_utils",
- "dependent_models",
+ "database-utils",
+ "dependent-models",
  "enum_meta",
  "enums",
- "file_storage_service",
- "fitness_models",
+ "file-storage-service",
+ "fitness-models",
  "futures",
- "integration_service",
+ "integration-service",
  "itertools 0.13.0",
- "jwt_service",
+ "jwt-service",
  "markdown",
- "media_models",
+ "media-models",
  "migrations",
  "nanoid",
- "notification_service",
+ "notification-service",
  "openidconnect",
  "providers",
  "reqwest 0.11.23",
@@ -3591,7 +3591,7 @@ dependencies = [
  "slug",
  "tracing",
  "traits",
- "user_models",
+ "user-models",
  "uuid",
 ]
 
@@ -3601,12 +3601,12 @@ version = "0.1.0"
 dependencies = [
  "common-models",
  "database-models",
- "dependent_models",
- "fitness_models",
- "importer_models",
- "media_models",
- "specific_models",
- "user_models",
+ "dependent-models",
+ "fitness-models",
+ "importer-models",
+ "media-models",
+ "specific-models",
+ "user-models",
 ]
 
 [[package]]
@@ -3669,12 +3669,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "notification_service"
+name = "notification-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "askama",
- "common_utils",
+ "common-utils",
  "config",
  "convert_case",
  "lettre",
@@ -3682,7 +3682,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
- "user_models",
+ "user-models",
 ]
 
 [[package]]
@@ -4762,10 +4762,10 @@ dependencies = [
 name = "resolvers"
 version = "0.1.0"
 dependencies = [
- "exporter_resolver",
- "fitness_resolver",
- "importer_resolver",
- "miscellaneous_resolver",
+ "exporter-resolver",
+ "fitness-resolver",
+ "importer-resolver",
+ "miscellaneous-resolver",
 ]
 
 [[package]]
@@ -5528,14 +5528,14 @@ dependencies = [
 name = "services"
 version = "0.1.0"
 dependencies = [
- "exporter_service",
- "file_storage_service",
- "fitness_service",
- "importer_service",
- "integration_service",
- "jwt_service",
- "miscellaneous_service",
- "notification_service",
+ "exporter-service",
+ "file-storage-service",
+ "fitness-service",
+ "importer-service",
+ "integration-service",
+ "jwt-service",
+ "miscellaneous-service",
+ "notification-service",
 ]
 
 [[package]]
@@ -5691,7 +5691,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "specific_models"
+name = "specific-models"
 version = "0.1.0"
 dependencies = [
  "rust_decimal",
@@ -6543,13 +6543,13 @@ name = "traits"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application_utils",
+ "application-utils",
  "async-graphql",
  "async-trait",
  "common-models",
  "database-models",
- "dependent_models",
- "media_models",
+ "dependent-models",
+ "media-models",
  "sea-orm",
  "tracing",
 ]
@@ -6702,12 +6702,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
-name = "user_models"
+name = "user-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "fitness_models",
+ "fitness-models",
  "sea-orm",
  "serde",
  "serde_json",
@@ -6731,9 +6731,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "application_utils",
- "common_utils",
- "database_utils",
+ "application-utils",
+ "common-utils",
+ "database-utils",
 ]
 
 [[package]]

@@ -1,11 +1,11 @@
 [package]
-name = "miscellaneous_service"
+name = "miscellaneous-service"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 apalis = { workspace = true }
-application_utils = { path = "../../utils/application" }
+application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 argon2 = { workspace = true }
 background = { path = "../../background" }
@@ -14,23 +14,23 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 enum_meta = { workspace = true }
 common-models = { path = "../../models/common" }
-common_utils = { path = "../../utils/common" }
+common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 database-models = { path = "../../models/database" }
-database_utils = { path = "../../utils/database" }
-dependent_models = { path = "../../models/dependent" }
+database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
-file_storage_service = { path = "../../services/file_storage" }
-fitness_models = { path = "../../models/fitness" }
+file-storage-service = { path = "../../services/file-storage" }
+fitness-models = { path = "../../models/fitness" }
 futures = "=0.3.30"
-integration_service = { path = "../../services/integration" }
+integration-service = { path = "../../services/integration" }
 itertools = { workspace = true }
-jwt_service = { path = "../../services/jwt" }
+jwt-service = { path = "../../services/jwt" }
 markdown = { workspace = true }
-media_models = { path = "../../models/media" }
+media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
-notification_service = { path = "../../services/notification" }
+notification-service = { path = "../../services/notification" }
 openidconnect = { workspace = true }
 providers = { path = "../../providers" }
 reqwest = { workspace = true }
@@ -43,5 +43,5 @@ serde_json = { workspace = true }
 slug = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
-user_models = { path = "../../models/user" }
+user-models = { path = "../../models/user" }
 uuid = { workspace = true }

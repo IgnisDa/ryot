@@ -1,5 +1,5 @@
 [package]
-name = "application_utils"
+name = "application-utils"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,8 +9,8 @@ async-trait = { workspace = true }
 axum = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-common_utils = { path = "../common" }
+common-utils = { path = "../common" }
 config = { path = "../../config" }
-file_storage_service = { path = "../../services/file_storage" }
-jwt_service = { path = "../../services/jwt" }
+file-storage-service = { path = "../../services/file-storage" }
+jwt-service = { path = "../../services/jwt" }
 reqwest = { workspace = true }

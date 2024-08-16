@@ -1,5 +1,5 @@
 [package]
-name = "fitness_resolver"
+name = "fitness-resolver"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,8 @@ edition = "2021"
 async-graphql = { workspace = true }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
-dependent_models = { path = "../../models/dependent" }
-fitness_service = { path = "../../services/fitness" }
-fitness_models = { path = "../../models/fitness" }
+dependent-models = { path = "../../models/dependent" }
+fitness-service = { path = "../../services/fitness" }
+fitness-models = { path = "../../models/fitness" }
 sea-orm = { workspace = true }
 traits = { path = "../../traits" }

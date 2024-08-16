@@ -1,24 +1,24 @@
 [package]
-name = "fitness_service"
+name = "fitness-service"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
-application_utils = { path = "../../utils/application" }
+application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
 common-models = { path = "../../models/common" }
-common_utils = { path = "../../utils/common" }
+common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 const-str = { workspace = true }
 database-models = { path = "../../models/database" }
-database_utils = { path = "../../utils/database" }
-dependent_models = { path = "../../models/dependent" }
+database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
-file_storage_service = { path = "../../services/file_storage" }
-fitness_models = { path = "../../models/fitness" }
+file-storage-service = { path = "../../services/file-storage" }
+fitness-models = { path = "../../models/fitness" }
 itertools = { workspace = true }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
