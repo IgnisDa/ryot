@@ -155,15 +155,15 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
-pub struct ProgressUpdateCache {
-    pub user_id: String,
-    pub metadata_id: String,
-    pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<i32>,
-    pub manga_volume_number: Option<i32>,
+struct ProgressUpdateCache {
+    user_id: String,
+    metadata_id: String,
+    show_season_number: Option<i32>,
+    show_episode_number: Option<i32>,
+    podcast_episode_number: Option<i32>,
+    anime_episode_number: Option<i32>,
+    manga_chapter_number: Option<i32>,
+    manga_volume_number: Option<i32>,
 }
 
 impl fmt::Display for ProgressUpdateCache {
