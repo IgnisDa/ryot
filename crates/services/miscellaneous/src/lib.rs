@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt,
     iter::zip,
     path::PathBuf,
     str::FromStr,
@@ -75,14 +76,13 @@ use media_models::{
     MetadataVideoSource, OidcTokenOutput, PartialMetadata, PartialMetadataPerson,
     PartialMetadataWithoutId, PasswordUserInput, PeopleListInput, PeopleSearchInput,
     PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
-    PodcastSpecifics, PostReviewInput, ProgressUpdateCache, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-    ProviderLanguageInformation, RegisterError, RegisterErrorVariant, RegisterResult,
-    RegisterUserInput, ReviewItem, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserCalendarEventInput,
-    UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
+    PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+    ProgressUpdateInput, ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError,
+    RegisterErrorVariant, RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UpdateUserInput,
+    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
+    UserCalendarEventInput, UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
@@ -152,6 +152,24 @@ fn get_password_hasher() -> Argon2<'static> {
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
     Ok(())
+}
+
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
+pub struct ProgressUpdateCache {
+    pub user_id: String,
+    pub metadata_id: String,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<i32>,
+    pub manga_volume_number: Option<i32>,
+}
+
+impl fmt::Display for ProgressUpdateCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#?}", self)
+    }
 }
 
 pub struct MiscellaneousService {
@@ -1056,6 +1074,7 @@ impl MiscellaneousService {
             podcast_episode_number: input.podcast_episode_number,
             anime_episode_number: input.anime_episode_number,
             manga_chapter_number: input.manga_chapter_number,
+            manga_volume_number: input.manga_volume_number,
         };
         let in_cache = self.seen_progress_cache.cache_get(&cache).unwrap();
         if respect_cache && in_cache.is_some() {
@@ -3115,6 +3134,7 @@ impl MiscellaneousService {
             let pen = si.podcast_extra_information.as_ref().map(|d| d.episode);
             let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
             let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
+            let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
             let cache = ProgressUpdateCache {
                 user_id: user_id.to_owned(),
                 metadata_id: si.metadata_id.clone(),
@@ -3123,6 +3143,7 @@ impl MiscellaneousService {
                 podcast_episode_number: pen,
                 anime_episode_number: aen,
                 manga_chapter_number: mcn,
+                manga_volume_number: mvn,
             };
             self.seen_progress_cache.cache_remove(&cache).unwrap();
             let seen_id = si.id.clone();

@@ -1426,23 +1426,6 @@ pub struct MediaConsumedInput {
     pub lot: MediaLot,
 }
 
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
-pub struct ProgressUpdateCache {
-    pub user_id: String,
-    pub metadata_id: String,
-    pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<i32>,
-}
-
-impl fmt::Display for ProgressUpdateCache {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-
 #[derive(SimpleObject)]
 pub struct UserMetadataDetailsEpisodeProgress {
     pub episode_number: i32,
