@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 #[graphql(name = "DailyUserActivity")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub finished_day: Date,
+    pub day: Date,
     #[sea_orm(primary_key, auto_increment = false)]
+    #[graphql(skip)]
     pub user_id: String,
     #[sea_orm(column_type = "Json")]
     pub metadata_counts: Vec<DailyUserActivityMetadataCount>,
