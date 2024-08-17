@@ -1558,6 +1558,6 @@ pub struct DailyUserActivityMetadataCount {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct DailyUserActivitiesInput {
-    pub start_date: NaiveDate,
-    pub end_date: NaiveDate,
+    pub start_date: Option<NaiveDate>,
+    pub end_date: Option<NaiveDate>,
 }

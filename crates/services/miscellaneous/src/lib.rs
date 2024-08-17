@@ -30,10 +30,11 @@ use database_models::{
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
     person,
     prelude::{
-        CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Integration,
-        Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, NotificationPlatform, Person, QueuedNotification, Review, Seen, User,
-        UserMeasurement, UserSummary, UserToCollection, UserToEntity, Workout,
+        CalendarEvent, Collection, CollectionToEntity, DailyUserActivity, Exercise, Genre,
+        ImportReport, Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
+        QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
+        UserToEntity, Workout,
     },
     queued_notification, review, seen, user, user_measurement, user_summary, user_to_collection,
     user_to_entity, workout,
@@ -5812,8 +5813,18 @@ GROUP BY m.id;
         user_id: String,
         input: DailyUserActivitiesInput,
     ) -> Result<Vec<daily_user_activity::Model>> {
-        dbg!(user_id, input);
-        todo!()
+        let items = DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .apply_if(input.end_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.lte(v))
+            })
+            .apply_if(input.start_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.gte(v))
+            })
+            .order_by_desc(daily_user_activity::Column::Date)
+            .all(&self.db)
+            .await?;
+        Ok(items)
     }
 
     async fn refresh_database_views(&self) -> Result<()> {
