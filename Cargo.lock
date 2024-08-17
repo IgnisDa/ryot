@@ -3161,6 +3161,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-graphql",
+ "common-models",
  "database-models",
  "database-utils",
  "enums",

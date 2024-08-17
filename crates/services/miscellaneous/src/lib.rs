@@ -4577,6 +4577,7 @@ impl MiscellaneousService {
                         .audiobookshelf_progress(
                             &specifics.audiobookshelf_base_url.unwrap(),
                             &specifics.audiobookshelf_token.unwrap(),
+                            integration.sync_to_owned_collection,
                             &self.get_isbn_service().await.unwrap(),
                             |input| self.commit_metadata(input),
                         )

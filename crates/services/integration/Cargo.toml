@@ -8,6 +8,7 @@ anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 enums = { path = "../../enums" }
+common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 media-models = { path = "../../models/media" }

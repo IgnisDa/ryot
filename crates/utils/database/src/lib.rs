@@ -271,7 +271,8 @@ pub async fn add_entity_to_collection(
                 .or(CteColAlias::PersonId.eq(input.person_id.clone()))
                 .or(CteColAlias::MetadataGroupId.eq(input.metadata_group_id.clone()))
                 .or(CteColAlias::ExerciseId.eq(input.exercise_id.clone()))
-                .or(CteColAlias::WorkoutId.eq(input.workout_id.clone())),
+                .or(CteColAlias::WorkoutId.eq(input.workout_id.clone()))
+                .or(CteColAlias::WorkoutTemplateId.eq(input.workout_template_id.clone())),
         )
         .one(db)
         .await?
@@ -288,11 +289,12 @@ pub async fn add_entity_to_collection(
             metadata_id: ActiveValue::Set(input.metadata_id.clone()),
             exercise_id: ActiveValue::Set(input.exercise_id.clone()),
             metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
+            workout_template_id: ActiveValue::Set(input.workout_template_id.clone()),
             ..Default::default()
         };
         let created = created_collection.insert(db).await?;
         tracing::debug!("Created collection to entity: {:?}", created);
-        if input.workout_id.is_none() {
+        if input.workout_id.is_none() && input.workout_template_id.is_none() {
             associate_user_with_entity(
                 user_id,
                 input.metadata_id,
