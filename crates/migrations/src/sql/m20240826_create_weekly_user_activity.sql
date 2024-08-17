@@ -1,3 +1,4 @@
+DROP MATERIALIZED VIEW IF EXISTS "weekly_user_activity";
 CREATE MATERIALIZED VIEW "weekly_user_activity" AS
 WITH counted_lots AS (
     SELECT
@@ -66,5 +67,8 @@ GROUP BY
 ORDER BY
     cl."finished_week", cl."user_id";
 
-CREATE UNIQUE INDEX ON "weekly_user_activity" ("finished_week", "user_id");
-CREATE INDEX ON "weekly_user_activity" ("user_id");
+DROP INDEX IF EXISTS "weekly_user_activity_unique";
+CREATE UNIQUE INDEX "weekly_user_activity_unique" ON "weekly_user_activity" ("finished_week", "user_id");
+
+DROP INDEX IF EXISTS "weekly_user_activity_user_id";
+CREATE INDEX "weekly_user_activity_user_id" ON "weekly_user_activity" ("user_id");
