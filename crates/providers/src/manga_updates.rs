@@ -147,7 +147,6 @@ impl MangaUpdatesService {
         }
 
         let input = input.unwrap();
-
         let first_part = input.split("<BR>").next().unwrap_or("").trim();
         let parts: Vec<&str> = first_part.split_whitespace().collect();
 

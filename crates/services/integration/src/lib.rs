@@ -69,6 +69,8 @@ use specific_models::audiobookshelf as audiobookshelf_models;
 use traits::TraceOk;
 >>>>>>>> refs/heads/main:crates/services/integration/src/lib.rs
 
+mod komga;
+
 #[derive(Debug)]
 pub struct IntegrationService {
     db: DatabaseConnection,

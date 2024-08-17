@@ -3173,7 +3173,9 @@ dependencies = [
  "database-models",
  "database-utils",
  "enums",
+ "eventsource-stream",
  "media-models",
+ "openidconnect",
  "providers",
  "radarr-api-rs",
  "regex",
@@ -3186,6 +3188,7 @@ dependencies = [
  "serde_json",
  "sonarr-api-rs",
  "specific-models",
+ "tokio",
  "tracing",
  "traits",
 ]

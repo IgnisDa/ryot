@@ -4447,7 +4447,8 @@ impl MiscellaneousService {
                     integration_service
                         .komga_progress(
                             &specifics.komga_base_url.unwrap(),
-                            &specifics.komga_cookie.unwrap(),
+                            &specifics.komga_username.unwrap(),
+                            &specifics.komga_password.unwrap(),
                             specifics.komga_provider.unwrap(),
                         )
                         .await

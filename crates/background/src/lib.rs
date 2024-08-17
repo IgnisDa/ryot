@@ -36,6 +36,7 @@ pub enum ApplicationJob {
     RecalculateUserSummary(String),
     PerformBackgroundTasks,
     UpdateExerciseLibrary,
+    SyncIntegrationsData,
 }
 
 impl Message for ApplicationJob {

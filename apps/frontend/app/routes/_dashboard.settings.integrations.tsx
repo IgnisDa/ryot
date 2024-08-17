@@ -159,7 +159,8 @@ const createSchema = z.object({
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
 			komgaBaseUrl: z.string().optional(),
-			komgaCookie: z.string().optional(),
+			komgaUsername: z.string().optional(),
+			komgaPassword: z.string().optional(),
 			komgaProvider: z.nativeEnum(MediaSource).optional(),
 			radarrBaseUrl: z.string().optional(),
 			radarrApiKey: z.string().optional(),
@@ -453,9 +454,14 @@ const CreateIntegrationModal = (props: {
 									name="providerSpecifics.komgaBaseUrl"
 								/>
 								<TextInput
-									label="Cookie"
+									label="Username"
 									required
-									name="providerSpecifics.komgaCookie"
+									name="providerSpecifics.komgaUsername"
+								/>
+								<TextInput
+									label="Password"
+									required
+									name="providerSpecifics.komgaPassword"
 								/>
 								<Select
 									label="Select a provider"
