@@ -19,7 +19,7 @@ WITH counted_lots AS (
         s."user_id",
         get_time_of_day(s."last_updated_on") AS "time_of_day",
         m."lot",
-        COUNT(DISTINCT s."metadata_id") AS "lot_count"
+        CAST(COUNT(DISTINCT s."metadata_id") AS BIGINT) AS "lot_count"
     FROM
         public."seen" s
     JOIN
@@ -34,7 +34,7 @@ reviews_count AS (
         CAST(r."posted_on" AS DATE) AS "review_day",
         r."user_id",
         get_time_of_day(r."posted_on") AS "time_of_day",
-        COUNT(DISTINCT r."id") AS "review_counts"
+        CAST(COUNT(DISTINCT r."id") AS BIGINT) AS "review_counts"
     FROM
         public."review" r
     GROUP BY
@@ -45,7 +45,7 @@ measurements_count AS (
         CAST(m."timestamp" AS DATE) AS "measurement_day",
         m."user_id",
         get_time_of_day(m."timestamp") AS "time_of_day",
-        COUNT(DISTINCT m."timestamp") AS "measurement_counts"
+        CAST(COUNT(DISTINCT m."timestamp") AS BIGINT) AS "measurement_counts"
     FROM
         public."user_measurement" m
     GROUP BY
@@ -56,7 +56,7 @@ workouts_count AS (
         CAST(w."end_time" AS DATE) AS "workout_day",
         w."user_id",
         get_time_of_day(w."end_time") AS "time_of_day",
-        COUNT(DISTINCT w."id") AS "workout_counts"
+        CAST(COUNT(DISTINCT w."id") AS BIGINT) AS "workout_counts"
     FROM
         public."workout" w
     GROUP BY
@@ -67,11 +67,13 @@ aggregated_times AS (
         COALESCE(cl."date", rc."review_day", mc."measurement_day", wc."workout_day") AS "date",
         COALESCE(cl."user_id", rc."user_id", mc."user_id", wc."user_id") AS "user_id",
         COALESCE(cl."time_of_day", rc."time_of_day", mc."time_of_day", wc."time_of_day") AS "time_of_day",
-        SUM(
-            COALESCE(cl."lot_count", 0) +
-            COALESCE(rc."review_counts", 0) +
-            COALESCE(mc."measurement_counts", 0) +
-            COALESCE(wc."workout_counts", 0)
+        CAST(
+            SUM(
+                COALESCE(cl."lot_count", 0) +
+                COALESCE(rc."review_counts", 0) +
+                COALESCE(mc."measurement_counts", 0) +
+                COALESCE(wc."workout_counts", 0)
+            ) AS BIGINT
         ) AS "time_of_day_count"
     FROM
         counted_lots cl
@@ -93,19 +95,21 @@ SELECT
         jsonb_agg(
             jsonb_build_object(
                 'lot', cl."lot",
-                'count', cl."lot_count"
+                'count', CAST(cl."lot_count" AS BIGINT)
             )
         ) FILTER (WHERE cl."lot" IS NOT NULL), '[]'::jsonb
     ) AS "metadata_counts",
     jsonb_object_agg(at."time_of_day", at."time_of_day_count") AS "times_of_day",
-    SUM(COALESCE(rc."review_counts", 0)) AS "review_counts",
-    SUM(COALESCE(mc."measurement_counts", 0)) AS "measurement_counts",
-    SUM(COALESCE(wc."workout_counts", 0)) AS "workout_counts",
+    CAST(SUM(COALESCE(rc."review_counts", 0)) AS BIGINT) AS "review_counts",
+    CAST(SUM(COALESCE(mc."measurement_counts", 0)) AS BIGINT) AS "measurement_counts",
+    CAST(SUM(COALESCE(wc."workout_counts", 0)) AS BIGINT) AS "workout_counts",
     CAST(
-        (COALESCE(SUM(cl."lot_count"), 0) +
-        COALESCE(SUM(rc."review_counts"), 0) +
-        COALESCE(SUM(mc."measurement_counts"), 0) +
-        COALESCE(SUM(wc."workout_counts"), 0)) AS BIGINT
+        (
+            COALESCE(SUM(cl."lot_count"), 0) +
+            COALESCE(SUM(rc."review_counts"), 0) +
+            COALESCE(SUM(mc."measurement_counts"), 0) +
+            COALESCE(SUM(wc."workout_counts"), 0)
+        ) AS BIGINT
     ) AS "total_counts"
 FROM
     aggregated_times at
