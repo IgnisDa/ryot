@@ -31,6 +31,8 @@ jobs:
       - name: Check commit message
         id: check
         run: |
+          set -euxo pipefail
+
           read -r -d '' IMAGE_NAMES << EOM
             name=ignisda/${{ github.event.repository.name }}
             name=${{ env.GHCR_REGISTRY }}/ignisda/${{ github.event.repository.name }}
