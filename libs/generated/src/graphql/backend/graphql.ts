@@ -1523,6 +1523,7 @@ export type QueryRoot = {
   collectionContents: CollectionContents;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
+  /** Get daily user activities for the currently logged in user. */
   dailyUserActivities: Array<DailyUserActivity>;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;

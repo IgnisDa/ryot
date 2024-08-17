@@ -323,6 +323,7 @@ impl MiscellaneousQuery {
         service.user_by_oidc_issuer_id(oidc_issuer_id).await
     }
 
+    /// Get daily user activities for the currently logged in user.
     async fn daily_user_activities(
         &self,
         gql_ctx: &Context<'_>,
