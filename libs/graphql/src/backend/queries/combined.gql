@@ -147,5 +147,9 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
       lot
       count
     }
+    timeOfDayCounts {
+      time
+      count
+    }
   }
 }

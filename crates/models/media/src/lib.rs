@@ -4,7 +4,7 @@ use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Uni
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use common_models::{
-    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
+    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject, TimeOfDay,
 };
 use enums::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
@@ -1540,19 +1540,18 @@ pub struct GroupedCalendarEvent {
 }
 
 #[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    FromJsonQueryResult,
-    Eq,
-    Serialize,
-    Deserialize,
-    Default,
-    Hash,
-    SimpleObject,
+    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
 )]
 pub struct DailyUserActivityMetadataCount {
     pub lot: MediaLot,
+    pub count: usize,
+}
+
+#[derive(
+    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
+)]
+pub struct DailyUserActivityTimeOfDayCount {
+    pub time: TimeOfDay,
     pub count: usize,
 }
 
