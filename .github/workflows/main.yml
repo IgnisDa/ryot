@@ -34,7 +34,7 @@ jobs:
         with:
           script: |
             const repositoryName = context.payload.repository.name;
-            const owner = context.actor;
+            const owner = context.repo.owner;
             const ghcrRegistry = process.env.GHCR_REGISTRY;
             const dockerUsername = process.env.DOCKER_USERNAME;
 
@@ -210,7 +210,7 @@ jobs:
         continue-on-error: true
         with:
           registry: ${{ env.GHCR_REGISTRY }}
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Log in to the docker hub container registry
         uses: docker/login-action@v3
