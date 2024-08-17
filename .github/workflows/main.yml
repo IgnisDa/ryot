@@ -33,7 +33,7 @@ jobs:
         run: |
           IMAGE_NAMES="
             name=ignisda/${{ github.event.repository.name }}
-            name=${{ env.GHCR_REGISTRY }}/ignisda/${{ github.event.repository.name }}
+            name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
           "
 
           if [[ "${{ github.event_name }}" == "push" ]]; then
