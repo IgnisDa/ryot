@@ -29,45 +29,8 @@ use sonarr_api_rs::{
     },
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
-<<<<<<<< HEAD:apps/backend/src/integrations/mod.rs
-
-use crate::{
-    entities::{metadata, prelude::Metadata},
-    models::{audiobookshelf_models, media::CommitMediaInput},
-    providers::google_books::GoogleBooksService,
-    traits::TraceOk,
-    utils::{get_base_http_client, ilike_sql},
-};
-
-mod komga;
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IntegrationMediaSeen {
-    pub identifier: String,
-    pub lot: MediaLot,
-    #[serde(default)]
-    pub source: MediaSource,
-    pub progress: Decimal,
-    pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<i32>,
-    pub manga_volume_number: Option<i32>,
-    pub provider_watched_on: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IntegrationMediaCollection {
-    pub identifier: String,
-    pub lot: MediaLot,
-    pub source: MediaSource,
-    pub collection: String,
-}
-========
 use specific_models::audiobookshelf as audiobookshelf_models;
 use traits::TraceOk;
->>>>>>>> refs/heads/main:crates/services/integration/src/lib.rs
 
 mod komga;
 

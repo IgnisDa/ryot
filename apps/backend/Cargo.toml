@@ -16,14 +16,6 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 config = { path = "../../crates/config" }
 dotenvy = "=0.15.7"
-dotenvy_macro = { workspace = true }
-educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
-enum_meta = "=0.7.0"
-eventsource-stream = "=0.2.3"
-flate2 = "=1.0.30"
-futures = "=0.3.30"
-graphql_client = "=0.14.0"
-hashbag = "=0.1.12"
 http = "=1.1.0"
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
