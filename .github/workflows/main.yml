@@ -42,6 +42,10 @@ jobs:
             COMMIT_MSG=$(git log --format=%B ${{ github.event.pull_request.head.sha }})
             if [[ "$COMMIT_MSG" == *"Run CI"* ]]; then
               echo "should-run=true" >> $GITHUB_OUTPUT
+              # if it is a forked PR, we need to remove the first line of the IMAGE_NAMES
+              if [[ "${{ github.event.pull_request.head.repo.fork }}" ]]; then
+                IMAGE_NAMES=$(echo "$IMAGE_NAMES" | sed '1d')
+              fi
             else
               echo "should-run=false" >> $GITHUB_OUTPUT
             fi
@@ -49,6 +53,7 @@ jobs:
             echo "should-run=false" >> $GITHUB_OUTPUT
           fi
 
+          echo "image-names=$IMAGE_NAMES"
           echo "image-names=$IMAGE_NAMES" >> $GITHUB_OUTPUT
       - name: Check tag
         id: tag
