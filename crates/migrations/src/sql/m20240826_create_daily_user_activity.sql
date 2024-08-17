@@ -64,9 +64,9 @@ workouts_count AS (
 ),
 aggregated_times AS (
     SELECT
-        coalesce(cl."date", rc."review_day", mc."measurement_day", wc."workout_day") AS "date",
-        coalesce(cl."user_id", rc."user_id", mc."user_id", wc."user_id") AS "user_id",
-        coalesce(cl."time_of_day", rc."time_of_day", mc."time_of_day", wc."time_of_day") AS "time_of_day",
+        COALESCE(cl."date", rc."review_day", mc."measurement_day", wc."workout_day") AS "date",
+        COALESCE(cl."user_id", rc."user_id", mc."user_id", wc."user_id") AS "user_id",
+        COALESCE(cl."time_of_day", rc."time_of_day", mc."time_of_day", wc."time_of_day") AS "time_of_day",
         SUM(
             COALESCE(cl."lot_count", 0) +
             COALESCE(rc."review_counts", 0) +
@@ -82,43 +82,48 @@ aggregated_times AS (
     FULL JOIN
         workouts_count wc ON cl."date" = wc."workout_day" AND cl."user_id" = wc."user_id" AND cl."time_of_day" = wc."time_of_day"
     GROUP BY
-        coalesce(cl."date", rc."review_day", mc."measurement_day", wc."workout_day"),
-        coalesce(cl."user_id", rc."user_id", mc."user_id", wc."user_id"),
-        coalesce(cl."time_of_day", rc."time_of_day", mc."time_of_day", wc."time_of_day")
+        COALESCE(cl."date", rc."review_day", mc."measurement_day", wc."workout_day"),
+        COALESCE(cl."user_id", rc."user_id", mc."user_id", wc."user_id"),
+        COALESCE(cl."time_of_day", rc."time_of_day", mc."time_of_day", wc."time_of_day")
 )
 SELECT
-    cl."date",
-    cl."user_id",
-    jsonb_agg(
-        jsonb_build_object(
-            'lot', cl."lot",
-            'count', cl."lot_count"
-        )
+    at."date",
+    at."user_id",
+    COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'lot', cl."lot",
+                'count', cl."lot_count"
+            )
+        ) FILTER (WHERE cl."lot" IS NOT NULL), '[]'::jsonb
     ) AS "metadata_counts",
     jsonb_object_agg(at."time_of_day", at."time_of_day_count") AS "times_of_day",
-    COALESCE(rc."review_counts", 0) AS "review_counts",
-    COALESCE(mc."measurement_counts", 0) AS "measurement_counts",
-    COALESCE(wc."workout_counts", 0) AS "workout_counts",
+    SUM(COALESCE(rc."review_counts", 0)) AS "review_counts",
+    SUM(COALESCE(mc."measurement_counts", 0)) AS "measurement_counts",
+    SUM(COALESCE(wc."workout_counts", 0)) AS "workout_counts",
     CAST(
         (COALESCE(SUM(cl."lot_count"), 0) +
-        COALESCE(rc."review_counts", 0) +
-        COALESCE(mc."measurement_counts", 0) +
-        COALESCE(wc."workout_counts", 0)) AS BIGINT
+        COALESCE(SUM(rc."review_counts"), 0) +
+        COALESCE(SUM(mc."measurement_counts"), 0) +
+        COALESCE(SUM(wc."workout_counts"), 0)) AS BIGINT
     ) AS "total_counts"
 FROM
-    counted_lots cl
+    aggregated_times at
 LEFT JOIN
-    reviews_count rc ON cl."date" = rc."review_day" AND cl."user_id" = rc."user_id"
+    counted_lots cl ON at."date" = cl."date" AND at."user_id" = cl."user_id"
 LEFT JOIN
-    measurements_count mc ON cl."date" = mc."measurement_day" AND cl."user_id" = mc."user_id"
+    reviews_count rc ON at."date" = rc."review_day" AND at."user_id" = rc."user_id"
 LEFT JOIN
-    workouts_count wc ON cl."date" = wc."workout_day" AND cl."user_id" = wc."user_id"
+    measurements_count mc ON at."date" = mc."measurement_day" AND at."user_id" = mc."user_id"
 LEFT JOIN
-    aggregated_times at ON cl."date" = at."date" AND cl."user_id" = at."user_id"
+    workouts_count wc ON at."date" = wc."workout_day" AND at."user_id" = wc."user_id"
 GROUP BY
-    cl."date", cl."user_id", rc."review_counts", mc."measurement_counts", wc."workout_counts"
+    at."date", at."user_id"
 ORDER BY
-    cl."date", cl."user_id";
+    at."date", at."user_id";
 
-DROP INDEX IF EXISTS "daily_user_activity_dates";
-CREATE INDEX "daily_user_activity_dates" ON "daily_user_activity" ("date");
+DROP INDEX IF EXISTS "daily_user_activity_unique";
+CREATE UNIQUE INDEX "daily_user_activity_unique" ON "daily_user_activity" ("date", "user_id");
+
+DROP INDEX IF EXISTS "daily_user_activity_user_id";
+CREATE INDEX "daily_user_activity_user_id" ON "daily_user_activity" ("user_id");
