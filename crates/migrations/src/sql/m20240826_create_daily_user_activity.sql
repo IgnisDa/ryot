@@ -2,7 +2,7 @@ DROP MATERIALIZED VIEW IF EXISTS "daily_user_activity";
 CREATE MATERIALIZED VIEW "daily_user_activity" AS
 WITH counted_lots AS (
     SELECT
-        CAST(COALESCE(s."finished_on", s."last_updated_on") AS DATE) AS "date",
+        CAST(s."finished_on" AS DATE) AS "date",
         s."user_id",
         m."lot",
         COUNT(DISTINCT s."metadata_id") AS "lot_count"
@@ -10,8 +10,10 @@ WITH counted_lots AS (
         public."seen" s
     JOIN
         public."metadata" m ON s."metadata_id" = m."id"
+    WHERE
+        s."finished_on" IS NOT NULL
     GROUP BY
-        CAST(COALESCE(s."finished_on", s."last_updated_on") AS DATE), s."user_id", m."lot"
+        CAST(s."finished_on" AS DATE), s."user_id", m."lot"
 ),
 reviews_count AS (
     SELECT
