@@ -4,4 +4,5 @@ pub enum IntegrationType {
     Komga(String, String, String, MediaSource),
     Jellyfin(String),
     Emby(String),
+    Plex(String, Option<String>),
 }

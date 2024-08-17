@@ -3,8 +3,7 @@ use std::future::Future;
 use anyhow::{anyhow, bail, Result};
 use application_utils::get_base_http_client;
 use async_graphql::Result as GqlResult;
-use database_models::{metadata, prelude::Metadata};
-use database_utils::ilike_sql;
+use database_models::metadata;
 use enums::{MediaLot, MediaSource};
 use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
 use providers::google_books::GoogleBooksService;
@@ -15,13 +14,9 @@ use radarr_api_rs::{
     },
     models::{AddMovieOptions as RadarrAddMovieOptions, MovieResource as RadarrMovieResource},
 };
-use regex::Regex;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
-use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
-use serde::{Deserialize, Serialize};
+use sea_orm::DatabaseConnection;
 use sonarr_api_rs::{
     apis::{
         configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
@@ -39,6 +34,7 @@ use crate::{
 };
 use crate::emby::EmbyIntegration;
 use crate::jellyfin::JellyfinIntegration;
+use crate::plex::PlexIntegration;
 
 pub mod integration_type;
 mod integration;
@@ -47,6 +43,7 @@ mod komga;
 mod jellyfin;
 mod emby;
 mod show_identifier;
+mod plex;
 
 #[derive(Debug)]
 pub struct IntegrationService {
@@ -56,152 +53,6 @@ pub struct IntegrationService {
 impl IntegrationService {
     pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
-    }
-
-    // DEV: Fuzzy search for show by episode name and series name.
-    async fn get_show_by_episode_identifier(
-        &self,
-        series: &str,
-        episode: &str,
-    ) -> Result<metadata::Model> {
-        let db_show = Metadata::find()
-            .filter(metadata::Column::Lot.eq(MediaLot::Show))
-            .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-            .filter(
-                Condition::all()
-                    .add(
-                        Expr::expr(Func::cast_as(
-                            Expr::col(metadata::Column::ShowSpecifics),
-                            Alias::new("text"),
-                        ))
-                        .ilike(ilike_sql(episode)),
-                    )
-                    .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(series))),
-            )
-            .one(&self.db)
-            .await?;
-        match db_show {
-            Some(show) => Ok(show),
-            None => bail!(
-                "No show found with Series {:#?} and Episode {:#?}",
-                series,
-                episode
-            ),
-        }
-    }
-
-
-
-    pub async fn plex_progress(
-        &self,
-        payload: &str,
-        plex_user: Option<String>,
-    ) -> Result<IntegrationMediaSeen> {
-        mod models {
-            use super::*;
-
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            pub struct PlexWebhookMetadataGuid {
-                pub id: String,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            pub struct PlexWebhookMetadataPayload {
-                #[serde(rename = "type")]
-                pub item_type: String,
-                #[serde(rename = "viewOffset")]
-                pub view_offset: Option<Decimal>,
-                pub duration: Decimal,
-                #[serde(rename = "grandparentTitle")]
-                pub show_name: Option<String>,
-                #[serde(rename = "parentIndex")]
-                pub season_number: Option<i32>,
-                #[serde(rename = "index")]
-                pub episode_number: Option<i32>,
-                #[serde(rename = "Guid")]
-                pub guids: Vec<PlexWebhookMetadataGuid>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            pub struct PlexWebhookAccount {
-                #[serde(rename = "title")]
-                pub plex_user: String,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            pub struct PlexWebhookPayload {
-                #[serde(rename = "event")]
-                pub event_type: String,
-                pub user: bool,
-                pub owner: bool,
-                #[serde(rename = "Metadata")]
-                pub metadata: PlexWebhookMetadataPayload,
-                #[serde(rename = "Account")]
-                pub account: PlexWebhookAccount,
-            }
-        }
-
-        tracing::debug!("Processing Plex payload {:#?}", payload);
-
-        let payload_regex = Regex::new(r"\{.*\}").unwrap();
-        let json_payload = payload_regex
-            .find(payload)
-            .map(|x| x.as_str())
-            .unwrap_or("");
-        let payload = match serde_json::from_str::<models::PlexWebhookPayload>(json_payload) {
-            Result::Ok(val) => val,
-            Result::Err(err) => bail!("Error during JSON payload deserialization {:#}", err),
-        };
-        if let Some(plex_user) = plex_user {
-            if plex_user != payload.account.plex_user {
-                bail!(
-                    "Ignoring non matching user {:#?}",
-                    payload.account.plex_user
-                );
-            }
-        }
-        match payload.event_type.as_str() {
-            "media.scrobble" | "media.play" | "media.pause" | "media.resume" | "media.stop" => {}
-            _ => bail!("Ignoring event type {:#?}", payload.event_type),
-        };
-
-        let tmdb_guid = payload
-            .metadata
-            .guids
-            .into_iter()
-            .find(|g| g.id.starts_with("tmdb://"));
-
-        if tmdb_guid.is_none() {
-            bail!("No TMDb ID associated with this media")
-        }
-        let tmdb_guid = tmdb_guid.unwrap();
-        let identifier = &tmdb_guid.id[7..];
-        let (identifier, lot) = match payload.metadata.item_type.as_str() {
-            "movie" => (identifier.to_owned(), MediaLot::Movie),
-            "episode" => {
-                let series_name = payload.metadata.show_name.as_ref().unwrap();
-                let db_show = self
-                    .get_show_by_episode_identifier(series_name, identifier)
-                    .await?;
-                (db_show.identifier, MediaLot::Show)
-            }
-            _ => bail!("Only movies and shows supported"),
-        };
-        let progress = match payload.metadata.view_offset {
-            Some(offset) => offset / payload.metadata.duration * dec!(100),
-            None => match payload.event_type.as_str() {
-                "media.scrobble" => dec!(100),
-                _ => bail!("No position associated with this media"),
-            },
-        };
-
-        Ok(IntegrationMediaSeen {
-            identifier,
-            lot,
-            source: MediaSource::Tmdb,
-            progress,
-            provider_watched_on: Some("Plex".to_string()),
-            show_season_number: payload.metadata.season_number,
-            show_episode_number: payload.metadata.episode_number,
-            ..Default::default()
-        })
     }
 
     pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
@@ -422,6 +273,10 @@ impl IntegrationService {
             IntegrationType::Emby(payload) => {
                 let emby = EmbyIntegration::new(payload, self.db.clone());
                 emby.progress().await
+            }
+            IntegrationType::Plex(payload, plex_user) => {
+                let plex = PlexIntegration::new(payload, plex_user, self.db.clone());
+                plex.progress().await
             }
         }
     }

@@ -4658,12 +4658,13 @@ impl MiscellaneousService {
             IntegrationProvider::Jellyfin => service.process_progress(IntegrationType::Jellyfin(
                 payload.clone()
             )).await,
-            // IntegrationProvider::Plex => {
-            //     let specifics = integration.clone().provider_specifics.unwrap();
-            //     service
-            //         .plex_progress(&payload, specifics.plex_username)
-            //         .await
-            // }
+            IntegrationProvider::Plex => {
+                let specifics = integration.clone().provider_specifics.unwrap();
+                service.process_progress(IntegrationType::Plex(
+                    payload.clone(),
+                    specifics.plex_username
+                )).await
+            },
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {
