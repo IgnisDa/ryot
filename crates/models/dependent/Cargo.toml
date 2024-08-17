@@ -1,0 +1,17 @@
+[package]
+name = "dependent-models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+common-models = { path = "../common" }
+database-models = { path = "../database" }
+enums = { path = "../../enums" }
+importer-models = { path = "../importer" }
+media-models = { path = "../media" }
+fitness-models = { path = "../fitness" }
+rust_decimal = { workspace = true }
+schematic = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }

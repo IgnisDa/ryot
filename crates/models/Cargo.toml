@@ -1,0 +1,14 @@
+[package]
+name = "models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common-models = { path = "./common" }
+database-models = { path = "./database" }
+dependent-models = { path = "./dependent" }
+fitness-models = { path = "./fitness" }
+importer-models = { path = "./importer" }
+media-models = { path = "./media" }
+specific-models = { path = "./specific" }
+user-models = { path = "./user" }

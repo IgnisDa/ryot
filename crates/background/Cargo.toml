@@ -1,0 +1,16 @@
+[package]
+name = "background"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apalis = { workspace = true }
+common-models = { path = "../models/common" }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+enums = { path = "../enums" }
+fitness-models = { path = "../models/fitness" }
+media-models = { path = "../models/media" }
+serde = { workspace = true }
+strum = { workspace = true }
+uuid = { workspace = true }

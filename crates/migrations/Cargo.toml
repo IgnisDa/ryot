@@ -1,0 +1,17 @@
+[package]
+name = "migrations"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+enums = { path = "../enums" }
+indoc = "=2.0.5"
+nanoid = { workspace = true }
+sea-orm = { workspace = true }
+sea-orm-migration = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

@@ -25,10 +25,14 @@ use axum::{
 };
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
-use database::Migrator;
+use common::get_graphql_schema;
 use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
-use rs_utils::PROJECT_NAME;
+use migrations::Migrator;
+use models::{prelude::Exercise, CompleteExport};
+use resolvers::{
+    config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
+};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
@@ -44,39 +48,20 @@ use tower_http::{
     trace::TraceLayer as TowerTraceLayer,
 };
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::{COMPILATION_TIMESTAMP, TEMP_DIR};
+use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
-    background::{
+    common::create_app_services,
+    job::{
         background_jobs, perform_application_job, perform_core_application_job,
         sync_integrations_data,
     },
-    entities::prelude::Exercise,
-    graphql::get_schema,
-    models::CompleteExport,
-    routes::{
-        config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
-    },
-    utils::{create_app_services, BASE_DIR, VERSION},
 };
 
-mod background;
-mod entities;
-mod exporter;
-mod file_storage;
-mod fitness;
-mod graphql;
-mod importer;
-mod integrations;
-mod jwt;
-mod miscellaneous;
-mod models;
-mod notification;
-mod providers;
-mod routes;
-mod traits;
-mod users;
-mod utils;
+mod common;
+mod job;
+
+static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -214,7 +199,7 @@ async fn main() -> Result<()> {
             .ok();
     }
 
-    let schema = get_schema(&app_services).await;
+    let schema = get_graphql_schema(&app_services).await;
 
     let cors = TowerCorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -236,7 +221,7 @@ async fn main() -> Result<()> {
         .route("/graphql", gql)
         .route("/upload", post(upload_file))
         .layer(Extension(app_services.config.clone()))
-        .layer(Extension(app_services.media_service.clone()))
+        .layer(Extension(app_services.miscellaneous_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
@@ -252,10 +237,10 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let media_service_2 = app_services.media_service.clone();
-    let media_service_3 = app_services.media_service.clone();
-    let media_service_4 = app_services.media_service.clone();
-    let media_service_5 = app_services.media_service.clone();
+    let media_service_2 = app_services.miscellaneous_service.clone();
+    let media_service_3 = app_services.miscellaneous_service.clone();
+    let media_service_4 = app_services.miscellaneous_service.clone();
+    let media_service_5 = app_services.miscellaneous_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
 
     let monitor = async {

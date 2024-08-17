@@ -1,0 +1,34 @@
+[package]
+name = "fitness-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+apalis = { workspace = true }
+application-utils = { path = "../../utils/application" }
+async-graphql = { workspace = true }
+background = { path = "../../background" }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+const-str = { workspace = true }
+database-models = { path = "../../models/database" }
+database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
+enums = { path = "../../enums" }
+file-storage-service = { path = "../../services/file-storage" }
+fitness-models = { path = "../../models/fitness" }
+itertools = { workspace = true }
+migrations = { path = "../../migrations" }
+nanoid = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+slug = { workspace = true }
+tracing = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal"]

@@ -30,6 +30,9 @@ fragment CalendarEventPart on GraphqlCalendarEvent {
   podcastExtraInformation {
     ...SeenPodcastExtraInformationPart
   }
+  animeExtraInformation {
+    ...SeenAnimeExtraInformationPart
+  }
 }
 
 fragment SeenPart on Seen {
