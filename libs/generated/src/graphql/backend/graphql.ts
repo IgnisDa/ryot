@@ -281,6 +281,25 @@ export type CreateUserNotificationPlatformInput = {
   priority?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type DailyUserActivitiesInput = {
+  endDate: Scalars['NaiveDate']['input'];
+  startDate: Scalars['NaiveDate']['input'];
+};
+
+export type DailyUserActivity = {
+  day: Scalars['NaiveDate']['output'];
+  measurementCounts: Scalars['Decimal']['output'];
+  metadataCounts: Array<DailyUserActivityMetadataCount>;
+  reviewCounts: Scalars['Decimal']['output'];
+  totalCounts: Scalars['Decimal']['output'];
+  workoutCounts: Scalars['Decimal']['output'];
+};
+
+export type DailyUserActivityMetadataCount = {
+  count: Scalars['Int']['output'];
+  lot: MediaLot;
+};
+
 export enum DashboardElementLot {
   InProgress = 'IN_PROGRESS',
   Recommendations = 'RECOMMENDATIONS',
@@ -1503,6 +1522,7 @@ export type QueryRoot = {
   collectionContents: CollectionContents;
   /** Get some primary information about the service. */
   coreDetails: CoreDetails;
+  dailyUserActivities: Array<DailyUserActivity>;
   /** Get details about an exercise. */
   exerciseDetails: Exercise;
   /** Get all the parameters related to exercises. */
@@ -1584,6 +1604,11 @@ export type QueryRoot = {
 
 export type QueryRootCollectionContentsArgs = {
   input: CollectionContentsInput;
+};
+
+
+export type QueryRootDailyUserActivitiesArgs = {
+  input: DailyUserActivitiesInput;
 };
 
 
@@ -3042,6 +3067,13 @@ export type PeopleListQueryVariables = Exact<{
 
 export type PeopleListQuery = { peopleList: { items: Array<string>, details: { total: number, nextPage?: number | null } } };
 
+export type DailyUserActivitiesQueryVariables = Exact<{
+  input: DailyUserActivitiesInput;
+}>;
+
+
+export type DailyUserActivitiesQuery = { dailyUserActivities: Array<{ day: string, reviewCounts: string, workoutCounts: string, measurementCounts: string, metadataCounts: Array<{ lot: MediaLot, count: number }> }> };
+
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
 export type SeenShowExtraInformationPartFragment = { episode: number, season: number };
@@ -3166,3 +3198,4 @@ export const UserCalendarEventsDocument = {"kind":"Document","definitions":[{"ki
 export const MetadataPartialDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataPartialDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataPartialDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]} as unknown as DocumentNode<MetadataPartialDetailsQuery, MetadataPartialDetailsQueryVariables>;
 export const MetadataGroupsListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataGroupsList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataGroupsListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataGroupsList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"}}]}}]}}]} as unknown as DocumentNode<MetadataGroupsListQuery, MetadataGroupsListQueryVariables>;
 export const PeopleListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PeopleList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PeopleListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"peopleList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"}}]}}]}}]} as unknown as DocumentNode<PeopleListQuery, PeopleListQueryVariables>;
+export const DailyUserActivitiesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"DailyUserActivities"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DailyUserActivitiesInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"dailyUserActivities"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"reviewCounts"}},{"kind":"Field","name":{"kind":"Name","value":"workoutCounts"}},{"kind":"Field","name":{"kind":"Name","value":"measurementCounts"}},{"kind":"Field","name":{"kind":"Name","value":"metadataCounts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"count"}}]}}]}}]}}]} as unknown as DocumentNode<DailyUserActivitiesQuery, DailyUserActivitiesQueryVariables>;

@@ -135,3 +135,16 @@ query PeopleList($input: PeopleListInput!) {
     items
   }
 }
+
+query DailyUserActivities($input: DailyUserActivitiesInput!) {
+  dailyUserActivities(input: $input) {
+    day
+    reviewCounts
+    workoutCounts
+    measurementCounts
+    metadataCounts {
+      lot
+      count
+    }
+  }
+}
