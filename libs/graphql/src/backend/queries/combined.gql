@@ -139,6 +139,7 @@ query PeopleList($input: PeopleListInput!) {
 query DailyUserActivities($input: DailyUserActivitiesInput!) {
   dailyUserActivities(input: $input) {
     date
+    totalCounts
     reviewCounts
     workoutCounts
     measurementCounts
