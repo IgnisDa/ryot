@@ -89,7 +89,7 @@ use media_models::{
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity,
+    AliasedUserToCollection, AliasedUserToEntity, WEEKLY_USER_ACTIVITY_VIEW,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -5807,6 +5807,16 @@ GROUP BY m.id;
         Ok(user)
     }
 
+    async fn refresh_database_views(&self) -> Result<()> {
+        self.db
+            .execute_unprepared(&format!(
+                r#"REFRESH MATERIALIZED VIEW "{}""#,
+                WEEKLY_USER_ACTIVITY_VIEW,
+            ))
+            .await?;
+        Ok(())
+    }
+
     async fn invalidate_import_jobs(&self) -> Result<()> {
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::WasSuccess.is_null())
@@ -5970,6 +5980,8 @@ GROUP BY m.id;
     pub async fn perform_background_jobs(&self) -> Result<()> {
         tracing::debug!("Starting background jobs...");
 
+        tracing::trace!("Refreshing database views");
+        self.refresh_database_views().await.trace_ok();
         tracing::trace!("Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.trace_ok();
         tracing::trace!("Removing stale entities from Monitoring collection");
