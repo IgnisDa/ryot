@@ -46,7 +46,12 @@ workouts_count AS (
 SELECT
     cl."finished_week",
     cl."user_id",
-    jsonb_object_agg(cl."lot", cl."lot_count") AS "metadata_counts",
+    jsonb_agg(
+        jsonb_build_object(
+            'lot', cl."lot",
+            'count', cl."lot_count"
+        )
+    ) AS "metadata_counts",
     COALESCE(rc."review_counts", 0) AS "review_counts",
     COALESCE(mc."measurement_counts", 0) AS "measurement_counts",
     COALESCE(wc."workout_counts", 0) AS "workout_counts",
