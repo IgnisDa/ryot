@@ -4433,14 +4433,11 @@ impl MiscellaneousService {
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
                     let specifics = integration.clone().provider_specifics.unwrap();
-                    integration_service
-                        .audiobookshelf_progress(
-                            &specifics.audiobookshelf_base_url.unwrap(),
-                            &specifics.audiobookshelf_token.unwrap(),
-                            &self.get_isbn_service().await.unwrap(),
-                            |input| self.commit_metadata(input),
-                        )
-                        .await
+                    integration_service.process_progress(IntegrationType::Audiobookshelf(
+                        specifics.audiobookshelf_base_url.unwrap(),
+                        specifics.audiobookshelf_token.unwrap(),
+                        self.get_isbn_service().await.unwrap(),
+                    )).await
                 }
                 IntegrationProvider::Komga => {
                     let specifics = integration.clone().provider_specifics.unwrap();
