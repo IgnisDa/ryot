@@ -20,8 +20,7 @@ SET preferences = jsonb_set(
         FROM jsonb_array_elements(COALESCE(preferences->'general'->'dashboard', '[]'::jsonb)) AS elem
         WHERE elem->>'section' = 'ACTIVITY'
       )
-      THEN COALESCE(preferences->'general'->'dashboard', '[]'::jsonb) ||
-           jsonb_build_array(jsonb_build_object('hidden', false, 'section', 'ACTIVITY'))
+      THEN jsonb_build_array(jsonb_build_object('hidden', false, 'section', 'ACTIVITY')) || COALESCE(preferences->'general'->'dashboard', '[]'::jsonb)
       ELSE COALESCE(preferences->'general'->'dashboard', '[]'::jsonb)
     END
   )::jsonb,
