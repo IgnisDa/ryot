@@ -54,7 +54,7 @@ import {
 
 export const loader = async () => redirect($path("/"));
 
-export const action = unstable_defineAction(async ({ request, response }) => {
+export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
 	const url = new URL(request.url);
 	const intent = url.searchParams.get("intent") as string;
@@ -62,6 +62,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 	const redirectToForm = formData.get(redirectToQueryParam);
 	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
 	let returnData = {};
+	const headers = new Headers();
+	let status = undefined;
 	await match(intent)
 		.with("commitMedia", async () => {
 			const submission = processSubmission(formData, commitMediaSchema);
@@ -121,17 +123,14 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				request.headers.get("cookie") || "",
 			);
 			const newColorScheme = currentColorScheme === "dark" ? "light" : "dark";
-			response.headers.append(
+			headers.append(
 				"set-cookie",
 				await colorSchemeCookie.serialize(newColorScheme),
 			);
 		})
 		.with("logout", async () => {
 			redirectTo = $path("/auth");
-			response.headers = extendResponseHeaders(
-				response.headers,
-				getLogoutCookies(),
-			);
+			extendResponseHeaders(headers, getLogoutCookies());
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
@@ -140,8 +139,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				CreateReviewCommentDocument,
 				{ input: submission },
 			);
-			response.headers = extendResponseHeaders(
-				response.headers,
+			extendResponseHeaders(
+				headers,
 				await createToastHeaders({
 					message:
 						submission.incrementLikes || submission.decrementLikes
@@ -173,8 +172,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					},
 				);
 			}
-			response.headers = extendResponseHeaders(
-				response.headers,
+			extendResponseHeaders(
+				headers,
 				await createToastHeaders({
 					message: "Media added to collection successfully",
 					type: "success",
@@ -206,8 +205,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					DeleteReviewDocument,
 					{ reviewId: submission.reviewId },
 				);
-				response.headers = extendResponseHeaders(
-					response.headers,
+				extendResponseHeaders(
+					headers,
 					await createToastHeaders({
 						message: "Review deleted successfully",
 						type: "success",
@@ -219,8 +218,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 					PostReviewDocument,
 					{ input: submission },
 				);
-				response.headers = extendResponseHeaders(
-					response.headers,
+				extendResponseHeaders(
+					headers,
 					await createToastHeaders({
 						message: "Review submitted successfully",
 						type: "success",
@@ -371,8 +370,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				);
 			await sleepForHalfSecond(request);
 			await removeCachedUserCollectionsList(request);
-			response.headers = extendResponseHeaders(
-				response.headers,
+			extendResponseHeaders(
+				headers,
 				await createToastHeaders({
 					type: !deployBulkProgressUpdate ? "error" : "success",
 					message: !deployBulkProgressUpdate
@@ -391,8 +390,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 			);
 			await sleepForHalfSecond(request);
 			await removeCachedUserCollectionsList(request);
-			response.headers = extendResponseHeaders(
-				response.headers,
+			extendResponseHeaders(
+				headers,
 				await createToastHeaders({
 					message: "Progress updated successfully",
 					type: "success",
@@ -411,8 +410,8 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 				CreateUserMeasurementDocument,
 				{ input },
 			);
-			response.headers = extendResponseHeaders(
-				response.headers,
+			extendResponseHeaders(
+				headers,
 				await createToastHeaders({
 					type: "success",
 					message: "Measurement submitted successfully",
@@ -421,10 +420,10 @@ export const action = unstable_defineAction(async ({ request, response }) => {
 		})
 		.run();
 	if (redirectTo) {
-		response.headers.append("Location", redirectTo.toString());
-		response.status = 302;
+		headers.append("Location", redirectTo.toString());
+		status = 302;
 	}
-	return Response.json(returnData);
+	return Response.json(returnData, { headers, status });
 });
 
 const commitMediaSchema = z.object({
