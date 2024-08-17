@@ -17,7 +17,7 @@ reviews_count AS (
     SELECT
         CAST(DATE_TRUNC('week', r."posted_on") AS DATE) AS "review_week",
         r."user_id",
-        COUNT(DISTINCT r."id") AS "review_count"
+        COUNT(DISTINCT r."id") AS "review_counts"
     FROM
         public."review" r
     GROUP BY
@@ -27,7 +27,7 @@ measurements_count AS (
     SELECT
         CAST(DATE_TRUNC('week', m."timestamp") AS DATE) AS "measurement_week",
         m."user_id",
-        COUNT(DISTINCT m."timestamp") AS "measurement_count"
+        COUNT(DISTINCT m."timestamp") AS "measurement_counts"
     FROM
         public."user_measurement" m
     GROUP BY
@@ -37,7 +37,7 @@ workouts_count AS (
     SELECT
         CAST(DATE_TRUNC('week', w."end_time") AS DATE) AS "workout_week",
         w."user_id",
-        COUNT(DISTINCT w."id") AS "workout_count"
+        COUNT(DISTINCT w."id") AS "workout_counts"
     FROM
         public."workout" w
     GROUP BY
@@ -47,13 +47,13 @@ SELECT
     cl."finished_week",
     cl."user_id",
     jsonb_object_agg(cl."lot", cl."lot_count") AS "metadata_counts",
-    COALESCE(rc."review_count", 0) AS "review_count",
-    COALESCE(mc."measurement_count", 0) AS "measurement_count",
-    COALESCE(wc."workout_count", 0) AS "workout_count",
+    COALESCE(rc."review_counts", 0) AS "review_counts",
+    COALESCE(mc."measurement_counts", 0) AS "measurement_counts",
+    COALESCE(wc."workout_counts", 0) AS "workout_counts",
     (COALESCE(SUM(cl."lot_count"), 0) +
-     COALESCE(rc."review_count", 0) +
-     COALESCE(mc."measurement_count", 0) +
-     COALESCE(wc."workout_count", 0)) AS "total_count"
+     COALESCE(rc."review_counts", 0) +
+     COALESCE(mc."measurement_counts", 0) +
+     COALESCE(wc."workout_counts", 0)) AS "total_counts"
 FROM
     counted_lots cl
 LEFT JOIN
@@ -63,7 +63,7 @@ LEFT JOIN
 LEFT JOIN
     workouts_count wc ON cl."finished_week" = wc."workout_week" AND cl."user_id" = wc."user_id"
 GROUP BY
-    cl."finished_week", cl."user_id", rc."review_count", mc."measurement_count", wc."workout_count"
+    cl."finished_week", cl."user_id", rc."review_counts", mc."measurement_counts", wc."workout_counts"
 ORDER BY
     cl."finished_week", cl."user_id";
 
