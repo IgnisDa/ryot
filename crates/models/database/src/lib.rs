@@ -26,4 +26,5 @@ pub mod user_measurement;
 pub mod user_summary;
 pub mod user_to_collection;
 pub mod user_to_entity;
+pub mod weekly_user_activity;
 pub mod workout;

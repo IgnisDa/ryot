@@ -23,4 +23,5 @@ pub use super::user_measurement::Entity as UserMeasurement;
 pub use super::user_summary::Entity as UserSummary;
 pub use super::user_to_collection::Entity as UserToCollection;
 pub use super::user_to_entity::Entity as UserToEntity;
+pub use super::weekly_user_activity::Entity as WeeklyUserActivity;
 pub use super::workout::Entity as Workout;

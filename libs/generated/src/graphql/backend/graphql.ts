@@ -35,15 +35,23 @@ export type Scalars = {
    * * `2000-02-24`
    */
   NaiveDate: { input: string; output: string; }
+  /**
+   * ISO 8601 combined date and time without timezone.
+   *
+   * # Examples
+   *
+   * * `2015-07-01T08:59:60.123`,
+   */
+  NaiveDateTime: { input: any; output: any; }
 };
 
 export type AnimeAiringScheduleSpecifics = {
-  airingAt: Scalars['DateTime']['output'];
+  airingAt: Scalars['NaiveDateTime']['output'];
   episode: Scalars['Int']['output'];
 };
 
 export type AnimeAiringScheduleSpecificsInput = {
-  airingAt: Scalars['DateTime']['input'];
+  airingAt: Scalars['NaiveDateTime']['input'];
   episode: Scalars['Int']['input'];
 };
 

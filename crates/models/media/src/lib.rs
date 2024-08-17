@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt, sync::Arc};
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
-use chrono::{DateTime, NaiveDate,NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use common_models::{
     CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };
@@ -1537,4 +1537,21 @@ pub struct MetadataSearchInput {
 pub struct GroupedCalendarEvent {
     pub events: Vec<GraphqlCalendarEvent>,
     pub date: NaiveDate,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    FromJsonQueryResult,
+    Eq,
+    Serialize,
+    Deserialize,
+    Default,
+    Hash,
+    SimpleObject,
+)]
+pub struct WeeklyUserActivityMetadataCount {
+    pub lot: MediaLot,
+    pub count: usize,
 }
