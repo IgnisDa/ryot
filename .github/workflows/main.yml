@@ -34,8 +34,8 @@ jobs:
           set -euxo pipefail
 
           read -r -d '' IMAGE_NAMES << EOM
-            name=ignisda/${{ github.event.repository.name }}
-            name=${{ env.GHCR_REGISTRY }}/ignisda/${{ github.event.repository.name }}
+            name="ignisda/${{ github.event.repository.name }}"
+            name="${{ env.GHCR_REGISTRY }}/ignisda/${{ github.event.repository.name }}"
           EOM
 
           if [[ "${{ github.event_name }}" == "push" ]]; then
