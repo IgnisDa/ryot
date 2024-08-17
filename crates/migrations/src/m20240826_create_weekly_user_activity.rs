@@ -3,6 +3,7 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub const WEEKLY_USER_ACTIVITY_VIEW: &str = "weekly_user_activity";
 const WEEKLY_USER_ACTIVITY_SQL: &str =
     include_str!("sql/m20240826_create_weekly_user_activity.sql");
 

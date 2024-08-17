@@ -40,6 +40,7 @@ pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
 pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
+pub use m20240826_create_weekly_user_activity::WEEKLY_USER_ACTIVITY_VIEW;
 
 pub struct Migrator;
 
