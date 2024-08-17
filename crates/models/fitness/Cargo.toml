@@ -8,7 +8,7 @@ application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
 common-models = { path = "../../models/common" }
-derive_more = { version = "=1.0.0-beta.6", features = [
+derive_more = { version = "=1.0.0", features = [
   "add",
   "sum",
   "add_assign",
