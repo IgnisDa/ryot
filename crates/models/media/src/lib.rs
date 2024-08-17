@@ -4,7 +4,7 @@ use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Uni
 use boilermates::boilermates;
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use common_models::{
-    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject, TimeOfDay,
+    CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };
 use enums::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
@@ -1550,8 +1550,8 @@ pub struct DailyUserActivityMetadataCount {
 #[derive(
     Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
 )]
-pub struct DailyUserActivityTimeOfDayCount {
-    pub time: TimeOfDay,
+pub struct DailyUserActivityHourCount {
+    pub hour: u8,
     pub count: usize,
 }
 

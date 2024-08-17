@@ -355,11 +355,3 @@ pub struct ExportJob {
     pub exported: Vec<ExportItem>,
     pub url: String,
 }
-
-#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
-pub enum TimeOfDay {
-    Morning,
-    Afternoon,
-    Evening,
-    Night,
-}
