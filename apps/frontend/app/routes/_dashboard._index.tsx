@@ -135,9 +135,9 @@ const MediaColors: EntityColor = {
 	SHOW: "red",
 	VISUAL_NOVEL: "pink",
 	VIDEO_GAME: "teal",
-	review: "gray",
 	workout: "violet",
 	measurement: "indigo",
+	review: "green.5",
 };
 
 export default function Page() {
