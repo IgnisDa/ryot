@@ -4651,21 +4651,26 @@ impl MiscellaneousService {
         }
         let service = self.get_integration_service();
         let maybe_progress_update = match integration.provider {
-            IntegrationProvider::Kodi => service.kodi_progress(&payload).await,
-            IntegrationProvider::Emby => service.emby_progress(&payload).await,
-            IntegrationProvider::Jellyfin => service.jellyfin_progress(&payload).await,
-            IntegrationProvider::Plex => {
-                let specifics = integration.clone().provider_specifics.unwrap();
-                service
-                    .plex_progress(&payload, specifics.plex_username)
-                    .await
-            }
+            // IntegrationProvider::Kodi => service.kodi_progress(&payload).await,
+            // IntegrationProvider::Emby => service.emby_progress(&payload).await,
+            IntegrationProvider::Jellyfin => service.process_progress(IntegrationType::Jellyfin(
+                payload.clone()
+            )).await,
+            // IntegrationProvider::Plex => {
+            //     let specifics = integration.clone().provider_specifics.unwrap();
+            //     service
+            //         .plex_progress(&payload, specifics.plex_username)
+            //         .await
+            // }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(&integration, pu, &integration.user_id)
-                    .await?;
+                let media_vec = pu.0;
+                for media in media_vec
+                {
+                    self.integration_progress_update(&integration, media.clone(), &integration.user_id).await?;
+                }
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
                 to_update.update(&self.db).await?;

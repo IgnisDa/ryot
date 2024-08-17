@@ -37,11 +37,13 @@ use crate::{
     integration_type::IntegrationType,
     komga::KomgaIntegration
 };
+use crate::jellyfin::JellyfinIntegration;
 
 pub mod integration_type;
 mod integration;
 
 mod komga;
+mod jellyfin;
 
 #[derive(Debug)]
 pub struct IntegrationService {
@@ -85,84 +87,7 @@ impl IntegrationService {
         }
     }
 
-    pub async fn jellyfin_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
-        mod models {
-            use super::*;
 
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct JellyfinWebhookSessionPlayStatePayload {
-                pub position_ticks: Option<Decimal>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct JellyfinWebhookSessionPayload {
-                pub play_state: JellyfinWebhookSessionPlayStatePayload,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct JellyfinWebhookItemProviderIdsPayload {
-                pub tmdb: Option<String>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct JellyfinWebhookItemPayload {
-                pub run_time_ticks: Option<Decimal>,
-                #[serde(rename = "Type")]
-                pub item_type: String,
-                pub provider_ids: JellyfinWebhookItemProviderIdsPayload,
-                #[serde(rename = "ParentIndexNumber")]
-                pub season_number: Option<i32>,
-                #[serde(rename = "IndexNumber")]
-                pub episode_number: Option<i32>,
-            }
-            #[derive(Serialize, Deserialize, Debug, Clone)]
-            #[serde(rename_all = "PascalCase")]
-            pub struct JellyfinWebhookPayload {
-                pub event: Option<String>,
-                pub item: JellyfinWebhookItemPayload,
-                pub series: Option<JellyfinWebhookItemPayload>,
-                pub session: JellyfinWebhookSessionPayload,
-            }
-        }
-
-        let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(payload)?;
-        let identifier = if let Some(id) = payload.item.provider_ids.tmdb.as_ref() {
-            Some(id.clone())
-        } else {
-            payload
-                .series
-                .as_ref()
-                .and_then(|s| s.provider_ids.tmdb.clone())
-        };
-        if identifier.is_none() {
-            bail!("No TMDb ID associated with this media")
-        }
-        if payload.item.run_time_ticks.is_none() {
-            bail!("No run time associated with this media")
-        }
-        if payload.session.play_state.position_ticks.is_none() {
-            bail!("No position associated with this media")
-        }
-        let identifier = identifier.unwrap();
-        let runtime = payload.item.run_time_ticks.unwrap();
-        let position = payload.session.play_state.position_ticks.unwrap();
-        let lot = match payload.item.item_type.as_str() {
-            "Episode" => MediaLot::Show,
-            "Movie" => MediaLot::Movie,
-            _ => bail!("Only movies and shows supported"),
-        };
-        Ok(IntegrationMediaSeen {
-            identifier,
-            lot,
-            source: MediaSource::Tmdb,
-            progress: position / runtime * dec!(100),
-            show_season_number: payload.item.season_number,
-            show_episode_number: payload.item.episode_number,
-            provider_watched_on: Some("Jellyfin".to_string()),
-            ..Default::default()
-        })
-    }
 
     pub async fn plex_progress(
         &self,
@@ -585,6 +510,10 @@ impl IntegrationService {
             IntegrationType::Komga(base_url, username, password, provider) => {
                 let komga = KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
                 komga.progress().await
+            }
+            IntegrationType::Jellyfin(payload) => {
+                let jellyfin = JellyfinIntegration::new(payload);
+                jellyfin.progress().await
             }
         }
     }
