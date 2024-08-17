@@ -135,9 +135,9 @@ const MediaColors: EntityColor = {
 	SHOW: "red",
 	VISUAL_NOVEL: "pink",
 	VIDEO_GAME: "teal",
-	workout: "violet",
-	measurement: "indigo",
-	review: "green.5",
+	WORKOUT: "violet",
+	MEASUREMENT: "indigo",
+	REVIEW: "green.5",
 };
 
 export default function Page() {
@@ -662,9 +662,9 @@ const ActivitySection = () => {
 			const data = dailyUserActivities.map((d) => {
 				const data: Record<string, string | number> = {
 					date: d.date,
-					...(d.reviewCounts && { review: d.reviewCounts }),
-					...(d.workoutCounts && { workout: d.workoutCounts }),
-					...(d.measurementCounts && { measurement: d.measurementCounts }),
+					...(d.reviewCounts && { REVIEW: d.reviewCounts }),
+					...(d.workoutCounts && { WORKOUT: d.workoutCounts }),
+					...(d.measurementCounts && { MEASUREMENT: d.measurementCounts }),
 				};
 				for (const metadataCount of d.metadataCounts)
 					data[metadataCount.lot] = metadataCount.count;
@@ -673,26 +673,31 @@ const ActivitySection = () => {
 				return data;
 			});
 			const series = pickBy(trackSeries, (v) => v);
-			return { data, series };
+			const total = data.length;
+			return { total, data, series };
 		},
 	});
 
 	return (
 		<Stack>
 			{dailyUserActivitiesData ? (
-				<BarChart
-					h={400}
-					data={dailyUserActivitiesData.data}
-					dataKey="date"
-					withLegend
-					type="stacked"
-					legendProps={{ verticalAlign: "bottom" }}
-					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
-						name: lot,
-						color: MediaColors[lot],
-						label: changeCase(lot),
-					}))}
-				/>
+				dailyUserActivitiesData.total === 0 ? (
+					<BarChart
+						h={400}
+						data={dailyUserActivitiesData.data}
+						dataKey="date"
+						withLegend
+						type="stacked"
+						legendProps={{ verticalAlign: "bottom" }}
+						series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
+							name: lot,
+							color: MediaColors[lot],
+							label: changeCase(lot),
+						}))}
+					/>
+				) : (
+					<Text>No activity found</Text>
+				)
 			) : (
 				<>
 					<Skeleton height={50} />
