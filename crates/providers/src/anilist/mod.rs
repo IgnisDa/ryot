@@ -94,15 +94,10 @@ impl MediaProviderLanguages for AnilistService {
 impl AnilistService {
     async fn new(page_size: i32, config: &config::AnilistConfig) -> Self {
         let client = get_client_config(URL).await;
-        let preferred_language = if config.prefer_english {
-            AnilistPreferredLanguage::English
-        } else {
-            config.preferred_language.clone()
-        };
         Self {
             client,
-            preferred_language,
             page_size,
+            preferred_language: config.preferred_language.clone(),
         }
     }
 }
