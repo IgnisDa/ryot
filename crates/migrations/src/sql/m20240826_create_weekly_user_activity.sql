@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW "weekly_user_activity" AS
+CREATE MATERIALIZED VIEW "weekly_user_activity" AS
 WITH counted_lots AS (
     SELECT
         CAST(DATE_TRUNC('week', COALESCE(s."finished_on", s."last_updated_on")) AS DATE) AS "finished_week",
@@ -65,3 +65,6 @@ GROUP BY
     cl."finished_week", cl."user_id", rc."review_count", mc."measurement_count", wc."workout_count"
 ORDER BY
     cl."finished_week", cl."user_id";
+
+CREATE UNIQUE INDEX ON "weekly_user_activity" ("finished_week", "user_id");
+CREATE INDEX ON "weekly_user_activity" ("user_id");
