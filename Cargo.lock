@@ -3175,7 +3175,6 @@ dependencies = [
  "enums",
  "eventsource-stream",
  "media-models",
- "openidconnect",
  "providers",
  "radarr-api-rs",
  "regex",

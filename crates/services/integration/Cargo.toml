@@ -12,7 +12,6 @@ eventsource-stream = "=0.2.3"
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 media-models = { path = "../../models/media" }
-openidconnect = { workspace = true }
 providers = { path = "../../providers" }
 radarr-api-rs = "=3.0.1"
 regex = { workspace = true }
