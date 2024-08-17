@@ -22,6 +22,7 @@ jobs:
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
       should-release: ${{ steps.tag.outputs.should-release }}
+      image-names: ${{ steps.check.outputs.image-names }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +31,11 @@ jobs:
       - name: Check commit message
         id: check
         run: |
+          read -r -d '' IMAGE_NAMES << EOM
+            name=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}
+            name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          EOM
+
           if [[ "${{ github.event_name }}" == "push" ]]; then
             echo "should-run=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -42,6 +48,8 @@ jobs:
           else
             echo "should-run=false" >> $GITHUB_OUTPUT
           fi
+
+          echo "image-names=$IMAGE_NAMES" >> $GITHUB_OUTPUT
       - name: Check tag
         id: tag
         run: |
@@ -200,9 +208,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            name=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}
-            name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          images: ${{ needs.pre-workflow-checks.outputs.image-names }}
           tags: |
             type=ref,event=pr
             type=raw,value=develop,enable={{is_default_branch}}
