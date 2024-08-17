@@ -1,5 +1,4 @@
 import { LineChart } from "@mantine/charts";
-import "@mantine/charts/styles.css";
 import {
 	ActionIcon,
 	Box,
