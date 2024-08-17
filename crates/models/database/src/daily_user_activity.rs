@@ -16,10 +16,10 @@ pub struct Model {
     pub user_id: String,
     #[sea_orm(column_type = "Json")]
     pub metadata_counts: Vec<DailyUserActivityMetadataCount>,
-    pub review_counts: Decimal,
-    pub measurement_counts: Decimal,
-    pub workout_counts: Decimal,
-    pub total_counts: Decimal,
+    pub review_counts: i64,
+    pub measurement_counts: i64,
+    pub workout_counts: i64,
+    pub total_counts: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

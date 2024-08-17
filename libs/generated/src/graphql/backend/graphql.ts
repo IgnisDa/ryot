@@ -288,11 +288,11 @@ export type DailyUserActivitiesInput = {
 
 export type DailyUserActivity = {
   date: Scalars['NaiveDate']['output'];
-  measurementCounts: Scalars['Decimal']['output'];
+  measurementCounts: Scalars['Int']['output'];
   metadataCounts: Array<DailyUserActivityMetadataCount>;
-  reviewCounts: Scalars['Decimal']['output'];
-  totalCounts: Scalars['Decimal']['output'];
-  workoutCounts: Scalars['Decimal']['output'];
+  reviewCounts: Scalars['Int']['output'];
+  totalCounts: Scalars['Int']['output'];
+  workoutCounts: Scalars['Int']['output'];
 };
 
 export type DailyUserActivityMetadataCount = {
@@ -3072,7 +3072,7 @@ export type DailyUserActivitiesQueryVariables = Exact<{
 }>;
 
 
-export type DailyUserActivitiesQuery = { dailyUserActivities: Array<{ date: string, reviewCounts: string, workoutCounts: string, measurementCounts: string, metadataCounts: Array<{ lot: MediaLot, count: number }> }> };
+export type DailyUserActivitiesQuery = { dailyUserActivities: Array<{ date: string, reviewCounts: number, workoutCounts: number, measurementCounts: number, metadataCounts: Array<{ lot: MediaLot, count: number }> }> };
 
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
