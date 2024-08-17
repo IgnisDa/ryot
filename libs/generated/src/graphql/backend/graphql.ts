@@ -301,6 +301,7 @@ export type DailyUserActivityMetadataCount = {
 };
 
 export enum DashboardElementLot {
+  Activity = 'ACTIVITY',
   InProgress = 'IN_PROGRESS',
   Recommendations = 'RECOMMENDATIONS',
   Summary = 'SUMMARY',
