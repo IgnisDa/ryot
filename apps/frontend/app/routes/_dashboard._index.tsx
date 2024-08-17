@@ -1,3 +1,4 @@
+import { BarChart } from "@mantine/charts";
 import {
 	Alert,
 	Box,
@@ -7,6 +8,7 @@ import {
 	type MantineColor,
 	RingProgress,
 	SimpleGrid,
+	Skeleton,
 	Stack,
 	Text,
 	Title,
@@ -18,6 +20,7 @@ import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	DailyUserActivitiesDocument,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
@@ -25,7 +28,14 @@ import {
 	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration, isNumber } from "@ryot/ts-utils";
+import {
+	changeCase,
+	humanizeDuration,
+	isBoolean,
+	isNumber,
+	mapValues,
+	pickBy,
+} from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconFriends,
@@ -33,6 +43,7 @@ import {
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
@@ -43,7 +54,13 @@ import {
 	DisplayCollectionEntity,
 	MetadataDisplayItem,
 } from "~/components/media";
-import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
+import {
+	clientGqlService,
+	dayjsLib,
+	getLot,
+	getMetadataIcon,
+	queryFactory,
+} from "~/lib/generals";
 import {
 	useDashboardLayoutData,
 	useUserPreferences,
@@ -106,7 +123,9 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
-const MediaColors: Record<MediaLot, MantineColor> = {
+type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
+
+const MediaColors: EntityColor = {
 	ANIME: "blue",
 	AUDIO_BOOK: "orange",
 	BOOK: "lime",
@@ -116,6 +135,9 @@ const MediaColors: Record<MediaLot, MantineColor> = {
 	SHOW: "red",
 	VISUAL_NOVEL: "pink",
 	VIDEO_GAME: "teal",
+	review: "gray",
+	workout: "violet",
+	measurement: "indigo",
 };
 
 export default function Page() {
@@ -180,6 +202,17 @@ export default function Page() {
 							>
 								<Title>Recommendations</Title>
 								<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+							</Section>
+						))
+						.with([DashboardElementLot.Activity, false], () => (
+							<Section
+								key={DashboardElementLot.Activity}
+								lot={DashboardElementLot.Activity}
+							>
+								<Title>Activity</Title>
+								<Box>
+									<ActivitySection />
+								</Box>
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], () => (
@@ -614,5 +647,62 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
+	);
+};
+
+const ActivitySection = () => {
+	const { data: dailyUserActivitiesData } = useQuery({
+		queryKey: queryFactory.miscellaneous.dailyUserActivities().queryKey,
+		queryFn: async () => {
+			const { dailyUserActivities } = await clientGqlService.request(
+				DailyUserActivitiesDocument,
+				{ input: { startDate: "2024-07-15" } },
+			);
+			const trackSeries = mapValues(MediaColors, () => false);
+			const data = dailyUserActivities.map((d) => {
+				const data: Record<string, string | number> = {
+					date: d.date,
+					...(d.reviewCounts && { review: d.reviewCounts }),
+					...(d.workoutCounts && { workout: d.workoutCounts }),
+					...(d.measurementCounts && { measurement: d.measurementCounts }),
+				};
+				for (const metadataCount of d.metadataCounts)
+					data[metadataCount.lot] = metadataCount.count;
+				for (const key in data)
+					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+				return data;
+			});
+			const series = pickBy(trackSeries, (v) => v);
+			return { data, series };
+		},
+	});
+
+	return (
+		<Stack>
+			{dailyUserActivitiesData ? (
+				<BarChart
+					h={400}
+					data={dailyUserActivitiesData.data}
+					dataKey="date"
+					withLegend
+					type="stacked"
+					legendProps={{ verticalAlign: "bottom" }}
+					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
+						name: lot,
+						color: MediaColors[lot],
+						label: changeCase(lot),
+					}))}
+				/>
+			) : (
+				<>
+					<Skeleton height={50} />
+					<Skeleton height={50} />
+					<Skeleton height={50} />
+					<Skeleton height={50} />
+					<Skeleton height={50} />
+					<Skeleton height={50} />
+				</>
+			)}
+		</Stack>
 	);
 };
