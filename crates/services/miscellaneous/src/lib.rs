@@ -56,7 +56,7 @@ use enums::{
 use file_storage_service::FileStorageService;
 use fitness_models::UserUnitSystem;
 use futures::TryStreamExt;
-use integration_service::IntegrationService;
+use integration_service::{IntegrationService, integration_type::IntegrationType};
 use itertools::Itertools;
 use jwt_service::sign;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
@@ -4444,14 +4444,12 @@ impl MiscellaneousService {
                 }
                 IntegrationProvider::Komga => {
                     let specifics = integration.clone().provider_specifics.unwrap();
-                    integration_service
-                        .komga_progress(
-                            &specifics.komga_base_url.unwrap(),
-                            &specifics.komga_username.unwrap(),
-                            &specifics.komga_password.unwrap(),
-                            specifics.komga_provider.unwrap(),
-                        )
-                        .await
+                    integration_service.process_progress(IntegrationType::Komga(
+                        specifics.komga_base_url.unwrap(),
+                        specifics.komga_username.unwrap(),
+                        specifics.komga_password.unwrap(),
+                        specifics.komga_provider.unwrap(),
+                    )).await
                 }
                 _ => continue,
             };

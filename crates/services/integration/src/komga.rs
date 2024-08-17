@@ -4,22 +4,25 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use application_utils::get_base_http_client;
 use async_graphql::futures_util::StreamExt;
-use database_models::{metadata, prelude::Metadata};
-use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use reqwest::Url;
 use rust_decimal::{
-    prelude::{FromPrimitive, Zero},
     Decimal,
+    prelude::{FromPrimitive, Zero},
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
-use super::{IntegrationMediaCollection, IntegrationMediaSeen, IntegrationService};
+use application_utils::get_base_http_client;
+use database_models::{metadata, prelude::Metadata};
+use enums::{MediaLot, MediaSource};
+
+use crate::integration::Integration;
+
+use super::{IntegrationMediaCollection, IntegrationMediaSeen};
 
 mod komga_book {
     use super::*;
@@ -181,7 +184,25 @@ impl KomgaEventHandler {
     }
 }
 
-impl IntegrationService {
+pub struct KomgaIntegration {
+    base_url: String,
+    username: String,
+    password: String,
+    provider: MediaSource,
+    db: DatabaseConnection,
+}
+
+impl KomgaIntegration {
+    pub fn new(base_url: String, username: String, password: String, provider: MediaSource, db: DatabaseConnection) -> Self {
+        Self {
+            base_url,
+            username,
+            password,
+            provider,
+            db,
+        }
+    }
+
     /// Generates the sse listener for komga. This is intended to be run from another
     /// thread if you run this in the main thread it will lock it up
     ///
@@ -190,7 +211,8 @@ impl IntegrationService {
     /// * `sender`: The unbounded sender, lifetime of this sender is the lifetime of this
     ///             function so the sender doesn't need global lifetime
     /// * `base_url`: URL for komga
-    /// * `cookie`: The komga cookie with the remember-me included
+    /// * `komga_username`: The komga username
+    /// * `komga_password`: The komga password
     ///
     /// returns: Never Returns
     async fn sse_listener(
@@ -254,15 +276,14 @@ impl IntegrationService {
     ///
     /// returns: This only preforms basic error handling on the json parsing
     async fn fetch_api<T: DeserializeOwned>(
+        &self,
         client: &reqwest::Client,
-        komga_username: &str,
-        komga_password: &str,
         api_endpoint: &str,
         api_id: &str,
     ) -> Result<T> {
         client
             .get(format!("{}/{}", api_endpoint, api_id))
-            .basic_auth(komga_username, Some(komga_password))
+            .basic_auth(self.username.clone(), Some(self.password.clone()))
             .send()
             .await?
             .error_for_status()?
@@ -279,21 +300,17 @@ impl IntegrationService {
     ///             should be a links section which is populated with urls from which we
     ///             can extract the series ID. If not a simple search of the db for a manga
     ///             with the same title will be preformed
-    /// * `provider`: The preferred provider if this isn't available another will be used
-    ///               in its place
-    /// * `db`: The metadata db connection
     ///
     /// returns: This contains the MediaSource and the ID of the series.
     async fn find_provider_and_id(
+        &self,
         series: &komga_series::Item,
-        provider: MediaSource,
-        db: &DatabaseConnection,
     ) -> Result<(MediaSource, Option<String>)> {
         let providers = series.metadata.find_providers();
         if !providers.is_empty() {
             Ok(providers
                 .iter()
-                .find(|x| x.0 == provider)
+                .find(|x| x.0 == self.provider)
                 .cloned()
                 .or_else(|| providers.first().cloned())
                 .unwrap_or_default())
@@ -301,7 +318,7 @@ impl IntegrationService {
             let db_manga = Metadata::find()
                 .filter(metadata::Column::Lot.eq(MediaLot::Manga))
                 .filter(Expr::col(metadata::Column::Title).eq(&series.name))
-                .one(db)
+                .one(&self.db)
                 .await?;
 
             Ok(db_manga
@@ -320,48 +337,28 @@ impl IntegrationService {
         Decimal::from_f64(percentage).unwrap_or(Decimal::zero())
     }
 
-    /// Processes the events which are provided by the receiver
-    ///
-    /// # Arguments
-    ///
-    /// * `base_url`: URL for komga
-    /// * `cookie`: The komga cookie with the remember-me included
-    /// * `provider`: The preferred provider if this isn't available another will be used
-    ///               in its place
-    /// * `data`: The data from the event
-    ///
-    /// returns: If the event had no issues processing contains the media which was read
-    ///          otherwise none
     async fn process_events(
         &self,
-        base_url: &str,
-        komga_username: &str,
-        komga_password: &str,
-        provider: MediaSource,
         data: komga_events::Data,
     ) -> Option<IntegrationMediaSeen> {
-        let client = get_base_http_client(&format!("{}/api/v1/", base_url), None);
+        let client = get_base_http_client(&format!("{}/api/v1/", self.base_url), None);
 
-        let book: komga_book::Item = Self::fetch_api(
+        let book: komga_book::Item = self.fetch_api(
             &client,
-            komga_username,
-            komga_password,
             "books",
             &data.book_id,
         )
-        .await
-        .ok()?;
-        let series: komga_series::Item = Self::fetch_api(
+            .await
+            .ok()?;
+        let series: komga_series::Item = self.fetch_api(
             &client,
-            komga_username,
-            komga_password,
             "series",
             &book.series_id,
         )
-        .await
-        .ok()?;
+            .await
+            .ok()?;
 
-        let (source, id) = Self::find_provider_and_id(&series, provider, &self.db)
+        let (source, id) = self.find_provider_and_id(&series)
             .await
             .ok()?;
 
@@ -385,11 +382,7 @@ impl IntegrationService {
     }
 
     pub async fn komga_progress(
-        &self,
-        base_url: &str,
-        komga_username: &str,
-        komga_password: &str,
-        provider: MediaSource,
+        &self
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         // DEV: This object needs global lifetime so we can continue to use the receiver If
         // we ever create more SSE Objects we may want to implement a higher level
@@ -408,20 +401,20 @@ impl IntegrationService {
             let (tx, rx) = mpsc::unbounded_channel::<komga_events::Data>();
             receiver = Some(rx);
 
-            let base_url = base_url.to_string();
+            let base_url = self.base_url.to_string();
             let mutex_task = SSE_LISTS.get_task();
-            let komga_username = komga_username.to_string();
-            let komga_password = komga_password.to_string();
+            let komga_username = self.username.to_string();
+            let komga_password = self.password.to_string();
 
             mutex_task.get_or_init(|| {
                 tokio::spawn(async move {
-                    if let Err(e) = IntegrationService::sse_listener(
+                    if let Err(e) = Self::sse_listener(
                         tx,
                         base_url,
                         komga_username,
                         komga_password,
                     )
-                    .await
+                        .await
                     {
                         tracing::error!("SSE listener error: {}", e);
                     }
@@ -440,13 +433,7 @@ impl IntegrationService {
                         match unique_media_items.entry(event.book_id.clone()) {
                             Entry::Vacant(entry) => {
                                 if let Some(processed_event) = self
-                                    .process_events(
-                                        base_url,
-                                        komga_username,
-                                        komga_password,
-                                        provider,
-                                        event.clone(),
-                                    )
+                                    .process_events(event.clone())
                                     .await
                                 {
                                     entry.insert(processed_event);
@@ -474,5 +461,11 @@ impl IntegrationService {
         tracing::debug!("Media Items: {:?}", media_items);
 
         Ok((media_items, vec![]))
+    }
+}
+
+impl Integration for KomgaIntegration {
+    async fn progress(&self) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+        self.komga_progress().await
     }
 }

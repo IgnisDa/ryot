@@ -32,6 +32,15 @@ use sonarr_api_rs::{
 use specific_models::audiobookshelf as audiobookshelf_models;
 use traits::TraceOk;
 
+use crate::{
+    integration::Integration,
+    integration_type::IntegrationType,
+    komga::KomgaIntegration
+};
+
+pub mod integration_type;
+mod integration;
+
 mod komga;
 
 #[derive(Debug)]
@@ -568,5 +577,15 @@ impl IntegrationService {
             .await
             .trace_ok();
         Ok(())
+    }
+
+    pub async fn process_progress(&self, integration_type: IntegrationType)
+        -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+        match integration_type {
+            IntegrationType::Komga(base_url, username, password, provider) => {
+                let komga = KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
+                komga.progress().await
+            }
+        }
     }
 }
