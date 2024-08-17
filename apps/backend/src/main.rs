@@ -382,9 +382,9 @@ BEGIN
                 ('m20231219_create_metadata_relations', 1684693316),
                 ('m20240509_create_user_to_collection', 1717207621),
                 ('m20240531_create_queued_notification', 1717207621),
-                ('m20240607_create_integration', 1717207621),
-                ('m20240712_create_notification_platform', 1717207621),
-                ('m20240713_create_user_summary', 1717207621);
+                ('m20240607_create_integration', 1723854703),
+                ('m20240712_create_notification_platform', 1723854703),
+                ('m20240713_create_user_summary', 1723854703);
         END IF;
     END IF;
 END $$;
