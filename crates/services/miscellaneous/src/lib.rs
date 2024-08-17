@@ -1159,6 +1159,17 @@ impl MiscellaneousService {
                 if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
+
+                // This is needed for manga as some of the apps will update in weird orders
+                // For example with komga mihon will update out of order to the server
+                if input.manga_chapter_number.is_some() {
+                    last_seen.manga_extra_information =
+                        ActiveValue::set(Some(SeenMangaExtraInformation {
+                            chapter: input.manga_chapter_number,
+                            volume: input.manga_volume_number,
+                        }))
+                }
+
                 last_seen.update(&self.db).await.unwrap()
             }
             ProgressUpdateAction::ChangeState => {
@@ -4153,6 +4164,7 @@ impl MiscellaneousService {
         }
         let lot = match input.provider {
             IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
+            IntegrationProvider::Komga => IntegrationLot::Yank,
             IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
@@ -4430,6 +4442,17 @@ impl MiscellaneousService {
                         )
                         .await
                 }
+                IntegrationProvider::Komga => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+                    integration_service
+                        .komga_progress(
+                            &specifics.komga_base_url.unwrap(),
+                            &specifics.komga_username.unwrap(),
+                            &specifics.komga_password.unwrap(),
+                            specifics.komga_provider.unwrap(),
+                        )
+                        .await
+                }
                 _ => continue,
             };
             if let Ok((seen_progress, collection_progress)) = response {
@@ -4477,7 +4500,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn yank_integrations_data(&self) -> Result<()> {
+    async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .select_only()
@@ -4489,6 +4512,12 @@ impl MiscellaneousService {
             tracing::debug!("Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
         }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data(&self) -> Result<()> {
+        tracing::trace!("Syncing integrations data...");
+        self.yank_integrations_data().await.unwrap();
         Ok(())
     }
 

@@ -454,6 +454,7 @@ pub enum IntegrationProvider {
     Kodi,
     Radarr,
     Sonarr,
+    Komga,
 }
 
 #[derive(

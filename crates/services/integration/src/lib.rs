@@ -32,6 +32,8 @@ use sonarr_api_rs::{
 use specific_models::audiobookshelf as audiobookshelf_models;
 use traits::TraceOk;
 
+mod komga;
+
 #[derive(Debug)]
 pub struct IntegrationService {
     db: DatabaseConnection,
