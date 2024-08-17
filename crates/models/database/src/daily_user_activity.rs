@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[graphql(name = "DailyUserActivity")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub day: Date,
+    pub date: Date,
     #[sea_orm(primary_key, auto_increment = false)]
     #[graphql(skip)]
     pub user_id: String,
