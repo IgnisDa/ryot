@@ -129,8 +129,8 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
 
     if let Err(err) = migrate_from_v6(&db).await {
-        tracing::error!("Migration from v5 failed: {}", err);
-        bail!("There was an error migrating from v5.")
+        tracing::error!("Migration from v6 failed: {}", err);
+        bail!("There was an error migrating from v6.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
