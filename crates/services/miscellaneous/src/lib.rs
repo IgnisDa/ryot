@@ -89,7 +89,7 @@ use media_models::{
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity, WEEKLY_USER_ACTIVITY_VIEW,
+    AliasedUserToCollection, AliasedUserToEntity, DAILY_USER_ACTIVITY_VIEW,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -5811,7 +5811,7 @@ GROUP BY m.id;
         self.db
             .execute_unprepared(&format!(
                 r#"REFRESH MATERIALIZED VIEW "{}""#,
-                WEEKLY_USER_ACTIVITY_VIEW,
+                DAILY_USER_ACTIVITY_VIEW,
             ))
             .await?;
         Ok(())
