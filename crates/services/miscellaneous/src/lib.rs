@@ -24,7 +24,7 @@ use common_utils::{
     VERSION,
 };
 use database_models::{
-    calendar_event, collection, collection_to_entity,
+    calendar_event, collection, collection_to_entity, daily_user_activity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
@@ -64,8 +64,8 @@ use media_models::{
     first_metadata_image_as_url, metadata_images_as_urls, AuthUserInput, CollectionContentsInput,
     CollectionContentsSortBy, CollectionItem, CommitMediaInput, CommitPersonInput,
     CreateCustomMetadataInput, CreateOrUpdateCollectionInput, CreateReviewCommentInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, EntityWithLot,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
+    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, DailyUserActivitiesInput,
+    EntityWithLot, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
     GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
     LoginResponse, LoginResult, MediaAssociatedPersonStateChanges, MediaDetails,
@@ -5805,6 +5805,15 @@ GROUP BY m.id;
             .await?
             .map(|u| u.id);
         Ok(user)
+    }
+
+    pub async fn daily_user_activities(
+        &self,
+        user_id: String,
+        input: DailyUserActivitiesInput,
+    ) -> Result<Vec<daily_user_activity::Model>> {
+        dbg!(user_id, input);
+        todo!()
     }
 
     async fn refresh_database_views(&self) -> Result<()> {

@@ -3,6 +3,7 @@
 pub use super::calendar_event::Entity as CalendarEvent;
 pub use super::collection::Entity as Collection;
 pub use super::collection_to_entity::Entity as CollectionToEntity;
+pub use super::daily_user_activity::Entity as DailyUserActivity;
 pub use super::exercise::Entity as Exercise;
 pub use super::genre::Entity as Genre;
 pub use super::import_report::Entity as ImportReport;
@@ -23,5 +24,4 @@ pub use super::user_measurement::Entity as UserMeasurement;
 pub use super::user_summary::Entity as UserSummary;
 pub use super::user_to_collection::Entity as UserToCollection;
 pub use super::user_to_entity::Entity as UserToEntity;
-pub use super::weekly_user_activity::Entity as WeeklyUserActivity;
 pub use super::workout::Entity as Workout;

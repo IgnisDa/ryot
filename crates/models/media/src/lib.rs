@@ -1551,7 +1551,13 @@ pub struct GroupedCalendarEvent {
     Hash,
     SimpleObject,
 )]
-pub struct WeeklyUserActivityMetadataCount {
+pub struct DailyUserActivityMetadataCount {
     pub lot: MediaLot,
     pub count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct DailyUserActivitiesInput {
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
 }

@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::{BackgroundJob, ChangeCollectionToEntityInput, SearchInput, StringIdObject};
-use database_models::{integration, notification_platform, user, user_summary};
+use database_models::{
+    daily_user_activity, integration, notification_platform, user, user_summary,
+};
 use dependent_models::{
     CollectionContents, CoreDetails, GenreDetails, MetadataGroupDetails, PersonDetails,
     SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
@@ -11,14 +13,15 @@ use dependent_models::{
 use media_models::{
     AuthUserInput, CollectionContentsInput, CollectionItem, CommitMediaInput, CommitPersonInput,
     CreateCustomMetadataInput, CreateOrUpdateCollectionInput, CreateReviewCommentInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, GenreDetailsInput,
-    GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent, LoginResult,
-    MetadataGroupSearchInput, MetadataGroupSearchItem, MetadataGroupsListInput, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, OidcTokenOutput,
-    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PostReviewInput, ProgressUpdateInput,
-    ProviderLanguageInformation, RegisterResult, RegisterUserInput, UpdateSeenItemInput,
-    UpdateUserInput, UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
-    UpdateUserPreferenceInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, DailyUserActivitiesInput,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails,
+    GroupedCalendarEvent, LoginResult, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails, MetadataSearchInput,
+    MetadataSearchItemResponse, OidcTokenOutput, PeopleListInput, PeopleSearchInput,
+    PeopleSearchItem, PostReviewInput, ProgressUpdateInput, ProviderLanguageInformation,
+    RegisterResult, RegisterUserInput, UpdateSeenItemInput, UpdateUserInput,
+    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
+    UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -318,6 +321,16 @@ impl MiscellaneousQuery {
     ) -> Result<Option<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.user_by_oidc_issuer_id(oidc_issuer_id).await
+    }
+
+    async fn daily_user_activities(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: DailyUserActivitiesInput,
+    ) -> Result<Vec<daily_user_activity::Model>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.daily_user_activities(user_id, input).await
     }
 }
 
