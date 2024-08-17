@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
 import { $path } from "remix-routes";
+import invariant from "tiny-invariant";
 import { useInterval } from "usehooks-ts";
 import {
 	CurrentWorkoutKey,
@@ -119,6 +120,7 @@ export const useUserMetadataDetails = (metadataId?: string | null) => {
 export const useDashboardLayoutData = () => {
 	const loaderData =
 		useRouteLoaderData<typeof dashboardLoader>("routes/_dashboard");
+	invariant(loaderData);
 	return loaderData;
 };
 
