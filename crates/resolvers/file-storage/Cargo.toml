@@ -1,0 +1,9 @@
+[package]
+name = "file-storage-resolver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+file-storage-service = { path = "../../services/file-storage" }
+media-models = { path = "../../models/media" }

@@ -18,7 +18,7 @@ tasks:
     outputs: ['out']
 
   copy-files:
-    command: 'cp -r out/. ../../apps/backend/templates'
+    command: 'cp -r out/. ../../crates/services/notification/templates'
     deps: ['~:build-html']
     platform: 'system'
 

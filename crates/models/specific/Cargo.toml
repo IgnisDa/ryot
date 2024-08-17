@@ -1,0 +1,9 @@
+[package]
+name = "specific-models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+strum = { workspace = true }

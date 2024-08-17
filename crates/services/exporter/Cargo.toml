@@ -1,0 +1,26 @@
+[package]
+name = "exporter-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apalis = { workspace = true }
+async-graphql = { workspace = true }
+background = { path = "../../background" }
+chrono = { workspace = true }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+database-models = { path = "../../models/database" }
+database-utils = { path = "../../utils/database" }
+config = { path = "../../config" }
+file-storage-service = { path = "../file-storage" }
+fitness-models = { path = "../../models/fitness" }
+media-models = { path = "../../models/media" }
+mime_guess = "=2.0.5"
+nanoid = { workspace = true }
+reqwest = { workspace = true }
+sea-orm = { workspace = true }
+serde_json = { workspace = true }
+struson = { version = "=0.5.0", features = ["serde"] }
+tokio = { workspace = true }
+tokio-util = { version = "=0.7.11", features = ["codec"] }
