@@ -99,7 +99,12 @@ SELECT
             )
         ) FILTER (WHERE cl."lot" IS NOT NULL), '[]'::jsonb
     ) AS "metadata_counts",
-    jsonb_object_agg(at."time_of_day", at."time_of_day_count") AS "times_of_day",
+    jsonb_agg(
+        jsonb_build_object(
+            'time', at."time_of_day",
+            'count', at."time_of_day_count"
+        )
+    ) AS "time_of_day_counts",
     CAST(SUM(COALESCE(rc."review_counts", 0)) AS BIGINT) AS "review_counts",
     CAST(SUM(COALESCE(mc."measurement_counts", 0)) AS BIGINT) AS "measurement_counts",
     CAST(SUM(COALESCE(wc."workout_counts", 0)) AS BIGINT) AS "workout_counts",
