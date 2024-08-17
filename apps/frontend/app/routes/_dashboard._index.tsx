@@ -681,7 +681,7 @@ const ActivitySection = () => {
 	return (
 		<Stack>
 			{dailyUserActivitiesData ? (
-				dailyUserActivitiesData.total === 0 ? (
+				dailyUserActivitiesData.total !== 0 ? (
 					<BarChart
 						h={400}
 						data={dailyUserActivitiesData.data}
