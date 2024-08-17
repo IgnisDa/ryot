@@ -69,6 +69,8 @@ jobs:
             }
 
             core.setOutput('image-names', imageNames.join('\n'));
+      - name: Print all outputs
+        run: cat $GITHUB_OUTPUT
 
   create-release:
     needs:
