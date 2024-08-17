@@ -381,7 +381,7 @@ impl KomgaIntegration {
         })
     }
 
-    pub async fn komga_progress(
+    async fn komga_progress(
         &self
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         // DEV: This object needs global lifetime so we can continue to use the receiver If
