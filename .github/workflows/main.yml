@@ -36,6 +36,9 @@ jobs:
             name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
           "
 
+          echo "${{ github.event.pull_request.head.repo.full_name }}"
+          echo "${{ github.repository }}"
+
           if [[ "${{ github.event_name }}" == "push" ]]; then
             echo "should-run=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
