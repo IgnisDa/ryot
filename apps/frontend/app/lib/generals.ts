@@ -298,6 +298,9 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	coreDetails: () => ({
 		queryKey: ["coreDetails"],
 	}),
+	dailyUserActivities: (startDate?: string, endDate?: string) => ({
+		queryKey: ["dailyUserActivities", startDate, endDate],
+	}),
 });
 
 export const queryFactory = mergeQueryKeys(
