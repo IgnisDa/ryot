@@ -23,6 +23,7 @@ mod m20240531_create_queued_notification;
 mod m20240607_create_integration;
 mod m20240712_create_notification_platform;
 mod m20240713_create_user_summary;
+mod m20240825_is_v7_migration;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -67,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240607_create_integration::Migration),
             Box::new(m20240712_create_notification_platform::Migration),
             Box::new(m20240713_create_user_summary::Migration),
+            Box::new(m20240825_is_v7_migration::Migration),
         ]
     }
 }
