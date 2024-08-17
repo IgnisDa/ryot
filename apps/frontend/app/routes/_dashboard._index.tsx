@@ -210,9 +210,7 @@ export default function Page() {
 								lot={DashboardElementLot.Activity}
 							>
 								<Title>Activity</Title>
-								<Box>
-									<ActivitySection />
-								</Box>
+								<ActivitySection />
 							</Section>
 						))
 						.with([DashboardElementLot.Summary, false], () => (
@@ -632,7 +630,7 @@ const DisplayStatForMediaType = (props: {
 };
 
 const Section = (props: {
-	children: Array<ReactNode>;
+	children: ReactNode | Array<ReactNode>;
 	lot: DashboardElementLot;
 }) => {
 	return (
@@ -684,11 +682,13 @@ const ActivitySection = () => {
 				dailyUserActivitiesData.total !== 0 ? (
 					<BarChart
 						h={400}
-						data={dailyUserActivitiesData.data}
-						dataKey="date"
 						withLegend
+						tickLine="x"
+						dataKey="date"
 						type="stacked"
+						data={dailyUserActivitiesData.data}
 						legendProps={{ verticalAlign: "bottom" }}
+						xAxisProps={{ tickFormatter: (v) => dayjsLib(v).format("MMM D") }}
 						series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
 							name: lot,
 							color: MediaColors[lot],
