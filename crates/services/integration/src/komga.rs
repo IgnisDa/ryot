@@ -4,32 +4,25 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use application_utils::get_base_http_client;
 use async_graphql::futures_util::StreamExt;
+use database_models::{metadata, prelude::Metadata};
+use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
+use reqwest::Url;
 use rust_decimal::{
-    Decimal,
     prelude::{FromPrimitive, Zero},
+    Decimal,
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
-
-use database_models::{
-    metadata,
-    prelude::Metadata
-};
-
-use crate::{
-    get_base_http_client,
-    MediaLot,
-    MediaSource,
-};
 
 use super::{IntegrationMediaCollection, IntegrationMediaSeen, IntegrationService};
 
 mod komga_book {
-    use serde::{Deserialize, Serialize};
+    use super::*;
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -71,11 +64,6 @@ mod komga_book {
 }
 
 mod komga_series {
-    use openidconnect::url::Url;
-    use serde::{Deserialize, Serialize};
-
-    use crate::MediaSource;
-
     use super::*;
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -161,7 +149,7 @@ mod komga_series {
 }
 
 mod komga_events {
-    use serde::{Deserialize, Serialize};
+    use super::*;
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
     #[serde(rename_all = "camelCase")]
@@ -354,13 +342,24 @@ impl IntegrationService {
     ) -> Option<IntegrationMediaSeen> {
         let client = get_base_http_client(&format!("{}/api/v1/", base_url), None);
 
-        let book: komga_book::Item = Self::fetch_api(&client, komga_username, komga_password, "books", &data.book_id)
-            .await
-            .ok()?;
-        let series: komga_series::Item =
-            Self::fetch_api(&client, komga_username, komga_password, "series", &book.series_id)
-                .await
-                .ok()?;
+        let book: komga_book::Item = Self::fetch_api(
+            &client,
+            komga_username,
+            komga_password,
+            "books",
+            &data.book_id,
+        )
+        .await
+        .ok()?;
+        let series: komga_series::Item = Self::fetch_api(
+            &client,
+            komga_username,
+            komga_password,
+            "series",
+            &book.series_id,
+        )
+        .await
+        .ok()?;
 
         let (source, id) = Self::find_provider_and_id(&series, provider, &self.db)
             .await
@@ -416,7 +415,14 @@ impl IntegrationService {
 
             mutex_task.get_or_init(|| {
                 tokio::spawn(async move {
-                    if let Err(e) = IntegrationService::sse_listener(tx, base_url, komga_username, komga_password).await {
+                    if let Err(e) = IntegrationService::sse_listener(
+                        tx,
+                        base_url,
+                        komga_username,
+                        komga_password,
+                    )
+                    .await
+                    {
                         tracing::error!("SSE listener error: {}", e);
                     }
                 });
@@ -434,7 +440,13 @@ impl IntegrationService {
                         match unique_media_items.entry(event.book_id.clone()) {
                             Entry::Vacant(entry) => {
                                 if let Some(processed_event) = self
-                                    .process_events(base_url, komga_username, komga_password, provider, event.clone())
+                                    .process_events(
+                                        base_url,
+                                        komga_username,
+                                        komga_password,
+                                        provider,
+                                        event.clone(),
+                                    )
                                     .await
                                 {
                                     entry.insert(processed_event);
