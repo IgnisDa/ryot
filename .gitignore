@@ -51,4 +51,4 @@ node_modules
 .astro
 dist
 .vscode/settings.json
-apps/backend/templates
+templates

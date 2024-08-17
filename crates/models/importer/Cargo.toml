@@ -1,0 +1,14 @@
+[package]
+name = "importer-models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+enums = { path = "../../enums" }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["serde_json"]

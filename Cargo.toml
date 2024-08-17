@@ -1,18 +1,46 @@
 [workspace]
-members = ["apps/backend", "libs/config", "libs/database", "libs/rs-utils"]
+members = [
+    "apps/backend",
+    "crates/background",
+    "crates/config",
+    "crates/enums",
+    "crates/migrations",
+    "crates/models",
+    "crates/providers",
+    "crates/resolvers",
+    "crates/services",
+    "crates/traits",
+    "crates/utils",
+]
 resolver = "2"
 
 [workspace.dependencies]
 anyhow = "=1.0.82"
+apalis = { version = "=0.5.3", features = ["cron", "limit"] }
+argon2 = "=0.6.0-pre.1"
 async-graphql = { version = "=7.0.7", features = [
     "chrono",
     "decimal",
     "log",
     "tracing",
 ] }
+async-trait = "=0.1.81"
+aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
+axum = { version = "=0.7.5", features = ["macros", "multipart"] }
+boilermates = "=0.3.0"
 chrono = "=0.4.38"
+chrono-tz = "=0.9.0"
+const-str = "=0.5.7"
+convert_case = "=0.6.0"
 dotenvy_macro = "=0.15.7"
+enum_meta = "=0.7.0"
+itertools = "=0.13.0"
+markdown = "=1.0.0-alpha.18"
 nanoid = "=0.4.0"
+openidconnect = "=3.5.0"
+regex = "=1.10.5"
+rust_decimal = "=1.35.0"
+rust_decimal_macros = "=1.35.0"
 schematic = { version = "=0.16.6", features = [
     "config",
     "json",
@@ -25,7 +53,7 @@ schematic = { version = "=0.16.6", features = [
     "renderer_template",
     "yaml",
 ], default-features = false }
-sea-orm = { version = "=1.0.0-rc.5", features = [
+sea-orm = { version = "=1.0.0", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -36,8 +64,18 @@ sea-orm = { version = "=1.0.0-rc.5", features = [
     "with-rust_decimal",
     "with-uuid",
 ], default-features = false }
-sea-orm-migration = "=1.0.0-rc.5"
+sea-orm-migration = "=1.0.0"
+sea-query = "=0.31.0"
 serde = { version = "=1.0.204", features = ["derive"] }
 serde_json = "=1.0.120"
+serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }
+slug = "=0.1.5"
 strum = { version = "=0.26.2", features = ["derive"] }
+# FIXME: Upgrade once https://github.com/seanmonstar/reqwest/pull/1620 is merged
+reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_url", features = [
+    "json",
+    "stream",
+] }
+tokio = { version = "=1.39.2", features = ["full"] }
 tracing = { version = "=0.1.40", features = ["attributes"] }
+uuid = { version = "=1.10.0", features = ["v4"], default-features = false }

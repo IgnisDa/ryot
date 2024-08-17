@@ -120,7 +120,7 @@ jobs:
         with:
           name: templates
           path: |
-            apps/backend/templates/
+            crates/services/notification/templates/
           retention-days: 1
 
   build-backend:
@@ -144,7 +144,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: templates
-          path: ${{ github.workspace }}/apps/backend/templates/
+          path: ${{ github.workspace }}/crates/services/notification/templates
       - name: Extract build information
         id: build
         env:
@@ -184,7 +184,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-${{ steps.build.outputs.docker-arch }}
-          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/ryot
+          path: ${{ github.workspace }}/target/${{ matrix.platform.target }}/release/backend
           retention-days: 1
 
   build-docker:

@@ -1,0 +1,16 @@
+[package]
+name = "application-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+common-utils = { path = "../common" }
+config = { path = "../../config" }
+file-storage-service = { path = "../../services/file-storage" }
+jwt-service = { path = "../../services/jwt" }
+reqwest = { workspace = true }

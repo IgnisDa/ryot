@@ -62,19 +62,11 @@ manually add the manga to your collection or you can perform the following steps
 3. Navigate to the Links tab
 4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not case-sensitive)
 
-To retrieve your Cookie you will need to perform the following steps:
-
-1. Log out of Komga and log back in while selecting `Remember me`
-2. Press F12 and navigate to the Network tab
-3. Refresh the page
-4. Select any of the urls and look for the `Cookie` Header
-5. Copy the entire cookie it should look something like this `remember-me=REDACTED; SESSION=REDACTED`
-
 Then perform these steps on Ryot
 
 1. Create the integration and select Komga as the source
 2. Provide your BaseURL. Should look something like this `http://komga.acme.com` or `http://127.0.0.1:25600`
-3. Provide your Cookie.
+3. Provide your Username and Password.
 4. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
    is unavailable and will fallback to title search otherwise.
 

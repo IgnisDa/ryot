@@ -1,0 +1,30 @@
+[package]
+name = "integration-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+application-utils = { path = "../../utils/application" }
+async-graphql = { workspace = true }
+enums = { path = "../../enums" }
+eventsource-stream = "=0.2.3"
+database-models = { path = "../../models/database" }
+database-utils = { path = "../../utils/database" }
+media-models = { path = "../../models/media" }
+openidconnect = { workspace = true }
+providers = { path = "../../providers" }
+radarr-api-rs = "=3.0.1"
+regex = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sonarr-api-rs = "=3.0.0"
+specific-models = { path = "../../models/specific" }
+tokio = "1.39.2"
+tracing = { workspace = true }
+traits = { path = "../../traits" }

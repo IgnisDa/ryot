@@ -1,0 +1,27 @@
+[package]
+name = "fitness-models"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+application-utils = { path = "../../utils/application" }
+async-graphql = { workspace = true }
+async-trait = { workspace = true }
+common-models = { path = "../../models/common" }
+derive_more = { version = "=1.0.0-beta.6", features = [
+  "add",
+  "sum",
+  "add_assign",
+], default-features = false }
+enums = { path = "../../enums" }
+file-storage-service = { path = "../../services/file-storage" }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+schematic = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["serde_json"]

@@ -10,6 +10,7 @@ import {
 	Group,
 	Image,
 	Modal,
+	MultiSelect,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -38,6 +39,7 @@ import {
 	useAppSearchParam,
 	useCoreDetails,
 	useFallbackImageUrl,
+	useUserCollections,
 } from "~/lib/hooks";
 import classes from "~/styles/common.module.css";
 
@@ -213,5 +215,32 @@ export const FiltersModal = (props: {
 				{props.children}
 			</Stack>
 		</Modal>
+	);
+};
+
+export const CollectionsFilter = (props: {
+	cookieName: string;
+	collections?: string[];
+}) => {
+	const collections = useUserCollections();
+	const [_, { setP }] = useAppSearchParam(props.cookieName);
+
+	return (
+		<MultiSelect
+			placeholder="Select a collection"
+			defaultValue={props.collections}
+			data={[
+				{
+					group: "My collections",
+					items: collections.map((c) => ({
+						value: c.id.toString(),
+						label: c.name,
+					})),
+				},
+			]}
+			onChange={(v) => setP("collections", v.join(","))}
+			clearable
+			searchable
+		/>
 	);
 };

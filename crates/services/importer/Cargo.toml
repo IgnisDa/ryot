@@ -1,0 +1,44 @@
+[package]
+name = "importer-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+apalis = { workspace = true }
+application-utils = { path = "../../utils/application" }
+async-graphql = { workspace = true }
+background = { path = "../../background" }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+convert_case = { workspace = true }
+csv = "=1.3.0"
+data-encoding = "=2.6.0"
+enum_meta = { workspace = true }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+database-models = { path = "../../models/database" }
+database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
+enums = { path = "../../enums" }
+fitness-models = { path = "../../models/fitness" }
+fitness-service = { path = "../../services/fitness" }
+flate2 = "=1.0.30"
+importer-models = { path = "../../models/importer" }
+itertools = { workspace = true }
+media-models = { path = "../../models/media" }
+miscellaneous-service = { path = "../../services/miscellaneous" }
+providers = { path = "../../providers" }
+regex = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+serde-xml-rs = "=0.6.0"
+specific-models = { path = "../../models/specific" }
+tracing = { workspace = true }
+traits = { path = "../../traits" }
+user-models = { path = "../../models/user" }

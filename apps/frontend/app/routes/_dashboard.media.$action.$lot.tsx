@@ -55,16 +55,16 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	ApplicationGrid,
+	CollectionsFilter,
 	DebouncedSearchInput,
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, MetadataDisplayItem } from "~/components/media";
-import { Verb, getLot, getVerb } from "~/lib/generals";
+import { Verb, commaDelimitedString, getLot, getVerb } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useApplicationEvents,
 	useCoreDetails,
-	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -135,7 +135,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				generalFilter: z
 					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
-				collection: z.string().optional(),
+				collections: commaDelimitedString,
 				invertCollection: zx.BoolAsString.optional(),
 			});
 			const { metadataList } = await serverGqlService.authenticatedRequest(
@@ -148,7 +148,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						filter: {
 							general: urlParse.generalFilter,
-							collection: urlParse.collection,
+							collections: urlParse.collections,
 						},
 						invertCollection: urlParse.invertCollection,
 					},
@@ -221,7 +221,7 @@ export default function Page() {
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
 		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.collection !== defaultFilters.mineCollection;
+		loaderData.mediaList?.url.collections !== defaultFilters.mineCollection;
 
 	return (
 		<Container>
@@ -235,7 +235,7 @@ export default function Page() {
 							$path(
 								"/media/:action/:lot",
 								{ action: v, lot: loaderData.lot.toLowerCase() },
-								{ query: loaderData.query },
+								{ ...(loaderData.query && { query: loaderData.query }) },
 							),
 						);
 				}}
@@ -524,7 +524,6 @@ const MediaSearchItem = (props: {
 
 const FiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const collections = useUserCollections();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	if (!loaderData.mediaList) return null;
@@ -578,22 +577,9 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Flex gap="xs" align="center">
-				<Select
-					flex={1}
-					placeholder="Select a collection"
-					defaultValue={loaderData.mediaList.url.collection?.toString()}
-					data={[
-						{
-							group: "My collections",
-							items: collections.map((c) => ({
-								value: c.id.toString(),
-								label: c.name,
-							})),
-						},
-					]}
-					onChange={(v) => setP("collection", v)}
-					clearable
-					searchable
+				<CollectionsFilter
+					cookieName={loaderData.cookieName}
+					collections={loaderData.mediaList.url.collections}
 				/>
 				<Checkbox
 					label="Invert"

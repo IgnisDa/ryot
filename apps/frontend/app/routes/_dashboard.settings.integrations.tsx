@@ -34,7 +34,7 @@ import {
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isString, processSubmission } from "@ryot/ts-utils";
+import { changeCase, processSubmission } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconCopy,
@@ -50,7 +50,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib } from "~/lib/generals";
+import { commaDelimitedString, dayjsLib } from "~/lib/generals";
 import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
@@ -149,11 +149,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
-const commaDelimitedString = z
-	.string()
-	.optional()
-	.transform((v) => (isString(v) ? v.split(",") : undefined));
-
 const createSchema = z.object({
 	provider: z.nativeEnum(IntegrationProvider),
 	minimumProgress: z.string().optional(),
@@ -164,7 +159,8 @@ const createSchema = z.object({
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
 			komgaBaseUrl: z.string().optional(),
-			komgaCookie: z.string().optional(),
+			komgaUsername: z.string().optional(),
+			komgaPassword: z.string().optional(),
 			komgaProvider: z.nativeEnum(MediaSource).optional(),
 			radarrBaseUrl: z.string().optional(),
 			radarrApiKey: z.string().optional(),
@@ -458,9 +454,14 @@ const CreateIntegrationModal = (props: {
 									name="providerSpecifics.komgaBaseUrl"
 								/>
 								<TextInput
-									label="Cookie"
+									label="Username"
 									required
-									name="providerSpecifics.komgaCookie"
+									name="providerSpecifics.komgaUsername"
+								/>
+								<TextInput
+									label="Password"
+									required
+									name="providerSpecifics.komgaPassword"
 								/>
 								<Select
 									label="Select a provider"

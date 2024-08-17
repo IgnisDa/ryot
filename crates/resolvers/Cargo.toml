@@ -1,0 +1,16 @@
+[package]
+name = "resolvers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+application-utils = { path = "../utils/application" }
+async-graphql = { workspace = true }
+async-graphql-axum = "=7.0.7"
+axum = { workspace = true }
+exporter-resolver = { path = "./exporter" }
+file-storage-resolver = { path = "./file-storage" }
+fitness-resolver = { path = "./fitness" }
+importer-resolver = { path = "./importer" }
+miscellaneous-resolver = { path = "./miscellaneous" }
+router-resolver = { path = "./router" }
