@@ -9,6 +9,7 @@ pub use fitness_resolver::*;
 pub use importer_resolver::*;
 pub use miscellaneous_resolver::*;
 pub use router_resolver::*;
+pub use statistics_resolver::*;
 
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(
@@ -17,6 +18,7 @@ pub struct QueryRoot(
     ExporterQuery,
     ExerciseQuery,
     FileStorageQuery,
+    StatisticsQuery,
 );
 
 #[derive(MergedObject, Default)]

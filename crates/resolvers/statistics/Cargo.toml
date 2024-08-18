@@ -1,0 +1,11 @@
+[package]
+name = "statistics-resolver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+dependent-models = { path = "../../models/dependent" }
+media-models = { path = "../../models/media" }
+statistics-service = { path = "../../services/statistics" }
+traits = { path = "../../traits" }

@@ -13,7 +13,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use cached::{DiskCache, IOCached};
-use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
@@ -24,28 +24,26 @@ use common_utils::{
     VERSION,
 };
 use database_models::{
-    calendar_event, collection, collection_to_entity, daily_user_activity,
+    calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
     person,
     prelude::{
-        CalendarEvent, Collection, CollectionToEntity, DailyUserActivity, Exercise, Genre,
-        ImportReport, Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-        MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
-        QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
-        UserToEntity, Workout,
+        CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Integration,
+        Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
+        MetadataToPerson, NotificationPlatform, Person, QueuedNotification, Review, Seen, User,
+        UserMeasurement, UserSummary, UserToCollection, UserToEntity, Workout,
     },
     queued_notification, review, seen, user, user_measurement, user_summary, user_to_collection,
     user_to_entity, workout,
 };
 use database_utils::{
-    add_entity_to_collection, apply_collection_filter, consolidate_activities,
-    entity_in_collections, ilike_sql, review_by_id, user_by_id,
+    add_entity_to_collection, apply_collection_filter, entity_in_collections, ilike_sql,
+    review_by_id, user_by_id,
 };
 use dependent_models::{
-    CollectionContents, CoreDetails, DailyUserActivitiesResponse,
-    DailyUserActivitiesResponseGroupedBy, GenreDetails, MetadataBaseData, MetadataGroupDetails,
+    CollectionContents, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
     PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
     UserPersonDetails,
 };
@@ -67,25 +65,25 @@ use media_models::{
     AuthUserInput, BookSpecifics, CollectionContentsInput, CollectionContentsSortBy,
     CollectionItem, CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput,
     CreateOrUpdateCollectionInput, CreateReviewCommentInput, CreateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, DailyUserActivitiesInput, EntityWithLot,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
-    LoginResponse, LoginResult, MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
-    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
-    MetadataVideoSource, MovieSpecifics, OidcTokenOutput, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PasswordUserInput, PeopleListInput, PeopleSearchInput,
-    PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
-    PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-    ProgressUpdateInput, ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError,
-    RegisterErrorVariant, RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UpdateUserInput,
-    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
-    UserCalendarEventInput, UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
+    CreateUserNotificationPlatformInput, EntityWithLot, GenreDetailsInput, GenreListItem,
+    GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
+    GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment, IntegrationMediaSeen,
+    LoginError, LoginErrorVariant, LoginResponse, LoginResult, MangaSpecifics,
+    MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter, MediaSortBy,
+    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
+    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
+    MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
+    MetadataVideo, MetadataVideoSource, MovieSpecifics, OidcTokenOutput, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PasswordUserInput, PeopleListInput,
+    PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, PostReviewInput,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError, RegisterErrorVariant,
+    RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UpdateSeenItemInput, UpdateUserInput, UpdateUserIntegrationInput,
+    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserCalendarEventInput,
+    UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput, VideoGameSpecifics, VisualNovelSpecifics,
 };
@@ -5881,66 +5879,6 @@ GROUP BY m.id;
             .await?
             .map(|u| u.id);
         Ok(user)
-    }
-
-    pub async fn daily_user_activities(
-        &self,
-        user_id: String,
-        input: DailyUserActivitiesInput,
-    ) -> Result<DailyUserActivitiesResponse> {
-        static MAX_DAILY_USER_ACTIVITIES: usize = 30;
-        let items = DailyUserActivity::find()
-            .filter(daily_user_activity::Column::UserId.eq(&user_id))
-            .apply_if(input.end_date, |query, v| {
-                query.filter(daily_user_activity::Column::Date.lte(v))
-            })
-            .apply_if(input.start_date, |query, v| {
-                query.filter(daily_user_activity::Column::Date.gte(v))
-            })
-            .all(&self.db)
-            .await?;
-        let grouped_by = match items.len() > MAX_DAILY_USER_ACTIVITIES {
-            true => DailyUserActivitiesResponseGroupedBy::Month,
-            false => DailyUserActivitiesResponseGroupedBy::Day,
-        };
-        let items = match grouped_by {
-            DailyUserActivitiesResponseGroupedBy::Day => items,
-            DailyUserActivitiesResponseGroupedBy::Month => {
-                let mut grouped_activities: HashMap<NaiveDate, Vec<_>> = HashMap::new();
-                for item in items {
-                    let start_of_month = item.date.with_day(1).unwrap();
-                    grouped_activities
-                        .entry(start_of_month)
-                        .and_modify(|e| e.push(item.clone()))
-                        .or_insert(vec![item.clone()]);
-                }
-                let mut items = vec![];
-                for (date, activities) in grouped_activities.into_iter() {
-                    let consolidated_activity = consolidate_activities(activities);
-                    items.push(daily_user_activity::Model {
-                        date,
-                        ..consolidated_activity
-                    });
-                }
-                items.sort_by_key(|i| i.date);
-                items
-            }
-        };
-        let hours = items.iter().flat_map(|i| i.hour_counts.clone());
-        let hours = hours.fold(HashMap::new(), |mut acc, i| {
-            acc.entry(i.hour)
-                .and_modify(|e| *e += i.count)
-                .or_insert(i.count);
-            acc
-        });
-        let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
-        let total_count = items.iter().map(|i| i.total_counts).sum();
-        Ok(DailyUserActivitiesResponse {
-            items,
-            grouped_by,
-            total_count,
-            most_active_hour,
-        })
     }
 
     async fn invalidate_import_jobs(&self) -> Result<()> {

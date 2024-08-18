@@ -6,3 +6,4 @@ pub use integration_service::*;
 pub use jwt_service::*;
 pub use miscellaneous_service::*;
 pub use notification_service::*;
+pub use statistics_service::*;

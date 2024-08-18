@@ -12,6 +12,7 @@ use resolvers::{GraphqlSchema, MutationRoot, QueryRoot};
 use sea_orm::DatabaseConnection;
 use services::{
     ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
+    StatisticsService,
 };
 use utils::FRONTEND_OAUTH_ENDPOINT;
 
@@ -23,6 +24,7 @@ pub struct AppServices {
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
     pub file_storage_service: Arc<FileStorageService>,
+    pub statistics_service: Arc<StatisticsService>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -73,6 +75,7 @@ pub async fn create_app_services(
         perform_application_job,
         file_storage_service.clone(),
     ));
+    let statistics_service = Arc::new(StatisticsService::new(&db));
     AppServices {
         config,
         miscellaneous_service: media_service,
@@ -80,6 +83,7 @@ pub async fn create_app_services(
         exporter_service,
         exercise_service,
         file_storage_service,
+        statistics_service,
     }
 }
 
@@ -126,5 +130,6 @@ pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
     .data(app_services.exporter_service.clone())
     .data(app_services.exercise_service.clone())
     .data(app_services.file_storage_service.clone())
+    .data(app_services.statistics_service.clone())
     .finish()
 }

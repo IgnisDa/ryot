@@ -12,3 +12,4 @@ integration-service = { path = "./integration" }
 jwt-service = { path = "./jwt" }
 miscellaneous-service = { path = "./miscellaneous" }
 notification-service = { path = "./notification" }
+statistics-service = { path = "./statistics" }

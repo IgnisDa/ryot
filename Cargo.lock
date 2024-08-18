@@ -4780,6 +4780,7 @@ dependencies = [
  "importer-resolver",
  "miscellaneous-resolver",
  "router-resolver",
+ "statistics-resolver",
 ]
 
 [[package]]
@@ -5565,6 +5566,7 @@ dependencies = [
  "jwt-service",
  "miscellaneous-service",
  "notification-service",
+ "statistics-service",
 ]
 
 [[package]]
@@ -6017,6 +6019,30 @@ name = "static_assertions_next"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7beae5182595e9a8b683fa98c4317f956c9a2dec3b9716990d20023cc60c766"
+
+[[package]]
+name = "statistics-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "dependent-models",
+ "media-models",
+ "statistics-service",
+ "traits",
+]
+
+[[package]]
+name = "statistics-service"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "chrono",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "media-models",
+ "sea-orm",
+]
 
 [[package]]
 name = "string_cache"
