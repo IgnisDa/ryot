@@ -672,8 +672,8 @@ const ActivitySection = () => {
 				return data;
 			});
 			const series = pickBy(trackSeries, (v) => v);
-			const total = data.length;
-			return { total, data, series };
+			const totalRecords = data.length;
+			return { totalRecords, data, series };
 		},
 	});
 
@@ -685,22 +685,38 @@ const ActivitySection = () => {
 				overlayProps={{ radius: "md", blur: 3 }}
 			/>
 			{dailyUserActivitiesData ? (
-				dailyUserActivitiesData.total !== 0 ? (
-					<BarChart
-						h="100%"
-						withLegend
-						tickLine="x"
-						dataKey="date"
-						type="stacked"
-						data={dailyUserActivitiesData.data}
-						legendProps={{ verticalAlign: "bottom" }}
-						xAxisProps={{ tickFormatter: (v) => dayjsLib(v).format("MMM D") }}
-						series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
-							name: lot,
-							color: MediaColors[lot],
-							label: changeCase(lot),
-						}))}
-					/>
+				dailyUserActivitiesData.totalRecords !== 0 ? (
+					<>
+						<SimpleGrid cols={3}>
+							<Box />
+							<Stack gap={4}>
+								<Text size="lg" ta="center">
+									Total
+								</Text>
+								<Text size="xl" ta="center" fw="bolder">
+									{dailyUserActivitiesData.totalRecords}
+								</Text>
+							</Stack>
+							<Box />
+						</SimpleGrid>
+						<BarChart
+							h="100%"
+							withLegend
+							tickLine="x"
+							dataKey="date"
+							type="stacked"
+							data={dailyUserActivitiesData.data}
+							legendProps={{ verticalAlign: "bottom" }}
+							xAxisProps={{ tickFormatter: (v) => dayjsLib(v).format("MMM D") }}
+							series={Object.keys(dailyUserActivitiesData.series).map(
+								(lot) => ({
+									name: lot,
+									color: MediaColors[lot],
+									label: changeCase(lot),
+								}),
+							)}
+						/>
+					</>
 				) : (
 					<Paper withBorder h="100%" w="100%" display="flex">
 						<Text m="auto" size="xl">
