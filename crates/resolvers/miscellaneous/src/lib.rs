@@ -2,13 +2,11 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::{BackgroundJob, ChangeCollectionToEntityInput, SearchInput, StringIdObject};
-use database_models::{
-    daily_user_activity, integration, notification_platform, user, user_summary,
-};
+use database_models::{integration, notification_platform, user, user_summary};
 use dependent_models::{
-    CollectionContents, CoreDetails, GenreDetails, MetadataGroupDetails, PersonDetails,
-    SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    CollectionContents, CoreDetails, DailyUserActivitiesResponse, GenreDetails,
+    MetadataGroupDetails, PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails,
+    UserMetadataGroupDetails, UserPersonDetails,
 };
 use media_models::{
     AuthUserInput, CollectionContentsInput, CollectionItem, CommitMediaInput, CommitPersonInput,
@@ -328,7 +326,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: DailyUserActivitiesInput,
-    ) -> Result<Vec<daily_user_activity::Model>> {
+    ) -> Result<DailyUserActivitiesResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.daily_user_activities(user_id, input).await

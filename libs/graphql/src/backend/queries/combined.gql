@@ -138,18 +138,22 @@ query PeopleList($input: PeopleListInput!) {
 
 query DailyUserActivities($input: DailyUserActivitiesInput!) {
   dailyUserActivities(input: $input) {
-    date
-    totalCounts
-    reviewCounts
-    workoutCounts
-    measurementCounts
-    hourCounts {
-      hour
-      count
-    }
-    metadataCounts {
-      lot
-      count
+    totalCount
+    mostActiveHour
+    items {
+      date
+      totalCounts
+      reviewCounts
+      workoutCounts
+      measurementCounts
+      hourCounts {
+        hour
+        count
+      }
+      metadataCounts {
+        lot
+        count
+      }
     }
   }
 }

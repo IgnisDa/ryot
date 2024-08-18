@@ -44,9 +44,9 @@ use database_utils::{
     review_by_id, user_by_id,
 };
 use dependent_models::{
-    CollectionContents, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    CollectionContents, CoreDetails, DailyUserActivitiesResponse, GenreDetails, MetadataBaseData,
+    MetadataGroupDetails, PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails,
+    UserMetadataGroupDetails, UserPersonDetails,
 };
 use enum_meta::Meta;
 use enums::{
@@ -5819,7 +5819,7 @@ GROUP BY m.id;
         &self,
         user_id: String,
         input: DailyUserActivitiesInput,
-    ) -> Result<Vec<daily_user_activity::Model>> {
+    ) -> Result<DailyUserActivitiesResponse> {
         let items = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
             .apply_if(input.end_date, |query, v| {
@@ -5831,7 +5831,11 @@ GROUP BY m.id;
             .order_by_asc(daily_user_activity::Column::Date)
             .all(&self.db)
             .await?;
-        Ok(items)
+        Ok(DailyUserActivitiesResponse {
+            total_count: items.len(),
+            items,
+            most_active_hour: 8,
+        })
     }
 
     async fn refresh_database_views(&self) -> Result<()> {

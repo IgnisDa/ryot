@@ -1,8 +1,8 @@
 use async_graphql::{InputObject, OutputType, SimpleObject, Union};
 use common_models::{BackendError, SearchDetails};
 use database_models::{
-    collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
-    user_to_entity, workout,
+    collection, daily_user_activity, exercise, metadata, metadata_group, person, seen, user,
+    user_measurement, user_to_entity, workout,
 };
 use enums::UserToMediaReason;
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
@@ -191,4 +191,11 @@ pub struct ImportResult {
     pub measurements: Vec<user_measurement::Model>,
     pub workouts: Vec<UserWorkoutInput>,
     pub failed_items: Vec<ImportFailedItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct DailyUserActivitiesResponse {
+    pub items: Vec<daily_user_activity::Model>,
+    pub total_count: usize,
+    pub most_active_hour: u8,
 }
