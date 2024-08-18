@@ -47,7 +47,7 @@ import {
 	IconServer,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useMemo } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -659,12 +659,28 @@ const ActivitySection = () => {
 		key: "ActivitySectionTimeSpan",
 		getInitialValueInEffect: true,
 	});
+	const { startDate, endDate } = useMemo(() => {
+		const now = dayjsLib();
+		const end = now.endOf("day");
+		const [startDate, endDate] = match(timeSpan)
+			.with(TimeSpan.Last7Days, () => [now.subtract(7, "days"), end])
+			.with(TimeSpan.Last30Days, () => [now.subtract(30, "days"), end])
+			.with(TimeSpan.Last90Days, () => [now.subtract(90, "days"), end])
+			.with(TimeSpan.Last365Days, () => [now.subtract(365, "days"), end])
+			.with(TimeSpan.AllTime, () => [undefined, undefined])
+			.exhaustive();
+		return {
+			startDate: startDate?.format("YYYY-MM-DD"),
+			endDate: endDate?.format("YYYY-MM-DD"),
+		};
+	}, [timeSpan]);
 	const { data: dailyUserActivitiesData } = useQuery({
-		queryKey: queryFactory.miscellaneous.dailyUserActivities().queryKey,
+		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
+			.queryKey,
 		queryFn: async () => {
 			const { dailyUserActivities } = await clientGqlService.request(
 				DailyUserActivitiesDocument,
-				{ input: { startDate: "2024-07-15" } },
+				{ input: { startDate, endDate } },
 			);
 			const trackSeries = mapValues(MediaColors, () => false);
 			const data = dailyUserActivities.items.map((d) => {
@@ -714,6 +730,7 @@ const ActivitySection = () => {
 							<Select
 								label="Time span"
 								defaultValue={timeSpan}
+								labelProps={{ c: "dimmed" }}
 								data={Object.values(TimeSpan)}
 								onChange={(v) => {
 									if (v) setTimeSpan(v as TimeSpan);
