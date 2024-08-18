@@ -13,7 +13,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use cached::{DiskCache, IOCached};
-use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Datelike, Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
@@ -67,25 +67,26 @@ use media_models::{
     AuthUserInput, BookSpecifics, CollectionContentsInput, CollectionContentsSortBy,
     CollectionItem, CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput,
     CreateOrUpdateCollectionInput, CreateReviewCommentInput, CreateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, DailyUserActivitiesInput, EntityWithLot,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
-    LoginResponse, LoginResult, MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
-    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
-    MetadataVideoSource, MovieSpecifics, OidcTokenOutput, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PasswordUserInput, PeopleListInput, PeopleSearchInput,
-    PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
-    PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
-    ProgressUpdateInput, ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError,
-    RegisterErrorVariant, RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UpdateUserInput,
-    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
-    UserCalendarEventInput, UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
+    CreateUserNotificationPlatformInput, DailyUserActivitiesInput, DailyUserActivityHourCount,
+    DailyUserActivityMetadataCount, EntityWithLot, GenreDetailsInput, GenreListItem,
+    GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
+    GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment, IntegrationMediaSeen,
+    LoginError, LoginErrorVariant, LoginResponse, LoginResult, MangaSpecifics,
+    MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter, MediaSortBy,
+    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
+    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
+    MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
+    MetadataVideo, MetadataVideoSource, MovieSpecifics, OidcTokenOutput, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PasswordUserInput, PeopleListInput,
+    PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, PostReviewInput,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError, RegisterErrorVariant,
+    RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UpdateSeenItemInput, UpdateUserInput, UpdateUserIntegrationInput,
+    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserCalendarEventInput,
+    UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput, VideoGameSpecifics, VisualNovelSpecifics,
 };
@@ -5862,7 +5863,7 @@ GROUP BY m.id;
     ) -> Result<DailyUserActivitiesResponse> {
         static MAX_DAILY_USER_ACTIVITIES: usize = 30;
         let items = DailyUserActivity::find()
-            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .filter(daily_user_activity::Column::UserId.eq(&user_id))
             .apply_if(input.end_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.lte(v))
             })
@@ -5874,6 +5875,28 @@ GROUP BY m.id;
         let grouped_by = match items.len() > MAX_DAILY_USER_ACTIVITIES {
             true => DailyUserActivitiesResponseGroupedBy::Month,
             false => DailyUserActivitiesResponseGroupedBy::Day,
+        };
+        let items = match grouped_by {
+            DailyUserActivitiesResponseGroupedBy::Day => items,
+            DailyUserActivitiesResponseGroupedBy::Month => {
+                let mut grouped_activities: HashMap<NaiveDate, Vec<_>> = HashMap::new();
+                for item in items {
+                    let start_of_month = item.date.with_day(1).unwrap();
+                    grouped_activities
+                        .entry(start_of_month)
+                        .and_modify(|e| e.push(item.clone()))
+                        .or_insert(vec![item.clone()]);
+                }
+                let mut items = vec![];
+                for (date, activities) in grouped_activities.into_iter() {
+                    let consolidated_activity = add_activities(activities);
+                    items.push(daily_user_activity::Model {
+                        date,
+                        ..consolidated_activity
+                    });
+                }
+                items
+            }
         };
         let hours = items.iter().flat_map(|i| i.hour_counts.clone());
         let hours = hours.fold(HashMap::new(), |mut acc, i| {
@@ -6108,5 +6131,52 @@ GROUP BY m.id;
     pub async fn development_mutation(&self) -> Result<bool> {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
         Ok(true)
+    }
+}
+
+fn add_activities(inputs: Vec<daily_user_activity::Model>) -> daily_user_activity::Model {
+    let mut total_counts = 0;
+    let mut review_counts = 0;
+    let mut workout_counts = 0;
+    let mut measurement_counts = 0;
+    let mut new_hour_counts = HashMap::new();
+    let mut hour_counts = vec![];
+    let mut new_metadata_counts = HashMap::new();
+    let mut metadata_counts = vec![];
+    for item in inputs.iter() {
+        total_counts += item.total_counts;
+        review_counts += item.review_counts;
+        workout_counts += item.workout_counts;
+        measurement_counts += item.measurement_counts;
+        for hc in item.hour_counts.iter() {
+            let key = hc.hour;
+            let existing = new_hour_counts.entry(key).or_insert(0);
+            *existing += hc.count;
+        }
+        for mc in item.metadata_counts.iter() {
+            let key = mc.lot;
+            let existing = new_metadata_counts.entry(key).or_insert(0);
+            *existing += mc.count;
+        }
+    }
+    hour_counts.extend(
+        new_hour_counts
+            .into_iter()
+            .map(|(k, v)| DailyUserActivityHourCount { hour: k, count: v }),
+    );
+    metadata_counts.extend(
+        new_metadata_counts
+            .into_iter()
+            .map(|(k, v)| DailyUserActivityMetadataCount { lot: k, count: v }),
+    );
+    daily_user_activity::Model {
+        hour_counts,
+        total_counts,
+        review_counts,
+        workout_counts,
+        metadata_counts,
+        measurement_counts,
+        date: inputs[0].date,
+        user_id: inputs[0].user_id.clone(),
     }
 }
