@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
+use database_models::user_summary;
 use dependent_models::DailyUserActivitiesResponse;
 use media_models::DailyUserActivitiesInput;
 use statistics_service::StatisticsService;
@@ -22,5 +23,12 @@ impl StatisticsQuery {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.daily_user_activities(user_id, input).await
+    }
+
+    /// Get a summary of all the media items that have been consumed by this user.
+    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<user_summary::Model> {
+        let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.latest_user_summary(&user_id).await
     }
 }

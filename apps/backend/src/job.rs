@@ -3,7 +3,9 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::*;
 use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
 use models::CommitMediaInput;
-use services::{ExerciseService, ExporterService, ImporterService, MiscellaneousService};
+use services::{
+    ExerciseService, ExporterService, ImporterService, MiscellaneousService, StatisticsService,
+};
 
 pub async fn background_jobs(
     information: ScheduledJob,
@@ -66,6 +68,7 @@ pub async fn perform_application_job(
     importer_service: Data<Arc<ImporterService>>,
     exporter_service: Data<Arc<ExporterService>>,
     exercise_service: Data<Arc<ExerciseService>>,
+    statistics_service: Data<Arc<StatisticsService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
     tracing::trace!("Started job: {:#?}", name);
@@ -75,10 +78,12 @@ pub async fn perform_application_job(
             .start_importing(user_id, input)
             .await
             .is_ok(),
-        ApplicationJob::RecalculateUserActivitiesAndSummary(user_id) => misc_service
-            .calculate_user_activities_and_summary(&user_id, true)
-            .await
-            .is_ok(),
+        ApplicationJob::RecalculateUserActivitiesAndSummary(user_id, calculate_from_beginning) => {
+            statistics_service
+                .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
+                .await
+                .is_ok()
+        }
         ApplicationJob::ReEvaluateUserWorkouts(user_id) => exercise_service
             .re_evaluate_user_workouts(user_id)
             .await

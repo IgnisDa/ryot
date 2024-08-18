@@ -238,6 +238,7 @@ async fn main() -> Result<()> {
     let media_service_4 = app_services.miscellaneous_service.clone();
     let media_service_5 = app_services.miscellaneous_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
+    let statistics_service_1 = app_services.statistics_service.clone();
 
     let monitor = async {
         Monitor::<TokioExecutor>::new()
@@ -287,6 +288,7 @@ async fn main() -> Result<()> {
                     .data(exporter_service_1.clone())
                     .data(media_service_4.clone())
                     .data(exercise_service_1.clone())
+                    .data(statistics_service_1.clone())
                     .source(perform_application_job_storage)
                     // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
                     .chain(|s| {

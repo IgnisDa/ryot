@@ -6,8 +6,13 @@ edition = "2021"
 [dependencies]
 async-graphql = { workspace = true }
 chrono = { workspace = true }
+common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
+futures = { workspace = true }
 media-models = { path = "../../models/media" }
+rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }

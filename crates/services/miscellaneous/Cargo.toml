@@ -22,7 +22,7 @@ dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
 file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
-futures = "=0.3.30"
+futures = { workspace = true }
 integration-service = { path = "../../services/integration" }
 itertools = { workspace = true }
 jwt-service = { path = "../../services/jwt" }

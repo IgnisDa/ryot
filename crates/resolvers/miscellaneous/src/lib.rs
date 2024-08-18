@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::{BackgroundJob, ChangeCollectionToEntityInput, SearchInput, StringIdObject};
-use database_models::{integration, notification_platform, user, user_summary};
+use database_models::{integration, notification_platform, user};
 use dependent_models::{
     CollectionContents, CoreDetails, GenreDetails, MetadataGroupDetails, PersonDetails,
     SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
@@ -158,13 +158,6 @@ impl MiscellaneousQuery {
     ) -> Vec<ProviderLanguageInformation> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.providers_language_information()
-    }
-
-    /// Get a summary of all the media items that have been consumed by this user.
-    async fn latest_user_summary(&self, gql_ctx: &Context<'_>) -> Result<user_summary::Model> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.latest_user_summary(&user_id).await
     }
 
     /// Get details that can be displayed to a user for a metadata group.

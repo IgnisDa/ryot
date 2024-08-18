@@ -33,7 +33,7 @@ pub enum ApplicationJob {
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     PerformExport(String, Vec<ExportItem>),
-    RecalculateUserActivitiesAndSummary(String),
+    RecalculateUserActivitiesAndSummary(String, bool),
     PerformBackgroundTasks,
     UpdateExerciseLibrary,
 }
