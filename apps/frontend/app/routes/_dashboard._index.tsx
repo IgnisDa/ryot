@@ -24,6 +24,7 @@ import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
 	DailyUserActivitiesDocument,
+	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
@@ -702,6 +703,7 @@ const ActivitySection = () => {
 				data,
 				series,
 				totalCount: dailyUserActivities.totalCount,
+				groupedBy: dailyUserActivities.groupedBy,
 				mostActiveHour: mostActiveHour
 					? getTimeOfDay(convertUTCtoLocal(mostActiveHour))
 					: undefined,
@@ -744,7 +746,18 @@ const ActivitySection = () => {
 					type="stacked"
 					data={dailyUserActivitiesData.data}
 					legendProps={{ verticalAlign: "bottom" }}
-					xAxisProps={{ tickFormatter: (v) => dayjsLib(v).format("MMM D") }}
+					xAxisProps={{
+						tickFormatter: (v) =>
+							dayjsLib(v).format(
+								match(dailyUserActivitiesData.groupedBy)
+									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
+									.with(
+										DailyUserActivitiesResponseGroupedBy.Month,
+										() => "MMM YYYY",
+									)
+									.exhaustive(),
+							),
+					}}
 					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
 						name: lot,
 						color: MediaColors[lot],
