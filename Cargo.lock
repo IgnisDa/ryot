@@ -3490,11 +3490,8 @@ version = "0.1.0"
 dependencies = [
  "enums",
  "indoc",
- "nanoid",
  "sea-orm",
  "sea-orm-migration",
- "serde",
- "serde_json",
  "tracing",
 ]
 
