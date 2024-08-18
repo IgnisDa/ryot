@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt, sync::Arc};
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
-use chrono::{DateTime, NaiveDate,NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use common_models::{
     CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };

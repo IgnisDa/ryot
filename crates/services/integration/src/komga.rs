@@ -8,8 +8,8 @@ use async_graphql::futures_util::StreamExt;
 use eventsource_stream::Eventsource;
 use reqwest::Url;
 use rust_decimal::{
-    Decimal,
     prelude::{FromPrimitive, Zero},
+    Decimal,
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;

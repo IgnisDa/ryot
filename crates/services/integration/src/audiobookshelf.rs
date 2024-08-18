@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use reqwest::header::{AUTHORIZATION, HeaderValue};
+use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
 
 use application_utils::get_base_http_client;

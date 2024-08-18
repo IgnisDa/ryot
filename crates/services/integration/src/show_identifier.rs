@@ -1,13 +1,13 @@
 use anyhow::{bail, Result};
 use sea_orm::{
-    ColumnTrait, Condition, DatabaseConnection, EntityTrait, prelude::async_trait::async_trait,
+    prelude::async_trait::async_trait, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
     QueryFilter,
 };
-use sea_query::{Alias, Expr, extension::postgres::PgExpr, Func};
+use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 
 use database_utils::ilike_sql;
 
-use crate::{MediaLot, MediaSource, metadata};
+use crate::{metadata, MediaLot, MediaSource};
 
 #[async_trait]
 pub trait ShowIdentifier {

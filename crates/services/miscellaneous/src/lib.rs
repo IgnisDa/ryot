@@ -15,23 +15,23 @@ use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use enum_meta::Meta;
 use futures::TryStreamExt;
 use itertools::Itertools;
-use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
+use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use nanoid::nanoid;
 use openidconnect::{
-    AuthenticationFlow,
-    AuthorizationCode,
-    core::{CoreClient, CoreResponseType}, CsrfToken, Nonce, reqwest::async_http_client, Scope, TokenResponse,
+    core::{CoreClient, CoreResponseType},
+    reqwest::async_http_client,
+    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
-    DatabaseConnection, DbBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber, Iterable,
-    JoinType, ModelTrait, Order, PaginatorTrait, prelude::DateTimeUtc, QueryFilter, QueryOrder,
-    QuerySelect, QueryTrait, RelationTrait, sea_query::NullOrdering, Statement, TransactionTrait,
+    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
+    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    Alias, Asterisk, Cond, Condition, Expr, extension::postgres::PgExpr, Func, Iden, OnConflict,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
     PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
 };
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,7 @@ use common_models::{
     UserSummaryData,
 };
 use common_utils::{
-    AUTHOR, get_first_and_last_day_of_month, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
+    get_first_and_last_day_of_month, IsFeatureEnabled, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
     VERSION,
 };
 use database_models::{
@@ -82,15 +82,15 @@ use fitness_models::UserUnitSystem;
 use integration_service::{integration_type::IntegrationType, IntegrationService};
 use jwt_service::sign;
 use media_models::{
-    AuthUserInput, CollectionContentsInput, CollectionContentsSortBy, CollectionItem,
-    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateCollectionInput,
-    CreateReviewCommentInput, CreateUserIntegrationInput, CreateUserNotificationPlatformInput,
-    EntityWithLot, first_metadata_image_as_url, GenreDetailsInput,
-    GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails,
-    GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment,
-    IntegrationMediaSeen, LoginError, LoginErrorVariant, LoginResponse,
-    LoginResult, MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter,
-    MediaSortBy, metadata_images_as_urls, MetadataCreator, MetadataCreatorGroupedByRole,
+    first_metadata_image_as_url, metadata_images_as_urls, AuthUserInput, CollectionContentsInput,
+    CollectionContentsSortBy, CollectionItem, CommitMediaInput, CommitPersonInput,
+    CreateCustomMetadataInput, CreateOrUpdateCollectionInput, CreateReviewCommentInput,
+    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, EntityWithLot,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
+    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
+    ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
+    LoginResponse, LoginResult, MediaAssociatedPersonStateChanges, MediaDetails,
+    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
