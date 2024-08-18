@@ -31,10 +31,12 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	countBy,
 	humanizeDuration,
 	isBoolean,
 	isNumber,
 	mapValues,
+	maxBy,
 	pickBy,
 } from "@ryot/ts-utils";
 import {
@@ -60,6 +62,7 @@ import {
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
+	getTimeOfDay,
 	queryFactory,
 } from "~/lib/generals";
 import {
@@ -658,7 +661,10 @@ const ActivitySection = () => {
 				{ input: { startDate: "2024-07-15" } },
 			);
 			const trackSeries = mapValues(MediaColors, () => false);
+			const times = Array<string>();
 			const data = dailyUserActivities.map((d) => {
+				for (const item of d.hourCounts)
+					times.push(getTimeOfDay(convertUTCtoLocal(item.hour)));
 				const data: Record<string, string | number> = {
 					date: d.date,
 					...(d.reviewCounts && { REVIEW: d.reviewCounts }),
@@ -672,8 +678,9 @@ const ActivitySection = () => {
 				return data;
 			});
 			const series = pickBy(trackSeries, (v) => v);
+			const mostActiveTimeOfDay = maxBy(Object.entries(countBy(times)))?.at(0);
 			const totalRecords = data.length;
-			return { totalRecords, data, series };
+			return { totalRecords, data, series, mostActiveTimeOfDay };
 		},
 	});
 
@@ -689,15 +696,16 @@ const ActivitySection = () => {
 					<>
 						<SimpleGrid cols={3}>
 							<Box />
-							<Stack gap={4}>
-								<Text size="lg" ta="center">
-									Total
-								</Text>
-								<Text size="xl" ta="center" fw="bolder">
-									{dailyUserActivitiesData.totalRecords}
-								</Text>
-							</Stack>
-							<Box />
+							<DisplayStat
+								label="Total"
+								value={dailyUserActivitiesData.totalRecords}
+							/>
+							{dailyUserActivitiesData.mostActiveTimeOfDay ? (
+								<DisplayStat
+									label="Most active time"
+									value={dailyUserActivitiesData.mostActiveTimeOfDay}
+								/>
+							) : undefined}
 						</SimpleGrid>
 						<BarChart
 							h="100%"
@@ -727,4 +735,26 @@ const ActivitySection = () => {
 			) : null}
 		</Stack>
 	);
+};
+
+const DisplayStat = (props: {
+	label: string;
+	value: string | number;
+}) => {
+	return (
+		<Stack gap={4}>
+			<Text size="lg" ta="center" c="dimmed">
+				{props.label}
+			</Text>
+			<Text size="xl" ta="center" fw="bolder">
+				{props.value}
+			</Text>
+		</Stack>
+	);
+};
+
+const convertUTCtoLocal = (utcHour: number) => {
+	const dateInUTC = dayjsLib.utc().startOf("day").hour(utcHour);
+	const localTime = dateInUTC.tz(dayjsLib.tz.guess()).hour();
+	return localTime;
 };
