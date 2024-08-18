@@ -773,9 +773,7 @@ const DisplayStat = (props: {
 }) => {
 	return (
 		<Stack gap={4}>
-			<Text size="lg" c="dimmed">
-				{props.label}
-			</Text>
+			<Text c="dimmed">{props.label}</Text>
 			<Text size="xl" fw="bolder">
 				{props.value}
 			</Text>
