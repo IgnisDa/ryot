@@ -31,12 +31,10 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
-	countBy,
 	humanizeDuration,
 	isBoolean,
 	isNumber,
 	mapValues,
-	maxBy,
 	pickBy,
 } from "@ryot/ts-utils";
 import {
@@ -661,10 +659,7 @@ const ActivitySection = () => {
 				{ input: { startDate: "2024-07-15" } },
 			);
 			const trackSeries = mapValues(MediaColors, () => false);
-			const times = Array<string>();
-			const data = dailyUserActivities.map((d) => {
-				for (const item of d.hourCounts)
-					times.push(getTimeOfDay(convertUTCtoLocal(item.hour)));
+			const data = dailyUserActivities.items.map((d) => {
 				const data: Record<string, string | number> = {
 					date: d.date,
 					...(d.reviewCounts && { REVIEW: d.reviewCounts }),
@@ -678,9 +673,14 @@ const ActivitySection = () => {
 				return data;
 			});
 			const series = pickBy(trackSeries, (v) => v);
-			const mostActiveTimeOfDay = maxBy(Object.entries(countBy(times)))?.at(0);
-			const totalRecords = data.length;
-			return { totalRecords, data, series, mostActiveTimeOfDay };
+			return {
+				data,
+				series,
+				totalCount: dailyUserActivities.totalCount,
+				mostActiveTimeOfDay: getTimeOfDay(
+					convertUTCtoLocal(dailyUserActivities.mostActiveHour),
+				),
+			};
 		},
 	});
 
@@ -692,13 +692,13 @@ const ActivitySection = () => {
 				overlayProps={{ radius: "md", blur: 3 }}
 			/>
 			{dailyUserActivitiesData ? (
-				dailyUserActivitiesData.totalRecords !== 0 ? (
+				dailyUserActivitiesData.totalCount !== 0 ? (
 					<>
 						<SimpleGrid cols={3}>
 							<Box />
 							<DisplayStat
 								label="Total"
-								value={dailyUserActivitiesData.totalRecords}
+								value={dailyUserActivitiesData.totalCount}
 							/>
 							{dailyUserActivitiesData.mostActiveTimeOfDay ? (
 								<DisplayStat

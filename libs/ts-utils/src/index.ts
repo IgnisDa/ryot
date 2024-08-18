@@ -7,7 +7,6 @@ import {
 } from "humanize-duration-ts";
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";
-import countBy from "lodash/countBy";
 import groupBy from "lodash/groupBy";
 import isBoolean from "lodash/isBoolean";
 import isEmpty from "lodash/isEmpty";
@@ -15,7 +14,6 @@ import isEqual from "lodash/isEqual";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
 import mapValues from "lodash/mapValues";
-import maxBy from "lodash/maxBy";
 import omitBy from "lodash/omitBy";
 import pickBy from "lodash/pickBy";
 import set from "lodash/set";
@@ -95,7 +93,6 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 export {
 	camelCase,
 	cloneDeep,
-	countBy,
 	groupBy,
 	isBoolean,
 	isEmpty,
@@ -103,7 +100,6 @@ export {
 	isNumber,
 	isString,
 	mapValues,
-	maxBy,
 	omitBy,
 	pickBy,
 	set,
