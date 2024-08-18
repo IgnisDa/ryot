@@ -7,5 +7,6 @@ pub enum IntegrationType {
     Emby(String),
     Plex(String, Option<String>),
     Audiobookshelf(String, String, GoogleBooksService),
-    Kodi(String)
+    Kodi(String),
+    Sonarr(String, String, i32, String, String)
 }

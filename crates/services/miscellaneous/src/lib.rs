@@ -4571,15 +4571,13 @@ impl MiscellaneousService {
                             .await
                     }
                     IntegrationProvider::Sonarr => {
-                        integration_service
-                            .sonarr_push(
-                                specifics.sonarr_base_url.unwrap(),
-                                specifics.sonarr_api_key.unwrap(),
-                                specifics.sonarr_profile_id.unwrap(),
-                                specifics.sonarr_root_folder_path.unwrap(),
-                                entity_id,
-                            )
-                            .await
+                        integration_service.push(IntegrationType::Sonarr(
+                            specifics.sonarr_base_url.unwrap(),
+                            specifics.sonarr_api_key.unwrap(),
+                            specifics.sonarr_profile_id.unwrap(),
+                            specifics.sonarr_root_folder_path.unwrap(),
+                            entity_id,
+                        )).await
                     }
                     _ => unreachable!(),
                 };
