@@ -3397,7 +3397,7 @@ impl MiscellaneousService {
             podcast_extra_information: Option<SeenPodcastExtraInformation>,
             anime_extra_information: Option<SeenAnimeExtraInformation>,
             manga_extra_information: Option<SeenMangaExtraInformation>,
-            id: String,
+            metadata_id: String,
             audio_book_specifics: Option<AudioBookSpecifics>,
             book_specifics: Option<BookSpecifics>,
             movie_specifics: Option<MovieSpecifics>,
@@ -3422,9 +3422,9 @@ impl MiscellaneousService {
                 seen::Column::PodcastExtraInformation,
                 seen::Column::AnimeExtraInformation,
                 seen::Column::MangaExtraInformation,
+                seen::Column::MetadataId,
             ])
             .columns([
-                metadata::Column::Id,
                 metadata::Column::AudioBookSpecifics,
                 metadata::Column::BookSpecifics,
                 metadata::Column::MovieSpecifics,
@@ -3442,50 +3442,50 @@ impl MiscellaneousService {
         while let Some(seen) = seen_items.try_next().await.unwrap() {
             let mut units_consumed = None;
             if let Some(item) = seen.audio_book_specifics {
-                ls.unique_items.audio_books.insert(seen.id.clone());
+                ls.unique_items.audio_books.insert(seen.metadata_id.clone());
                 if let Some(r) = item.runtime {
                     ls.media.audio_books.runtime += r;
                     units_consumed = Some(r);
                 }
             } else if let Some(item) = seen.book_specifics {
-                ls.unique_items.books.insert(seen.id.clone());
+                ls.unique_items.books.insert(seen.metadata_id.clone());
                 if let Some(pg) = item.pages {
                     ls.media.books.pages += pg;
                     units_consumed = Some(pg);
                 }
             } else if let Some(item) = seen.movie_specifics {
-                ls.unique_items.movies.insert(seen.id.clone());
+                ls.unique_items.movies.insert(seen.metadata_id.clone());
                 if let Some(r) = item.runtime {
                     ls.media.movies.runtime += r;
                     units_consumed = Some(r);
                 }
             } else if let Some(_item) = seen.anime_specifics {
-                ls.unique_items.anime.insert(seen.id.clone());
+                ls.unique_items.anime.insert(seen.metadata_id.clone());
                 if let Some(s) = seen.anime_extra_information.to_owned() {
                     if let Some(episode) = s.episode {
                         ls.unique_items
                             .anime_episodes
-                            .insert((seen.id.clone(), episode));
+                            .insert((seen.metadata_id.clone(), episode));
                         units_consumed = Some(1);
                     }
                 }
             } else if let Some(_item) = seen.manga_specifics {
-                ls.unique_items.manga.insert(seen.id.clone());
+                ls.unique_items.manga.insert(seen.metadata_id.clone());
                 if let Some(s) = seen.manga_extra_information.to_owned() {
                     units_consumed = Some(1);
                     if let Some(chapter) = s.chapter {
                         ls.unique_items
                             .manga_chapters
-                            .insert((seen.id.clone(), chapter));
+                            .insert((seen.metadata_id.clone(), chapter));
                     }
                     if let Some(volume) = s.volume {
                         ls.unique_items
                             .manga_volumes
-                            .insert((seen.id.clone(), volume));
+                            .insert((seen.metadata_id.clone(), volume));
                     }
                 }
             } else if let Some(item) = seen.show_specifics {
-                ls.unique_items.shows.insert(seen.id.clone());
+                ls.unique_items.shows.insert(seen.metadata_id.clone());
                 if let Some(s) = seen.show_extra_information.to_owned() {
                     if let Some((season, episode)) = item.get_episode(s.season, s.episode) {
                         if let Some(r) = episode.runtime {
@@ -3493,17 +3493,17 @@ impl MiscellaneousService {
                             units_consumed = Some(r);
                         }
                         ls.unique_items.show_episodes.insert((
-                            seen.id.clone(),
+                            seen.metadata_id.clone(),
                             season.season_number,
                             episode.episode_number,
                         ));
                         ls.unique_items
                             .show_seasons
-                            .insert((seen.id.clone(), season.season_number));
+                            .insert((seen.metadata_id.clone(), season.season_number));
                     }
                 };
             } else if let Some(item) = seen.podcast_specifics {
-                ls.unique_items.podcasts.insert(seen.id.clone());
+                ls.unique_items.podcasts.insert(seen.metadata_id.clone());
                 if let Some(s) = seen.podcast_extra_information.to_owned() {
                     if let Some(episode) = item.episode_by_number(s.episode) {
                         if let Some(r) = episode.runtime {
@@ -3512,13 +3512,15 @@ impl MiscellaneousService {
                         }
                         ls.unique_items
                             .podcast_episodes
-                            .insert((seen.id.clone(), s.episode));
+                            .insert((seen.metadata_id.clone(), s.episode));
                     }
                 }
             } else if let Some(_item) = seen.video_game_specifics {
-                ls.unique_items.video_games.insert(seen.id.clone());
+                ls.unique_items.video_games.insert(seen.metadata_id.clone());
             } else if let Some(item) = seen.visual_novel_specifics {
-                ls.unique_items.visual_novels.insert(seen.id.clone());
+                ls.unique_items
+                    .visual_novels
+                    .insert(seen.metadata_id.clone());
                 if let Some(r) = item.length {
                     ls.media.visual_novels.runtime += r;
                     units_consumed = Some(r);
@@ -3528,7 +3530,7 @@ impl MiscellaneousService {
             if let Some(consumed_update) = units_consumed {
                 UserToEntity::update_many()
                     .filter(user_to_entity::Column::UserId.eq(user_id))
-                    .filter(user_to_entity::Column::MetadataId.eq(&seen.id))
+                    .filter(user_to_entity::Column::MetadataId.eq(&seen.metadata_id))
                     .col_expr(
                         user_to_entity::Column::MetadataUnitsConsumed,
                         Expr::expr(Func::coalesce([
