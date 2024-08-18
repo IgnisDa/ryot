@@ -88,6 +88,7 @@ export default function Page() {
 										</Text>
 									</Box>
 									<Button
+										disabled={isEditDisabled}
 										{...btnProps}
 										value={BackgroundJob.RecalculateCalendarEvents}
 									>
@@ -104,6 +105,7 @@ export default function Page() {
 										</Text>
 									</Box>
 									<Button
+										disabled={isEditDisabled}
 										{...btnProps}
 										value={BackgroundJob.UpdateAllExercises}
 									>
@@ -121,6 +123,7 @@ export default function Page() {
 										</Text>
 									</Box>
 									<Button
+										disabled={isEditDisabled}
 										{...btnProps}
 										value={BackgroundJob.PerformBackgroundTasks}
 									>
