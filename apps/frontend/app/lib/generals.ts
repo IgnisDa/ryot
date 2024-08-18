@@ -359,3 +359,10 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
 	});
+
+export const getTimeOfDay = (hours: number) => {
+	if (hours >= 5 && hours < 12) return "Morning";
+	if (hours >= 12 && hours < 17) return "Afternoon";
+	if (hours >= 17 && hours < 21) return "Evening";
+	return "Night";
+};
