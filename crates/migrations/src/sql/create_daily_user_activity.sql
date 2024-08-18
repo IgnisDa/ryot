@@ -14,7 +14,7 @@ WITH counted_lots AS (
         s."user_id",
         get_hour_of_day(s."last_updated_on") AS "hour_of_day",
         m."lot",
-        CAST(COUNT(DISTINCT s."metadata_id") AS BIGINT) AS "lot_count"
+        CAST(COUNT(s."metadata_id") AS BIGINT) AS "lot_count"
     FROM
         public."seen" s
     JOIN
@@ -23,6 +23,17 @@ WITH counted_lots AS (
         s."finished_on" IS NOT NULL
     GROUP BY
         CAST(s."finished_on" AS DATE), s."user_id", m."lot", "hour_of_day"
+),
+summed_metadata AS (
+    SELECT
+        cl."date",
+        cl."user_id",
+        cl."lot",
+        SUM(cl."lot_count") AS "total_lot_count"
+    FROM
+        counted_lots cl
+    GROUP BY
+        cl."date", cl."user_id", cl."lot"
 ),
 reviews_count AS (
     SELECT
@@ -87,12 +98,18 @@ SELECT
     at."date",
     at."user_id",
     COALESCE(
-        jsonb_agg(
-            jsonb_build_object(
-                'lot', cl."lot",
-                'count', CAST(cl."lot_count" AS BIGINT)
+        (SELECT
+            jsonb_agg(
+                jsonb_build_object(
+                    'lot', sm."lot",
+                    'count', sm."total_lot_count"
+                )
             )
-        ) FILTER (WHERE cl."lot" IS NOT NULL), '[]'::jsonb
+        FROM
+            summed_metadata sm
+        WHERE
+            sm."date" = at."date" AND sm."user_id" = at."user_id"
+        ), '[]'::jsonb
     ) AS "metadata_counts",
     jsonb_agg(
         jsonb_build_object(
