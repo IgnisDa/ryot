@@ -29,7 +29,7 @@ summed_metadata AS (
         cl."date",
         cl."user_id",
         cl."lot",
-        SUM(cl."lot_count") AS "total_lot_count"
+        CAST(SUM(cl."lot_count") AS BIGINT) AS "total_lot_count"
     FROM
         counted_lots cl
     GROUP BY
@@ -92,14 +92,15 @@ aggregated_times AS (
     GROUP BY
         COALESCE(cl."date", rc."review_day", mc."measurement_day", wc."workout_day"),
         COALESCE(cl."user_id", rc."user_id", mc."user_id", wc."user_id"),
-        COALESCE(cl."hour_of_day", rc."hour_of_day", mc."hour_of_day", wc."hour_of_day")
+        COALESCE(cl."hour_of_day", rc."hour_of_day", mc."hour_of_day", wc."hour_of_day"
+    )
 ),
 distinct_hour_counts AS (
     SELECT
         at."date",
         at."user_id",
         at."hour_of_day",
-        SUM(at."hour_of_day_count") AS "total_hour_count"
+        CAST(SUM(at."hour_of_day_count") AS BIGINT) AS "total_hour_count"
     FROM
         aggregated_times at
     GROUP BY
@@ -122,7 +123,6 @@ SELECT
             sm."date" = at."date" AND sm."user_id" = at."user_id"
         ), '[]'::jsonb
     ) AS "metadata_counts",
-    -- Use the distinct_hour_counts to avoid duplicate hour entries
     (SELECT
         jsonb_agg(
             jsonb_build_object(
@@ -135,27 +135,19 @@ SELECT
     WHERE
         dhc."date" = at."date" AND dhc."user_id" = at."user_id"
     ) AS "hour_counts",
-    CAST(SUM(COALESCE(rc."review_counts", 0)) AS BIGINT) AS "review_counts",
-    CAST(SUM(COALESCE(mc."measurement_counts", 0)) AS BIGINT) AS "measurement_counts",
-    CAST(SUM(COALESCE(wc."workout_counts", 0)) AS BIGINT) AS "workout_counts",
-    CAST(
-        (
-            COALESCE(SUM(cl."lot_count"), 0) +
-            COALESCE(SUM(rc."review_counts"), 0) +
-            COALESCE(SUM(mc."measurement_counts"), 0) +
-            COALESCE(SUM(wc."workout_counts"), 0)
-        ) AS BIGINT
-    ) AS "total_counts"
+    COALESCE(CAST((SELECT SUM(rc."review_counts") FROM reviews_count rc WHERE rc."user_id" = at."user_id" AND rc."review_day" = at."date") AS BIGINT), 0) AS "review_counts",
+    COALESCE(CAST((SELECT SUM(mc."measurement_counts") FROM measurements_count mc WHERE mc."user_id" = at."user_id" AND mc."measurement_day" = at."date") AS BIGINT), 0) AS "measurement_counts",
+    COALESCE(CAST((SELECT SUM(wc."workout_counts") FROM workouts_count wc WHERE wc."user_id" = at."user_id" AND wc."workout_day" = at."date") AS BIGINT), 0) AS "workout_counts",
+    COALESCE(
+        CAST((SELECT SUM(sm."total_lot_count") FROM summed_metadata sm WHERE sm."user_id" = at."user_id" AND sm."date" = at."date") AS BIGINT), 0
+    ) + COALESCE(CAST((SELECT SUM(rc."review_counts") FROM reviews_count rc WHERE rc."user_id" = at."user_id" AND rc."review_day" = at."date") AS BIGINT), 0) +
+    COALESCE(CAST((SELECT SUM(mc."measurement_counts") FROM measurements_count mc WHERE mc."user_id" = at."user_id" AND mc."measurement_day" = at."date") AS BIGINT), 0) +
+    COALESCE(CAST((SELECT SUM(wc."workout_counts") FROM workouts_count wc WHERE wc."user_id" = at."user_id" AND wc."workout_day" = at."date") AS BIGINT), 0)
+    AS "total_counts"
 FROM
     aggregated_times at
 LEFT JOIN
     counted_lots cl ON at."date" = cl."date" AND at."user_id" = cl."user_id"
-LEFT JOIN
-    reviews_count rc ON at."date" = rc."review_day" AND at."user_id" = rc."user_id"
-LEFT JOIN
-    measurements_count mc ON at."date" = mc."measurement_day" AND at."user_id" = mc."user_id"
-LEFT JOIN
-    workouts_count wc ON at."date" = wc."workout_day" AND at."user_id" = wc."user_id"
 GROUP BY
     at."date", at."user_id"
 ORDER BY
