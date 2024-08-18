@@ -3,6 +3,19 @@
 All steps below are required unless otherwise stated. Please follow them in the correct
 order.
 
+## From `v6.*` to `v7.*`
+
+1. Upgrade the server to `v6.10.0` to make sure all `v6` migrations are applied. For
+   example, you can make this change: `image: "ignisda/ryot:v6.10.0"` in your docker-compose
+   file.
+
+2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+   is a guide on how to do this.
+
+3. Now you can upgrade to the latest version (`v7.*`). For example you can make this
+   change: `image: "ignisda/ryot:latest"` in your docker-compose file. This will
+   automatically apply all migrations.
+
 ## From `v5.*` to `v6.*`
 
 !!! warning "Integrations deleted"
