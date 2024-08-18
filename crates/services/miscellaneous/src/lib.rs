@@ -5895,6 +5895,7 @@ GROUP BY m.id;
                         ..consolidated_activity
                     });
                 }
+                items.sort_by_key(|i| i.date);
                 items
             }
         };
