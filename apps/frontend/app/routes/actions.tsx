@@ -331,7 +331,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 						e.episodeNumber === lastSeenEpisode.episode,
 				);
 				invariant(lastSeenEpisodeIndex !== -1);
-				const firstEpisodeIndexToMark = lastSeenEpisodeIndex + 1;
+				const firstEpisodeIndexToMark =
+					lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 				if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
 					for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
 						const episode = allEpisodesInShow[i];
