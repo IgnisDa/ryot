@@ -4560,15 +4560,13 @@ impl MiscellaneousService {
             if let Some(entity_id) = maybe_entity_id {
                 let _push_result = match integration.provider {
                     IntegrationProvider::Radarr => {
-                        integration_service
-                            .radarr_push(
-                                specifics.radarr_base_url.unwrap(),
-                                specifics.radarr_api_key.unwrap(),
-                                specifics.radarr_profile_id.unwrap(),
-                                specifics.radarr_root_folder_path.unwrap(),
-                                entity_id,
-                            )
-                            .await
+                        integration_service.push(IntegrationType::Radarr(
+                            specifics.radarr_base_url.unwrap(),
+                            specifics.radarr_api_key.unwrap(),
+                            specifics.radarr_profile_id.unwrap(),
+                            specifics.radarr_root_folder_path.unwrap(),
+                            entity_id,
+                        )).await
                     }
                     IntegrationProvider::Sonarr => {
                         integration_service.push(IntegrationType::Sonarr(

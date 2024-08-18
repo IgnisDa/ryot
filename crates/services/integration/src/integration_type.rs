@@ -8,5 +8,6 @@ pub enum IntegrationType {
     Plex(String, Option<String>),
     Audiobookshelf(String, String, GoogleBooksService),
     Kodi(String),
-    Sonarr(String, String, i32, String, String)
+    Sonarr(String, String, i32, String, String),
+    Radarr(String, String, i32, String, String)
 }

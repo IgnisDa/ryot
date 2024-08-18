@@ -2,16 +2,7 @@ use anyhow::Result;
 use database_models::metadata;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
-use radarr_api_rs::{
-    apis::{
-        configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
-        movie_api::api_v3_movie_post as radarr_api_v3_movie_post,
-    },
-    models::{AddMovieOptions as RadarrAddMovieOptions, MovieResource as RadarrMovieResource},
-};
 use sea_orm::DatabaseConnection;
-
-use traits::TraceOk;
 
 use crate::{
     integration::Integration,
@@ -24,6 +15,7 @@ use crate::integration::PushIntegration;
 use crate::jellyfin::JellyfinIntegration;
 use crate::kodi::KodiIntegration;
 use crate::plex::PlexIntegration;
+use crate::radarr::RadarrIntegration;
 use crate::sonarr::SonarrIntegration;
 
 pub mod integration_type;
@@ -37,6 +29,7 @@ mod plex;
 mod audiobookshelf;
 mod kodi;
 mod sonarr;
+mod radarr;
 
 #[derive(Debug)]
 pub struct IntegrationService {
@@ -46,35 +39,6 @@ pub struct IntegrationService {
 impl IntegrationService {
     pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
-    }
-
-    pub async fn radarr_push(
-        &self,
-        radarr_base_url: String,
-        radarr_api_key: String,
-        radarr_profile_id: i32,
-        radarr_root_folder_path: String,
-        tmdb_id: String,
-    ) -> Result<()> {
-        let mut configuration = RadarrConfiguration::new();
-        configuration.base_path = radarr_base_url;
-        configuration.api_key = Some(RadarrApiKey {
-            key: radarr_api_key,
-            prefix: None,
-        });
-        let mut resource = RadarrMovieResource::new();
-        resource.tmdb_id = Some(tmdb_id.parse().unwrap());
-        resource.quality_profile_id = Some(radarr_profile_id);
-        resource.root_folder_path = Some(Some(radarr_root_folder_path.clone()));
-        resource.monitored = Some(true);
-        let mut options = RadarrAddMovieOptions::new();
-        options.search_for_movie = Some(true);
-        resource.add_options = Some(Box::new(options));
-        tracing::debug!("Pushing movie to Radarr {:?}", resource);
-        radarr_api_v3_movie_post(&configuration, Some(resource))
-            .await
-            .trace_ok();
-        Ok(())
     }
     pub async fn push(&self, integration_type: IntegrationType) -> Result<()> {
         match integration_type {
@@ -92,6 +56,21 @@ impl IntegrationService {
                     tvdb_id
                 );
                 sonarr.push().await
+            }
+            IntegrationType::Radarr(
+                radarr_base_url,
+                radarr_api_key,
+                radarr_profile_id,
+                radarr_root_folder_path,
+                tmdb_id) => {
+                let radarr = RadarrIntegration::new(
+                    radarr_base_url,
+                    radarr_api_key,
+                    radarr_profile_id,
+                    radarr_root_folder_path,
+                    tmdb_id
+                );
+                radarr.push().await
             }
             _ => Ok(())
         }
