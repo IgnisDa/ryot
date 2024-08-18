@@ -141,6 +141,7 @@ export type ChangeCollectionToEntityInput = {
   metadataId?: InputMaybe<Scalars['String']['input']>;
   personId?: InputMaybe<Scalars['String']['input']>;
   workoutId?: InputMaybe<Scalars['String']['input']>;
+  workoutTemplateId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Collection = {
@@ -271,6 +272,7 @@ export type CreateCustomMetadataInput = {
 };
 
 export type CreateOrUpdateCollectionInput = {
+  collaborators?: InputMaybe<Array<Scalars['String']['input']>>;
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
   updateId?: InputMaybe<Scalars['String']['input']>;

@@ -3193,7 +3193,10 @@ impl MiscellaneousService {
                     Error::new("There was an error creating the collection".to_owned())
                 })?;
                 let id = inserted.id.unwrap();
-                let collaborators = vec![user_id.to_owned()];
+                let mut collaborators = vec![user_id.to_owned()];
+                if let Some(c) = input.collaborators {
+                    collaborators.extend(c);
+                }
                 let inserts = collaborators
                     .into_iter()
                     .map(|c| user_to_collection::ActiveModel {
