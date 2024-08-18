@@ -5830,8 +5830,7 @@ GROUP BY m.id;
                 query.filter(daily_user_activity::Column::Date.gte(v))
             })
             .all(&self.db)
-            .await
-            .unwrap();
+            .await?;
         let hours = items.iter().flat_map(|i| i.hour_counts.clone());
         let hours = hours.fold(HashMap::new(), |mut acc, i| {
             acc.entry(i.hour)
