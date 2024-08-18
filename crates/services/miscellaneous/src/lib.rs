@@ -5829,9 +5829,9 @@ GROUP BY m.id;
             .apply_if(input.start_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.gte(v))
             })
-            .order_by_asc(daily_user_activity::Column::Date)
             .all(&self.db)
-            .await?;
+            .await
+            .unwrap();
         let total_count = items.iter().map(|i| i.total_counts).sum();
         Ok(DailyUserActivitiesResponse {
             total_count,
