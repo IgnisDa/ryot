@@ -3411,7 +3411,6 @@ impl MiscellaneousService {
 
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
-            .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::Progress.eq(100))
             .apply_if(start_from, |query, v| {
                 query.filter(seen::Column::LastUpdatedOn.gt(v))
