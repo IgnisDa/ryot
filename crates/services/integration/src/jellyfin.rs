@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::integration::YankIntegration;
+use super::integration_trait::YankIntegration;
 
 mod models {
     use super::*;
@@ -47,7 +47,7 @@ mod models {
     }
 }
 
-pub struct JellyfinIntegration {
+pub(crate) struct JellyfinIntegration {
     payload: String,
 }
 

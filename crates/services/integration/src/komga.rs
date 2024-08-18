@@ -19,7 +19,7 @@ use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
-use super::{integration::YankIntegration, IntegrationMediaCollection, IntegrationMediaSeen};
+use super::{integration_trait::YankIntegration, IntegrationMediaCollection, IntegrationMediaSeen};
 
 mod komga_book {
     use super::*;
@@ -181,7 +181,7 @@ impl KomgaEventHandler {
     }
 }
 
-pub struct KomgaIntegration {
+pub(crate) struct KomgaIntegration {
     base_url: String,
     username: String,
     password: String,

@@ -1,3 +1,7 @@
+use std::future::Future;
+use media_models::CommitMediaInput;
+use super::{IntegrationMediaCollection, IntegrationMediaSeen};
+use async_graphql::Result as GqlResult;
 use anyhow::{bail, Result};
 use database_models::metadata;
 use database_utils::ilike_sql;
@@ -7,6 +11,25 @@ use sea_orm::{
     QueryFilter,
 };
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
+
+pub trait YankIntegration {
+    async fn yank_progress(
+        &self,
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>;
+}
+
+pub trait YankIntegrationWithCommit {
+    async fn yank_progress<F>(
+        &self,
+        commit_metadata: impl Fn(CommitMediaInput) -> F,
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    where
+        F: Future<Output = GqlResult<metadata::Model>>;
+}
+
+pub trait PushIntegration {
+    async fn push_progress(&self) -> Result<()>;
+}
 
 #[async_trait]
 pub trait ShowIdentifier {
@@ -27,7 +50,7 @@ pub trait ShowIdentifier {
                             Expr::col(metadata::Column::ShowSpecifics),
                             Alias::new("text"),
                         ))
-                        .ilike(ilike_sql(episode)),
+                            .ilike(ilike_sql(episode)),
                     )
                     .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(series))),
             )

@@ -1,24 +1,26 @@
-use anyhow::Result;
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
-use sea_orm::DatabaseConnection;
+use std::future::Future;
 
+use anyhow::Result;
+use async_graphql::Result as GqlResult;
+use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
+use sea_orm::DatabaseConnection;
+use database_models::metadata;
 use crate::{
-    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration, integration::PushIntegration,
-    integration::YankIntegration, integration_type::IntegrationType, jellyfin::JellyfinIntegration,
+    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration, integration_trait::PushIntegration,
+    integration_trait::YankIntegration, integration_type::IntegrationType, jellyfin::JellyfinIntegration,
     kodi::KodiIntegration, komga::KomgaIntegration, plex::PlexIntegration,
-    radarr::RadarrIntegration, sonarr::SonarrIntegration,
+    radarr::RadarrIntegration, sonarr::SonarrIntegration, integration_trait::YankIntegrationWithCommit
 };
 
 mod audiobookshelf;
 mod emby;
-mod integration;
+mod integration_trait;
 pub mod integration_type;
 mod jellyfin;
 mod kodi;
 mod komga;
 mod plex;
 mod radarr;
-mod show_identifier;
 mod sonarr;
 
 #[derive(Debug)]
@@ -64,7 +66,7 @@ impl IntegrationService {
                 );
                 radarr.push_progress().await
             }
-            _ => Ok(()),
+            _ => Err(anyhow::anyhow!("Unsupported integration type")),
         }
     }
 
@@ -90,16 +92,29 @@ impl IntegrationService {
                 let plex = PlexIntegration::new(payload, plex_user, self.db.clone());
                 plex.yank_progress().await
             }
-            IntegrationType::Audiobookshelf(base_url, access_token, isbn_service) => {
-                let audiobookshelf =
-                    AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
-                audiobookshelf.yank_progress().await
-            }
             IntegrationType::Kodi(payload) => {
                 let kodi = KodiIntegration::new(payload);
                 kodi.yank_progress().await
             }
-            _ => Ok((vec![], vec![])),
+            _ => Err(anyhow::anyhow!("Unsupported integration type")),
+        }
+    }
+
+    pub async fn process_progress_commit<F>(
+        &self,
+        integration_type: IntegrationType,
+        commit_metadata: impl Fn(CommitMediaInput) -> F,
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    where
+        F: Future<Output = GqlResult<metadata::Model>>
+    {
+        match integration_type {
+            IntegrationType::Audiobookshelf(base_url, access_token, isbn_service) => {
+                let audiobookshelf =
+                    AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
+                audiobookshelf.yank_progress(commit_metadata).await
+            }
+            _ => Err(anyhow::anyhow!("Unsupported integration type")),
         }
     }
 }

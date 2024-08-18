@@ -1,15 +1,19 @@
+use std::future::Future;
+
 use anyhow::anyhow;
 use application_utils::get_base_http_client;
+use async_graphql::Result as GqlResult;
+use database_models::metadata;
 use enums::{MediaLot, MediaSource};
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
 use providers::google_books::GoogleBooksService;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf;
 
-use super::integration::YankIntegration;
+use super::integration_trait::YankIntegrationWithCommit;
 
-pub struct AudiobookshelfIntegration {
+pub(crate) struct AudiobookshelfIntegration {
     base_url: String,
     access_token: String,
     isbn_service: GoogleBooksService,
@@ -25,10 +29,14 @@ impl AudiobookshelfIntegration {
     }
 }
 
-impl YankIntegration for AudiobookshelfIntegration {
-    async fn yank_progress(
+impl YankIntegrationWithCommit for AudiobookshelfIntegration {
+    async fn yank_progress<F>(
         &self,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+        commit_metadata: impl Fn(CommitMediaInput) -> F,
+    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    where
+        F: Future<Output = GqlResult<metadata::Model>>
+    {
         let client = get_base_http_client(
             &format!("{}/api/", self.base_url),
             Some(vec![(
@@ -82,43 +90,45 @@ impl YankIntegration for AudiobookshelfIntegration {
                         None,
                     )
                 }
-                // else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                // match &item.recent_episode {
-                // Some(pe) => {
-                //     let lot = MediaLot::Podcast;
-                //     let source = MediaSource::Itunes;
-                //     let podcast = (self.commit_metadata)(CommitMediaInput {
-                //         identifier: itunes_id.clone(),
-                //         lot,
-                //         source,
-                //         force_update: None,
-                //     }).await.map_err(|e| anyhow!("Failed to commit metadata: {:?}", e))?;
-                //     match podcast
-                //         .podcast_specifics
-                //         .and_then(|p| p.episode_by_name(&pe.title))
-                //     {
-                //         Some(episode) => (
-                //             format!("{}/{}", item.id, pe.id),
-                //             itunes_id,
-                //             lot,
-                //             source,
-                //             Some(episode),
-                //         ),
-                //         _ => {
-                //             tracing::debug!(
-                //                     "No podcast found for iTunes ID {:#?}",
-                //                     itunes_id
-                //                 );
-                //             continue;
-                //         }
-                //     }
-                // }
-                // _ => {
-                //     tracing::debug!("No recent episode found for item {:#?}", item);
-                //     continue;
-                // }
-                // }
-                // }
+                else if let Some(itunes_id) = metadata.itunes_id.clone() {
+                    match &item.recent_episode {
+                        Some(pe) => {
+                            let lot = MediaLot::Podcast;
+                            let source = MediaSource::Itunes;
+                            let podcast = commit_metadata(CommitMediaInput {
+                                identifier: itunes_id.clone(),
+                                lot,
+                                source,
+                                ..Default::default()
+                            })
+                            .await
+                            .unwrap();
+                            match podcast
+                                .podcast_specifics
+                                .and_then(|p| p.episode_by_name(&pe.title))
+                            {
+                                Some(episode) => (
+                                    format!("{}/{}", item.id, pe.id),
+                                    itunes_id,
+                                    lot,
+                                    source,
+                                    Some(episode),
+                                ),
+                                _ => {
+                                    tracing::debug!(
+                                    "No podcast found for iTunes ID {:#?}",
+                                    itunes_id
+                                );
+                                    continue;
+                                }
+                            }
+                        }
+                        _ => {
+                            tracing::debug!("No recent episode found for item {:#?}", item);
+                            continue;
+                        }
+                    }
+                }
                 else {
                     tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
                     continue;

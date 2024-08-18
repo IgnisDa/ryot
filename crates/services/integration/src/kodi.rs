@@ -2,9 +2,9 @@ use anyhow::bail;
 use enums::MediaSource;
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 
-use super::integration::YankIntegration;
+use super::integration_trait::YankIntegration;
 
-pub struct KodiIntegration {
+pub(crate) struct KodiIntegration {
     payload: String,
 }
 impl KodiIntegration {

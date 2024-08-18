@@ -7,9 +7,9 @@ use sonarr_api_rs::{
 };
 use traits::TraceOk;
 
-use super::integration::PushIntegration;
+use super::integration_trait::PushIntegration;
 
-pub struct SonarrIntegration {
+pub(crate) struct SonarrIntegration {
     sonarr_base_url: String,
     sonarr_api_key: String,
     sonarr_profile_id: i32,

@@ -7,9 +7,9 @@ use radarr_api_rs::{
 };
 use traits::TraceOk;
 
-use super::integration::PushIntegration;
+use super::integration_trait::PushIntegration;
 
-pub struct RadarrIntegration {
+pub(crate) struct RadarrIntegration {
     radarr_base_url: String,
     radarr_api_key: String,
     radarr_profile_id: i32,
@@ -34,7 +34,7 @@ impl RadarrIntegration {
         }
     }
 
-    pub async fn radarr_push(&self) -> anyhow::Result<()> {
+    async fn radarr_push(&self) -> anyhow::Result<()> {
         let mut configuration = RadarrConfiguration::new();
         configuration.base_path = self.radarr_base_url.clone();
         configuration.api_key = Some(RadarrApiKey {

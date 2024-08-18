@@ -6,7 +6,7 @@ use sea_orm::prelude::async_trait::async_trait;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
-use super::{integration::YankIntegration, show_identifier::ShowIdentifier};
+use super::{integration_trait::ShowIdentifier, integration_trait::YankIntegration};
 
 mod models {
     use super::*;
@@ -46,7 +46,7 @@ mod models {
     }
 }
 
-pub struct EmbyIntegration {
+pub(crate) struct EmbyIntegration {
     payload: String,
     db: DatabaseConnection,
 }
