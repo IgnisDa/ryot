@@ -43,7 +43,7 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
-import { dayjsLib } from "~/lib/generals";
+import { FitnessEntity, dayjsLib } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -64,18 +64,15 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-enum Entity {
-	Workouts = "workouts",
-	Templates = "templates",
-}
-
 export const loader = unstable_defineLoader(async ({ params, request }) => {
-	const { entity } = zx.parseParams(params, { entity: z.nativeEnum(Entity) });
+	const { entity } = zx.parseParams(params, {
+		entity: z.nativeEnum(FitnessEntity),
+	});
 	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const itemList = await match(entity)
-		.with(Entity.Workouts, async () => {
+		.with(FitnessEntity.Workouts, async () => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutsListDocument,
@@ -95,7 +92,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 				})),
 			};
 		})
-		.with(Entity.Templates, async () => {
+		.with(FitnessEntity.Templates, async () => {
 			const { userWorkoutTemplatesList } =
 				await serverGqlService.authenticatedRequest(
 					request,
@@ -171,10 +168,10 @@ export default function Page() {
 												{workout.detail ? (
 													<DisplayStat
 														icon={match(loaderData.entity)
-															.with(Entity.Workouts, () => (
+															.with(FitnessEntity.Workouts, () => (
 																<IconClock size={16} />
 															))
-															.with(Entity.Templates, () => (
+															.with(FitnessEntity.Templates, () => (
 																<IconLock size={16} />
 															))
 															.exhaustive()}
@@ -221,7 +218,7 @@ export default function Page() {
 									<Accordion.Panel>
 										<Group justify="space-between">
 											<Text fw="bold">Exercise</Text>
-											{loaderData.entity === Entity.Workouts ? (
+											{loaderData.entity === FitnessEntity.Workouts ? (
 												<Text fw="bold">Best set</Text>
 											) : null}
 										</Group>

@@ -64,6 +64,11 @@ export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });
 
+export enum FitnessEntity {
+	Workouts = "workouts",
+	Templates = "templates",
+}
+
 export const getSetColor = (l: SetLot) =>
 	match(l)
 		.with(SetLot.WarmUp, () => "yellow")

@@ -41,11 +41,12 @@ import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
-import { dayjsLib, getSetColor } from "~/lib/generals";
+import { FitnessEntity, dayjsLib, getSetColor } from "~/lib/generals";
 import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
+	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
 
 export const getSetStatisticsTextToDisplay = (
@@ -211,6 +212,7 @@ export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
 	hideExerciseDetails?: boolean;
+	entityType: FitnessEntity;
 	onCopyButtonClick?: () => Promise<void>;
 	hideExtraDetailsButton?: boolean;
 }) => {
@@ -218,7 +220,15 @@ export const ExerciseHistory = (props: {
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const { data: workoutDetails } = useQuery(
-		getWorkoutDetailsQuery(props.entityId),
+		// @ts-ignore: Too complicated to fix and it just works this way
+		match(props.entityType)
+			.with(FitnessEntity.Workouts, () =>
+				getWorkoutDetailsQuery(props.entityId),
+			)
+			.with(FitnessEntity.Templates, () =>
+				getWorkoutTemplateDetailsQuery(props.entityId),
+			)
+			.exhaustive(),
 	);
 	const exercise =
 		workoutDetails?.details.information.exercises[props.exerciseIdx];

@@ -100,6 +100,7 @@ import {
 } from "~/components/fitness";
 import {
 	CurrentWorkoutKey,
+	FitnessEntity,
 	dayjsLib,
 	getSetColor,
 	getSurroundingElements,
@@ -1074,6 +1075,7 @@ const ExerciseDisplay = (props: {
 															hideExtraDetailsButton
 															exerciseIdx={history.idx}
 															entityId={history.workoutId}
+															entityType={FitnessEntity.Workouts}
 															onCopyButtonClick={async () => {
 																const workout = await getWorkoutDetails(
 																	history.workoutId,

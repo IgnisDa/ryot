@@ -60,7 +60,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { DisplayCollection } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { FitnessEntity, dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useGetWorkoutStarter,
@@ -74,18 +74,13 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-enum Entity {
-	Workouts = "workouts",
-	Templates = "templates",
-}
-
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { id: entityId, entity } = zx.parseParams(params, {
 		id: z.string(),
-		entity: z.nativeEnum(Entity),
+		entity: z.nativeEnum(FitnessEntity),
 	});
 	const resp = await match(entity)
-		.with(Entity.Workouts, async () => {
+		.with(FitnessEntity.Workouts, async () => {
 			const [{ workoutDetails }] = await Promise.all([
 				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
 					workoutId: entityId,
@@ -129,7 +124,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				collections: workoutDetails.collections,
 			};
 		})
-		.with(Entity.Templates, async () => {
+		.with(FitnessEntity.Templates, async () => {
 			const [{ workoutTemplateDetails }] = await Promise.all([
 				serverGqlService.authenticatedRequest(
 					request,
@@ -199,7 +194,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 const deleteSchema = z.object({
 	workoutId: z.string().optional(),
 	templateId: z.string().optional(),
-	entity: z.nativeEnum(Entity),
+	entity: z.nativeEnum(FitnessEntity),
 });
 
 const editWorkoutSchema = z.object({
@@ -220,12 +215,12 @@ export default function Page() {
 	const startWorkout = useGetWorkoutStarter();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const entityLot = match(loaderData.entity)
-		.with(Entity.Workouts, () => EntityLot.Workout)
-		.with(Entity.Templates, () => EntityLot.WorkoutTemplate)
+		.with(FitnessEntity.Workouts, () => EntityLot.Workout)
+		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
 
 	const performDecision = async (
-		entity: Entity,
+		entity: FitnessEntity,
 		repeatedFromId?: string,
 		templateId?: string,
 		updateWorkoutTemplateId?: string,
@@ -294,12 +289,12 @@ export default function Page() {
 								</ActionIcon>
 							</Menu.Target>
 							<Menu.Dropdown>
-								{loaderData.entity === Entity.Templates ? (
+								{loaderData.entity === FitnessEntity.Templates ? (
 									<>
 										<Menu.Item
 											onClick={() =>
 												performDecision(
-													Entity.Workouts,
+													FitnessEntity.Workouts,
 													undefined,
 													loaderData.entityId,
 													undefined,
@@ -312,7 +307,7 @@ export default function Page() {
 										<Menu.Item
 											onClick={() =>
 												performDecision(
-													Entity.Templates,
+													FitnessEntity.Templates,
 													undefined,
 													undefined,
 													loaderData.entityId,
@@ -327,7 +322,10 @@ export default function Page() {
 									<>
 										<Menu.Item
 											onClick={() =>
-												performDecision(Entity.Workouts, loaderData.entityId)
+												performDecision(
+													FitnessEntity.Workouts,
+													loaderData.entityId,
+												)
 											}
 											leftSection={<IconRepeat size={14} />}
 										>
@@ -362,8 +360,8 @@ export default function Page() {
 									<input
 										type="hidden"
 										name={match(loaderData.entity)
-											.with(Entity.Workouts, () => "workoutId")
-											.with(Entity.Templates, () => "templateId")
+											.with(FitnessEntity.Workouts, () => "workoutId")
+											.with(FitnessEntity.Templates, () => "templateId")
 											.exhaustive()}
 										value={loaderData.entityId}
 									/>
@@ -511,6 +509,7 @@ export default function Page() {
 							exerciseIdx={idx}
 							entityId={loaderData.entityId}
 							key={`${exercise.name}-${idx}`}
+							entityType={loaderData.entity}
 						/>
 					))}
 				</Stack>

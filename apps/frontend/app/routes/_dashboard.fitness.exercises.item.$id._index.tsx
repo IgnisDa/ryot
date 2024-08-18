@@ -50,7 +50,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { FitnessEntity, dayjsLib } from "~/lib/generals";
 import { useUserDetails, useUserUnitSystem } from "~/lib/hooks";
 import {
 	addExerciseToWorkout,
@@ -239,6 +239,7 @@ export default function Page() {
 											key={history.workoutId}
 											exerciseIdx={history.idx}
 											entityId={history.workoutId}
+											entityType={FitnessEntity.Workouts}
 										/>
 									</Box>
 								)}
