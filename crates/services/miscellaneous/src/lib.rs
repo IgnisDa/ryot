@@ -3004,21 +3004,22 @@ impl MiscellaneousService {
         user_id: &String,
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
+        let txn = self.db.begin().await?;
         let meta = Collection::find()
             .filter(collection::Column::Name.eq(input.name.clone()))
             .filter(collection::Column::UserId.eq(user_id))
-            .one(&self.db)
+            .one(&txn)
             .await
             .unwrap();
         let mut new_name = input.name.clone();
-        match meta {
-            Some(m) if input.update_id.is_none() => Ok(StringIdObject { id: m.id }),
+        let created = match meta {
+            Some(m) if input.update_id.is_none() => m.id,
             _ => {
                 let col = collection::ActiveModel {
                     id: match input.update_id {
                         Some(i) => {
                             let already = Collection::find_by_id(i.clone())
-                                .one(&self.db)
+                                .one(&txn)
                                 .await
                                 .unwrap()
                                 .unwrap();
@@ -3039,20 +3040,26 @@ impl MiscellaneousService {
                     information_template: ActiveValue::Set(input.information_template),
                     ..Default::default()
                 };
-                let inserted = col.save(&self.db).await.map_err(|_| {
+                let inserted = col.save(&txn).await.map_err(|_| {
                     Error::new("There was an error creating the collection".to_owned())
                 })?;
                 let id = inserted.id.unwrap();
-                user_to_collection::ActiveModel {
-                    user_id: ActiveValue::Set(user_id.to_owned()),
-                    collection_id: ActiveValue::Set(id.clone()),
-                }
-                .insert(&self.db)
-                .await
-                .ok();
-                Ok(StringIdObject { id })
+                let collaborators = vec![user_id.to_owned()];
+                let inserts = collaborators
+                    .into_iter()
+                    .map(|c| user_to_collection::ActiveModel {
+                        user_id: ActiveValue::Set(c),
+                        collection_id: ActiveValue::Set(id.clone()),
+                    });
+                UserToCollection::insert_many(inserts)
+                    .on_conflict(OnConflict::new().do_nothing().to_owned())
+                    .exec_without_returning(&txn)
+                    .await?;
+                id
             }
-        }
+        };
+        txn.commit().await?;
+        Ok(StringIdObject { id: created })
     }
 
     pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
