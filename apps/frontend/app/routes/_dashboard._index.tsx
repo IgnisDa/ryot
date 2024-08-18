@@ -16,6 +16,7 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
+import { useInViewport } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Link, useLoaderData } from "@remix-run/react";
@@ -655,6 +656,7 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 };
 
 const ActivitySection = () => {
+	const { ref, inViewport } = useInViewport();
 	const [timeSpan, setTimeSpan] = useLocalStorage(
 		"ActivitySectionTimeSpan",
 		TimeSpan.Last7Days,
@@ -677,6 +679,7 @@ const ActivitySection = () => {
 	const { data: dailyUserActivitiesData } = useQuery({
 		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
 			.queryKey,
+		enabled: inViewport,
 		queryFn: async () => {
 			const { dailyUserActivities } = await clientGqlService.request(
 				DailyUserActivitiesDocument,
@@ -711,7 +714,7 @@ const ActivitySection = () => {
 	});
 
 	return (
-		<Stack pos="relative" h={400}>
+		<Stack pos="relative" h={400} ref={ref}>
 			<LoadingOverlay
 				visible={!dailyUserActivitiesData}
 				zIndex={1000}
