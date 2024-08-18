@@ -19,6 +19,7 @@ pub struct Model {
     pub workout_counts: i64,
     pub measurement_counts: i64,
     #[sea_orm(column_type = "Json")]
+    #[graphql(skip)]
     pub hour_counts: Vec<DailyUserActivityHourCount>,
     #[sea_orm(column_type = "Json")]
     pub metadata_counts: Vec<DailyUserActivityMetadataCount>,

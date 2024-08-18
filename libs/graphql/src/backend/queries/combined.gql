@@ -146,10 +146,6 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
       reviewCounts
       workoutCounts
       measurementCounts
-      hourCounts {
-        hour
-        count
-      }
       metadataCounts {
         lot
         count
