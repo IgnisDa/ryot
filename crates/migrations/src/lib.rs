@@ -25,7 +25,7 @@ mod m20240712_create_notification_platform;
 mod m20240713_create_user_summary;
 mod m20240825_is_v7_migration;
 mod m20240826_create_daily_user_activity_view;
-mod m20240827_add_new_dashboard_section;
+mod m20240827_zz_add_new_dashboard_section;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -73,7 +73,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240713_create_user_summary::Migration),
             Box::new(m20240825_is_v7_migration::Migration),
             Box::new(m20240826_create_daily_user_activity_view::Migration),
-            Box::new(m20240827_add_new_dashboard_section::Migration),
+            Box::new(m20240827_zz_add_new_dashboard_section::Migration),
         ]
     }
 }
