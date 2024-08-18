@@ -9,12 +9,14 @@ import {
 	type MantineColor,
 	Paper,
 	RingProgress,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Link, useLoaderData } from "@remix-run/react";
@@ -56,6 +58,7 @@ import {
 	MetadataDisplayItem,
 } from "~/components/media";
 import {
+	TimeSpan,
 	clientGqlService,
 	dayjsLib,
 	getLot,
@@ -651,6 +654,11 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 };
 
 const ActivitySection = () => {
+	const [timeSpan, setTimeSpan] = useLocalStorage({
+		defaultValue: TimeSpan.Last7Days,
+		key: "ActivitySectionTimeSpan",
+		getInitialValueInEffect: true,
+	});
 	const { data: dailyUserActivitiesData } = useQuery({
 		queryKey: queryFactory.miscellaneous.dailyUserActivities().queryKey,
 		queryFn: async () => {
@@ -694,8 +702,7 @@ const ActivitySection = () => {
 			{dailyUserActivitiesData ? (
 				dailyUserActivitiesData.totalCount !== 0 ? (
 					<>
-						<SimpleGrid cols={3}>
-							<Box />
+						<SimpleGrid cols={3} mx={{ md: "xl" }}>
 							<DisplayStat
 								label="Total"
 								value={dailyUserActivitiesData.totalCount}
@@ -706,6 +713,14 @@ const ActivitySection = () => {
 									value={dailyUserActivitiesData.mostActiveTimeOfDay}
 								/>
 							) : undefined}
+							<Select
+								label="Time span"
+								defaultValue={timeSpan}
+								data={Object.values(TimeSpan)}
+								onChange={(v) => {
+									if (v) setTimeSpan(v as TimeSpan);
+								}}
+							/>
 						</SimpleGrid>
 						<BarChart
 							h="100%"
@@ -743,10 +758,10 @@ const DisplayStat = (props: {
 }) => {
 	return (
 		<Stack gap={4}>
-			<Text size="lg" ta="center" c="dimmed">
+			<Text size="lg" c="dimmed">
 				{props.label}
 			</Text>
-			<Text size="xl" ta="center" fw="bolder">
+			<Text size="xl" fw="bolder">
 				{props.value}
 			</Text>
 		</Stack>
