@@ -5821,6 +5821,7 @@ GROUP BY m.id;
         user_id: String,
         input: DailyUserActivitiesInput,
     ) -> Result<DailyUserActivitiesResponse> {
+        static MAX_DAILY_USER_ACTIVITIES: usize = 30;
         let items = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
             .apply_if(input.end_date, |query, v| {
@@ -5840,11 +5841,15 @@ GROUP BY m.id;
         });
         let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
         let total_count = items.iter().map(|i| i.total_counts).sum();
+        let grouped_by = match items.len() > MAX_DAILY_USER_ACTIVITIES {
+            true => DailyUserActivitiesResponseGroupedBy::Month,
+            false => DailyUserActivitiesResponseGroupedBy::Day,
+        };
         Ok(DailyUserActivitiesResponse {
-            total_count,
             items,
+            grouped_by,
+            total_count,
             most_active_hour,
-            grouped_by: DailyUserActivitiesResponseGroupedBy::Day,
         })
     }
 
