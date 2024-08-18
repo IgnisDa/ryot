@@ -1,5 +1,5 @@
-use enums::Visibility;
 use sea_orm_migration::prelude::*;
+use enums::Visibility;
 
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
