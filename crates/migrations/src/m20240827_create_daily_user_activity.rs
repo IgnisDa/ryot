@@ -8,7 +8,7 @@ pub static DAILY_USER_ACTIVITY_PRIMARY_KEY: &str = "pk-daily_user_activity";
 pub struct Migration;
 
 #[derive(Iden)]
-pub enum DailyUserActivity2 {
+pub enum DailyUserActivity {
     Table,
     UserId,
     Date,
@@ -26,47 +26,47 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(DailyUserActivity2::Table)
-                    .col(ColumnDef::new(DailyUserActivity2::Date).date().not_null())
-                    .col(ColumnDef::new(DailyUserActivity2::UserId).text().not_null())
+                    .table(DailyUserActivity::Table)
+                    .col(ColumnDef::new(DailyUserActivity::Date).date().not_null())
+                    .col(ColumnDef::new(DailyUserActivity::UserId).text().not_null())
                     .primary_key(
                         Index::create()
                             .name(DAILY_USER_ACTIVITY_PRIMARY_KEY)
-                            .col(DailyUserActivity2::Date)
-                            .col(DailyUserActivity2::UserId),
+                            .col(DailyUserActivity::Date)
+                            .col(DailyUserActivity::UserId),
                     )
                     .col(
-                        ColumnDef::new(DailyUserActivity2::MetadataCounts)
+                        ColumnDef::new(DailyUserActivity::MetadataCounts)
                             .json_binary()
                             .not_null()
                             .default("[]"),
                     )
                     .col(
-                        ColumnDef::new(DailyUserActivity2::HourCounts)
+                        ColumnDef::new(DailyUserActivity::HourCounts)
                             .json_binary()
                             .not_null()
                             .default("[]"),
                     )
                     .col(
-                        ColumnDef::new(DailyUserActivity2::ReviewCounts)
+                        ColumnDef::new(DailyUserActivity::ReviewCounts)
                             .integer()
                             .not_null()
                             .default(0),
                     )
                     .col(
-                        ColumnDef::new(DailyUserActivity2::WorkoutCounts)
+                        ColumnDef::new(DailyUserActivity::WorkoutCounts)
                             .integer()
                             .not_null()
                             .default(0),
                     )
                     .col(
-                        ColumnDef::new(DailyUserActivity2::MeasurementCounts)
+                        ColumnDef::new(DailyUserActivity::MeasurementCounts)
                             .integer()
                             .not_null()
                             .default(0),
                     )
                     .col(
-                        ColumnDef::new(DailyUserActivity2::TotalCounts)
+                        ColumnDef::new(DailyUserActivity::TotalCounts)
                             .integer()
                             .not_null()
                             .default(0),
@@ -74,7 +74,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("daily_user_activity_to_user_foreign_key")
-                            .from(DailyUserActivity2::Table, DailyUserActivity2::UserId)
+                            .from(DailyUserActivity::Table, DailyUserActivity::UserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
