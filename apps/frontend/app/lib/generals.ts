@@ -29,6 +29,8 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
 import { match } from "ts-pattern";
@@ -45,6 +47,8 @@ declare global {
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export { dayjs as dayjsLib };
 
