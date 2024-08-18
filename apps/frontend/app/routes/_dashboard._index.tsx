@@ -165,12 +165,9 @@ export default function Page() {
 				) : null}
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
-						.with([DashboardElementLot.Upcoming, false], () =>
+						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
-								<Section
-									key={DashboardElementLot.Upcoming}
-									lot={DashboardElementLot.Upcoming}
-								>
+								<Section key={v} lot={v}>
 									<Title>Upcoming</Title>
 									<ApplicationGrid>
 										{loaderData.userUpcomingCalendarEvents.map((um) => (
@@ -180,13 +177,10 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.InProgress, false], () =>
+						.with([DashboardElementLot.InProgress, false], ([v, _]) =>
 							loaderData.inProgressCollectionContents.results.items.length >
 							0 ? (
-								<Section
-									key={DashboardElementLot.InProgress}
-									lot={DashboardElementLot.InProgress}
-								>
+								<Section key={v} lot={v}>
 									<Title>In Progress</Title>
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
@@ -202,29 +196,20 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.Recommendations, false], () => (
-							<Section
-								key={DashboardElementLot.Recommendations}
-								lot={DashboardElementLot.Recommendations}
-							>
+						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
+							<Section key={v} lot={v}>
 								<Title>Recommendations</Title>
 								<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 							</Section>
 						))
-						.with([DashboardElementLot.Activity, false], () => (
-							<Section
-								key={DashboardElementLot.Activity}
-								lot={DashboardElementLot.Activity}
-							>
+						.with([DashboardElementLot.Activity, false], ([v, _]) => (
+							<Section key={v} lot={v}>
 								<Title>Activity</Title>
 								<ActivitySection />
 							</Section>
 						))
-						.with([DashboardElementLot.Summary, false], () => (
-							<Section
-								key={DashboardElementLot.Summary}
-								lot={DashboardElementLot.Summary}
-							>
+						.with([DashboardElementLot.Summary, false], ([v, _]) => (
+							<Section key={v} lot={v}>
 								<Title>Summary</Title>
 								<Text size="xs" mt={-15}>
 									Calculated{" "}
