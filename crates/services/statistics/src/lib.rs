@@ -135,7 +135,7 @@ impl StatisticsService {
         tracing::debug!("Calculating numbers summary for user: {:?}", ls);
 
         let metadata_num_reviews = Review::find()
-            .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .filter(review::Column::UserId.eq(user_id))
             .filter(review::Column::MetadataId.is_not_null())
             .apply_if(start_from, |query, v| {
                 query.filter(review::Column::PostedOn.gt(v))
@@ -149,7 +149,7 @@ impl StatisticsService {
         );
 
         let person_num_reviews = Review::find()
-            .filter(review::Column::UserId.eq(user_id.to_owned()))
+            .filter(review::Column::UserId.eq(user_id))
             .filter(review::Column::PersonId.is_not_null())
             .apply_if(start_from, |query, v| {
                 query.filter(review::Column::PostedOn.gt(v))
@@ -163,7 +163,7 @@ impl StatisticsService {
         );
 
         let num_measurements = UserMeasurement::find()
-            .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_measurement::Column::UserId.eq(user_id))
             .apply_if(start_from, |query, v| {
                 query.filter(user_measurement::Column::Timestamp.gt(v))
             })
@@ -176,7 +176,7 @@ impl StatisticsService {
         );
 
         let num_workouts = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .filter(workout::Column::UserId.eq(user_id))
             .apply_if(start_from, |query, v| {
                 query.filter(workout::Column::EndTime.gt(v))
             })
@@ -186,7 +186,7 @@ impl StatisticsService {
         tracing::debug!("Calculated number workouts for user: {:?}", num_workouts);
 
         let num_metadata_interacted_with = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
             .apply_if(start_from, |query, v| {
                 query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
@@ -200,7 +200,7 @@ impl StatisticsService {
         );
 
         let num_people_interacted_with = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::PersonId.is_not_null())
             .apply_if(start_from, |query, v| {
                 query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
@@ -214,7 +214,7 @@ impl StatisticsService {
         );
 
         let num_exercises_interacted_with = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
             .apply_if(start_from, |query, v| {
                 query.filter(user_to_entity::Column::LastUpdatedOn.gt(v))
@@ -228,7 +228,7 @@ impl StatisticsService {
         );
 
         let (total_workout_time, total_workout_weight) = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id.to_owned()))
+            .filter(workout::Column::UserId.eq(user_id))
             .select_only()
             .column_as(
                 Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
@@ -282,7 +282,7 @@ impl StatisticsService {
         }
 
         let mut seen_items = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id.to_owned()))
+            .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::Progress.eq(100))
             .apply_if(start_from, |query, v| {
                 query.filter(seen::Column::LastUpdatedOn.gt(v))
