@@ -1,14 +1,13 @@
 use anyhow::Result;
 
-use crate::IntegrationMediaCollection;
-use crate::IntegrationMediaSeen;
+use super::{IntegrationMediaCollection, IntegrationMediaSeen};
 
-pub trait Integration {
-    async fn progress(
+pub trait YankIntegration {
+    async fn yank_progress(
         &self,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>;
 }
 
 pub trait PushIntegration {
-    async fn push(&self) -> Result<()>;
+    async fn push_progress(&self) -> Result<()>;
 }

@@ -1,15 +1,14 @@
-use anyhow::bail;
-use anyhow::Result;
-use rust_decimal_macros::dec;
-
+use anyhow::{bail, Result};
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use serde::{Deserialize, Serialize};
 
-use crate::integration::Integration;
+use super::integration::YankIntegration;
 
 mod models {
-    use rust_decimal::Decimal;
-    use serde::{Deserialize, Serialize};
+    use super::*;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(rename_all = "PascalCase")]
@@ -108,8 +107,8 @@ impl JellyfinIntegration {
     }
 }
 
-impl Integration for JellyfinIntegration {
-    async fn progress(
+impl YankIntegration for JellyfinIntegration {
+    async fn yank_progress(
         &self,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.jellyfin_progress().await

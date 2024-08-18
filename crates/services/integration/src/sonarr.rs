@@ -5,10 +5,9 @@ use sonarr_api_rs::{
     },
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
-
 use traits::TraceOk;
 
-use crate::integration::PushIntegration;
+use super::integration::PushIntegration;
 
 pub struct SonarrIntegration {
     sonarr_base_url: String,
@@ -61,7 +60,7 @@ impl SonarrIntegration {
 }
 
 impl PushIntegration for SonarrIntegration {
-    async fn push(&self) -> anyhow::Result<()> {
+    async fn push_progress(&self) -> anyhow::Result<()> {
         self.sonarr_push().await
     }
 }

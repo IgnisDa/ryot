@@ -5,10 +5,9 @@ use radarr_api_rs::{
     },
     models::{AddMovieOptions as RadarrAddMovieOptions, MovieResource as RadarrMovieResource},
 };
-
 use traits::TraceOk;
 
-use crate::integration::PushIntegration;
+use super::integration::PushIntegration;
 
 pub struct RadarrIntegration {
     radarr_base_url: String,
@@ -59,7 +58,7 @@ impl RadarrIntegration {
 }
 
 impl PushIntegration for RadarrIntegration {
-    async fn push(&self) -> anyhow::Result<()> {
+    async fn push_progress(&self) -> anyhow::Result<()> {
         self.radarr_push().await
     }
 }

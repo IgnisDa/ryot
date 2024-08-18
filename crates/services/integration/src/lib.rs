@@ -1,13 +1,10 @@
 use anyhow::Result;
+use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use sea_orm::DatabaseConnection;
 
-use database_models::metadata;
-use enums::{MediaLot, MediaSource};
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
-
 use crate::{
-    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration, integration::Integration,
-    integration::PushIntegration, integration_type::IntegrationType, jellyfin::JellyfinIntegration,
+    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration, integration::PushIntegration,
+    integration::YankIntegration, integration_type::IntegrationType, jellyfin::JellyfinIntegration,
     kodi::KodiIntegration, komga::KomgaIntegration, plex::PlexIntegration,
     radarr::RadarrIntegration, sonarr::SonarrIntegration,
 };
@@ -49,7 +46,7 @@ impl IntegrationService {
                     sonarr_root_folder_path,
                     tvdb_id,
                 );
-                sonarr.push().await
+                sonarr.push_progress().await
             }
             IntegrationType::Radarr(
                 radarr_base_url,
@@ -65,7 +62,7 @@ impl IntegrationService {
                     radarr_root_folder_path,
                     tmdb_id,
                 );
-                radarr.push().await
+                radarr.push_progress().await
             }
             _ => Ok(()),
         }
@@ -79,28 +76,28 @@ impl IntegrationService {
             IntegrationType::Komga(base_url, username, password, provider) => {
                 let komga =
                     KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
-                komga.progress().await
+                komga.yank_progress().await
             }
             IntegrationType::Jellyfin(payload) => {
                 let jellyfin = JellyfinIntegration::new(payload);
-                jellyfin.progress().await
+                jellyfin.yank_progress().await
             }
             IntegrationType::Emby(payload) => {
                 let emby = EmbyIntegration::new(payload, self.db.clone());
-                emby.progress().await
+                emby.yank_progress().await
             }
             IntegrationType::Plex(payload, plex_user) => {
                 let plex = PlexIntegration::new(payload, plex_user, self.db.clone());
-                plex.progress().await
+                plex.yank_progress().await
             }
             IntegrationType::Audiobookshelf(base_url, access_token, isbn_service) => {
                 let audiobookshelf =
                     AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
-                audiobookshelf.progress().await
+                audiobookshelf.yank_progress().await
             }
             IntegrationType::Kodi(payload) => {
                 let kodi = KodiIntegration::new(payload);
-                kodi.progress().await
+                kodi.yank_progress().await
             }
             _ => Ok((vec![], vec![])),
         }

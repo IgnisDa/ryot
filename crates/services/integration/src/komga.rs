@@ -4,7 +4,10 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use application_utils::get_base_http_client;
 use async_graphql::futures_util::StreamExt;
+use database_models::{metadata, prelude::Metadata};
+use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use reqwest::Url;
 use rust_decimal::{
@@ -16,13 +19,7 @@ use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
-use application_utils::get_base_http_client;
-use database_models::{metadata, prelude::Metadata};
-use enums::{MediaLot, MediaSource};
-
-use crate::integration::Integration;
-
-use super::{IntegrationMediaCollection, IntegrationMediaSeen};
+use super::{integration::YankIntegration, IntegrationMediaCollection, IntegrationMediaSeen};
 
 mod komga_book {
     use super::*;
@@ -450,8 +447,8 @@ impl KomgaIntegration {
     }
 }
 
-impl Integration for KomgaIntegration {
-    async fn progress(
+impl YankIntegration for KomgaIntegration {
+    async fn yank_progress(
         &self,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.komga_progress().await

@@ -1,9 +1,8 @@
 use anyhow::bail;
-
 use enums::MediaSource;
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 
-use crate::integration::Integration;
+use super::integration::YankIntegration;
 
 pub struct KodiIntegration {
     payload: String,
@@ -26,8 +25,8 @@ impl KodiIntegration {
     }
 }
 
-impl Integration for KodiIntegration {
-    async fn progress(
+impl YankIntegration for KodiIntegration {
+    async fn yank_progress(
         &self,
     ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.kodi_progress().await

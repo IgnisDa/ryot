@@ -1,14 +1,13 @@
 use anyhow::anyhow;
-use reqwest::header::{HeaderValue, AUTHORIZATION};
-use rust_decimal_macros::dec;
-
 use application_utils::get_base_http_client;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use providers::google_books::GoogleBooksService;
+use reqwest::header::{HeaderValue, AUTHORIZATION};
+use rust_decimal_macros::dec;
 use specific_models::audiobookshelf;
 
-use crate::integration::Integration;
+use super::integration::YankIntegration;
 
 pub struct AudiobookshelfIntegration {
     base_url: String,
@@ -26,8 +25,8 @@ impl AudiobookshelfIntegration {
     }
 }
 
-impl Integration for AudiobookshelfIntegration {
-    async fn progress(
+impl YankIntegration for AudiobookshelfIntegration {
+    async fn yank_progress(
         &self,
     ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         let client = get_base_http_client(

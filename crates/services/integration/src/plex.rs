@@ -1,18 +1,17 @@
 use anyhow::{bail, Context};
 use async_graphql::async_trait::async_trait;
+use enums::{MediaLot, MediaSource};
+use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::DatabaseConnection;
+use serde::{Deserialize, Serialize};
 
-use enums::{MediaLot, MediaSource};
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
-
-use crate::{integration::Integration, show_identifier::ShowIdentifier};
+use super::{integration::YankIntegration, show_identifier::ShowIdentifier};
 
 mod models {
-    use rust_decimal::Decimal;
-    use serde::{Deserialize, Serialize};
+    use super::*;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct PlexWebhookMetadataGuid {
@@ -158,8 +157,8 @@ impl ShowIdentifier for PlexIntegration {
     }
 }
 
-impl Integration for PlexIntegration {
-    async fn progress(
+impl YankIntegration for PlexIntegration {
+    async fn yank_progress(
         &self,
     ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.plex_progress().await
