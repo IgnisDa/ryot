@@ -753,10 +753,7 @@ const ActivitySection = () => {
 							dayjsLib(v).format(
 								match(dailyUserActivitiesData.groupedBy)
 									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
-									.with(
-										DailyUserActivitiesResponseGroupedBy.Month,
-										() => "MMM YYYY",
-									)
+									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
 									.exhaustive(),
 							),
 					}}
