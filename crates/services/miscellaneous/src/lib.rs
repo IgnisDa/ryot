@@ -3295,12 +3295,12 @@ impl MiscellaneousService {
         let user = user.insert(&self.db).await.unwrap();
         tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
         self.user_created_job(&user.id).await?;
-        self.calculate_user_activities_and_summary(&user.id, true)
+        self.deploy_job_to_calculate_user_activities_and_summary(&user.id, true)
             .await?;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
     }
 
-    async fn calculate_user_activities_and_summary(
+    async fn deploy_job_to_calculate_user_activities_and_summary(
         &self,
         user_id: &String,
         calculate_from_beginning: bool,
@@ -3419,7 +3419,7 @@ impl MiscellaneousService {
             .await
             .unwrap();
         for user_id in all_users {
-            self.calculate_user_activities_and_summary(&user_id, false)
+            self.deploy_job_to_calculate_user_activities_and_summary(&user_id, false)
                 .await?;
         }
         Ok(())
