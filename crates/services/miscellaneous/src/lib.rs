@@ -40,8 +40,8 @@ use database_models::{
     user_to_entity, workout,
 };
 use database_utils::{
-    add_entity_to_collection, apply_collection_filter, entity_in_collections, ilike_sql,
-    review_by_id, user_by_id,
+    add_entity_to_collection, apply_collection_filter, consolidate_activities,
+    entity_in_collections, ilike_sql, review_by_id, user_by_id,
 };
 use dependent_models::{
     CollectionContents, CoreDetails, DailyUserActivitiesResponse,
@@ -67,26 +67,25 @@ use media_models::{
     AuthUserInput, BookSpecifics, CollectionContentsInput, CollectionContentsSortBy,
     CollectionItem, CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput,
     CreateOrUpdateCollectionInput, CreateReviewCommentInput, CreateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, DailyUserActivitiesInput, DailyUserActivityHourCount,
-    DailyUserActivityMetadataCount, EntityWithLot, GenreDetailsInput, GenreListItem,
-    GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
-    GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment, IntegrationMediaSeen,
-    LoginError, LoginErrorVariant, LoginResponse, LoginResult, MangaSpecifics,
-    MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter, MediaSortBy,
-    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
-    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
-    MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
-    MetadataVideo, MetadataVideoSource, MovieSpecifics, OidcTokenOutput, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PasswordUserInput, PeopleListInput,
-    PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, PostReviewInput,
-    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError, RegisterErrorVariant,
-    RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserCalendarEventInput,
-    UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
+    CreateUserNotificationPlatformInput, DailyUserActivitiesInput, EntityWithLot,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
+    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
+    ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
+    LoginResponse, LoginResult, MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails,
+    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
+    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
+    MetadataVideoSource, MovieSpecifics, OidcTokenOutput, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, PasswordUserInput, PeopleListInput, PeopleSearchInput,
+    PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
+    PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
+    ProgressUpdateInput, ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError,
+    RegisterErrorVariant, RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UpdateUserInput,
+    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
+    UserCalendarEventInput, UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput, VideoGameSpecifics, VisualNovelSpecifics,
 };
@@ -5889,7 +5888,7 @@ GROUP BY m.id;
                 }
                 let mut items = vec![];
                 for (date, activities) in grouped_activities.into_iter() {
-                    let consolidated_activity = add_activities(activities);
+                    let consolidated_activity = consolidate_activities(activities);
                     items.push(daily_user_activity::Model {
                         date,
                         ..consolidated_activity
@@ -6132,52 +6131,5 @@ GROUP BY m.id;
     pub async fn development_mutation(&self) -> Result<bool> {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
         Ok(true)
-    }
-}
-
-fn add_activities(inputs: Vec<daily_user_activity::Model>) -> daily_user_activity::Model {
-    let mut total_counts = 0;
-    let mut review_counts = 0;
-    let mut workout_counts = 0;
-    let mut measurement_counts = 0;
-    let mut new_hour_counts = HashMap::new();
-    let mut hour_counts = vec![];
-    let mut new_metadata_counts = HashMap::new();
-    let mut metadata_counts = vec![];
-    for item in inputs.iter() {
-        total_counts += item.total_counts;
-        review_counts += item.review_counts;
-        workout_counts += item.workout_counts;
-        measurement_counts += item.measurement_counts;
-        for hc in item.hour_counts.iter() {
-            let key = hc.hour;
-            let existing = new_hour_counts.entry(key).or_insert(0);
-            *existing += hc.count;
-        }
-        for mc in item.metadata_counts.iter() {
-            let key = mc.lot;
-            let existing = new_metadata_counts.entry(key).or_insert(0);
-            *existing += mc.count;
-        }
-    }
-    hour_counts.extend(
-        new_hour_counts
-            .into_iter()
-            .map(|(k, v)| DailyUserActivityHourCount { hour: k, count: v }),
-    );
-    metadata_counts.extend(
-        new_metadata_counts
-            .into_iter()
-            .map(|(k, v)| DailyUserActivityMetadataCount { lot: k, count: v }),
-    );
-    daily_user_activity::Model {
-        hour_counts,
-        total_counts,
-        review_counts,
-        workout_counts,
-        metadata_counts,
-        measurement_counts,
-        date: inputs[0].date,
-        user_id: inputs[0].user_id.clone(),
     }
 }
