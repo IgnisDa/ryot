@@ -75,8 +75,8 @@ pub async fn perform_application_job(
             .start_importing(user_id, input)
             .await
             .is_ok(),
-        ApplicationJob::RecalculateUserSummary(user_id) => misc_service
-            .calculate_user_summary(&user_id, true)
+        ApplicationJob::RecalculateUserActivitiesAndSummary(user_id) => misc_service
+            .calculate_user_activities_and_summary(&user_id, true)
             .await
             .is_ok(),
         ApplicationJob::ReEvaluateUserWorkouts(user_id) => exercise_service

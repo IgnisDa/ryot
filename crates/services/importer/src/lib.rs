@@ -449,7 +449,7 @@ impl ImporterService {
         };
         self.finish_import_job(db_import_job, details).await?;
         self.media_service
-            .deploy_background_job(&user_id, BackgroundJob::CalculateSummary)
+            .deploy_background_job(&user_id, BackgroundJob::CalculateUserActivitiesAndSummary)
             .await
             .trace_ok();
         Ok(())

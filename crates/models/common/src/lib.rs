@@ -129,13 +129,13 @@ meta! {
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BackgroundJob {
-    CalculateSummary,
-    EvaluateWorkouts,
     UpdateAllMetadata,
     UpdateAllExercises,
-    RecalculateCalendarEvents,
     SyncIntegrationsData,
     PerformBackgroundTasks,
+    ReEvaluateUserWorkouts,
+    RecalculateCalendarEvents,
+    CalculateUserActivitiesAndSummary,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]

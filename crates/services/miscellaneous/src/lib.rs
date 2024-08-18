@@ -1355,13 +1355,15 @@ impl MiscellaneousService {
                     .await
                     .unwrap();
             }
-            BackgroundJob::CalculateSummary => {
+            BackgroundJob::CalculateUserActivitiesAndSummary => {
                 sqlite_storage
-                    .enqueue(ApplicationJob::RecalculateUserSummary(user_id.to_owned()))
+                    .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
+                        user_id.to_owned(),
+                    ))
                     .await
                     .unwrap();
             }
-            BackgroundJob::EvaluateWorkouts => {
+            BackgroundJob::ReEvaluateUserWorkouts => {
                 sqlite_storage
                     .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
                     .await
@@ -3260,7 +3262,7 @@ impl MiscellaneousService {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn calculate_user_summary(
+    pub async fn calculate_user_activities_and_summary(
         &self,
         user_id: &String,
         calculate_from_beginning: bool,
@@ -3630,7 +3632,8 @@ impl MiscellaneousService {
         let user = user.insert(&self.db).await.unwrap();
         tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
         self.user_created_job(&user.id).await?;
-        self.calculate_user_summary(&user.id, true).await?;
+        self.calculate_user_activities_and_summary(&user.id, true)
+            .await?;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
     }
 
@@ -3737,7 +3740,8 @@ impl MiscellaneousService {
             .await
             .unwrap();
         for user_id in all_users {
-            self.calculate_user_summary(&user_id, false).await?;
+            self.calculate_user_activities_and_summary(&user_id, false)
+                .await?;
         }
         Ok(())
     }

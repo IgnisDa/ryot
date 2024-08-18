@@ -5,7 +5,9 @@ use media_models::{DailyUserActivityHourCount, DailyUserActivityMetadataCount};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
+#[derive(
+    Clone, Default, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject,
+)]
 #[sea_orm(table_name = "daily_user_activity")]
 #[graphql(name = "DailyUserActivity")]
 pub struct Model {

@@ -1540,7 +1540,7 @@ pub struct GroupedCalendarEvent {
 }
 
 #[derive(
-    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
+    Clone, Debug, Default, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
 )]
 pub struct DailyUserActivityMetadataCount {
     pub lot: MediaLot,
@@ -1548,7 +1548,7 @@ pub struct DailyUserActivityMetadataCount {
 }
 
 #[derive(
-    Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
+    Clone, Debug, Default, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
 )]
 pub struct DailyUserActivityHourCount {
     pub hour: u8,

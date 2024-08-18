@@ -97,10 +97,10 @@ export enum BackendError {
 }
 
 export enum BackgroundJob {
-  CalculateSummary = 'CALCULATE_SUMMARY',
-  EvaluateWorkouts = 'EVALUATE_WORKOUTS',
+  CalculateUserActivitiesAndSummary = 'CALCULATE_USER_ACTIVITIES_AND_SUMMARY',
   PerformBackgroundTasks = 'PERFORM_BACKGROUND_TASKS',
   RecalculateCalendarEvents = 'RECALCULATE_CALENDAR_EVENTS',
+  ReEvaluateUserWorkouts = 'RE_EVALUATE_USER_WORKOUTS',
   SyncIntegrationsData = 'SYNC_INTEGRATIONS_DATA',
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
   UpdateAllMetadata = 'UPDATE_ALL_METADATA'
