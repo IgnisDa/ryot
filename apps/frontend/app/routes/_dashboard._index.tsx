@@ -7,6 +7,7 @@ import {
 	Flex,
 	LoadingOverlay,
 	type MantineColor,
+	Paper,
 	RingProgress,
 	SimpleGrid,
 	Stack,
@@ -701,7 +702,11 @@ const ActivitySection = () => {
 						}))}
 					/>
 				) : (
-					<Text>No activity found</Text>
+					<Paper withBorder h="100%" w="100%" display="flex">
+						<Text m="auto" size="xl">
+							No activity found in the selected period
+						</Text>
+					</Paper>
 				)
 			) : null}
 		</Stack>
