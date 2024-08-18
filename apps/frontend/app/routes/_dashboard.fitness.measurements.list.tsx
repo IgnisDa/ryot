@@ -36,7 +36,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib } from "~/lib/generals";
+import { TimeSpan, dayjsLib } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -49,14 +49,6 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
-
-enum TimeSpan {
-	Last7Days = "Last 7 days",
-	Last30Days = "Last 30 days",
-	Last90Days = "Last 90 days",
-	Last365Days = "Last 365 days",
-	AllTime = "All Time",
-}
 
 const searchParamsSchema = z.object({
 	timeSpan: z.nativeEnum(TimeSpan).optional(),

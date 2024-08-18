@@ -68,6 +68,14 @@ export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });
 
+export enum TimeSpan {
+	Last7Days = "Last 7 days",
+	Last30Days = "Last 30 days",
+	Last90Days = "Last 90 days",
+	Last365Days = "Last 365 days",
+	AllTime = "All Time",
+}
+
 export const getSetColor = (l: SetLot) =>
 	match(l)
 		.with(SetLot.WarmUp, () => "yellow")
