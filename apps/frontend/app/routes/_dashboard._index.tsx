@@ -697,13 +697,14 @@ const ActivitySection = () => {
 				return data;
 			});
 			const series = pickBy(trackSeries, (v) => v);
+			const mostActiveHour = dailyUserActivities.mostActiveHour;
 			return {
 				data,
 				series,
 				totalCount: dailyUserActivities.totalCount,
-				mostActiveTimeOfDay: getTimeOfDay(
-					convertUTCtoLocal(dailyUserActivities.mostActiveHour),
-				),
+				mostActiveHour: mostActiveHour
+					? getTimeOfDay(convertUTCtoLocal(mostActiveHour))
+					: undefined,
 			};
 		},
 	});
@@ -725,7 +726,7 @@ const ActivitySection = () => {
 							/>
 							<DisplayStat
 								label="Most active time"
-								value={dailyUserActivitiesData.mostActiveTimeOfDay}
+								value={dailyUserActivitiesData.mostActiveHour || "N/A"}
 							/>
 							<Select
 								label="Time span"
