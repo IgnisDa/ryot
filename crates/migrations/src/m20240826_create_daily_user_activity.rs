@@ -3,6 +3,8 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+// TODO: Convert this into a table and perform calculations on the application level along
+// with summary computations.
 pub const DAILY_USER_ACTIVITY_VIEW: &str = "daily_user_activity";
 const DAILY_USER_ACTIVITY_VIEW_SQL: &str = include_str!("sql/create_daily_user_activity.sql");
 
