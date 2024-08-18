@@ -5839,11 +5839,7 @@ GROUP BY m.id;
                 .or_insert(i.count);
             acc
         });
-        let most_active_hour = hours
-            .iter()
-            .max_by_key(|(_, v)| *v)
-            .map(|(k, _)| *k)
-            .unwrap();
+        let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
         let total_count = items.iter().map(|i| i.total_counts).sum();
         Ok(DailyUserActivitiesResponse {
             total_count,

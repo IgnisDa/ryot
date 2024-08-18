@@ -289,7 +289,7 @@ export type DailyUserActivitiesInput = {
 export type DailyUserActivitiesResponse = {
   groupedBy: DailyUserActivitiesResponseGroupedBy;
   items: Array<DailyUserActivity>;
-  mostActiveHour: Scalars['Int']['output'];
+  mostActiveHour?: Maybe<Scalars['Int']['output']>;
   totalCount: Scalars['Int']['output'];
 };
 
@@ -3086,7 +3086,7 @@ export type DailyUserActivitiesQueryVariables = Exact<{
 }>;
 
 
-export type DailyUserActivitiesQuery = { dailyUserActivities: { groupedBy: DailyUserActivitiesResponseGroupedBy, totalCount: number, mostActiveHour: number, items: Array<{ date: string, totalCounts: number, reviewCounts: number, workoutCounts: number, measurementCounts: number, metadataCounts: Array<{ lot: MediaLot, count: number }> }> } };
+export type DailyUserActivitiesQuery = { dailyUserActivities: { groupedBy: DailyUserActivitiesResponseGroupedBy, totalCount: number, mostActiveHour?: number | null, items: Array<{ date: string, totalCounts: number, reviewCounts: number, workoutCounts: number, measurementCounts: number, metadataCounts: Array<{ lot: MediaLot, count: number }> }> } };
 
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
