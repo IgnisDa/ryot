@@ -5832,11 +5832,23 @@ GROUP BY m.id;
             .all(&self.db)
             .await
             .unwrap();
+        let hours = items.iter().flat_map(|i| i.hour_counts.clone());
+        let hours = hours.fold(HashMap::new(), |mut acc, i| {
+            acc.entry(i.hour)
+                .and_modify(|e| *e += i.count)
+                .or_insert(i.count);
+            acc
+        });
+        let most_active_hour = hours
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(k, _)| *k)
+            .unwrap();
         let total_count = items.iter().map(|i| i.total_counts).sum();
         Ok(DailyUserActivitiesResponse {
             total_count,
             items,
-            most_active_hour: 8,
+            most_active_hour,
             grouped_by: DailyUserActivitiesResponseGroupedBy::Day,
         })
     }
