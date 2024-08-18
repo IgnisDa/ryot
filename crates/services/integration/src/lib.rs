@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use database_models::metadata;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
@@ -27,6 +27,7 @@ use crate::{
 use crate::audiobookshelf::AudiobookshelfIntegration;
 use crate::emby::EmbyIntegration;
 use crate::jellyfin::JellyfinIntegration;
+use crate::kodi::KodiIntegration;
 use crate::plex::PlexIntegration;
 
 pub mod integration_type;
@@ -38,6 +39,7 @@ mod emby;
 mod show_identifier;
 mod plex;
 mod audiobookshelf;
+mod kodi;
 
 #[derive(Debug)]
 pub struct IntegrationService {
@@ -48,18 +50,6 @@ impl IntegrationService {
     pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
     }
-
-    pub async fn kodi_progress(&self, payload: &str) -> Result<IntegrationMediaSeen> {
-        let mut payload = match serde_json::from_str::<IntegrationMediaSeen>(payload) {
-            Result::Ok(val) => val,
-            Result::Err(err) => bail!(err),
-        };
-        payload.source = MediaSource::Tmdb;
-        payload.provider_watched_on = Some("Kodi".to_string());
-        Ok(payload)
-    }
-
-
 
     pub async fn radarr_push(
         &self,
@@ -143,6 +133,10 @@ impl IntegrationService {
             IntegrationType::Audiobookshelf(base_url, access_token, isbn_service) => {
                 let audiobookshelf = AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
                 audiobookshelf.progress().await
+            }
+            IntegrationType::Kodi(payload) => {
+                let kodi = KodiIntegration::new(payload);
+                kodi.progress().await
             }
         }
     }

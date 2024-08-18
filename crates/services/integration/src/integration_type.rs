@@ -6,5 +6,6 @@ pub enum IntegrationType {
     Jellyfin(String),
     Emby(String),
     Plex(String, Option<String>),
-    Audiobookshelf(String, String, GoogleBooksService)
+    Audiobookshelf(String, String, GoogleBooksService),
+    Kodi(String)
 }

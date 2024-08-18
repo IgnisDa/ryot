@@ -4648,7 +4648,9 @@ impl MiscellaneousService {
         }
         let service = self.get_integration_service();
         let maybe_progress_update = match integration.provider {
-            // IntegrationProvider::Kodi => service.kodi_progress(&payload).await,
+            IntegrationProvider::Kodi => service.process_progress(IntegrationType::Kodi(
+                payload.clone()
+            )).await,
             IntegrationProvider::Emby => service.process_progress(IntegrationType::Emby(
                 payload.clone()
             )).await,
