@@ -63,19 +63,20 @@ use itertools::Itertools;
 use jwt_service::sign;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, AuthUserInput, CollectionContentsInput,
-    CollectionContentsSortBy, CollectionItem, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateOrUpdateCollectionInput, CreateReviewCommentInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, DailyUserActivitiesInput,
-    EntityWithLot, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
+    first_metadata_image_as_url, metadata_images_as_urls, AnimeSpecifics, AudioBookSpecifics,
+    AuthUserInput, BookSpecifics, CollectionContentsInput, CollectionContentsSortBy,
+    CollectionItem, CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput,
+    CreateOrUpdateCollectionInput, CreateReviewCommentInput, CreateUserIntegrationInput,
+    CreateUserNotificationPlatformInput, DailyUserActivitiesInput, EntityWithLot,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
     GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
-    LoginResponse, LoginResult, MediaAssociatedPersonStateChanges, MediaDetails,
+    LoginResponse, LoginResult, MangaSpecifics, MediaAssociatedPersonStateChanges, MediaDetails,
     MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
-    MetadataVideoSource, OidcTokenOutput, PartialMetadata, PartialMetadataPerson,
+    MetadataVideoSource, MovieSpecifics, OidcTokenOutput, PartialMetadata, PartialMetadataPerson,
     PartialMetadataWithoutId, PasswordUserInput, PeopleListInput, PeopleSearchInput,
     PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
     PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
@@ -86,7 +87,7 @@ use media_models::{
     UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
     UserCalendarEventInput, UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    UserUpcomingCalendarEventInput, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
@@ -3390,6 +3391,24 @@ impl MiscellaneousService {
 
         tracing::debug!("Calculated numbers summary for user: {:?}", ls);
 
+        #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
+        struct SeenItem {
+            show_extra_information: Option<SeenShowExtraInformation>,
+            podcast_extra_information: Option<SeenPodcastExtraInformation>,
+            anime_extra_information: Option<SeenAnimeExtraInformation>,
+            manga_extra_information: Option<SeenMangaExtraInformation>,
+            id: String,
+            audio_book_specifics: Option<AudioBookSpecifics>,
+            book_specifics: Option<BookSpecifics>,
+            movie_specifics: Option<MovieSpecifics>,
+            podcast_specifics: Option<PodcastSpecifics>,
+            show_specifics: Option<ShowSpecifics>,
+            video_game_specifics: Option<VideoGameSpecifics>,
+            visual_novel_specifics: Option<VisualNovelSpecifics>,
+            anime_specifics: Option<AnimeSpecifics>,
+            manga_specifics: Option<MangaSpecifics>,
+        }
+
         let mut seen_items = Seen::find()
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
             .filter(seen::Column::UserId.eq(user_id.to_owned()))
@@ -3397,58 +3416,77 @@ impl MiscellaneousService {
             .apply_if(start_from, |query, v| {
                 query.filter(seen::Column::LastUpdatedOn.gt(v))
             })
-            .find_also_related(Metadata)
+            .left_join(Metadata)
+            .select_only()
+            .columns([
+                seen::Column::ShowExtraInformation,
+                seen::Column::PodcastExtraInformation,
+                seen::Column::AnimeExtraInformation,
+                seen::Column::MangaExtraInformation,
+            ])
+            .columns([
+                metadata::Column::Id,
+                metadata::Column::AudioBookSpecifics,
+                metadata::Column::BookSpecifics,
+                metadata::Column::MovieSpecifics,
+                metadata::Column::PodcastSpecifics,
+                metadata::Column::ShowSpecifics,
+                metadata::Column::VideoGameSpecifics,
+                metadata::Column::VisualNovelSpecifics,
+                metadata::Column::AnimeSpecifics,
+                metadata::Column::MangaSpecifics,
+            ])
+            .into_model::<SeenItem>()
             .stream(&self.db)
             .await?;
 
-        while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
-            let meta = metadata.to_owned().unwrap();
+        while let Some(seen) = seen_items.try_next().await.unwrap() {
             let mut units_consumed = None;
-            if let Some(item) = meta.audio_book_specifics {
-                ls.unique_items.audio_books.insert(meta.id.clone());
+            if let Some(item) = seen.audio_book_specifics {
+                ls.unique_items.audio_books.insert(seen.id.clone());
                 if let Some(r) = item.runtime {
                     ls.media.audio_books.runtime += r;
                     units_consumed = Some(r);
                 }
-            } else if let Some(item) = meta.book_specifics {
-                ls.unique_items.books.insert(meta.id.clone());
+            } else if let Some(item) = seen.book_specifics {
+                ls.unique_items.books.insert(seen.id.clone());
                 if let Some(pg) = item.pages {
                     ls.media.books.pages += pg;
                     units_consumed = Some(pg);
                 }
-            } else if let Some(item) = meta.movie_specifics {
-                ls.unique_items.movies.insert(meta.id.clone());
+            } else if let Some(item) = seen.movie_specifics {
+                ls.unique_items.movies.insert(seen.id.clone());
                 if let Some(r) = item.runtime {
                     ls.media.movies.runtime += r;
                     units_consumed = Some(r);
                 }
-            } else if let Some(_item) = meta.anime_specifics {
-                ls.unique_items.anime.insert(meta.id.clone());
+            } else if let Some(_item) = seen.anime_specifics {
+                ls.unique_items.anime.insert(seen.id.clone());
                 if let Some(s) = seen.anime_extra_information.to_owned() {
                     if let Some(episode) = s.episode {
                         ls.unique_items
                             .anime_episodes
-                            .insert((meta.id.clone(), episode));
+                            .insert((seen.id.clone(), episode));
                         units_consumed = Some(1);
                     }
                 }
-            } else if let Some(_item) = meta.manga_specifics {
-                ls.unique_items.manga.insert(meta.id.clone());
+            } else if let Some(_item) = seen.manga_specifics {
+                ls.unique_items.manga.insert(seen.id.clone());
                 if let Some(s) = seen.manga_extra_information.to_owned() {
                     units_consumed = Some(1);
                     if let Some(chapter) = s.chapter {
                         ls.unique_items
                             .manga_chapters
-                            .insert((meta.id.clone(), chapter));
+                            .insert((seen.id.clone(), chapter));
                     }
                     if let Some(volume) = s.volume {
                         ls.unique_items
                             .manga_volumes
-                            .insert((meta.id.clone(), volume));
+                            .insert((seen.id.clone(), volume));
                     }
                 }
-            } else if let Some(item) = meta.show_specifics {
-                ls.unique_items.shows.insert(meta.id.clone());
+            } else if let Some(item) = seen.show_specifics {
+                ls.unique_items.shows.insert(seen.id.clone());
                 if let Some(s) = seen.show_extra_information.to_owned() {
                     if let Some((season, episode)) = item.get_episode(s.season, s.episode) {
                         if let Some(r) = episode.runtime {
@@ -3456,17 +3494,17 @@ impl MiscellaneousService {
                             units_consumed = Some(r);
                         }
                         ls.unique_items.show_episodes.insert((
-                            meta.id.clone(),
+                            seen.id.clone(),
                             season.season_number,
                             episode.episode_number,
                         ));
                         ls.unique_items
                             .show_seasons
-                            .insert((meta.id.clone(), season.season_number));
+                            .insert((seen.id.clone(), season.season_number));
                     }
                 };
-            } else if let Some(item) = meta.podcast_specifics {
-                ls.unique_items.podcasts.insert(meta.id.clone());
+            } else if let Some(item) = seen.podcast_specifics {
+                ls.unique_items.podcasts.insert(seen.id.clone());
                 if let Some(s) = seen.podcast_extra_information.to_owned() {
                     if let Some(episode) = item.episode_by_number(s.episode) {
                         if let Some(r) = episode.runtime {
@@ -3475,13 +3513,13 @@ impl MiscellaneousService {
                         }
                         ls.unique_items
                             .podcast_episodes
-                            .insert((meta.id.clone(), s.episode));
+                            .insert((seen.id.clone(), s.episode));
                     }
                 }
-            } else if let Some(_item) = meta.video_game_specifics {
-                ls.unique_items.video_games.insert(meta.id.clone());
-            } else if let Some(item) = meta.visual_novel_specifics {
-                ls.unique_items.visual_novels.insert(meta.id.clone());
+            } else if let Some(_item) = seen.video_game_specifics {
+                ls.unique_items.video_games.insert(seen.id.clone());
+            } else if let Some(item) = seen.visual_novel_specifics {
+                ls.unique_items.visual_novels.insert(seen.id.clone());
                 if let Some(r) = item.length {
                     ls.media.visual_novels.runtime += r;
                     units_consumed = Some(r);
@@ -3491,7 +3529,7 @@ impl MiscellaneousService {
             if let Some(consumed_update) = units_consumed {
                 UserToEntity::update_many()
                     .filter(user_to_entity::Column::UserId.eq(user_id))
-                    .filter(user_to_entity::Column::MetadataId.eq(&meta.id))
+                    .filter(user_to_entity::Column::MetadataId.eq(&seen.id))
                     .col_expr(
                         user_to_entity::Column::MetadataUnitsConsumed,
                         Expr::expr(Func::coalesce([
@@ -5832,6 +5870,10 @@ GROUP BY m.id;
             })
             .all(&self.db)
             .await?;
+        let grouped_by = match items.len() > MAX_DAILY_USER_ACTIVITIES {
+            true => DailyUserActivitiesResponseGroupedBy::Month,
+            false => DailyUserActivitiesResponseGroupedBy::Day,
+        };
         let hours = items.iter().flat_map(|i| i.hour_counts.clone());
         let hours = hours.fold(HashMap::new(), |mut acc, i| {
             acc.entry(i.hour)
@@ -5841,10 +5883,6 @@ GROUP BY m.id;
         });
         let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
         let total_count = items.iter().map(|i| i.total_counts).sum();
-        let grouped_by = match items.len() > MAX_DAILY_USER_ACTIVITIES {
-            true => DailyUserActivitiesResponseGroupedBy::Month,
-            false => DailyUserActivitiesResponseGroupedBy::Day,
-        };
         Ok(DailyUserActivitiesResponse {
             items,
             grouped_by,
