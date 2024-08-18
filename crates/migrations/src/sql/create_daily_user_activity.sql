@@ -93,6 +93,17 @@ aggregated_times AS (
         COALESCE(cl."date", rc."review_day", mc."measurement_day", wc."workout_day"),
         COALESCE(cl."user_id", rc."user_id", mc."user_id", wc."user_id"),
         COALESCE(cl."hour_of_day", rc."hour_of_day", mc."hour_of_day", wc."hour_of_day")
+),
+distinct_hour_counts AS (
+    SELECT
+        at."date",
+        at."user_id",
+        at."hour_of_day",
+        SUM(at."hour_of_day_count") AS "total_hour_count"
+    FROM
+        aggregated_times at
+    GROUP BY
+        at."date", at."user_id", at."hour_of_day"
 )
 SELECT
     at."date",
@@ -111,11 +122,18 @@ SELECT
             sm."date" = at."date" AND sm."user_id" = at."user_id"
         ), '[]'::jsonb
     ) AS "metadata_counts",
-    jsonb_agg(
-        jsonb_build_object(
-            'hour', at."hour_of_day",
-            'count', at."hour_of_day_count"
+    -- Use the distinct_hour_counts to avoid duplicate hour entries
+    (SELECT
+        jsonb_agg(
+            jsonb_build_object(
+                'hour', dhc."hour_of_day",
+                'count', dhc."total_hour_count"
+            )
         )
+    FROM
+        distinct_hour_counts dhc
+    WHERE
+        dhc."date" = at."date" AND dhc."user_id" = at."user_id"
     ) AS "hour_counts",
     CAST(SUM(COALESCE(rc."review_counts", 0)) AS BIGINT) AS "review_counts",
     CAST(SUM(COALESCE(mc."measurement_counts", 0)) AS BIGINT) AS "measurement_counts",
