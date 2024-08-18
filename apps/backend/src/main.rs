@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
+        env::set_var("RUST_LOG", "backend=info,sea_orm=info");
     }
     init_tracing()?;
 
