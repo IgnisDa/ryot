@@ -12,7 +12,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -33,6 +32,7 @@ import {
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
@@ -130,11 +130,10 @@ export default function Page() {
 			timestamp: tickFormatter(m.timestamp),
 		};
 	});
-	const [selectedStats, setSelectedStats] = useLocalStorage({
-		defaultValue: ["weight"],
-		key: "SavedMeasurementsDisplaySelectedStats",
-		getInitialValueInEffect: true,
-	});
+	const [selectedStats, setSelectedStats] = useLocalStorage(
+		"SavedMeasurementsDisplaySelectedStats",
+		["weight"],
+	);
 	const [_p, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_m, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 

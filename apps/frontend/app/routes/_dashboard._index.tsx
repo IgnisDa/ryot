@@ -16,7 +16,6 @@ import {
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Link, useLoaderData } from "@remix-run/react";
@@ -52,6 +51,7 @@ import { Fragment, type ReactNode, useMemo } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { useLocalStorage } from "usehooks-ts";
 import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import {
@@ -655,11 +655,10 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 };
 
 const ActivitySection = () => {
-	const [timeSpan, setTimeSpan] = useLocalStorage({
-		defaultValue: TimeSpan.Last7Days,
-		key: "ActivitySectionTimeSpan",
-		getInitialValueInEffect: true,
-	});
+	const [timeSpan, setTimeSpan] = useLocalStorage(
+		"ActivitySectionTimeSpan",
+		TimeSpan.Last7Days,
+	);
 	const { startDate, endDate } = useMemo(() => {
 		const now = dayjsLib();
 		const end = now.endOf("day");
