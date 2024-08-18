@@ -108,7 +108,7 @@ impl StatisticsService {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn calculate_user_activities_and_summary(
+    async fn calculate_user_summary(
         &self,
         user_id: &String,
         calculate_from_beginning: bool,
@@ -453,6 +453,27 @@ impl StatisticsService {
         .exec_with_returning(&self.db)
         .await?;
         tracing::debug!("Calculated summary for user: {:?}", usr.user_id);
+        Ok(())
+    }
+
+    #[tracing::instrument(skip(self))]
+    async fn calculate_user_activities(
+        &self,
+        user_id: &String,
+        calculate_from_beginning: bool,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn calculate_user_activities_and_summary(
+        &self,
+        user_id: &String,
+        calculate_from_beginning: bool,
+    ) -> Result<()> {
+        self.calculate_user_summary(user_id, calculate_from_beginning)
+            .await?;
+        self.calculate_user_activities(user_id, calculate_from_beginning)
+            .await?;
         Ok(())
     }
 }
