@@ -110,7 +110,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		createOrUpdate: async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
-			console.log(submission);
 			try {
 				await serverGqlService.authenticatedRequest(
 					request,

@@ -37,7 +37,6 @@ pub struct CreateOrUpdateCollectionInput {
     pub description: Option<String>,
     pub update_id: Option<String>,
     pub collaborators: Option<Vec<String>>,
-    #[graphql(skip_input)]
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 

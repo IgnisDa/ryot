@@ -16,7 +16,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
 import { z } from "zod";
-import { useUserDetails } from "~/lib/hooks";
+import { useDashboardLayoutData, useUserDetails } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 export const meta = (_args: MetaArgs_SingleFetch) => {
@@ -45,6 +45,8 @@ const jobSchema = z.object({
 
 export default function Page() {
 	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemo;
 
 	return (
 		<Container size="lg">
@@ -67,7 +69,11 @@ export default function Page() {
 											providers.
 										</Text>
 									</Box>
-									<Button {...btnProps} value={BackgroundJob.UpdateAllMetadata}>
+									<Button
+										disabled={isEditDisabled}
+										{...btnProps}
+										value={BackgroundJob.UpdateAllMetadata}
+									>
 										Update metadata
 									</Button>
 								</Stack>
@@ -132,7 +138,11 @@ export default function Page() {
 									preconditions have changed. This may take some time.
 								</Text>
 							</Box>
-							<Button {...btnProps} value={BackgroundJob.CalculateSummary}>
+							<Button
+								disabled={isEditDisabled}
+								{...btnProps}
+								value={BackgroundJob.CalculateSummary}
+							>
 								Clean and regenerate
 							</Button>
 						</Stack>
@@ -145,7 +155,11 @@ export default function Page() {
 									deleted.
 								</Text>
 							</Box>
-							<Button {...btnProps} value={BackgroundJob.EvaluateWorkouts}>
+							<Button
+								disabled={isEditDisabled}
+								{...btnProps}
+								value={BackgroundJob.EvaluateWorkouts}
+							>
 								Re-evaluate workouts
 							</Button>
 						</Stack>
@@ -158,7 +172,11 @@ export default function Page() {
 									enabled, the longer this will take.
 								</Text>
 							</Box>
-							<Button {...btnProps} value={BackgroundJob.SyncIntegrationsData}>
+							<Button
+								disabled={isEditDisabled}
+								{...btnProps}
+								value={BackgroundJob.SyncIntegrationsData}
+							>
 								Synchronize
 							</Button>
 						</Stack>
