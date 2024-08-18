@@ -8,19 +8,44 @@ use std::{
 };
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use application_utils::{get_current_date, user_id_from_token};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Enum, Error, Result};
-use background::{ApplicationJob, CoreApplicationJob};
 use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
+use enum_meta::Meta;
+use futures::TryStreamExt;
+use itertools::Itertools;
+use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
+use nanoid::nanoid;
+use openidconnect::{
+    AuthenticationFlow,
+    AuthorizationCode,
+    core::{CoreClient, CoreResponseType}, CsrfToken, Nonce, reqwest::async_http_client, Scope, TokenResponse,
+};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
+    DatabaseConnection, DbBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber, Iterable,
+    JoinType, ModelTrait, Order, PaginatorTrait, prelude::DateTimeUtc, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, RelationTrait, sea_query::NullOrdering, Statement, TransactionTrait,
+};
+use sea_query::{
+    Alias, Asterisk, Cond, Condition, Expr, extension::postgres::PgExpr, Func, Iden, OnConflict,
+    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
+};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use application_utils::{get_current_date, user_id_from_token};
+use background::{ApplicationJob, CoreApplicationJob};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
     UserSummaryData,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, IsFeatureEnabled, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
+    AUTHOR, get_first_and_last_day_of_month, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
     VERSION,
 };
 use database_models::{
@@ -47,7 +72,6 @@ use dependent_models::{
     PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
     UserPersonDetails,
 };
-use enum_meta::Meta;
 use enums::{
     EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
     MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot, UserToMediaReason,
@@ -55,21 +79,18 @@ use enums::{
 };
 use file_storage_service::FileStorageService;
 use fitness_models::UserUnitSystem;
-use futures::TryStreamExt;
-use integration_service::{IntegrationService, integration_type::IntegrationType};
-use itertools::Itertools;
+use integration_service::{integration_type::IntegrationType, IntegrationService};
 use jwt_service::sign;
-use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, AuthUserInput, CollectionContentsInput,
-    CollectionContentsSortBy, CollectionItem, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateOrUpdateCollectionInput, CreateReviewCommentInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, EntityWithLot,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
-    LoginResponse, LoginResult, MediaAssociatedPersonStateChanges, MediaDetails,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    AuthUserInput, CollectionContentsInput, CollectionContentsSortBy, CollectionItem,
+    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateCollectionInput,
+    CreateReviewCommentInput, CreateUserIntegrationInput, CreateUserNotificationPlatformInput,
+    EntityWithLot, first_metadata_image_as_url, GenreDetailsInput,
+    GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails,
+    GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment,
+    IntegrationMediaSeen, LoginError, LoginErrorVariant, LoginResponse,
+    LoginResult, MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter,
+    MediaSortBy, metadata_images_as_urls, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
@@ -91,13 +112,7 @@ use migrations::{
     AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
     AliasedUserToCollection, AliasedUserToEntity,
 };
-use nanoid::nanoid;
 use notification_service::send_notification;
-use openidconnect::{
-    core::{CoreClient, CoreResponseType},
-    reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
-};
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService},
     audible::AudibleService,
@@ -111,25 +126,11 @@ use providers::{
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
     vndb::VndbService,
 };
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use sea_orm::{
-    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
-};
-use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
-};
-use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
 use user_models::{
     NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
     UserPreferences, UserReviewScale,
 };
-use uuid::Uuid;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -4433,20 +4434,24 @@ impl MiscellaneousService {
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
                     let specifics = integration.clone().provider_specifics.unwrap();
-                    integration_service.process_progress(IntegrationType::Audiobookshelf(
-                        specifics.audiobookshelf_base_url.unwrap(),
-                        specifics.audiobookshelf_token.unwrap(),
-                        self.get_isbn_service().await.unwrap(),
-                    )).await
+                    integration_service
+                        .process_progress(IntegrationType::Audiobookshelf(
+                            specifics.audiobookshelf_base_url.unwrap(),
+                            specifics.audiobookshelf_token.unwrap(),
+                            self.get_isbn_service().await.unwrap(),
+                        ))
+                        .await
                 }
                 IntegrationProvider::Komga => {
                     let specifics = integration.clone().provider_specifics.unwrap();
-                    integration_service.process_progress(IntegrationType::Komga(
-                        specifics.komga_base_url.unwrap(),
-                        specifics.komga_username.unwrap(),
-                        specifics.komga_password.unwrap(),
-                        specifics.komga_provider.unwrap(),
-                    )).await
+                    integration_service
+                        .process_progress(IntegrationType::Komga(
+                            specifics.komga_base_url.unwrap(),
+                            specifics.komga_username.unwrap(),
+                            specifics.komga_password.unwrap(),
+                            specifics.komga_provider.unwrap(),
+                        ))
+                        .await
                 }
                 _ => continue,
             };
@@ -4560,22 +4565,26 @@ impl MiscellaneousService {
             if let Some(entity_id) = maybe_entity_id {
                 let _push_result = match integration.provider {
                     IntegrationProvider::Radarr => {
-                        integration_service.push(IntegrationType::Radarr(
-                            specifics.radarr_base_url.unwrap(),
-                            specifics.radarr_api_key.unwrap(),
-                            specifics.radarr_profile_id.unwrap(),
-                            specifics.radarr_root_folder_path.unwrap(),
-                            entity_id,
-                        )).await
+                        integration_service
+                            .push(IntegrationType::Radarr(
+                                specifics.radarr_base_url.unwrap(),
+                                specifics.radarr_api_key.unwrap(),
+                                specifics.radarr_profile_id.unwrap(),
+                                specifics.radarr_root_folder_path.unwrap(),
+                                entity_id,
+                            ))
+                            .await
                     }
                     IntegrationProvider::Sonarr => {
-                        integration_service.push(IntegrationType::Sonarr(
-                            specifics.sonarr_base_url.unwrap(),
-                            specifics.sonarr_api_key.unwrap(),
-                            specifics.sonarr_profile_id.unwrap(),
-                            specifics.sonarr_root_folder_path.unwrap(),
-                            entity_id,
-                        )).await
+                        integration_service
+                            .push(IntegrationType::Sonarr(
+                                specifics.sonarr_base_url.unwrap(),
+                                specifics.sonarr_api_key.unwrap(),
+                                specifics.sonarr_profile_id.unwrap(),
+                                specifics.sonarr_root_folder_path.unwrap(),
+                                entity_id,
+                            ))
+                            .await
                     }
                     _ => unreachable!(),
                 };
@@ -4644,30 +4653,42 @@ impl MiscellaneousService {
         }
         let service = self.get_integration_service();
         let maybe_progress_update = match integration.provider {
-            IntegrationProvider::Kodi => service.process_progress(IntegrationType::Kodi(
-                payload.clone()
-            )).await,
-            IntegrationProvider::Emby => service.process_progress(IntegrationType::Emby(
-                payload.clone()
-            )).await,
-            IntegrationProvider::Jellyfin => service.process_progress(IntegrationType::Jellyfin(
-                payload.clone()
-            )).await,
+            IntegrationProvider::Kodi => {
+                service
+                    .process_progress(IntegrationType::Kodi(payload.clone()))
+                    .await
+            }
+            IntegrationProvider::Emby => {
+                service
+                    .process_progress(IntegrationType::Emby(payload.clone()))
+                    .await
+            }
+            IntegrationProvider::Jellyfin => {
+                service
+                    .process_progress(IntegrationType::Jellyfin(payload.clone()))
+                    .await
+            }
             IntegrationProvider::Plex => {
                 let specifics = integration.clone().provider_specifics.unwrap();
-                service.process_progress(IntegrationType::Plex(
-                    payload.clone(),
-                    specifics.plex_username
-                )).await
-            },
+                service
+                    .process_progress(IntegrationType::Plex(
+                        payload.clone(),
+                        specifics.plex_username,
+                    ))
+                    .await
+            }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {
             Ok(pu) => {
                 let media_vec = pu.0;
-                for media in media_vec
-                {
-                    self.integration_progress_update(&integration, media.clone(), &integration.user_id).await?;
+                for media in media_vec {
+                    self.integration_progress_update(
+                        &integration,
+                        media.clone(),
+                        &integration.user_id,
+                    )
+                    .await?;
                 }
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));

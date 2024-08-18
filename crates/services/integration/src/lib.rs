@@ -1,35 +1,28 @@
 use anyhow::Result;
+use sea_orm::DatabaseConnection;
+
 use database_models::metadata;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
-use sea_orm::DatabaseConnection;
 
 use crate::{
-    integration::Integration,
-    integration_type::IntegrationType,
-    komga::KomgaIntegration
+    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration, integration::Integration,
+    integration::PushIntegration, integration_type::IntegrationType, jellyfin::JellyfinIntegration,
+    kodi::KodiIntegration, komga::KomgaIntegration, plex::PlexIntegration,
+    radarr::RadarrIntegration, sonarr::SonarrIntegration,
 };
-use crate::audiobookshelf::AudiobookshelfIntegration;
-use crate::emby::EmbyIntegration;
-use crate::integration::PushIntegration;
-use crate::jellyfin::JellyfinIntegration;
-use crate::kodi::KodiIntegration;
-use crate::plex::PlexIntegration;
-use crate::radarr::RadarrIntegration;
-use crate::sonarr::SonarrIntegration;
 
-pub mod integration_type;
-mod integration;
-
-mod komga;
-mod jellyfin;
-mod emby;
-mod show_identifier;
-mod plex;
 mod audiobookshelf;
+mod emby;
+mod integration;
+pub mod integration_type;
+mod jellyfin;
 mod kodi;
-mod sonarr;
+mod komga;
+mod plex;
 mod radarr;
+mod show_identifier;
+mod sonarr;
 
 #[derive(Debug)]
 pub struct IntegrationService {
@@ -47,13 +40,14 @@ impl IntegrationService {
                 sonarr_api_key,
                 sonarr_profile_id,
                 sonarr_root_folder_path,
-                tvdb_id) => {
+                tvdb_id,
+            ) => {
                 let sonarr = SonarrIntegration::new(
                     sonarr_base_url,
                     sonarr_api_key,
                     sonarr_profile_id,
                     sonarr_root_folder_path,
-                    tvdb_id
+                    tvdb_id,
                 );
                 sonarr.push().await
             }
@@ -62,25 +56,29 @@ impl IntegrationService {
                 radarr_api_key,
                 radarr_profile_id,
                 radarr_root_folder_path,
-                tmdb_id) => {
+                tmdb_id,
+            ) => {
                 let radarr = RadarrIntegration::new(
                     radarr_base_url,
                     radarr_api_key,
                     radarr_profile_id,
                     radarr_root_folder_path,
-                    tmdb_id
+                    tmdb_id,
                 );
                 radarr.push().await
             }
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 
-    pub async fn process_progress(&self, integration_type: IntegrationType)
-        -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    pub async fn process_progress(
+        &self,
+        integration_type: IntegrationType,
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         match integration_type {
             IntegrationType::Komga(base_url, username, password, provider) => {
-                let komga = KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
+                let komga =
+                    KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
                 komga.progress().await
             }
             IntegrationType::Jellyfin(payload) => {
@@ -96,14 +94,15 @@ impl IntegrationService {
                 plex.progress().await
             }
             IntegrationType::Audiobookshelf(base_url, access_token, isbn_service) => {
-                let audiobookshelf = AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
+                let audiobookshelf =
+                    AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
                 audiobookshelf.progress().await
             }
             IntegrationType::Kodi(payload) => {
                 let kodi = KodiIntegration::new(payload);
                 kodi.progress().await
             }
-            _ => Ok((vec![],vec![]))
+            _ => Ok((vec![], vec![])),
         }
     }
 }

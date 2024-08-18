@@ -48,31 +48,42 @@ mod models {
     }
 }
 
-pub struct JellyfinIntegration
-{
+pub struct JellyfinIntegration {
     payload: String,
 }
 
 impl JellyfinIntegration {
     pub const fn new(payload: String) -> Self {
-        Self {
-            payload
-        }
+        Self { payload }
     }
 
     async fn jellyfin_progress(
-        &self
+        &self,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&self.payload)?;
-        let identifier = payload.item.provider_ids.tmdb.as_ref()
-            .or_else(|| payload.series.as_ref().and_then(|s| s.provider_ids.tmdb.as_ref()))
+        let identifier = payload
+            .item
+            .provider_ids
+            .tmdb
+            .as_ref()
+            .or_else(|| {
+                payload
+                    .series
+                    .as_ref()
+                    .and_then(|s| s.provider_ids.tmdb.as_ref())
+            })
             .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))?
             .clone();
 
-        let runtime = payload.item.run_time_ticks
+        let runtime = payload
+            .item
+            .run_time_ticks
             .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
 
-        let position = payload.session.play_state.position_ticks
+        let position = payload
+            .session
+            .play_state
+            .position_ticks
             .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
 
         let lot = match payload.item.item_type.as_str() {
@@ -81,21 +92,26 @@ impl JellyfinIntegration {
             _ => bail!("Only movies and shows supported"),
         };
 
-        Ok((vec![IntegrationMediaSeen {
-            identifier,
-            lot,
-            source: MediaSource::Tmdb,
-            progress: position / runtime * dec!(100),
-            show_season_number: payload.item.season_number,
-            show_episode_number: payload.item.episode_number,
-            provider_watched_on: Some("Jellyfin".to_string()),
-            ..Default::default()
-        }], vec![]))
+        Ok((
+            vec![IntegrationMediaSeen {
+                identifier,
+                lot,
+                source: MediaSource::Tmdb,
+                progress: position / runtime * dec!(100),
+                show_season_number: payload.item.season_number,
+                show_episode_number: payload.item.episode_number,
+                provider_watched_on: Some("Jellyfin".to_string()),
+                ..Default::default()
+            }],
+            vec![],
+        ))
     }
 }
 
 impl Integration for JellyfinIntegration {
-    async fn progress(&self) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn progress(
+        &self,
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.jellyfin_progress().await
     }
 }

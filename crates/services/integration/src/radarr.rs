@@ -1,4 +1,3 @@
-use crate::integration::PushIntegration;
 use radarr_api_rs::{
     apis::{
         configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
@@ -6,7 +5,10 @@ use radarr_api_rs::{
     },
     models::{AddMovieOptions as RadarrAddMovieOptions, MovieResource as RadarrMovieResource},
 };
+
 use traits::TraceOk;
+
+use crate::integration::PushIntegration;
 
 pub struct RadarrIntegration {
     radarr_base_url: String,
@@ -29,13 +31,11 @@ impl RadarrIntegration {
             radarr_api_key,
             radarr_profile_id,
             radarr_root_folder_path,
-            tmdb_id
+            tmdb_id,
         }
     }
 
-    pub async fn radarr_push(
-        &self
-    ) -> anyhow::Result<()> {
+    pub async fn radarr_push(&self) -> anyhow::Result<()> {
         let mut configuration = RadarrConfiguration::new();
         configuration.base_path = self.radarr_base_url.clone();
         configuration.api_key = Some(RadarrApiKey {

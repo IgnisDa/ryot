@@ -1,20 +1,20 @@
 use anyhow::bail;
+
 use enums::MediaSource;
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+
 use crate::integration::Integration;
 
 pub struct KodiIntegration {
-    payload: String
+    payload: String,
 }
 impl KodiIntegration {
     pub const fn new(payload: String) -> Self {
-        Self {
-            payload
-        }
+        Self { payload }
     }
 
     async fn kodi_progress(
-        &self
+        &self,
     ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         let mut payload = match serde_json::from_str::<IntegrationMediaSeen>(&self.payload) {
             Ok(val) => val,
@@ -27,7 +27,9 @@ impl KodiIntegration {
 }
 
 impl Integration for KodiIntegration {
-    async fn progress(&self) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn progress(
+        &self,
+    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.kodi_progress().await
     }
 }

@@ -1,10 +1,13 @@
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, Condition};
-use sea_query::{Expr, Func, Alias};
-use anyhow::{Result, bail};
-use sea_orm::prelude::async_trait::async_trait;
-use sea_query::extension::postgres::PgExpr;
+use anyhow::{bail, Result};
+use sea_orm::{
+    ColumnTrait, Condition, DatabaseConnection, EntityTrait, prelude::async_trait::async_trait,
+    QueryFilter,
+};
+use sea_query::{Alias, Expr, extension::postgres::PgExpr, Func};
+
 use database_utils::ilike_sql;
-use crate::{metadata, MediaLot, MediaSource};
+
+use crate::{MediaLot, MediaSource, metadata};
 
 #[async_trait]
 pub trait ShowIdentifier {
@@ -25,7 +28,7 @@ pub trait ShowIdentifier {
                             Expr::col(metadata::Column::ShowSpecifics),
                             Alias::new("text"),
                         ))
-                            .ilike(ilike_sql(episode)),
+                        .ilike(ilike_sql(episode)),
                     )
                     .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(series))),
             )

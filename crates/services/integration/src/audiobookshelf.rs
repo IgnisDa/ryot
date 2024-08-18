@@ -1,36 +1,35 @@
 use anyhow::anyhow;
-use media_models::{IntegrationMediaSeen, IntegrationMediaCollection};
-use providers::google_books::GoogleBooksService;
 use reqwest::header::{AUTHORIZATION, HeaderValue};
 use rust_decimal_macros::dec;
+
 use application_utils::get_base_http_client;
 use enums::{MediaLot, MediaSource};
-use crate::integration::Integration;
+use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+use providers::google_books::GoogleBooksService;
 use specific_models::audiobookshelf;
+
+use crate::integration::Integration;
 
 pub struct AudiobookshelfIntegration {
     base_url: String,
     access_token: String,
-    isbn_service: GoogleBooksService
+    isbn_service: GoogleBooksService,
 }
 
 impl AudiobookshelfIntegration {
-    pub fn new(
-        base_url: String,
-        access_token: String,
-        isbn_service: GoogleBooksService
-    ) -> Self
-    {
+    pub fn new(base_url: String, access_token: String, isbn_service: GoogleBooksService) -> Self {
         Self {
             base_url,
             access_token,
-            isbn_service
+            isbn_service,
         }
     }
 }
 
 impl Integration for AudiobookshelfIntegration {
-    async fn progress(&self) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn progress(
+        &self,
+    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         let client = get_base_http_client(
             &format!("{}/api/", self.base_url),
             Some(vec![(
@@ -85,41 +84,41 @@ impl Integration for AudiobookshelfIntegration {
                     )
                 }
                 // else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                    // match &item.recent_episode {
-                        // Some(pe) => {
-                        //     let lot = MediaLot::Podcast;
-                        //     let source = MediaSource::Itunes;
-                        //     let podcast = (self.commit_metadata)(CommitMediaInput {
-                        //         identifier: itunes_id.clone(),
-                        //         lot,
-                        //         source,
-                        //         force_update: None,
-                        //     }).await.map_err(|e| anyhow!("Failed to commit metadata: {:?}", e))?;
-                        //     match podcast
-                        //         .podcast_specifics
-                        //         .and_then(|p| p.episode_by_name(&pe.title))
-                        //     {
-                        //         Some(episode) => (
-                        //             format!("{}/{}", item.id, pe.id),
-                        //             itunes_id,
-                        //             lot,
-                        //             source,
-                        //             Some(episode),
-                        //         ),
-                        //         _ => {
-                        //             tracing::debug!(
-                        //                     "No podcast found for iTunes ID {:#?}",
-                        //                     itunes_id
-                        //                 );
-                        //             continue;
-                        //         }
-                        //     }
-                        // }
-                        // _ => {
-                        //     tracing::debug!("No recent episode found for item {:#?}", item);
-                        //     continue;
-                        // }
-                    // }
+                // match &item.recent_episode {
+                // Some(pe) => {
+                //     let lot = MediaLot::Podcast;
+                //     let source = MediaSource::Itunes;
+                //     let podcast = (self.commit_metadata)(CommitMediaInput {
+                //         identifier: itunes_id.clone(),
+                //         lot,
+                //         source,
+                //         force_update: None,
+                //     }).await.map_err(|e| anyhow!("Failed to commit metadata: {:?}", e))?;
+                //     match podcast
+                //         .podcast_specifics
+                //         .and_then(|p| p.episode_by_name(&pe.title))
+                //     {
+                //         Some(episode) => (
+                //             format!("{}/{}", item.id, pe.id),
+                //             itunes_id,
+                //             lot,
+                //             source,
+                //             Some(episode),
+                //         ),
+                //         _ => {
+                //             tracing::debug!(
+                //                     "No podcast found for iTunes ID {:#?}",
+                //                     itunes_id
+                //                 );
+                //             continue;
+                //         }
+                //     }
+                // }
+                // _ => {
+                //     tracing::debug!("No recent episode found for item {:#?}", item);
+                //     continue;
+                // }
+                // }
                 // }
                 else {
                     tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);

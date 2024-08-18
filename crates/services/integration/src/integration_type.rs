@@ -9,5 +9,5 @@ pub enum IntegrationType {
     Audiobookshelf(String, String, GoogleBooksService),
     Kodi(String),
     Sonarr(String, String, i32, String, String),
-    Radarr(String, String, i32, String, String)
+    Radarr(String, String, i32, String, String),
 }

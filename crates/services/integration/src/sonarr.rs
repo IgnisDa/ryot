@@ -1,4 +1,3 @@
-use crate::integration::PushIntegration;
 use sonarr_api_rs::{
     apis::{
         configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
@@ -6,7 +5,10 @@ use sonarr_api_rs::{
     },
     models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
 };
+
 use traits::TraceOk;
+
+use crate::integration::PushIntegration;
 
 pub struct SonarrIntegration {
     sonarr_base_url: String,
@@ -29,13 +31,11 @@ impl SonarrIntegration {
             sonarr_api_key,
             sonarr_profile_id,
             sonarr_root_folder_path,
-            tvdb_id
+            tvdb_id,
         }
     }
 
-    async fn sonarr_push(
-        &self
-    ) -> anyhow::Result<()> {
+    async fn sonarr_push(&self) -> anyhow::Result<()> {
         let mut configuration = SonarrConfiguration::new();
         configuration.base_path = self.sonarr_base_url.clone();
         configuration.api_key = Some(SonarrApiKey {

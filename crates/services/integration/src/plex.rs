@@ -4,10 +4,11 @@ use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::DatabaseConnection;
+
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
-use crate::integration::Integration;
-use crate::show_identifier::ShowIdentifier;
+
+use crate::{integration::Integration, show_identifier::ShowIdentifier};
 
 mod models {
     use rust_decimal::Decimal;
@@ -62,7 +63,7 @@ impl PlexIntegration {
         Self {
             payload,
             plex_user,
-            db
+            db,
         }
     }
 
@@ -92,7 +93,9 @@ impl PlexIntegration {
             "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
             "episode" => {
                 let series_name = metadata.show_name.as_ref().context("Show name missing")?;
-                let db_show = self.get_show_by_episode_identifier(series_name, identifier).await?;
+                let db_show = self
+                    .get_show_by_episode_identifier(series_name, identifier)
+                    .await?;
                 Ok((db_show.identifier, MediaLot::Show))
             }
             _ => bail!("Only movies and shows supported"),
@@ -108,7 +111,7 @@ impl PlexIntegration {
     }
 
     async fn plex_progress(
-        &self
+        &self,
     ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         tracing::debug!("Processing Plex payload {:#?}", self.payload);
 
@@ -132,16 +135,19 @@ impl PlexIntegration {
         let (identifier, lot) = self.get_media_info(&payload.metadata, identifier).await?;
         let progress = Self::calculate_progress(&payload)?;
 
-        Ok((vec![IntegrationMediaSeen {
-            identifier,
-            lot,
-            source: MediaSource::Tmdb,
-            progress,
-            provider_watched_on: Some("Plex".to_string()),
-            show_season_number: payload.metadata.season_number,
-            show_episode_number: payload.metadata.episode_number,
-            ..Default::default()
-        }], vec![]))
+        Ok((
+            vec![IntegrationMediaSeen {
+                identifier,
+                lot,
+                source: MediaSource::Tmdb,
+                progress,
+                provider_watched_on: Some("Plex".to_string()),
+                show_season_number: payload.metadata.season_number,
+                show_episode_number: payload.metadata.episode_number,
+                ..Default::default()
+            }],
+            vec![],
+        ))
     }
 }
 
@@ -153,7 +159,9 @@ impl ShowIdentifier for PlexIntegration {
 }
 
 impl Integration for PlexIntegration {
-    async fn progress(&self) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn progress(
+        &self,
+    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.plex_progress().await
     }
 }

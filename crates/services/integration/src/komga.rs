@@ -193,7 +193,13 @@ pub struct KomgaIntegration {
 }
 
 impl KomgaIntegration {
-    pub fn new(base_url: String, username: String, password: String, provider: MediaSource, db: DatabaseConnection) -> Self {
+    pub fn new(
+        base_url: String,
+        username: String,
+        password: String,
+        provider: MediaSource,
+        db: DatabaseConnection,
+    ) -> Self {
         Self {
             base_url,
             username,
@@ -337,30 +343,16 @@ impl KomgaIntegration {
         Decimal::from_f64(percentage).unwrap_or(Decimal::zero())
     }
 
-    async fn process_events(
-        &self,
-        data: komga_events::Data,
-    ) -> Option<IntegrationMediaSeen> {
+    async fn process_events(&self, data: komga_events::Data) -> Option<IntegrationMediaSeen> {
         let client = get_base_http_client(&format!("{}/api/v1/", self.base_url), None);
 
-        let book: komga_book::Item = self.fetch_api(
-            &client,
-            "books",
-            &data.book_id,
-        )
-            .await
-            .ok()?;
-        let series: komga_series::Item = self.fetch_api(
-            &client,
-            "series",
-            &book.series_id,
-        )
+        let book: komga_book::Item = self.fetch_api(&client, "books", &data.book_id).await.ok()?;
+        let series: komga_series::Item = self
+            .fetch_api(&client, "series", &book.series_id)
             .await
             .ok()?;
 
-        let (source, id) = self.find_provider_and_id(&series)
-            .await
-            .ok()?;
+        let (source, id) = self.find_provider_and_id(&series).await.ok()?;
 
         let Some(id) = id else {
             tracing::debug!(
@@ -382,7 +374,7 @@ impl KomgaIntegration {
     }
 
     async fn komga_progress(
-        &self
+        &self,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         // DEV: This object needs global lifetime so we can continue to use the receiver If
         // we ever create more SSE Objects we may want to implement a higher level
@@ -408,13 +400,8 @@ impl KomgaIntegration {
 
             mutex_task.get_or_init(|| {
                 tokio::spawn(async move {
-                    if let Err(e) = Self::sse_listener(
-                        tx,
-                        base_url,
-                        komga_username,
-                        komga_password,
-                    )
-                        .await
+                    if let Err(e) =
+                        Self::sse_listener(tx, base_url, komga_username, komga_password).await
                     {
                         tracing::error!("SSE listener error: {}", e);
                     }
@@ -432,9 +419,8 @@ impl KomgaIntegration {
                         tracing::debug!("Received event {:?}", event);
                         match unique_media_items.entry(event.book_id.clone()) {
                             Entry::Vacant(entry) => {
-                                if let Some(processed_event) = self
-                                    .process_events(event.clone())
-                                    .await
+                                if let Some(processed_event) =
+                                    self.process_events(event.clone()).await
                                 {
                                     entry.insert(processed_event);
                                 } else {
@@ -465,7 +451,9 @@ impl KomgaIntegration {
 }
 
 impl Integration for KomgaIntegration {
-    async fn progress(&self) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn progress(
+        &self,
+    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         self.komga_progress().await
     }
 }
