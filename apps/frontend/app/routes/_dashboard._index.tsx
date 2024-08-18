@@ -716,54 +716,48 @@ const ActivitySection = () => {
 				zIndex={1000}
 				overlayProps={{ radius: "md", blur: 3 }}
 			/>
-			{dailyUserActivitiesData ? (
-				dailyUserActivitiesData.totalCount !== 0 ? (
-					<>
-						<SimpleGrid cols={3} mx={{ md: "xl" }}>
-							<DisplayStat
-								label="Total"
-								value={dailyUserActivitiesData.totalCount}
-							/>
-							<DisplayStat
-								label="Most active time"
-								value={dailyUserActivitiesData.mostActiveHour || "N/A"}
-							/>
-							<Select
-								label="Time span"
-								defaultValue={timeSpan}
-								labelProps={{ c: "dimmed" }}
-								data={Object.values(TimeSpan)}
-								onChange={(v) => {
-									if (v) setTimeSpan(v as TimeSpan);
-								}}
-							/>
-						</SimpleGrid>
-						<BarChart
-							h="100%"
-							withLegend
-							tickLine="x"
-							dataKey="date"
-							type="stacked"
-							data={dailyUserActivitiesData.data}
-							legendProps={{ verticalAlign: "bottom" }}
-							xAxisProps={{ tickFormatter: (v) => dayjsLib(v).format("MMM D") }}
-							series={Object.keys(dailyUserActivitiesData.series).map(
-								(lot) => ({
-									name: lot,
-									color: MediaColors[lot],
-									label: changeCase(lot),
-								}),
-							)}
-						/>
-					</>
-				) : (
-					<Paper withBorder h="100%" w="100%" display="flex">
-						<Text m="auto" size="xl">
-							No activity found in the selected period
-						</Text>
-					</Paper>
-				)
-			) : null}
+			<SimpleGrid cols={3} mx={{ md: "xl" }}>
+				<DisplayStat
+					label="Total"
+					value={dailyUserActivitiesData?.totalCount || 0}
+				/>
+				<DisplayStat
+					label="Most active time"
+					value={dailyUserActivitiesData?.mostActiveHour || "N/A"}
+				/>
+				<Select
+					label="Time span"
+					defaultValue={timeSpan}
+					labelProps={{ c: "dimmed" }}
+					data={Object.values(TimeSpan)}
+					onChange={(v) => {
+						if (v) setTimeSpan(v as TimeSpan);
+					}}
+				/>
+			</SimpleGrid>
+			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
+				<BarChart
+					h="100%"
+					withLegend
+					tickLine="x"
+					dataKey="date"
+					type="stacked"
+					data={dailyUserActivitiesData.data}
+					legendProps={{ verticalAlign: "bottom" }}
+					xAxisProps={{ tickFormatter: (v) => dayjsLib(v).format("MMM D") }}
+					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
+						name: lot,
+						color: MediaColors[lot],
+						label: changeCase(lot),
+					}))}
+				/>
+			) : (
+				<Paper withBorder h="100%" w="100%" display="flex">
+					<Text m="auto" size="xl">
+						No activity found in the selected period
+					</Text>
+				</Paper>
+			)}
 		</Stack>
 	);
 };
