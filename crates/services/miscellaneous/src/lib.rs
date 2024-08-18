@@ -5832,8 +5832,9 @@ GROUP BY m.id;
             .order_by_asc(daily_user_activity::Column::Date)
             .all(&self.db)
             .await?;
+        let total_count = items.iter().map(|i| i.total_counts).sum();
         Ok(DailyUserActivitiesResponse {
-            total_count: items.len(),
+            total_count,
             items,
             most_active_hour: 8,
             grouped_by: DailyUserActivitiesResponseGroupedBy::Day,
