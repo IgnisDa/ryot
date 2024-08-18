@@ -1,4 +1,4 @@
-use async_graphql::{InputObject, OutputType, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use common_models::{BackendError, SearchDetails};
 use database_models::{
     collection, daily_user_activity, exercise, metadata, metadata_group, person, seen, user,
@@ -193,9 +193,16 @@ pub struct ImportResult {
     pub failed_items: Vec<ImportFailedItem>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
+pub enum DailyUserActivitiesResponseGroupedBy {
+    Day,
+    Month,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct DailyUserActivitiesResponse {
     pub items: Vec<daily_user_activity::Model>,
     pub total_count: usize,
     pub most_active_hour: u8,
+    pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }

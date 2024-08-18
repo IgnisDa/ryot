@@ -138,6 +138,7 @@ query PeopleList($input: PeopleListInput!) {
 
 query DailyUserActivities($input: DailyUserActivitiesInput!) {
   dailyUserActivities(input: $input) {
+    groupedBy
     totalCount
     mostActiveHour
     items {

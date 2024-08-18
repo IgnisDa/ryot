@@ -44,9 +44,10 @@ use database_utils::{
     review_by_id, user_by_id,
 };
 use dependent_models::{
-    CollectionContents, CoreDetails, DailyUserActivitiesResponse, GenreDetails, MetadataBaseData,
-    MetadataGroupDetails, PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails,
-    UserMetadataGroupDetails, UserPersonDetails,
+    CollectionContents, CoreDetails, DailyUserActivitiesResponse,
+    DailyUserActivitiesResponseGroupedBy, GenreDetails, MetadataBaseData, MetadataGroupDetails,
+    PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
+    UserPersonDetails,
 };
 use enum_meta::Meta;
 use enums::{
@@ -5835,6 +5836,7 @@ GROUP BY m.id;
             total_count: items.len(),
             items,
             most_active_hour: 8,
+            grouped_by: DailyUserActivitiesResponseGroupedBy::Day,
         })
     }
 
