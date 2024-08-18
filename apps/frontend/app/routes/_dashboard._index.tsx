@@ -5,10 +5,10 @@ import {
 	Center,
 	Container,
 	Flex,
+	LoadingOverlay,
 	type MantineColor,
 	RingProgress,
 	SimpleGrid,
-	Skeleton,
 	Stack,
 	Text,
 	Title,
@@ -677,11 +677,16 @@ const ActivitySection = () => {
 	});
 
 	return (
-		<Stack>
+		<Stack pos="relative" h={400}>
+			<LoadingOverlay
+				visible={!dailyUserActivitiesData}
+				zIndex={1000}
+				overlayProps={{ radius: "md", blur: 3 }}
+			/>
 			{dailyUserActivitiesData ? (
 				dailyUserActivitiesData.total !== 0 ? (
 					<BarChart
-						h={400}
+						h="100%"
 						withLegend
 						tickLine="x"
 						dataKey="date"
@@ -698,16 +703,7 @@ const ActivitySection = () => {
 				) : (
 					<Text>No activity found</Text>
 				)
-			) : (
-				<>
-					<Skeleton height={50} />
-					<Skeleton height={50} />
-					<Skeleton height={50} />
-					<Skeleton height={50} />
-					<Skeleton height={50} />
-					<Skeleton height={50} />
-				</>
-			)}
+			) : null}
 		</Stack>
 	);
 };
