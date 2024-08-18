@@ -132,7 +132,10 @@ export default function Page() {
 									preconditions have changed. This may take some time.
 								</Text>
 							</Box>
-							<Button {...btnProps} value={BackgroundJob.CalculateSummary}>
+							<Button
+								{...btnProps}
+								value={BackgroundJob.CalculateUserActivitiesAndSummary}
+							>
 								Clean and regenerate
 							</Button>
 						</Stack>
@@ -145,7 +148,10 @@ export default function Page() {
 									deleted.
 								</Text>
 							</Box>
-							<Button {...btnProps} value={BackgroundJob.EvaluateWorkouts}>
+							<Button
+								{...btnProps}
+								value={BackgroundJob.ReEvaluateUserWorkouts}
+							>
 								Re-evaluate workouts
 							</Button>
 						</Stack>
