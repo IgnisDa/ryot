@@ -27,13 +27,13 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(DailyUserActivity2::Table)
-                    .col(ColumnDef::new(DailyUserActivity2::UserId).text().not_null())
                     .col(ColumnDef::new(DailyUserActivity2::Date).date().not_null())
+                    .col(ColumnDef::new(DailyUserActivity2::UserId).text().not_null())
                     .primary_key(
                         Index::create()
                             .name(DAILY_USER_ACTIVITY_PRIMARY_KEY)
-                            .col(DailyUserActivity2::UserId)
-                            .col(DailyUserActivity2::Date),
+                            .col(DailyUserActivity2::Date)
+                            .col(DailyUserActivity2::UserId),
                     )
                     .col(
                         ColumnDef::new(DailyUserActivity2::MetadataCounts)
