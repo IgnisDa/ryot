@@ -714,13 +714,13 @@ const ActivitySection = () => {
 	});
 
 	return (
-		<Stack pos="relative" h={400} ref={ref}>
+		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
 			<LoadingOverlay
 				visible={!dailyUserActivitiesData}
 				zIndex={1000}
 				overlayProps={{ radius: "md", blur: 3 }}
 			/>
-			<SimpleGrid cols={3} mx={{ md: "xl" }}>
+			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
 				<DisplayStat
 					label="Total"
 					value={dailyUserActivitiesData?.totalCount || 0}
