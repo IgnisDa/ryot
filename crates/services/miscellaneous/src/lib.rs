@@ -5848,7 +5848,7 @@ GROUP BY m.id;
         })
     }
 
-    async fn refresh_database_views(&self) -> Result<()> {
+    async fn refresh_database_materialized_views(&self) -> Result<()> {
         self.db
             .execute_unprepared(&format!(
                 r#"REFRESH MATERIALIZED VIEW "{}""#,
@@ -6022,7 +6022,7 @@ GROUP BY m.id;
         tracing::debug!("Starting background jobs...");
 
         tracing::trace!("Refreshing database views");
-        self.refresh_database_views().await.trace_ok();
+        self.refresh_database_materialized_views().await.trace_ok();
         tracing::trace!("Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.trace_ok();
         tracing::trace!("Removing stale entities from Monitoring collection");
