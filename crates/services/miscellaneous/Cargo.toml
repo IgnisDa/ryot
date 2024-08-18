@@ -41,6 +41,7 @@ sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slug = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }

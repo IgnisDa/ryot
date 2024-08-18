@@ -3596,6 +3596,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slug",
+ "tokio",
  "tracing",
  "traits",
  "user-models",

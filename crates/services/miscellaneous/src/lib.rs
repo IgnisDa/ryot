@@ -6055,6 +6055,7 @@ GROUP BY m.id;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
+        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
         Ok(true)
     }
 }
