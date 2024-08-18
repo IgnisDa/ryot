@@ -707,12 +707,10 @@ const ActivitySection = () => {
 								label="Total"
 								value={dailyUserActivitiesData.totalCount}
 							/>
-							{dailyUserActivitiesData.mostActiveTimeOfDay ? (
-								<DisplayStat
-									label="Most active time"
-									value={dailyUserActivitiesData.mostActiveTimeOfDay}
-								/>
-							) : undefined}
+							<DisplayStat
+								label="Most active time"
+								value={dailyUserActivitiesData.mostActiveTimeOfDay}
+							/>
 							<Select
 								label="Time span"
 								defaultValue={timeSpan}
