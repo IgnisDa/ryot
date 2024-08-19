@@ -89,6 +89,15 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("daily_user_activity-user_id__index")
+                    .table(DailyUserActivity::Table)
+                    .col(DailyUserActivity::UserId)
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 
