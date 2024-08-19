@@ -374,7 +374,6 @@ export const extendResponseHeaders = (
 ) => {
 	for (const [key, value] of headers.entries())
 		responseHeaders.append(key, value);
-	return responseHeaders;
 };
 
 export const isWorkoutActive = (request: Request) => {

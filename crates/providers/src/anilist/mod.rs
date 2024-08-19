@@ -94,15 +94,10 @@ impl MediaProviderLanguages for AnilistService {
 impl AnilistService {
     async fn new(page_size: i32, config: &config::AnilistConfig) -> Self {
         let client = get_client_config(URL).await;
-        let preferred_language = if config.prefer_english {
-            AnilistPreferredLanguage::English
-        } else {
-            config.preferred_language.clone()
-        };
         Self {
             client,
-            preferred_language,
             page_size,
+            preferred_language: config.preferred_language.clone(),
         }
     }
 }
@@ -117,6 +112,19 @@ impl NonMediaAnilistService {
         Self {
             base: AnilistService::new(page_size, config).await,
         }
+    }
+}
+
+fn media_status_string(status: Option<media_details_query::MediaStatus>) -> Option<String> {
+    match status {
+        Some(media_details_query::MediaStatus::FINISHED) => Some("Finished".to_string()),
+        Some(media_details_query::MediaStatus::RELEASING) => Some("Ongoing".to_string()),
+        Some(media_details_query::MediaStatus::NOT_YET_RELEASED) => {
+            Some("Not Yet Released".to_string())
+        }
+        Some(media_details_query::MediaStatus::CANCELLED) => Some("Canceled".to_string()),
+        Some(media_details_query::MediaStatus::HIATUS) => Some("Hiatus".to_string()),
+        _ => None,
     }
 }
 
@@ -708,7 +716,7 @@ async fn media_details(
         provider_rating: score,
         group_identifiers: vec![],
         s3_images: vec![],
-        production_status: None,
+        production_status: media_status_string(details.status),
         original_language: None,
         ..Default::default()
     })
