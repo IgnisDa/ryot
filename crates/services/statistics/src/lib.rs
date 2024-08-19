@@ -499,7 +499,7 @@ impl StatisticsService {
         ) -> &'a mut daily_user_activity::Model {
             let existing = activities
                 .entry(date)
-                .or_insert_with(|| daily_user_activity::Model {
+                .or_insert(daily_user_activity::Model {
                     date,
                     user_id: user_id.to_owned(),
                     hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
