@@ -522,40 +522,33 @@ impl StatisticsService {
             existing
         }
 
-        #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
-        struct SeenItem {
-            metadata_lot: MediaLot,
-            finished_on: Option<Date>,
-            last_updated_on: DateTimeUtc,
-        }
-
         let mut seen_stream = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::Progress.eq(100))
             .filter(seen::Column::LastUpdatedOn.gte(start_from))
             .filter(seen::Column::FinishedOn.is_not_null())
             .left_join(Metadata)
+            .column(metadata::Column::Lot)
             .columns([seen::Column::FinishedOn, seen::Column::LastUpdatedOn])
-            .column_as(metadata::Column::Lot, "metadata_lot")
             .order_by_asc(seen::Column::LastUpdatedOn)
-            .into_model::<SeenItem>()
+            .into_tuple::<(MediaLot, Option<Date>, DateTimeUtc)>()
             .stream(&self.db)
             .await?;
         while let Some(seen) = seen_stream.try_next().await? {
-            let date = seen.finished_on.unwrap();
-            let hour = seen.last_updated_on.hour();
+            let date = seen.1.unwrap();
+            let hour = seen.2.hour();
             let activity = update_activity_counts(&mut activities, user_id, date, hour, "seen");
             if let Some(e) = activity
                 .metadata_counts
                 .iter_mut()
-                .find(|i| i.lot == seen.metadata_lot)
+                .find(|i| i.lot == seen.0)
             {
                 e.count += 1;
             } else {
                 activity
                     .metadata_counts
                     .push(DailyUserActivityMetadataCount {
-                        lot: seen.metadata_lot,
+                        lot: seen.0,
                         count: 1,
                     });
             }
