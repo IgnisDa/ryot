@@ -13,6 +13,7 @@ use database_models::{
 };
 use database_utils::consolidate_activities;
 use dependent_models::{DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy};
+use enums::MediaLot;
 use futures::TryStreamExt;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
@@ -23,7 +24,7 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use sea_orm::{
-    prelude::{Date, Expr},
+    prelude::{Date, DateTimeUtc, Expr},
     sea_query::{Func, OnConflict},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
@@ -521,34 +522,42 @@ impl StatisticsService {
             existing
         }
 
+        #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
+        struct SeenItem {
+            metadata_lot: MediaLot,
+            finished_on: Option<Date>,
+            last_updated_on: DateTimeUtc,
+        }
+
         let mut seen_stream = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
             .filter(seen::Column::Progress.eq(100))
             .filter(seen::Column::LastUpdatedOn.gte(start_from))
             .filter(seen::Column::FinishedOn.is_not_null())
-            .find_with_related(Metadata)
+            .left_join(Metadata)
+            .columns([seen::Column::FinishedOn, seen::Column::LastUpdatedOn])
+            .column_as(metadata::Column::Lot, "metadata_lot")
             .order_by_asc(seen::Column::LastUpdatedOn)
+            .into_model::<SeenItem>()
             .stream(&self.db)
             .await?;
-        while let Some((seen, meta_item)) = seen_stream.try_next().await? {
+        while let Some(seen) = seen_stream.try_next().await? {
             let date = seen.finished_on.unwrap();
             let hour = seen.last_updated_on.hour();
             let activity = update_activity_counts(&mut activities, user_id, date, hour, "seen");
-            if let Some(item) = meta_item {
-                if let Some(e) = activity
+            if let Some(e) = activity
+                .metadata_counts
+                .iter_mut()
+                .find(|i| i.lot == seen.metadata_lot)
+            {
+                e.count += 1;
+            } else {
+                activity
                     .metadata_counts
-                    .iter_mut()
-                    .find(|i| i.lot == item.lot)
-                {
-                    e.count += 1;
-                } else {
-                    activity
-                        .metadata_counts
-                        .push(DailyUserActivityMetadataCount {
-                            lot: item.lot,
-                            count: 1,
-                        });
-                }
+                    .push(DailyUserActivityMetadataCount {
+                        lot: seen.metadata_lot,
+                        count: 1,
+                    });
             }
         }
 

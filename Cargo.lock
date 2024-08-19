@@ -6039,6 +6039,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "enums",
  "futures",
  "media-models",
  "rust_decimal",
