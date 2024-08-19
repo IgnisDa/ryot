@@ -23,7 +23,7 @@ reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 rust_iso3166 = "=0.1.13"
-scraper = "=0.19.1"
+scraper = "=0.20.0"
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

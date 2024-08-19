@@ -12,6 +12,7 @@ import "@mantine/notifications/styles.css";
 import {
 	type LinksFunction,
 	type MetaFunction,
+	unstable_data,
 	unstable_defineLoader,
 } from "@remix-run/node";
 import {
@@ -91,15 +92,15 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = unstable_defineLoader(async ({ request, response }) => {
+export const loader = unstable_defineLoader(async ({ request }) => {
 	const { toast, headers: toastHeaders } = await getToast(request);
 	const colorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
+	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
-	if (toastHeaders)
-		response.headers = extendResponseHeaders(response.headers, toastHeaders);
-	return { toast, defaultColorScheme };
+	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
+	return unstable_data({ toast, defaultColorScheme }, { headers });
 });
 
 const DefaultHeadTags = () => {

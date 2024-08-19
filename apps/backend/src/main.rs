@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
+        env::set_var("RUST_LOG", "backend=info,sea_orm=info");
     }
     init_tracing()?;
 
@@ -128,9 +128,9 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v5(&db).await {
-        tracing::error!("Migration from v5 failed: {}", err);
-        bail!("There was an error migrating from v5.")
+    if let Err(err) = migrate_from_v6(&db).await {
+        tracing::error!("Migration from v6 failed: {}", err);
+        bail!("There was an error migrating from v6.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
@@ -345,8 +345,8 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-// upgrade from v5 ONLY IF APPLICABLE
-async fn migrate_from_v5(db: &DatabaseConnection) -> Result<()> {
+// upgrade from v6 ONLY IF APPLICABLE
+async fn migrate_from_v6(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -357,17 +357,18 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240415_is_v5_migration'
+            WHERE version = 'm20240606_is_v6_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20240608_definitely_final_v5_migration'
+                WHERE version = 'm20240817_is_last_v6_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v5 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v6 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
             INSERT INTO seaql_migrations (version, applied_at) VALUES
+                ('m20230409_create_extensions', 1684693316),
                 ('m20230410_create_metadata', 1684693316),
                 ('m20230413_create_person', 1684693316),
                 ('m20230417_create_user', 1684693316),
@@ -385,7 +386,10 @@ BEGIN
                 ('m20231017_create_user_to_entity', 1684693316),
                 ('m20231219_create_metadata_relations', 1684693316),
                 ('m20240509_create_user_to_collection', 1717207621),
-                ('m20240531_create_queued_notification', 1717207621);
+                ('m20240531_create_queued_notification', 1717207621),
+                ('m20240607_create_integration', 1723854703),
+                ('m20240712_create_notification_platform', 1723854703),
+                ('m20240713_create_user_summary', 1723854703);
         END IF;
     END IF;
 END $$;
