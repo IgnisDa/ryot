@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -122,17 +120,15 @@ impl NonMediaAnilistService {
     }
 }
 
-impl Display for media_details_query::MediaStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            media_details_query::MediaStatus::FINISHED => "Finished".to_string(),
-            media_details_query::MediaStatus::RELEASING => "Ongoing".to_string(),
-            media_details_query::MediaStatus::NOT_YET_RELEASED => "Not Yet Released".to_string(),
-            media_details_query::MediaStatus::CANCELLED => "Canceled".to_string(),
-            media_details_query::MediaStatus::HIATUS => "Hiatus".to_string(),
-            _ => "Unknown".to_string(),
-        };
-        write!(f, "{}", str)
+fn media_status_string(status: Option<media_details_query::MediaStatus>) -> Option<String>
+{
+    match status {
+        Some(media_details_query::MediaStatus::FINISHED) => Some("Finished".to_string()),
+        Some(media_details_query::MediaStatus::RELEASING) => Some("Ongoing".to_string()),
+        Some(media_details_query::MediaStatus::NOT_YET_RELEASED) => Some("Not Yet Released".to_string()),
+        Some(media_details_query::MediaStatus::CANCELLED) => Some("Canceled".to_string()),
+        Some(media_details_query::MediaStatus::HIATUS) => Some("Hiatus".to_string()),
+        _ => None,
     }
 }
 
@@ -700,7 +696,6 @@ async fn media_details(
         title.romaji,
         preferred_language,
     );
-    let status = details.status.unwrap();
     Ok(MediaDetails {
         title,
         identifier: details.id.to_string(),
@@ -721,7 +716,7 @@ async fn media_details(
         provider_rating: score,
         group_identifiers: vec![],
         s3_images: vec![],
-        production_status: Some(status.to_string()),
+        production_status: media_status_string(details.status),
         original_language: None,
         ..Default::default()
     })
