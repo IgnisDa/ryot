@@ -502,7 +502,6 @@ impl StatisticsService {
                 .or_insert_with(|| daily_user_activity::Model {
                     date,
                     user_id: user_id.to_owned(),
-                    workout_counts: 0,
                     hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
                     ..Default::default()
                 });
