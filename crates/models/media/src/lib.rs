@@ -1544,7 +1544,7 @@ pub struct GroupedCalendarEvent {
 )]
 pub struct DailyUserActivityMetadataCount {
     pub lot: MediaLot,
-    pub count: i64,
+    pub count: i32,
 }
 
 #[derive(

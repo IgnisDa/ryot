@@ -203,7 +203,7 @@ pub enum DailyUserActivitiesResponseGroupedBy {
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct DailyUserActivitiesResponse {
     pub items: Vec<daily_user_activity::Model>,
-    pub total_count: i64,
+    pub total_count: i32,
     pub most_active_hour: Option<u32>,
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
