@@ -298,8 +298,10 @@ pub async fn calculate_and_commit(
             assets: input.assets,
             exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
         },
+        duration: 0,
     };
-    let insert: workout::ActiveModel = model.into();
+    let mut insert: workout::ActiveModel = model.into();
+    insert.duration = ActiveValue::NotSet;
     let data = insert.insert(db).await?;
     Ok(data.id)
 }
