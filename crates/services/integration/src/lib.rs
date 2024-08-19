@@ -1,16 +1,17 @@
 use std::future::Future;
 
+use crate::{
+    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration,
+    integration_trait::PushIntegration, integration_trait::YankIntegration,
+    integration_trait::YankIntegrationWithCommit, integration_type::IntegrationType,
+    jellyfin::JellyfinIntegration, kodi::KodiIntegration, komga::KomgaIntegration,
+    plex::PlexIntegration, radarr::RadarrIntegration, sonarr::SonarrIntegration,
+};
 use anyhow::Result;
 use async_graphql::Result as GqlResult;
+use database_models::metadata;
 use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
 use sea_orm::DatabaseConnection;
-use database_models::metadata;
-use crate::{
-    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration, integration_trait::PushIntegration,
-    integration_trait::YankIntegration, integration_type::IntegrationType, jellyfin::JellyfinIntegration,
-    kodi::KodiIntegration, komga::KomgaIntegration, plex::PlexIntegration,
-    radarr::RadarrIntegration, sonarr::SonarrIntegration, integration_trait::YankIntegrationWithCommit
-};
 
 mod audiobookshelf;
 mod emby;
@@ -106,7 +107,7 @@ impl IntegrationService {
         commit_metadata: impl Fn(CommitMediaInput) -> F,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
     where
-        F: Future<Output = GqlResult<metadata::Model>>
+        F: Future<Output = GqlResult<metadata::Model>>,
     {
         match integration_type {
             IntegrationType::Audiobookshelf(base_url, access_token, isbn_service) => {

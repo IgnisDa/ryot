@@ -35,7 +35,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
         commit_metadata: impl Fn(CommitMediaInput) -> F,
     ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
     where
-        F: Future<Output = GqlResult<metadata::Model>>
+        F: Future<Output = GqlResult<metadata::Model>>,
     {
         let client = get_base_http_client(
             &format!("{}/api/", self.base_url),
@@ -89,8 +89,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                         MediaSource::Audible,
                         None,
                     )
-                }
-                else if let Some(itunes_id) = metadata.itunes_id.clone() {
+                } else if let Some(itunes_id) = metadata.itunes_id.clone() {
                     match &item.recent_episode {
                         Some(pe) => {
                             let lot = MediaLot::Podcast;
@@ -116,9 +115,9 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                                 ),
                                 _ => {
                                     tracing::debug!(
-                                    "No podcast found for iTunes ID {:#?}",
-                                    itunes_id
-                                );
+                                        "No podcast found for iTunes ID {:#?}",
+                                        itunes_id
+                                    );
                                     continue;
                                 }
                             }
@@ -128,8 +127,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                             continue;
                         }
                     }
-                }
-                else {
+                } else {
                     tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
                     continue;
                 };
