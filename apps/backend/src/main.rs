@@ -322,6 +322,8 @@ async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Resu
     #[cfg(not(debug_assertions))]
     const API_ID: &str = "api_LQTzbpPNHgPALgiNdxg8bMfVxeg";
 
+    tracing::debug!("Verifying pro key for API ID: {}", API_ID);
+
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Clone, Deserialize)]
     struct Meta {
