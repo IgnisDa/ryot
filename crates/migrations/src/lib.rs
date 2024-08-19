@@ -20,34 +20,10 @@ mod m20231017_create_user_to_entity;
 mod m20231219_create_metadata_relations;
 mod m20240509_create_user_to_collection;
 mod m20240531_create_queued_notification;
-mod m20240606_is_v6_migration;
-mod m20240607_change_boolean_column_names;
-mod m20240607_change_user_primary_key;
 mod m20240607_create_integration;
-mod m20240608_add_created_on_column_to_collection_to_entity;
-mod m20240619_remove_seen_from_media_reason_of_user_to_entity;
-mod m20240620_add_minimum_and_maximum_progress_columns_to_integration;
-mod m20240620_delete_invalid_calendar_events;
-mod m20240704_add_new_preference_for_persisted_queries;
-mod m20240710_remove_sequences_completely;
-mod m20240711_remove_total_time_spent_from_seen;
 mod m20240712_create_notification_platform;
 mod m20240713_create_user_summary;
-mod m20240713_zz_cleanup_v6_6_2_migrations;
-mod m20240716_add_columns_to_user_table;
-mod m20240717_add_columns_to_integration_and_notification_tables;
-mod m20240717_zz_add_columns_to_user_table;
-mod m20240719_remove_comment_from_top_level;
-mod m20240722_remove_columns_from_user_table;
-mod m20240723_remove_integration_columns_from_user_table;
-mod m20240724_add_new_columns_to_collection_to_entity;
-mod m20240724_zzz_new_generated_collection_to_entity_columns;
-mod m20240730_changes_for_push_integrations;
-mod m20240805_add_new_section_to_dashboard;
-mod m20240810_remove_useless_columns_for_cte;
-mod m20240814_aa_new_column_from_anime_calendar_events;
-mod m20240814_bb_add_timestamp_column_to_calendar_event;
-mod m20240817_is_last_v6_migration;
+mod m20240825_is_v7_migration;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -89,34 +65,10 @@ impl MigratorTrait for Migrator {
             Box::new(m20231219_create_metadata_relations::Migration),
             Box::new(m20240509_create_user_to_collection::Migration),
             Box::new(m20240531_create_queued_notification::Migration),
-            Box::new(m20240606_is_v6_migration::Migration),
-            Box::new(m20240607_change_boolean_column_names::Migration),
-            Box::new(m20240607_change_user_primary_key::Migration),
             Box::new(m20240607_create_integration::Migration),
-            Box::new(m20240608_add_created_on_column_to_collection_to_entity::Migration),
-            Box::new(m20240619_remove_seen_from_media_reason_of_user_to_entity::Migration),
-            Box::new(m20240620_delete_invalid_calendar_events::Migration),
-            Box::new(m20240620_add_minimum_and_maximum_progress_columns_to_integration::Migration),
-            Box::new(m20240704_add_new_preference_for_persisted_queries::Migration),
-            Box::new(m20240710_remove_sequences_completely::Migration),
-            Box::new(m20240711_remove_total_time_spent_from_seen::Migration),
             Box::new(m20240712_create_notification_platform::Migration),
             Box::new(m20240713_create_user_summary::Migration),
-            Box::new(m20240713_zz_cleanup_v6_6_2_migrations::Migration),
-            Box::new(m20240716_add_columns_to_user_table::Migration),
-            Box::new(m20240717_add_columns_to_integration_and_notification_tables::Migration),
-            Box::new(m20240717_zz_add_columns_to_user_table::Migration),
-            Box::new(m20240719_remove_comment_from_top_level::Migration),
-            Box::new(m20240722_remove_columns_from_user_table::Migration),
-            Box::new(m20240723_remove_integration_columns_from_user_table::Migration),
-            Box::new(m20240724_add_new_columns_to_collection_to_entity::Migration),
-            Box::new(m20240724_zzz_new_generated_collection_to_entity_columns::Migration),
-            Box::new(m20240730_changes_for_push_integrations::Migration),
-            Box::new(m20240805_add_new_section_to_dashboard::Migration),
-            Box::new(m20240810_remove_useless_columns_for_cte::Migration),
-            Box::new(m20240814_aa_new_column_from_anime_calendar_events::Migration),
-            Box::new(m20240814_bb_add_timestamp_column_to_calendar_event::Migration),
-            Box::new(m20240817_is_last_v6_migration::Migration),
+            Box::new(m20240825_is_v7_migration::Migration),
         ]
     }
 }
