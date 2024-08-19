@@ -130,7 +130,7 @@ impl Display for media_details_query::MediaStatus {
             media_details_query::MediaStatus::NOT_YET_RELEASED => "Not Yet Released".to_string(),
             media_details_query::MediaStatus::CANCELLED => "Canceled".to_string(),
             media_details_query::MediaStatus::HIATUS => "Hiatus".to_string(),
-            _ => "Unknown".to_string()
+            _ => "Unknown".to_string(),
         };
         write!(f, "{}", str)
     }
