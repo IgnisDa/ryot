@@ -471,7 +471,13 @@ impl StatisticsService {
         calculate_from_beginning: bool,
     ) -> Result<()> {
         let start_from = match calculate_from_beginning {
-            true => Date::default(),
+            true => {
+                DailyUserActivity::delete_many()
+                    .filter(daily_user_activity::Column::UserId.eq(user_id))
+                    .exec(&self.db)
+                    .await?;
+                Date::default()
+            }
             false => DailyUserActivity::find()
                 .filter(daily_user_activity::Column::UserId.eq(user_id))
                 .order_by_desc(daily_user_activity::Column::Date)
