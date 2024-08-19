@@ -608,8 +608,8 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        // self.calculate_user_summary(user_id, calculate_from_beginning)
-        //     .await?;
+        self.calculate_user_summary(user_id, calculate_from_beginning)
+            .await?;
         self.calculate_user_activities(user_id, calculate_from_beginning)
             .await?;
         Ok(())
