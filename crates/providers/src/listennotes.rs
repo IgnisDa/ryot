@@ -1,8 +1,10 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_utils::{convert_naive_to_utc, TEMP_DIR};
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use models::{
@@ -19,7 +21,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_naive_to_utc, get_base_http_client, TEMP_DIR};
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
 static FILE: &str = "listennotes.json";

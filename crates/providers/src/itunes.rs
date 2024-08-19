@@ -11,7 +11,7 @@ use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::get_base_http_client;
+use application_utils::get_base_http_client;
 
 static URL: &str = "https://itunes.apple.com/";
 

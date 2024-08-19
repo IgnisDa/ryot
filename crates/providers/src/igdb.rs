@@ -1,8 +1,10 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_utils::TEMP_DIR;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use models::{
@@ -23,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{get_base_http_client, TEMP_DIR};
 
 static URL: &str = "https://api.igdb.com/v4/";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";

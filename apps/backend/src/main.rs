@@ -19,6 +19,7 @@ use apalis::{
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
+use common_utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use models::{prelude::Exercise, CompleteExport};
@@ -33,7 +34,6 @@ use tokio::{
 };
 use tower::buffer::BufferLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
     common::create_app_services,

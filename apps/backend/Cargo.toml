@@ -8,6 +8,7 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
+application-utils = { path = "../../crates/utils/application" }
 async-graphql = { workspace = true }
 async-graphql-axum = "=7.0.7"
 axum = { workspace = true }
@@ -15,7 +16,9 @@ aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+common-utils = { path = "../../crates/utils/common" }
 config = { path = "../../crates/config" }
+database-utils = { path = "../../crates/utils/database" }
 dotenvy = "=0.15.7"
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
 exporter-service = { path = "../../crates/services/exporter" }
@@ -46,4 +49,3 @@ tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
-utils = { path = "../../crates/utils" }

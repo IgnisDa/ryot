@@ -1,9 +1,0 @@
-[package]
-name = "utils"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-application-utils = { path = "./application" }
-common-utils = { path = "./common" }
-database-utils = { path = "./database" }

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use config::AnilistPreferredLanguage;
@@ -15,7 +16,6 @@ use reqwest::Client;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::get_base_http_client;
 
 static URL: &str = "https://graphql.anilist.co";
 static STUDIO_ROLE: &str = "Production Studio";

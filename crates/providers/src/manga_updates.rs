@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use enums::{MediaLot, MediaSource};
@@ -12,7 +13,6 @@ use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::get_base_http_client;
 
 static URL: &str = "https://api.mangaupdates.com/v1/";
 

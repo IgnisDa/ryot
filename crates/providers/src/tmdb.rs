@@ -5,9 +5,13 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use application_utils::{get_base_http_client, get_current_date};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use chrono_tz::Tz;
+use common_utils::{
+    convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
+};
 use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
@@ -28,10 +32,6 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{
-    convert_date_to_year, convert_string_to_date, get_base_http_client, get_current_date,
-    SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
-};
 
 static URL: &str = "https://api.themoviedb.org/3/";
 static FILE: &str = "tmdb.json";

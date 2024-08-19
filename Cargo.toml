@@ -24,7 +24,9 @@ members = [
     "crates/services/notification",
     "crates/services/statistics",
     "crates/traits",
-    "crates/utils",
+    "crates/utils/application",
+    "crates/utils/common",
+    "crates/utils/database",
 ]
 resolver = "2"
 
