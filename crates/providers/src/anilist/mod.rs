@@ -6,7 +6,6 @@ use config::AnilistPreferredLanguage;
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
-use media_details_query::MediaStatus;
 use models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MediaDetails,
     MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
@@ -122,14 +121,14 @@ impl NonMediaAnilistService {
     }
 }
 
-impl Display for MediaStatus {
+impl Display for media_details_query::MediaStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            MediaStatus::FINISHED => "FINISHED".to_string(),
-            MediaStatus::RELEASING => "RELEASING".to_string(),
-            MediaStatus::NOT_YET_RELEASED => "NOT_YET_RELEASED".to_string(),
-            MediaStatus::CANCELLED => "CANCELLED".to_string(),
-            MediaStatus::HIATUS => "HIATUS".to_string(),
+            media_details_query::MediaStatus::FINISHED => "FINISHED".to_string(),
+            media_details_query::MediaStatus::RELEASING => "RELEASING".to_string(),
+            media_details_query::MediaStatus::NOT_YET_RELEASED => "NOT_YET_RELEASED".to_string(),
+            media_details_query::MediaStatus::CANCELLED => "CANCELLED".to_string(),
+            media_details_query::MediaStatus::HIATUS => "HIATUS".to_string(),
             _ => "Unknown".to_string()
         };
         write!(f, "{}", str)
