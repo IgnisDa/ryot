@@ -838,14 +838,19 @@ dependencies = [
  "config",
  "dotenvy",
  "exporter-resolver",
+ "exporter-service",
  "file-storage-resolver",
+ "file-storage-service",
  "fitness-resolver",
+ "fitness-service",
  "http 1.1.0",
  "importer-resolver",
+ "importer-service",
  "itertools 0.13.0",
  "logs-wheel",
  "migrations",
  "miscellaneous-resolver",
+ "miscellaneous-service",
  "models",
  "openidconnect",
  "reqwest 0.11.23",
@@ -854,8 +859,8 @@ dependencies = [
  "sea-orm",
  "sea-orm-migration",
  "serde_json",
- "services",
  "statistics-resolver",
+ "statistics-service",
  "tokio",
  "tower",
  "tower-http",
@@ -5539,21 +5544,6 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
-]
-
-[[package]]
-name = "services"
-version = "0.1.0"
-dependencies = [
- "exporter-service",
- "file-storage-service",
- "fitness-service",
- "importer-service",
- "integration-service",
- "jwt-service",
- "miscellaneous-service",
- "notification-service",
- "statistics-service",
 ]
 
 [[package]]

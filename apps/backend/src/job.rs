@@ -2,10 +2,12 @@ use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::*;
 use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
+use exporter_service::ExporterService;
+use fitness_service::ExerciseService;
+use importer_service::ImporterService;
+use miscellaneous_service::MiscellaneousService;
 use models::CommitMediaInput;
-use services::{
-    ExerciseService, ExporterService, ImporterService, MiscellaneousService, StatisticsService,
-};
+use statistics_service::StatisticsService;
 
 pub async fn background_jobs(
     information: ScheduledJob,

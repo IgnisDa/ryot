@@ -18,24 +18,29 @@ chrono-tz = { workspace = true }
 config = { path = "../../crates/config" }
 dotenvy = "=0.15.7"
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
+exporter-service = { path = "../../crates/services/exporter" }
 file-storage-resolver = { path = "../../crates/resolvers/file-storage" }
+file-storage-service = { path = "../../crates/services/file-storage" }
 fitness-resolver = { path = "../../crates/resolvers/fitness" }
+fitness-service = { path = "../../crates/services/fitness" }
 http = "=1.1.0"
 importer-resolver = { path = "../../crates/resolvers/importer" }
+importer-service = { path = "../../crates/services/importer" }
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
+miscellaneous-service = { path = "../../crates/services/miscellaneous" }
 models = { path = "../../crates/models" }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
 router-resolver = { path = "../../crates/resolvers/router" }
 schematic = { workspace = true }
 statistics-resolver = { path = "../../crates/resolvers/statistics" }
+statistics-service = { path = "../../crates/services/statistics" }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 serde_json = { workspace = true }
-services = { path = "../../crates/services" }
 tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }

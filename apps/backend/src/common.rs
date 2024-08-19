@@ -11,11 +11,16 @@ use axum::{
 };
 use background::{ApplicationJob, CoreApplicationJob};
 use exporter_resolver::{ExporterMutation, ExporterQuery};
+use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
+use file_storage_service::FileStorageService;
 use fitness_resolver::{ExerciseMutation, ExerciseQuery};
+use fitness_service::ExerciseService;
 use importer_resolver::{ImporterMutation, ImporterQuery};
+use importer_service::ImporterService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
+use miscellaneous_service::MiscellaneousService;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
@@ -23,11 +28,8 @@ use openidconnect::{
 };
 use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::DatabaseConnection;
-use services::{
-    ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
-    StatisticsService,
-};
 use statistics_resolver::StatisticsQuery;
+use statistics_service::StatisticsService;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
