@@ -54,12 +54,15 @@ impl StatisticsService {
             })
             .all(&self.db)
             .await?;
-        let first_item = items.first();
-        let last_item = items.last();
-        let grouped_by = if let (Some(first_item), Some(last_item)) = (first_item, last_item) {
-            match (last_item.date - first_item.date).num_days() > 730 {
-                true => DailyUserActivitiesResponseGroupedBy::Year,
-                false => DailyUserActivitiesResponseGroupedBy::Month,
+        let grouped_by = if let (Some(first_item), Some(last_item)) = (items.first(), items.last())
+        {
+            let num_days = (last_item.date - first_item.date).num_days();
+            if num_days >= 500 {
+                DailyUserActivitiesResponseGroupedBy::Year
+            } else if num_days >= 200 {
+                DailyUserActivitiesResponseGroupedBy::Month
+            } else {
+                DailyUserActivitiesResponseGroupedBy::Day
             }
         } else {
             DailyUserActivitiesResponseGroupedBy::Day
