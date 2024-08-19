@@ -20,6 +20,7 @@ pub struct Model {
     pub review_counts: i64,
     pub workout_counts: i64,
     pub measurement_counts: i64,
+    pub total_duration: Decimal,
     #[sea_orm(column_type = "Json")]
     #[graphql(skip)]
     pub hour_counts: Vec<DailyUserActivityHourCount>,

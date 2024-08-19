@@ -145,6 +145,7 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
       date
       totalCounts
       reviewCounts
+      totalDuration
       workoutCounts
       measurementCounts
       metadataCounts {
