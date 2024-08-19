@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use apalis::prelude::MemoryStorage;
+use application_utils::AuthContext;
 use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::{
@@ -10,6 +11,7 @@ use axum::{
     Extension,
 };
 use background::{ApplicationJob, CoreApplicationJob};
+use common_utils::FRONTEND_OAUTH_ENDPOINT;
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
@@ -34,7 +36,6 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use utils::{AuthContext, FRONTEND_OAUTH_ENDPOINT};
 
 /// All the services that are used by the app
 pub struct AppServices {
