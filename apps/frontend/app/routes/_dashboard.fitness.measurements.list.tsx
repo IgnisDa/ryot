@@ -36,7 +36,12 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { TimeSpan, dayjsLib } from "~/lib/generals";
+import {
+	TimeSpan,
+	dayjsLib,
+	generateColor,
+	getStringAsciiValue,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -200,10 +205,10 @@ export default function Page() {
 							{selectedStats ? (
 								<LineChart
 									h={300}
-									series={selectedStats.map((s) => ({
-										name: s,
-										color: "blue",
-									}))}
+									series={selectedStats.map((s) => {
+										const color = generateColor(getStringAsciiValue(s));
+										return { name: s, color };
+									})}
 									data={formattedData}
 									dataKey="timestamp"
 									curveType="monotone"
