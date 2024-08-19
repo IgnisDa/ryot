@@ -18,7 +18,6 @@ pub enum DailyUserActivity {
     MeasurementCounts,
     WorkoutCounts,
     TotalCounts,
-    TotalDuration,
 }
 
 #[async_trait::async_trait]
@@ -69,12 +68,6 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(DailyUserActivity::TotalCounts)
                             .integer()
-                            .not_null()
-                            .default(0),
-                    )
-                    .col(
-                        ColumnDef::new(DailyUserActivity::TotalDuration)
-                            .decimal()
                             .not_null()
                             .default(0),
                     )
