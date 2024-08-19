@@ -488,15 +488,13 @@ impl StatisticsService {
         };
         let mut activities: HashMap<Date, daily_user_activity::Model> = HashMap::new();
 
-        let mut workout_stream = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id))
-            .filter(workout::Column::EndTime.gte(start_from))
-            .order_by_asc(workout::Column::EndTime)
-            .stream(&self.db)
-            .await?;
-        while let Some(item) = workout_stream.try_next().await? {
-            let date = item.end_time.date_naive();
-            let hour = item.end_time.time().hour();
+        fn update_activity_counts<'a>(
+            activities: &'a mut HashMap<Date, daily_user_activity::Model>,
+            user_id: &'a String,
+            date: Date,
+            hour: u32,
+            activity_type: &str,
+        ) -> &'a mut daily_user_activity::Model {
             let existing = activities
                 .entry(date)
                 .or_insert_with(|| daily_user_activity::Model {
@@ -506,14 +504,32 @@ impl StatisticsService {
                     hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
                     ..Default::default()
                 });
-            existing.workout_counts += 1;
+            match activity_type {
+                "workout" => existing.workout_counts += 1,
+                "measurement" => existing.measurement_counts += 1,
+                "review" => existing.review_counts += 1,
+                _ => (),
+            }
             if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
                 e.count += 1;
             } else {
                 existing
                     .hour_counts
                     .push(DailyUserActivityHourCount { hour, count: 1 });
-            }
+            };
+            existing
+        }
+
+        let mut workout_stream = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::EndTime.gte(start_from))
+            .order_by_asc(workout::Column::EndTime)
+            .stream(&self.db)
+            .await?;
+        while let Some(item) = workout_stream.try_next().await? {
+            let date = item.end_time.date_naive();
+            let hour = item.end_time.time().hour();
+            update_activity_counts(&mut activities, user_id, date, hour, "workout");
         }
 
         let mut measurement_stream = UserMeasurement::find()
@@ -525,23 +541,7 @@ impl StatisticsService {
         while let Some(item) = measurement_stream.try_next().await? {
             let date = item.timestamp.date_naive();
             let hour = item.timestamp.time().hour();
-            let existing = activities
-                .entry(date)
-                .or_insert_with(|| daily_user_activity::Model {
-                    date,
-                    user_id: user_id.to_owned(),
-                    workout_counts: 0,
-                    hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
-                    ..Default::default()
-                });
-            existing.measurement_counts += 1;
-            if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
-                e.count += 1;
-            } else {
-                existing
-                    .hour_counts
-                    .push(DailyUserActivityHourCount { hour, count: 1 });
-            }
+            update_activity_counts(&mut activities, user_id, date, hour, "measurement");
         }
 
         let mut review_stream = Review::find()
@@ -553,23 +553,7 @@ impl StatisticsService {
         while let Some(item) = review_stream.try_next().await? {
             let date = item.posted_on.date_naive();
             let hour = item.posted_on.time().hour();
-            let existing = activities
-                .entry(date)
-                .or_insert_with(|| daily_user_activity::Model {
-                    date,
-                    user_id: user_id.to_owned(),
-                    workout_counts: 0,
-                    hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
-                    ..Default::default()
-                });
-            existing.review_counts += 1;
-            if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
-                e.count += 1;
-            } else {
-                existing
-                    .hour_counts
-                    .push(DailyUserActivityHourCount { hour, count: 1 });
-            }
+            update_activity_counts(&mut activities, user_id, date, hour, "review");
         }
 
         for (_, activity) in activities.into_iter() {
