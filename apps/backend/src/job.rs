@@ -5,8 +5,8 @@ use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
 use exporter_service::ExporterService;
 use fitness_service::ExerciseService;
 use importer_service::ImporterService;
+use media_models::CommitMediaInput;
 use miscellaneous_service::MiscellaneousService;
-use models::CommitMediaInput;
 use statistics_service::StatisticsService;
 
 pub async fn background_jobs(

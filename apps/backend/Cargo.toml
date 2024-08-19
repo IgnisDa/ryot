@@ -18,7 +18,8 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 common-utils = { path = "../../crates/utils/common" }
 config = { path = "../../crates/config" }
-database-utils = { path = "../../crates/utils/database" }
+database-models = { path = "../../crates/models/database" }
+dependent-models = { path = "../../crates/models/dependent" }
 dotenvy = "=0.15.7"
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
 exporter-service = { path = "../../crates/services/exporter" }
@@ -31,6 +32,7 @@ importer-resolver = { path = "../../crates/resolvers/importer" }
 importer-service = { path = "../../crates/services/importer" }
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
+media-models = { path = "../../crates/models/media" }
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
 miscellaneous-service = { path = "../../crates/services/miscellaneous" }

@@ -20,9 +20,10 @@ use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
 use common_utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
+use database_models::prelude::Exercise;
+use dependent_models::CompleteExport;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
-use models::{prelude::Exercise, CompleteExport};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
