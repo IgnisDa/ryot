@@ -17,20 +17,11 @@ use apalis::{
     utils::TokioExecutor,
 };
 use aws_sdk_s3::config::Region;
-use axum::{
-    extract::DefaultBodyLimit,
-    http::{header, Method},
-    routing::{get, post, Router},
-    Extension,
-};
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
-use common::get_graphql_schema;
-use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use models::{prelude::Exercise, CompleteExport};
-use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
@@ -41,15 +32,11 @@ use tokio::{
     time::{sleep, Duration as TokioDuration},
 };
 use tower::buffer::BufferLayer;
-use tower_http::{
-    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
-    trace::TraceLayer as TowerTraceLayer,
-};
 use tracing_subscriber::{fmt, layer::SubscriberExt};
 use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
-    common::{create_app_services, graphql_handler},
+    common::create_app_services,
     job::{
         background_jobs, perform_application_job, perform_core_application_job,
         sync_integrations_data,
@@ -79,15 +66,9 @@ async fn main() -> Result<()> {
         tracing::info!("Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
-    let cors_origins = config
-        .server
-        .cors_origins
-        .iter()
-        .map(|f| f.parse().unwrap())
-        .collect_vec();
+
     let rate_limit_count = config.scheduler.rate_limit_num;
     let sync_every_minutes = config.integration.sync_every_minutes;
-    let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
 
     let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
@@ -193,35 +174,6 @@ async fn main() -> Result<()> {
             .ok();
     }
 
-    let schema = get_graphql_schema(&app_services).await;
-
-    let cors = TowerCorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
-        .allow_origin(cors_origins)
-        .allow_credentials(true);
-
-    let webhook_routes =
-        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
-
-    let mut gql = post(graphql_handler);
-    if app_services.config.server.graphql_playground_enabled {
-        gql = gql.get(graphql_playground);
-    }
-
-    let app_routes = Router::new()
-        .nest("/webhooks", webhook_routes)
-        .route("/config", get(config_handler))
-        .route("/graphql", gql)
-        .route("/upload", post(upload_file))
-        .layer(Extension(app_services.config.clone()))
-        .layer(Extension(app_services.miscellaneous_service.clone()))
-        .layer(Extension(schema))
-        .layer(TowerTraceLayer::new_for_http())
-        .layer(TowerCatchPanicLayer::new())
-        .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
-        .layer(cors);
-
     let port = env::var("BACKEND_PORT")
         .unwrap_or_else(|_| "5000".to_owned())
         .parse::<usize>()
@@ -305,7 +257,7 @@ async fn main() -> Result<()> {
     };
 
     let http = async {
-        axum::serve(listener, app_routes.into_make_service())
+        axum::serve(listener, app_services.app_router.into_make_service())
             .await
             .unwrap();
     };

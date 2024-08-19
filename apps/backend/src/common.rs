@@ -3,35 +3,45 @@ use std::sync::Arc;
 use apalis::prelude::MemoryStorage;
 use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
-use axum::Extension;
+use axum::{
+    extract::DefaultBodyLimit,
+    http::{header, Method},
+    routing::{get, post, Router},
+    Extension,
+};
 use background::{ApplicationJob, CoreApplicationJob};
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
 use fitness_resolver::{ExerciseMutation, ExerciseQuery};
 use importer_resolver::{ImporterMutation, ImporterQuery};
+use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
+use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::DatabaseConnection;
 use services::{
     ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
     StatisticsService,
 };
 use statistics_resolver::StatisticsQuery;
+use tower_http::{
+    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
+    trace::TraceLayer as TowerTraceLayer,
+};
 use utils::{AuthContext, FRONTEND_OAUTH_ENDPOINT};
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub config: Arc<config::AppConfig>,
     pub miscellaneous_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
-    pub file_storage_service: Arc<FileStorageService>,
     pub statistics_service: Arc<StatisticsService>,
+    pub app_router: Router,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -57,7 +67,7 @@ pub async fn create_app_services(
     ));
     let oidc_client = Arc::new(create_oidc_client(&config).await);
 
-    let media_service = Arc::new(
+    let miscellaneous_service = Arc::new(
         MiscellaneousService::new(
             &db,
             config.clone(),
@@ -72,7 +82,7 @@ pub async fn create_app_services(
     let importer_service = Arc::new(ImporterService::new(
         &db,
         perform_application_job,
-        media_service.clone(),
+        miscellaneous_service.clone(),
         exercise_service.clone(),
         timezone.clone(),
     ));
@@ -83,14 +93,61 @@ pub async fn create_app_services(
         file_storage_service.clone(),
     ));
     let statistics_service = Arc::new(StatisticsService::new(&db));
+    let schema = Schema::build(
+        QueryRoot::default(),
+        MutationRoot::default(),
+        EmptySubscription,
+    )
+    .extension(Tracing)
+    .data(miscellaneous_service.clone())
+    .data(importer_service.clone())
+    .data(exporter_service.clone())
+    .data(exercise_service.clone())
+    .data(file_storage_service.clone())
+    .data(statistics_service.clone())
+    .finish();
+
+    let cors_origins = config
+        .server
+        .cors_origins
+        .iter()
+        .map(|f| f.parse().unwrap())
+        .collect_vec();
+    let cors = TowerCorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
+        .allow_origin(cors_origins)
+        .allow_credentials(true);
+
+    let webhook_routes =
+        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
+
+    let mut gql = post(graphql_handler);
+    if config.server.graphql_playground_enabled {
+        gql = gql.get(graphql_playground);
+    }
+
+    let app_router = Router::new()
+        .nest("/webhooks", webhook_routes)
+        .route("/config", get(config_handler))
+        .route("/graphql", gql)
+        .route("/upload", post(upload_file))
+        .layer(Extension(config.clone()))
+        .layer(Extension(miscellaneous_service.clone()))
+        .layer(Extension(schema))
+        .layer(TowerTraceLayer::new_for_http())
+        .layer(TowerCatchPanicLayer::new())
+        .layer(DefaultBodyLimit::max(
+            1024 * 1024 * config.server.max_file_size,
+        ))
+        .layer(cors);
     AppServices {
-        config,
-        miscellaneous_service: media_service,
+        miscellaneous_service,
         importer_service,
         exporter_service,
         exercise_service,
-        file_storage_service,
         statistics_service,
+        app_router,
     }
 }
 
@@ -152,20 +209,4 @@ pub async fn graphql_handler(
     req: GraphQLRequest,
 ) -> GraphQLResponse {
     schema.execute(req.into_inner().data(gql_ctx)).await.into()
-}
-
-pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
-    Schema::build(
-        QueryRoot::default(),
-        MutationRoot::default(),
-        EmptySubscription,
-    )
-    .extension(Tracing)
-    .data(app_services.miscellaneous_service.clone())
-    .data(app_services.importer_service.clone())
-    .data(app_services.exporter_service.clone())
-    .data(app_services.exercise_service.clone())
-    .data(app_services.file_storage_service.clone())
-    .data(app_services.statistics_service.clone())
-    .finish()
 }
