@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -5,6 +6,7 @@ use config::AnilistPreferredLanguage;
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
+use media_details_query::MediaStatus;
 use models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MediaDetails,
     MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
@@ -117,6 +119,20 @@ impl NonMediaAnilistService {
         Self {
             base: AnilistService::new(page_size, config).await,
         }
+    }
+}
+
+impl Display for MediaStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            MediaStatus::FINISHED => "FINISHED".to_string(),
+            MediaStatus::RELEASING => "RELEASING".to_string(),
+            MediaStatus::NOT_YET_RELEASED => "NOT_YET_RELEASED".to_string(),
+            MediaStatus::CANCELLED => "CANCELLED".to_string(),
+            MediaStatus::HIATUS => "HIATUS".to_string(),
+            _ => "Unknown".to_string()
+        };
+        write!(f, "{}", str)
     }
 }
 
@@ -684,6 +700,7 @@ async fn media_details(
         title.romaji,
         preferred_language,
     );
+    let status = details.status.unwrap();
     Ok(MediaDetails {
         title,
         identifier: details.id.to_string(),
@@ -704,7 +721,7 @@ async fn media_details(
         provider_rating: score,
         group_identifiers: vec![],
         s3_images: vec![],
-        production_status: None,
+        production_status: Some(status.to_string()),
         original_language: None,
         ..Default::default()
     })
