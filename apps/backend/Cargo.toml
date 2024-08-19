@@ -9,6 +9,7 @@ license = "GPL-3.0"
 anyhow = { workspace = true }
 apalis = { workspace = true }
 async-graphql = { workspace = true }
+async-graphql-axum = "=7.0.7"
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }

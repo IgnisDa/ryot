@@ -30,9 +30,7 @@ use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use models::{prelude::Exercise, CompleteExport};
-use resolvers::{
-    config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
-};
+use resolvers::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
@@ -51,7 +49,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt};
 use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
-    common::create_app_services,
+    common::{create_app_services, graphql_handler},
     job::{
         background_jobs, perform_application_job, perform_core_application_job,
         sync_integrations_data,

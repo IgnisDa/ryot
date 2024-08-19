@@ -829,6 +829,7 @@ dependencies = [
  "anyhow",
  "apalis",
  "async-graphql",
+ "async-graphql-axum",
  "aws-sdk-s3",
  "axum",
  "background",
@@ -4769,7 +4770,6 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
- "async-graphql-axum",
  "axum",
  "exporter-resolver",
  "file-storage-resolver",

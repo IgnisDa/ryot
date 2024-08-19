@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 application-utils = { path = "../utils/application" }
 async-graphql = { workspace = true }
-async-graphql-axum = "=7.0.7"
 axum = { workspace = true }
 exporter-resolver = { path = "./exporter" }
 file-storage-resolver = { path = "./file-storage" }

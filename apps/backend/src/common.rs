@@ -1,20 +1,26 @@
 use std::sync::Arc;
 
 use apalis::prelude::MemoryStorage;
-use async_graphql::{extensions::Tracing, EmptySubscription, Schema};
+use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
+use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
+use axum::Extension;
 use background::{ApplicationJob, CoreApplicationJob};
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use resolvers::{GraphqlSchema, MutationRoot, QueryRoot};
+use resolvers::{
+    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, FileStorageMutation,
+    FileStorageQuery, ImporterMutation, ImporterQuery, MiscellaneousMutation, MiscellaneousQuery,
+    StatisticsQuery,
+};
 use sea_orm::DatabaseConnection;
 use services::{
     ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
     StatisticsService,
 };
-use utils::FRONTEND_OAUTH_ENDPOINT;
+use utils::{AuthContext, FRONTEND_OAUTH_ENDPOINT};
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -116,6 +122,35 @@ async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
             None
         }
     }
+}
+
+#[derive(MergedObject, Default)]
+pub struct QueryRoot(
+    MiscellaneousQuery,
+    ImporterQuery,
+    ExporterQuery,
+    ExerciseQuery,
+    FileStorageQuery,
+    StatisticsQuery,
+);
+
+#[derive(MergedObject, Default)]
+pub struct MutationRoot(
+    MiscellaneousMutation,
+    ImporterMutation,
+    ExporterMutation,
+    ExerciseMutation,
+    FileStorageMutation,
+);
+
+pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
+
+pub async fn graphql_handler(
+    schema: Extension<GraphqlSchema>,
+    gql_ctx: AuthContext,
+    req: GraphQLRequest,
+) -> GraphQLResponse {
+    schema.execute(req.into_inner().data(gql_ctx)).await.into()
 }
 
 pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
