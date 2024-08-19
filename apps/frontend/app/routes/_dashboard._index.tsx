@@ -731,6 +731,7 @@ const ActivitySection = () => {
 					tickLine="x"
 					dataKey="date"
 					type="stacked"
+					ml={{ base: -15, md: 0 }}
 					data={dailyUserActivitiesData.data}
 					legendProps={{ verticalAlign: "bottom" }}
 					xAxisProps={{
