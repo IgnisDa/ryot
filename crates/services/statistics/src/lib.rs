@@ -242,7 +242,7 @@ impl StatisticsService {
             .filter(workout::Column::UserId.eq(user_id))
             .select_only()
             .column_as(
-                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
+                Expr::cust("coalesce((sum(duration) / 60)::numeric, 0)"),
                 "minutes",
             )
             .column_as(
@@ -269,8 +269,8 @@ impl StatisticsService {
         ls.fitness.measurements_recorded += num_measurements;
         ls.fitness.exercises_interacted_with += num_exercises_interacted_with;
         ls.fitness.workouts.recorded += num_workouts;
-        ls.fitness.workouts.weight += total_workout_weight;
         ls.fitness.workouts.duration += total_workout_time;
+        ls.fitness.workouts.weight += total_workout_weight;
 
         tracing::debug!("Calculated numbers summary for user: {:?}", ls);
 
