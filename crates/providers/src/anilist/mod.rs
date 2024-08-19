@@ -116,16 +116,13 @@ impl NonMediaAnilistService {
 }
 
 fn media_status_string(status: Option<media_details_query::MediaStatus>) -> Option<String> {
-    match status {
-        Some(media_details_query::MediaStatus::FINISHED) => Some("Finished".to_string()),
-        Some(media_details_query::MediaStatus::RELEASING) => Some("Ongoing".to_string()),
-        Some(media_details_query::MediaStatus::NOT_YET_RELEASED) => {
-            Some("Not Yet Released".to_string())
-        }
-        Some(media_details_query::MediaStatus::CANCELLED) => Some("Canceled".to_string()),
-        Some(media_details_query::MediaStatus::HIATUS) => Some("Hiatus".to_string()),
-        _ => None,
-    }
+    status.map(|s| match s {
+        media_details_query::MediaStatus::FINISHED => "Finished".to_string(),
+        media_details_query::MediaStatus::RELEASING => "Ongoing".to_string(),
+        media_details_query::MediaStatus::NOT_YET_RELEASED => "Not Yet Released".to_string(),
+        media_details_query::MediaStatus::CANCELLED => "Canceled".to_string(),
+        media_details_query::MediaStatus::HIATUS => "Hiatus".to_string(),
+    })
 }
 
 #[async_trait]
