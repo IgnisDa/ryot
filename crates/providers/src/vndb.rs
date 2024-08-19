@@ -1,13 +1,14 @@
 use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
+use common_models::{NamedObject, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
-    MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, NamedObject,
-    PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics, SearchDetails, SearchResults,
-    VisualNovelSpecifics,
+use media_models::{
+    MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
+    PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics, VisualNovelSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;

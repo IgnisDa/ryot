@@ -1,12 +1,14 @@
 use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
+use common_models::{NamedObject, SearchDetails};
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
-use models::{
+use media_models::{
     AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataSearchItem,
-    NamedObject, PartialMetadataWithoutId, SearchDetails, SearchResults,
+    PartialMetadataWithoutId,
 };
 use rand::{seq::SliceRandom, thread_rng};
 use reqwest::{

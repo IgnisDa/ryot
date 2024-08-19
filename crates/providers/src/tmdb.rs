@@ -9,18 +9,20 @@ use application_utils::{get_base_http_client, get_current_date};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use chrono_tz::Tz;
+use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
 use common_utils::{
     convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
 };
+use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
-use models::{
-    metadata_group::MetadataGroupWithoutId, ExternalIdentifiers, IdObject, MediaDetails,
-    MetadataGroupSearchItem, MetadataImage, MetadataImageForMediaDetails, MetadataPerson,
-    MetadataSearchItem, MetadataVideo, MetadataVideoSource, MovieSpecifics, NamedObject,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-    SearchDetails, SearchResults, ShowEpisode, ShowSeason, ShowSpecifics, StoredUrl, WatchProvider,
+use media_models::{
+    ExternalIdentifiers, MediaDetails, MetadataGroupSearchItem, MetadataImage,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
+    MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},

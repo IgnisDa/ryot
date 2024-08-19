@@ -34,7 +34,6 @@ logs-wheel = "=0.3.1"
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
 miscellaneous-service = { path = "../../crates/services/miscellaneous" }
-models = { path = "../../crates/models" }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
 router-resolver = { path = "../../crates/resolvers/router" }

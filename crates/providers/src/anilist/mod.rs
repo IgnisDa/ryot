@@ -2,15 +2,17 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use common_models::{SearchDetails, StoredUrl};
 use config::AnilistPreferredLanguage;
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
-use models::{
+use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MediaDetails,
     MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
     MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    PersonSourceSpecifics, SearchDetails, SearchResults, StoredUrl,
+    PersonSourceSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;

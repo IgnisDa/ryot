@@ -4,15 +4,16 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
 use common_utils::TEMP_DIR;
+use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
-    metadata_group::MetadataGroupWithoutId, IdObject, MediaDetails, MetadataGroupSearchItem,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
-    MetadataVideoSource, NamedObject, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics, SearchDetails, SearchResults, StoredUrl,
-    VideoGameSpecifics,
+use media_models::{
+    MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},

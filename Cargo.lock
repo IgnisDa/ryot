@@ -854,7 +854,6 @@ dependencies = [
  "migrations",
  "miscellaneous-resolver",
  "miscellaneous-service",
- "models",
  "openidconnect",
  "reqwest 0.11.23",
  "router-resolver",
@@ -3615,20 +3614,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "models"
-version = "0.1.0"
-dependencies = [
- "common-models",
- "database-models",
- "dependent-models",
- "fitness-models",
- "importer-models",
- "media-models",
- "specific-models",
- "user-models",
-]
-
-[[package]]
 name = "multer"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4376,16 +4361,19 @@ dependencies = [
  "async-trait",
  "chrono",
  "chrono-tz",
+ "common-models",
  "common-utils",
  "config",
  "const-str",
  "convert_case",
+ "database-models",
+ "dependent-models",
  "enums",
  "graphql_client",
  "hashbag",
  "isolang",
  "itertools 0.13.0",
- "models",
+ "media-models",
  "paginate",
  "rand 0.9.0-alpha.2",
  "reqwest 0.11.23",

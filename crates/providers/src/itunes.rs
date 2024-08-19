@@ -1,17 +1,19 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_models::{NamedObject, SearchDetails};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-    NamedObject, PodcastEpisode, PodcastSpecifics, SearchDetails, SearchResults,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use application_utils::get_base_http_client;
 
 static URL: &str = "https://itunes.apple.com/";
 

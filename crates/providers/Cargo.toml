@@ -9,16 +9,19 @@ application-utils = { path = "../utils/application" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+common-models = { path = "../models/common" }
 common-utils = { path = "../utils/common" }
 config = { path = "../config" }
 const-str = { workspace = true }
 convert_case = { workspace = true }
+database-models = { path = "../models/database" }
+dependent-models = { path = "../models/dependent" }
 enums = { path = "../enums" }
 graphql_client = "=0.14.0"
 hashbag = "=0.1.12"
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = { workspace = true }
-models = { path = "../models" }
+media-models = { path = "../models/media" }
 paginate = "=1.1.11"
 rand = "=0.9.0-alpha.2"
 reqwest = { workspace = true }

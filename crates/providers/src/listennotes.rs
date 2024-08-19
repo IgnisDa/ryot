@@ -4,12 +4,14 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_models::SearchDetails;
 use common_utils::{convert_naive_to_utc, TEMP_DIR};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-    PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics, SearchDetails, SearchResults,
+    PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue},

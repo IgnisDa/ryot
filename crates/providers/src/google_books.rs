@@ -1,13 +1,15 @@
 use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
+use common_models::SearchDetails;
 use common_utils::convert_date_to_year;
 use convert_case::{Case, Casing};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-    MetadataSearchItem, SearchDetails, SearchResults,
+    MetadataSearchItem,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue},

@@ -2,13 +2,14 @@ use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
+use common_models::SearchDetails;
 use convert_case::{Case, Casing};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-    SearchDetails, SearchResults,
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
