@@ -53,6 +53,7 @@ impl StatisticsService {
             .apply_if(input.start_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.gte(v))
             })
+            .order_by_asc(daily_user_activity::Column::Date)
             .all(&self.db)
             .await?;
         let grouped_by = if let (Some(first_item), Some(last_item)) = (items.first(), items.last())
