@@ -5,21 +5,22 @@ use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::Extension;
 use background::{ApplicationJob, CoreApplicationJob};
+use exporter_resolver::{ExporterMutation, ExporterQuery};
+use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
+use fitness_resolver::{ExerciseMutation, ExerciseQuery};
+use importer_resolver::{ImporterMutation, ImporterQuery};
+use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
-};
-use resolvers::{
-    ExerciseMutation, ExerciseQuery, ExporterMutation, ExporterQuery, FileStorageMutation,
-    FileStorageQuery, ImporterMutation, ImporterQuery, MiscellaneousMutation, MiscellaneousQuery,
-    StatisticsQuery,
 };
 use sea_orm::DatabaseConnection;
 use services::{
     ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
     StatisticsService,
 };
+use statistics_resolver::StatisticsQuery;
 use utils::{AuthContext, FRONTEND_OAUTH_ENDPOINT};
 
 /// All the services that are used by the app

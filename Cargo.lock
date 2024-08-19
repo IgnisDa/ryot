@@ -837,19 +837,25 @@ dependencies = [
  "chrono-tz",
  "config",
  "dotenvy",
+ "exporter-resolver",
+ "file-storage-resolver",
+ "fitness-resolver",
  "http 1.1.0",
+ "importer-resolver",
  "itertools 0.13.0",
  "logs-wheel",
  "migrations",
+ "miscellaneous-resolver",
  "models",
  "openidconnect",
  "reqwest 0.11.23",
- "resolvers",
+ "router-resolver",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
  "serde_json",
  "services",
+ "statistics-resolver",
  "tokio",
  "tower",
  "tower-http",
@@ -4762,22 +4768,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winreg 0.52.0",
-]
-
-[[package]]
-name = "resolvers"
-version = "0.1.0"
-dependencies = [
- "application-utils",
- "async-graphql",
- "axum",
- "exporter-resolver",
- "file-storage-resolver",
- "fitness-resolver",
- "importer-resolver",
- "miscellaneous-resolver",
- "router-resolver",
- "statistics-resolver",
 ]
 
 [[package]]

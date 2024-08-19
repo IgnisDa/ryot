@@ -30,7 +30,7 @@ use itertools::Itertools;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use models::{prelude::Exercise, CompleteExport};
-use resolvers::{config_handler, graphql_playground, integration_webhook, upload_file};
+use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };

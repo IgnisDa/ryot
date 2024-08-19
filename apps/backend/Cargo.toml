@@ -17,15 +17,21 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 config = { path = "../../crates/config" }
 dotenvy = "=0.15.7"
+exporter-resolver = { path = "../../crates/resolvers/exporter" }
+file-storage-resolver = { path = "../../crates/resolvers/file-storage" }
+fitness-resolver = { path = "../../crates/resolvers/fitness" }
 http = "=1.1.0"
+importer-resolver = { path = "../../crates/resolvers/importer" }
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
 migrations = { path = "../../crates/migrations" }
+miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
 models = { path = "../../crates/models" }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
-resolvers = { path = "../../crates/resolvers" }
+router-resolver = { path = "../../crates/resolvers/router" }
 schematic = { workspace = true }
+statistics-resolver = { path = "../../crates/resolvers/statistics" }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 serde_json = { workspace = true }
