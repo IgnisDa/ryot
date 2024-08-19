@@ -104,6 +104,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				entityName: workoutDetails.details.name,
 				startTime: workoutDetails.details.startTime,
 				endTime: workoutDetails.details.endTime,
+				duration: workoutDetails.details.duration,
 				information: workoutDetails.details.information,
 				summary: workoutDetails.details.summary,
 				repeatedWorkout: repeatedWorkout,
@@ -350,11 +351,10 @@ export default function Page() {
 								{loaderData.endTime && loaderData.startTime ? (
 									<DisplayStat
 										icon={<IconClock size={16} />}
-										data={humanizeDuration(
-											new Date(loaderData.endTime).valueOf() -
-												new Date(loaderData.startTime).valueOf(),
-											{ round: true, units: ["h", "m"] },
-										)}
+										data={humanizeDuration(loaderData.duration * 1000, {
+											round: true,
+											units: ["h", "m"],
+										})}
 									/>
 								) : null}
 								{Number(loaderData.summary.total.weight) !== 0 ? (

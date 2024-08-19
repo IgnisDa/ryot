@@ -84,10 +84,10 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 					id: w.id,
 					name: w.name,
 					timestamp: w.startTime,
-					detail: humanizeDuration(
-						new Date(w.endTime).valueOf() - new Date(w.startTime).valueOf(),
-						{ round: true, units: ["h", "m"] },
-					),
+					detail: humanizeDuration(w.duration * 1000, {
+						round: true,
+						units: ["h", "m"],
+					}),
 					summary: w.summary,
 				})),
 			};
