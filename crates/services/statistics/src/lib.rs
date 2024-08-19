@@ -13,7 +13,7 @@ use database_models::{
 };
 use database_utils::consolidate_activities;
 use dependent_models::{DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy};
-use enums::MediaLot;
+use enums::{MediaLot, SeenState};
 use futures::TryStreamExt;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
@@ -524,13 +524,13 @@ impl StatisticsService {
 
         let mut seen_stream = Seen::find()
             .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::Progress.eq(100))
             .filter(seen::Column::LastUpdatedOn.gte(start_from))
             .filter(seen::Column::FinishedOn.is_not_null())
+            .filter(seen::Column::State.eq(SeenState::Completed))
             .left_join(Metadata)
+            .select_only()
             .column(metadata::Column::Lot)
             .columns([seen::Column::FinishedOn, seen::Column::LastUpdatedOn])
-            .order_by_asc(seen::Column::LastUpdatedOn)
             .into_tuple::<(MediaLot, Option<Date>, DateTimeUtc)>()
             .stream(&self.db)
             .await?;
@@ -557,7 +557,6 @@ impl StatisticsService {
         let mut workout_stream = Workout::find()
             .filter(workout::Column::UserId.eq(user_id))
             .filter(workout::Column::EndTime.gte(start_from))
-            .order_by_asc(workout::Column::EndTime)
             .stream(&self.db)
             .await?;
         while let Some(item) = workout_stream.try_next().await? {
@@ -569,7 +568,6 @@ impl StatisticsService {
         let mut measurement_stream = UserMeasurement::find()
             .filter(user_measurement::Column::UserId.eq(user_id))
             .filter(user_measurement::Column::Timestamp.gte(start_from))
-            .order_by_asc(user_measurement::Column::Timestamp)
             .stream(&self.db)
             .await?;
         while let Some(item) = measurement_stream.try_next().await? {
@@ -581,7 +579,6 @@ impl StatisticsService {
         let mut review_stream = Review::find()
             .filter(review::Column::UserId.eq(user_id))
             .filter(review::Column::PostedOn.gte(start_from))
-            .order_by_asc(review::Column::PostedOn)
             .stream(&self.db)
             .await?;
         while let Some(item) = review_stream.try_next().await? {
