@@ -2935,16 +2935,12 @@ impl MiscellaneousService {
             } else if let Some(ci) = insert.collection_id.unwrap() {
                 (
                     ci.clone(),
-                    self.collection_contents(CollectionContentsInput {
-                        collection_id: ci,
-                        filter: None,
-                        search: None,
-                        take: None,
-                        sort: None,
-                    })
-                    .await?
-                    .details
-                    .name,
+                    Collection::find_by_id(ci)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap()
+                        .name,
                     EntityLot::Collection,
                 )
             } else {
