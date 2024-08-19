@@ -124,11 +124,11 @@ impl NonMediaAnilistService {
 impl Display for media_details_query::MediaStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            media_details_query::MediaStatus::FINISHED => "FINISHED".to_string(),
-            media_details_query::MediaStatus::RELEASING => "RELEASING".to_string(),
-            media_details_query::MediaStatus::NOT_YET_RELEASED => "NOT_YET_RELEASED".to_string(),
-            media_details_query::MediaStatus::CANCELLED => "CANCELLED".to_string(),
-            media_details_query::MediaStatus::HIATUS => "HIATUS".to_string(),
+            media_details_query::MediaStatus::FINISHED => "Finished".to_string(),
+            media_details_query::MediaStatus::RELEASING => "Ongoing".to_string(),
+            media_details_query::MediaStatus::NOT_YET_RELEASED => "Not Yet Released".to_string(),
+            media_details_query::MediaStatus::CANCELLED => "Canceled".to_string(),
+            media_details_query::MediaStatus::HIATUS => "Hiatus".to_string(),
             _ => "Unknown".to_string()
         };
         write!(f, "{}", str)
