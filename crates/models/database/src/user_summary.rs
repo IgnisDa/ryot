@@ -4,7 +4,7 @@ use async_graphql::SimpleObject;
 use common_models::UserSummaryData;
 use sea_orm::entity::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject)]
+#[derive(Clone, Default, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject)]
 #[sea_orm(table_name = "user_summary")]
 #[graphql(name = "UserSummary")]
 pub struct Model {

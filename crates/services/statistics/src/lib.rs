@@ -113,7 +113,7 @@ impl StatisticsService {
         let ls = UserSummary::find_by_id(user_id)
             .one(&self.db)
             .await?
-            .unwrap();
+            .unwrap_or_default();
         Ok(ls)
     }
 
