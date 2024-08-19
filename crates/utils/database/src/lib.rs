@@ -323,9 +323,7 @@ pub fn consolidate_activities(
     let mut measurement_counts = 0;
     let mut total_duration = dec!(0);
     let mut new_hour_counts = HashMap::new();
-    let mut hour_counts = vec![];
     let mut new_metadata_counts = HashMap::new();
-    let mut metadata_counts = vec![];
     for item in inputs.iter() {
         total_counts += item.total_counts;
         review_counts += item.review_counts;
@@ -343,16 +341,14 @@ pub fn consolidate_activities(
             *existing += mc.count;
         }
     }
-    hour_counts.extend(
-        new_hour_counts
-            .into_iter()
-            .map(|(k, v)| DailyUserActivityHourCount { hour: k, count: v }),
-    );
-    metadata_counts.extend(
-        new_metadata_counts
-            .into_iter()
-            .map(|(k, v)| DailyUserActivityMetadataCount { lot: k, count: v }),
-    );
+    let hour_counts = new_hour_counts
+        .into_iter()
+        .map(|(k, v)| DailyUserActivityHourCount { hour: k, count: v })
+        .collect();
+    let metadata_counts = new_metadata_counts
+        .into_iter()
+        .map(|(k, v)| DailyUserActivityMetadataCount { lot: k, count: v })
+        .collect();
     daily_user_activity::Model {
         hour_counts,
         total_counts,
