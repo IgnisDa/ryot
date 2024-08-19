@@ -25,6 +25,7 @@ pub struct Model {
     pub repeated_from: Option<String>,
     pub start_time: DateTimeUtc,
     pub end_time: DateTimeUtc,
+    pub duration: i32,
     #[graphql(skip)]
     #[serde(skip)]
     pub user_id: String,
