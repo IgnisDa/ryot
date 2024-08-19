@@ -197,6 +197,7 @@ pub struct ImportResult {
 pub enum DailyUserActivitiesResponseGroupedBy {
     Day,
     Month,
+    Year,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

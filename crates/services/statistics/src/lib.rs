@@ -44,7 +44,6 @@ impl StatisticsService {
         user_id: String,
         input: DailyUserActivitiesInput,
     ) -> Result<DailyUserActivitiesResponse> {
-        static MAX_DAILY_USER_ACTIVITIES: usize = 30;
         let items = DailyUserActivity::find()
             .filter(daily_user_activity::Column::UserId.eq(&user_id))
             .apply_if(input.end_date, |query, v| {
@@ -55,33 +54,39 @@ impl StatisticsService {
             })
             .all(&self.db)
             .await?;
-        let grouped_by = match items.len() > MAX_DAILY_USER_ACTIVITIES {
-            true => DailyUserActivitiesResponseGroupedBy::Month,
-            false => DailyUserActivitiesResponseGroupedBy::Day,
-        };
-        let items = match grouped_by {
-            DailyUserActivitiesResponseGroupedBy::Day => items,
-            DailyUserActivitiesResponseGroupedBy::Month => {
-                let mut grouped_activities: HashMap<Date, Vec<_>> = HashMap::new();
-                for item in items {
-                    let start_of_month = item.date.with_day(1).unwrap();
-                    grouped_activities
-                        .entry(start_of_month)
-                        .and_modify(|e| e.push(item.clone()))
-                        .or_insert(vec![item.clone()]);
-                }
-                let mut items = vec![];
-                for (date, activities) in grouped_activities.into_iter() {
-                    let consolidated_activity = consolidate_activities(activities);
-                    items.push(daily_user_activity::Model {
-                        date,
-                        ..consolidated_activity
-                    });
-                }
-                items.sort_by_key(|i| i.date);
-                items
+        let first_item = items.first();
+        let last_item = items.last();
+        let grouped_by = if let (Some(first_item), Some(last_item)) = (first_item, last_item) {
+            match (last_item.date - first_item.date).num_days() > 730 {
+                true => DailyUserActivitiesResponseGroupedBy::Year,
+                false => DailyUserActivitiesResponseGroupedBy::Month,
             }
+        } else {
+            DailyUserActivitiesResponseGroupedBy::Day
         };
+        let mut grouped_activities: HashMap<Date, Vec<_>> = HashMap::new();
+        for item in items {
+            let start_of_time_span = match grouped_by {
+                DailyUserActivitiesResponseGroupedBy::Day => item.date,
+                DailyUserActivitiesResponseGroupedBy::Month => item.date.with_day(1).unwrap(),
+                DailyUserActivitiesResponseGroupedBy::Year => {
+                    item.date.with_day(1).unwrap().with_month(1).unwrap()
+                }
+            };
+            grouped_activities
+                .entry(start_of_time_span)
+                .and_modify(|e| e.push(item.clone()))
+                .or_insert(vec![item.clone()]);
+        }
+        let mut items = vec![];
+        for (date, activities) in grouped_activities.into_iter() {
+            let consolidated_activity = consolidate_activities(activities);
+            items.push(daily_user_activity::Model {
+                date,
+                ..consolidated_activity
+            });
+        }
+        items.sort_by_key(|i| i.date);
         let hours = items.iter().flat_map(|i| i.hour_counts.clone());
         let hours = hours.fold(HashMap::new(), |mut acc, i| {
             acc.entry(i.hour)
