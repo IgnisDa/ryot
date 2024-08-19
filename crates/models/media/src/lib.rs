@@ -1544,14 +1544,14 @@ pub struct GroupedCalendarEvent {
 )]
 pub struct DailyUserActivityMetadataCount {
     pub lot: MediaLot,
-    pub count: usize,
+    pub count: i64,
 }
 
 #[derive(
     Clone, Debug, Default, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
 )]
 pub struct DailyUserActivityHourCount {
-    pub hour: u8,
+    pub hour: u32,
     pub count: usize,
 }
 

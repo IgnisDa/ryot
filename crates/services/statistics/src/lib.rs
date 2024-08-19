@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_graphql::Result;
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, Timelike, Utc};
 use common_models::UserSummaryData;
 use database_models::{
     daily_user_activity, metadata,
@@ -15,17 +15,17 @@ use database_utils::consolidate_activities;
 use dependent_models::{DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy};
 use futures::TryStreamExt;
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput, MangaSpecifics,
-    MovieSpecifics, PodcastSpecifics, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
-    VisualNovelSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
+    DailyUserActivityHourCount, MangaSpecifics, MovieSpecifics, PodcastSpecifics,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::{Date, Expr},
     sea_query::{Func, OnConflict},
-    ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, PaginatorTrait,
-    QueryFilter, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
 
@@ -470,7 +470,113 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        Ok(())
+        let start_from = match calculate_from_beginning {
+            true => Date::default(),
+            false => DailyUserActivity::find()
+                .filter(daily_user_activity::Column::UserId.eq(user_id))
+                .order_by_desc(daily_user_activity::Column::Date)
+                .one(&self.db)
+                .await?
+                .map(|i| i.date)
+                .unwrap_or_default(),
+        };
+        let mut activities: HashMap<Date, daily_user_activity::Model> = HashMap::new();
+
+        let mut workout_stream = Workout::find()
+            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::EndTime.gte(start_from))
+            .order_by_asc(workout::Column::EndTime)
+            .stream(&self.db)
+            .await?;
+        while let Some(item) = workout_stream.try_next().await? {
+            let date = item.end_time.date_naive();
+            let hour = item.end_time.time().hour();
+            let existing = activities
+                .entry(date)
+                .or_insert_with(|| daily_user_activity::Model {
+                    date,
+                    user_id: user_id.to_owned(),
+                    workout_counts: 0,
+                    hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
+                    ..Default::default()
+                });
+            existing.workout_counts += 1;
+            if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
+                e.count += 1;
+            } else {
+                existing
+                    .hour_counts
+                    .push(DailyUserActivityHourCount { hour, count: 1 });
+            }
+        }
+
+        let mut measurement_stream = UserMeasurement::find()
+            .filter(user_measurement::Column::UserId.eq(user_id))
+            .filter(user_measurement::Column::Timestamp.gte(start_from))
+            .order_by_asc(user_measurement::Column::Timestamp)
+            .stream(&self.db)
+            .await?;
+        while let Some(item) = measurement_stream.try_next().await? {
+            let date = item.timestamp.date_naive();
+            let hour = item.timestamp.time().hour();
+            let existing = activities
+                .entry(date)
+                .or_insert_with(|| daily_user_activity::Model {
+                    date,
+                    user_id: user_id.to_owned(),
+                    workout_counts: 0,
+                    hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
+                    ..Default::default()
+                });
+            existing.measurement_counts += 1;
+            if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
+                e.count += 1;
+            } else {
+                existing
+                    .hour_counts
+                    .push(DailyUserActivityHourCount { hour, count: 1 });
+            }
+        }
+
+        let mut review_stream = Review::find()
+            .filter(review::Column::UserId.eq(user_id))
+            .filter(review::Column::PostedOn.gte(start_from))
+            .order_by_asc(review::Column::PostedOn)
+            .stream(&self.db)
+            .await?;
+        while let Some(item) = review_stream.try_next().await? {
+            let date = item.posted_on.date_naive();
+            let hour = item.posted_on.time().hour();
+            let existing = activities
+                .entry(date)
+                .or_insert_with(|| daily_user_activity::Model {
+                    date,
+                    user_id: user_id.to_owned(),
+                    workout_counts: 0,
+                    hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
+                    ..Default::default()
+                });
+            existing.review_counts += 1;
+            if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
+                e.count += 1;
+            } else {
+                existing
+                    .hour_counts
+                    .push(DailyUserActivityHourCount { hour, count: 1 });
+            }
+        }
+
+        for (_, activity) in activities.into_iter() {
+            let mut total =
+                activity.measurement_counts + activity.review_counts + activity.workout_counts;
+            for m_count in activity.metadata_counts.iter() {
+                total += m_count.count;
+            }
+            let mut model: daily_user_activity::ActiveModel = activity.into();
+            model.total_counts = ActiveValue::Set(total);
+            model.insert(&self.db).await.ok();
+        }
+        todo!()
     }
 
     pub async fn calculate_user_activities_and_summary(
@@ -478,8 +584,8 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        self.calculate_user_summary(user_id, calculate_from_beginning)
-            .await?;
+        // self.calculate_user_summary(user_id, calculate_from_beginning)
+        //     .await?;
         self.calculate_user_activities(user_id, calculate_from_beginning)
             .await?;
         Ok(())

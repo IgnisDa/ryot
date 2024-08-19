@@ -204,6 +204,6 @@ pub enum DailyUserActivitiesResponseGroupedBy {
 pub struct DailyUserActivitiesResponse {
     pub items: Vec<daily_user_activity::Model>,
     pub total_count: i64,
-    pub most_active_hour: Option<u8>,
+    pub most_active_hour: Option<u32>,
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
