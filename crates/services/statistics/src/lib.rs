@@ -3,6 +3,7 @@ use std::{collections::HashMap, pin::Pin};
 use async_graphql::Result;
 use chrono::{Datelike, Timelike, Utc};
 use common_models::UserSummaryData;
+use common_utils::convert_naive_to_utc;
 use database_models::{
     daily_user_activity, metadata,
     prelude::{
@@ -38,6 +39,9 @@ struct SeenItem {
     anime_extra_information: Option<SeenAnimeExtraInformation>,
     manga_extra_information: Option<SeenMangaExtraInformation>,
     metadata_id: String,
+    finished_on: Option<Date>,
+    last_updated_on: DateTimeUtc,
+    metadata_lot: MediaLot,
     audio_book_specifics: Option<AudioBookSpecifics>,
     book_specifics: Option<BookSpecifics>,
     movie_specifics: Option<MovieSpecifics>,
@@ -51,15 +55,20 @@ struct SeenItem {
 
 async fn get_seen_items_stream<'a>(
     db: &'a DatabaseConnection,
-    user_id: i32,
+    user_id: &String,
     start_from: Option<DateTimeUtc>,
+    is_finished_not_null: bool,
 ) -> Result<Pin<Box<dyn Stream<Item = Result<SeenItem, DbErr>> + Send + 'a>>> {
-    let seen_items_stream = Seen::find()
+    let mut initial_filter = Seen::find()
         .filter(seen::Column::UserId.eq(user_id))
-        .filter(seen::Column::Progress.eq(100))
+        .filter(seen::Column::State.eq(SeenState::Completed))
         .apply_if(start_from, |query, v| {
             query.filter(seen::Column::LastUpdatedOn.gt(v))
-        })
+        });
+    if is_finished_not_null {
+        initial_filter = initial_filter.filter(seen::Column::FinishedOn.is_not_null());
+    }
+    let seen_items_stream = initial_filter
         .left_join(Metadata)
         .select_only()
         .columns([
@@ -68,8 +77,11 @@ async fn get_seen_items_stream<'a>(
             seen::Column::AnimeExtraInformation,
             seen::Column::MangaExtraInformation,
             seen::Column::MetadataId,
+            seen::Column::FinishedOn,
+            seen::Column::LastUpdatedOn,
         ])
         .columns([
+            metadata::Column::Lot,
             metadata::Column::AudioBookSpecifics,
             metadata::Column::BookSpecifics,
             metadata::Column::MovieSpecifics,
@@ -330,7 +342,7 @@ impl StatisticsService {
 
         tracing::debug!("Calculated numbers summary for user: {:?}", ls);
 
-        let mut seen_items = get_seen_items_stream(&self.db, user_id, start_from).await?;
+        let mut seen_items = get_seen_items_stream(&self.db, user_id, start_from, false).await?;
 
         while let Some(seen) = seen_items.try_next().await.unwrap() {
             let mut units_consumed = None;
@@ -536,34 +548,29 @@ impl StatisticsService {
             existing
         }
 
-        let mut seen_stream = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::LastUpdatedOn.gte(start_from))
-            .filter(seen::Column::FinishedOn.is_not_null())
-            .filter(seen::Column::State.eq(SeenState::Completed))
-            .left_join(Metadata)
-            .select_only()
-            .column(metadata::Column::Lot)
-            .columns([seen::Column::FinishedOn, seen::Column::LastUpdatedOn])
-            .into_tuple::<(MediaLot, Option<Date>, DateTimeUtc)>()
-            .stream(&self.db)
-            .await?;
+        let mut seen_stream = get_seen_items_stream(
+            &self.db,
+            user_id,
+            Some(convert_naive_to_utc(start_from)),
+            true,
+        )
+        .await?;
         while let Some(seen) = seen_stream.try_next().await? {
-            let date = seen.1.unwrap();
-            let hour = seen.2.hour();
+            let date = seen.finished_on.unwrap();
+            let hour = seen.last_updated_on.hour();
             let activity =
-                update_activity_counts(&mut activities, user_id, date, hour, "seen", todo!());
+                update_activity_counts(&mut activities, user_id, date, hour, "seen", None);
             if let Some(e) = activity
                 .metadata_counts
                 .iter_mut()
-                .find(|i| i.lot == seen.0)
+                .find(|i| i.lot == seen.metadata_lot)
             {
                 e.count += 1;
             } else {
                 activity
                     .metadata_counts
                     .push(DailyUserActivityMetadataCount {
-                        lot: seen.0,
+                        lot: seen.metadata_lot,
                         count: 1,
                     });
             }
