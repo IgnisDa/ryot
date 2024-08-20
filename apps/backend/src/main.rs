@@ -136,6 +136,11 @@ async fn main() -> Result<()> {
     )
     .await;
 
+    perform_application_job_storage
+        .enqueue(ApplicationJob::SyncIntegrationsData)
+        .await
+        .unwrap();
+
     if Exercise::find().count(&db).await? == 0 {
         tracing::info!("Instance does not have exercises data. Deploying job to download them...");
         perform_application_job_storage

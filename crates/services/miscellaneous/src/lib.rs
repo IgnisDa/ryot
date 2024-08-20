@@ -49,7 +49,7 @@ use enums::{
 };
 use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
-use integration_service::IntegrationService;
+use integration_service::{integration_type::IntegrationType, IntegrationService};
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
@@ -1142,6 +1142,17 @@ impl MiscellaneousService {
                 if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
+
+                // This is needed for manga as some of the apps will update in weird orders
+                // For example with komga mihon will update out of order to the server
+                if input.manga_chapter_number.is_some() {
+                    last_seen.manga_extra_information =
+                        ActiveValue::set(Some(SeenMangaExtraInformation {
+                            chapter: input.manga_chapter_number,
+                            volume: input.manga_volume_number,
+                        }))
+                }
+
                 last_seen.update(&self.db).await.unwrap()
             }
             ProgressUpdateAction::ChangeState => {
@@ -2961,12 +2972,25 @@ impl MiscellaneousService {
                 IntegrationProvider::Audiobookshelf => {
                     let specifics = integration.clone().provider_specifics.unwrap();
                     integration_service
-                        .audiobookshelf_progress(
-                            &specifics.audiobookshelf_base_url.unwrap(),
-                            &specifics.audiobookshelf_token.unwrap(),
-                            &self.get_isbn_service().await.unwrap(),
+                        .process_progress_commit(
+                            IntegrationType::Audiobookshelf(
+                                specifics.audiobookshelf_base_url.unwrap(),
+                                specifics.audiobookshelf_token.unwrap(),
+                                self.get_isbn_service().await.unwrap(),
+                            ),
                             |input| self.commit_metadata(input),
                         )
+                        .await
+                }
+                IntegrationProvider::Komga => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+                    integration_service
+                        .process_progress(IntegrationType::Komga(
+                            specifics.komga_base_url.unwrap(),
+                            specifics.komga_username.unwrap(),
+                            specifics.komga_password.unwrap(),
+                            specifics.komga_provider.unwrap(),
+                        ))
                         .await
                 }
                 _ => continue,
@@ -3018,7 +3042,7 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn yank_integrations_data(&self) -> Result<()> {
+    async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .select_only()
@@ -3030,6 +3054,12 @@ impl MiscellaneousService {
             tracing::debug!("Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
         }
+        Ok(())
+    }
+
+    pub async fn sync_integrations_data(&self) -> Result<()> {
+        tracing::trace!("Syncing integrations data...");
+        self.yank_integrations_data().await.unwrap();
         Ok(())
     }
 
@@ -3078,24 +3108,24 @@ impl MiscellaneousService {
                 let _push_result = match integration.provider {
                     IntegrationProvider::Radarr => {
                         integration_service
-                            .radarr_push(
+                            .push(IntegrationType::Radarr(
                                 specifics.radarr_base_url.unwrap(),
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
                                 specifics.radarr_root_folder_path.unwrap(),
                                 entity_id,
-                            )
+                            ))
                             .await
                     }
                     IntegrationProvider::Sonarr => {
                         integration_service
-                            .sonarr_push(
+                            .push(IntegrationType::Sonarr(
                                 specifics.sonarr_base_url.unwrap(),
                                 specifics.sonarr_api_key.unwrap(),
                                 specifics.sonarr_profile_id.unwrap(),
                                 specifics.sonarr_root_folder_path.unwrap(),
                                 entity_id,
-                            )
+                            ))
                             .await
                     }
                     _ => unreachable!(),
@@ -3125,21 +3155,43 @@ impl MiscellaneousService {
         }
         let service = self.get_integration_service();
         let maybe_progress_update = match integration.provider {
-            IntegrationProvider::Kodi => service.kodi_progress(&payload).await,
-            IntegrationProvider::Emby => service.emby_progress(&payload).await,
-            IntegrationProvider::Jellyfin => service.jellyfin_progress(&payload).await,
+            IntegrationProvider::Kodi => {
+                service
+                    .process_progress(IntegrationType::Kodi(payload.clone()))
+                    .await
+            }
+            IntegrationProvider::Emby => {
+                service
+                    .process_progress(IntegrationType::Emby(payload.clone()))
+                    .await
+            }
+            IntegrationProvider::Jellyfin => {
+                service
+                    .process_progress(IntegrationType::Jellyfin(payload.clone()))
+                    .await
+            }
             IntegrationProvider::Plex => {
                 let specifics = integration.clone().provider_specifics.unwrap();
                 service
-                    .plex_progress(&payload, specifics.plex_username)
+                    .process_progress(IntegrationType::Plex(
+                        payload.clone(),
+                        specifics.plex_username,
+                    ))
                     .await
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(&integration, pu, &integration.user_id)
+                let media_vec = pu.0;
+                for media in media_vec {
+                    self.integration_progress_update(
+                        &integration,
+                        media.clone(),
+                        &integration.user_id,
+                    )
                     .await?;
+                }
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
                 to_update.update(&self.db).await?;

@@ -22,8 +22,7 @@ pub async fn sync_integrations_data(
     _information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
-    tracing::trace!("Getting data from yanked integrations for all users");
-    misc_service.yank_integrations_data().await.unwrap();
+    misc_service.sync_integrations_data().await.unwrap();
     Ok(())
 }
 
@@ -125,6 +124,7 @@ pub async fn perform_application_job(
             .deploy_update_exercise_library_job()
             .await
             .is_ok(),
+        ApplicationJob::SyncIntegrationsData => misc_service.sync_integrations_data().await.is_ok(),
     };
     tracing::trace!(
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",

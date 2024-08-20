@@ -142,7 +142,12 @@ struct MetadataSearchResponse<T> {
 }
 
 impl MangaUpdatesService {
-    fn extract_status(&self, input: &str) -> (Option<i32>, Option<String>) {
+    fn extract_status(&self, input: Option<String>) -> (Option<i32>, Option<String>) {
+        if input.is_none() {
+            return (None, None);
+        }
+
+        let input = input.unwrap();
         let first_part = input.split("<BR>").next().unwrap_or("").trim();
         let parts: Vec<&str> = first_part.split_whitespace().collect();
 
@@ -325,7 +330,7 @@ impl MediaProvider for MangaUpdatesService {
             }
         }
 
-        let (volumes, status) = self.extract_status(&data.status.clone().unwrap());
+        let (volumes, status) = self.extract_status(data.status.clone());
 
         Ok(MediaDetails {
             identifier: data.series_id.unwrap().to_string(),

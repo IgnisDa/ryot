@@ -8,6 +8,7 @@ anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 enums = { path = "../../enums" }
+eventsource-stream = "=0.2.3"
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 media-models = { path = "../../models/media" }
@@ -23,5 +24,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = "=3.0.0"
 specific-models = { path = "../../models/specific" }
+tokio = "1.39.2"
 tracing = { workspace = true }
 traits = { path = "../../traits" }
