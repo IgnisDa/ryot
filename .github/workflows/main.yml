@@ -20,36 +20,56 @@ jobs:
   pre-workflow-checks:
     runs-on: ubuntu-latest
     outputs:
-      should-run: ${{ steps.check.outputs.should-run }}
-      should-release: ${{ steps.tag.outputs.should-release }}
+      should-run: ${{ steps.set_outputs.outputs.should-run }}
+      image-names: ${{ steps.set_outputs.outputs.image-names }}
+      should-release: ${{ steps.set_outputs.outputs.should-release }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - name: Check commit message
-        id: check
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "should-run=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            COMMIT_MSG=$(git log --format=%B ${{ github.event.pull_request.head.sha }})
-            if [[ "$COMMIT_MSG" == *"Run CI"* ]]; then
-              echo "should-run=true" >> $GITHUB_OUTPUT
-            else
-              echo "should-run=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "should-run=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Check tag
-        id: tag
-        run: |
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/tags/${{ github.ref_name }}" ]]; then
-            echo "should-release=true" >> $GITHUB_OUTPUT
-          else
-            echo "should-release=false" >> $GITHUB_OUTPUT
-          fi
+      - name: Set outputs
+        id: set_outputs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const repositoryName = context.payload.repository.name;
+            const owner = context.repo.owner;
+            const ghcrRegistry = process.env.GHCR_REGISTRY;
+            const dockerUsername = process.env.DOCKER_USERNAME;
+
+            let imageNames = [
+              `name=${dockerUsername}/${repositoryName}`,
+              `name=${ghcrRegistry}/${owner}/${repositoryName}`
+            ];
+
+            if (context.eventName === "push") {
+              core.setOutput('should-run', 'true');
+            } else if (context.eventName === "pull_request") {
+              const commitMsg = await github.rest.repos.getCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: context.payload.pull_request.head.sha
+              }).then(commit => commit.data.commit.message);
+              if (commitMsg.includes("Run CI")) {
+                core.setOutput('should-run', 'true');
+                if (context.payload.pull_request.head.repo.full_name !== context.repo.full_name) {
+                  imageNames.shift();
+                }
+              } else {
+                core.setOutput('should-run', 'false');
+              }
+            } else {
+              core.setOutput('should-run', 'false');
+            }
+
+            if (context.eventName === "push" && context.ref.startsWith("refs/tags/")) {
+              core.setOutput('should-release', 'true');
+            } else {
+              core.setOutput('should-release', 'false');
+            }
+
+            core.setOutput('image-names', imageNames.join('\n'));
 
   create-release:
     needs:
@@ -187,12 +207,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - name: Log in to the ghcr container registry
         uses: docker/login-action@v3
+        continue-on-error: true
         with:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Log in to the docker hub container registry
         uses: docker/login-action@v3
+        continue-on-error: true
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
@@ -200,9 +222,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            name=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}
-            name=${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          images: ${{ needs.pre-workflow-checks.outputs.image-names }}
           tags: |
             type=ref,event=pr
             type=raw,value=develop,enable={{is_default_branch}}

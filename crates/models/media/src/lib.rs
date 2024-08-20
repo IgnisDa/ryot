@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt, sync::Arc};
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
-use chrono::{DateTime, NaiveDate,NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use common_models::{
     CollectionExtraInformation, IdAndNamedObject, SearchInput, StoredUrl, StringIdObject,
 };
@@ -911,6 +911,10 @@ pub struct IntegrationProviderSpecifics {
     pub plex_username: Option<String>,
     pub audiobookshelf_base_url: Option<String>,
     pub audiobookshelf_token: Option<String>,
+    pub komga_base_url: Option<String>,
+    pub komga_username: Option<String>,
+    pub komga_password: Option<String>,
+    pub komga_provider: Option<MediaSource>,
     pub radarr_base_url: Option<String>,
     pub radarr_api_key: Option<String>,
     pub radarr_profile_id: Option<i32>,
