@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, pin::Pin};
 
 use async_graphql::Result;
 use chrono::{Datelike, Timelike, Utc};
@@ -14,7 +14,7 @@ use database_models::{
 use database_utils::consolidate_activities;
 use dependent_models::{DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy};
 use enums::{MediaLot, SeenState};
-use futures::TryStreamExt;
+use futures::{Stream, TryStreamExt};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
     DailyUserActivityHourCount, DailyUserActivityMetadataCount, MangaSpecifics, MovieSpecifics,
@@ -26,10 +26,66 @@ use rust_decimal::Decimal;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
     sea_query::{Func, OnConflict},
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
+    FromQueryResult, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
+struct SeenItem {
+    show_extra_information: Option<SeenShowExtraInformation>,
+    podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    anime_extra_information: Option<SeenAnimeExtraInformation>,
+    manga_extra_information: Option<SeenMangaExtraInformation>,
+    metadata_id: String,
+    audio_book_specifics: Option<AudioBookSpecifics>,
+    book_specifics: Option<BookSpecifics>,
+    movie_specifics: Option<MovieSpecifics>,
+    podcast_specifics: Option<PodcastSpecifics>,
+    show_specifics: Option<ShowSpecifics>,
+    video_game_specifics: Option<VideoGameSpecifics>,
+    visual_novel_specifics: Option<VisualNovelSpecifics>,
+    anime_specifics: Option<AnimeSpecifics>,
+    manga_specifics: Option<MangaSpecifics>,
+}
+
+async fn get_seen_items_stream<'a>(
+    db: &'a DatabaseConnection,
+    user_id: i32,
+    start_from: Option<DateTimeUtc>,
+) -> Result<Pin<Box<dyn Stream<Item = Result<SeenItem, DbErr>> + Send + 'a>>> {
+    let seen_items_stream = Seen::find()
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::Progress.eq(100))
+        .apply_if(start_from, |query, v| {
+            query.filter(seen::Column::LastUpdatedOn.gt(v))
+        })
+        .left_join(Metadata)
+        .select_only()
+        .columns([
+            seen::Column::ShowExtraInformation,
+            seen::Column::PodcastExtraInformation,
+            seen::Column::AnimeExtraInformation,
+            seen::Column::MangaExtraInformation,
+            seen::Column::MetadataId,
+        ])
+        .columns([
+            metadata::Column::AudioBookSpecifics,
+            metadata::Column::BookSpecifics,
+            metadata::Column::MovieSpecifics,
+            metadata::Column::PodcastSpecifics,
+            metadata::Column::ShowSpecifics,
+            metadata::Column::VideoGameSpecifics,
+            metadata::Column::VisualNovelSpecifics,
+            metadata::Column::AnimeSpecifics,
+            metadata::Column::MangaSpecifics,
+        ])
+        .into_model::<SeenItem>()
+        .stream(db)
+        .await?;
+
+    Ok(seen_items_stream)
+}
 
 #[derive(Debug)]
 pub struct StatisticsService {
@@ -274,53 +330,7 @@ impl StatisticsService {
 
         tracing::debug!("Calculated numbers summary for user: {:?}", ls);
 
-        #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
-        struct SeenItem {
-            show_extra_information: Option<SeenShowExtraInformation>,
-            podcast_extra_information: Option<SeenPodcastExtraInformation>,
-            anime_extra_information: Option<SeenAnimeExtraInformation>,
-            manga_extra_information: Option<SeenMangaExtraInformation>,
-            metadata_id: String,
-            audio_book_specifics: Option<AudioBookSpecifics>,
-            book_specifics: Option<BookSpecifics>,
-            movie_specifics: Option<MovieSpecifics>,
-            podcast_specifics: Option<PodcastSpecifics>,
-            show_specifics: Option<ShowSpecifics>,
-            video_game_specifics: Option<VideoGameSpecifics>,
-            visual_novel_specifics: Option<VisualNovelSpecifics>,
-            anime_specifics: Option<AnimeSpecifics>,
-            manga_specifics: Option<MangaSpecifics>,
-        }
-
-        let mut seen_items = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::Progress.eq(100))
-            .apply_if(start_from, |query, v| {
-                query.filter(seen::Column::LastUpdatedOn.gt(v))
-            })
-            .left_join(Metadata)
-            .select_only()
-            .columns([
-                seen::Column::ShowExtraInformation,
-                seen::Column::PodcastExtraInformation,
-                seen::Column::AnimeExtraInformation,
-                seen::Column::MangaExtraInformation,
-                seen::Column::MetadataId,
-            ])
-            .columns([
-                metadata::Column::AudioBookSpecifics,
-                metadata::Column::BookSpecifics,
-                metadata::Column::MovieSpecifics,
-                metadata::Column::PodcastSpecifics,
-                metadata::Column::ShowSpecifics,
-                metadata::Column::VideoGameSpecifics,
-                metadata::Column::VisualNovelSpecifics,
-                metadata::Column::AnimeSpecifics,
-                metadata::Column::MangaSpecifics,
-            ])
-            .into_model::<SeenItem>()
-            .stream(&self.db)
-            .await?;
+        let mut seen_items = get_seen_items_stream(&self.db, user_id, start_from).await?;
 
         while let Some(seen) = seen_items.try_next().await.unwrap() {
             let mut units_consumed = None;
