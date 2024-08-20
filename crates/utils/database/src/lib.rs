@@ -365,6 +365,7 @@ pub fn consolidate_activities(
     let mut review_counts = 0;
     let mut workout_counts = 0;
     let mut measurement_counts = 0;
+    let mut total_duration = dec!(0);
     let mut new_hour_counts = HashMap::new();
     let mut new_metadata_counts = HashMap::new();
     for item in inputs.iter() {
@@ -372,6 +373,7 @@ pub fn consolidate_activities(
         review_counts += item.review_counts;
         workout_counts += item.workout_counts;
         measurement_counts += item.measurement_counts;
+        total_duration += item.total_duration;
         for hc in item.hour_counts.iter() {
             let key = hc.hour;
             let existing = new_hour_counts.entry(key).or_insert(0);
@@ -396,6 +398,7 @@ pub fn consolidate_activities(
         total_counts,
         review_counts,
         workout_counts,
+        total_duration,
         metadata_counts,
         measurement_counts,
         date: inputs[0].date,
