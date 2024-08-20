@@ -713,12 +713,9 @@ const ActivitySection = () => {
 						dailyUserActivitiesData
 							? humanizeDuration(
 									dayjsLib
-										.duration(
-											Number(dailyUserActivitiesData.totalDuration),
-											"minutes",
-										)
+										.duration(dailyUserActivitiesData.totalDuration, "minutes")
 										.asMilliseconds(),
-									{ round: true, largest: 3 },
+									{ largest: 2 },
 								)
 							: "N/A"
 					}
