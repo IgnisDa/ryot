@@ -559,8 +559,27 @@ impl StatisticsService {
         while let Some(seen) = seen_stream.try_next().await.unwrap() {
             let date = seen.finished_on.unwrap();
             let hour = seen.last_updated_on.hour();
+            let duration = if let (Some(show_seen), Some(show_extra)) =
+                (seen.show_specifics, seen.show_extra_information)
+            {
+                show_seen
+                    .get_episode(show_extra.season, show_extra.episode)
+                    .and_then(|(_, e)| e.runtime)
+            } else if let (Some(podcast_seen), Some(podcast_extra)) =
+                (seen.podcast_specifics, seen.podcast_extra_information)
+            {
+                podcast_seen
+                    .episode_by_number(podcast_extra.episode)
+                    .and_then(|e| e.runtime)
+            } else if let Some(audio_book_extra) = seen.audio_book_specifics {
+                audio_book_extra.runtime
+            } else if let Some(movie_extra) = seen.movie_specifics {
+                movie_extra.runtime
+            } else {
+                None
+            };
             let activity =
-                update_activity_counts(&mut activities, user_id, date, hour, "seen", None);
+                update_activity_counts(&mut activities, user_id, date, hour, "seen", duration);
             if let Some(e) = activity
                 .metadata_counts
                 .iter_mut()
