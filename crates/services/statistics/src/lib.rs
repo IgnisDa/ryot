@@ -612,7 +612,7 @@ impl StatisticsService {
                 date,
                 hour,
                 "workout",
-                Some(item.duration),
+                Some(item.duration / 60),
             );
         }
 
