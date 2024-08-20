@@ -131,7 +131,6 @@ pub struct CoreDetails {
     pub oidc_enabled: bool,
     pub smtp_enabled: bool,
     pub website_url: String,
-    pub author_name: String,
     pub signup_allowed: bool,
     pub repository_link: String,
     pub token_valid_for_days: i32,

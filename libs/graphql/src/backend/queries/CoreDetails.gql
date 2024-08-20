@@ -5,7 +5,6 @@ query CoreDetails {
     docsLink
     pageLimit
     websiteUrl
-    authorName
     smtpEnabled
     oidcEnabled
     signupAllowed

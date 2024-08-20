@@ -17,8 +17,7 @@ use common_models::{
     IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, IsFeatureEnabled, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
-    VERSION,
+    get_first_and_last_day_of_month, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
 };
 use database_models::{
     calendar_event, collection, collection_to_entity,
@@ -196,7 +195,6 @@ impl MiscellaneousService {
         CoreDetails {
             is_pro: false,
             version: VERSION.to_owned(),
-            author_name: AUTHOR.to_owned(),
             file_storage_enabled: files_enabled,
             oidc_enabled: self.oidc_enabled,
             page_limit: self.config.frontend.page_size,
