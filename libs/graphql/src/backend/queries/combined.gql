@@ -140,12 +140,12 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
   dailyUserActivities(input: $input) {
     groupedBy
     totalCount
+    totalDuration
     mostActiveHour
     items {
       date
       totalCounts
       reviewCounts
-      totalDuration
       workoutCounts
       measurementCounts
       metadataCounts {

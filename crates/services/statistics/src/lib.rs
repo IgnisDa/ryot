@@ -170,10 +170,12 @@ impl StatisticsService {
         });
         let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
         let total_count = items.iter().map(|i| i.total_counts).sum();
+        let total_duration = items.iter().map(|i| i.total_duration).sum();
         Ok(DailyUserActivitiesResponse {
             items,
             grouped_by,
             total_count,
+            total_duration,
             most_active_hour,
         })
     }

@@ -206,4 +206,5 @@ pub struct DailyUserActivitiesResponse {
     pub total_count: i32,
     pub most_active_hour: Option<u32>,
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
+    pub total_duration: i32,
 }
