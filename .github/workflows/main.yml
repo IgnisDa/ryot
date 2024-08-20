@@ -11,6 +11,7 @@ on:
 
 env:
   GHCR_REGISTRY: ghcr.io
+  DOCKER_USERNAME: ignisda
 
 permissions:
   contents: write
@@ -31,8 +32,6 @@ jobs:
       - name: Set outputs
         id: set_outputs
         uses: actions/github-script@v7
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         with:
           script: |
             const repositoryName = context.payload.repository.name;
@@ -218,7 +217,7 @@ jobs:
         uses: docker/login-action@v3
         continue-on-error: true
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
+          username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Extract metadata for Docker
         id: meta
