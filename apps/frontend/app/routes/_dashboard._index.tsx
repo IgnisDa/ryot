@@ -689,8 +689,9 @@ const ActivitySection = () => {
 			return {
 				data,
 				series,
-				totalCount: dailyUserActivities.totalCount,
 				groupedBy: dailyUserActivities.groupedBy,
+				totalCount: dailyUserActivities.totalCount,
+				totalDuration: dailyUserActivities.totalDuration,
 				mostActiveHour: mostActiveHour
 					? getTimeOfDay(convertUTCtoLocal(mostActiveHour))
 					: undefined,
@@ -705,7 +706,23 @@ const ActivitySection = () => {
 				zIndex={1000}
 				overlayProps={{ radius: "md", blur: 3 }}
 			/>
-			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
+			<SimpleGrid cols={{ base: 2, md: 4 }} mx={{ md: "xl" }}>
+				<DisplayStat
+					label="Duration"
+					value={
+						dailyUserActivitiesData
+							? humanizeDuration(
+									dayjsLib
+										.duration(
+											Number(dailyUserActivitiesData.totalDuration),
+											"minutes",
+										)
+										.asMilliseconds(),
+									{ round: true, largest: 3 },
+								)
+							: "N/A"
+					}
+				/>
 				<DisplayStat
 					label="Total"
 					value={dailyUserActivitiesData?.totalCount || 0}
