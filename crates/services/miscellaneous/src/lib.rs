@@ -39,6 +39,7 @@ use database_models::{
 use database_utils::{
     add_entity_to_collection, apply_collection_filter, create_or_update_collection,
     entity_in_collections, ilike_sql, item_reviews, remove_entity_from_collection, user_by_id,
+    user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -2165,24 +2166,7 @@ impl MiscellaneousService {
     }
 
     pub async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
-        let mut preferences = user_by_id(&self.db, user_id).await?.preferences;
-        preferences.features_enabled.media.anime =
-            self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
-        preferences.features_enabled.media.audio_book =
-            self.config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
-        preferences.features_enabled.media.book =
-            self.config.books.is_enabled() && preferences.features_enabled.media.book;
-        preferences.features_enabled.media.show =
-            self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
-        preferences.features_enabled.media.manga =
-            self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
-        preferences.features_enabled.media.movie =
-            self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
-        preferences.features_enabled.media.podcast =
-            self.config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
-        preferences.features_enabled.media.video_game =
-            self.config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
-        Ok(preferences)
+        user_preferences_by_id(&self.db, user_id, &self.config).await
     }
 
     pub async fn metadata_search(
@@ -2201,7 +2185,7 @@ impl MiscellaneousService {
             });
         }
         let cloned_user_id = user_id.to_owned();
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -2276,7 +2260,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
@@ -2304,7 +2288,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -2562,7 +2546,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: PostReviewInput,
     ) -> Result<StringIdObject> {
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         if preferences.general.disable_reviews {
             return Err(Error::new("Reviews are disabled"));
         }

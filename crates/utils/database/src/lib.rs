@@ -8,6 +8,7 @@ use chrono::Utc;
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject, StringIdObject,
 };
+use common_utils::IsFeatureEnabled;
 use database_models::{
     collection, collection_to_entity, daily_user_activity,
     functions::associate_user_with_entity,
@@ -34,7 +35,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
-use user_models::UserReviewScale;
+use user_models::{UserPreferences, UserReviewScale};
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
@@ -46,6 +47,31 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<use
         .await
         .unwrap()
         .ok_or_else(|| Error::new("No user found"))
+}
+
+pub async fn user_preferences_by_id(
+    db: &DatabaseConnection,
+    user_id: &String,
+    config: &Arc<config::AppConfig>,
+) -> Result<UserPreferences> {
+    let mut preferences = user_by_id(db, user_id).await?.preferences;
+    preferences.features_enabled.media.anime =
+        config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
+    preferences.features_enabled.media.audio_book =
+        config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
+    preferences.features_enabled.media.book =
+        config.books.is_enabled() && preferences.features_enabled.media.book;
+    preferences.features_enabled.media.show =
+        config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
+    preferences.features_enabled.media.manga =
+        config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
+    preferences.features_enabled.media.movie =
+        config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
+    preferences.features_enabled.media.podcast =
+        config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
+    preferences.features_enabled.media.video_game =
+        config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
+    Ok(preferences)
 }
 
 pub async fn user_measurements_list(
