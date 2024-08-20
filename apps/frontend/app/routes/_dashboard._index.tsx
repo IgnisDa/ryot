@@ -724,6 +724,7 @@ const ActivitySection = () => {
 					}
 				/>
 				<DisplayStat
+					center
 					label="Total"
 					value={dailyUserActivitiesData?.totalCount || 0}
 				/>
@@ -781,11 +782,14 @@ const ActivitySection = () => {
 const DisplayStat = (props: {
 	label: string;
 	value: string | number;
+	center?: boolean;
 }) => {
 	return (
 		<Stack gap={4}>
-			<Text c="dimmed">{props.label}</Text>
-			<Text size="xl" fw="bolder">
+			<Text c="dimmed" ta={props.center ? "center" : undefined}>
+				{props.label}
+			</Text>
+			<Text size="xl" fw="bolder" ta={props.center ? "center" : undefined}>
 				{props.value}
 			</Text>
 		</Stack>
