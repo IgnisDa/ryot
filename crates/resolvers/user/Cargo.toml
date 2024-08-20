@@ -1,12 +1,14 @@
 [package]
-name = "miscellaneous-resolver"
+name = "user-resolver"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 async-graphql = { workspace = true }
 common-models = { path = "../../models/common" }
+database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 media-models = { path = "../../models/media" }
-miscellaneous-service = { path = "../../services/miscellaneous" }
 traits = { path = "../../traits" }
+user-models = { path = "../../models/user" }
+user-service = { path = "../../services/user" }

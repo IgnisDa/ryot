@@ -1,0 +1,29 @@
+[package]
+name = "user-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apalis = { workspace = true }
+argon2 = { workspace = true }
+async-graphql = { workspace = true }
+application-utils = { path = "../../utils/application" }
+background = { path = "../../background" }
+common-models = { path = "../../models/common" }
+config = { path = "../../config" }
+database-models = { path = "../../models/database" }
+database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
+enum_meta = { workspace = true }
+enums = { path = "../../enums" }
+fitness-models = { path = "../../models/fitness" }
+itertools = { workspace = true }
+jwt-service = { path = "../../services/jwt" }
+media-models = { path = "../../models/media" }
+nanoid = { workspace = true }
+notification-service = { path = "../../services/notification" }
+openidconnect = { workspace = true }
+serde_json = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+user-models = { path = "../../models/user" }

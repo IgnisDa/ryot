@@ -3,10 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background::CoreApplicationJob;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject, StringIdObject,
+    BackendError, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
+    StringIdObject,
 };
 use common_utils::IsFeatureEnabled;
 use database_models::{
@@ -18,7 +19,7 @@ use database_models::{
     review, user, user_measurement, user_to_collection, workout,
 };
 use dependent_models::UserWorkoutDetails;
-use enums::Visibility;
+use enums::{UserLot, Visibility};
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
@@ -72,6 +73,14 @@ pub async fn user_preferences_by_id(
     preferences.features_enabled.media.video_game =
         config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
     Ok(preferences)
+}
+
+pub async fn admin_account_guard(db: &DatabaseConnection, user_id: &String) -> Result<()> {
+    let main_user = user_by_id(db, user_id).await?;
+    if main_user.lot != UserLot::Admin {
+        return Err(Error::new(BackendError::AdminOnlyAction.to_string()));
+    }
+    Ok(())
 }
 
 pub async fn user_measurements_list(
@@ -536,4 +545,20 @@ pub async fn create_or_update_collection(
     };
     txn.commit().await?;
     Ok(StringIdObject { id: created })
+}
+
+pub async fn deploy_job_to_calculate_user_activities_and_summary(
+    perform_application_job: &MemoryStorage<ApplicationJob>,
+    user_id: &String,
+    calculate_from_beginning: bool,
+) -> Result<()> {
+    perform_application_job
+        .clone()
+        .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
+            user_id.to_owned(),
+            calculate_from_beginning,
+        ))
+        .await
+        .unwrap();
+    Ok(())
 }

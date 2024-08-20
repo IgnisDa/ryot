@@ -38,6 +38,8 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
+use user_resolver::{UserMutation, UserQuery};
+use user_service::UserService;
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -79,16 +81,22 @@ pub async fn create_app_services(
     ));
     let miscellaneous_service = Arc::new(
         MiscellaneousService::new(
+            oidc_client.is_some(),
             &db,
+            timezone.clone(),
             config.clone(),
             file_storage_service.clone(),
             perform_application_job,
             perform_core_application_job,
-            timezone.clone(),
-            oidc_client.clone(),
         )
         .await,
     );
+    let user_service = Arc::new(UserService::new(
+        &db,
+        config.clone(),
+        perform_application_job,
+        oidc_client.clone(),
+    ));
     let importer_service = Arc::new(ImporterService::new(
         &db,
         perform_application_job,
@@ -117,6 +125,7 @@ pub async fn create_app_services(
     .data(file_storage_service.clone())
     .data(statistics_service.clone())
     .data(collection_service.clone())
+    .data(user_service.clone())
     .finish();
 
     let cors_origins = config
@@ -203,6 +212,7 @@ pub struct QueryRoot(
     FileStorageQuery,
     StatisticsQuery,
     CollectionQuery,
+    UserQuery,
 );
 
 #[derive(MergedObject, Default)]
@@ -213,6 +223,7 @@ pub struct MutationRoot(
     ExerciseMutation,
     FileStorageMutation,
     CollectionMutation,
+    UserMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;

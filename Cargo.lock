@@ -872,6 +872,8 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "user-resolver",
+ "user-service",
 ]
 
 [[package]]
@@ -3595,12 +3597,10 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
- "database-models",
  "dependent-models",
  "media-models",
  "miscellaneous-service",
  "traits",
- "user-models",
 ]
 
 [[package]]
@@ -3609,7 +3609,6 @@ version = "0.1.0"
 dependencies = [
  "apalis",
  "application-utils",
- "argon2",
  "async-graphql",
  "background",
  "cached",
@@ -3621,22 +3620,17 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
- "enum_meta",
  "enums",
  "file-storage-service",
- "fitness-models",
  "futures",
  "integration-service",
  "itertools 0.13.0",
- "jwt-service",
  "markdown",
  "media-models",
  "migrations",
  "nanoid",
  "notification-service",
- "openidconnect",
  "providers",
- "reqwest 0.11.23",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -6782,6 +6776,49 @@ dependencies = [
  "serde_json",
  "serde_with 3.9.0",
  "strum",
+]
+
+[[package]]
+name = "user-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "database-models",
+ "dependent-models",
+ "media-models",
+ "traits",
+ "user-models",
+ "user-service",
+]
+
+[[package]]
+name = "user-service"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "application-utils",
+ "argon2",
+ "async-graphql",
+ "background",
+ "common-models",
+ "config",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "enum_meta",
+ "enums",
+ "fitness-models",
+ "itertools 0.13.0",
+ "jwt-service",
+ "media-models",
+ "nanoid",
+ "notification-service",
+ "openidconnect",
+ "sea-orm",
+ "serde_json",
+ "tracing",
+ "user-models",
 ]
 
 [[package]]

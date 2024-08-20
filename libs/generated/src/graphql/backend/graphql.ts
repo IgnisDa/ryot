@@ -1055,7 +1055,7 @@ export type MutationRoot = {
   deleteS3Object: Scalars['Boolean']['output'];
   /** Delete a seen item from a user's history. */
   deleteSeenItem: StringIdObject;
-  /** Delete a user. The account making the user must an `Admin`. */
+  /** Delete a user. The account deleting the user must be an `Admin`. */
   deleteUser: Scalars['Boolean']['output'];
   /** Delete an integration for the currently logged in user. */
   deleteUserIntegration: Scalars['Boolean']['output'];
