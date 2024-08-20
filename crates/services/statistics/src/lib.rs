@@ -80,8 +80,8 @@ async fn get_seen_items_stream<'a>(
             seen::Column::FinishedOn,
             seen::Column::LastUpdatedOn,
         ])
+        .column_as(metadata::Column::Lot, "metadata_lot")
         .columns([
-            metadata::Column::Lot,
             metadata::Column::AudioBookSpecifics,
             metadata::Column::BookSpecifics,
             metadata::Column::MovieSpecifics,
@@ -554,8 +554,9 @@ impl StatisticsService {
             Some(convert_naive_to_utc(start_from)),
             true,
         )
-        .await?;
-        while let Some(seen) = seen_stream.try_next().await? {
+        .await
+        .unwrap();
+        while let Some(seen) = seen_stream.try_next().await.unwrap() {
             let date = seen.finished_on.unwrap();
             let hour = seen.last_updated_on.hour();
             let activity =
