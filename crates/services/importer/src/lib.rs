@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
-use background::ApplicationJob;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
 use database_models::{import_report, prelude::ImportReport};
-use database_utils::user_by_id;
+use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
 use enums::ImportSource;
 use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
@@ -40,6 +40,7 @@ mod trakt;
 pub struct ImporterService {
     db: DatabaseConnection,
     perform_application_job: MemoryStorage<ApplicationJob>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     media_service: Arc<MiscellaneousService>,
     exercise_service: Arc<ExerciseService>,
     timezone: Arc<chrono_tz::Tz>,
@@ -49,6 +50,7 @@ impl ImporterService {
     pub fn new(
         db: &DatabaseConnection,
         perform_application_job: &MemoryStorage<ApplicationJob>,
+        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
         media_service: Arc<MiscellaneousService>,
         exercise_service: Arc<ExerciseService>,
         timezone: Arc<chrono_tz::Tz>,
@@ -59,6 +61,7 @@ impl ImporterService {
             timezone,
             db: db.clone(),
             perform_application_job: perform_application_job.clone(),
+            perform_core_application_job: perform_core_application_job.clone(),
         }
     }
 
@@ -157,9 +160,7 @@ impl ImporterService {
             });
         }
         for col_details in import.collections.clone() {
-            self.media_service
-                .create_or_update_collection(&user_id, col_details)
-                .await?;
+            create_or_update_collection(&self.db, &user_id, col_details).await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
             tracing::debug!(
@@ -244,27 +245,28 @@ impl ImporterService {
                 }
             }
             for col in item.collections.iter() {
-                self.media_service
-                    .create_or_update_collection(
-                        &user_id,
-                        CreateOrUpdateCollectionInput {
-                            name: col.to_string(),
-                            ..Default::default()
-                        },
-                    )
-                    .await?;
-                self.media_service
-                    .add_entity_to_collection(
-                        &user_id,
-                        ChangeCollectionToEntityInput {
-                            creator_user_id: user_id.clone(),
-                            collection_name: col.to_string(),
-                            metadata_id: Some(metadata.id.clone()),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
+                create_or_update_collection(
+                    &self.db,
+                    &user_id,
+                    CreateOrUpdateCollectionInput {
+                        name: col.to_string(),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+                add_entity_to_collection(
+                    &self.db,
+                    &user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.clone(),
+                        collection_name: col.to_string(),
+                        metadata_id: Some(metadata.id.clone()),
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .ok();
             }
             tracing::debug!(
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
@@ -318,27 +320,28 @@ impl ImporterService {
                 }
             }
             for col in item.collections.iter() {
-                self.media_service
-                    .create_or_update_collection(
-                        &user_id,
-                        CreateOrUpdateCollectionInput {
-                            name: col.to_string(),
-                            ..Default::default()
-                        },
-                    )
-                    .await?;
-                self.media_service
-                    .add_entity_to_collection(
-                        &user_id,
-                        ChangeCollectionToEntityInput {
-                            creator_user_id: user_id.clone(),
-                            collection_name: col.to_string(),
-                            metadata_group_id: Some(metadata_group_id.clone()),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
+                create_or_update_collection(
+                    &self.db,
+                    &user_id,
+                    CreateOrUpdateCollectionInput {
+                        name: col.to_string(),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+                add_entity_to_collection(
+                    &self.db,
+                    &user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.clone(),
+                        collection_name: col.to_string(),
+                        metadata_group_id: Some(metadata_group_id.clone()),
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .ok();
             }
             tracing::debug!(
                 "Imported item: {idx}/{total}, lot: {lot}, review count: {rev}, collection count: {col}",
@@ -378,27 +381,28 @@ impl ImporterService {
                 }
             }
             for col in item.collections.iter() {
-                self.media_service
-                    .create_or_update_collection(
-                        &user_id,
-                        CreateOrUpdateCollectionInput {
-                            name: col.to_string(),
-                            ..Default::default()
-                        },
-                    )
-                    .await?;
-                self.media_service
-                    .add_entity_to_collection(
-                        &user_id,
-                        ChangeCollectionToEntityInput {
-                            creator_user_id: user_id.clone(),
-                            collection_name: col.to_string(),
-                            person_id: Some(person.id.clone()),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
+                create_or_update_collection(
+                    &self.db,
+                    &user_id,
+                    CreateOrUpdateCollectionInput {
+                        name: col.to_string(),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+                add_entity_to_collection(
+                    &self.db,
+                    &user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.clone(),
+                        collection_name: col.to_string(),
+                        person_id: Some(person.id.clone()),
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .ok();
             }
             tracing::debug!(
                 "Imported person: {idx}/{total}, name: {name}",

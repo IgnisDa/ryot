@@ -12,6 +12,7 @@ chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
+enums = { path = "../../enums" }
 file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 itertools = { workspace = true }

@@ -29,20 +29,20 @@ use database_models::{
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
     person,
     prelude::{
-        CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport, Integration,
-        Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
+        CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Integration, Metadata,
+        MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
         MetadataToPerson, NotificationPlatform, Person, QueuedNotification, Review, Seen, User,
-        UserToCollection, UserToEntity, Workout,
+        UserToCollection, UserToEntity,
     },
     queued_notification, review, seen, user, user_to_collection, user_to_entity,
 };
 use database_utils::{
-    add_entity_to_collection, apply_collection_filter, entity_in_collections, ilike_sql,
-    review_by_id, user_by_id,
+    add_entity_to_collection, apply_collection_filter, create_or_update_collection,
+    entity_in_collections, ilike_sql, item_reviews, remove_entity_from_collection, user_by_id,
 };
 use dependent_models::{
-    CollectionContents, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
+    CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
+    SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
     UserPersonDetails,
 };
 use enum_meta::Meta;
@@ -59,10 +59,9 @@ use itertools::Itertools;
 use jwt_service::sign;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, AuthUserInput, CollectionContentsInput,
-    CollectionContentsSortBy, CollectionItem, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateOrUpdateCollectionInput, CreateReviewCommentInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, EntityWithLot,
+    first_metadata_image_as_url, metadata_images_as_urls, AuthUserInput, CommitMediaInput,
+    CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateCollectionInput,
+    CreateReviewCommentInput, CreateUserIntegrationInput, CreateUserNotificationPlatformInput,
     GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
     GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
@@ -76,7 +75,7 @@ use media_models::{
     PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
     PodcastSpecifics, PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant,
     ProgressUpdateInput, ProgressUpdateResultUnion, ProviderLanguageInformation, RegisterError,
-    RegisterErrorVariant, RegisterResult, RegisterUserInput, ReviewItem, ReviewPostedEvent,
+    RegisterErrorVariant, RegisterResult, RegisterUserInput, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UpdateUserInput,
     UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
@@ -84,11 +83,7 @@ use media_models::{
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
-use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity,
-};
+use migrations::{AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity};
 use nanoid::nanoid;
 use notification_service::send_notification;
 use openidconnect::{
@@ -118,8 +113,8 @@ use sea_orm::{
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
@@ -531,9 +526,15 @@ impl MiscellaneousService {
             None,
         )
         .await?;
-        let reviews = self
-            .item_reviews(&user_id, Some(metadata_id.clone()), None, None, None)
-            .await?;
+        let reviews = item_reviews(
+            &self.db,
+            &user_id,
+            Some(metadata_id.clone()),
+            None,
+            None,
+            None,
+        )
+        .await?;
         let (_, history) = self
             .is_metadata_finished_by_user(&user_id, &media_details)
             .await?;
@@ -721,9 +722,15 @@ impl MiscellaneousService {
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = self
-            .item_reviews(&user_id, None, Some(person_id.clone()), None, None)
-            .await?;
+        let reviews = item_reviews(
+            &self.db,
+            &user_id,
+            None,
+            Some(person_id.clone()),
+            None,
+            None,
+        )
+        .await?;
         let collections =
             entity_in_collections(&self.db, &user_id, None, Some(person_id), None, None, None)
                 .await?;
@@ -748,9 +755,15 @@ impl MiscellaneousService {
             None,
         )
         .await?;
-        let reviews = self
-            .item_reviews(&user_id, None, None, Some(metadata_group_id), None)
-            .await?;
+        let reviews = item_reviews(
+            &self.db,
+            &user_id,
+            None,
+            None,
+            Some(metadata_group_id),
+            None,
+        )
+        .await?;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
@@ -2544,304 +2557,6 @@ impl MiscellaneousService {
         Ok(StringIdObject { id: group_id })
     }
 
-    async fn item_reviews(
-        &self,
-        user_id: &String,
-        metadata_id: Option<String>,
-        person_id: Option<String>,
-        metadata_group_id: Option<String>,
-        collection_id: Option<String>,
-    ) -> Result<Vec<ReviewItem>> {
-        let all_reviews = Review::find()
-            .select_only()
-            .column(review::Column::Id)
-            .order_by_desc(review::Column::PostedOn)
-            .apply_if(metadata_id, |query, v| {
-                query.filter(review::Column::MetadataId.eq(v))
-            })
-            .apply_if(metadata_group_id, |query, v| {
-                query.filter(review::Column::MetadataGroupId.eq(v))
-            })
-            .apply_if(person_id, |query, v| {
-                query.filter(review::Column::PersonId.eq(v))
-            })
-            .apply_if(collection_id, |query, v| {
-                query.filter(review::Column::CollectionId.eq(v))
-            })
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await
-            .unwrap();
-        let mut reviews = vec![];
-        for r_id in all_reviews {
-            reviews.push(review_by_id(&self.db, r_id, user_id, true).await?);
-        }
-        let all_reviews = reviews
-            .into_iter()
-            .filter(|r| match r.visibility {
-                Visibility::Private => &r.posted_by.id == user_id,
-                _ => true,
-            })
-            .collect();
-        Ok(all_reviews)
-    }
-
-    pub async fn user_collections_list(
-        &self,
-        user_id: &String,
-        name: Option<String>,
-    ) -> Result<Vec<CollectionItem>> {
-        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/787 is merged
-        struct JsonBuildObject;
-        impl Iden for JsonBuildObject {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "JSON_BUILD_OBJECT").unwrap();
-            }
-        }
-        struct JsonAgg;
-        impl Iden for JsonAgg {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "JSON_AGG").unwrap();
-            }
-        }
-        let collaborators_subquery = Query::select()
-            .from(UserToCollection)
-            .expr(SimpleExpr::FunctionCall(
-                Func::cust(JsonAgg).arg(
-                    Func::cust(JsonBuildObject)
-                        .arg(Expr::val("id"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
-                        .arg(Expr::val("name"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
-                ),
-            ))
-            .join(
-                JoinType::InnerJoin,
-                AliasedUser::Table,
-                Expr::col((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::UserId,
-                ))
-                .equals((AliasedUser::Table, AliasedUser::Id)),
-            )
-            .and_where(
-                Expr::col((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::CollectionId,
-                ))
-                .equals((AliasedCollection::Table, AliasedCollection::Id)),
-            )
-            .and_where(
-                Expr::col((AliasedUser::Table, AliasedUser::Id))
-                    .not_equals((AliasedCollection::Table, AliasedCollection::UserId)),
-            )
-            .to_owned();
-        let count_subquery = Query::select()
-            .expr(collection_to_entity::Column::Id.count())
-            .from(CollectionToEntity)
-            .and_where(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    AliasedCollectionToEntity::CollectionId,
-                ))
-                .equals((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::CollectionId,
-                )),
-            )
-            .to_owned();
-        let collections = Collection::find()
-            .apply_if(name, |query, v| {
-                query.filter(collection::Column::Name.eq(v))
-            })
-            .select_only()
-            .column(collection::Column::Id)
-            .column(collection::Column::Name)
-            .column_as(
-                collection::Column::Name
-                    .is_in(DefaultCollection::iter().map(|s| s.to_string()))
-                    .and(collection::Column::UserId.eq(user_id)),
-                "is_default",
-            )
-            .column(collection::Column::InformationTemplate)
-            .expr_as_(
-                SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
-                "count",
-            )
-            .expr_as_(
-                SimpleExpr::FunctionCall(Func::coalesce([
-                    SimpleExpr::SubQuery(
-                        None,
-                        Box::new(collaborators_subquery.into_sub_query_statement()),
-                    ),
-                    SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
-                ])),
-                "collaborators",
-            )
-            .column(collection::Column::Description)
-            .column_as(
-                SimpleExpr::FunctionCall(
-                    Func::cust(JsonBuildObject)
-                        .arg(Expr::val("id"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
-                        .arg(Expr::val("name"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
-                ),
-                "creator",
-            )
-            .order_by_desc(collection::Column::LastUpdatedOn)
-            .left_join(User)
-            .left_join(UserToCollection)
-            .filter(user_to_collection::Column::UserId.eq(user_id))
-            .into_model::<CollectionItem>()
-            .all(&self.db)
-            .await
-            .unwrap();
-        Ok(collections)
-    }
-
-    pub async fn collection_contents(
-        &self,
-        input: CollectionContentsInput,
-    ) -> Result<CollectionContents> {
-        let search = input.search.unwrap_or_default();
-        let sort = input.sort.unwrap_or_default();
-        let filter = input.filter.unwrap_or_default();
-        let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
-        let maybe_collection = Collection::find_by_id(input.collection_id.clone())
-            .one(&self.db)
-            .await
-            .unwrap();
-        let collection = match maybe_collection {
-            Some(c) => c,
-            None => return Err(Error::new("Collection not found".to_owned())),
-        };
-
-        let take = input
-            .take
-            .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap());
-        let results = if take != 0 {
-            let paginator = CollectionToEntity::find()
-                .left_join(Metadata)
-                .left_join(MetadataGroup)
-                .left_join(Person)
-                .left_join(Exercise)
-                .left_join(Workout)
-                .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
-                .apply_if(search.query, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((
-                                    AliasedMetadataGroup::Table,
-                                    AliasedMetadataGroup::Title,
-                                ))
-                                .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedPerson::Table, AliasedPerson::Name))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
-                                    .ilike(ilike_sql(&v)),
-                            ),
-                    )
-                })
-                .apply_if(filter.metadata_lot, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
-                    )
-                })
-                .apply_if(filter.entity_type, |query, v| {
-                    let f = match v {
-                        EntityLot::Metadata => {
-                            collection_to_entity::Column::MetadataId.is_not_null()
-                        }
-                        EntityLot::MetadataGroup => {
-                            collection_to_entity::Column::MetadataGroupId.is_not_null()
-                        }
-                        EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
-                        EntityLot::Exercise => {
-                            collection_to_entity::Column::ExerciseId.is_not_null()
-                        }
-                        EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
-                        EntityLot::Collection => unreachable!(),
-                    };
-                    query.filter(f)
-                })
-                .order_by(
-                    match sort.by {
-                        CollectionContentsSortBy::LastUpdatedOn => {
-                            Expr::col(collection_to_entity::Column::LastUpdatedOn)
-                        }
-                        CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
-                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
-                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
-                        ])),
-                        CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
-                        ])),
-                    },
-                    sort.order.into(),
-                )
-                .paginate(&self.db, take);
-            let mut items = vec![];
-            let ItemsAndPagesNumber {
-                number_of_items,
-                number_of_pages,
-            } = paginator.num_items_and_pages().await?;
-            for cte in paginator.fetch_page(page - 1).await? {
-                items.push(EntityWithLot {
-                    entity_id: cte.entity_id,
-                    entity_lot: cte.entity_lot,
-                });
-            }
-            SearchResults {
-                details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
-                    next_page: if page < number_of_pages {
-                        Some((page + 1).try_into().unwrap())
-                    } else {
-                        None
-                    },
-                },
-                items,
-            }
-        } else {
-            SearchResults {
-                details: SearchDetails::default(),
-                items: vec![],
-            }
-        };
-        let user = collection.find_related(User).one(&self.db).await?.unwrap();
-        let reviews = self
-            .item_reviews(
-                &collection.user_id,
-                None,
-                None,
-                None,
-                Some(input.collection_id),
-            )
-            .await?;
-        Ok(CollectionContents {
-            details: collection,
-            reviews,
-            results,
-            user,
-        })
-    }
-
     pub async fn post_review(
         &self,
         user_id: &String,
@@ -2993,134 +2708,6 @@ impl MiscellaneousService {
             }
             None => Ok(false),
         }
-    }
-
-    pub async fn create_or_update_collection(
-        &self,
-        user_id: &String,
-        input: CreateOrUpdateCollectionInput,
-    ) -> Result<StringIdObject> {
-        let txn = self.db.begin().await?;
-        let meta = Collection::find()
-            .filter(collection::Column::Name.eq(input.name.clone()))
-            .filter(collection::Column::UserId.eq(user_id))
-            .one(&txn)
-            .await
-            .unwrap();
-        let mut new_name = input.name.clone();
-        let created = match meta {
-            Some(m) if input.update_id.is_none() => m.id,
-            _ => {
-                let col = collection::ActiveModel {
-                    id: match input.update_id {
-                        Some(i) => {
-                            let already = Collection::find_by_id(i.clone())
-                                .one(&txn)
-                                .await
-                                .unwrap()
-                                .unwrap();
-                            if DefaultCollection::iter()
-                                .map(|s| s.to_string())
-                                .contains(&already.name)
-                            {
-                                new_name = already.name;
-                            }
-                            ActiveValue::Unchanged(i.clone())
-                        }
-                        None => ActiveValue::NotSet,
-                    },
-                    last_updated_on: ActiveValue::Set(Utc::now()),
-                    name: ActiveValue::Set(new_name),
-                    user_id: ActiveValue::Set(user_id.to_owned()),
-                    description: ActiveValue::Set(input.description),
-                    information_template: ActiveValue::Set(input.information_template),
-                    ..Default::default()
-                };
-                let inserted = col.save(&txn).await.map_err(|_| {
-                    Error::new("There was an error creating the collection".to_owned())
-                })?;
-                let id = inserted.id.unwrap();
-                let collaborators = vec![user_id.to_owned()];
-                let inserts = collaborators
-                    .into_iter()
-                    .map(|c| user_to_collection::ActiveModel {
-                        user_id: ActiveValue::Set(c),
-                        collection_id: ActiveValue::Set(id.clone()),
-                    });
-                UserToCollection::insert_many(inserts)
-                    .on_conflict(OnConflict::new().do_nothing().to_owned())
-                    .exec_without_returning(&txn)
-                    .await?;
-                id
-            }
-        };
-        txn.commit().await?;
-        Ok(StringIdObject { id: created })
-    }
-
-    pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
-        if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
-            return Err(Error::new("Can not delete a default collection".to_owned()));
-        }
-        let collection = Collection::find()
-            .filter(collection::Column::Name.eq(name))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
-            .one(&self.db)
-            .await?;
-        let resp = if let Some(c) = collection {
-            Collection::delete_by_id(c.id).exec(&self.db).await.is_ok()
-        } else {
-            false
-        };
-        Ok(resp)
-    }
-
-    pub async fn add_entity_to_collection(
-        &self,
-        user_id: &String,
-        input: ChangeCollectionToEntityInput,
-    ) -> Result<bool> {
-        add_entity_to_collection(&self.db, user_id, input, &self.perform_core_application_job).await
-    }
-
-    pub async fn remove_entity_from_collection(
-        &self,
-        user_id: &String,
-        input: ChangeCollectionToEntityInput,
-    ) -> Result<StringIdObject> {
-        let collect = Collection::find()
-            .left_join(UserToCollection)
-            .filter(collection::Column::Name.eq(input.collection_name))
-            .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        CollectionToEntity::delete_many()
-            .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-            .filter(
-                collection_to_entity::Column::MetadataId
-                    .eq(input.metadata_id.clone())
-                    .or(collection_to_entity::Column::PersonId.eq(input.person_id.clone()))
-                    .or(collection_to_entity::Column::MetadataGroupId
-                        .eq(input.metadata_group_id.clone()))
-                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone()))
-                    .or(collection_to_entity::Column::WorkoutId.eq(input.workout_id.clone())),
-            )
-            .exec(&self.db)
-            .await?;
-        if input.workout_id.is_none() {
-            associate_user_with_entity(
-                user_id,
-                input.metadata_id,
-                input.person_id,
-                input.exercise_id,
-                input.metadata_group_id,
-                &self.db,
-            )
-            .await?;
-        }
-        Ok(StringIdObject { id: collect.id })
     }
 
     pub async fn delete_seen_item(
@@ -3290,7 +2877,21 @@ impl MiscellaneousService {
         };
         let user = user.insert(&self.db).await.unwrap();
         tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
-        self.user_created_job(&user.id).await?;
+        for col in DefaultCollection::iter() {
+            let meta = col.meta().to_owned();
+            create_or_update_collection(
+                &self.db,
+                &user.id,
+                CreateOrUpdateCollectionInput {
+                    name: col.to_string(),
+                    description: Some(meta.1.to_owned()),
+                    information_template: meta.0,
+                    ..Default::default()
+                },
+            )
+            .await
+            .ok();
+        }
         self.deploy_job_to_calculate_user_activities_and_summary(&user.id, true)
             .await?;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
@@ -3350,25 +2951,6 @@ impl MiscellaneousService {
                 Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }
-    }
-
-    // this job is run when a user is created for the first time
-    async fn user_created_job(&self, user_id: &String) -> Result<()> {
-        for col in DefaultCollection::iter() {
-            let meta = col.meta().to_owned();
-            self.create_or_update_collection(
-                user_id,
-                CreateOrUpdateCollectionInput {
-                    name: col.to_string(),
-                    description: Some(meta.1.to_owned()),
-                    information_template: meta.0,
-                    ..Default::default()
-                },
-            )
-            .await
-            .ok();
-        }
-        Ok(())
     }
 
     pub async fn update_user(
@@ -3488,7 +3070,8 @@ impl MiscellaneousService {
         let media = self
             .commit_metadata_internal(details, Some(is_partial))
             .await?;
-        self.add_entity_to_collection(
+        add_entity_to_collection(
+            &self.db,
             &user_id,
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id.to_owned(),
@@ -3496,6 +3079,7 @@ impl MiscellaneousService {
                 metadata_id: Some(media.id.clone()),
                 ..Default::default()
             },
+            &self.perform_core_application_job,
         )
         .await?;
         Ok(media)
@@ -4181,7 +3765,8 @@ impl MiscellaneousService {
                     force_update: None,
                 })
                 .await?;
-            self.add_entity_to_collection(
+            add_entity_to_collection(
+                &self.db,
                 user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: user_id.to_owned(),
@@ -4189,6 +3774,7 @@ impl MiscellaneousService {
                     metadata_id: Some(id.clone()),
                     ..Default::default()
                 },
+                &self.perform_core_application_job,
             )
             .await
             .trace_ok();
@@ -4425,7 +4011,8 @@ impl MiscellaneousService {
 
     async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
         let add_entity_to_collection = |collection_name: &str| {
-            self.add_entity_to_collection(
+            add_entity_to_collection(
+                &self.db,
                 &seen.user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: seen.user_id.clone(),
@@ -4433,10 +4020,12 @@ impl MiscellaneousService {
                     metadata_id: Some(seen.metadata_id.clone()),
                     ..Default::default()
                 },
+                &self.perform_core_application_job,
             )
         };
         let remove_entity_from_collection = |collection_name: &str| {
-            self.remove_entity_from_collection(
+            remove_entity_from_collection(
+                &self.db,
                 &seen.user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: seen.user_id.clone(),
@@ -5015,7 +4604,8 @@ impl MiscellaneousService {
                     for user in related_users {
                         self.queue_notifications_to_user_platforms(&user.user_id, &reminder.text)
                             .await?;
-                        self.remove_entity_from_collection(
+                        remove_entity_from_collection(
+                            &self.db,
                             &user.user_id,
                             ChangeCollectionToEntityInput {
                                 creator_user_id: col.user_id.clone(),

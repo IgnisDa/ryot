@@ -16,6 +16,8 @@ aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+collection-resolver = { path = "../../crates/resolvers/collection" }
+collection-service = { path = "../../crates/services/collection" }
 common-utils = { path = "../../crates/utils/common" }
 config = { path = "../../crates/config" }
 database-models = { path = "../../crates/models/database" }

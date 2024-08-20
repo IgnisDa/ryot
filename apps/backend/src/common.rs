@@ -11,6 +11,8 @@ use axum::{
     Extension,
 };
 use background::{ApplicationJob, CoreApplicationJob};
+use collection_resolver::{CollectionMutation, CollectionQuery};
+use collection_service::CollectionService;
 use common_utils::FRONTEND_OAUTH_ENDPOINT;
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
@@ -70,6 +72,11 @@ pub async fn create_app_services(
     ));
     let oidc_client = Arc::new(create_oidc_client(&config).await);
 
+    let collection_service = Arc::new(CollectionService::new(
+        &db,
+        config.clone(),
+        perform_core_application_job,
+    ));
     let miscellaneous_service = Arc::new(
         MiscellaneousService::new(
             &db,
@@ -85,6 +92,7 @@ pub async fn create_app_services(
     let importer_service = Arc::new(ImporterService::new(
         &db,
         perform_application_job,
+        perform_core_application_job,
         miscellaneous_service.clone(),
         exercise_service.clone(),
         timezone.clone(),
@@ -108,6 +116,7 @@ pub async fn create_app_services(
     .data(exercise_service.clone())
     .data(file_storage_service.clone())
     .data(statistics_service.clone())
+    .data(collection_service.clone())
     .finish();
 
     let cors_origins = config
@@ -193,6 +202,7 @@ pub struct QueryRoot(
     ExerciseQuery,
     FileStorageQuery,
     StatisticsQuery,
+    CollectionQuery,
 );
 
 #[derive(MergedObject, Default)]
@@ -202,6 +212,7 @@ pub struct MutationRoot(
     ExporterMutation,
     ExerciseMutation,
     FileStorageMutation,
+    CollectionMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;

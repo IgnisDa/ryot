@@ -836,6 +836,8 @@ dependencies = [
  "background",
  "chrono",
  "chrono-tz",
+ "collection-resolver",
+ "collection-service",
  "common-utils",
  "config",
  "database-models",
@@ -1252,6 +1254,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
+name = "collection-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "collection-service",
+ "common-models",
+ "dependent-models",
+ "media-models",
+ "traits",
+]
+
+[[package]]
+name = "collection-service"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "async-graphql",
+ "background",
+ "common-models",
+ "config",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "enums",
+ "media-models",
+ "migrations",
+ "sea-orm",
+ "sea-query",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1657,6 +1690,7 @@ dependencies = [
  "common-models",
  "database-models",
  "dependent-models",
+ "enums",
  "file-storage-service",
  "fitness-models",
  "itertools 0.13.0",

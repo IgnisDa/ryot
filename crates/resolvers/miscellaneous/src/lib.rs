@@ -1,24 +1,23 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::{BackgroundJob, ChangeCollectionToEntityInput, SearchInput, StringIdObject};
+use common_models::{BackgroundJob, SearchInput, StringIdObject};
 use database_models::{integration, notification_platform, user};
 use dependent_models::{
-    CollectionContents, CoreDetails, GenreDetails, MetadataGroupDetails, PersonDetails,
-    SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    CoreDetails, GenreDetails, MetadataGroupDetails, PersonDetails, SearchResults,
+    UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use media_models::{
-    AuthUserInput, CollectionContentsInput, CollectionItem, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateOrUpdateCollectionInput, CreateReviewCommentInput,
-    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, GenreDetailsInput,
-    GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent, LoginResult,
-    MetadataGroupSearchInput, MetadataGroupSearchItem, MetadataGroupsListInput, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, OidcTokenOutput,
-    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PostReviewInput, ProgressUpdateInput,
-    ProviderLanguageInformation, RegisterResult, RegisterUserInput, UpdateSeenItemInput,
-    UpdateUserInput, UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
-    UpdateUserPreferenceInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    AuthUserInput, CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput,
+    CreateReviewCommentInput, CreateUserIntegrationInput, CreateUserNotificationPlatformInput,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails,
+    GroupedCalendarEvent, LoginResult, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails, MetadataSearchInput,
+    MetadataSearchItemResponse, OidcTokenOutput, PeopleListInput, PeopleSearchInput,
+    PeopleSearchItem, PostReviewInput, ProgressUpdateInput, ProviderLanguageInformation,
+    RegisterResult, RegisterUserInput, UpdateSeenItemInput, UpdateUserInput,
+    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
+    UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -35,27 +34,6 @@ impl MiscellaneousQuery {
     async fn core_details(&self, gql_ctx: &Context<'_>) -> CoreDetails {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.core_details().await
-    }
-
-    /// Get all collections for the currently logged in user.
-    async fn user_collections_list(
-        &self,
-        gql_ctx: &Context<'_>,
-        name: Option<String>,
-    ) -> Result<Vec<CollectionItem>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_collections_list(&user_id, name).await
-    }
-
-    /// Get the contents of a collection and respect visibility.
-    async fn collection_contents(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CollectionContentsInput,
-    ) -> Result<CollectionContents> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.collection_contents(input).await
     }
 
     /// Get partial details about a media present in the database.
@@ -341,50 +319,6 @@ impl MiscellaneousMutation {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_review(user_id, review_id).await
-    }
-
-    /// Create a new collection for the logged in user or edit details of an existing one.
-    async fn create_or_update_collection(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: CreateOrUpdateCollectionInput,
-    ) -> Result<StringIdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_or_update_collection(&user_id, input).await
-    }
-
-    /// Add a entity to a collection if it is not there, otherwise do nothing.
-    async fn add_entity_to_collection(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: ChangeCollectionToEntityInput,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.add_entity_to_collection(&user_id, input).await
-    }
-
-    /// Remove an entity from a collection if it is not there, otherwise do nothing.
-    async fn remove_entity_from_collection(
-        &self,
-        gql_ctx: &Context<'_>,
-        input: ChangeCollectionToEntityInput,
-    ) -> Result<StringIdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.remove_entity_from_collection(&user_id, input).await
-    }
-
-    /// Delete a collection.
-    async fn delete_collection(
-        &self,
-        gql_ctx: &Context<'_>,
-        collection_name: String,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.delete_collection(user_id, &collection_name).await
     }
 
     /// Delete a seen item from a user's history.
