@@ -684,7 +684,7 @@ const ActivitySection = () => {
 					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
 				return data;
 			});
-			const series = pickBy(trackSeries, (v) => v);
+			const series = pickBy(trackSeries);
 			const mostActiveHour = dailyUserActivities.mostActiveHour;
 			return {
 				data,
