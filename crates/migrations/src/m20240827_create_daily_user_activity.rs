@@ -74,7 +74,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(DailyUserActivity::TotalDuration)
-                            .decimal()
+                            .integer()
                             .not_null()
                             .default(0),
                     )

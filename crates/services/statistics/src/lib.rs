@@ -497,6 +497,7 @@ impl StatisticsService {
             date: Date,
             hour: u32,
             activity_type: &str,
+            duration: Option<i32>,
         ) -> &'a mut daily_user_activity::Model {
             let existing = activities
                 .entry(date)
@@ -519,6 +520,9 @@ impl StatisticsService {
                     .hour_counts
                     .push(DailyUserActivityHourCount { hour, count: 1 });
             };
+            if let Some(d) = duration {
+                existing.total_duration += d;
+            }
             existing
         }
 
@@ -537,7 +541,8 @@ impl StatisticsService {
         while let Some(seen) = seen_stream.try_next().await? {
             let date = seen.1.unwrap();
             let hour = seen.2.hour();
-            let activity = update_activity_counts(&mut activities, user_id, date, hour, "seen");
+            let activity =
+                update_activity_counts(&mut activities, user_id, date, hour, "seen", todo!());
             if let Some(e) = activity
                 .metadata_counts
                 .iter_mut()
@@ -562,7 +567,14 @@ impl StatisticsService {
         while let Some(item) = workout_stream.try_next().await? {
             let date = item.end_time.date_naive();
             let hour = item.end_time.time().hour();
-            update_activity_counts(&mut activities, user_id, date, hour, "workout");
+            update_activity_counts(
+                &mut activities,
+                user_id,
+                date,
+                hour,
+                "workout",
+                item.duration,
+            );
         }
 
         let mut measurement_stream = UserMeasurement::find()
@@ -573,7 +585,7 @@ impl StatisticsService {
         while let Some(item) = measurement_stream.try_next().await? {
             let date = item.timestamp.date_naive();
             let hour = item.timestamp.time().hour();
-            update_activity_counts(&mut activities, user_id, date, hour, "measurement");
+            update_activity_counts(&mut activities, user_id, date, hour, "measurement", None);
         }
 
         let mut review_stream = Review::find()
@@ -584,7 +596,7 @@ impl StatisticsService {
         while let Some(item) = review_stream.try_next().await? {
             let date = item.posted_on.date_naive();
             let hour = item.posted_on.time().hour();
-            update_activity_counts(&mut activities, user_id, date, hour, "review");
+            update_activity_counts(&mut activities, user_id, date, hour, "review", None);
         }
 
         for (_, activity) in activities.into_iter() {
