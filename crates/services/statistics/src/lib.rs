@@ -573,7 +573,7 @@ impl StatisticsService {
                 date,
                 hour,
                 "workout",
-                item.duration,
+                Some(item.duration),
             );
         }
 

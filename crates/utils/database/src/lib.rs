@@ -365,7 +365,7 @@ pub fn consolidate_activities(
     let mut review_counts = 0;
     let mut workout_counts = 0;
     let mut measurement_counts = 0;
-    let mut total_duration = dec!(0);
+    let mut total_duration = 0;
     let mut new_hour_counts = HashMap::new();
     let mut new_metadata_counts = HashMap::new();
     for item in inputs.iter() {
