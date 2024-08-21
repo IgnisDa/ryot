@@ -17,7 +17,8 @@ use common_models::{
     IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR, VERSION,
+    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
+    TEMP_DIR, VERSION,
 };
 use database_models::{
     calendar_event, collection, collection_to_entity,
@@ -1063,7 +1064,7 @@ impl MiscellaneousService {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
         }
-        tracing::debug!("Input for progress_update = {:?}", input);
+        ryot_log!(debug, "Input for progress_update = {:?}", input);
 
         let all_prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
@@ -1110,7 +1111,7 @@ impl MiscellaneousService {
             },
             Some(_) => ProgressUpdateAction::ChangeState,
         };
-        tracing::debug!("Progress update action = {:?}", action);
+        ryot_log!(debug, "Progress update action = {:?}", action);
         let err = || {
             Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::NoSeenInProgress,
@@ -1188,7 +1189,12 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
-                tracing::debug!("Progress update for meta {:?} ({:?})", meta.title, meta.lot);
+                ryot_log!(
+                    debug,
+                    "Progress update for meta {:?} ({:?})",
+                    meta.title,
+                    meta.lot
+                );
 
                 let show_ei = if matches!(meta.lot, MediaLot::Show) {
                     let season = input.show_season_number.ok_or_else(|| {
@@ -1229,7 +1235,7 @@ impl MiscellaneousService {
                 } else {
                     input.date
                 };
-                tracing::debug!("Progress update finished on = {:?}", finished_on);
+                ryot_log!(debug, "Progress update finished on = {:?}", finished_on);
                 let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
                 {
                     (
@@ -1239,7 +1245,7 @@ impl MiscellaneousService {
                 } else {
                     (dec!(100), None)
                 };
-                tracing::debug!("Progress update percentage = {:?}", progress);
+                ryot_log!(debug, "Progress update percentage = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id.to_owned()),
@@ -1257,7 +1263,7 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
-        tracing::debug!("Progress update = {:?}", seen);
+        ryot_log!(debug, "Progress update = {:?}", seen);
         let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache.cache_set(cache, ()).unwrap();
@@ -1427,7 +1433,7 @@ impl MiscellaneousService {
                     }
                 } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
                 } else {
-                    tracing::debug!("Skipping user_to_entity = {:?}", ute.id);
+                    ryot_log!(debug, "Skipping user_to_entity = {:?}", ute.id);
                     continue;
                 };
 
@@ -1484,12 +1490,12 @@ impl MiscellaneousService {
                 let previous_reasons =
                     HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons.is_empty() {
-                    tracing::debug!("Deleting user_to_entity = {id:?}", id = (&ute.id));
+                    ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
                     ute.delete(&self.db).await.unwrap();
                 } else {
                     let mut ute: user_to_entity::ActiveModel = ute.into();
                     if new_reasons != previous_reasons {
-                        tracing::debug!("Updating user_to_entity = {id:?}", id = (&ute.id));
+                        ryot_log!(debug, "Updating user_to_entity = {id:?}", id = (&ute.id));
                         ute.media_reason =
                             ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
@@ -2454,7 +2460,7 @@ impl MiscellaneousService {
             .await?
         {
             if input.force_update.unwrap_or_default() {
-                tracing::debug!("Forcing update of metadata with id {}", m.id);
+                ryot_log!(debug, "Forcing update of metadata with id {}", m.id);
                 self.update_metadata_and_notify_users(&m.id, true).await?;
             }
             Ok(m)
@@ -2731,11 +2737,11 @@ impl MiscellaneousService {
                 .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
                 .await
             {
-                tracing::debug!("Metadata {:?} does not need to be updated", metadata_id);
+                ryot_log!(debug, "Metadata {:?} does not need to be updated", metadata_id);
                 return Ok(vec![]);
             }
         }
-        tracing::debug!("Updating metadata for {:?}", metadata_id);
+        ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
             .col_expr(metadata::Column::IsPartial, Expr::value(false))
@@ -2747,11 +2753,11 @@ impl MiscellaneousService {
         let notifications = match maybe_details {
             Ok(details) => self.update_media(metadata_id, details).await?,
             Err(e) => {
-                tracing::error!("Error while updating metadata = {:?}: {:?}", metadata_id, e);
+                ryot_log!(error, "Error while updating metadata = {:?}: {:?}", metadata_id, e);
                 vec![]
             }
         };
-        tracing::debug!("Updated metadata for {:?}", metadata_id);
+        ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
         Ok(notifications)
     }
 
@@ -2961,7 +2967,7 @@ impl MiscellaneousService {
         let integration_service = self.get_integration_service();
         for integration in integrations.into_iter() {
             if integration.is_disabled.unwrap_or_default() {
-                tracing::debug!("Integration {} is disabled", integration.id);
+                ryot_log!(debug, "Integration {} is disabled", integration.id);
                 continue;
             }
             let response = match integration.provider {
@@ -3047,14 +3053,14 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         for user_id in users_with_integrations {
-            tracing::debug!("Yanking integrations data for user {}", user_id);
+            ryot_log!(debug, "Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
         }
         Ok(())
     }
 
     pub async fn sync_integrations_data(&self) -> Result<()> {
-        tracing::trace!("Syncing integrations data...");
+        ryot_log!(trace, "Syncing integrations data...");
         self.yank_integrations_data().await.unwrap();
         Ok(())
     }
@@ -3136,7 +3142,8 @@ impl MiscellaneousService {
         integration_slug: String,
         payload: String,
     ) -> Result<String> {
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Processing integration webhook for slug: {}",
             integration_slug
         );
@@ -3240,7 +3247,7 @@ impl MiscellaneousService {
             )
             .await
         {
-            tracing::debug!("Error updating progress: {:?}", err);
+            ryot_log!(debug, "Error updating progress: {:?}", err);
         };
         Ok(())
     }
@@ -3409,14 +3416,15 @@ impl MiscellaneousService {
             };
             insert_data.insert(&self.db).await?;
         } else {
-            tracing::debug!("User has disabled notifications");
+            ryot_log!(debug, "User has disabled notifications");
         }
         Ok(true)
     }
 
     async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
         let (meta_map, _, _) = self.get_entities_monitored_by().await?;
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
@@ -3434,7 +3442,8 @@ impl MiscellaneousService {
 
     async fn update_monitored_people_and_queue_notifications(&self) -> Result<()> {
         let (_, _, person_map) = self.get_entities_monitored_by().await?;
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Users to be notified for people state changes: {:?}",
             person_map
         );
@@ -3467,7 +3476,7 @@ impl MiscellaneousService {
                 .await
                 .trace_ok();
         } else {
-            tracing::debug!("User id = {user_id} has disabled notifications for {change}");
+            ryot_log!(debug, "User id = {user_id} has disabled notifications for {change}");
         }
         Ok(())
     }
@@ -3921,7 +3930,7 @@ impl MiscellaneousService {
             .await?;
 
         while let Some(meta) = meta_stream.try_next().await? {
-            tracing::trace!("Processing metadata id = {:#?}", meta.id);
+            ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
             let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
             for cal_event in calendar_events {
                 let mut need_to_delete = true;
@@ -3963,7 +3972,8 @@ impl MiscellaneousService {
                 };
 
                 if need_to_delete {
-                    tracing::debug!(
+                    ryot_log!(
+                        debug,
                         "Need to delete calendar event id = {:#?} since it is outdated",
                         cal_event.id
                     );
@@ -3974,7 +3984,7 @@ impl MiscellaneousService {
             }
         }
 
-        tracing::debug!("Finished deleting invalid calendar events");
+        ryot_log!(debug, "Finished deleting invalid calendar events");
 
         let mut metadata_stream = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
@@ -4043,10 +4053,10 @@ impl MiscellaneousService {
             metadata_updates.push(meta.id.clone());
         }
         for cal_insert in calendar_events_inserts {
-            tracing::debug!("Inserting calendar event: {:?}", cal_insert);
+            ryot_log!(debug, "Inserting calendar event: {:?}", cal_insert);
             cal_insert.insert(&self.db).await.ok();
         }
-        tracing::debug!("Finished updating calendar events");
+        ryot_log!(debug, "Finished updating calendar events");
         Ok(())
     }
 
@@ -4314,7 +4324,7 @@ GROUP BY m.id;
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
-                tracing::debug!("Invalidating job with id = {id}", id = job.id);
+                ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
                 job.was_success = ActiveValue::Set(Some(false));
                 job.save(&self.db).await?;
@@ -4366,7 +4376,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(meta) = metadata_stream.try_next().await? {
-            tracing::debug!("Removing metadata id = {:#?}", meta);
+            ryot_log!(debug, "Removing metadata id = {:#?}", meta);
             Metadata::delete_by_id(meta).exec(&self.db).await?;
         }
         let mut people_stream = Person::find()
@@ -4378,7 +4388,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(person) = people_stream.try_next().await? {
-            tracing::debug!("Removing person id = {:#?}", person);
+            ryot_log!(debug, "Removing person id = {:#?}", person);
             Person::delete_by_id(person).exec(&self.db).await?;
         }
         let mut metadata_group_stream = MetadataGroup::find()
@@ -4390,7 +4400,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(meta_group) = metadata_group_stream.try_next().await? {
-            tracing::debug!("Removing metadata group id = {:#?}", meta_group);
+            ryot_log!(debug, "Removing metadata group id = {:#?}", meta_group);
             MetadataGroup::delete_by_id(meta_group)
                 .exec(&self.db)
                 .await?;
@@ -4404,10 +4414,10 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(genre) = genre_stream.try_next().await? {
-            tracing::debug!("Removing genre id = {:#?}", genre);
+            ryot_log!(debug, "Removing genre id = {:#?}", genre);
             Genre::delete_by_id(genre).exec(&self.db).await?;
         }
-        tracing::debug!("Deleting all queued notifications");
+        ryot_log!(debug, "Deleting all queued notifications");
         QueuedNotification::delete_many().exec(&self.db).await?;
         Ok(())
     }
@@ -4416,7 +4426,7 @@ GROUP BY m.id;
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.db).await?;
         for user_details in users {
-            tracing::debug!("Sending notification to user: {:?}", user_details.id);
+            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
             let notifications = QueuedNotification::find()
                 .filter(queued_notification::Column::UserId.eq(&user_details.id))
                 .all(&self.db)
@@ -4435,7 +4445,8 @@ GROUP BY m.id;
                 .await?;
             for notification in platforms {
                 if notification.is_disabled.unwrap_or_default() {
-                    tracing::debug!(
+                    ryot_log!(
+                        debug,
                         "Skipping sending notification to user: {} for platform: {} since it is disabled",
                         user_details.id,
                         notification.lot
@@ -4445,7 +4456,7 @@ GROUP BY m.id;
                 if let Err(err) =
                     send_notification(notification.platform_specifics, &self.config, &msg).await
                 {
-                    tracing::trace!("Error sending notification: {:?}", err);
+                    ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
         }
@@ -4453,42 +4464,42 @@ GROUP BY m.id;
     }
 
     pub async fn perform_background_jobs(&self) -> Result<()> {
-        tracing::debug!("Starting background jobs...");
+        ryot_log!(debug, "Starting background jobs...");
 
-        tracing::trace!("Invalidating invalid media import jobs");
+        ryot_log!(trace, "Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.trace_ok();
-        tracing::trace!("Removing stale entities from Monitoring collection");
+        ryot_log!(trace, "Removing stale entities from Monitoring collection");
         self.remove_old_entities_from_monitoring_collection()
             .await
             .trace_ok();
-        tracing::trace!("Checking for updates for media in Watchlist");
+        ryot_log!(trace, "Checking for updates for media in Watchlist");
         self.update_watchlist_metadata_and_queue_notifications()
             .await
             .trace_ok();
-        tracing::trace!("Checking for updates for monitored people");
+        ryot_log!(trace, "Checking for updates for monitored people");
         self.update_monitored_people_and_queue_notifications()
             .await
             .trace_ok();
-        tracing::trace!("Checking and queuing any pending reminders");
+        ryot_log!(trace, "Checking and queuing any pending reminders");
         self.queue_pending_reminders().await.trace_ok();
-        tracing::trace!("Recalculating calendar events");
+        ryot_log!(trace, "Recalculating calendar events");
         self.recalculate_calendar_events().await.trace_ok();
-        tracing::trace!("Queuing notifications for released media");
+        ryot_log!(trace, "Queuing notifications for released media");
         self.queue_notifications_for_released_media()
             .await
             .trace_ok();
-        tracing::trace!("Sending all pending notifications");
+        ryot_log!(trace, "Sending all pending notifications");
         self.send_pending_notifications().await.trace_ok();
-        tracing::trace!("Cleaning up user and metadata association");
+        ryot_log!(trace, "Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association()
             .await
             .trace_ok();
-        tracing::trace!("Removing old user summaries and regenerating them");
+        ryot_log!(trace, "Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await.trace_ok();
-        tracing::trace!("Removing useless data");
+        ryot_log!(trace, "Removing useless data");
         self.remove_useless_data().await.trace_ok();
 
-        tracing::debug!("Completed background jobs...");
+        ryot_log!(debug, "Completed background jobs...");
         Ok(())
     }
 
