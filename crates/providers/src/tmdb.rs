@@ -196,7 +196,7 @@ impl TmdbService {
     ) -> Result<()> {
         let rsp = self
             .client
-            .get(format!("{}/{}/images", type_, identifier))
+            .get(format!("{}/{}/{}/images", URL, type_, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -238,7 +238,7 @@ impl TmdbService {
         for page in 1.. {
             let new_recs: TmdbListResponse = self
                 .client
-                .get(format!("{}/{}/recommendations", type_, identifier))
+                .get(format!("{}/{}/{}/recommendations", URL, type_, identifier))
                 .query(&json!({ "page": page }))
                 .send()
                 .await
@@ -273,7 +273,7 @@ impl TmdbService {
     ) -> Result<Vec<WatchProvider>> {
         let watch_providers_with_langs: TmdbWatchProviderResponse = self
             .client
-            .get(format!("{}/{}/watch/providers", type_, identifier))
+            .get(format!("{}/{}/{}/watch/providers", URL, type_, identifier))
             .query(&json!({ "language": self.language }))
             .send()
             .await
@@ -340,7 +340,7 @@ impl TmdbService {
         let start_date = since.date_naive();
         let changes = self
             .client
-            .get(format!("{}/{}/changes", type_, identifier))
+            .get(format!("{}/{}/{}/changes", URL, type_, identifier))
             .query(&json!({
                 "start_date": start_date,
                 "end_date": end_date,
@@ -361,7 +361,7 @@ impl TmdbService {
     ) -> Result<ExternalIdentifiers> {
         let rsp = self
             .client
-            .get(format!("{}/{}/external_ids", type_, identifier))
+            .get(format!("{}/{}/{}/external_ids", URL, type_, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -388,7 +388,7 @@ pub struct NonMediaTmdbService {
 
 impl NonMediaTmdbService {
     pub async fn new(config: &config::TmdbConfig, timezone: chrono_tz::Tz) -> Self {
-        let (client, settings) = get_client_config(URL, &config.access_token).await;
+        let (client, settings) = get_client_config(&config.access_token).await;
         Self {
             base: TmdbService {
                 client,
@@ -420,7 +420,7 @@ impl MediaProvider for NonMediaTmdbService {
         let rsp = self
             .base
             .client
-            .get(format!("search/{}", type_))
+            .get(format!("{}/search/{}", URL, type_))
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
@@ -470,7 +470,7 @@ impl MediaProvider for NonMediaTmdbService {
         let details: TmdbNonMediaEntity = self
             .base
             .client
-            .get(format!("{}/{}", type_, identity))
+            .get(format!("{}/{}/{}", URL, type_, identity))
             .query(&json!({ "language": self.base.language }))
             .send()
             .await
@@ -493,7 +493,7 @@ impl MediaProvider for NonMediaTmdbService {
             let cred_det: TmdbCreditsResponse = self
                 .base
                 .client
-                .get(format!("{}/{}/combined_credits", type_, identity))
+                .get(format!("{}/{}/{}/combined_credits", URL, type_, identity))
                 .query(&json!({ "language": self.base.language }))
                 .send()
                 .await
@@ -524,7 +524,7 @@ impl MediaProvider for NonMediaTmdbService {
                 for i in 1.. {
                     let cred_det: TmdbListResponse = self.base
                         .client
-                        .get(format!("discover/{}", m_typ))
+                        .get(format!("{}/discover/{}", URL, m_typ))
                         .query(
                             &json!({ "with_companies": identity, "page": i, "language": self.base.language }),
                         )
@@ -588,7 +588,7 @@ impl NonMediaTmdbService {
         let details: TmdbFindByExternalSourceResponse = self
             .base
             .client
-            .get(format!("find/{}", external_id))
+            .get(format!("{}/find/{}", URL, external_id))
             .query(&json!({ "language": self.base.language, "external_source": external_source }))
             .send()
             .await
@@ -617,7 +617,7 @@ impl TmdbMovieService {
         timezone: chrono_tz::Tz,
         _page_limit: i32,
     ) -> Self {
-        let (client, settings) = get_client_config(URL, &config.access_token).await;
+        let (client, settings) = get_client_config(&config.access_token).await;
         Self {
             base: TmdbService {
                 client,
@@ -641,7 +641,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get("search/movie")
+            .get(format!("{}/search/movie", URL))
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
@@ -681,7 +681,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get(format!("movie/{}", &identifier))
+            .get(format!("{}/movie/{}", URL, &identifier))
             .query(&json!({
                 "language": self.base.language,
                 "append_to_response": "videos",
@@ -700,7 +700,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get(format!("movie/{}/credits", identifier))
+            .get(format!("{}/movie/{}/credits", URL, identifier))
             .query(&json!({
                 "language": self.base.language,
             }))
@@ -854,7 +854,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get("search/collection")
+            .get(format!("{}/search/collection", URL))
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
@@ -905,7 +905,7 @@ impl MediaProvider for TmdbMovieService {
         let data: TmdbCollection = self
             .base
             .client
-            .get(format!("collection/{}", &identifier))
+            .get(format!("{}/collection/{}", URL, &identifier))
             .query(&json!({ "language": self.base.language }))
             .send()
             .await
@@ -967,7 +967,7 @@ impl TmdbShowService {
         timezone: chrono_tz::Tz,
         _page_limit: i32,
     ) -> Self {
-        let (client, settings) = get_client_config(URL, &config.access_token).await;
+        let (client, settings) = get_client_config(&config.access_token).await;
         Self {
             base: TmdbService {
                 client,
@@ -985,7 +985,7 @@ impl MediaProvider for TmdbShowService {
         let rsp = self
             .base
             .client
-            .get(format!("tv/{}", &identifier))
+            .get(format!("{}/tv/{}", URL, &identifier))
             .query(&json!({
                 "language": self.base.language,
                 "append_to_response": "videos",
@@ -1038,7 +1038,8 @@ impl MediaProvider for TmdbShowService {
                 .base
                 .client
                 .get(format!(
-                    "tv/{}/season/{}",
+                    "{}/tv/{}/season/{}",
+                    URL,
                     identifier.to_owned(),
                     s.season_number
                 ))
@@ -1053,7 +1054,8 @@ impl MediaProvider for TmdbShowService {
                 .base
                 .client
                 .get(format!(
-                    "tv/{}/season/{}/credits",
+                    "{}/tv/{}/season/{}/credits",
+                    URL,
                     identifier.to_owned(),
                     s.season_number
                 ))
@@ -1258,7 +1260,7 @@ impl MediaProvider for TmdbShowService {
         let rsp = self
             .base
             .client
-            .get("search/tv")
+            .get(format!("{}/search/tv", URL))
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
@@ -1294,14 +1296,11 @@ impl MediaProvider for TmdbShowService {
     }
 }
 
-async fn get_client_config(url: &str, access_token: &str) -> (Client, Settings) {
-    let client: Client = get_base_http_client(
-        url,
-        Some(vec![(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
-        )]),
-    );
+async fn get_client_config(access_token: &str) -> (Client, Settings) {
+    let client: Client = get_base_http_client(Some(vec![(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
+    )]));
     let path = PathBuf::new().join(TEMP_DIR).join(FILE);
     let tmdb_settings = if !path.exists() {
         #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -57,7 +57,7 @@ pub struct MalAnimeService {
 
 impl MalAnimeService {
     pub async fn new(config: &config::MalConfig, page_limit: i32) -> Self {
-        let client = get_client_config(URL, &config.client_id).await;
+        let client = get_client_config(&config.client_id).await;
         Self {
             base: MalService { client },
             page_limit,
@@ -95,7 +95,7 @@ pub struct MalMangaService {
 
 impl MalMangaService {
     pub async fn new(config: &config::MalConfig, page_limit: i32) -> Self {
-        let client = get_client_config(URL, &config.client_id).await;
+        let client = get_client_config(&config.client_id).await;
         Self {
             base: MalService { client },
             page_limit,
@@ -125,14 +125,11 @@ impl MediaProvider for MalMangaService {
     }
 }
 
-async fn get_client_config(url: &str, client_id: &str) -> Client {
-    get_base_http_client(
-        url,
-        Some(vec![(
-            HeaderName::from_static("x-mal-client-id"),
-            HeaderValue::from_str(client_id).unwrap(),
-        )]),
-    )
+async fn get_client_config(client_id: &str) -> Client {
+    get_base_http_client(Some(vec![(
+        HeaderName::from_static("x-mal-client-id"),
+        HeaderValue::from_str(client_id).unwrap(),
+    )]))
 }
 
 async fn search(
@@ -154,7 +151,7 @@ async fn search(
         paging: SearchPaging,
     }
     let search: SearchResponse = client
-        .get(media_type)
+        .get(format!("{}/{}", URL, media_type))
         .query(&json!({ "q": q, "limit": limit, "offset": offset, "fields": "start_date" }))
         .send()
         .await
@@ -207,7 +204,7 @@ struct ItemData {
 
 async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDetails> {
     let details: ItemNode = client
-        .get(format!("{}/{}", media_type, id))
+        .get(format!("{}/{}/{}", URL, media_type, id))
         .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
         .send()
         .await

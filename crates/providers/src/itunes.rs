@@ -36,7 +36,7 @@ impl MediaProviderLanguages for ITunesService {
 
 impl ITunesService {
     pub async fn new(config: &config::ITunesConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, None);
+        let client = get_base_http_client(None);
         Self {
             client,
             language: config.locale.clone(),
@@ -82,7 +82,7 @@ impl MediaProvider for ITunesService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client
-            .get("lookup")
+            .get(format!("{}/lookup", URL))
             .query(&serde_json::json!({
                 "id": identifier,
                 "media": "podcast",
@@ -117,7 +117,7 @@ impl MediaProvider for ITunesService {
         let details = get_search_response(ht);
         let rsp = self
             .client
-            .get("lookup")
+            .get(format!("{}/lookup", URL))
             .query(&serde_json::json!({
                 "id": identifier,
                 "media": "podcast",
@@ -182,7 +182,7 @@ impl MediaProvider for ITunesService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .get("search")
+            .get(format!("{}/search", URL))
             .query(&serde_json::json!({
                 "term": query,
                 "media": "podcast",

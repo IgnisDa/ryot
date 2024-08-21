@@ -41,7 +41,7 @@ impl MediaProviderLanguages for VndbService {
 
 impl VndbService {
     pub async fn new(_config: &config::VisualNovelConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, None);
+        let client = get_base_http_client(None);
         Self { client, page_limit }
     }
 }
@@ -91,7 +91,7 @@ impl MediaProvider for VndbService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let data = self
             .client
-            .post("producer")
+            .post(format!("{}/producer", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "count": true,
@@ -137,7 +137,7 @@ impl MediaProvider for VndbService {
     ) -> Result<MetadataPerson> {
         let rsp = self
             .client
-            .post("producer")
+            .post(format!("{}/producer", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
@@ -167,7 +167,7 @@ impl MediaProvider for VndbService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client
-            .post("vn")
+            .post(format!("{}/vn", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
@@ -191,7 +191,7 @@ impl MediaProvider for VndbService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .post("vn")
+            .post(format!("{}/vn", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "fields": METADATA_FIELDS_SMALL,
