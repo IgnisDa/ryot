@@ -351,10 +351,15 @@ export default function Page() {
 								{loaderData.endTime && loaderData.startTime ? (
 									<DisplayStat
 										icon={<IconClock size={16} />}
-										data={humanizeDuration(loaderData.duration * 1000, {
-											round: true,
-											units: ["h", "m"],
-										})}
+										data={humanizeDuration(
+											dayjsLib
+												.duration(loaderData.duration, "second")
+												.asMilliseconds(),
+											{
+												round: true,
+												units: ["h", "m"],
+											},
+										)}
 									/>
 								) : null}
 								{Number(loaderData.summary.total.weight) !== 0 ? (

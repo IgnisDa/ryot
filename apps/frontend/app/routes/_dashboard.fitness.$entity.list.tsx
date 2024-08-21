@@ -84,10 +84,13 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 					id: w.id,
 					name: w.name,
 					timestamp: w.startTime,
-					detail: humanizeDuration(w.duration * 1000, {
-						round: true,
-						units: ["h", "m"],
-					}),
+					detail: humanizeDuration(
+						dayjsLib.duration(w.duration, "second").asMilliseconds(),
+						{
+							round: true,
+							units: ["h", "m"],
+						},
+					),
 					summary: w.summary,
 				})),
 			};
