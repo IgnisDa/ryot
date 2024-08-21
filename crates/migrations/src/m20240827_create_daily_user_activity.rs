@@ -18,6 +18,7 @@ pub enum DailyUserActivity {
     MeasurementCounts,
     WorkoutCounts,
     TotalCounts,
+    /// DEV: in minutes
     TotalDuration,
 }
 
