@@ -13,7 +13,7 @@ use axum::{
 use background::{ApplicationJob, CoreApplicationJob};
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
-use common_utils::FRONTEND_OAUTH_ENDPOINT;
+use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT};
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
@@ -186,18 +186,18 @@ async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
                         .set_redirect_uri(redirect_url),
                     ),
                     Err(e) => {
-                        tracing::debug!("Error while creating OIDC client: {:?}", e);
+                        ryot_log!(debug, "Error while creating OIDC client: {:?}", e);
                         None
                     }
                 }
             }
             Err(e) => {
-                tracing::debug!("Error while processing OIDC issuer url: {:?}", e);
+                ryot_log!(debug, "Error while processing OIDC issuer url: {:?}", e);
                 None
             }
         },
         Err(e) => {
-            tracing::debug!("Error while processing OIDC redirect url: {:?}", e);
+            ryot_log!(debug, "Error while processing OIDC redirect url: {:?}", e);
             None
         }
     }

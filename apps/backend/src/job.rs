@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::*;
 use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
+use common_utils::ryot_log;
 use exporter_service::ExporterService;
 use fitness_service::ExerciseService;
 use importer_service::ImporterService;
@@ -13,7 +14,7 @@ pub async fn background_jobs(
     information: ScheduledJob,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
-    tracing::debug!("Running job at {:#?}", information.0);
+    ryot_log!(debug, "Running job at {:#?}", information.0);
     misc_service.perform_background_jobs().await.unwrap();
     Ok(())
 }
@@ -33,7 +34,7 @@ pub async fn perform_core_application_job(
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    tracing::trace!("Started job: {:#?}", name);
+    ryot_log!(trace, "Started job: {:#?}", name);
     let start = Instant::now();
     let status = match information {
         CoreApplicationJob::SyncIntegrationsData(user_id) => misc_service
@@ -54,7 +55,8 @@ pub async fn perform_core_application_job(
                 .is_ok()
         }
     };
-    tracing::trace!(
+    ryot_log!(
+        trace,
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
         name,
         (Instant::now() - start).as_millis(),
@@ -72,7 +74,7 @@ pub async fn perform_application_job(
     statistics_service: Data<Arc<StatisticsService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    tracing::trace!("Started job: {:#?}", name);
+    ryot_log!(trace, "Started job: {:#?}", name);
     let start = Instant::now();
     let status = match information {
         ApplicationJob::ImportFromExternalSource(user_id, input) => importer_service
@@ -126,7 +128,8 @@ pub async fn perform_application_job(
             .is_ok(),
         ApplicationJob::SyncIntegrationsData => misc_service.sync_integrations_data().await.is_ok(),
     };
-    tracing::trace!(
+    ryot_log!(
+        trace,
         "Job: {:#?}, Time Taken: {}ms, Successful = {}",
         name,
         (Instant::now() - start).as_millis(),

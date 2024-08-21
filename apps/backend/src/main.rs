@@ -19,7 +19,7 @@ use apalis::{
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
-use common_utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
+use common_utils::{ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 use database_models::prelude::Exercise;
 use dependent_models::CompleteExport;
 use logs_wheel::LogFileInitializer;
@@ -55,16 +55,16 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "backend=info,sea_orm=info");
+        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
     }
     init_tracing()?;
 
-    tracing::info!("Running version: {}", VERSION);
+    ryot_log!(info, "Running version: {}", VERSION);
 
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
-        tracing::info!("Sleeping for {:?} before starting up...", duration);
+        ryot_log!(info, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
 
@@ -73,7 +73,7 @@ async fn main() -> Result<()> {
     let disable_background_jobs = config.server.disable_background_jobs;
 
     let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-    tracing::debug!("Compiled at: {}", compile_timestamp);
+    ryot_log!(debug, "Compiled at: {}", compile_timestamp);
 
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
@@ -109,12 +109,12 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
 
     if let Err(err) = migrate_from_v6(&db).await {
-        tracing::error!("Migration from v6 failed: {}", err);
+        ryot_log!(error, "Migration from v6 failed: {}", err);
         bail!("There was an error migrating from v6.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
-        tracing::error!("Database migration failed: {}", err);
+        ryot_log!(error, "Database migration failed: {}", err);
         bail!("There was an error running the database migrations.");
     };
 
@@ -124,7 +124,7 @@ async fn main() -> Result<()> {
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    tracing::info!("Timezone: {}", tz);
+    ryot_log!(info, "Timezone: {}", tz);
 
     let app_services = create_app_services(
         db.clone(),
@@ -142,7 +142,10 @@ async fn main() -> Result<()> {
         .unwrap();
 
     if Exercise::find().count(&db).await? == 0 {
-        tracing::info!("Instance does not have exercises data. Deploying job to download them...");
+        ryot_log!(
+            info,
+            "Instance does not have exercises data. Deploying job to download them..."
+        );
         perform_application_job_storage
             .enqueue(ApplicationJob::UpdateExerciseLibrary)
             .await
@@ -185,7 +188,7 @@ async fn main() -> Result<()> {
         .parse::<usize>()
         .unwrap();
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
-    tracing::info!("Listening on: {}", listener.local_addr()?);
+    ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
