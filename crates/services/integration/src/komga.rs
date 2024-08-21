@@ -224,11 +224,12 @@ impl KomgaIntegration {
         komga_username: String,
         komga_password: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let client = get_base_http_client(&format!("{}/sse/v1/", base_url), None);
+        let url = format!("{}/sse/v1/", base_url);
+        let client = get_base_http_client(None);
 
         loop {
             let response = client
-                .get("events")
+                .get(format!("{}/events", url))
                 .basic_auth(komga_username.to_string(), Some(komga_password.to_string()))
                 .send()
                 .await
@@ -341,11 +342,15 @@ impl KomgaIntegration {
     }
 
     async fn process_events(&self, data: komga_events::Data) -> Option<IntegrationMediaSeen> {
-        let client = get_base_http_client(&format!("{}/api/v1/", self.base_url), None);
+        let url = format!("{}/api/v1/", self.base_url);
+        let client = get_base_http_client(None);
 
-        let book: komga_book::Item = self.fetch_api(&client, "books", &data.book_id).await.ok()?;
+        let book: komga_book::Item = self
+            .fetch_api(&client, &format!("{}/books", &url), &data.book_id)
+            .await
+            .ok()?;
         let series: komga_series::Item = self
-            .fetch_api(&client, "series", &book.series_id)
+            .fetch_api(&client, &format!("{}/series", &url), &book.series_id)
             .await
             .ok()?;
 

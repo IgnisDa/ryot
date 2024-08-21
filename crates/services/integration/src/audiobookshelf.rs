@@ -37,16 +37,14 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {
-        let client = get_base_http_client(
-            &format!("{}/api/", self.base_url),
-            Some(vec![(
-                AUTHORIZATION,
-                HeaderValue::from_str(&format!("Bearer {}", self.access_token)).unwrap(),
-            )]),
-        );
+        let url = format!("{}/api/", self.base_url);
+        let client = get_base_http_client(Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", self.access_token)).unwrap(),
+        )]));
 
         let resp = client
-            .get("me/items-in-progress")
+            .get(format!("{}/me/items-in-progress", url))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -133,7 +131,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                 };
 
             match client
-                .get(format!("me/progress/{}", progress_id))
+                .get(format!("{}/me/progress/{}", url, progress_id))
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
