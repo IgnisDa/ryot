@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
@@ -11,7 +11,7 @@ use common_models::{
 };
 use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
-    collection, collection_to_entity, daily_user_activity,
+    collection, collection_to_entity,
     functions::associate_user_with_entity,
     prelude::{
         Collection, CollectionToEntity, Review, User, UserMeasurement, UserToCollection, Workout,
@@ -25,8 +25,7 @@ use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use markdown::to_html as markdown_to_html;
 use media_models::{
-    CreateOrUpdateCollectionInput, DailyUserActivityHourCount, DailyUserActivityMetadataCount,
-    ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem,
+    CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem,
 };
 use migrations::AliasedCollectionToEntity;
 use rust_decimal_macros::dec;
@@ -391,54 +390,6 @@ pub async fn remove_entity_from_collection(
         .await?;
     }
     Ok(StringIdObject { id: collect.id })
-}
-
-pub fn consolidate_activities(
-    inputs: Vec<daily_user_activity::Model>,
-) -> daily_user_activity::Model {
-    let mut total_counts = 0;
-    let mut review_counts = 0;
-    let mut workout_counts = 0;
-    let mut measurement_counts = 0;
-    let mut total_duration = 0;
-    let mut new_hour_counts = HashMap::new();
-    let mut new_metadata_counts = HashMap::new();
-    for item in inputs.iter() {
-        total_counts += item.total_counts;
-        review_counts += item.review_counts;
-        workout_counts += item.workout_counts;
-        measurement_counts += item.measurement_counts;
-        total_duration += item.total_duration;
-        for hc in item.hour_counts.iter() {
-            let key = hc.hour;
-            let existing = new_hour_counts.entry(key).or_insert(0);
-            *existing += hc.count;
-        }
-        for mc in item.metadata_counts.iter() {
-            let key = mc.lot;
-            let existing = new_metadata_counts.entry(key).or_insert(0);
-            *existing += mc.count;
-        }
-    }
-    let hour_counts = new_hour_counts
-        .into_iter()
-        .map(|(k, v)| DailyUserActivityHourCount { hour: k, count: v })
-        .collect();
-    let metadata_counts = new_metadata_counts
-        .into_iter()
-        .map(|(k, v)| DailyUserActivityMetadataCount { lot: k, count: v })
-        .collect();
-    daily_user_activity::Model {
-        hour_counts,
-        total_counts,
-        review_counts,
-        workout_counts,
-        total_duration,
-        metadata_counts,
-        measurement_counts,
-        date: inputs[0].date,
-        user_id: inputs[0].user_id.clone(),
-    }
 }
 
 pub async fn item_reviews(

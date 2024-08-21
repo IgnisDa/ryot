@@ -1543,22 +1543,6 @@ pub struct GroupedCalendarEvent {
     pub date: NaiveDate,
 }
 
-#[derive(
-    Clone, Debug, Default, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
-)]
-pub struct DailyUserActivityMetadataCount {
-    pub lot: MediaLot,
-    pub count: i32,
-}
-
-#[derive(
-    Clone, Debug, Default, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, SimpleObject,
-)]
-pub struct DailyUserActivityHourCount {
-    pub hour: u32,
-    pub count: usize,
-}
-
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct DailyUserActivitiesInput {
     pub start_date: Option<NaiveDate>,

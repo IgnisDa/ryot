@@ -169,7 +169,7 @@ impl StatisticsService {
             acc
         });
         let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
-        let total_count = items.iter().map(|i| i.total_counts).sum();
+        let total_count = items.iter().map(|i| i.total_count).sum();
         let total_duration = items.iter().map(|i| i.total_duration).sum();
         Ok(DailyUserActivitiesResponse {
             items,
@@ -543,9 +543,9 @@ impl StatisticsService {
                     ..Default::default()
                 });
             match activity_type {
-                "workout" => existing.workout_counts += 1,
-                "measurement" => existing.measurement_counts += 1,
-                "review" => existing.review_counts += 1,
+                "workout" => existing.workout_count += 1,
+                "measurement" => existing.measurement_count += 1,
+                "review" => existing.review_count += 1,
                 _ => (),
             }
             if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
@@ -651,7 +651,7 @@ impl StatisticsService {
 
         for (_, activity) in activities.into_iter() {
             let mut total =
-                activity.measurement_counts + activity.review_counts + activity.workout_counts;
+                activity.measurement_count + activity.review_count + activity.workout_count;
             for m_count in activity.metadata_counts.iter() {
                 total += m_count.count;
             }
