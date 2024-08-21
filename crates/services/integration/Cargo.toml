@@ -24,6 +24,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = "=3.0.0"
 specific-models = { path = "../../models/specific" }
-tokio = "1.39.2"
+tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
