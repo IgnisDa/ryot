@@ -1295,8 +1295,8 @@ impl MiscellaneousService {
         user_id: &String,
         job_name: BackgroundJob,
     ) -> Result<bool> {
-        let core_sqlite_storage = &mut self.perform_core_application_job.clone();
-        let sqlite_storage = &mut self.perform_application_job.clone();
+        let core_storage = &mut self.perform_core_application_job.clone();
+        let storage = &mut self.perform_application_job.clone();
         match job_name {
             BackgroundJob::UpdateAllMetadata
             | BackgroundJob::UpdateAllExercises
@@ -1327,25 +1327,25 @@ impl MiscellaneousService {
                     .unwrap();
             }
             BackgroundJob::RecalculateCalendarEvents => {
-                sqlite_storage
+                storage
                     .enqueue(ApplicationJob::RecalculateCalendarEvents)
                     .await
                     .unwrap();
             }
             BackgroundJob::PerformBackgroundTasks => {
-                sqlite_storage
+                storage
                     .enqueue(ApplicationJob::PerformBackgroundTasks)
                     .await
                     .unwrap();
             }
             BackgroundJob::SyncIntegrationsData => {
-                core_sqlite_storage
+                core_storage
                     .enqueue(CoreApplicationJob::SyncIntegrationsData(user_id.to_owned()))
                     .await
                     .unwrap();
             }
             BackgroundJob::CalculateUserActivitiesAndSummary => {
-                sqlite_storage
+                storage
                     .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
                         user_id.to_owned(),
                         true,
@@ -1354,7 +1354,7 @@ impl MiscellaneousService {
                     .unwrap();
             }
             BackgroundJob::ReEvaluateUserWorkouts => {
-                sqlite_storage
+                storage
                     .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
                     .await
                     .unwrap();
@@ -2011,14 +2011,12 @@ impl MiscellaneousService {
         metadata_id: &String,
         force_update: bool,
     ) -> Result<bool> {
-        let metadata = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
         self.perform_application_job
             .clone()
-            .enqueue(ApplicationJob::UpdateMetadata(metadata.id, force_update))
+            .enqueue(ApplicationJob::UpdateMetadata(
+                metadata_id.to_owned(),
+                force_update,
+            ))
             .await
             .unwrap();
         Ok(true)
