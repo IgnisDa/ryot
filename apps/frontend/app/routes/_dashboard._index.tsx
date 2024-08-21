@@ -749,6 +749,11 @@ const ActivitySection = () => {
 					type="stacked"
 					data={dailyUserActivitiesData.data}
 					legendProps={{ verticalAlign: "bottom" }}
+					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
+						name: lot,
+						color: MediaColors[lot],
+						label: changeCase(lot),
+					}))}
 					xAxisProps={{
 						tickFormatter: (v) =>
 							dayjsLib(v).format(
@@ -759,11 +764,6 @@ const ActivitySection = () => {
 									.exhaustive(),
 							),
 					}}
-					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
-						name: lot,
-						color: MediaColors[lot],
-						label: changeCase(lot),
-					}))}
 				/>
 			) : (
 				<Paper withBorder h="100%" w="100%" display="flex">
