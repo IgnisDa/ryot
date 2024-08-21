@@ -3,7 +3,7 @@ use std::{collections::HashMap, pin::Pin};
 use async_graphql::Result;
 use chrono::{Datelike, Timelike, Utc};
 use common_models::UserSummaryData;
-use common_utils::convert_naive_to_utc;
+use common_utils::{convert_naive_to_utc, ryot_log};
 use database_models::{
     daily_user_activity, metadata,
     prelude::{
@@ -213,7 +213,7 @@ impl StatisticsService {
             }
         };
 
-        tracing::debug!("Calculating numbers summary for user: {:?}", ls);
+        ryot_log!(debug, "Calculating numbers summary for user: {:?}", ls);
 
         let metadata_num_reviews = Review::find()
             .filter(review::Column::UserId.eq(user_id))
@@ -224,7 +224,8 @@ impl StatisticsService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Calculated number of metadata reviews for user: {:?}",
             metadata_num_reviews
         );
@@ -238,7 +239,8 @@ impl StatisticsService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Calculated number of person reviews for user: {:?}",
             person_num_reviews
         );
@@ -251,7 +253,8 @@ impl StatisticsService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Calculated number measurements for user: {:?}",
             num_measurements
         );
@@ -264,7 +267,11 @@ impl StatisticsService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!("Calculated number workouts for user: {:?}", num_workouts);
+        ryot_log!(
+            debug,
+            "Calculated number workouts for user: {:?}",
+            num_workouts
+        );
 
         let num_metadata_interacted_with = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -275,7 +282,8 @@ impl StatisticsService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Calculated number metadata interacted with for user: {:?}",
             num_metadata_interacted_with
         );
@@ -289,7 +297,8 @@ impl StatisticsService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Calculated number people interacted with for user: {:?}",
             num_people_interacted_with
         );
@@ -303,7 +312,8 @@ impl StatisticsService {
             .count(&self.db)
             .await?;
 
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Calculated number exercises interacted with for user: {:?}",
             num_exercises_interacted_with
         );
@@ -327,7 +337,8 @@ impl StatisticsService {
             .await?
             .unwrap();
 
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Calculated total workout time for user: {:?}",
             total_workout_time
         );
@@ -342,7 +353,7 @@ impl StatisticsService {
         ls.fitness.workouts.duration += total_workout_time;
         ls.fitness.workouts.weight += total_workout_weight;
 
-        tracing::debug!("Calculated numbers summary for user: {:?}", ls);
+        ryot_log!(debug, "Calculated numbers summary for user: {:?}", ls);
 
         let mut seen_items = get_seen_items_stream(&self.db, user_id, start_from, false).await?;
 
@@ -487,7 +498,7 @@ impl StatisticsService {
         )
         .exec_with_returning(&self.db)
         .await?;
-        tracing::debug!("Calculated summary for user: {:?}", usr.user_id);
+        ryot_log!(debug, "Calculated summary for user: {:?}", usr.user_id);
         Ok(())
     }
 

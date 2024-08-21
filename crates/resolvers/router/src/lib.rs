@@ -8,7 +8,7 @@ use axum::{
     response::{Html, IntoResponse},
     Extension, Json,
 };
-use common_utils::TEMP_DIR;
+use common_utils::{ryot_log, TEMP_DIR};
 use miscellaneous_service::MiscellaneousService;
 use nanoid::nanoid;
 use serde_json::json;
@@ -56,7 +56,7 @@ pub async fn integration_webhook(
         .process_integration_webhook(integration_slug, payload)
         .await
         .map_err(|e| {
-            tracing::error!("{:?}", e);
+            ryot_log!(error, "{:?}", e);
             StatusCode::UNPROCESSABLE_ENTITY
         })?;
     Ok((StatusCode::OK, response))

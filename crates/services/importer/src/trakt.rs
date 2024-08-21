@@ -1,6 +1,6 @@
 use application_utils::get_base_http_client;
 use async_graphql::Result;
-use common_utils::APPLICATION_JSON_HEADER;
+use common_utils::{ryot_log, APPLICATION_JSON_HEADER};
 use convert_case::{Case, Casing};
 use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
@@ -177,7 +177,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         .parse::<usize>()
         .unwrap();
     for page in 1..total_history + 1 {
-        tracing::debug!("Fetching user history {page:?}/{total_history:?}");
+        ryot_log!(debug, "Fetching user history {page:?}/{total_history:?}");
         let rsp = client
             .get(format!("{}/history", url))
             .query(&serde_json::json!({ "page": page, "limit": 1000 }))

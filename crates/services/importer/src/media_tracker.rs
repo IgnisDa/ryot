@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use common_models::IdObject;
-use common_utils::USER_AGENT_STR;
+use common_utils::{ryot_log, USER_AGENT_STR};
 use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
@@ -185,7 +185,11 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         })
     });
 
-    tracing::debug!("Loaded data for {total:?} lists", total = lists.len());
+    ryot_log!(
+        debug,
+        "Loaded data for {total:?} lists",
+        total = lists.len()
+    );
 
     let data_len = data.len();
 
@@ -212,7 +216,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         let details: ItemDetails = match rsp.json().await {
             Ok(s) => s,
             Err(e) => {
-                tracing::error!("Encountered error for id = {id:?}: {e:?}", id = d.id);
+                ryot_log!(error, "Encountered error for id = {id:?}: {e:?}", id = d.id);
                 failed_items.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::ItemDetailsFromSource,
@@ -244,7 +248,8 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MediaSource::Igdb),
             MediaType::Audiobook => (details.audible_id.clone().unwrap(), MediaSource::Audible),
         };
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Got details for {type:?}, with {seen} seen history: {id} ({idx}/{total})",
             type = media_type,
             id = d.id,

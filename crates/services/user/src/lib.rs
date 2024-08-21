@@ -6,6 +6,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use common_models::{DefaultCollection, StringIdObject};
+use common_utils::ryot_log;
 use database_models::{
     integration, notification_platform,
     prelude::{Integration, NotificationPlatform, User},
@@ -152,7 +153,12 @@ impl UserService {
             ..Default::default()
         };
         let user = user.insert(&self.db).await.unwrap();
-        tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
+        ryot_log!(
+            debug,
+            "User {:?} registered with id {:?}",
+            user.name,
+            user.id
+        );
         for col in DefaultCollection::iter() {
             let meta = col.meta().to_owned();
             create_or_update_collection(

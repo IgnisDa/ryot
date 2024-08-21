@@ -3,6 +3,7 @@ use std::future::Future;
 use anyhow::anyhow;
 use application_utils::get_base_http_client;
 use async_graphql::Result;
+use common_utils::ryot_log;
 use data_encoding::BASE64;
 use database_models::metadata;
 use dependent_models::ImportResult;
@@ -45,7 +46,7 @@ where
         .await
         .unwrap();
     for library in libraries_resp.libraries {
-        tracing::debug!("Importing library {:?}", library.name.unwrap());
+        ryot_log!(debug, "Importing library {:?}", library.name.unwrap());
         let mut query = json!({ "expanded": "1" });
         if let Some(audiobookshelf_models::MediaType::Book) = library.media_type {
             query["filter"] = json!(format!("progress.{}", BASE64.encode(b"finished")));
@@ -63,7 +64,7 @@ where
         for (idx, item) in finished_items.results.into_iter().enumerate() {
             let metadata = item.media.clone().unwrap().metadata;
             let title = metadata.title.clone();
-            tracing::trace!("Importing item {:?} ({}/{})", title, idx + 1, len);
+            ryot_log!(trace, "Importing item {:?} ({}/{})", title, idx + 1, len);
             let (identifier, lot, source, episodes) =
                 if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
                     match &metadata.isbn {
@@ -99,7 +100,7 @@ where
                             let source = MediaSource::Itunes;
                             let mut to_return = vec![];
                             for episode in episodes {
-                                tracing::trace!("Importing episode {:?}", episode.title);
+                                ryot_log!(trace, "Importing episode {:?}", episode.title);
                                 let episode_details = get_item_details(
                                     &client,
                                     &url,
@@ -138,7 +139,11 @@ where
                         }
                     }
                 } else {
-                    tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
+                    ryot_log!(
+                        debug,
+                        "No ASIN, ISBN or iTunes ID found for item {:#?}",
+                        item
+                    );
                     continue;
                 };
             let mut seen_history = vec![];

@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use chrono::NaiveDate;
+use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::ImportResult;
@@ -60,7 +61,8 @@ pub async fn import(
                 continue;
             }
         };
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Getting details for {title:?} ({idx}/{total})",
             title = record.title
         );

@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use common_utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR};
+use common_utils::{ryot_log, APPLICATION_JSON_HEADER, USER_AGENT_STR};
 use dependent_models::ImportResult;
 use enum_meta::HashMap;
 use enums::{MediaLot, MediaSource};
@@ -82,7 +82,11 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         .json::<AuthenticateResponse>()
         .await
         .unwrap();
-    tracing::debug!("Authenticated with token: {}", authenticate.access_token);
+    ryot_log!(
+        debug,
+        "Authenticated with token: {}",
+        authenticate.access_token
+    );
 
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
@@ -97,7 +101,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         .build()
         .unwrap();
     let user_id = authenticate.user.id;
-    tracing::debug!("Authenticated as user id: {}", user_id);
+    ryot_log!(debug, "Authenticated as user id: {}", user_id);
 
     let mut to_handle_media = vec![];
     let mut failed_items = vec![];
@@ -117,7 +121,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
 
     for item in library_data.items {
         let type_ = item.type_.clone().unwrap();
-        tracing::debug!("Processing item: {:?} ({:?})", item.name, type_);
+        ryot_log!(debug, "Processing item: {:?} ({:?})", item.name, type_);
         let (lot, tmdb_id, ssn, sen) = match type_.clone() {
             MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
             MediaType::Series | MediaType::Episode => {

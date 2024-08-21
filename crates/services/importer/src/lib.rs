@@ -5,6 +5,7 @@ use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
+use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
 use enums::ImportSource;
@@ -76,7 +77,7 @@ impl ImporterService {
             .enqueue(job)
             .await
             .unwrap();
-        tracing::debug!("Deployed import job");
+        ryot_log!(debug, "Deployed import job");
         Ok(true)
     }
 
@@ -163,7 +164,8 @@ impl ImporterService {
             create_or_update_collection(&self.db, &user_id, col_details).await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Importing media with identifier = {iden}",
                 iden = &item.source_id
             );
@@ -181,7 +183,7 @@ impl ImporterService {
             let metadata = match data {
                 Ok(r) => r,
                 Err(e) => {
-                    tracing::error!("{e:?}");
+                    ryot_log!(error, "{e:?}");
                     import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::MediaDetailsFromProvider,
@@ -268,7 +270,8 @@ impl ImporterService {
                 .await
                 .ok();
             }
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx + 1,
                 total = import.media.len(),
@@ -279,7 +282,8 @@ impl ImporterService {
             );
         }
         for (idx, item) in import.media_groups.iter().enumerate() {
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Importing media group with identifier = {iden}",
                 iden = &item.title
             );
@@ -291,7 +295,7 @@ impl ImporterService {
             let metadata_group_id = match data {
                 Ok(r) => r.0,
                 Err(e) => {
-                    tracing::error!("{e:?}");
+                    ryot_log!(error, "{e:?}");
                     import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::MediaDetailsFromProvider,
@@ -343,7 +347,8 @@ impl ImporterService {
                 .await
                 .ok();
             }
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Imported item: {idx}/{total}, lot: {lot}, review count: {rev}, collection count: {col}",
                 idx = idx + 1,
                 total = import.media.len(),
@@ -404,7 +409,8 @@ impl ImporterService {
                 .await
                 .ok();
             }
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Imported person: {idx}/{total}, name: {name}",
                 idx = idx + 1,
                 total = import.people.len(),
@@ -470,7 +476,7 @@ impl ImporterService {
             ..Default::default()
         };
         let model = model.insert(&self.db).await.unwrap();
-        tracing::debug!("Started import job with id = {id}", id = model.id);
+        ryot_log!(debug, "Started import job with id = {id}", id = model.id);
         Ok(model)
     }
 
@@ -496,7 +502,7 @@ fn convert_review_into_input(
     metadata_group_id: Option<String>,
 ) -> Option<PostReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
-        tracing::debug!("Skipping review since it has no content");
+        ryot_log!(debug, "Skipping review since it has no content");
         return None;
     }
     let rating = match preferences.general.review_scale {

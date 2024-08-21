@@ -9,7 +9,7 @@ use common_models::{
     BackendError, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
     StringIdObject,
 };
-use common_utils::IsFeatureEnabled;
+use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
     collection, collection_to_entity, daily_user_activity,
     functions::associate_user_with_entity,
@@ -328,7 +328,7 @@ pub async fn add_entity_to_collection(
             ..Default::default()
         };
         let created = created_collection.insert(db).await?;
-        tracing::debug!("Created collection to entity: {:?}", created);
+        ryot_log!(debug, "Created collection to entity: {:?}", created);
         if input.workout_id.is_none() {
             associate_user_with_entity(
                 user_id,

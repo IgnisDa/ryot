@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use common_utils::LengthVec;
+use common_utils::{ryot_log, LengthVec};
 use database_models::{
     prelude::{Exercise, UserToEntity, Workout},
     user_to_entity, workout,
@@ -62,7 +62,7 @@ pub async fn calculate_and_commit(
     let end_time = input.end_time;
     let mut input = input;
     let id = input.id.unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
-    tracing::trace!("Creating new workout with id = {}", id);
+    ryot_log!(trace, "Creating new workout with id = {}", id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
@@ -82,7 +82,7 @@ pub async fn calculate_and_commit(
         }
         let db_ex = match Exercise::find_by_id(ex.exercise_id.clone()).one(db).await? {
             None => {
-                tracing::error!("Exercise with id = {} not found", ex.exercise_id);
+                ryot_log!(error, "Exercise with id = {} not found", ex.exercise_id);
                 continue;
             }
             Some(e) => e,

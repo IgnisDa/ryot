@@ -3,6 +3,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use common_models::SearchDetails;
+use common_utils::ryot_log;
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -273,7 +274,7 @@ impl MediaProvider for OpenlibraryService {
                 ))
             }
         }
-        tracing::debug!("Found {} related works.", related.len());
+        ryot_log!(debug, "Found {} related works.", related.len());
         Ok(MetadataPerson {
             identifier,
             source: MediaSource::Openlibrary,
@@ -301,11 +302,11 @@ impl MediaProvider for OpenlibraryService {
             .await
             .map_err(|e| anyhow!(e))?;
 
-        tracing::debug!("Getting work details.");
+        ryot_log!(debug, "Getting work details.");
         let data: MetadataDetailsOpenlibraryBook = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
-        tracing::debug!("Getting edition details.");
+        ryot_log!(debug, "Getting edition details.");
         let rsp = self
             .client
             .get(format!("{}/works/{}/editions.json", URL, identifier))
@@ -390,7 +391,7 @@ impl MediaProvider for OpenlibraryService {
             data: String,
         }
 
-        tracing::debug!("Getting suggestion details.");
+        ryot_log!(debug, "Getting suggestion details.");
         // DEV: Reverse engineered the API
         let html = self
             .client

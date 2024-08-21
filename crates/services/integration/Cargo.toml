@@ -7,10 +7,11 @@ edition = "2021"
 anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
-enums = { path = "../../enums" }
-eventsource-stream = "=0.2.3"
+common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
+enums = { path = "../../enums" }
+eventsource-stream = "=0.2.3"
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }
 radarr-api-rs = "=3.0.1"
