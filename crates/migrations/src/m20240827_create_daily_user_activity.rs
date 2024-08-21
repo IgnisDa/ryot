@@ -13,7 +13,7 @@ GENERATED ALWAYS AS (
 pub static DAILY_USER_ACTIVITY_TOTAL_DURATION_GENERATED_SQL: &str = r#"
 GENERATED ALWAYS AS (
     "workout_duration" + "audio_book_duration" + "podcast_duration" +
-    "movie_duration" +"show_duration"
+    "movie_duration" + "show_duration"
 ) STORED
 "#;
 
