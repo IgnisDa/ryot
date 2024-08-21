@@ -32,6 +32,7 @@ pub enum DailyUserActivity {
     ReviewCount,
     MeasurementCount,
     WorkoutCount,
+    /// DEV: all durations are in minutes
     WorkoutDuration,
     AudioBookCount,
     AudioBookDuration,
@@ -47,8 +48,9 @@ pub enum DailyUserActivity {
     VideoGameCount,
     VisualNovelCount,
     TotalCount,
-    /// DEV: in minutes
     TotalDuration,
+    // DEV: Both of these are rounded and in UTC. It is expected that the conversion to local time
+    // is done by the frontend.
     MostActiveHour,
     LeastActiveHour,
 }
