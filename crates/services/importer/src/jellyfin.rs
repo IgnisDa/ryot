@@ -91,8 +91,8 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         "X-Emby-Token",
         HeaderValue::from_str(&authenticate.access_token).unwrap(),
     );
+    let url = input.api_url + "/";
     let client: Client = ClientBuilder::new()
-        .base_url(input.api_url + "/")
         .default_headers(headers)
         .build()
         .unwrap();
@@ -104,7 +104,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
 
     let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
     let library_data = client
-        .get(&format!("Users/{}/Items", user_id))
+        .get(&format!("{}/Users/{}/Items", url, user_id))
         .query(&query)
         .send()
         .await
@@ -125,7 +125,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                     let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
                     if tmdb_id.is_none() {
                         let details = client
-                            .get(&format!("Items/{}", series_id))
+                            .get(&format!("{}/Items/{}", url, series_id))
                             .send()
                             .await
                             .unwrap()
