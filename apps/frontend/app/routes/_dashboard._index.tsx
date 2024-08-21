@@ -742,11 +742,11 @@ const ActivitySection = () => {
 			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
 				<BarChart
 					h="100%"
+					ml={-15}
 					withLegend
 					tickLine="x"
 					dataKey="date"
 					type="stacked"
-					ml={{ base: -15, md: 0 }}
 					data={dailyUserActivitiesData.data}
 					legendProps={{ verticalAlign: "bottom" }}
 					xAxisProps={{
