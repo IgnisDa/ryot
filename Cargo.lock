@@ -246,7 +246,7 @@ dependencies = [
  "config",
  "file-storage-service",
  "jwt-service",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
 ]
 
 [[package]]
@@ -865,7 +865,7 @@ dependencies = [
  "miscellaneous-resolver",
  "miscellaneous-service",
  "openidconnect",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "router-resolver",
  "schematic",
  "sea-orm",
@@ -1350,7 +1350,7 @@ dependencies = [
  "compile-time",
  "const-str",
  "dotenvy_macro",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
 ]
 
 [[package]]
@@ -2197,7 +2197,7 @@ dependencies = [
  "media-models",
  "mime_guess",
  "nanoid",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "sea-orm",
  "serde_json",
  "struson",
@@ -2321,7 +2321,7 @@ dependencies = [
  "itertools 0.13.0",
  "migrations",
  "nanoid",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -3169,7 +3169,7 @@ dependencies = [
  "miscellaneous-service",
  "providers",
  "regex",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -3246,7 +3246,7 @@ dependencies = [
  "providers",
  "radarr-api-rs",
  "regex",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -3751,7 +3751,7 @@ dependencies = [
  "config",
  "convert_case",
  "lettre",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "serde",
  "serde_json",
  "tracing",
@@ -4448,7 +4448,7 @@ dependencies = [
  "media-models",
  "paginate",
  "rand 0.9.0-alpha.2",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "rust_iso3166",
@@ -4750,51 +4750,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "webpki-roots",
- "winreg 0.50.0",
-]
-
-[[package]]
-name = "reqwest"
-version = "0.12.5"
-source = "git+https://github.com/thomasqueirozb/reqwest?branch=base_url#e97e243d7978eb92338178e7581056ba32c4a812"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "h2 0.4.6",
- "http 1.1.0",
- "http-body 1.0.1",
- "http-body-util",
- "hyper 1.4.1",
- "hyper-rustls 0.27.2",
- "hyper-tls 0.6.0",
- "hyper-util",
- "ipnet",
- "js-sys",
- "log",
- "mime",
- "native-tls",
- "once_cell",
- "percent-encoding",
- "pin-project-lite",
- "rustls-pemfile 2.1.3",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper 1.0.1",
- "system-configuration 0.5.1",
- "tokio",
- "tokio-native-tls",
- "tokio-util",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-streams",
- "web-sys",
- "winreg 0.52.0",
+ "winreg",
 ]
 
 [[package]]
@@ -4834,10 +4790,12 @@ dependencies = [
  "system-configuration 0.6.0",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "windows-registry",
 ]
@@ -7327,16 +7285,6 @@ name = "winreg"
 version = "0.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
-dependencies = [
- "cfg-if",
- "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "winreg"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a277a57398d4bfa075df44f501a17cfdf8542d224f0d36095a2adc7aee4ef0a5"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
