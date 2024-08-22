@@ -1,17 +1,18 @@
 use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
 use common_models::{BackendError, SearchDetails};
 use database_models::{
-    collection, daily_user_activity, exercise, metadata, metadata_group, person, seen, user,
-    user_measurement, user_to_entity, workout,
+    collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
+    user_to_entity, workout,
 };
 use enums::UserToMediaReason;
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
-    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportPersonItem,
-    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, DailyUserActivityItem, EntityWithLot, GenreListItem,
+    GraphqlMediaAssets, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem,
+    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -203,9 +204,8 @@ pub enum DailyUserActivitiesResponseGroupedBy {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct DailyUserActivitiesResponse {
-    pub items: Vec<daily_user_activity::Model>,
-    pub total_count: i32,
-    pub most_active_hour: Option<u32>,
+    pub items: Vec<DailyUserActivityItem>,
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
-    pub total_duration: i32,
+    pub total_count: i64,
+    pub total_duration: i64,
 }

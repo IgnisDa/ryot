@@ -287,8 +287,7 @@ export type DailyUserActivitiesInput = {
 
 export type DailyUserActivitiesResponse = {
   groupedBy: DailyUserActivitiesResponseGroupedBy;
-  items: Array<DailyUserActivity>;
-  mostActiveHour?: Maybe<Scalars['Int']['output']>;
+  items: Array<DailyUserActivityItem>;
   totalCount: Scalars['Int']['output'];
   totalDuration: Scalars['Int']['output'];
 };
@@ -299,19 +298,20 @@ export enum DailyUserActivitiesResponseGroupedBy {
   Year = 'YEAR'
 }
 
-export type DailyUserActivity = {
-  date: Scalars['NaiveDate']['output'];
-  measurementCounts: Scalars['Int']['output'];
-  metadataCounts: Array<DailyUserActivityMetadataCount>;
-  reviewCounts: Scalars['Int']['output'];
-  totalCounts: Scalars['Int']['output'];
-  totalDuration: Scalars['Int']['output'];
-  workoutCounts: Scalars['Int']['output'];
-};
-
-export type DailyUserActivityMetadataCount = {
-  count: Scalars['Int']['output'];
-  lot: MediaLot;
+export type DailyUserActivityItem = {
+  animeCount: Scalars['Int']['output'];
+  audioBookCount: Scalars['Int']['output'];
+  bookCount: Scalars['Int']['output'];
+  day: Scalars['NaiveDate']['output'];
+  mangaCount: Scalars['Int']['output'];
+  measurementCount: Scalars['Int']['output'];
+  movieCount: Scalars['Int']['output'];
+  podcastCount: Scalars['Int']['output'];
+  reviewCount: Scalars['Int']['output'];
+  showCount: Scalars['Int']['output'];
+  videoGameCount: Scalars['Int']['output'];
+  visualNovelCount: Scalars['Int']['output'];
+  workoutCount: Scalars['Int']['output'];
 };
 
 export enum DashboardElementLot {
@@ -3094,7 +3094,7 @@ export type DailyUserActivitiesQueryVariables = Exact<{
 }>;
 
 
-export type DailyUserActivitiesQuery = { dailyUserActivities: { groupedBy: DailyUserActivitiesResponseGroupedBy, totalCount: number, totalDuration: number, mostActiveHour?: number | null, items: Array<{ date: string, totalCounts: number, reviewCounts: number, workoutCounts: number, measurementCounts: number, metadataCounts: Array<{ lot: MediaLot, count: number }> }> } };
+export type DailyUserActivitiesQuery = { dailyUserActivities: { groupedBy: DailyUserActivitiesResponseGroupedBy, totalCount: number, totalDuration: number, items: Array<{ day: string, reviewCount: number, workoutCount: number, measurementCount: number, audioBookCount: number, animeCount: number, bookCount: number, podcastCount: number, mangaCount: number, showCount: number, movieCount: number, videoGameCount: number, visualNovelCount: number }> } };
 
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
@@ -3220,4 +3220,4 @@ export const UserCalendarEventsDocument = {"kind":"Document","definitions":[{"ki
 export const MetadataPartialDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataPartialDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataPartialDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}}]}}]}}]} as unknown as DocumentNode<MetadataPartialDetailsQuery, MetadataPartialDetailsQueryVariables>;
 export const MetadataGroupsListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataGroupsList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataGroupsListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataGroupsList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"}}]}}]}}]} as unknown as DocumentNode<MetadataGroupsListQuery, MetadataGroupsListQueryVariables>;
 export const PeopleListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PeopleList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PeopleListInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"peopleList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"}}]}}]}}]} as unknown as DocumentNode<PeopleListQuery, PeopleListQueryVariables>;
-export const DailyUserActivitiesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"DailyUserActivities"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DailyUserActivitiesInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"dailyUserActivities"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"groupedBy"}},{"kind":"Field","name":{"kind":"Name","value":"totalCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalDuration"}},{"kind":"Field","name":{"kind":"Name","value":"mostActiveHour"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"date"}},{"kind":"Field","name":{"kind":"Name","value":"totalCounts"}},{"kind":"Field","name":{"kind":"Name","value":"reviewCounts"}},{"kind":"Field","name":{"kind":"Name","value":"workoutCounts"}},{"kind":"Field","name":{"kind":"Name","value":"measurementCounts"}},{"kind":"Field","name":{"kind":"Name","value":"metadataCounts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"count"}}]}}]}}]}}]}}]} as unknown as DocumentNode<DailyUserActivitiesQuery, DailyUserActivitiesQueryVariables>;
+export const DailyUserActivitiesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"DailyUserActivities"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DailyUserActivitiesInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"dailyUserActivities"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"groupedBy"}},{"kind":"Field","name":{"kind":"Name","value":"totalCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalDuration"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"reviewCount"}},{"kind":"Field","name":{"kind":"Name","value":"workoutCount"}},{"kind":"Field","name":{"kind":"Name","value":"measurementCount"}},{"kind":"Field","name":{"kind":"Name","value":"audioBookCount"}},{"kind":"Field","name":{"kind":"Name","value":"animeCount"}},{"kind":"Field","name":{"kind":"Name","value":"bookCount"}},{"kind":"Field","name":{"kind":"Name","value":"podcastCount"}},{"kind":"Field","name":{"kind":"Name","value":"mangaCount"}},{"kind":"Field","name":{"kind":"Name","value":"showCount"}},{"kind":"Field","name":{"kind":"Name","value":"movieCount"}},{"kind":"Field","name":{"kind":"Name","value":"videoGameCount"}},{"kind":"Field","name":{"kind":"Name","value":"visualNovelCount"}}]}}]}}]}}]} as unknown as DocumentNode<DailyUserActivitiesQuery, DailyUserActivitiesQueryVariables>;

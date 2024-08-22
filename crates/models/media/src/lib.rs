@@ -13,7 +13,10 @@ use enums::{
 use file_storage_service::FileStorageService;
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{prelude::DateTimeUtc, EnumIter, FromJsonQueryResult, FromQueryResult, Order};
+use sea_orm::{
+    prelude::{Date, DateTimeUtc},
+    EnumIter, FromJsonQueryResult, FromQueryResult, Order,
+};
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -1547,4 +1550,25 @@ pub struct GroupedCalendarEvent {
 pub struct DailyUserActivitiesInput {
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+}
+
+#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult)]
+pub struct DailyUserActivityItem {
+    pub day: Date,
+    pub review_count: i64,
+    pub workout_count: i64,
+    pub measurement_count: i64,
+    pub audio_book_count: i64,
+    pub anime_count: i64,
+    pub book_count: i64,
+    pub podcast_count: i64,
+    pub manga_count: i64,
+    pub movie_count: i64,
+    pub show_count: i64,
+    pub video_game_count: i64,
+    pub visual_novel_count: i64,
+    #[graphql(skip)]
+    pub total_count: i64,
+    #[graphql(skip)]
+    pub total_duration: i64,
 }

@@ -1,7 +1,7 @@
-use std::{collections::HashMap, pin::Pin};
+use std::{collections::HashMap, fmt::Write, pin::Pin};
 
 use async_graphql::Result;
-use chrono::{Datelike, Timelike, Utc};
+use chrono::{Timelike, Utc};
 use common_models::UserSummaryData;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use database_models::{
@@ -17,17 +17,17 @@ use enums::{MediaLot, SeenState};
 use futures::{Stream, TryStreamExt};
 use hashbag::HashBag;
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput, MangaSpecifics,
-    MovieSpecifics, PodcastSpecifics, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
-    VisualNovelSpecifics,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
+    DailyUserActivityItem, MangaSpecifics, MovieSpecifics, PodcastSpecifics,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use rust_decimal::Decimal;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
-    sea_query::{Func, OnConflict},
+    sea_query::{Alias, Func, OnConflict, SimpleExpr},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    FromQueryResult, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    FromQueryResult, Iden, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
 
@@ -113,71 +113,105 @@ impl StatisticsService {
         user_id: String,
         input: DailyUserActivitiesInput,
     ) -> Result<DailyUserActivitiesResponse> {
-        todo!()
-        // let items = DailyUserActivity::find()
-        //     .filter(daily_user_activity::Column::UserId.eq(&user_id))
-        //     .apply_if(input.end_date, |query, v| {
-        //         query.filter(daily_user_activity::Column::Date.lte(v))
-        //     })
-        //     .apply_if(input.start_date, |query, v| {
-        //         query.filter(daily_user_activity::Column::Date.gte(v))
-        //     })
-        //     .order_by_asc(daily_user_activity::Column::Date)
-        //     .all(&self.db)
-        //     .await?;
-        // let grouped_by = if let (Some(first_item), Some(last_item)) = (items.first(), items.last())
-        // {
-        //     let num_days = (last_item.date - first_item.date).num_days();
-        //     if num_days >= 500 {
-        //         DailyUserActivitiesResponseGroupedBy::Year
-        //     } else if num_days >= 200 {
-        //         DailyUserActivitiesResponseGroupedBy::Month
-        //     } else {
-        //         DailyUserActivitiesResponseGroupedBy::Day
-        //     }
-        // } else {
-        //     DailyUserActivitiesResponseGroupedBy::Day
-        // };
-        // let mut grouped_activities: HashMap<Date, Vec<_>> = HashMap::new();
-        // for item in items {
-        //     let start_of_time_span = match grouped_by {
-        //         DailyUserActivitiesResponseGroupedBy::Day => item.date,
-        //         DailyUserActivitiesResponseGroupedBy::Month => item.date.with_day(1).unwrap(),
-        //         DailyUserActivitiesResponseGroupedBy::Year => {
-        //             item.date.with_day(1).unwrap().with_month(1).unwrap()
-        //         }
-        //     };
-        //     grouped_activities
-        //         .entry(start_of_time_span)
-        //         .and_modify(|e| e.push(item.clone()))
-        //         .or_insert(vec![item.clone()]);
-        // }
-        // let mut items = vec![];
-        // for (date, activities) in grouped_activities.into_iter() {
-        //     let consolidated_activity = consolidate_activities(activities);
-        //     items.push(daily_user_activity::Model {
-        //         date,
-        //         ..consolidated_activity
-        //     });
-        // }
-        // items.sort_by_key(|i| i.date);
-        // let hours = items.iter().flat_map(|i| i.hour_counts.clone());
-        // let hours = hours.fold(HashMap::new(), |mut acc, i| {
-        //     acc.entry(i.hour)
-        //         .and_modify(|e| *e += i.count)
-        //         .or_insert(i.count);
-        //     acc
-        // });
-        // let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
-        // let total_count = items.iter().map(|i| i.total_count).sum();
-        // let total_duration = items.iter().map(|i| i.total_duration).sum();
-        // Ok(DailyUserActivitiesResponse {
-        //     items,
-        //     grouped_by,
-        //     total_count,
-        //     total_duration,
-        //     most_active_hour,
-        // })
+        struct DateTrunc;
+        impl Iden for DateTrunc {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "DATE_TRUNC").unwrap();
+            }
+        }
+        let precondition = DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(&user_id))
+            .apply_if(input.end_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.lte(v))
+            })
+            .apply_if(input.start_date, |query, v| {
+                query.filter(daily_user_activity::Column::Date.gte(v))
+            })
+            .select_only();
+        let total = precondition
+            .clone()
+            .expr_as(
+                daily_user_activity::Column::Date
+                    .max()
+                    .sub(daily_user_activity::Column::Date.min())
+                    .add(1),
+                "num_days",
+            )
+            .into_tuple::<Option<i32>>()
+            .one(&self.db)
+            .await?;
+        let grouped_by = if let Some(Some(num_days)) = total {
+            if num_days >= 500 {
+                DailyUserActivitiesResponseGroupedBy::Year
+            } else if num_days >= 200 {
+                DailyUserActivitiesResponseGroupedBy::Month
+            } else {
+                DailyUserActivitiesResponseGroupedBy::Day
+            }
+        } else {
+            DailyUserActivitiesResponseGroupedBy::Day
+        };
+        let day_col = SimpleExpr::FunctionCall(Func::cast_as(
+            Func::cust(DateTrunc)
+                .arg(Expr::val(grouped_by.to_string()))
+                .arg(daily_user_activity::Column::Date.into_expr()),
+            Alias::new("DATE"),
+        ));
+        let day_alias = Expr::col(Alias::new("day"));
+        let items = precondition
+            .column_as(day_col.clone(), "day")
+            .column_as(
+                daily_user_activity::Column::ReviewCount.sum(),
+                "review_count",
+            )
+            .column_as(
+                daily_user_activity::Column::WorkoutCount.sum(),
+                "workout_count",
+            )
+            .column_as(
+                daily_user_activity::Column::MeasurementCount.sum(),
+                "measurement_count",
+            )
+            .column_as(
+                daily_user_activity::Column::AudioBookCount.sum(),
+                "audio_book_count",
+            )
+            .column_as(daily_user_activity::Column::AnimeCount.sum(), "anime_count")
+            .column_as(daily_user_activity::Column::BookCount.sum(), "book_count")
+            .column_as(
+                daily_user_activity::Column::PodcastCount.sum(),
+                "podcast_count",
+            )
+            .column_as(daily_user_activity::Column::MangaCount.sum(), "manga_count")
+            .column_as(daily_user_activity::Column::MovieCount.sum(), "movie_count")
+            .column_as(daily_user_activity::Column::ShowCount.sum(), "show_count")
+            .column_as(
+                daily_user_activity::Column::VideoGameCount.sum(),
+                "video_game_count",
+            )
+            .column_as(
+                daily_user_activity::Column::VisualNovelCount.sum(),
+                "visual_novel_count",
+            )
+            .column_as(daily_user_activity::Column::TotalCount.sum(), "total_count")
+            .column_as(
+                daily_user_activity::Column::TotalDuration.sum(),
+                "total_duration",
+            )
+            .group_by(day_alias.clone())
+            .order_by_asc(day_alias)
+            .into_model::<DailyUserActivityItem>()
+            .all(&self.db)
+            .await
+            .unwrap();
+        let total_count = items.iter().map(|i| i.total_count).sum();
+        let total_duration = items.iter().map(|i| i.total_duration).sum();
+        Ok(DailyUserActivitiesResponse {
+            items,
+            grouped_by,
+            total_count,
+            total_duration,
+        })
     }
 
     pub async fn latest_user_summary(&self, user_id: &String) -> Result<user_summary::Model> {
@@ -671,7 +705,7 @@ impl StatisticsService {
             model.insert(&self.db).await.ok();
         }
 
-        todo!()
+        Ok(())
     }
 
     pub async fn calculate_user_activities_and_summary(

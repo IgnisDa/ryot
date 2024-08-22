@@ -141,17 +141,20 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
     groupedBy
     totalCount
     totalDuration
-    mostActiveHour
     items {
-      date
-      totalCounts
-      reviewCounts
-      workoutCounts
-      measurementCounts
-      metadataCounts {
-        lot
-        count
-      }
+      day
+      reviewCount
+      workoutCount
+      measurementCount
+      audioBookCount
+      animeCount
+      bookCount
+      podcastCount
+      mangaCount
+      showCount
+      movieCount
+      videoGameCount
+      visualNovelCount
     }
   }
 }
