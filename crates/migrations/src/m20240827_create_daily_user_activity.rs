@@ -3,23 +3,6 @@ use sea_orm_migration::prelude::*;
 use super::m20230417_create_user::User;
 
 pub static DAILY_USER_ACTIVITY_PRIMARY_KEY: &str = "pk-daily_user_activity";
-pub static DAILY_USER_ACTIVITY_METADATA_COUNT_GENERATED_SQL: &str = r#"
-GENERATED ALWAYS AS (
-    "audio_book_count" + "anime_count" + "book_count" + "podcast_count" + "manga_count" + "movie_count" +
-    "show_count" + "video_game_count" + "visual_novel_count"
-) STORED
-"#;
-pub static DAILY_USER_ACTIVITY_TOTAL_COUNT_GENERATED_SQL: &str = r#"
-GENERATED ALWAYS AS (
-    "review_count" + "measurement_count" + "workout_count" + "metadata_count"
-) STORED
-"#;
-pub static DAILY_USER_ACTIVITY_TOTAL_DURATION_GENERATED_SQL: &str = r#"
-GENERATED ALWAYS AS (
-    "workout_duration" + "audio_book_duration" + "podcast_duration" +
-    "movie_duration" + "show_duration"
-) STORED
-"#;
 
 fn integer_not_null<T: IntoIden>(col: T) -> ColumnDef {
     ColumnDef::new(col).integer().not_null().default(0).take()
@@ -33,7 +16,10 @@ pub enum DailyUserActivity {
     Table,
     UserId,
     Date,
-    ReviewCount,
+    MetadataReviewCount,
+    CollectionReviewCount,
+    MetadataGroupReviewCount,
+    PersonReviewCount,
     MeasurementCount,
     WorkoutCount,
     /// DEV: all durations are in minutes
@@ -51,8 +37,9 @@ pub enum DailyUserActivity {
     ShowDuration,
     VideoGameCount,
     VisualNovelCount,
+    TotalMetadataCount,
+    TotalReviewCount,
     TotalCount,
-    MetadataCount,
     TotalDuration,
 }
 
@@ -71,7 +58,12 @@ impl MigrationTrait for Migration {
                             .col(DailyUserActivity::Date)
                             .col(DailyUserActivity::UserId),
                     )
-                    .col(integer_not_null(DailyUserActivity::ReviewCount))
+                    .col(integer_not_null(DailyUserActivity::MetadataReviewCount))
+                    .col(integer_not_null(DailyUserActivity::CollectionReviewCount))
+                    .col(integer_not_null(
+                        DailyUserActivity::MetadataGroupReviewCount,
+                    ))
+                    .col(integer_not_null(DailyUserActivity::PersonReviewCount))
                     .col(integer_not_null(DailyUserActivity::WorkoutCount))
                     .col(integer_not_null(DailyUserActivity::WorkoutDuration))
                     .col(integer_not_null(DailyUserActivity::MeasurementCount))
@@ -88,24 +80,10 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::ShowDuration))
                     .col(integer_not_null(DailyUserActivity::VideoGameCount))
                     .col(integer_not_null(DailyUserActivity::VisualNovelCount))
-                    .col(
-                        ColumnDef::new(DailyUserActivity::MetadataCount)
-                            .integer()
-                            .not_null()
-                            .extra(DAILY_USER_ACTIVITY_METADATA_COUNT_GENERATED_SQL),
-                    )
-                    .col(
-                        ColumnDef::new(DailyUserActivity::TotalCount)
-                            .integer()
-                            .not_null()
-                            .extra(DAILY_USER_ACTIVITY_TOTAL_COUNT_GENERATED_SQL),
-                    )
-                    .col(
-                        ColumnDef::new(DailyUserActivity::TotalDuration)
-                            .integer()
-                            .not_null()
-                            .extra(DAILY_USER_ACTIVITY_TOTAL_DURATION_GENERATED_SQL),
-                    )
+                    .col(integer_not_null(DailyUserActivity::TotalMetadataCount))
+                    .col(integer_not_null(DailyUserActivity::TotalReviewCount))
+                    .col(integer_not_null(DailyUserActivity::TotalCount))
+                    .col(integer_not_null(DailyUserActivity::TotalDuration))
                     .foreign_key(
                         ForeignKey::create()
                             .name("daily_user_activity_to_user_foreign_key")

@@ -1566,7 +1566,7 @@ pub struct DailyUserActivitiesInput {
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult)]
 pub struct DailyUserActivityItem {
     pub day: Date,
-    pub review_count: i64,
+    pub total_review_count: i64,
     pub workout_count: i64,
     pub measurement_count: i64,
     pub audio_book_count: i64,

@@ -143,7 +143,7 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
     totalDuration
     items {
       day
-      reviewCount
+      totalReviewCount
       workoutCount
       measurementCount
       audioBookCount

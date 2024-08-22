@@ -165,8 +165,8 @@ impl StatisticsService {
         let items = precondition
             .column_as(day_col.clone(), "day")
             .column_as(
-                daily_user_activity::Column::ReviewCount.sum(),
-                "review_count",
+                daily_user_activity::Column::TotalReviewCount.sum(),
+                "total_review_count",
             )
             .column_as(
                 daily_user_activity::Column::WorkoutCount.sum(),
@@ -591,7 +591,10 @@ impl StatisticsService {
                     existing.workout_duration += duration.unwrap_or(0);
                 }
                 "measurement" => existing.measurement_count += 1,
-                "review" => existing.review_count += 1,
+                "metadata_review" => existing.metadata_review_count += 1,
+                "collection_review" => existing.collection_review_count += 1,
+                "metadata_group_review" => existing.metadata_group_review_count += 1,
+                "person_review" => existing.person_review_count += 1,
                 _ => {}
             }
             existing
@@ -693,9 +696,31 @@ impl StatisticsService {
         }
 
         for (_, activity) in activities.into_iter() {
+            let total_review_count = activity.metadata_review_count
+                + activity.collection_review_count
+                + activity.metadata_group_review_count
+                + activity.person_review_count;
+            let total_metadata_count = activity.movie_count
+                + activity.show_count
+                + activity.podcast_count
+                + activity.anime_count
+                + activity.manga_count
+                + activity.audio_book_count
+                + activity.book_count
+                + activity.video_game_count
+                + activity.visual_novel_count;
+            let total_count =
+                total_metadata_count + activity.measurement_count + activity.workout_count;
+            let total_duration = activity.workout_duration
+                + activity.audio_book_duration
+                + activity.podcast_duration
+                + activity.movie_duration
+                + activity.show_duration;
             let mut model: daily_user_activity::ActiveModel = activity.into();
-            model.total_count = ActiveValue::NotSet;
-            model.total_duration = ActiveValue::NotSet;
+            model.total_review_count = ActiveValue::Set(total_review_count);
+            model.total_metadata_count = ActiveValue::Set(total_metadata_count);
+            model.total_count = ActiveValue::Set(total_count);
+            model.total_duration = ActiveValue::Set(total_duration);
             model.insert(&self.db).await.ok();
         }
 

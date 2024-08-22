@@ -7,10 +7,13 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "daily_user_activity")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub date: Date,
-    #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: String,
-    pub review_count: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub date: Date,
+    pub metadata_review_count: i32,
+    pub collection_review_count: i32,
+    pub metadata_group_review_count: i32,
+    pub person_review_count: i32,
     pub measurement_count: i32,
     pub workout_count: i32,
     pub workout_duration: i32,
@@ -27,7 +30,8 @@ pub struct Model {
     pub show_duration: i32,
     pub video_game_count: i32,
     pub visual_novel_count: i32,
-    pub metadata_count: i32,
+    pub total_metadata_count: i32,
+    pub total_review_count: i32,
     pub total_count: i32,
     pub total_duration: i32,
 }
