@@ -3,11 +3,15 @@ use sea_orm_migration::prelude::*;
 use super::m20230417_create_user::User;
 
 pub static DAILY_USER_ACTIVITY_PRIMARY_KEY: &str = "pk-daily_user_activity";
-pub static DAILY_USER_ACTIVITY_TOTAL_COUNTS_GENERATED_SQL: &str = r#"
+pub static DAILY_USER_ACTIVITY_METADATA_COUNT_GENERATED_SQL: &str = r#"
 GENERATED ALWAYS AS (
-    "review_count" + "measurement_count" + "workout_count" + "audio_book_count" +
-    "anime_count" + "book_count" + "podcast_count" + "manga_count" + "movie_count" +
+    "audio_book_count" + "anime_count" + "book_count" + "podcast_count" + "manga_count" + "movie_count" +
     "show_count" + "video_game_count" + "visual_novel_count"
+) STORED
+"#;
+pub static DAILY_USER_ACTIVITY_TOTAL_COUNT_GENERATED_SQL: &str = r#"
+GENERATED ALWAYS AS (
+    "review_count" + "measurement_count" + "workout_count" + "metadata_count"
 ) STORED
 "#;
 pub static DAILY_USER_ACTIVITY_TOTAL_DURATION_GENERATED_SQL: &str = r#"
@@ -48,6 +52,7 @@ pub enum DailyUserActivity {
     VideoGameCount,
     VisualNovelCount,
     TotalCount,
+    MetadataCount,
     TotalDuration,
 }
 
@@ -84,10 +89,16 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::VideoGameCount))
                     .col(integer_not_null(DailyUserActivity::VisualNovelCount))
                     .col(
+                        ColumnDef::new(DailyUserActivity::MetadataCount)
+                            .integer()
+                            .not_null()
+                            .extra(DAILY_USER_ACTIVITY_METADATA_COUNT_GENERATED_SQL),
+                    )
+                    .col(
                         ColumnDef::new(DailyUserActivity::TotalCount)
                             .integer()
                             .not_null()
-                            .extra(DAILY_USER_ACTIVITY_TOTAL_COUNTS_GENERATED_SQL),
+                            .extra(DAILY_USER_ACTIVITY_TOTAL_COUNT_GENERATED_SQL),
                     )
                     .col(
                         ColumnDef::new(DailyUserActivity::TotalDuration)
