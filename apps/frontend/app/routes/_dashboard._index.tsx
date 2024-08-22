@@ -700,7 +700,11 @@ const ActivitySection = () => {
 				zIndex={1000}
 				overlayProps={{ radius: "md", blur: 3 }}
 			/>
-			<SimpleGrid cols={{ base: 2, md: 4 }} mx={{ md: "xl" }}>
+			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
+				<DisplayStat
+					label="Total"
+					value={`${dailyUserActivitiesData?.totalCount || 0} items`}
+				/>
 				<DisplayStat
 					label="Duration"
 					value={
@@ -713,11 +717,6 @@ const ActivitySection = () => {
 								)
 							: "N/A"
 					}
-				/>
-				<DisplayStat
-					center
-					label="Total"
-					value={dailyUserActivitiesData?.totalCount || 0}
 				/>
 				<Select
 					label="Time span"
@@ -769,14 +768,11 @@ const ActivitySection = () => {
 const DisplayStat = (props: {
 	label: string;
 	value: string | number;
-	center?: boolean;
 }) => {
 	return (
 		<Stack gap={4}>
-			<Text c="dimmed" ta={props.center ? "center" : undefined}>
-				{props.label}
-			</Text>
-			<Text size="xl" fw="bolder" ta={props.center ? "center" : undefined}>
+			<Text c="dimmed">{props.label}</Text>
+			<Text size="xl" fw="bolder">
 				{props.value}
 			</Text>
 		</Stack>
