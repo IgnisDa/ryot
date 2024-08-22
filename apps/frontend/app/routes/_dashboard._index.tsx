@@ -675,7 +675,9 @@ const ActivitySection = () => {
 				const data = Object.entries(d)
 					.filter(([_, value]) => value !== 0)
 					.map(([key, value]) => ({
-						[snakeCase(key.replace("Count", "")).toUpperCase()]: value,
+						[snakeCase(
+							key.replace("Count", "").replace("total", ""),
+						).toUpperCase()]: value,
 					}))
 					.reduce(Object.assign, {});
 				for (const key in data)
