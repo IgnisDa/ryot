@@ -1732,6 +1732,7 @@ dependencies = [
  "schematic",
  "serde",
  "serde_with 3.9.0",
+ "strum",
 ]
 
 [[package]]
