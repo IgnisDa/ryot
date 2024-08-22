@@ -39,6 +39,7 @@ import {
 	isNumber,
 	mapValues,
 	pickBy,
+	snakeCase,
 } from "@ryot/ts-utils";
 import {
 	IconBarbell,
@@ -65,7 +66,6 @@ import {
 	dayjsLib,
 	getLot,
 	getMetadataIcon,
-	getTimeOfDay,
 	queryFactory,
 } from "~/lib/generals";
 import {
@@ -672,29 +672,23 @@ const ActivitySection = () => {
 			);
 			const trackSeries = mapValues(MediaColors, () => false);
 			const data = dailyUserActivities.items.map((d) => {
-				const data: Record<string, string | number> = {
-					date: d.date,
-					...(d.reviewCounts && { REVIEW: d.reviewCounts }),
-					...(d.workoutCounts && { WORKOUT: d.workoutCounts }),
-					...(d.measurementCounts && { MEASUREMENT: d.measurementCounts }),
-				};
-				for (const metadataCount of d.metadataCounts)
-					data[metadataCount.lot] = metadataCount.count;
+				const data = Object.entries(d)
+					.filter(([_, value]) => value !== 0)
+					.map(([key, value]) => ({
+						[snakeCase(key.replace("Count", "")).toUpperCase()]: value,
+					}))
+					.reduce(Object.assign, {});
 				for (const key in data)
 					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
 				return data;
 			});
 			const series = pickBy(trackSeries);
-			const mostActiveHour = dailyUserActivities.mostActiveHour;
 			return {
 				data,
 				series,
 				groupedBy: dailyUserActivities.groupedBy,
 				totalCount: dailyUserActivities.totalCount,
 				totalDuration: dailyUserActivities.totalDuration,
-				mostActiveHour: mostActiveHour
-					? getTimeOfDay(convertUTCtoLocal(mostActiveHour))
-					: undefined,
 			};
 		},
 	});
@@ -725,10 +719,6 @@ const ActivitySection = () => {
 					label="Total"
 					value={dailyUserActivitiesData?.totalCount || 0}
 				/>
-				<DisplayStat
-					label="Most active time"
-					value={dailyUserActivitiesData?.mostActiveHour || "N/A"}
-				/>
 				<Select
 					label="Time span"
 					defaultValue={timeSpan}
@@ -745,7 +735,7 @@ const ActivitySection = () => {
 					ml={-15}
 					withLegend
 					tickLine="x"
-					dataKey="date"
+					dataKey="DAY"
 					type="stacked"
 					data={dailyUserActivitiesData.data}
 					legendProps={{ verticalAlign: "bottom" }}
@@ -791,10 +781,4 @@ const DisplayStat = (props: {
 			</Text>
 		</Stack>
 	);
-};
-
-const convertUTCtoLocal = (utcHour: number) => {
-	const dateInUTC = dayjsLib.utc().startOf("day").hour(utcHour);
-	const localTime = dateInUTC.tz(dayjsLib.tz.guess()).hour();
-	return localTime;
 };
