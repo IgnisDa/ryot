@@ -13,7 +13,7 @@ use database_models::{
     review, seen, user_measurement, user_summary, user_to_entity, workout,
 };
 use dependent_models::DailyUserActivitiesResponse;
-use enums::{MediaLot, SeenState};
+use enums::{EntityLot, MediaLot, SeenState};
 use futures::{Stream, TryStreamExt};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
@@ -692,7 +692,21 @@ impl StatisticsService {
             .await?;
         while let Some(item) = review_stream.try_next().await? {
             let date = item.posted_on.date_naive();
-            update_activity_counts(item.id, &mut activities, user_id, date, "review", None);
+            let lot = match item.entity_lot {
+                EntityLot::Metadata => "metadata",
+                EntityLot::Person => "person",
+                EntityLot::MetadataGroup => "metadata_group",
+                EntityLot::Collection => "collection",
+                _ => unreachable!(),
+            };
+            update_activity_counts(
+                item.id,
+                &mut activities,
+                user_id,
+                date,
+                &format!("{lot}_review"),
+                None,
+            );
         }
 
         for (_, activity) in activities.into_iter() {
