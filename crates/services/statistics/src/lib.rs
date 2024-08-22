@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
 struct SeenItem {
+    seen_id: String,
     show_extra_information: Option<SeenShowExtraInformation>,
     podcast_extra_information: Option<SeenPodcastExtraInformation>,
     anime_extra_information: Option<SeenAnimeExtraInformation>,
@@ -71,6 +72,7 @@ async fn get_seen_items_stream<'a>(
     let seen_items_stream = initial_filter
         .left_join(Metadata)
         .select_only()
+        .column_as(seen::Column::Id, "seen_id")
         .columns([
             seen::Column::ShowExtraInformation,
             seen::Column::PodcastExtraInformation,
@@ -568,6 +570,7 @@ impl StatisticsService {
         let mut activities: Tracker = HashMap::new();
 
         fn update_activity_counts<'a>(
+            entity_id: String,
             activities: &'a mut Tracker,
             user_id: &'a String,
             date: Date,
@@ -575,6 +578,7 @@ impl StatisticsService {
             activity_type: &str,
             duration: Option<i32>,
         ) -> &'a mut daily_user_activity::Model {
+            ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
             let (hour_counts, existing) = activities.entry(date).or_insert((
                 HashBag::new(),
                 daily_user_activity::Model {
@@ -602,13 +606,19 @@ impl StatisticsService {
             Some(convert_naive_to_utc(start_from)),
             true,
         )
-        .await
-        .unwrap();
-        while let Some(seen) = seen_stream.try_next().await.unwrap() {
+        .await?;
+        while let Some(seen) = seen_stream.try_next().await? {
             let date = seen.finished_on.unwrap();
             let hour = seen.last_updated_on.hour();
-            let activity =
-                update_activity_counts(&mut activities, user_id, date, hour, "seen", None);
+            let activity = update_activity_counts(
+                seen.seen_id,
+                &mut activities,
+                user_id,
+                date,
+                hour,
+                "seen",
+                None,
+            );
             if let (Some(show_seen), Some(show_extra)) =
                 (seen.show_specifics, seen.show_extra_information)
             {
@@ -658,6 +668,7 @@ impl StatisticsService {
             let date = item.end_time.date_naive();
             let hour = item.end_time.time().hour();
             update_activity_counts(
+                item.id,
                 &mut activities,
                 user_id,
                 date,
@@ -675,7 +686,15 @@ impl StatisticsService {
         while let Some(item) = measurement_stream.try_next().await? {
             let date = item.timestamp.date_naive();
             let hour = item.timestamp.time().hour();
-            update_activity_counts(&mut activities, user_id, date, hour, "measurement", None);
+            update_activity_counts(
+                item.timestamp.to_string(),
+                &mut activities,
+                user_id,
+                date,
+                hour,
+                "measurement",
+                None,
+            );
         }
 
         let mut review_stream = Review::find()
@@ -686,7 +705,15 @@ impl StatisticsService {
         while let Some(item) = review_stream.try_next().await? {
             let date = item.posted_on.date_naive();
             let hour = item.posted_on.time().hour();
-            update_activity_counts(&mut activities, user_id, date, hour, "review", None);
+            update_activity_counts(
+                item.id,
+                &mut activities,
+                user_id,
+                date,
+                hour,
+                "review",
+                None,
+            );
         }
 
         for (_, (hour_counts, activity)) in activities.into_iter() {
