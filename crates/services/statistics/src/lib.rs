@@ -399,6 +399,7 @@ impl StatisticsService {
         let mut seen_items = get_seen_items_stream(&self.db, user_id, start_from, false).await?;
 
         while let Some(seen) = seen_items.try_next().await.unwrap() {
+            ryot_log!(debug, "Processing seen id {:?}", seen.seen_id);
             let mut units_consumed = None;
             if let Some(item) = seen.audio_book_specifics {
                 ls.unique_items.audio_books.insert(seen.metadata_id.clone());
