@@ -296,6 +296,7 @@ export type DailyUserActivitiesResponse = {
 
 export enum DailyUserActivitiesResponseGroupedBy {
   Day = 'DAY',
+  Millennium = 'MILLENNIUM',
   Month = 'MONTH',
   Year = 'YEAR'
 }

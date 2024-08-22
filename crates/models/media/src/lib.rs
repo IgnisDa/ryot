@@ -1553,6 +1553,7 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Day,
     Month,
     Year,
+    Millennium,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
