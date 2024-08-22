@@ -12,14 +12,13 @@ use database_models::{
     },
     review, seen, user_measurement, user_summary, user_to_entity, workout,
 };
-use database_utils::consolidate_activities;
 use dependent_models::{DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy};
 use enums::{MediaLot, SeenState};
 use futures::{Stream, TryStreamExt};
+use hashbag::HashBag;
 use media_models::{
-    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
-    DailyUserActivityHourCount, DailyUserActivityMetadataCount, MangaSpecifics, MovieSpecifics,
-    PodcastSpecifics, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput, MangaSpecifics,
+    MovieSpecifics, PodcastSpecifics, SeenAnimeExtraInformation, SeenMangaExtraInformation,
     SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
     VisualNovelSpecifics,
 };
@@ -114,70 +113,71 @@ impl StatisticsService {
         user_id: String,
         input: DailyUserActivitiesInput,
     ) -> Result<DailyUserActivitiesResponse> {
-        let items = DailyUserActivity::find()
-            .filter(daily_user_activity::Column::UserId.eq(&user_id))
-            .apply_if(input.end_date, |query, v| {
-                query.filter(daily_user_activity::Column::Date.lte(v))
-            })
-            .apply_if(input.start_date, |query, v| {
-                query.filter(daily_user_activity::Column::Date.gte(v))
-            })
-            .order_by_asc(daily_user_activity::Column::Date)
-            .all(&self.db)
-            .await?;
-        let grouped_by = if let (Some(first_item), Some(last_item)) = (items.first(), items.last())
-        {
-            let num_days = (last_item.date - first_item.date).num_days();
-            if num_days >= 500 {
-                DailyUserActivitiesResponseGroupedBy::Year
-            } else if num_days >= 200 {
-                DailyUserActivitiesResponseGroupedBy::Month
-            } else {
-                DailyUserActivitiesResponseGroupedBy::Day
-            }
-        } else {
-            DailyUserActivitiesResponseGroupedBy::Day
-        };
-        let mut grouped_activities: HashMap<Date, Vec<_>> = HashMap::new();
-        for item in items {
-            let start_of_time_span = match grouped_by {
-                DailyUserActivitiesResponseGroupedBy::Day => item.date,
-                DailyUserActivitiesResponseGroupedBy::Month => item.date.with_day(1).unwrap(),
-                DailyUserActivitiesResponseGroupedBy::Year => {
-                    item.date.with_day(1).unwrap().with_month(1).unwrap()
-                }
-            };
-            grouped_activities
-                .entry(start_of_time_span)
-                .and_modify(|e| e.push(item.clone()))
-                .or_insert(vec![item.clone()]);
-        }
-        let mut items = vec![];
-        for (date, activities) in grouped_activities.into_iter() {
-            let consolidated_activity = consolidate_activities(activities);
-            items.push(daily_user_activity::Model {
-                date,
-                ..consolidated_activity
-            });
-        }
-        items.sort_by_key(|i| i.date);
-        let hours = items.iter().flat_map(|i| i.hour_counts.clone());
-        let hours = hours.fold(HashMap::new(), |mut acc, i| {
-            acc.entry(i.hour)
-                .and_modify(|e| *e += i.count)
-                .or_insert(i.count);
-            acc
-        });
-        let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
-        let total_count = items.iter().map(|i| i.total_count).sum();
-        let total_duration = items.iter().map(|i| i.total_duration).sum();
-        Ok(DailyUserActivitiesResponse {
-            items,
-            grouped_by,
-            total_count,
-            total_duration,
-            most_active_hour,
-        })
+        todo!()
+        // let items = DailyUserActivity::find()
+        //     .filter(daily_user_activity::Column::UserId.eq(&user_id))
+        //     .apply_if(input.end_date, |query, v| {
+        //         query.filter(daily_user_activity::Column::Date.lte(v))
+        //     })
+        //     .apply_if(input.start_date, |query, v| {
+        //         query.filter(daily_user_activity::Column::Date.gte(v))
+        //     })
+        //     .order_by_asc(daily_user_activity::Column::Date)
+        //     .all(&self.db)
+        //     .await?;
+        // let grouped_by = if let (Some(first_item), Some(last_item)) = (items.first(), items.last())
+        // {
+        //     let num_days = (last_item.date - first_item.date).num_days();
+        //     if num_days >= 500 {
+        //         DailyUserActivitiesResponseGroupedBy::Year
+        //     } else if num_days >= 200 {
+        //         DailyUserActivitiesResponseGroupedBy::Month
+        //     } else {
+        //         DailyUserActivitiesResponseGroupedBy::Day
+        //     }
+        // } else {
+        //     DailyUserActivitiesResponseGroupedBy::Day
+        // };
+        // let mut grouped_activities: HashMap<Date, Vec<_>> = HashMap::new();
+        // for item in items {
+        //     let start_of_time_span = match grouped_by {
+        //         DailyUserActivitiesResponseGroupedBy::Day => item.date,
+        //         DailyUserActivitiesResponseGroupedBy::Month => item.date.with_day(1).unwrap(),
+        //         DailyUserActivitiesResponseGroupedBy::Year => {
+        //             item.date.with_day(1).unwrap().with_month(1).unwrap()
+        //         }
+        //     };
+        //     grouped_activities
+        //         .entry(start_of_time_span)
+        //         .and_modify(|e| e.push(item.clone()))
+        //         .or_insert(vec![item.clone()]);
+        // }
+        // let mut items = vec![];
+        // for (date, activities) in grouped_activities.into_iter() {
+        //     let consolidated_activity = consolidate_activities(activities);
+        //     items.push(daily_user_activity::Model {
+        //         date,
+        //         ..consolidated_activity
+        //     });
+        // }
+        // items.sort_by_key(|i| i.date);
+        // let hours = items.iter().flat_map(|i| i.hour_counts.clone());
+        // let hours = hours.fold(HashMap::new(), |mut acc, i| {
+        //     acc.entry(i.hour)
+        //         .and_modify(|e| *e += i.count)
+        //         .or_insert(i.count);
+        //     acc
+        // });
+        // let most_active_hour = hours.iter().max_by_key(|(_, v)| *v).map(|(k, _)| *k);
+        // let total_count = items.iter().map(|i| i.total_count).sum();
+        // let total_duration = items.iter().map(|i| i.total_duration).sum();
+        // Ok(DailyUserActivitiesResponse {
+        //     items,
+        //     grouped_by,
+        //     total_count,
+        //     total_duration,
+        //     most_active_hour,
+        // })
     }
 
     pub async fn latest_user_summary(&self, user_id: &String) -> Result<user_summary::Model> {
@@ -508,6 +508,8 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
+        type Tracker = HashMap<Date, (HashBag<u32>, daily_user_activity::Model)>;
+
         let start_from = match calculate_from_beginning {
             true => {
                 DailyUserActivity::delete_many()
@@ -524,39 +526,33 @@ impl StatisticsService {
                 .map(|i| i.date)
                 .unwrap_or_default(),
         };
-        let mut activities: HashMap<Date, daily_user_activity::Model> = HashMap::new();
+        let mut activities: Tracker = HashMap::new();
 
         fn update_activity_counts<'a>(
-            activities: &'a mut HashMap<Date, daily_user_activity::Model>,
+            activities: &'a mut Tracker,
             user_id: &'a String,
             date: Date,
             hour: u32,
             activity_type: &str,
             duration: Option<i32>,
         ) -> &'a mut daily_user_activity::Model {
-            let existing = activities
-                .entry(date)
-                .or_insert(daily_user_activity::Model {
+            let (hour_counts, existing) = activities.entry(date).or_insert((
+                HashBag::new(),
+                daily_user_activity::Model {
                     date,
                     user_id: user_id.to_owned(),
-                    hour_counts: vec![DailyUserActivityHourCount { hour, count: 0 }],
                     ..Default::default()
-                });
+                },
+            ));
+            hour_counts.insert(hour);
             match activity_type {
-                "workout" => existing.workout_count += 1,
+                "workout" => {
+                    existing.workout_count += 1;
+                    existing.workout_duration += duration.unwrap_or(0);
+                }
                 "measurement" => existing.measurement_count += 1,
                 "review" => existing.review_count += 1,
-                _ => (),
-            }
-            if let Some(e) = existing.hour_counts.iter_mut().find(|i| i.hour == hour) {
-                e.count += 1;
-            } else {
-                existing
-                    .hour_counts
-                    .push(DailyUserActivityHourCount { hour, count: 1 });
-            };
-            if let Some(d) = duration {
-                existing.total_duration += d;
+                _ => {}
             }
             existing
         }
@@ -572,41 +568,46 @@ impl StatisticsService {
         while let Some(seen) = seen_stream.try_next().await.unwrap() {
             let date = seen.finished_on.unwrap();
             let hour = seen.last_updated_on.hour();
-            let duration = if let (Some(show_seen), Some(show_extra)) =
+            let activity =
+                update_activity_counts(&mut activities, user_id, date, hour, "seen", None);
+            if let (Some(show_seen), Some(show_extra)) =
                 (seen.show_specifics, seen.show_extra_information)
             {
-                show_seen
+                if let Some(runtime) = show_seen
                     .get_episode(show_extra.season, show_extra.episode)
                     .and_then(|(_, e)| e.runtime)
+                {
+                    activity.show_duration += runtime;
+                }
             } else if let (Some(podcast_seen), Some(podcast_extra)) =
                 (seen.podcast_specifics, seen.podcast_extra_information)
             {
-                podcast_seen
+                if let Some(runtime) = podcast_seen
                     .episode_by_number(podcast_extra.episode)
                     .and_then(|e| e.runtime)
+                {
+                    activity.podcast_duration += runtime;
+                }
             } else if let Some(audio_book_extra) = seen.audio_book_specifics {
-                audio_book_extra.runtime
+                if let Some(runtime) = audio_book_extra.runtime {
+                    activity.audio_book_duration += runtime;
+                }
             } else if let Some(movie_extra) = seen.movie_specifics {
-                movie_extra.runtime
-            } else {
-                None
-            };
-            let activity =
-                update_activity_counts(&mut activities, user_id, date, hour, "seen", duration);
-            if let Some(e) = activity
-                .metadata_counts
-                .iter_mut()
-                .find(|i| i.lot == seen.metadata_lot)
-            {
-                e.count += 1;
-            } else {
-                activity
-                    .metadata_counts
-                    .push(DailyUserActivityMetadataCount {
-                        lot: seen.metadata_lot,
-                        count: 1,
-                    });
+                if let Some(runtime) = movie_extra.runtime {
+                    activity.movie_duration += runtime;
+                }
             }
+            match seen.metadata_lot {
+                MediaLot::Anime => activity.anime_count += 1,
+                MediaLot::Manga => activity.manga_count += 1,
+                MediaLot::Podcast => activity.podcast_count += 1,
+                MediaLot::Show => activity.show_count += 1,
+                MediaLot::VideoGame => activity.video_game_count += 1,
+                MediaLot::VisualNovel => activity.visual_novel_count += 1,
+                MediaLot::Book => activity.book_count += 1,
+                MediaLot::AudioBook => activity.audio_book_count += 1,
+                MediaLot::Movie => activity.movie_count += 1,
+            };
         }
 
         let mut workout_stream = Workout::find()
@@ -649,18 +650,28 @@ impl StatisticsService {
             update_activity_counts(&mut activities, user_id, date, hour, "review", None);
         }
 
-        for (_, activity) in activities.into_iter() {
-            let mut total =
-                activity.measurement_count + activity.review_count + activity.workout_count;
-            for m_count in activity.metadata_counts.iter() {
-                total += m_count.count;
+        for (_, (hour_counts, activity)) in activities.into_iter() {
+            let mut max = hour_counts
+                .set_iter()
+                .max_by_key(|(_, v)| *v)
+                .map(|(k, _)| k.to_owned().try_into().unwrap());
+            let mut min = hour_counts
+                .set_iter()
+                .min_by_key(|(_, v)| *v)
+                .map(|(k, _)| k.to_owned().try_into().unwrap());
+            if max == min {
+                max = None;
+                min = None;
             }
             let mut model: daily_user_activity::ActiveModel = activity.into();
-            model.total_counts = ActiveValue::Set(total);
+            model.most_active_hour = ActiveValue::Set(max);
+            model.least_active_hour = ActiveValue::Set(min);
+            model.total_count = ActiveValue::NotSet;
+            model.total_duration = ActiveValue::NotSet;
             model.insert(&self.db).await.ok();
         }
 
-        Ok(())
+        todo!()
     }
 
     pub async fn calculate_user_activities_and_summary(

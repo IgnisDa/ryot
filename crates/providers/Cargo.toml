@@ -18,7 +18,7 @@ database-models = { path = "../models/database" }
 dependent-models = { path = "../models/dependent" }
 enums = { path = "../enums" }
 graphql_client = "=0.14.0"
-hashbag = "=0.1.12"
+hashbag = { workspace = true }
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = { workspace = true }
 media-models = { path = "../models/media" }

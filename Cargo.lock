@@ -6054,6 +6054,7 @@ dependencies = [
  "dependent-models",
  "enums",
  "futures",
+ "hashbag",
  "media-models",
  "rust_decimal",
  "sea-orm",

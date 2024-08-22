@@ -12,6 +12,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
+hashbag = { workspace = true }
 futures = { workspace = true }
 media-models = { path = "../../models/media" }
 rust_decimal = { workspace = true }
