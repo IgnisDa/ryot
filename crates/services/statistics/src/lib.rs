@@ -12,15 +12,16 @@ use database_models::{
     },
     review, seen, user_measurement, user_summary, user_to_entity, workout,
 };
-use dependent_models::{DailyUserActivitiesResponse, DailyUserActivitiesResponseGroupedBy};
+use dependent_models::DailyUserActivitiesResponse;
 use enums::{MediaLot, SeenState};
 use futures::{Stream, TryStreamExt};
 use hashbag::HashBag;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
-    DailyUserActivityItem, MangaSpecifics, MovieSpecifics, PodcastSpecifics,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+    DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem, MangaSpecifics, MovieSpecifics,
+    PodcastSpecifics, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
+    VisualNovelSpecifics,
 };
 use rust_decimal::Decimal;
 use sea_orm::{
@@ -140,7 +141,9 @@ impl StatisticsService {
             .into_tuple::<Option<i32>>()
             .one(&self.db)
             .await?;
-        let grouped_by = if let Some(Some(num_days)) = total {
+        let grouped_by = if let Some(group_by) = input.group_by {
+            group_by
+        } else if let Some(Some(num_days)) = total {
             if num_days >= 500 {
                 DailyUserActivitiesResponseGroupedBy::Year
             } else if num_days >= 200 {
@@ -206,9 +209,11 @@ impl StatisticsService {
             .unwrap();
         let total_count = items.iter().map(|i| i.total_count).sum();
         let total_duration = items.iter().map(|i| i.total_duration).sum();
+        let item_count = items.len();
         Ok(DailyUserActivitiesResponse {
             items,
             grouped_by,
+            item_count,
             total_count,
             total_duration,
         })

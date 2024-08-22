@@ -19,6 +19,7 @@ use sea_orm::{
 };
 use serde::{de, Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::Display;
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
@@ -1546,10 +1547,19 @@ pub struct GroupedCalendarEvent {
     pub date: NaiveDate,
 }
 
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum DailyUserActivitiesResponseGroupedBy {
+    Day,
+    Month,
+    Year,
+}
+
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct DailyUserActivitiesInput {
-    pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+    pub start_date: Option<NaiveDate>,
+    pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult)]

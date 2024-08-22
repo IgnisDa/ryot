@@ -282,11 +282,13 @@ export type CreateUserNotificationPlatformInput = {
 
 export type DailyUserActivitiesInput = {
   endDate?: InputMaybe<Scalars['NaiveDate']['input']>;
+  groupBy?: InputMaybe<DailyUserActivitiesResponseGroupedBy>;
   startDate?: InputMaybe<Scalars['NaiveDate']['input']>;
 };
 
 export type DailyUserActivitiesResponse = {
   groupedBy: DailyUserActivitiesResponseGroupedBy;
+  itemCount: Scalars['Int']['output'];
   items: Array<DailyUserActivityItem>;
   totalCount: Scalars['Int']['output'];
   totalDuration: Scalars['Int']['output'];

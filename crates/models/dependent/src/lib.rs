@@ -1,4 +1,4 @@
-use async_graphql::{Enum, InputObject, OutputType, SimpleObject, Union};
+use async_graphql::{InputObject, OutputType, SimpleObject, Union};
 use common_models::{BackendError, SearchDetails};
 use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
@@ -8,17 +8,16 @@ use enums::UserToMediaReason;
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, DailyUserActivityItem, EntityWithLot, GenreListItem,
-    GraphqlMediaAssets, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
-    ImportOrExportPersonItem, MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem,
-    UserDetailsError, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
+    EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportMediaGroupItem,
+    ImportOrExportMediaItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
+    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use strum::Display;
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
@@ -194,18 +193,11 @@ pub struct ImportResult {
     pub failed_items: Vec<ImportFailedItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum DailyUserActivitiesResponseGroupedBy {
-    Day,
-    Month,
-    Year,
-}
-
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct DailyUserActivitiesResponse {
+    pub total_count: i64,
+    pub item_count: usize,
+    pub total_duration: i64,
     pub items: Vec<DailyUserActivityItem>,
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
-    pub total_count: i64,
-    pub total_duration: i64,
 }
