@@ -21,6 +21,7 @@ pub struct Model {
     pub audio_book_duration: i32,
     pub anime_count: i32,
     pub book_count: i32,
+    pub book_pages: i32,
     pub podcast_count: i32,
     pub podcast_duration: i32,
     pub manga_count: i32,
@@ -30,10 +31,15 @@ pub struct Model {
     pub show_duration: i32,
     pub video_game_count: i32,
     pub visual_novel_count: i32,
+    pub metadata_interacted: i32,
+    pub people_interacted: i32,
+    pub exercises_interacted: i32,
+    pub workout_weight: i32,
     pub total_metadata_count: i32,
     pub total_review_count: i32,
     pub total_count: i32,
     pub total_duration: i32,
+    pub total_interacted: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
