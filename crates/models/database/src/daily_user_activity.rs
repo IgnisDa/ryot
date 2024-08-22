@@ -34,8 +34,6 @@ pub struct Model {
     pub visual_novel_count: i32,
     pub total_count: i32,
     pub total_duration: i32,
-    pub most_active_hour: Option<i32>,
-    pub least_active_hour: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

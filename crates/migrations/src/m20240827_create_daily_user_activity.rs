@@ -49,10 +49,6 @@ pub enum DailyUserActivity {
     VisualNovelCount,
     TotalCount,
     TotalDuration,
-    // DEV: Both of these are rounded and in UTC. It is expected that the conversion to local time
-    // is done by the frontend.
-    MostActiveHour,
-    LeastActiveHour,
 }
 
 #[async_trait::async_trait]
@@ -99,8 +95,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra(DAILY_USER_ACTIVITY_TOTAL_DURATION_GENERATED_SQL),
                     )
-                    .col(ColumnDef::new(DailyUserActivity::MostActiveHour).integer())
-                    .col(ColumnDef::new(DailyUserActivity::LeastActiveHour).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("daily_user_activity_to_user_foreign_key")

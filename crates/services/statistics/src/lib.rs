@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write, pin::Pin};
 
 use async_graphql::Result;
-use chrono::{Timelike, Utc};
+use chrono::Utc;
 use common_models::UserSummaryData;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use database_models::{
@@ -15,7 +15,6 @@ use database_models::{
 use dependent_models::DailyUserActivitiesResponse;
 use enums::{MediaLot, SeenState};
 use futures::{Stream, TryStreamExt};
-use hashbag::HashBag;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
     DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem, MangaSpecifics, MovieSpecifics,
@@ -550,7 +549,7 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        type Tracker = HashMap<Date, (HashBag<u32>, daily_user_activity::Model)>;
+        type Tracker = HashMap<Date, daily_user_activity::Model>;
 
         let start_from = match calculate_from_beginning {
             true => {
@@ -575,20 +574,17 @@ impl StatisticsService {
             activities: &'a mut Tracker,
             user_id: &'a String,
             date: Date,
-            hour: u32,
             activity_type: &str,
             duration: Option<i32>,
         ) -> &'a mut daily_user_activity::Model {
             ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
-            let (hour_counts, existing) = activities.entry(date).or_insert((
-                HashBag::new(),
-                daily_user_activity::Model {
+            let existing = activities
+                .entry(date)
+                .or_insert(daily_user_activity::Model {
                     date,
                     user_id: user_id.to_owned(),
                     ..Default::default()
-                },
-            ));
-            hour_counts.insert(hour);
+                });
             match activity_type {
                 "workout" => {
                     existing.workout_count += 1;
@@ -610,16 +606,8 @@ impl StatisticsService {
         .await?;
         while let Some(seen) = seen_stream.try_next().await? {
             let date = seen.finished_on.unwrap();
-            let hour = seen.last_updated_on.hour();
-            let activity = update_activity_counts(
-                seen.seen_id,
-                &mut activities,
-                user_id,
-                date,
-                hour,
-                "seen",
-                None,
-            );
+            let activity =
+                update_activity_counts(seen.seen_id, &mut activities, user_id, date, "seen", None);
             if let (Some(show_seen), Some(show_extra)) =
                 (seen.show_specifics, seen.show_extra_information)
             {
@@ -667,13 +655,11 @@ impl StatisticsService {
             .await?;
         while let Some(item) = workout_stream.try_next().await? {
             let date = item.end_time.date_naive();
-            let hour = item.end_time.time().hour();
             update_activity_counts(
                 item.id,
                 &mut activities,
                 user_id,
                 date,
-                hour,
                 "workout",
                 Some(item.duration / 60),
             );
@@ -686,13 +672,11 @@ impl StatisticsService {
             .await?;
         while let Some(item) = measurement_stream.try_next().await? {
             let date = item.timestamp.date_naive();
-            let hour = item.timestamp.time().hour();
             update_activity_counts(
                 item.timestamp.to_string(),
                 &mut activities,
                 user_id,
                 date,
-                hour,
                 "measurement",
                 None,
             );
@@ -705,34 +689,11 @@ impl StatisticsService {
             .await?;
         while let Some(item) = review_stream.try_next().await? {
             let date = item.posted_on.date_naive();
-            let hour = item.posted_on.time().hour();
-            update_activity_counts(
-                item.id,
-                &mut activities,
-                user_id,
-                date,
-                hour,
-                "review",
-                None,
-            );
+            update_activity_counts(item.id, &mut activities, user_id, date, "review", None);
         }
 
-        for (_, (hour_counts, activity)) in activities.into_iter() {
-            let mut max = hour_counts
-                .set_iter()
-                .max_by_key(|(_, v)| *v)
-                .map(|(k, _)| k.to_owned().try_into().unwrap());
-            let mut min = hour_counts
-                .set_iter()
-                .min_by_key(|(_, v)| *v)
-                .map(|(k, _)| k.to_owned().try_into().unwrap());
-            if max == min {
-                max = None;
-                min = None;
-            }
+        for (_, activity) in activities.into_iter() {
             let mut model: daily_user_activity::ActiveModel = activity.into();
-            model.most_active_hour = ActiveValue::Set(max);
-            model.least_active_hour = ActiveValue::Set(min);
             model.total_count = ActiveValue::NotSet;
             model.total_duration = ActiveValue::NotSet;
             model.insert(&self.db).await.ok();
