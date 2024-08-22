@@ -17,6 +17,7 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use strum::Display;
 
 #[derive(Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(name = "ExerciseListResults", params(fitness_models::ExerciseListItem)))]
@@ -192,7 +193,8 @@ pub struct ImportResult {
     pub failed_items: Vec<ImportFailedItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum DailyUserActivitiesResponseGroupedBy {
     Day,
     Month,
