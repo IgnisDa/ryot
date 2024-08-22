@@ -135,11 +135,11 @@ impl CollectionService {
                 "is_default",
             )
             .column(collection::Column::InformationTemplate)
-            .expr_as_(
+            .expr_as(
                 SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
                 "count",
             )
-            .expr_as_(
+            .expr_as(
                 SimpleExpr::FunctionCall(Func::coalesce([
                     SimpleExpr::SubQuery(
                         None,
