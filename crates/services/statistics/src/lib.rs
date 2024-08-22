@@ -569,13 +569,11 @@ impl StatisticsService {
         };
         let mut activities: Tracker = HashMap::new();
 
-        fn update_activity_counts<'a>(
+        fn get_activity_count<'a>(
             entity_id: String,
             activities: &'a mut Tracker,
             user_id: &'a String,
             date: Date,
-            activity_type: &str,
-            duration: Option<i32>,
         ) -> &'a mut daily_user_activity::Model {
             ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
             let existing = activities
@@ -585,18 +583,6 @@ impl StatisticsService {
                     user_id: user_id.to_owned(),
                     ..Default::default()
                 });
-            match activity_type {
-                "workout" => {
-                    existing.workout_count += 1;
-                    existing.workout_duration += duration.unwrap_or(0);
-                }
-                "measurement" => existing.measurement_count += 1,
-                "metadata_review" => existing.metadata_review_count += 1,
-                "collection_review" => existing.collection_review_count += 1,
-                "metadata_group_review" => existing.metadata_group_review_count += 1,
-                "person_review" => existing.person_review_count += 1,
-                _ => {}
-            }
             existing
         }
 
@@ -609,8 +595,7 @@ impl StatisticsService {
         .await?;
         while let Some(seen) = seen_stream.try_next().await? {
             let date = seen.finished_on.unwrap();
-            let activity =
-                update_activity_counts(seen.seen_id, &mut activities, user_id, date, "seen", None);
+            let activity = get_activity_count(seen.seen_id, &mut activities, user_id, date);
             if let (Some(show_seen), Some(show_extra)) =
                 (seen.show_specifics, seen.show_extra_information)
             {
@@ -658,14 +643,9 @@ impl StatisticsService {
             .await?;
         while let Some(item) = workout_stream.try_next().await? {
             let date = item.end_time.date_naive();
-            update_activity_counts(
-                item.id,
-                &mut activities,
-                user_id,
-                date,
-                "workout",
-                Some(item.duration / 60),
-            );
+            let activity = get_activity_count(item.id, &mut activities, user_id, date);
+            activity.workout_count += 1;
+            activity.workout_duration += item.duration / 60;
         }
 
         let mut measurement_stream = UserMeasurement::find()
@@ -675,14 +655,9 @@ impl StatisticsService {
             .await?;
         while let Some(item) = measurement_stream.try_next().await? {
             let date = item.timestamp.date_naive();
-            update_activity_counts(
-                item.timestamp.to_string(),
-                &mut activities,
-                user_id,
-                date,
-                "measurement",
-                None,
-            );
+            let activity =
+                get_activity_count(item.timestamp.to_string(), &mut activities, user_id, date);
+            activity.measurement_count += 1;
         }
 
         let mut review_stream = Review::find()
@@ -692,21 +667,14 @@ impl StatisticsService {
             .await?;
         while let Some(item) = review_stream.try_next().await? {
             let date = item.posted_on.date_naive();
-            let lot = match item.entity_lot {
-                EntityLot::Metadata => "metadata",
-                EntityLot::Person => "person",
-                EntityLot::MetadataGroup => "metadata_group",
-                EntityLot::Collection => "collection",
-                _ => unreachable!(),
-            };
-            update_activity_counts(
-                item.id,
-                &mut activities,
-                user_id,
-                date,
-                &format!("{lot}_review"),
-                None,
-            );
+            let activity = get_activity_count(item.id, &mut activities, user_id, date);
+            match item.entity_lot {
+                EntityLot::Metadata => activity.metadata_review_count += 1,
+                EntityLot::Person => activity.person_review_count += 1,
+                EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
+                EntityLot::Collection => activity.collection_review_count += 1,
+                _ => {}
+            }
         }
 
         for (_, activity) in activities.into_iter() {
