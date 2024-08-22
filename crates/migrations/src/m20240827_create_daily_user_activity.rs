@@ -2,11 +2,11 @@ use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;
 
-pub static DAILY_USER_ACTIVITY_PRIMARY_KEY: &str = "pk-daily_user_activity";
-
 fn integer_not_null<T: IntoIden>(col: T) -> ColumnDef {
     ColumnDef::new(col).integer().not_null().default(0).take()
 }
+
+pub static DAILY_USER_ACTIVITY_PRIMARY_KEY: &str = "pk-daily_user_activity";
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
