@@ -749,7 +749,11 @@ const ActivitySection = () => {
 								match(dailyUserActivitiesData.groupedBy)
 									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
 									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
-									.with(DailyUserActivitiesResponseGroupedBy.Year, () => "YYYY")
+									.with(
+										DailyUserActivitiesResponseGroupedBy.Year,
+										DailyUserActivitiesResponseGroupedBy.Millennium,
+										() => "YYYY",
+									)
 									.exhaustive(),
 							),
 					}}
