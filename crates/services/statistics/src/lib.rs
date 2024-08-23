@@ -215,6 +215,10 @@ impl StatisticsService {
             )
             .column_as(daily_user_activity::Column::MangaCount.sum(), "manga_count")
             .column_as(daily_user_activity::Column::MovieCount.sum(), "movie_count")
+            .column_as(
+                daily_user_activity::Column::MovieDuration.sum(),
+                "total_movie_duration",
+            )
             .column_as(daily_user_activity::Column::ShowCount.sum(), "show_count")
             .column_as(
                 daily_user_activity::Column::ShowDuration.sum(),
@@ -227,6 +231,10 @@ impl StatisticsService {
             .column_as(
                 daily_user_activity::Column::VisualNovelCount.sum(),
                 "visual_novel_count",
+            )
+            .column_as(
+                daily_user_activity::Column::VisualNovelDuration.sum(),
+                "total_visual_novel_duration",
             )
             .column_as(
                 daily_user_activity::Column::WorkoutPersonalBests.sum(),
@@ -374,6 +382,10 @@ impl StatisticsService {
             } else if let Some(book_extra) = seen.book_specifics {
                 if let Some(pages) = book_extra.pages {
                     activity.book_pages += pages;
+                }
+            } else if let Some(visual_novel_extra) = seen.visual_novel_specifics {
+                if let Some(runtime) = visual_novel_extra.length {
+                    activity.visual_novel_duration += runtime;
                 }
             }
             match seen.metadata_lot {

@@ -239,17 +239,6 @@ export default function Page() {
 												value: latestUserSummary.showCount,
 												type: "number",
 											},
-											// FIXME: Correct this
-											// {
-											// 	label: "Seasons",
-											// 	value: latestUserSummary.totalShowDuration,
-											// 	type: "number",
-											// },
-											// {
-											// 	label: "Episodes",
-											// 	value: latestUserSummary.media.shows.watchedEpisodes,
-											// 	type: "number",
-											// },
 											{
 												label: "Runtime",
 												value: latestUserSummary.totalShowDuration,
@@ -275,12 +264,11 @@ export default function Page() {
 												value: latestUserSummary.visualNovelCount,
 												type: "number",
 											},
-											// FIXME: Correct this
-											// {
-											// 	label: "Runtime",
-											// 	value: latestUserSummary.media.visualNovels.runtime,
-											// 	type: "duration",
-											// },
+											{
+												label: "Runtime",
+												value: latestUserSummary.totalVisualNovelDuration,
+												type: "duration",
+											},
 										]}
 									/>
 									<DisplayStatForMediaType
@@ -321,12 +309,6 @@ export default function Page() {
 												value: latestUserSummary.podcastCount,
 												type: "number",
 											},
-											// FIXME: Correct this
-											// {
-											// 	label: "Episodes",
-											// 	value: latestUserSummary.media.podcasts.playedEpisodes,
-											// 	type: "number",
-											// },
 											{
 												label: "Runtime",
 												value: latestUserSummary.totalPodcastDuration,
@@ -342,12 +324,6 @@ export default function Page() {
 												value: latestUserSummary.mangaCount,
 												type: "number",
 											},
-											// FIXME: Correct this
-											// {
-											// 	label: "Chapters",
-											// 	value: latestUserSummary.media.manga.chapters,
-											// 	type: "number",
-											// },
 										]}
 									/>
 									<DisplayStatForMediaType
@@ -358,12 +334,6 @@ export default function Page() {
 												value: latestUserSummary.animeCount,
 												type: "number",
 											},
-											// FIXME: Correct this
-											// {
-											// 	label: "Episodes",
-											// 	value: latestUserSummary.media.anime.episodes,
-											// 	type: "number",
-											// },
 										]}
 									/>
 									{userPreferences.featuresEnabled.media.enabled ? (

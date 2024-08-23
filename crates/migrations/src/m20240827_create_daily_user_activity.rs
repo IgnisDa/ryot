@@ -38,6 +38,7 @@ pub enum DailyUserActivity {
     ShowDuration,
     VideoGameCount,
     VisualNovelCount,
+    VisualNovelDuration,
     WorkoutPersonalBests,
     WorkoutWeight,
     WorkoutReps,
@@ -87,6 +88,7 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::ShowDuration))
                     .col(integer_not_null(DailyUserActivity::VideoGameCount))
                     .col(integer_not_null(DailyUserActivity::VisualNovelCount))
+                    .col(integer_not_null(DailyUserActivity::VisualNovelDuration))
                     .col(integer_not_null(DailyUserActivity::WorkoutPersonalBests))
                     .col(integer_not_null(DailyUserActivity::WorkoutWeight))
                     .col(integer_not_null(DailyUserActivity::WorkoutReps))

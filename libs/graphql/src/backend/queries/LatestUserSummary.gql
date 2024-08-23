@@ -21,6 +21,7 @@ query LatestUserSummary {
     totalShowDuration
     videoGameCount
     visualNovelCount
+    totalVisualNovelDuration
     totalWorkoutPersonalBests
     totalWorkoutWeight
     totalWorkoutReps
