@@ -169,20 +169,40 @@ impl StatisticsService {
                 "day",
             )
             .column_as(
-                daily_user_activity::Column::TotalReviewCount.sum(),
-                "total_review_count",
+                daily_user_activity::Column::MetadataReviewCount.sum(),
+                "total_metadata_review_count",
             )
             .column_as(
-                daily_user_activity::Column::WorkoutCount.sum(),
-                "workout_count",
+                daily_user_activity::Column::CollectionReviewCount.sum(),
+                "total_collection_review_count",
+            )
+            .column_as(
+                daily_user_activity::Column::MetadataGroupReviewCount.sum(),
+                "total_metadata_group_review_count",
+            )
+            .column_as(
+                daily_user_activity::Column::PersonReviewCount.sum(),
+                "total_person_review_count",
             )
             .column_as(
                 daily_user_activity::Column::MeasurementCount.sum(),
                 "measurement_count",
             )
             .column_as(
+                daily_user_activity::Column::WorkoutCount.sum(),
+                "workout_count",
+            )
+            .column_as(
+                daily_user_activity::Column::WorkoutDuration.sum(),
+                "total_workout_duration",
+            )
+            .column_as(
                 daily_user_activity::Column::AudioBookCount.sum(),
                 "audio_book_count",
+            )
+            .column_as(
+                daily_user_activity::Column::AudioBookDuration.sum(),
+                "total_audio_book_duration",
             )
             .column_as(daily_user_activity::Column::AnimeCount.sum(), "anime_count")
             .column_as(daily_user_activity::Column::BookCount.sum(), "book_count")
@@ -200,6 +220,10 @@ impl StatisticsService {
             .column_as(
                 daily_user_activity::Column::VisualNovelCount.sum(),
                 "visual_novel_count",
+            )
+            .column_as(
+                daily_user_activity::Column::TotalReviewCount.sum(),
+                "total_review_count",
             )
             .column_as(daily_user_activity::Column::TotalCount.sum(), "total_count")
             .column_as(
