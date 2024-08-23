@@ -207,12 +207,24 @@ impl StatisticsService {
             .column_as(daily_user_activity::Column::AnimeCount.sum(), "anime_count")
             .column_as(daily_user_activity::Column::BookCount.sum(), "book_count")
             .column_as(
+                daily_user_activity::Column::BookPages.sum(),
+                "total_book_pages",
+            )
+            .column_as(
                 daily_user_activity::Column::PodcastCount.sum(),
                 "podcast_count",
+            )
+            .column_as(
+                daily_user_activity::Column::PodcastDuration.sum(),
+                "total_podcast_duration",
             )
             .column_as(daily_user_activity::Column::MangaCount.sum(), "manga_count")
             .column_as(daily_user_activity::Column::MovieCount.sum(), "movie_count")
             .column_as(daily_user_activity::Column::ShowCount.sum(), "show_count")
+            .column_as(
+                daily_user_activity::Column::ShowDuration.sum(),
+                "total_show_duration",
+            )
             .column_as(
                 daily_user_activity::Column::VideoGameCount.sum(),
                 "video_game_count",
@@ -220,6 +232,30 @@ impl StatisticsService {
             .column_as(
                 daily_user_activity::Column::VisualNovelCount.sum(),
                 "visual_novel_count",
+            )
+            .column_as(
+                daily_user_activity::Column::WorkoutPersonalBests.sum(),
+                "total_workout_personal_bests",
+            )
+            .column_as(
+                daily_user_activity::Column::WorkoutWeight.sum(),
+                "total_workout_weight",
+            )
+            .column_as(
+                daily_user_activity::Column::WorkoutReps.sum(),
+                "total_workout_reps",
+            )
+            .column_as(
+                daily_user_activity::Column::WorkoutDistance.sum(),
+                "total_workout_distance",
+            )
+            .column_as(
+                daily_user_activity::Column::WorkoutRestTime.sum(),
+                "total_workout_rest_time",
+            )
+            .column_as(
+                daily_user_activity::Column::TotalMetadataCount.sum(),
+                "total_metadata_count",
             )
             .column_as(
                 daily_user_activity::Column::TotalReviewCount.sum(),
