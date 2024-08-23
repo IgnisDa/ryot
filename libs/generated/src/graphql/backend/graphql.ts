@@ -65,22 +65,12 @@ export type AnimeSpecificsInput = {
   episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type AnimeSummary = {
-  episodes: Scalars['Int']['output'];
-  watched: Scalars['Int']['output'];
-};
-
 export type AudioBookSpecifics = {
   runtime?: Maybe<Scalars['Int']['output']>;
 };
 
 export type AudioBookSpecificsInput = {
   runtime?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type AudioBooksSummary = {
-  played: Scalars['Int']['output'];
-  runtime: Scalars['Int']['output'];
 };
 
 export type AuthUserInput = {
@@ -112,11 +102,6 @@ export type BookSpecifics = {
 
 export type BookSpecificsInput = {
   pages?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type BooksSummary = {
-  pages: Scalars['Int']['output'];
-  read: Scalars['Int']['output'];
 };
 
 export type ChangeCollectionToEntityInput = {
@@ -311,7 +296,24 @@ export type DailyUserActivityItem = {
   movieCount: Scalars['Int']['output'];
   podcastCount: Scalars['Int']['output'];
   showCount: Scalars['Int']['output'];
+  totalAudioBookDuration: Scalars['Int']['output'];
+  totalBookPages: Scalars['Int']['output'];
+  totalCollectionReviewCount: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+  totalDuration: Scalars['Int']['output'];
+  totalMetadataCount: Scalars['Int']['output'];
+  totalMetadataGroupReviewCount: Scalars['Int']['output'];
+  totalMetadataReviewCount: Scalars['Int']['output'];
+  totalPersonReviewCount: Scalars['Int']['output'];
+  totalPodcastDuration: Scalars['Int']['output'];
   totalReviewCount: Scalars['Int']['output'];
+  totalShowDuration: Scalars['Int']['output'];
+  totalWorkoutDistance: Scalars['Int']['output'];
+  totalWorkoutDuration: Scalars['Int']['output'];
+  totalWorkoutPersonalBests: Scalars['Int']['output'];
+  totalWorkoutReps: Scalars['Int']['output'];
+  totalWorkoutRestTime: Scalars['Int']['output'];
+  totalWorkoutWeight: Scalars['Int']['output'];
   videoGameCount: Scalars['Int']['output'];
   visualNovelCount: Scalars['Int']['output'];
   workoutCount: Scalars['Int']['output'];
@@ -830,11 +832,6 @@ export type MangaSpecificsInput = {
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type MangaSummary = {
-  chapters: Scalars['Int']['output'];
-  read: Scalars['Int']['output'];
-};
-
 export type MediaCollectionContentsResults = {
   details: SearchDetails;
   items: Array<EntityWithLot>;
@@ -866,11 +863,6 @@ export enum MediaLot {
   VideoGame = 'VIDEO_GAME',
   VisualNovel = 'VISUAL_NOVEL'
 }
-
-export type MediaOverallSummary = {
-  interactedWith: Scalars['Int']['output'];
-  reviewed: Scalars['Int']['output'];
-};
 
 export enum MediaSortBy {
   LastSeen = 'LAST_SEEN',
@@ -1022,11 +1014,6 @@ export type MovieSpecifics = {
 
 export type MovieSpecificsInput = {
   runtime?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type MoviesSummary = {
-  runtime: Scalars['Int']['output'];
-  watched: Scalars['Int']['output'];
 };
 
 export type MutationRoot = {
@@ -1471,12 +1458,6 @@ export type PodcastSpecificsInput = {
   totalEpisodes: Scalars['Int']['input'];
 };
 
-export type PodcastsSummary = {
-  played: Scalars['Int']['output'];
-  playedEpisodes: Scalars['Int']['output'];
-  runtime: Scalars['Int']['output'];
-};
-
 export type PostReviewInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   collectionId?: InputMaybe<Scalars['String']['input']>;
@@ -1566,7 +1547,7 @@ export type QueryRoot = {
   /** Get all the import jobs deployed by the user. */
   importReports: Array<ImportReport>;
   /** Get a summary of all the media items that have been consumed by this user. */
-  latestUserSummary: UserSummary;
+  latestUserSummary: DailyUserActivityItem;
   /** Get details about a media present in the database. */
   metadataDetails: GraphqlMetadataDetails;
   /** Get details about a metadata group present in the database. */
@@ -1935,13 +1916,6 @@ export type ShowSpecificsInput = {
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
 };
 
-export type ShowsSummary = {
-  runtime: Scalars['Int']['output'];
-  watched: Scalars['Int']['output'];
-  watchedEpisodes: Scalars['Int']['output'];
-  watchedSeasons: Scalars['Int']['output'];
-};
-
 export type StringIdObject = {
   id: Scalars['String']['output'];
 };
@@ -2077,18 +2051,6 @@ export type UserFitnessFeaturesEnabledPreferences = {
 export type UserFitnessPreferences = {
   exercises: UserExercisePreferences;
   measurements: UserMeasurementsPreferences;
-};
-
-export type UserFitnessSummary = {
-  exercisesInteractedWith: Scalars['Int']['output'];
-  measurementsRecorded: Scalars['Int']['output'];
-  workouts: UserFitnessWorkoutSummary;
-};
-
-export type UserFitnessWorkoutSummary = {
-  duration: Scalars['Decimal']['output'];
-  recorded: Scalars['Int']['output'];
-  weight: Scalars['Decimal']['output'];
 };
 
 export type UserGeneralDashboardElement = {
@@ -2254,20 +2216,6 @@ export type UserMediaNextEntry = {
   volume?: Maybe<Scalars['Int']['output']>;
 };
 
-export type UserMediaSummary = {
-  anime: AnimeSummary;
-  audioBooks: AudioBooksSummary;
-  books: BooksSummary;
-  manga: MangaSummary;
-  metadataOverall: MediaOverallSummary;
-  movies: MoviesSummary;
-  peopleOverall: MediaOverallSummary;
-  podcasts: PodcastsSummary;
-  shows: ShowsSummary;
-  videoGames: VideoGamesSummary;
-  visualNovels: VisualNovelsSummary;
-};
-
 export type UserMetadataDetails = {
   /** The average rating of this media in this service. */
   averageRating?: Maybe<Scalars['Decimal']['output']>;
@@ -2339,16 +2287,6 @@ export enum UserReviewScale {
   OutOfFive = 'OUT_OF_FIVE',
   OutOfHundred = 'OUT_OF_HUNDRED'
 }
-
-export type UserSummary = {
-  calculatedOn: Scalars['DateTime']['output'];
-  data: UserSummaryData;
-};
-
-export type UserSummaryData = {
-  fitness: UserFitnessSummary;
-  media: UserMediaSummary;
-};
 
 export type UserToEntity = {
   createdOn: Scalars['DateTime']['output'];
@@ -2430,10 +2368,6 @@ export type VideoGameSpecificsInput = {
   platforms: Array<Scalars['String']['input']>;
 };
 
-export type VideoGamesSummary = {
-  played: Scalars['Int']['output'];
-};
-
 export enum Visibility {
   Private = 'PRIVATE',
   Public = 'PUBLIC'
@@ -2445,11 +2379,6 @@ export type VisualNovelSpecifics = {
 
 export type VisualNovelSpecificsInput = {
   length?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type VisualNovelsSummary = {
-  played: Scalars['Int']['output'];
-  runtime: Scalars['Int']['output'];
 };
 
 export type WatchProvider = {
@@ -2887,7 +2816,7 @@ export type ImportReportsQuery = { importReports: Array<{ id: string, source: Im
 export type LatestUserSummaryQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type LatestUserSummaryQuery = { latestUserSummary: { calculatedOn: string, data: { fitness: { measurementsRecorded: number, exercisesInteractedWith: number, workouts: { recorded: number, duration: string, weight: string } }, media: { metadataOverall: { reviewed: number, interactedWith: number }, peopleOverall: { reviewed: number, interactedWith: number }, manga: { chapters: number, read: number }, books: { pages: number, read: number }, movies: { runtime: number, watched: number }, anime: { episodes: number, watched: number }, podcasts: { runtime: number, played: number, playedEpisodes: number }, visualNovels: { played: number, runtime: number }, videoGames: { played: number }, shows: { runtime: number, watchedEpisodes: number, watchedSeasons: number, watched: number }, audioBooks: { runtime: number, played: number } } } } };
+export type LatestUserSummaryQuery = { latestUserSummary: { totalMetadataReviewCount: number, totalCollectionReviewCount: number, totalMetadataGroupReviewCount: number, totalPersonReviewCount: number, measurementCount: number, workoutCount: number, totalWorkoutDuration: number, audioBookCount: number, totalAudioBookDuration: number, animeCount: number, bookCount: number, totalBookPages: number, podcastCount: number, totalPodcastDuration: number, mangaCount: number, movieCount: number, showCount: number, totalShowDuration: number, videoGameCount: number, visualNovelCount: number, totalWorkoutPersonalBests: number, totalWorkoutWeight: number, totalWorkoutReps: number, totalWorkoutDistance: number, totalWorkoutRestTime: number, totalMetadataCount: number, totalReviewCount: number, totalCount: number, totalDuration: number } };
 
 export type MetadataDetailsQueryVariables = Exact<{
   metadataId: Scalars['String']['input'];
@@ -3191,7 +3120,7 @@ export const ExercisesListDocument = {"kind":"Document","definitions":[{"kind":"
 export const GenreDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GenreDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GenreDetailsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"genreDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"numItems"}}]}},{"kind":"Field","name":{"kind":"Name","value":"contents"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"}}]}}]}}]}}]} as unknown as DocumentNode<GenreDetailsQuery, GenreDetailsQueryVariables>;
 export const GenresListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GenresList"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"genresList"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"numItems"}}]}}]}}]}}]} as unknown as DocumentNode<GenresListQuery, GenresListQueryVariables>;
 export const ImportReportsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ImportReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"importReports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"startedOn"}},{"kind":"Field","name":{"kind":"Name","value":"finishedOn"}},{"kind":"Field","name":{"kind":"Name","value":"wasSuccess"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"import"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}}]}},{"kind":"Field","name":{"kind":"Name","value":"failedItems"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"step"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"error"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ImportReportsQuery, ImportReportsQueryVariables>;
-export const LatestUserSummaryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"LatestUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"latestUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"calculatedOn"}},{"kind":"Field","name":{"kind":"Name","value":"data"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"fitness"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"measurementsRecorded"}},{"kind":"Field","name":{"kind":"Name","value":"exercisesInteractedWith"}},{"kind":"Field","name":{"kind":"Name","value":"workouts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"recorded"}},{"kind":"Field","name":{"kind":"Name","value":"duration"}},{"kind":"Field","name":{"kind":"Name","value":"weight"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"media"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataOverall"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reviewed"}},{"kind":"Field","name":{"kind":"Name","value":"interactedWith"}}]}},{"kind":"Field","name":{"kind":"Name","value":"peopleOverall"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"reviewed"}},{"kind":"Field","name":{"kind":"Name","value":"interactedWith"}}]}},{"kind":"Field","name":{"kind":"Name","value":"manga"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"chapters"}},{"kind":"Field","name":{"kind":"Name","value":"read"}}]}},{"kind":"Field","name":{"kind":"Name","value":"books"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pages"}},{"kind":"Field","name":{"kind":"Name","value":"read"}}]}},{"kind":"Field","name":{"kind":"Name","value":"movies"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"anime"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcasts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"played"}},{"kind":"Field","name":{"kind":"Name","value":"playedEpisodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"visualNovels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"played"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"videoGames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"played"}}]}},{"kind":"Field","name":{"kind":"Name","value":"shows"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"watchedEpisodes"}},{"kind":"Field","name":{"kind":"Name","value":"watchedSeasons"}},{"kind":"Field","name":{"kind":"Name","value":"watched"}}]}},{"kind":"Field","name":{"kind":"Name","value":"audioBooks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"played"}}]}}]}}]}}]}}]}}]} as unknown as DocumentNode<LatestUserSummaryQuery, LatestUserSummaryQueryVariables>;
+export const LatestUserSummaryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"LatestUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"latestUserSummary"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"totalMetadataReviewCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalCollectionReviewCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalMetadataGroupReviewCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalPersonReviewCount"}},{"kind":"Field","name":{"kind":"Name","value":"measurementCount"}},{"kind":"Field","name":{"kind":"Name","value":"workoutCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalWorkoutDuration"}},{"kind":"Field","name":{"kind":"Name","value":"audioBookCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalAudioBookDuration"}},{"kind":"Field","name":{"kind":"Name","value":"animeCount"}},{"kind":"Field","name":{"kind":"Name","value":"bookCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalBookPages"}},{"kind":"Field","name":{"kind":"Name","value":"podcastCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalPodcastDuration"}},{"kind":"Field","name":{"kind":"Name","value":"mangaCount"}},{"kind":"Field","name":{"kind":"Name","value":"movieCount"}},{"kind":"Field","name":{"kind":"Name","value":"showCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalShowDuration"}},{"kind":"Field","name":{"kind":"Name","value":"videoGameCount"}},{"kind":"Field","name":{"kind":"Name","value":"visualNovelCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalWorkoutPersonalBests"}},{"kind":"Field","name":{"kind":"Name","value":"totalWorkoutWeight"}},{"kind":"Field","name":{"kind":"Name","value":"totalWorkoutReps"}},{"kind":"Field","name":{"kind":"Name","value":"totalWorkoutDistance"}},{"kind":"Field","name":{"kind":"Name","value":"totalWorkoutRestTime"}},{"kind":"Field","name":{"kind":"Name","value":"totalMetadataCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalReviewCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalCount"}},{"kind":"Field","name":{"kind":"Name","value":"totalDuration"}}]}}]}}]} as unknown as DocumentNode<LatestUserSummaryQuery, LatestUserSummaryQueryVariables>;
 export const MetadataDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"isNsfw"}},{"kind":"Field","name":{"kind":"Name","value":"isPartial"}},{"kind":"Field","name":{"kind":"Name","value":"sourceUrl"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"suggestions"}},{"kind":"Field","name":{"kind":"Name","value":"publishYear"}},{"kind":"Field","name":{"kind":"Name","value":"publishDate"}},{"kind":"Field","name":{"kind":"Name","value":"providerRating"}},{"kind":"Field","name":{"kind":"Name","value":"productionStatus"}},{"kind":"Field","name":{"kind":"Name","value":"originalLanguage"}},{"kind":"Field","name":{"kind":"Name","value":"genres"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"group"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"part"}}]}},{"kind":"Field","name":{"kind":"Name","value":"assets"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"images"}},{"kind":"Field","name":{"kind":"Name","value":"videos"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"videoId"}},{"kind":"Field","name":{"kind":"Name","value":"source"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"creators"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"character"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"watchProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"languages"}}]}},{"kind":"Field","name":{"kind":"Name","value":"animeSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"audioBookSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"bookSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"pages"}}]}},{"kind":"Field","name":{"kind":"Name","value":"movieSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}},{"kind":"Field","name":{"kind":"Name","value":"mangaSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"volumes"}},{"kind":"Field","name":{"kind":"Name","value":"chapters"}}]}},{"kind":"Field","name":{"kind":"Name","value":"podcastSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"episodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"thumbnail"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"publishDate"}}]}},{"kind":"Field","name":{"kind":"Name","value":"totalEpisodes"}}]}},{"kind":"Field","name":{"kind":"Name","value":"showSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"totalSeasons"}},{"kind":"Field","name":{"kind":"Name","value":"totalEpisodes"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}},{"kind":"Field","name":{"kind":"Name","value":"seasons"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"seasonNumber"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"backdropImages"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"episodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"posterImages"}},{"kind":"Field","name":{"kind":"Name","value":"episodeNumber"}},{"kind":"Field","name":{"kind":"Name","value":"publishDate"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"overview"}},{"kind":"Field","name":{"kind":"Name","value":"runtime"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"visualNovelSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"length"}}]}},{"kind":"Field","name":{"kind":"Name","value":"videoGameSpecifics"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"platforms"}}]}}]}}]}}]} as unknown as DocumentNode<MetadataDetailsQuery, MetadataDetailsQueryVariables>;
 export const MetadataGroupDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataGroupDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataGroupId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataGroupDetails"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataGroupId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataGroupId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"contents"}},{"kind":"Field","name":{"kind":"Name","value":"sourceUrl"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"displayImages"}},{"kind":"Field","name":{"kind":"Name","value":"parts"}},{"kind":"Field","name":{"kind":"Name","value":"isPartial"}}]}}]}}]}}]} as unknown as DocumentNode<MetadataGroupDetailsQuery, MetadataGroupDetailsQueryVariables>;
 export const MetadataGroupSearchDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataGroupSearch"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataGroupSearchInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataGroupSearch"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}},{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"parts"}}]}}]}}]}}]} as unknown as DocumentNode<MetadataGroupSearchQuery, MetadataGroupSearchQueryVariables>;

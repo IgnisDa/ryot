@@ -1,64 +1,33 @@
 query LatestUserSummary {
   latestUserSummary {
-    calculatedOn
-    data {
-      fitness {
-        measurementsRecorded
-        exercisesInteractedWith
-        workouts {
-          recorded
-          duration
-          weight
-        }
-      }
-      media {
-        metadataOverall {
-          reviewed
-          interactedWith
-        }
-        peopleOverall {
-          reviewed
-          interactedWith
-        }
-        manga {
-          chapters
-          read
-        }
-        books {
-          pages
-          read
-        }
-        movies {
-          runtime
-          watched
-        }
-        anime {
-          episodes
-          watched
-        }
-        podcasts {
-          runtime
-          played
-          playedEpisodes
-        }
-        visualNovels {
-          played
-          runtime
-        }
-        videoGames {
-          played
-        }
-        shows {
-          runtime
-          watchedEpisodes
-          watchedSeasons
-          watched
-        }
-        audioBooks {
-          runtime
-          played
-        }
-      }
-    }
+    totalMetadataReviewCount
+    totalCollectionReviewCount
+    totalMetadataGroupReviewCount
+    totalPersonReviewCount
+    measurementCount
+    workoutCount
+    totalWorkoutDuration
+    audioBookCount
+    totalAudioBookDuration
+    animeCount
+    bookCount
+    totalBookPages
+    podcastCount
+    totalPodcastDuration
+    mangaCount
+    movieCount
+    showCount
+    totalShowDuration
+    videoGameCount
+    visualNovelCount
+    totalWorkoutPersonalBests
+    totalWorkoutWeight
+    totalWorkoutReps
+    totalWorkoutDistance
+    totalWorkoutRestTime
+    totalMetadataCount
+    totalReviewCount
+    totalCount
+    totalDuration
   }
 }
