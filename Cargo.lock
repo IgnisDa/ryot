@@ -6035,7 +6035,6 @@ name = "statistics-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "database-models",
  "dependent-models",
  "media-models",
  "statistics-service",
@@ -6049,7 +6048,6 @@ dependencies = [
  "async-graphql",
  "common-utils",
  "database-models",
- "database-utils",
  "dependent-models",
  "enums",
  "futures",

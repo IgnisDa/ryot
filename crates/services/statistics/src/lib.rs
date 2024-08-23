@@ -4,8 +4,8 @@ use async_graphql::Result;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use database_models::{
     daily_user_activity, metadata,
-    prelude::{DailyUserActivity, Metadata, Review, Seen, UserMeasurement, UserSummary, Workout},
-    review, seen, user_measurement, user_summary, workout,
+    prelude::{DailyUserActivity, Metadata, Review, Seen, UserMeasurement, Workout},
+    review, seen, user_measurement, workout,
 };
 use dependent_models::DailyUserActivitiesResponse;
 use enums::{EntityLot, MediaLot, SeenState};
@@ -107,7 +107,7 @@ impl StatisticsService {
 
     pub async fn daily_user_activities(
         &self,
-        user_id: String,
+        user_id: &String,
         input: DailyUserActivitiesInput,
     ) -> Result<DailyUserActivitiesResponse> {
         struct DateTrunc;
@@ -117,7 +117,7 @@ impl StatisticsService {
             }
         }
         let precondition = DailyUserActivity::find()
-            .filter(daily_user_activity::Column::UserId.eq(&user_id))
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
             .apply_if(input.end_date, |query, v| {
                 query.filter(daily_user_activity::Column::Date.lte(v))
             })
@@ -279,12 +279,17 @@ impl StatisticsService {
         })
     }
 
-    pub async fn latest_user_summary(&self, user_id: &String) -> Result<user_summary::Model> {
-        let ls = UserSummary::find_by_id(user_id)
-            .one(&self.db)
-            .await?
-            .unwrap_or_default();
-        Ok(ls)
+    pub async fn latest_user_summary(&self, user_id: &String) -> Result<DailyUserActivityItem> {
+        let ls = self
+            .daily_user_activities(
+                user_id,
+                DailyUserActivitiesInput {
+                    group_by: Some(DailyUserActivitiesResponseGroupedBy::Millennium),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        Ok(ls.items.first().cloned().unwrap_or_default())
     }
 
     #[tracing::instrument(skip(self))]

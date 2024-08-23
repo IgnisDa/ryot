@@ -1556,14 +1556,14 @@ pub enum DailyUserActivitiesResponseGroupedBy {
     Millennium,
 }
 
-#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct DailyUserActivitiesInput {
     pub end_date: Option<NaiveDate>,
     pub start_date: Option<NaiveDate>,
     pub group_by: Option<DailyUserActivitiesResponseGroupedBy>,
 }
 
-#[derive(Debug, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult)]
+#[derive(Debug, Default, SimpleObject, Serialize, Deserialize, Clone, FromQueryResult)]
 pub struct DailyUserActivityItem {
     pub day: Date,
     pub total_metadata_review_count: i64,
@@ -1593,8 +1593,6 @@ pub struct DailyUserActivityItem {
     pub total_workout_rest_time: i64,
     pub total_metadata_count: i64,
     pub total_review_count: i64,
-    #[graphql(skip)]
     pub total_count: i64,
-    #[graphql(skip)]
     pub total_duration: i64,
 }
