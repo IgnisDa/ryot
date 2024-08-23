@@ -30,7 +30,29 @@ WHERE preferences->'general'->'dashboard' IS NOT NULL;
 "#,
         )
         .await?;
-
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "workout" ADD COLUMN IF NOT EXISTS "duration" integer NOT NULL GENERATED
+ALWAYS AS (EXTRACT(EPOCH FROM (end_time - start_time))) STORED;
+"#,
+        )
+        .await?;
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "review"
+ADD COLUMN IF NOT EXISTS entity_lot text GENERATED ALWAYS AS (
+    CASE
+        WHEN "metadata_id" IS NOT NULL THEN 'metadata'
+        WHEN "person_id" IS NOT NULL THEN 'person'
+        WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
+        WHEN "collection_id" IS NOT NULL THEN 'collection'
+    END
+) STORED;
+        "#,
+        )
+        .await?;
+        db.execute_unprepared(r#"DROP TABLE IF EXISTS "user_summary""#)
+            .await?;
         Ok(())
     }
 

@@ -21,7 +21,6 @@ pub use super::review::Entity as Review;
 pub use super::seen::Entity as Seen;
 pub use super::user::Entity as User;
 pub use super::user_measurement::Entity as UserMeasurement;
-pub use super::user_summary::Entity as UserSummary;
 pub use super::user_to_collection::Entity as UserToCollection;
 pub use super::user_to_entity::Entity as UserToEntity;
 pub use super::workout::Entity as Workout;

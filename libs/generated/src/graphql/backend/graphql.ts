@@ -296,8 +296,6 @@ export type DailyUserActivityItem = {
   movieCount: Scalars['Int']['output'];
   podcastCount: Scalars['Int']['output'];
   showCount: Scalars['Int']['output'];
-  showEpisodeCount: Scalars['Int']['output'];
-  showSeasonCount: Scalars['Int']['output'];
   totalAudioBookDuration: Scalars['Int']['output'];
   totalBookPages: Scalars['Int']['output'];
   totalCollectionReviewCount: Scalars['Int']['output'];
