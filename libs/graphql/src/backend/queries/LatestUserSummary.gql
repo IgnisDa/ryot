@@ -16,6 +16,7 @@ query LatestUserSummary {
     totalPodcastDuration
     mangaCount
     movieCount
+    totalMovieDuration
     showCount
     totalShowDuration
     videoGameCount

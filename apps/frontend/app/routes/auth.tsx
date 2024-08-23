@@ -68,7 +68,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			serverGqlService.authenticatedRequest(request, LatestUserSummaryDocument),
 		]);
 		if (
-			latestUserSummary.data.media.metadataOverall.interactedWith === 0 &&
+			latestUserSummary.totalMetadataCount === 0 &&
 			userPreferences.featuresEnabled.media.enabled === true
 		)
 			throw await redirectWithToast(

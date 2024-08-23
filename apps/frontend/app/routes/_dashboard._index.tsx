@@ -153,7 +153,7 @@ export default function Page() {
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
 	const dashboardLayoutData = useDashboardLayoutData();
-	const latestUserSummary = loaderData.latestUserSummary.data;
+	const latestUserSummary = loaderData.latestUserSummary;
 
 	return (
 		<Container>
@@ -211,12 +211,6 @@ export default function Page() {
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<Title>Summary</Title>
-								<Text size="xs" mt={-15}>
-									Calculated{" "}
-									{dayjsLib(
-										loaderData.latestUserSummary.calculatedOn,
-									).fromNow()}
-								</Text>
 								<SimpleGrid
 									cols={{ base: 1, sm: 2, md: 3 }}
 									style={{ alignItems: "center" }}
@@ -227,12 +221,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Movies",
-												value: latestUserSummary.media.movies.watched,
+												value: latestUserSummary.movieCount,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.movies.runtime,
+												value: latestUserSummary.totalMovieDuration,
 												type: "duration",
 											},
 										]}
@@ -242,22 +236,23 @@ export default function Page() {
 										data={[
 											{
 												label: "Shows",
-												value: latestUserSummary.media.shows.watched,
+												value: latestUserSummary.showCount,
 												type: "number",
 											},
-											{
-												label: "Seasons",
-												value: latestUserSummary.media.shows.watchedSeasons,
-												type: "number",
-											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.media.shows.watchedEpisodes,
-												type: "number",
-											},
+											// FIXME: Correct this
+											// {
+											// 	label: "Seasons",
+											// 	value: latestUserSummary.totalShowDuration,
+											// 	type: "number",
+											// },
+											// {
+											// 	label: "Episodes",
+											// 	value: latestUserSummary.media.shows.watchedEpisodes,
+											// 	type: "number",
+											// },
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.shows.runtime,
+												value: latestUserSummary.totalShowDuration,
 												type: "duration",
 											},
 										]}
@@ -267,7 +262,7 @@ export default function Page() {
 										data={[
 											{
 												label: "Video games",
-												value: latestUserSummary.media.videoGames.played,
+												value: latestUserSummary.videoGameCount,
 												type: "number",
 											},
 										]}
@@ -277,14 +272,15 @@ export default function Page() {
 										data={[
 											{
 												label: "Visual Novels",
-												value: latestUserSummary.media.visualNovels.played,
+												value: latestUserSummary.visualNovelCount,
 												type: "number",
 											},
-											{
-												label: "Runtime",
-												value: latestUserSummary.media.visualNovels.runtime,
-												type: "duration",
-											},
+											// FIXME: Correct this
+											// {
+											// 	label: "Runtime",
+											// 	value: latestUserSummary.media.visualNovels.runtime,
+											// 	type: "duration",
+											// },
 										]}
 									/>
 									<DisplayStatForMediaType
@@ -292,12 +288,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Audiobooks",
-												value: latestUserSummary.media.audioBooks.played,
+												value: latestUserSummary.audioBookCount,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.audioBooks.runtime,
+												value: latestUserSummary.totalAudioBookDuration,
 												type: "duration",
 											},
 										]}
@@ -307,12 +303,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Books",
-												value: latestUserSummary.media.books.read,
+												value: latestUserSummary.bookCount,
 												type: "number",
 											},
 											{
 												label: "Pages",
-												value: latestUserSummary.media.books.pages,
+												value: latestUserSummary.totalBookPages,
 												type: "number",
 											},
 										]}
@@ -322,17 +318,18 @@ export default function Page() {
 										data={[
 											{
 												label: "Podcasts",
-												value: latestUserSummary.media.podcasts.played,
+												value: latestUserSummary.podcastCount,
 												type: "number",
 											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.media.podcasts.playedEpisodes,
-												type: "number",
-											},
+											// FIXME: Correct this
+											// {
+											// 	label: "Episodes",
+											// 	value: latestUserSummary.media.podcasts.playedEpisodes,
+											// 	type: "number",
+											// },
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.podcasts.runtime,
+												value: latestUserSummary.totalPodcastDuration,
 												type: "duration",
 											},
 										]}
@@ -342,14 +339,15 @@ export default function Page() {
 										data={[
 											{
 												label: "Manga",
-												value: latestUserSummary.media.manga.read,
+												value: latestUserSummary.mangaCount,
 												type: "number",
 											},
-											{
-												label: "Chapters",
-												value: latestUserSummary.media.manga.chapters,
-												type: "number",
-											},
+											// FIXME: Correct this
+											// {
+											// 	label: "Chapters",
+											// 	value: latestUserSummary.media.manga.chapters,
+											// 	type: "number",
+											// },
 										]}
 									/>
 									<DisplayStatForMediaType
@@ -357,14 +355,15 @@ export default function Page() {
 										data={[
 											{
 												label: "Anime",
-												value: latestUserSummary.media.anime.watched,
+												value: latestUserSummary.animeCount,
 												type: "number",
 											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.media.anime.episodes,
-												type: "number",
-											},
+											// FIXME: Correct this
+											// {
+											// 	label: "Episodes",
+											// 	value: latestUserSummary.media.anime.episodes,
+											// 	type: "number",
+											// },
 										]}
 									/>
 									{userPreferences.featuresEnabled.media.enabled ? (
@@ -376,15 +375,12 @@ export default function Page() {
 												data={[
 													{
 														label: "Media",
-														value:
-															latestUserSummary.media.metadataOverall
-																.interactedWith,
+														value: latestUserSummary.totalMetadataCount,
 														type: "number",
 													},
 													{
 														label: "Reviews",
-														value:
-															latestUserSummary.media.metadataOverall.reviewed,
+														value: latestUserSummary.totalMetadataReviewCount,
 														type: "number",
 														hideIfZero: true,
 													},
@@ -402,17 +398,8 @@ export default function Page() {
 														color={theme.colors.red[9]}
 														data={[
 															{
-																label: "People",
-																value:
-																	latestUserSummary.media.peopleOverall
-																		.interactedWith,
-																type: "number",
-															},
-															{
-																label: "Reviews",
-																value:
-																	latestUserSummary.media.peopleOverall
-																		.reviewed,
+																label: "People Reviewed",
+																value: latestUserSummary.totalPersonReviewCount,
 																type: "number",
 																hideIfZero: true,
 															},
@@ -422,10 +409,7 @@ export default function Page() {
 											) : null}
 										</>
 									) : null}
-									{userPreferences.featuresEnabled.fitness.enabled &&
-									Number(latestUserSummary.fitness.workouts.duration) +
-										latestUserSummary.fitness.workouts.recorded >
-										0 ? (
+									{userPreferences.featuresEnabled.fitness.enabled ? (
 										<UnstyledLink
 											to={$path("/fitness/:entity/list", {
 												entity: "workouts",
@@ -438,19 +422,19 @@ export default function Page() {
 												data={[
 													{
 														label: "Workouts",
-														value: latestUserSummary.fitness.workouts.recorded,
+														value: latestUserSummary.workoutCount,
 														type: "number",
 													},
 													{
 														label: "Runtime",
-														value: latestUserSummary.fitness.workouts.duration,
+														value: latestUserSummary.totalWorkoutDuration,
 														type: "duration",
 													},
 													{
 														label: "Runtime",
 														value: displayWeightWithUnit(
 															unitSystem,
-															latestUserSummary.fitness.workouts.weight,
+															latestUserSummary.totalWorkoutWeight,
 															true,
 														),
 														type: "string",
@@ -459,10 +443,7 @@ export default function Page() {
 											/>
 										</UnstyledLink>
 									) : null}
-									{userPreferences.featuresEnabled.fitness.enabled &&
-									latestUserSummary.fitness.measurementsRecorded +
-										latestUserSummary.fitness.exercisesInteractedWith >
-										0 ? (
+									{userPreferences.featuresEnabled.fitness.enabled ? (
 										<ActualDisplayStat
 											icon={<IconScaleOutline stroke={1.3} />}
 											lot="Fitness"
@@ -470,14 +451,7 @@ export default function Page() {
 											data={[
 												{
 													label: "Measurements",
-													value: latestUserSummary.fitness.measurementsRecorded,
-													type: "number",
-													hideIfZero: true,
-												},
-												{
-													label: "Exercises",
-													value:
-														latestUserSummary.fitness.exercisesInteractedWith,
+													value: latestUserSummary.measurementCount,
 													type: "number",
 													hideIfZero: true,
 												},
