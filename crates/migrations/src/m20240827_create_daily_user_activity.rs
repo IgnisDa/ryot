@@ -38,15 +38,15 @@ pub enum DailyUserActivity {
     ShowDuration,
     VideoGameCount,
     VisualNovelCount,
-    MetadataInteracted,
-    PeopleInteracted,
-    ExercisesInteracted,
+    WorkoutPersonalBest,
     WorkoutWeight,
+    WorkoutReps,
+    WorkoutDistance,
+    WorkoutRestTime,
     TotalMetadataCount,
     TotalReviewCount,
     TotalCount,
     TotalDuration,
-    TotalInteracted,
 }
 
 #[async_trait::async_trait]
@@ -87,15 +87,15 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::ShowDuration))
                     .col(integer_not_null(DailyUserActivity::VideoGameCount))
                     .col(integer_not_null(DailyUserActivity::VisualNovelCount))
-                    .col(integer_not_null(DailyUserActivity::MetadataInteracted))
-                    .col(integer_not_null(DailyUserActivity::PeopleInteracted))
-                    .col(integer_not_null(DailyUserActivity::ExercisesInteracted))
+                    .col(integer_not_null(DailyUserActivity::WorkoutPersonalBest))
                     .col(integer_not_null(DailyUserActivity::WorkoutWeight))
+                    .col(integer_not_null(DailyUserActivity::WorkoutReps))
+                    .col(integer_not_null(DailyUserActivity::WorkoutDistance))
+                    .col(integer_not_null(DailyUserActivity::WorkoutRestTime))
                     .col(integer_not_null(DailyUserActivity::TotalMetadataCount))
                     .col(integer_not_null(DailyUserActivity::TotalReviewCount))
                     .col(integer_not_null(DailyUserActivity::TotalCount))
                     .col(integer_not_null(DailyUserActivity::TotalDuration))
-                    .col(integer_not_null(DailyUserActivity::TotalInteracted))
                     .foreign_key(
                         ForeignKey::create()
                             .name("daily_user_activity_to_user_foreign_key")

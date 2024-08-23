@@ -22,7 +22,7 @@ use media_models::{
     SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, VideoGameSpecifics,
     VisualNovelSpecifics,
 };
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
     sea_query::{Alias, Func, OnConflict, SimpleExpr},
@@ -622,6 +622,10 @@ impl StatisticsService {
                 if let Some(runtime) = movie_extra.runtime {
                     activity.movie_duration += runtime;
                 }
+            } else if let Some(book_extra) = seen.book_specifics {
+                if let Some(pages) = book_extra.pages {
+                    activity.book_pages += pages;
+                }
             }
             match seen.metadata_lot {
                 MediaLot::Anime => activity.anime_count += 1,
@@ -646,6 +650,12 @@ impl StatisticsService {
             let activity = get_activity_count(item.id, &mut activities, user_id, date);
             activity.workout_count += 1;
             activity.workout_duration += item.duration / 60;
+            let workout_total = item.summary.total;
+            activity.workout_personal_best += workout_total.personal_bests_achieved as i32;
+            activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
+            activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
+            activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
+            activity.workout_rest_time += workout_total.rest_time as i32;
         }
 
         let mut measurement_stream = UserMeasurement::find()

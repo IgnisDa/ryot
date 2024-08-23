@@ -31,15 +31,15 @@ pub struct Model {
     pub show_duration: i32,
     pub video_game_count: i32,
     pub visual_novel_count: i32,
-    pub metadata_interacted: i32,
-    pub people_interacted: i32,
-    pub exercises_interacted: i32,
+    pub workout_personal_best: i32,
     pub workout_weight: i32,
+    pub workout_reps: i32,
+    pub workout_distance: i32,
+    pub workout_rest_time: i32,
     pub total_metadata_count: i32,
     pub total_review_count: i32,
     pub total_count: i32,
     pub total_duration: i32,
-    pub total_interacted: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
