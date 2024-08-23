@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fmt::Write, pin::Pin};
+use std::{collections::HashMap, fmt::Write};
 
 use async_graphql::Result;
-use common_utils::{convert_naive_to_utc, ryot_log};
+use common_utils::ryot_log;
 use database_models::{
     daily_user_activity, metadata,
     prelude::{DailyUserActivity, Metadata, Review, Seen, UserMeasurement, Workout},
@@ -9,7 +9,7 @@ use database_models::{
 };
 use dependent_models::DailyUserActivitiesResponse;
 use enums::{EntityLot, MediaLot, SeenState};
-use futures::{Stream, TryStreamExt};
+use futures::TryStreamExt;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, DailyUserActivitiesInput,
     DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem, MangaSpecifics, MovieSpecifics,
@@ -21,8 +21,8 @@ use rust_decimal::prelude::ToPrimitive;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
     sea_query::{Alias, Func},
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    FromQueryResult, Iden, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
+    Iden, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
 
@@ -46,53 +46,6 @@ struct SeenItem {
     visual_novel_specifics: Option<VisualNovelSpecifics>,
     anime_specifics: Option<AnimeSpecifics>,
     manga_specifics: Option<MangaSpecifics>,
-}
-
-async fn get_seen_items_stream<'a>(
-    db: &'a DatabaseConnection,
-    user_id: &String,
-    start_from: Option<DateTimeUtc>,
-    is_finished_not_null: bool,
-) -> Result<Pin<Box<dyn Stream<Item = Result<SeenItem, DbErr>> + Send + 'a>>> {
-    let mut initial_filter = Seen::find()
-        .filter(seen::Column::UserId.eq(user_id))
-        .filter(seen::Column::State.eq(SeenState::Completed))
-        .apply_if(start_from, |query, v| {
-            query.filter(seen::Column::LastUpdatedOn.gt(v))
-        });
-    if is_finished_not_null {
-        initial_filter = initial_filter.filter(seen::Column::FinishedOn.is_not_null());
-    }
-    let seen_items_stream = initial_filter
-        .left_join(Metadata)
-        .select_only()
-        .column_as(seen::Column::Id, "seen_id")
-        .columns([
-            seen::Column::ShowExtraInformation,
-            seen::Column::PodcastExtraInformation,
-            seen::Column::AnimeExtraInformation,
-            seen::Column::MangaExtraInformation,
-            seen::Column::MetadataId,
-            seen::Column::FinishedOn,
-            seen::Column::LastUpdatedOn,
-        ])
-        .column_as(metadata::Column::Lot, "metadata_lot")
-        .columns([
-            metadata::Column::AudioBookSpecifics,
-            metadata::Column::BookSpecifics,
-            metadata::Column::MovieSpecifics,
-            metadata::Column::PodcastSpecifics,
-            metadata::Column::ShowSpecifics,
-            metadata::Column::VideoGameSpecifics,
-            metadata::Column::VisualNovelSpecifics,
-            metadata::Column::AnimeSpecifics,
-            metadata::Column::MangaSpecifics,
-        ])
-        .into_model::<SeenItem>()
-        .stream(db)
-        .await?;
-
-    Ok(seen_items_stream)
 }
 
 #[derive(Debug)]
@@ -342,16 +295,41 @@ impl StatisticsService {
                 });
             existing
         }
+        let mut seen_stream = Seen::find()
+            .filter(seen::Column::UserId.eq(user_id))
+            .filter(seen::Column::State.eq(SeenState::Completed))
+            .filter(seen::Column::LastUpdatedOn.gt(start_from))
+            .left_join(Metadata)
+            .select_only()
+            .column_as(seen::Column::Id, "seen_id")
+            .columns([
+                seen::Column::ShowExtraInformation,
+                seen::Column::PodcastExtraInformation,
+                seen::Column::AnimeExtraInformation,
+                seen::Column::MangaExtraInformation,
+                seen::Column::MetadataId,
+                seen::Column::FinishedOn,
+                seen::Column::LastUpdatedOn,
+            ])
+            .column_as(metadata::Column::Lot, "metadata_lot")
+            .columns([
+                metadata::Column::AudioBookSpecifics,
+                metadata::Column::BookSpecifics,
+                metadata::Column::MovieSpecifics,
+                metadata::Column::PodcastSpecifics,
+                metadata::Column::ShowSpecifics,
+                metadata::Column::VideoGameSpecifics,
+                metadata::Column::VisualNovelSpecifics,
+                metadata::Column::AnimeSpecifics,
+                metadata::Column::MangaSpecifics,
+            ])
+            .into_model::<SeenItem>()
+            .stream(&self.db)
+            .await?;
 
-        let mut seen_stream = get_seen_items_stream(
-            &self.db,
-            user_id,
-            Some(convert_naive_to_utc(start_from)),
-            true,
-        )
-        .await?;
         while let Some(seen) = seen_stream.try_next().await? {
-            let date = seen.finished_on.unwrap();
+            let default_date = Date::from_ymd_opt(2023, 4, 3).unwrap(); // DEV: The first commit of Ryot
+            let date = seen.finished_on.unwrap_or(default_date);
             let activity = get_activity_count(seen.seen_id, &mut activities, user_id, date);
             if let (Some(show_seen), Some(show_extra)) =
                 (seen.show_specifics, seen.show_extra_information)
