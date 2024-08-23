@@ -130,30 +130,32 @@ impl StatisticsService {
                 query.filter(daily_user_activity::Column::Date.gte(v))
             })
             .select_only();
-        let total = precondition
-            .clone()
-            .expr_as(
-                daily_user_activity::Column::Date
-                    .max()
-                    .sub(daily_user_activity::Column::Date.min())
-                    .add(1),
-                "num_days",
-            )
-            .into_tuple::<Option<i32>>()
-            .one(&self.db)
-            .await?;
         let grouped_by = if let Some(group_by) = input.group_by {
             group_by
-        } else if let Some(Some(num_days)) = total {
-            if num_days >= 500 {
-                DailyUserActivitiesResponseGroupedBy::Year
-            } else if num_days >= 200 {
-                DailyUserActivitiesResponseGroupedBy::Month
+        } else {
+            let total = precondition
+                .clone()
+                .expr_as(
+                    daily_user_activity::Column::Date
+                        .max()
+                        .sub(daily_user_activity::Column::Date.min())
+                        .add(1),
+                    "num_days",
+                )
+                .into_tuple::<Option<i32>>()
+                .one(&self.db)
+                .await?;
+            if let Some(Some(num_days)) = total {
+                if num_days >= 500 {
+                    DailyUserActivitiesResponseGroupedBy::Year
+                } else if num_days >= 200 {
+                    DailyUserActivitiesResponseGroupedBy::Month
+                } else {
+                    DailyUserActivitiesResponseGroupedBy::Day
+                }
             } else {
                 DailyUserActivitiesResponseGroupedBy::Day
             }
-        } else {
-            DailyUserActivitiesResponseGroupedBy::Day
         };
         let day_alias = Expr::col(Alias::new("day"));
         let items = precondition
