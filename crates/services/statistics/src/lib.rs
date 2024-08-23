@@ -655,7 +655,7 @@ impl StatisticsService {
             activity.workout_count += 1;
             activity.workout_duration += item.duration / 60;
             let workout_total = item.summary.total;
-            activity.workout_personal_best += workout_total.personal_bests_achieved as i32;
+            activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
             activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
             activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
             activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();

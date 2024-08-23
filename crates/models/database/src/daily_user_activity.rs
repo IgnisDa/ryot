@@ -31,7 +31,7 @@ pub struct Model {
     pub show_duration: i32,
     pub video_game_count: i32,
     pub visual_novel_count: i32,
-    pub workout_personal_best: i32,
+    pub workout_personal_bests: i32,
     pub workout_weight: i32,
     pub workout_reps: i32,
     pub workout_distance: i32,
