@@ -603,7 +603,6 @@ impl MiscellaneousService {
         let user_to_meta =
             get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
                 .await;
-        let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
         let average_rating = if reviews.is_empty() {
             None
         } else {
@@ -679,7 +678,6 @@ impl MiscellaneousService {
             in_progress,
             show_progress,
             average_rating,
-            units_consumed,
             podcast_progress,
             seen_by_user_count,
             seen_by_all_count: seen_by,
@@ -2737,7 +2735,11 @@ impl MiscellaneousService {
                 .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
                 .await
             {
-                ryot_log!(debug, "Metadata {:?} does not need to be updated", metadata_id);
+                ryot_log!(
+                    debug,
+                    "Metadata {:?} does not need to be updated",
+                    metadata_id
+                );
                 return Ok(vec![]);
             }
         }
@@ -2753,7 +2755,12 @@ impl MiscellaneousService {
         let notifications = match maybe_details {
             Ok(details) => self.update_media(metadata_id, details).await?,
             Err(e) => {
-                ryot_log!(error, "Error while updating metadata = {:?}: {:?}", metadata_id, e);
+                ryot_log!(
+                    error,
+                    "Error while updating metadata = {:?}: {:?}",
+                    metadata_id,
+                    e
+                );
                 vec![]
             }
         };
@@ -3476,7 +3483,10 @@ impl MiscellaneousService {
                 .await
                 .trace_ok();
         } else {
-            ryot_log!(debug, "User id = {user_id} has disabled notifications for {change}");
+            ryot_log!(
+                debug,
+                "User id = {user_id} has disabled notifications for {change}"
+            );
         }
         Ok(())
     }

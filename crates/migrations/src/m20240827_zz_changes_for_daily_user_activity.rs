@@ -53,6 +53,10 @@ ADD COLUMN IF NOT EXISTS entity_lot text GENERATED ALWAYS AS (
         .await?;
         db.execute_unprepared(r#"DROP TABLE IF EXISTS "user_summary""#)
             .await?;
+        db.execute_unprepared(
+            r#"ALTER TABLE "user_to_entity" DROP COLUMN IF EXISTS "metadata_units_consumed""#,
+        )
+        .await?;
         Ok(())
     }
 

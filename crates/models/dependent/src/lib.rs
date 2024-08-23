@@ -172,8 +172,6 @@ pub struct UserMetadataDetails {
     pub seen_by_user_count: usize,
     /// The average rating of this media in this service.
     pub average_rating: Option<Decimal>,
-    /// The number of units of this media that were consumed.
-    pub units_consumed: Option<i32>,
     /// The seen progress of this media if it is a show.
     pub show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.
