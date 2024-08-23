@@ -25,7 +25,7 @@ use media_models::{
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
-    sea_query::{Alias, Func, OnConflict, SimpleExpr},
+    sea_query::{Alias, Func, OnConflict},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
     FromQueryResult, Iden, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
@@ -155,15 +155,17 @@ impl StatisticsService {
         } else {
             DailyUserActivitiesResponseGroupedBy::Day
         };
-        let day_col = SimpleExpr::FunctionCall(Func::cast_as(
-            Func::cust(DateTrunc)
-                .arg(Expr::val(grouped_by.to_string()))
-                .arg(daily_user_activity::Column::Date.into_expr()),
-            Alias::new("DATE"),
-        ));
         let day_alias = Expr::col(Alias::new("day"));
         let items = precondition
-            .column_as(day_col.clone(), "day")
+            .column_as(
+                Expr::expr(Func::cast_as(
+                    Func::cust(DateTrunc)
+                        .arg(Expr::val(grouped_by.to_string()))
+                        .arg(daily_user_activity::Column::Date.into_expr()),
+                    Alias::new("DATE"),
+                )),
+                "day",
+            )
             .column_as(
                 daily_user_activity::Column::TotalReviewCount.sum(),
                 "total_review_count",

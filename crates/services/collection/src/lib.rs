@@ -77,7 +77,7 @@ impl CollectionService {
         }
         let collaborators_subquery = Query::select()
             .from(UserToCollection)
-            .expr(SimpleExpr::FunctionCall(
+            .expr(
                 Func::cust(JsonAgg).arg(
                     Func::cust(JsonBuildObject)
                         .arg(Expr::val("id"))
@@ -85,7 +85,7 @@ impl CollectionService {
                         .arg(Expr::val("name"))
                         .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
                 ),
-            ))
+            )
             .join(
                 JoinType::InnerJoin,
                 AliasedUser::Table,
@@ -140,18 +140,18 @@ impl CollectionService {
                 "count",
             )
             .expr_as(
-                SimpleExpr::FunctionCall(Func::coalesce([
+                Func::coalesce([
                     SimpleExpr::SubQuery(
                         None,
                         Box::new(collaborators_subquery.into_sub_query_statement()),
                     ),
                     SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
-                ])),
+                ]),
                 "collaborators",
             )
             .column(collection::Column::Description)
             .column_as(
-                SimpleExpr::FunctionCall(
+                Expr::expr(
                     Func::cust(JsonBuildObject)
                         .arg(Expr::val("id"))
                         .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
