@@ -28,4 +28,4 @@ tracing = { workspace = true }
 user-models = { path = "../../models/user" }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal"]
+ignored = ["rust_decimal", "tracing"]

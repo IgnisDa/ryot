@@ -22,6 +22,8 @@ pub struct Model {
     pub password: Option<String>,
     pub oidc_issuer_id: Option<String>,
     pub created_on: DateTimeUtc,
+    #[graphql(skip)]
+    pub last_login_on: Option<DateTimeUtc>,
     pub lot: UserLot,
     pub is_disabled: Option<bool>,
     #[graphql(skip)]
