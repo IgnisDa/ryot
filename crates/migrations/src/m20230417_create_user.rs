@@ -8,6 +8,7 @@ pub enum User {
     Table,
     Id,
     CreatedOn,
+    LastLoginOn,
     Name,
     Password,
     Lot,
@@ -38,6 +39,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(User::ExtraInformation).json_binary())
                     .col(ColumnDef::new(User::IsDisabled).boolean())
+                    .col(ColumnDef::new(User::LastLoginOn).timestamp_with_time_zone())
                     .to_owned(),
             )
             .await?;

@@ -13,3 +13,6 @@ nanoid = { workspace = true }
 serde_json = { workspace = true }
 miscellaneous-service = { path = "../../services/miscellaneous" }
 tracing = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

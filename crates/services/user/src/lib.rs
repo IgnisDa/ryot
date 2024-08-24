@@ -339,8 +339,8 @@ impl UserService {
                 }
                 if self.config.users.validate_password {
                     if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
-                        if let Some(hashed_password) = user.password {
-                            let parsed_hash = PasswordHash::new(&hashed_password).unwrap();
+                        if let Some(hashed_password) = &user.password {
+                            let parsed_hash = PasswordHash::new(hashed_password).unwrap();
                             if Argon2::default()
                                 .verify_password(password.as_bytes(), &parsed_hash)
                                 .is_err()
@@ -356,7 +356,10 @@ impl UserService {
                         }
                     }
                 }
-                let jwt_key = self.generate_auth_token(user.id).await?;
+                let jwt_key = self.generate_auth_token(user.id.clone()).await?;
+                let mut user: user::ActiveModel = user.into();
+                user.last_login_on = ActiveValue::Set(Some(Utc::now()));
+                user.update(&self.db).await?;
                 Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }

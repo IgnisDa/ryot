@@ -28,6 +28,7 @@ mod m20240714_create_access_link;
 mod m20240825_is_v7_migration;
 mod m20240827_create_daily_user_activity;
 mod m20240827_zz_changes_for_daily_user_activity;
+mod m20240828_add_last_login_on_column_to_user;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -77,6 +78,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240825_is_v7_migration::Migration),
             Box::new(m20240827_create_daily_user_activity::Migration),
             Box::new(m20240827_zz_changes_for_daily_user_activity::Migration),
+            Box::new(m20240828_add_last_login_on_column_to_user::Migration),
         ]
     }
 }
