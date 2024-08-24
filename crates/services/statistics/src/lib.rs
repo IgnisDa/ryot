@@ -250,7 +250,7 @@ impl StatisticsService {
                 },
             )
             .await?;
-        Ok(ls.items.first().cloned().unwrap_or_default())
+        Ok(ls.items.last().cloned().unwrap_or_default())
     }
 
     #[tracing::instrument(skip(self))]
