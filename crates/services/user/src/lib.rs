@@ -1,20 +1,21 @@
-use std::{str::FromStr, sync::Arc};
+use std::{fmt::Write, str::FromStr, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
+use chrono::{Timelike, Utc};
 use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use database_models::{
-    integration, notification_platform,
-    prelude::{Integration, NotificationPlatform, User},
+    access_link, integration, metadata, notification_platform,
+    prelude::{AccessLink, Integration, Metadata, NotificationPlatform, User},
     user,
 };
 use database_utils::{
     admin_account_guard, create_or_update_collection,
-    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, user_by_id,
+    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, revoke_access_link, user_by_id,
     user_preferences_by_id,
 };
 use dependent_models::UserDetailsResult;
@@ -22,14 +23,15 @@ use enum_meta::Meta;
 use enums::{IntegrationLot, IntegrationProvider, NotificationPlatformLot, UserLot};
 use fitness_models::UserUnitSystem;
 use itertools::Itertools;
-use jwt_service::sign;
+use jwt_service::{sign, AccessLinkClaims};
 use media_models::{
-    AuthUserInput, CreateOrUpdateCollectionInput, CreateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant, LoginResponse, LoginResult,
-    OidcTokenOutput, PasswordUserInput, RegisterError, RegisterErrorVariant, RegisterResult,
-    RegisterUserInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserDetailsError,
-    UserDetailsErrorVariant,
+    AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
+    CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
+    LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
+    ProcessAccessLinkErrorVariant, ProcessAccessLinkResponse, ProcessAccessLinkResult,
+    RegisterError, RegisterErrorVariant, RegisterResult, RegisterUserInput, UpdateUserInput,
+    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
+    UserDetailsError, UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -39,13 +41,14 @@ use openidconnect::{
     AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
 };
 use sea_orm::{
-    prelude::Expr, sea_query::extension::postgres::PgExpr, ActiveModelTrait, ActiveValue,
-    ColumnTrait, DatabaseConnection, EntityTrait, Iterable, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QueryTrait,
+    prelude::Expr,
+    sea_query::{extension::postgres::PgExpr, Func},
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iden, Iterable,
+    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use user_models::{
-    NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
-    UserPreferences, UserReviewScale,
+    DashboardElementLot, NotificationPlatformSpecifics, UserGeneralDashboardElement,
+    UserGeneralPreferences, UserPreferences, UserReviewScale,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -73,6 +76,132 @@ impl UserService {
             db: db.clone(),
             perform_application_job: perform_application_job.clone(),
         }
+    }
+
+    pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
+        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
+        struct Md5;
+        impl Iden for Md5 {
+            fn unquoted(&self, s: &mut dyn Write) {
+                write!(s, "MD5").unwrap();
+            }
+        }
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
+        let limit = preferences
+            .general
+            .dashboard
+            .into_iter()
+            .find(|d| d.section == DashboardElementLot::Recommendations)
+            .unwrap()
+            .num_elements;
+        let current_hour = Utc::now().hour();
+        let recs = Metadata::find()
+            .filter(metadata::Column::IsRecommendation.eq(true))
+            .order_by(
+                Expr::expr(
+                    Func::cust(Md5).arg(
+                        Expr::col(metadata::Column::Title)
+                            .concat(Expr::val(user_id))
+                            .concat(Expr::val(current_hour)),
+                    ),
+                ),
+                Order::Desc,
+            )
+            .limit(limit)
+            .all(&self.db)
+            .await?
+            .into_iter()
+            .map(|r| r.id)
+            .collect_vec();
+        Ok(recs)
+    }
+
+    pub async fn user_access_links(&self, user_id: &String) -> Result<Vec<access_link::Model>> {
+        let links = AccessLink::find()
+            .filter(access_link::Column::UserId.eq(user_id))
+            .order_by_desc(access_link::Column::CreatedOn)
+            .all(&self.db)
+            .await?;
+        Ok(links)
+    }
+
+    pub async fn create_access_link(
+        &self,
+        input: CreateAccessLinkInput,
+        user_id: String,
+    ) -> Result<StringIdObject> {
+        let new_link = access_link::ActiveModel {
+            user_id: ActiveValue::Set(user_id),
+            name: ActiveValue::Set(input.name),
+            expires_on: ActiveValue::Set(input.expires_on),
+            redirect_to: ActiveValue::Set(input.redirect_to),
+            maximum_uses: ActiveValue::Set(input.maximum_uses),
+            is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
+            ..Default::default()
+        };
+        let link = new_link.insert(&self.db).await?;
+        Ok(StringIdObject { id: link.id })
+    }
+
+    pub async fn process_access_link(
+        &self,
+        access_link_id: String,
+    ) -> Result<ProcessAccessLinkResult> {
+        let link = match AccessLink::find_by_id(access_link_id).one(&self.db).await? {
+            None => {
+                return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+                    error: ProcessAccessLinkErrorVariant::NotFound,
+                }))
+            }
+            Some(l) => l,
+        };
+        if let Some(expiration_time) = link.expires_on {
+            if expiration_time < Utc::now() {
+                return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+                    error: ProcessAccessLinkErrorVariant::Expired,
+                }));
+            }
+        }
+        if let Some(max_uses) = link.maximum_uses {
+            if link.times_used >= max_uses {
+                return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+                    error: ProcessAccessLinkErrorVariant::MaximumUsesReached,
+                }));
+            }
+        }
+        if let Some(true) = link.is_revoked {
+            return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
+                error: ProcessAccessLinkErrorVariant::Revoked,
+            }));
+        }
+        let validity = if let Some(expires) = link.expires_on {
+            (expires - Utc::now()).num_days().try_into().unwrap()
+        } else {
+            self.config.users.token_valid_for_days
+        };
+        let api_key = sign(
+            link.user_id.clone(),
+            &self.config.users.jwt_secret,
+            validity,
+            Some(AccessLinkClaims {
+                id: link.id.clone(),
+                is_demo: link.is_demo,
+            }),
+        )?;
+        let mut issued_tokens = link.issued_tokens.clone();
+        issued_tokens.push(api_key.clone());
+        let mut link: access_link::ActiveModel = link.into();
+        link.issued_tokens = ActiveValue::Set(issued_tokens);
+        let link = link.update(&self.db).await?;
+        Ok(ProcessAccessLinkResult::Ok(ProcessAccessLinkResponse {
+            api_key,
+            token_valid_for_days: validity,
+            redirect_to: link.redirect_to,
+        }))
+    }
+
+    pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
+        revoke_access_link(&self.db, access_link_id).await
     }
 
     pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {

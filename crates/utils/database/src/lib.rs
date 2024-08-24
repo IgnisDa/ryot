@@ -11,7 +11,7 @@ use common_models::{
 };
 use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
-    collection, collection_to_entity,
+    access_link, collection, collection_to_entity,
     functions::associate_user_with_entity,
     prelude::{
         AccessLink, Collection, CollectionToEntity, Review, User, UserMeasurement,
@@ -38,6 +38,17 @@ use sea_orm::{
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
 use user_models::{UserPreferences, UserReviewScale};
+
+pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String) -> Result<bool> {
+    AccessLink::update(access_link::ActiveModel {
+        id: ActiveValue::Set(access_link_id),
+        is_revoked: ActiveValue::Set(Some(true)),
+        ..Default::default()
+    })
+    .exec(db)
+    .await?;
+    Ok(true)
+}
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")

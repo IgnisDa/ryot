@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{self, Write},
+    fmt::{self},
     iter::zip,
     path::PathBuf,
     sync::Arc,
@@ -11,7 +11,7 @@ use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use cached::{DiskCache, IOCached};
-use chrono::{Days, Duration as ChronoDuration, NaiveDate, Timelike, Utc};
+use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
@@ -37,7 +37,8 @@ use database_models::{
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
     deploy_job_to_calculate_user_activities_and_summary, entity_in_collections, ilike_sql,
-    item_reviews, remove_entity_from_collection, user_by_id, user_preferences_by_id,
+    item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
+    user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -51,27 +52,24 @@ use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
 use integration_service::{integration_type::IntegrationType, IntegrationService};
 use itertools::Itertools;
-use jwt_service::{sign, AccessLinkClaims};
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
     first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
-    CreateAccessLinkInput, CreateCustomMetadataInput, CreateReviewCommentInput, GenreDetailsInput,
-    GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails,
-    GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment,
-    IntegrationMediaSeen, MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter,
-    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator,
-    MetadataGroupSearchInput, MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage,
-    MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails, MetadataSearchInput,
-    MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleListInput, PeopleSearchInput,
-    PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
-    PodcastSpecifics, PostReviewInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
-    ProcessAccessLinkResponse, ProcessAccessLinkResult, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateCustomMetadataInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
+    GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
+    GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment, IntegrationMediaSeen,
+    MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter, MediaSortBy,
+    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
+    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
+    MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
+    MetadataVideo, MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleListInput, PeopleSearchInput, PeopleSearchItem,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics,
+    PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ProviderLanguageInformation, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity};
@@ -95,7 +93,7 @@ use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
     ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
-    Iden, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
@@ -104,7 +102,7 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
-use user_models::{DashboardElementLot, UserReviewScale};
+use user_models::UserReviewScale;
 use uuid::Uuid;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
@@ -191,139 +189,6 @@ impl MiscellaneousService {
 type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 
 impl MiscellaneousService {
-    pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
-        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
-        struct Md5;
-        impl Iden for Md5 {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "MD5").unwrap();
-            }
-        }
-        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
-        let limit = preferences
-            .general
-            .dashboard
-            .into_iter()
-            .find(|d| d.section == DashboardElementLot::Recommendations)
-            .unwrap()
-            .num_elements;
-        let current_hour = Utc::now().hour();
-        let recs = Metadata::find()
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .order_by(
-                Expr::expr(
-                    Func::cust(Md5).arg(
-                        Expr::col(metadata::Column::Title)
-                            .concat(Expr::val(user_id))
-                            .concat(Expr::val(current_hour)),
-                    ),
-                ),
-                Order::Desc,
-            )
-            .limit(limit)
-            .all(&self.db)
-            .await?
-            .into_iter()
-            .map(|r| r.id)
-            .collect_vec();
-        Ok(recs)
-    }
-
-    pub async fn user_access_links(&self, user_id: &String) -> Result<Vec<access_link::Model>> {
-        let links = AccessLink::find()
-            .filter(access_link::Column::UserId.eq(user_id))
-            .order_by_desc(access_link::Column::CreatedOn)
-            .all(&self.db)
-            .await?;
-        Ok(links)
-    }
-
-    pub async fn create_access_link(
-        &self,
-        input: CreateAccessLinkInput,
-        user_id: String,
-    ) -> Result<StringIdObject> {
-        let new_link = access_link::ActiveModel {
-            user_id: ActiveValue::Set(user_id),
-            name: ActiveValue::Set(input.name),
-            expires_on: ActiveValue::Set(input.expires_on),
-            redirect_to: ActiveValue::Set(input.redirect_to),
-            maximum_uses: ActiveValue::Set(input.maximum_uses),
-            is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
-            ..Default::default()
-        };
-        let link = new_link.insert(&self.db).await?;
-        Ok(StringIdObject { id: link.id })
-    }
-
-    pub async fn process_access_link(
-        &self,
-        access_link_id: String,
-    ) -> Result<ProcessAccessLinkResult> {
-        let link = match AccessLink::find_by_id(access_link_id).one(&self.db).await? {
-            None => {
-                return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
-                    error: ProcessAccessLinkErrorVariant::NotFound,
-                }))
-            }
-            Some(l) => l,
-        };
-        if let Some(expiration_time) = link.expires_on {
-            if expiration_time < Utc::now() {
-                return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
-                    error: ProcessAccessLinkErrorVariant::Expired,
-                }));
-            }
-        }
-        if let Some(max_uses) = link.maximum_uses {
-            if link.times_used >= max_uses {
-                return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
-                    error: ProcessAccessLinkErrorVariant::MaximumUsesReached,
-                }));
-            }
-        }
-        if let Some(true) = link.is_revoked {
-            return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
-                error: ProcessAccessLinkErrorVariant::Revoked,
-            }));
-        }
-        let validity = if let Some(expires) = link.expires_on {
-            (expires - Utc::now()).num_days().try_into().unwrap()
-        } else {
-            self.config.users.token_valid_for_days
-        };
-        let api_key = sign(
-            link.user_id.clone(),
-            &self.config.users.jwt_secret,
-            validity,
-            Some(AccessLinkClaims {
-                id: link.id.clone(),
-                is_demo: link.is_demo,
-            }),
-        )?;
-        let mut issued_tokens = link.issued_tokens.clone();
-        issued_tokens.push(api_key.clone());
-        let mut link: access_link::ActiveModel = link.into();
-        link.issued_tokens = ActiveValue::Set(issued_tokens);
-        let link = link.update(&self.db).await?;
-        Ok(ProcessAccessLinkResult::Ok(ProcessAccessLinkResponse {
-            api_key,
-            token_valid_for_days: validity,
-            redirect_to: link.redirect_to,
-        }))
-    }
-
-    pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
-        AccessLink::update(access_link::ActiveModel {
-            id: ActiveValue::Set(access_link_id),
-            is_revoked: ActiveValue::Set(Some(true)),
-            ..Default::default()
-        })
-        .exec(&self.db)
-        .await?;
-        Ok(true)
-    }
-
     pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
         ryot_log!(
             debug,
@@ -414,7 +279,7 @@ ORDER BY RANDOM() LIMIT 10;
             .all(&self.db)
             .await?;
         for access_link in access_links {
-            self.revoke_access_link(access_link).await?;
+            revoke_access_link(&self.db, access_link).await?;
         }
         Ok(())
     }
@@ -2073,6 +1938,7 @@ ORDER BY RANDOM() LIMIT 10;
                 source: ActiveValue::Set(data.source),
                 images: ActiveValue::Set(image),
                 is_partial: ActiveValue::Set(Some(true)),
+                is_recommendation: ActiveValue::Set(data.is_recommendation),
                 ..Default::default()
             };
             c.insert(&self.db).await?
