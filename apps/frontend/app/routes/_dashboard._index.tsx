@@ -709,7 +709,7 @@ const ActivitySection = () => {
 				/>
 			) : (
 				<Paper withBorder h="100%" w="100%" display="flex">
-					<Text m="auto" size="xl">
+					<Text m="auto" ta="center">
 						No activity found in the selected period
 					</Text>
 				</Paper>

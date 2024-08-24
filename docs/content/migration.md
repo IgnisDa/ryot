@@ -16,6 +16,9 @@ order. Please make sure to replace `ryot` with `ryot-pro` if you are using the p
    change: `image: "ignisda/ryot:latest"` in your docker-compose file. This will
    automatically apply all migrations.
 
+4. Login as the admin user and go to the "Miscellaneous" settings page and click on the
+   button to "Perform background tasks".
+
 ## From `v5.*` to `v6.*`
 
 !!! warning "Integrations deleted"
