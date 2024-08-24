@@ -4539,6 +4539,11 @@ GROUP BY m.id;
         }
         ryot_log!(debug, "Deleting all queued notifications");
         QueuedNotification::delete_many().exec(&self.db).await?;
+        ryot_log!(debug, "Deleting revoked access tokens");
+        AccessLink::delete_many()
+            .filter(access_link::Column::IsRevoked.eq(true))
+            .exec(&self.db)
+            .await?;
         Ok(())
     }
 
@@ -4626,6 +4631,7 @@ GROUP BY m.id;
             .trace_ok();
         // DEV: Invalid access tokens are revoked before being deleted, so we call this
         // function after removing useless data.
+        ryot_log!(trace, "Revoking invalid access tokens");
         self.revoke_invalid_access_tokens().await.trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
