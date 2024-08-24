@@ -638,6 +638,7 @@ const ActivitySection = () => {
 			};
 		},
 	});
+	const items = dailyUserActivitiesData?.totalCount || 0;
 
 	return (
 		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
@@ -649,7 +650,9 @@ const ActivitySection = () => {
 			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
 				<DisplayStat
 					label="Total"
-					value={`${dailyUserActivitiesData?.totalCount || 0} items`}
+					value={`${new Intl.NumberFormat("en-US", {
+						notation: "compact",
+					}).format(Number(items))} items`}
 				/>
 				<DisplayStat
 					label="Duration"
