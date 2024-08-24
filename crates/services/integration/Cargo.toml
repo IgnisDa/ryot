@@ -7,11 +7,12 @@ edition = "2021"
 anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
-enums = { path = "../../enums" }
+common-utils = { path = "../../utils/common" }
 common-models = { path = "../../models/common" }
-eventsource-stream = "=0.2.3"
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
+enums = { path = "../../enums" }
+eventsource-stream = "=0.2.3"
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }
 radarr-api-rs = "=3.0.1"
@@ -25,6 +26,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = "=3.0.0"
 specific-models = { path = "../../models/specific" }
-tokio = "1.39.2"
+tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }

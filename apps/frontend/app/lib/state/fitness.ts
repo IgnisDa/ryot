@@ -26,6 +26,7 @@ import {
 	CurrentWorkoutKey,
 	clientGqlService,
 	dayjsLib,
+	getTimeOfDay,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
@@ -89,18 +90,10 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 	return exercise?.sets[setIdx];
 };
 
-const getTimeOfDay = (date: Date) => {
-	const hours = date.getHours();
-	if (hours >= 5 && hours < 12) return "Morning";
-	if (hours >= 12 && hours < 17) return "Afternoon";
-	if (hours >= 17 && hours < 21) return "Evening";
-	return "Night";
-};
-
 export const getDefaultWorkout = (): InProgressWorkout => {
 	const date = new Date();
 	return {
-		name: `${getTimeOfDay(date)} Workout`,
+		name: `${getTimeOfDay(date.getHours())} Workout`,
 		startTime: date.toISOString(),
 		exercises: [],
 		images: [],

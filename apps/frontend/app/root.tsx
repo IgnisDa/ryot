@@ -7,6 +7,7 @@ import {
 	MantineProvider,
 	createTheme,
 } from "@mantine/core";
+import "@mantine/charts/styles.css";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import {

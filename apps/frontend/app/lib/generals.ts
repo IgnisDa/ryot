@@ -29,6 +29,8 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
 import { match } from "ts-pattern";
@@ -45,6 +47,8 @@ declare global {
 dayjs.extend(relativeTime);
 dayjs.extend(duration);
 dayjs.extend(localizedFormat);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export { dayjs as dayjsLib };
 
@@ -67,6 +71,14 @@ export const queryClient = new QueryClient({
 export enum FitnessEntity {
 	Workouts = "workouts",
 	Templates = "templates",
+}
+
+export enum TimeSpan {
+	Last7Days = "Last 7 days",
+	Last30Days = "Last 30 days",
+	Last90Days = "Last 90 days",
+	Last365Days = "Last 365 days",
+	AllTime = "All Time",
 }
 
 export const getSetColor = (l: SetLot) =>
@@ -312,6 +324,9 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	coreDetails: () => ({
 		queryKey: ["coreDetails"],
 	}),
+	dailyUserActivities: (startDate?: string, endDate?: string) => ({
+		queryKey: ["dailyUserActivities", startDate, endDate],
+	}),
 });
 
 export const queryFactory = mergeQueryKeys(
@@ -375,3 +390,10 @@ export const getUserMetadataDetailsQuery = (metadataId?: string | null) =>
 						.then((data) => data.userMetadataDetails)
 			: skipToken,
 	});
+
+export const getTimeOfDay = (hours: number) => {
+	if (hours >= 5 && hours < 12) return "Morning";
+	if (hours >= 12 && hours < 17) return "Afternoon";
+	if (hours >= 17 && hours < 21) return "Evening";
+	return "Night";
+};

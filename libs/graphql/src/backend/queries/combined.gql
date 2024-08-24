@@ -154,3 +154,26 @@ query UserAccessLinks {
     isMutationAllowed
   }
 }
+
+query DailyUserActivities($input: DailyUserActivitiesInput!) {
+  dailyUserActivities(input: $input) {
+    groupedBy
+    totalCount
+    totalDuration
+    items {
+      day
+      totalReviewCount
+      workoutCount
+      measurementCount
+      audioBookCount
+      animeCount
+      bookCount
+      podcastCount
+      mangaCount
+      showCount
+      movieCount
+      videoGameCount
+      visualNovelCount
+    }
+  }
+}

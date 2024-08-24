@@ -5,18 +5,23 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
+application-utils = { path = "../utils/application" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+common-models = { path = "../models/common" }
+common-utils = { path = "../utils/common" }
 config = { path = "../config" }
 const-str = { workspace = true }
 convert_case = { workspace = true }
+database-models = { path = "../models/database" }
+dependent-models = { path = "../models/dependent" }
 enums = { path = "../enums" }
 graphql_client = "=0.14.0"
-hashbag = "=0.1.12"
+hashbag = { workspace = true }
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = { workspace = true }
-models = { path = "../models" }
+media-models = { path = "../models/media" }
 paginate = "=1.1.11"
 rand = "=0.9.0-alpha.2"
 reqwest = { workspace = true }
@@ -31,4 +36,3 @@ serde_with = { workspace = true }
 strum = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../traits" }
-utils = { path = "../utils" }

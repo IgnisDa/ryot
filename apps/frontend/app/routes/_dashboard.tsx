@@ -139,6 +139,8 @@ import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
 import classes from "~/styles/dashboard.module.css";
 
+const discordLink = "https://discord.gg/D9XTg2a7R8";
+
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections, { coreDetails }] = await Promise.all(
@@ -321,8 +323,8 @@ export function ErrorBoundary() {
 							If the error still persists please contact the developer on{" "}
 							<Anchor
 								target="_blank"
+								href={discordLink}
 								rel="noreferrer noopener"
-								href="https://discord.gg/D9XTg2a7R8"
 							>
 								Discord
 							</Anchor>{" "}
@@ -748,9 +750,9 @@ const Footer = () => {
 						</Text>
 					</Anchor>
 				) : null}
-				<Anchor href="https://diptesh.me" target="_blank">
+				<Anchor href={discordLink} target="_blank">
 					<Text c="indigo" fw="bold">
-						{loaderData.coreDetails.authorName}
+						Discord
 					</Text>
 				</Anchor>
 				<Text c="grape" fw="bold" visibleFrom="md">

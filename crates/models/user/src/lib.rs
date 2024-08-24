@@ -269,6 +269,7 @@ pub enum DashboardElementLot {
     InProgress,
     Summary,
     Recommendations,
+    Activity,
 }
 
 #[skip_serializing_none]
@@ -323,6 +324,11 @@ impl Default for UserGeneralPreferences {
                     section: DashboardElementLot::Recommendations,
                     hidden: false,
                     num_elements: Some(8),
+                },
+                UserGeneralDashboardElement {
+                    section: DashboardElementLot::Activity,
+                    hidden: false,
+                    num_elements: None,
                 },
             ],
             persist_queries: true,

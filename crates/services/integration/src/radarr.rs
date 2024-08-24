@@ -1,3 +1,4 @@
+use common_utils::ryot_log;
 use radarr_api_rs::{
     apis::{
         configuration::{ApiKey as RadarrApiKey, Configuration as RadarrConfiguration},
@@ -49,7 +50,7 @@ impl RadarrIntegration {
         let mut options = RadarrAddMovieOptions::new();
         options.search_for_movie = Some(true);
         resource.add_options = Some(Box::new(options));
-        tracing::debug!("Pushing movie to Radarr {:?}", resource);
+        ryot_log!(debug, "Pushing movie to Radarr {:?}", resource);
         radarr_api_v3_movie_post(&configuration, Some(resource))
             .await
             .trace_ok();

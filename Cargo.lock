@@ -28,6 +28,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
+name = "adler2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
+
+[[package]]
 name = "ahash"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -240,7 +246,7 @@ dependencies = [
  "config",
  "file-storage-service",
  "jwt-service",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
 ]
 
 [[package]]
@@ -827,35 +833,53 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "apalis",
+ "application-utils",
  "async-graphql",
+ "async-graphql-axum",
  "aws-sdk-s3",
  "axum",
  "background",
  "chrono",
  "chrono-tz",
+ "collection-resolver",
+ "collection-service",
+ "common-utils",
  "config",
+ "database-models",
  "dotenvy",
+ "exporter-resolver",
+ "exporter-service",
+ "file-storage-resolver",
+ "file-storage-service",
+ "fitness-resolver",
+ "fitness-service",
  "http 1.1.0",
+ "importer-resolver",
+ "importer-service",
  "itertools 0.13.0",
  "logs-wheel",
+ "media-models",
  "migrations",
- "models",
+ "miscellaneous-resolver",
+ "miscellaneous-service",
  "openidconnect",
- "reqwest 0.11.23",
- "resolvers",
+ "reqwest 0.12.7",
+ "router-resolver",
  "sea-orm",
  "sea-orm-migration",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
- "services",
+ "statistics-resolver",
+ "statistics-service",
  "tokio",
  "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
  "unkey",
- "utils",
+ "user-resolver",
+ "user-service",
 ]
 
 [[package]]
@@ -884,7 +908,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "libc",
- "miniz_oxide",
+ "miniz_oxide 0.7.4",
  "object",
  "rustc-demangle",
 ]
@@ -1238,6 +1262,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
+name = "collection-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "collection-service",
+ "common-models",
+ "dependent-models",
+ "media-models",
+ "traits",
+]
+
+[[package]]
+name = "collection-service"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "async-graphql",
+ "background",
+ "common-models",
+ "config",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "enums",
+ "media-models",
+ "migrations",
+ "sea-orm",
+ "sea-query",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1276,7 +1331,6 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "enum_meta",
- "rust_decimal",
  "schematic",
  "sea-orm",
  "serde",
@@ -1292,7 +1346,7 @@ dependencies = [
  "compile-time",
  "const-str",
  "dotenvy_macro",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
 ]
 
 [[package]]
@@ -1641,8 +1695,11 @@ dependencies = [
  "background",
  "chrono",
  "common-models",
+ "common-utils",
+ "config",
  "database-models",
  "dependent-models",
+ "enums",
  "file-storage-service",
  "fitness-models",
  "itertools 0.13.0",
@@ -2137,7 +2194,7 @@ dependencies = [
  "media-models",
  "mime_guess",
  "nanoid",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
  "sea-orm",
  "serde_json",
  "struson",
@@ -2261,7 +2318,7 @@ dependencies = [
  "itertools 0.13.0",
  "migrations",
  "nanoid",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -2272,12 +2329,12 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.31"
+version = "1.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f211bbe8e69bbd0cfdea405084f128ae8b4aaa6b0b522fc8f2b009084797920"
+checksum = "9c0596c1eac1f9e04ed902702e9878208b336edc9d6fddc8a48387349bab3666"
 dependencies = [
  "crc32fast",
- "miniz_oxide",
+ "miniz_oxide 0.8.0",
 ]
 
 [[package]]
@@ -3103,7 +3160,7 @@ dependencies = [
  "miscellaneous-service",
  "providers",
  "regex",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -3173,6 +3230,7 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "common-models",
+ "common-utils",
  "database-models",
  "database-utils",
  "enums",
@@ -3181,7 +3239,7 @@ dependencies = [
  "providers",
  "radarr-api-rs",
  "regex",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -3469,6 +3527,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with 3.9.0",
+ "strum",
 ]
 
 [[package]]
@@ -3506,11 +3565,8 @@ version = "0.1.0"
 dependencies = [
  "enums",
  "indoc",
- "nanoid",
  "sea-orm",
  "sea-orm-migration",
- "serde",
- "serde_json",
  "tracing",
 ]
 
@@ -3546,6 +3602,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "miniz_oxide"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2d80299ef12ff69b16a84bb182e3b9df68b5a91574d3d4fa6e41b65deec4df1"
+dependencies = [
+ "adler2",
+]
+
+[[package]]
 name = "mio"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3568,7 +3633,6 @@ dependencies = [
  "media-models",
  "miscellaneous-service",
  "traits",
- "user-models",
 ]
 
 [[package]]
@@ -3577,7 +3641,6 @@ version = "0.1.0"
 dependencies = [
  "apalis",
  "application-utils",
- "argon2",
  "async-graphql",
  "background",
  "cached",
@@ -3589,10 +3652,8 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
- "enum_meta",
  "enums",
  "file-storage-service",
- "fitness-models",
  "futures",
  "integration-service",
  "itertools 0.13.0",
@@ -3602,9 +3663,7 @@ dependencies = [
  "migrations",
  "nanoid",
  "notification-service",
- "openidconnect",
  "providers",
- "reqwest 0.11.23",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
@@ -3612,24 +3671,11 @@ dependencies = [
  "serde",
  "serde_json",
  "slug",
+ "tokio",
  "tracing",
  "traits",
  "user-models",
  "uuid",
-]
-
-[[package]]
-name = "models"
-version = "0.1.0"
-dependencies = [
- "common-models",
- "database-models",
- "dependent-models",
- "fitness-models",
- "importer-models",
- "media-models",
- "specific-models",
- "user-models",
 ]
 
 [[package]]
@@ -3701,7 +3747,7 @@ dependencies = [
  "config",
  "convert_case",
  "lettre",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
  "serde",
  "serde_json",
  "tracing",
@@ -4376,21 +4422,26 @@ name = "providers"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "application-utils",
  "async-trait",
  "chrono",
  "chrono-tz",
+ "common-models",
+ "common-utils",
  "config",
  "const-str",
  "convert_case",
+ "database-models",
+ "dependent-models",
  "enums",
  "graphql_client",
  "hashbag",
  "isolang",
  "itertools 0.13.0",
- "models",
+ "media-models",
  "paginate",
  "rand 0.9.0-alpha.2",
- "reqwest 0.11.23",
+ "reqwest 0.12.7",
  "rust_decimal",
  "rust_decimal_macros",
  "rust_iso3166",
@@ -4402,7 +4453,6 @@ dependencies = [
  "strum",
  "tracing",
  "traits",
- "utils",
 ]
 
 [[package]]
@@ -4653,46 +4703,6 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.23"
-source = "git+https://github.com/thomasqueirozb/reqwest?branch=base_url#2239b693cf974bca1b567bb0b5d04e478e5dd5d4"
-dependencies = [
- "base64 0.21.7",
- "bytes",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "h2 0.3.26",
- "http 0.2.12",
- "http-body 0.4.6",
- "hyper 0.14.30",
- "hyper-tls 0.5.0",
- "ipnet",
- "js-sys",
- "log",
- "mime",
- "native-tls",
- "once_cell",
- "percent-encoding",
- "pin-project-lite",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper 0.1.2",
- "system-configuration",
- "tokio",
- "tokio-native-tls",
- "tokio-util",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-streams",
- "web-sys",
- "winreg 0.50.0",
-]
-
-[[package]]
-name = "reqwest"
 version = "0.11.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd67538700a17451e7cba03ac727fb961abb7607553461627b97de0b89cf4a62"
@@ -4723,7 +4733,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper 0.1.2",
- "system-configuration",
+ "system-configuration 0.5.1",
  "tokio",
  "tokio-native-tls",
  "tokio-rustls 0.24.1",
@@ -4733,14 +4743,14 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "webpki-roots",
- "winreg 0.50.0",
+ "winreg",
 ]
 
 [[package]]
 name = "reqwest"
-version = "0.12.5"
+version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7d6d2a27d57148378eb5e111173f4276ad26340ecc5c49a4a2152167a2d6a37"
+checksum = "f8f4955649ef5c38cc7f9e8aa41761d48fb9677197daea9984dc54f56aad5e63"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4770,31 +4780,17 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper 1.0.1",
- "system-configuration",
+ "system-configuration 0.6.1",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
- "winreg 0.52.0",
-]
-
-[[package]]
-name = "resolvers"
-version = "0.1.0"
-dependencies = [
- "application-utils",
- "async-graphql",
- "async-graphql-axum",
- "axum",
- "exporter-resolver",
- "file-storage-resolver",
- "fitness-resolver",
- "importer-resolver",
- "miscellaneous-resolver",
- "router-resolver",
+ "windows-registry",
 ]
 
 [[package]]
@@ -5098,7 +5094,7 @@ dependencies = [
  "garde",
  "indexmap 2.2.6",
  "miette",
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "schematic_macros",
  "schematic_types",
  "serde",
@@ -5569,20 +5565,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "services"
-version = "0.1.0"
-dependencies = [
- "exporter-service",
- "file-storage-service",
- "fitness-service",
- "importer-service",
- "integration-service",
- "jwt-service",
- "miscellaneous-service",
- "notification-service",
-]
-
-[[package]]
 name = "servo_arc"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5726,7 +5708,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0f85e838c6093957978793ece2c0893c838da8dd5bcab0ff6f57fcaa8fc8ee9"
 dependencies = [
- "reqwest 0.12.5",
+ "reqwest 0.12.7",
  "serde",
  "serde_json",
  "serde_with 3.9.0",
@@ -6034,6 +6016,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7beae5182595e9a8b683fa98c4317f956c9a2dec3b9716990d20023cc60c766"
 
 [[package]]
+name = "statistics-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "dependent-models",
+ "media-models",
+ "statistics-service",
+ "traits",
+]
+
+[[package]]
+name = "statistics-service"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enums",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "string_cache"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6170,6 +6180,9 @@ name = "sync_wrapper"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7065abeca94b6a8a577f9bd45aa0867a2238b74e8eb67cf10d492bc39351394"
+dependencies = [
+ "futures-core",
+]
 
 [[package]]
 name = "system-configuration"
@@ -6179,7 +6192,18 @@ checksum = "ba3a3adc5c275d719af8cb4272ea1c4a6d668a777f37e115f6d11ddbc1c8e0e7"
 dependencies = [
  "bitflags 1.3.2",
  "core-foundation",
- "system-configuration-sys",
+ "system-configuration-sys 0.5.0",
+]
+
+[[package]]
+name = "system-configuration"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c879d448e9d986b661742763247d3693ed13609438cf3d006f51f5368a5ba6b"
+dependencies = [
+ "bitflags 2.6.0",
+ "core-foundation",
+ "system-configuration-sys 0.6.0",
 ]
 
 [[package]]
@@ -6187,6 +6211,16 @@ name = "system-configuration-sys"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
+name = "system-configuration-sys"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -6591,6 +6625,7 @@ dependencies = [
  "async-graphql",
  "async-trait",
  "common-models",
+ "common-utils",
  "config",
  "database-models",
  "database-utils",
@@ -6774,6 +6809,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "user-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "database-models",
+ "dependent-models",
+ "media-models",
+ "traits",
+ "user-models",
+ "user-service",
+]
+
+[[package]]
+name = "user-service"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "application-utils",
+ "argon2",
+ "async-graphql",
+ "background",
+ "common-models",
+ "common-utils",
+ "config",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "enum_meta",
+ "enums",
+ "fitness-models",
+ "itertools 0.13.0",
+ "jwt-service",
+ "media-models",
+ "nanoid",
+ "notification-service",
+ "openidconnect",
+ "sea-orm",
+ "serde_json",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
 name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6784,15 +6863,6 @@ name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
-
-[[package]]
-name = "utils"
-version = "0.1.0"
-dependencies = [
- "application-utils",
- "common-utils",
- "database-utils",
-]
 
 [[package]]
 name = "uuid"
@@ -6923,9 +6993,9 @@ checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
 
 [[package]]
 name = "wasm-streams"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4609d447824375f43e1ffbc051b50ad8f4b3ae8219680c94452ea05eb240ac7"
+checksum = "b65dc4c90b63b118468cf747d8bf3566c1913ef60be765b5730ead9e0a3ba129"
 dependencies = [
  "futures-util",
  "js-sys",
@@ -7008,6 +7078,36 @@ version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
 dependencies = [
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-registry"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e400001bb720a623c1c69032f8e3e4cf09984deec740f007dd2b03ec864804b0"
+dependencies = [
+ "windows-result",
+ "windows-strings",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d1043d8214f791817bab27572aaa8af63732e11bf84aa21a45a78d6c317ae0e"
+dependencies = [
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd9b125c486025df0eabcb585e62173c6c9eddcec5d117d3b6e8c30e2ee4d10"
+dependencies = [
+ "windows-result",
  "windows-targets 0.52.6",
 ]
 
@@ -7173,16 +7273,6 @@ name = "winreg"
 version = "0.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
-dependencies = [
- "cfg-if",
- "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "winreg"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a277a57398d4bfa075df44f501a17cfdf8542d224f0d36095a2adc7aee4ef0a5"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",

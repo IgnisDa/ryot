@@ -1,5 +1,6 @@
 use async_graphql::Result;
 use common_models::DefaultCollection;
+use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
@@ -72,7 +73,13 @@ pub async fn import(
                 continue;
             }
         };
-        tracing::debug!("Found tmdb id: {} ({}/{})", identifier, idx + 1, total);
+        ryot_log!(
+            debug,
+            "Found tmdb id: {} ({}/{})",
+            identifier,
+            idx + 1,
+            total
+        );
         media.push(ImportOrExportMediaItem {
             identifier,
             lot,

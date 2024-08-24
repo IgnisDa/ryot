@@ -1,3 +1,4 @@
+use common_utils::ryot_log;
 use sonarr_api_rs::{
     apis::{
         configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
@@ -51,7 +52,7 @@ impl SonarrIntegration {
         let mut options = SonarrAddSeriesOptions::new();
         options.search_for_missing_episodes = Some(true);
         resource.add_options = Some(Box::new(options));
-        tracing::debug!("Pushing series to Sonarr {:?}", resource);
+        ryot_log!(debug, "Pushing series to Sonarr {:?}", resource);
         sonarr_api_v3_series_post(&configuration, Some(resource))
             .await
             .trace_ok();

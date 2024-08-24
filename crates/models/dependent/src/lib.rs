@@ -8,10 +8,11 @@ use enums::UserToMediaReason;
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, EntityWithLot, GenreListItem, GraphqlMediaAssets,
-    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportPersonItem,
-    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
+    EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportMediaGroupItem,
+    ImportOrExportMediaItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
+    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -132,7 +133,6 @@ pub struct CoreDetails {
     pub oidc_enabled: bool,
     pub smtp_enabled: bool,
     pub website_url: String,
-    pub author_name: String,
     pub signup_allowed: bool,
     pub repository_link: String,
     pub token_valid_for_days: i32,
@@ -173,8 +173,6 @@ pub struct UserMetadataDetails {
     pub seen_by_user_count: usize,
     /// The average rating of this media in this service.
     pub average_rating: Option<Decimal>,
-    /// The number of units of this media that were consumed.
-    pub units_consumed: Option<i32>,
     /// The seen progress of this media if it is a show.
     pub show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.
@@ -192,6 +190,15 @@ pub struct ImportResult {
     pub measurements: Vec<user_measurement::Model>,
     pub workouts: Vec<UserWorkoutInput>,
     pub failed_items: Vec<ImportFailedItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct DailyUserActivitiesResponse {
+    pub total_count: i64,
+    pub item_count: usize,
+    pub total_duration: i64,
+    pub items: Vec<DailyUserActivityItem>,
+    pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
 
 #[derive(Debug, SimpleObject, Clone)]

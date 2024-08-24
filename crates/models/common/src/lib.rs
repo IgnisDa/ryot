@@ -1,8 +1,5 @@
-use std::collections::HashSet;
-
 use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
-use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
@@ -129,13 +126,13 @@ meta! {
 
 #[derive(Enum, Serialize, Deserialize, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BackgroundJob {
-    CalculateSummary,
-    EvaluateWorkouts,
     UpdateAllMetadata,
     UpdateAllExercises,
-    RecalculateCalendarEvents,
     SyncIntegrationsData,
     PerformBackgroundTasks,
+    ReEvaluateUserWorkouts,
+    RecalculateCalendarEvents,
+    CalculateUserActivitiesAndSummary,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]
@@ -201,152 +198,6 @@ pub enum MediaStateChanged {
     MetadataEpisodeImagesChanged,
     PersonMediaAssociated,
     ReviewPosted,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AudioBooksSummary {
-    pub runtime: i32,
-    pub played: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct VideoGamesSummary {
-    pub played: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct VisualNovelsSummary {
-    pub played: usize,
-    pub runtime: i32,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct BooksSummary {
-    pub pages: i32,
-    pub read: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MoviesSummary {
-    pub runtime: i32,
-    pub watched: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct PodcastsSummary {
-    pub runtime: i32,
-    pub played: usize,
-    pub played_episodes: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct ShowsSummary {
-    pub runtime: i32,
-    pub watched: usize,
-    pub watched_episodes: usize,
-    pub watched_seasons: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MangaSummary {
-    pub chapters: usize,
-    pub read: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct AnimeSummary {
-    pub episodes: usize,
-    pub watched: usize,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct MediaOverallSummary {
-    pub reviewed: u64,
-    pub interacted_with: u64,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct UserMediaSummary {
-    pub books: BooksSummary,
-    pub movies: MoviesSummary,
-    pub podcasts: PodcastsSummary,
-    pub shows: ShowsSummary,
-    pub video_games: VideoGamesSummary,
-    pub visual_novels: VisualNovelsSummary,
-    pub audio_books: AudioBooksSummary,
-    pub anime: AnimeSummary,
-    pub manga: MangaSummary,
-    pub metadata_overall: MediaOverallSummary,
-    pub people_overall: MediaOverallSummary,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct UserFitnessWorkoutSummary {
-    pub recorded: u64,
-    pub duration: Decimal,
-    pub weight: Decimal,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct UserFitnessSummary {
-    pub measurements_recorded: u64,
-    pub exercises_interacted_with: u64,
-    pub workouts: UserFitnessWorkoutSummary,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult)]
-pub struct UserSummaryUniqueItems {
-    pub audio_books: HashSet<String>,
-    pub anime_episodes: HashSet<(String, i32)>,
-    pub anime: HashSet<String>,
-    pub manga_volumes: HashSet<(String, i32)>,
-    pub manga_chapters: HashSet<(String, i32)>,
-    pub manga: HashSet<String>,
-    pub books: HashSet<String>,
-    pub movies: HashSet<String>,
-    pub visual_novels: HashSet<String>,
-    pub video_games: HashSet<String>,
-    pub show_episodes: HashSet<(String, i32, i32)>,
-    pub show_seasons: HashSet<(String, i32)>,
-    pub shows: HashSet<String>,
-    pub podcast_episodes: HashSet<(String, i32)>,
-    pub podcasts: HashSet<String>,
-}
-
-#[derive(
-    SimpleObject, Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize, FromJsonQueryResult,
-)]
-pub struct UserSummaryData {
-    pub fitness: UserFitnessSummary,
-    pub media: UserMediaSummary,
-    #[graphql(skip)]
-    pub unique_items: UserSummaryUniqueItems,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

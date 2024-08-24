@@ -1,21 +1,23 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use common_models::{SearchDetails, StoredUrl};
 use config::AnilistPreferredLanguage;
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
-use models::{
+use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MediaDetails,
     MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
     MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    PersonSourceSpecifics, SearchDetails, SearchResults, StoredUrl,
+    PersonSourceSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::get_base_http_client;
 
 static URL: &str = "https://graphql.anilist.co";
 static STUDIO_ROLE: &str = "Production Studio";
@@ -93,7 +95,7 @@ impl MediaProviderLanguages for AnilistService {
 
 impl AnilistService {
     async fn new(page_size: i32, config: &config::AnilistConfig) -> Self {
-        let client = get_client_config(URL).await;
+        let client = get_client_config().await;
         Self {
             client,
             page_size,
@@ -154,7 +156,7 @@ impl MediaProvider for NonMediaAnilistService {
             let search = self
                 .base
                 .client
-                .post("")
+                .post(URL)
                 .json(&body)
                 .send()
                 .await
@@ -197,7 +199,7 @@ impl MediaProvider for NonMediaAnilistService {
             let search = self
                 .base
                 .client
-                .post("")
+                .post(URL)
                 .json(&body)
                 .send()
                 .await
@@ -259,7 +261,7 @@ impl MediaProvider for NonMediaAnilistService {
             let details = self
                 .base
                 .client
-                .post("")
+                .post(URL)
                 .json(&body)
                 .send()
                 .await
@@ -318,7 +320,7 @@ impl MediaProvider for NonMediaAnilistService {
             let details = self
                 .base
                 .client
-                .post("")
+                .post(URL)
                 .json(&body)
                 .send()
                 .await
@@ -525,8 +527,8 @@ impl MediaProvider for AnilistMangaService {
     }
 }
 
-async fn get_client_config(url: &str) -> Client {
-    get_base_http_client(url, None)
+async fn get_client_config() -> Client {
+    get_base_http_client(None)
 }
 
 async fn media_details(

@@ -1,11 +1,15 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
+use common_models::SearchDetails;
+use common_utils::convert_date_to_year;
 use convert_case::{Case, Casing};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
-    MetadataSearchItem, SearchDetails, SearchResults,
+    MetadataSearchItem,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue},
@@ -14,7 +18,6 @@ use reqwest::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_date_to_year, get_base_http_client};
 
 static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
 
@@ -37,13 +40,10 @@ impl MediaProviderLanguages for GoogleBooksService {
 
 impl GoogleBooksService {
     pub async fn new(config: &config::GoogleBooksConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(
-            URL,
-            Some(vec![(
-                HeaderName::from_static("x-goog-api-key"),
-                HeaderValue::from_str(&config.api_key).unwrap(),
-            )]),
-        );
+        let client = get_base_http_client(Some(vec![(
+            HeaderName::from_static("x-goog-api-key"),
+            HeaderValue::from_str(&config.api_key).unwrap(),
+        )]));
         Self {
             client,
             page_limit,
@@ -97,7 +97,7 @@ impl MediaProvider for GoogleBooksService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client
-            .get(identifier)
+            .get(format!("{}/{}", URL, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -116,7 +116,7 @@ impl MediaProvider for GoogleBooksService {
         let index = (page - 1) * self.page_limit;
         let rsp = self
             .client
-            .get("")
+            .get(URL)
             .query(&serde_json::json!({
                 "q": match self.pass_raw_query {
                     true => query.to_owned(),
@@ -245,7 +245,7 @@ impl GoogleBooksService {
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
         let resp = self
             .client
-            .get("")
+            .get(URL)
             .query(&serde_json::json!({ "q": format!("isbn:{}", isbn) }))
             .send()
             .await

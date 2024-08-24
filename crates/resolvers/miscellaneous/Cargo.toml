@@ -11,4 +11,3 @@ dependent-models = { path = "../../models/dependent" }
 media-models = { path = "../../models/media" }
 miscellaneous-service = { path = "../../services/miscellaneous" }
 traits = { path = "../../traits" }
-user-models = { path = "../../models/user" }

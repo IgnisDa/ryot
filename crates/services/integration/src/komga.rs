@@ -6,6 +6,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use application_utils::get_base_http_client;
 use async_graphql::futures_util::StreamExt;
+use common_utils::ryot_log;
 use database_models::{metadata, prelude::Metadata};
 use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
@@ -224,11 +225,12 @@ impl KomgaIntegration {
         komga_username: String,
         komga_password: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let client = get_base_http_client(&format!("{}/sse/v1/", base_url), None);
+        let url = format!("{}/sse/v1/", base_url);
+        let client = get_base_http_client(None);
 
         loop {
             let response = client
-                .get("events")
+                .get(format!("{}/events", url))
                 .basic_auth(komga_username.to_string(), Some(komga_password.to_string()))
                 .send()
                 .await
@@ -238,7 +240,7 @@ impl KomgaIntegration {
 
             while let Some(event) = stream.next().await {
                 let event = event.context("Failed to get next event")?;
-                tracing::trace!(?event, "Received SSE event");
+                ryot_log!(debug, ?event, "Received SSE event");
 
                 // We could also handle ReadProgressDeleted here but I don't
                 // think we want to handle any deletions like this
@@ -246,21 +248,21 @@ impl KomgaIntegration {
                     match serde_json::from_str::<komga_events::Data>(&event.data) {
                         Ok(read_progress) => {
                             if sender.send(read_progress).is_err() {
-                                tracing::debug!("Receiver dropped, exiting SSE listener");
+                                ryot_log!(debug, "Receiver dropped, exiting SSE listener");
                                 break;
                             }
                         }
                         Err(e) => {
-                            tracing::warn!(error = ?e, data = ?event.data,
+                            ryot_log!(warn, error = ?e, data = ?event.data,
                                 "Failed to parse ReadProgressChanged event data");
                         }
                     }
                 } else {
-                    tracing::trace!(event_type = ?event.event, "Received unhandled event type");
+                    ryot_log!(trace, event_type = ?event.event, "Received unhandled event type");
                 }
             }
 
-            tracing::trace!("SSE listener finished");
+            ryot_log!(trace, "SSE listener finished");
             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
         }
     }
@@ -341,18 +343,23 @@ impl KomgaIntegration {
     }
 
     async fn process_events(&self, data: komga_events::Data) -> Option<IntegrationMediaSeen> {
-        let client = get_base_http_client(&format!("{}/api/v1/", self.base_url), None);
+        let url = format!("{}/api/v1/", self.base_url);
+        let client = get_base_http_client(None);
 
-        let book: komga_book::Item = self.fetch_api(&client, "books", &data.book_id).await.ok()?;
+        let book: komga_book::Item = self
+            .fetch_api(&client, &format!("{}/books", &url), &data.book_id)
+            .await
+            .ok()?;
         let series: komga_series::Item = self
-            .fetch_api(&client, "series", &book.series_id)
+            .fetch_api(&client, &format!("{}/series", &url), &book.series_id)
             .await
             .ok()?;
 
         let (source, id) = self.find_provider_and_id(&series).await.ok()?;
 
         let Some(id) = id else {
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "No MAL URL or database entry found for manga: {}",
                 series.name
             );
@@ -400,7 +407,7 @@ impl KomgaIntegration {
                     if let Err(e) =
                         Self::sse_listener(tx, base_url, komga_username, komga_password).await
                     {
-                        tracing::error!("SSE listener error: {}", e);
+                        ryot_log!(error, "SSE listener error: {}", e);
                     }
                 });
             });
@@ -413,7 +420,7 @@ impl KomgaIntegration {
             loop {
                 match recv.try_recv() {
                     Ok(event) => {
-                        tracing::debug!("Received event {:?}", event);
+                        ryot_log!(debug, "Received event {:?}", event);
                         match unique_media_items.entry(event.book_id.clone()) {
                             Entry::Vacant(entry) => {
                                 if let Some(processed_event) =
@@ -421,7 +428,8 @@ impl KomgaIntegration {
                                 {
                                     entry.insert(processed_event);
                                 } else {
-                                    tracing::warn!(
+                                    ryot_log!(
+                                        warn,
                                         "Failed to process event for book_id: {}",
                                         event.book_id
                                     );
@@ -441,7 +449,7 @@ impl KomgaIntegration {
 
         let mut media_items: Vec<IntegrationMediaSeen> = unique_media_items.into_values().collect();
         media_items.sort_by(|a, b| a.manga_chapter_number.cmp(&b.manga_chapter_number));
-        tracing::debug!("Media Items: {:?}", media_items);
+        ryot_log!(debug, "Media Items: {:?}", media_items);
 
         Ok((media_items, vec![]))
     }

@@ -7,6 +7,7 @@ use background::{ApplicationJob, CoreApplicationJob};
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput, StoredUrl,
 };
+use common_utils::ryot_log;
 use database_models::{
     collection_to_entity, exercise,
     prelude::{
@@ -31,8 +32,8 @@ use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseSortBy, ExercisesListInput, GithubExercise, GithubExerciseAttributes,
     ProcessedExercise, UpdateUserWorkoutInput, UserExerciseInput, UserMeasurementsListInput,
-    UserWorkoutInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutSetRecord, WorkoutSummary,
-    WorkoutSummaryExercise,
+    UserWorkoutInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals,
+    WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -145,7 +146,7 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let mut summary = WorkoutSummary {
-            total: None,
+            total: WorkoutOrExerciseTotals::default(),
             exercises: vec![],
         };
         let mut information = WorkoutInformation {
@@ -495,7 +496,8 @@ impl ExerciseService {
             .one(&self.db)
             .await?
         {
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Updating existing exercise with identifier: {}",
                 ex.identifier
             );
@@ -528,7 +530,11 @@ impl ExerciseService {
                 created_by_user_id: ActiveValue::Set(None),
             };
             let created_exercise = db_exercise.insert(&self.db).await?;
-            tracing::debug!("Created new exercise with id: {}", created_exercise.id);
+            ryot_log!(
+                debug,
+                "Created new exercise with id: {}",
+                created_exercise.id
+            );
         }
         Ok(())
     }
@@ -687,7 +693,7 @@ impl ExerciseService {
             workout.clone().delete(&self.db).await?;
             let workout_input = self.db_workout_to_workout_input(workout);
             self.create_user_workout(&user_id, workout_input).await?;
-            tracing::debug!("Re-evaluated workout: {}/{}", idx + 1, total);
+            ryot_log!(debug, "Re-evaluated workout: {}/{}", idx + 1, total);
         }
         Ok(())
     }

@@ -23,7 +23,7 @@ dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
 fitness-models = { path = "../../models/fitness" }
 fitness-service = { path = "../../services/fitness" }
-flate2 = "=1.0.31"
+flate2 = "=1.0.32"
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }

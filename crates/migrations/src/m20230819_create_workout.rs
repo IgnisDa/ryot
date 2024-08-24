@@ -13,6 +13,8 @@ pub enum Workout {
     Name,
     StartTime,
     EndTime,
+    /// The duration of the workout in seconds
+    Duration,
     /// General information like total weights lifted, number of records etc.
     Summary,
     /// Actual exercises performed, supersets, etc.
@@ -40,6 +42,12 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Workout::EndTime)
                             .timestamp_with_time_zone()
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Workout::Duration)
+                            .integer()
+                            .not_null()
+                            .extra("GENERATED ALWAYS AS (EXTRACT(EPOCH FROM (end_time - start_time))) STORED")
                     )
                     .col(ColumnDef::new(Workout::Summary).json_binary().not_null())
                     .col(

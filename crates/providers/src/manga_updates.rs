@@ -1,18 +1,19 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use common_models::SearchDetails;
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-    SearchDetails, SearchResults,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::get_base_http_client;
 
 static URL: &str = "https://api.mangaupdates.com/v1/";
 
@@ -34,7 +35,7 @@ impl MediaProviderLanguages for MangaUpdatesService {
 
 impl MangaUpdatesService {
     pub async fn new(_config: &config::MangaUpdatesConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, None);
+        let client = get_base_http_client(None);
         Self { client, page_limit }
     }
 }
@@ -174,7 +175,7 @@ impl MediaProvider for MangaUpdatesService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
-            .post("authors/search")
+            .post(format!("{}/authors/search", URL))
             .json(&serde_json::json!({
                 "search": query,
                 "perpage": self.page_limit,
@@ -216,7 +217,7 @@ impl MediaProvider for MangaUpdatesService {
     ) -> Result<MetadataPerson> {
         let data: ItemAuthor = self
             .client
-            .get(format!("authors/{}", identity))
+            .get(format!("{}/authors/{}", URL, identity))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -225,7 +226,7 @@ impl MediaProvider for MangaUpdatesService {
             .map_err(|e| anyhow!(e))?;
         let related_data: ItemPersonRelatedSeries = self
             .client
-            .post(format!("authors/{}/series", identity))
+            .post(format!("{}/authors/{}/series", URL, identity))
             .json(&serde_json::json!({ "orderby": "year" }))
             .send()
             .await
@@ -276,7 +277,7 @@ impl MediaProvider for MangaUpdatesService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let data: MetadataItemRecord = self
             .client
-            .get(format!("series/{}", identifier))
+            .get(format!("{}/series/{}", URL, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -313,7 +314,7 @@ impl MediaProvider for MangaUpdatesService {
         {
             if let Ok(data) = self
                 .client
-                .get(format!("series/{}", series_id))
+                .get(format!("{}/series/{}", URL, series_id))
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
@@ -378,7 +379,7 @@ impl MediaProvider for MangaUpdatesService {
         let page = page.unwrap_or(1);
         let search: MetadataSearchResponse<MetadataItemResponse> = self
             .client
-            .post("series/search")
+            .post(format!("{}/series/search", URL))
             .json(&serde_json::json!({
                 "search": query,
                 "perpage": self.page_limit,

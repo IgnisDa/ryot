@@ -1,16 +1,19 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
+use common_utils::TEMP_DIR;
+use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
-    metadata_group::MetadataGroupWithoutId, IdObject, MediaDetails, MetadataGroupSearchItem,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
-    MetadataVideoSource, NamedObject, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics, SearchDetails, SearchResults, StoredUrl,
-    VideoGameSpecifics,
+use media_models::{
+    MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
+    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
@@ -23,7 +26,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{get_base_http_client, TEMP_DIR};
 
 static URL: &str = "https://api.igdb.com/v4/";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
@@ -206,7 +208,7 @@ offset: {offset};
             offset = (page.unwrap_or(1) - 1) * self.page_limit
         );
         let rsp = client
-            .post("collections")
+            .post(format!("{}/collections", URL))
             .body(req_body)
             .send()
             .await
@@ -244,7 +246,7 @@ where id = {id};
             id = identifier
         );
         let details: IgdbItemResponse = client
-            .post("collections")
+            .post(format!("{}/collections", URL))
             .body(req_body)
             .send()
             .await
@@ -309,7 +311,7 @@ offset: {offset};
             offset = (page.unwrap_or(1) - 1) * self.page_limit
         );
         let rsp = client
-            .post("companies")
+            .post(format!("{}/companies", URL))
             .body(req_body)
             .send()
             .await
@@ -351,7 +353,7 @@ where id = {id};
             id = identity
         );
         let rsp = client
-            .post("involved_companies")
+            .post(format!("{}/involved_companies", URL))
             .body(req_body)
             .send()
             .await
@@ -427,7 +429,7 @@ where id = {id};
             id = identifier
         );
         let rsp = client
-            .post("games")
+            .post(format!("{}/games", URL))
             .body(req_body)
             .send()
             .await
@@ -454,7 +456,7 @@ where id = {id};
         let count_req_body =
             format!(r#"fields id; where version_parent = null; search "{query}"; limit: 500;"#);
         let rsp = client
-            .post("games")
+            .post(format!("{}/games", URL))
             .body(count_req_body)
             .send()
             .await
@@ -476,7 +478,7 @@ offset: {offset};
             offset = (page - 1) * self.page_limit
         );
         let rsp = client
-            .post("games")
+            .post(format!("{}/games", URL))
             .body(req_body)
             .send()
             .await
@@ -642,17 +644,14 @@ async fn get_client(config: &config::VideoGameConfig) -> Client {
         let data = fs::read_to_string(path).unwrap();
         serde_json::from_str(&data).unwrap()
     };
-    get_base_http_client(
-        URL,
-        Some(vec![
-            (
-                HeaderName::from_static("client-id"),
-                HeaderValue::from_str(&config.twitch.client_id).unwrap(),
-            ),
-            (
-                AUTHORIZATION,
-                HeaderValue::from_str(&settings.access_token).unwrap(),
-            ),
-        ]),
-    )
+    get_base_http_client(Some(vec![
+        (
+            HeaderName::from_static("client-id"),
+            HeaderValue::from_str(&config.twitch.client_id).unwrap(),
+        ),
+        (
+            AUTHORIZATION,
+            HeaderValue::from_str(&settings.access_token).unwrap(),
+        ),
+    ]))
 }

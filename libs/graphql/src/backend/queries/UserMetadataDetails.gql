@@ -12,7 +12,6 @@ query UserMetadataDetails($metadataId: String!) {
       ...SeenPart
     }
     averageRating
-    unitsConsumed
     reviews {
       ...ReviewItemPart
     }

@@ -1,6 +1,6 @@
 use application_utils::get_base_http_client;
 use async_graphql::Result;
-use common_utils::APPLICATION_JSON_HEADER;
+use common_utils::{ryot_log, APPLICATION_JSON_HEADER};
 use convert_case::{Case, Casing};
 use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
@@ -58,26 +58,24 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     let mut media = vec![];
     let mut failed_items = vec![];
 
-    let client = get_base_http_client(
-        &format!("{}/users/{}/", API_URL, input.username),
-        Some(vec![
-            (CONTENT_TYPE, APPLICATION_JSON_HEADER.clone()),
-            (
-                HeaderName::from_static("trakt-api-key"),
-                HeaderValue::from_static(CLIENT_ID),
-            ),
-            (
-                HeaderName::from_static("trakt-api-version"),
-                HeaderValue::from_static(API_VERSION),
-            ),
-        ]),
-    );
-    let rsp = client.get("lists").send().await.unwrap();
+    let url = format!("{}/users/{}/", API_URL, input.username);
+    let client = get_base_http_client(Some(vec![
+        (CONTENT_TYPE, APPLICATION_JSON_HEADER.clone()),
+        (
+            HeaderName::from_static("trakt-api-key"),
+            HeaderValue::from_static(CLIENT_ID),
+        ),
+        (
+            HeaderName::from_static("trakt-api-version"),
+            HeaderValue::from_static(API_VERSION),
+        ),
+    ]));
+    let rsp = client.get(format!("{}/lists", url)).send().await.unwrap();
     let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
 
     for list in lists.iter_mut() {
         let rsp = client
-            .get(&format!("lists/{}/items", list.ids.trakt))
+            .get(&format!("{}/lists/{}/items", url, list.ids.trakt))
             .send()
             .await
             .unwrap();
@@ -85,7 +83,11 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         list.items = items;
     }
     for list in ["watchlist", "favorites"] {
-        let rsp = client.get(list).send().await.unwrap();
+        let rsp = client
+            .get(format!("{}/{}", url, list))
+            .send()
+            .await
+            .unwrap();
         let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
         lists.push(ListResponse {
             name: list.to_owned(),
@@ -127,7 +129,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
     for type_ in ["movies", "shows"] {
         let rsp = client
-            .get(format!("ratings/{}", type_))
+            .get(format!("{}/ratings/{}", url, type_))
             .send()
             .await
             .unwrap();
@@ -161,7 +163,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
     let mut histories = vec![];
     let rsp = client
-        .head("history")
+        .head(format!("{}/history", url))
         .query(&serde_json::json!({ "limit": 1000 }))
         .send()
         .await
@@ -175,9 +177,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         .parse::<usize>()
         .unwrap();
     for page in 1..total_history + 1 {
-        tracing::debug!("Fetching user history {page:?}/{total_history:?}");
+        ryot_log!(debug, "Fetching user history {page:?}/{total_history:?}");
         let rsp = client
-            .get("history")
+            .get(format!("{}/history", url))
             .query(&serde_json::json!({ "page": page, "limit": 1000 }))
             .send()
             .await

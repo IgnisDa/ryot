@@ -954,8 +954,7 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="history">
 						{loaderData.userMetadataDetails.seenByAllCount > 0 ||
-						loaderData.userMetadataDetails.seenByUserCount > 0 ||
-						loaderData.userMetadataDetails.unitsConsumed ? (
+						loaderData.userMetadataDetails.seenByUserCount > 0 ? (
 							<Stack h={MEDIA_DETAILS_HEIGHT} gap="xs">
 								<Box>
 									<Text fz={{ base: "sm", md: "md" }}>
@@ -971,38 +970,6 @@ export default function Page() {
 											: ""}{" "}
 										by you.
 									</Text>
-									{loaderData.userMetadataDetails.unitsConsumed ? (
-										<Text fz={{ base: "sm", md: "md" }}>
-											Consumed{" "}
-											{match(loaderData.metadataDetails.lot)
-												.with(
-													MediaLot.AudioBook,
-													MediaLot.Movie,
-													MediaLot.Show,
-													MediaLot.Podcast,
-													MediaLot.VisualNovel,
-													() =>
-														humanizeDuration(
-															(loaderData.userMetadataDetails.unitsConsumed ||
-																0) *
-																1000 *
-																60,
-														),
-												)
-												.otherwise(
-													(v) =>
-														`${loaderData.userMetadataDetails.unitsConsumed} ${match(
-															v,
-														)
-															.with(MediaLot.VideoGame, () => "")
-															.with(MediaLot.Book, () => "pages")
-															.with(MediaLot.Anime, () => "episodes")
-															.with(MediaLot.Manga, () => "chapters")
-															.exhaustive()}`,
-												)}
-											.
-										</Text>
-									) : null}
 								</Box>
 								<Virtuoso
 									data={loaderData.userMetadataDetails.history}

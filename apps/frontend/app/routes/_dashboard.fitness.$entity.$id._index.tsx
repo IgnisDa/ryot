@@ -117,6 +117,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				entityName: workoutDetails.details.name,
 				startTime: workoutDetails.details.startTime,
 				endTime: workoutDetails.details.endTime,
+				duration: workoutDetails.details.duration,
 				information: workoutDetails.details.information,
 				summary: workoutDetails.details.summary,
 				repeatedWorkout: repeatedWorkout,
@@ -443,58 +444,59 @@ export default function Page() {
 							Done on{" "}
 						</Text>
 						<Text span>{dayjsLib(loaderData.startTime).format("LLL")}</Text>
-						{loaderData.summary.total ? (
-							<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
-								{loaderData.endTime && loaderData.startTime ? (
-									<DisplayStat
-										icon={<IconClock size={16} />}
-										data={humanizeDuration(
-											new Date(loaderData.endTime).valueOf() -
-												new Date(loaderData.startTime).valueOf(),
-											{ round: true, units: ["h", "m"] },
-										)}
-									/>
-								) : null}
-								{Number(loaderData.summary.total.weight) !== 0 ? (
-									<DisplayStat
-										icon={<IconWeight size={16} />}
-										data={displayWeightWithUnit(
-											unitSystem,
-											loaderData.summary.total.weight,
-										)}
-									/>
-								) : null}
-								{Number(loaderData.summary.total.distance) > 0 ? (
-									<DisplayStat
-										icon={<IconRun size={16} />}
-										data={displayDistanceWithUnit(
-											unitSystem,
-											loaderData.summary.total.distance,
-										)}
-									/>
-								) : null}
+						<SimpleGrid mt="xs" cols={{ base: 3, md: 4, xl: 5 }}>
+							{loaderData.endTime && loaderData.startTime ? (
 								<DisplayStat
-									icon={<IconBarbell size={16} />}
-									data={`${loaderData.summary.exercises.length} Exercises`}
+									icon={<IconClock size={16} />}
+									data={humanizeDuration(
+										dayjsLib
+											.duration(loaderData.duration, "second")
+											.asMilliseconds(),
+										{
+											round: true,
+											units: ["h", "m"],
+										},
+									)}
 								/>
-								{Number(loaderData.summary.total.personalBestsAchieved) !==
-								0 ? (
-									<DisplayStat
-										icon={<IconTrophy size={16} />}
-										data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
-									/>
-								) : null}
-								{loaderData.summary.total.restTime > 0 ? (
-									<DisplayStat
-										icon={<IconZzz size={16} />}
-										data={humanizeDuration(
-											loaderData.summary.total.restTime * 1e3,
-											{ round: true, units: ["m", "s"] },
-										)}
-									/>
-								) : null}
-							</SimpleGrid>
-						) : null}
+							) : null}
+							{Number(loaderData.summary.total.weight) !== 0 ? (
+								<DisplayStat
+									icon={<IconWeight size={16} />}
+									data={displayWeightWithUnit(
+										unitSystem,
+										loaderData.summary.total.weight,
+									)}
+								/>
+							) : null}
+							{Number(loaderData.summary.total.distance) > 0 ? (
+								<DisplayStat
+									icon={<IconRun size={16} />}
+									data={displayDistanceWithUnit(
+										unitSystem,
+										loaderData.summary.total.distance,
+									)}
+								/>
+							) : null}
+							<DisplayStat
+								icon={<IconBarbell size={16} />}
+								data={`${loaderData.summary.exercises.length} Exercises`}
+							/>
+							{Number(loaderData.summary.total.personalBestsAchieved) !== 0 ? (
+								<DisplayStat
+									icon={<IconTrophy size={16} />}
+									data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
+								/>
+							) : null}
+							{loaderData.summary.total.restTime > 0 ? (
+								<DisplayStat
+									icon={<IconZzz size={16} />}
+									data={humanizeDuration(
+										loaderData.summary.total.restTime * 1e3,
+										{ round: true, units: ["m", "s"] },
+									)}
+								/>
+							) : null}
+						</SimpleGrid>
 					</Box>
 					{loaderData.information.comment ? (
 						<Box>

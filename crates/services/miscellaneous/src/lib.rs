@@ -1,52 +1,24 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt,
+    fmt::{self, Write},
     iter::zip,
     path::PathBuf,
-    str::FromStr,
     sync::Arc,
 };
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
+use background::{ApplicationJob, CoreApplicationJob};
 use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Timelike, Utc};
-use enum_meta::Meta;
-use futures::TryStreamExt;
-use itertools::Itertools;
-use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
-use nanoid::nanoid;
-use openidconnect::{
-    core::{CoreClient, CoreResponseType},
-    reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
-};
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use sea_orm::{
-    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
-};
-use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, Iden, OnConflict,
-    PgFunc, PostgresQueryBuilder, Query, SelectStatement, SimpleExpr, Write,
-};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
-use application_utils::{get_current_date, user_id_from_token};
-use background::{ApplicationJob, CoreApplicationJob};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
     IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
-    UserSummaryData,
 };
 use common_utils::{
-    get_first_and_last_day_of_month, IsFeatureEnabled, AUTHOR, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
-    VERSION,
+    get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
+    TEMP_DIR, VERSION,
 };
 use database_models::{
     access_link, calendar_event, collection, collection_to_entity,
@@ -55,66 +27,55 @@ use database_models::{
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
     person,
     prelude::{
-        AccessLink, CalendarEvent, Collection, CollectionToEntity, Exercise, Genre, ImportReport,
+        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport,
         Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
-        QueuedNotification, Review, Seen, User, UserMeasurement, UserSummary, UserToCollection,
-        UserToEntity, Workout,
+        QueuedNotification, Review, Seen, User, UserToCollection, UserToEntity,
     },
-    queued_notification, review, seen, user, user_measurement, user_summary, user_to_collection,
-    user_to_entity, workout,
+    queued_notification, review, seen, user, user_to_collection, user_to_entity,
 };
 use database_utils::{
-    add_entity_to_collection, apply_collection_filter, entity_in_collections, ilike_sql,
-    review_by_id, user_by_id,
+    add_entity_to_collection, admin_account_guard, apply_collection_filter,
+    deploy_job_to_calculate_user_activities_and_summary, entity_in_collections, ilike_sql,
+    item_reviews, remove_entity_from_collection, user_by_id, user_preferences_by_id,
 };
 use dependent_models::{
-    CollectionContents, CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails,
-    PersonDetails, SearchResults, UserDetailsResult, UserMetadataDetails, UserMetadataGroupDetails,
-    UserPersonDetails,
+    CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
+    SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use enums::{
     EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
-    MetadataToMetadataRelation, NotificationPlatformLot, SeenState, UserLot, UserToMediaReason,
-    Visibility,
+    MetadataToMetadataRelation, SeenState, UserToMediaReason, Visibility,
 };
 use file_storage_service::FileStorageService;
-use fitness_models::UserUnitSystem;
+use futures::TryStreamExt;
 use integration_service::{integration_type::IntegrationType, IntegrationService};
+use itertools::Itertools;
 use jwt_service::{sign, AccessLinkClaims};
+use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, AuthUserInput, CollectionContentsInput,
-    CollectionContentsSortBy, CollectionItem, CommitMediaInput, CommitPersonInput,
-    CreateAccessLinkInput, CreateCustomMetadataInput, CreateOrUpdateCollectionInput,
-    CreateReviewCommentInput, CreateUserIntegrationInput, CreateUserNotificationPlatformInput,
-    EntityWithLot, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
-    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, IntegrationMediaSeen, LoginError, LoginErrorVariant,
-    LoginResponse, LoginResult, MediaAssociatedPersonStateChanges, MediaDetails,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
-    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
-    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
-    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
-    MetadataVideoSource, OidcTokenOutput, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PasswordUserInput, PeopleListInput, PeopleSearchInput,
+    first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
+    CreateAccessLinkInput, CreateCustomMetadataInput, CreateReviewCommentInput, GenreDetailsInput,
+    GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails,
+    GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment,
+    IntegrationMediaSeen, MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter,
+    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator,
+    MetadataGroupSearchInput, MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage,
+    MetadataImageForMediaDetails, MetadataListInput, MetadataPartialDetails, MetadataSearchInput,
+    MetadataSearchItemResponse, MetadataVideo, MetadataVideoSource, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleListInput, PeopleSearchInput,
     PeopleSearchItem, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy,
     PodcastSpecifics, PostReviewInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
     ProcessAccessLinkResponse, ProcessAccessLinkResult, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-    ProviderLanguageInformation, RegisterError, RegisterErrorVariant, RegisterResult,
-    RegisterUserInput, ReviewItem, ReviewPostedEvent, SeenAnimeExtraInformation,
+    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserCalendarEventInput,
-    UserDetailsError, UserDetailsErrorVariant, UserMediaNextEntry,
+    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
     UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
-use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedSeen, AliasedUser,
-    AliasedUserToCollection, AliasedUserToEntity,
-};
+use migrations::{AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity};
+use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService},
@@ -129,11 +90,22 @@ use providers::{
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
     vndb::VndbService,
 };
-use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
-use user_models::{
-    DashboardElementLot, NotificationPlatformSpecifics, UserGeneralDashboardElement,
-    UserGeneralPreferences, UserPreferences, UserReviewScale,
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use sea_orm::{
+    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
+    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
+    Iden, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
+use sea_query::{
+    extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
+    PostgresQueryBuilder, Query, SelectStatement,
+};
+use serde::{Deserialize, Serialize};
+use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
+use user_models::{DashboardElementLot, UserReviewScale};
+use uuid::Uuid;
 
 type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -148,14 +120,6 @@ impl MediaProviderLanguages for CustomService {
     fn default_language() -> String {
         "us".to_owned()
     }
-}
-
-fn get_password_hasher() -> Argon2<'static> {
-    Argon2::default()
-}
-
-fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
-    Ok(())
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
@@ -177,25 +141,25 @@ impl fmt::Display for ProgressUpdateCache {
 }
 
 pub struct MiscellaneousService {
+    oidc_enabled: bool,
     db: DatabaseConnection,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     timezone: Arc<chrono_tz::Tz>,
-    file_storage_service: Arc<FileStorageService>,
     config: Arc<config::AppConfig>,
-    oidc_client: Arc<Option<CoreClient>>,
+    file_storage_service: Arc<FileStorageService>,
+    perform_application_job: MemoryStorage<ApplicationJob>,
     seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
 impl MiscellaneousService {
     pub async fn new(
+        oidc_enabled: bool,
         db: &DatabaseConnection,
+        timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-        timezone: Arc<chrono_tz::Tz>,
-        oidc_client: Arc<Option<CoreClient>>,
     ) -> Self {
         let cache_name = "seen_progress_cache";
         let path = PathBuf::new().join(TEMP_DIR);
@@ -212,14 +176,14 @@ impl MiscellaneousService {
             .unwrap();
 
         Self {
-            db: db.clone(),
             config,
             timezone,
+            oidc_enabled,
+            db: db.clone(),
+            seen_progress_cache,
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
-            oidc_client,
-            seen_progress_cache,
         }
     }
 }
@@ -235,7 +199,7 @@ impl MiscellaneousService {
                 write!(s, "MD5").unwrap();
             }
         }
-        let preferences = self.user_preferences(user_id).await?;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let limit = preferences
             .general
             .dashboard
@@ -247,7 +211,7 @@ impl MiscellaneousService {
         let recs = Metadata::find()
             .filter(metadata::Column::IsRecommendation.eq(true))
             .order_by(
-                SimpleExpr::FunctionCall(
+                Expr::expr(
                     Func::cust(Md5).arg(
                         Expr::col(metadata::Column::Title)
                             .concat(Expr::val(user_id))
@@ -360,6 +324,101 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
+        ryot_log!(
+            debug,
+            "Updating old recommendations to not be recommendations anymore"
+        );
+        let mut metadata_stream = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .filter(metadata::Column::IsRecommendation.eq(true))
+            .into_tuple::<String>()
+            .stream(&self.db)
+            .await?;
+        let mut recommendations_to_update = vec![];
+        while let Some(meta) = metadata_stream.try_next().await? {
+            let num_ute = UserToEntity::find()
+                .filter(user_to_entity::Column::MetadataId.eq(&meta))
+                .count(&self.db)
+                .await?;
+            if num_ute > 0 {
+                recommendations_to_update.push(meta);
+            }
+        }
+        Metadata::update_many()
+            .filter(metadata::Column::Id.is_in(recommendations_to_update))
+            .set(metadata::ActiveModel {
+                is_recommendation: ActiveValue::Set(None),
+                ..Default::default()
+            })
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Downloading new recommendations for users");
+        #[derive(Debug, FromQueryResult)]
+        struct CustomQueryResponse {
+            lot: MediaLot,
+            source: MediaSource,
+            identifier: String,
+        }
+        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            r#"
+SELECT "m"."lot", "m"."identifier", "m"."source"
+FROM (
+    SELECT "user_id", "metadata_id" FROM "user_to_entity"
+    WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
+) "sub"
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3)
+ORDER BY RANDOM() LIMIT 10;
+        "#,
+            [
+                MediaSource::GoogleBooks.into(),
+                MediaSource::Itunes.into(),
+                MediaSource::Vndb.into(),
+            ],
+        ))
+        .all(&self.db)
+        .await?;
+        let mut media_item_ids = vec![];
+        for media in media_items.into_iter() {
+            let provider = self.get_metadata_provider(media.lot, media.source).await?;
+            if let Ok(recommendations) = provider
+                .get_recommendations_for_metadata(&media.identifier)
+                .await
+            {
+                for mut rec in recommendations {
+                    rec.is_recommendation = Some(true);
+                    if let Ok(meta) = self.create_partial_metadata(rec).await {
+                        media_item_ids.push(meta.id);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn revoke_invalid_access_tokens(&self) -> Result<()> {
+        let access_links = AccessLink::find()
+            .select_only()
+            .column(access_link::Column::Id)
+            .filter(
+                Condition::any()
+                    .add(
+                        Expr::col(access_link::Column::TimesUsed)
+                            .gte(Expr::col(access_link::Column::MaximumUses)),
+                    )
+                    .add(access_link::Column::ExpiresOn.lte(Utc::now())),
+            )
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for access_link in access_links {
+            self.revoke_access_link(access_link).await?;
+        }
+        Ok(())
+    }
+
     pub async fn core_details(&self) -> CoreDetails {
         let mut files_enabled = self.config.file_storage.is_enabled();
         if files_enabled && !self.file_storage_service.is_enabled().await {
@@ -368,9 +427,8 @@ impl MiscellaneousService {
         CoreDetails {
             is_pro: true,
             version: VERSION.to_owned(),
-            author_name: AUTHOR.to_owned(),
             file_storage_enabled: files_enabled,
-            oidc_enabled: self.oidc_client.is_some(),
+            oidc_enabled: self.oidc_enabled,
             page_limit: self.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
             backend_errors: BackendError::iter().collect(),
@@ -671,9 +729,15 @@ impl MiscellaneousService {
             None,
         )
         .await?;
-        let reviews = self
-            .item_reviews(&user_id, Some(metadata_id.clone()), None, None, None)
-            .await?;
+        let reviews = item_reviews(
+            &self.db,
+            &user_id,
+            Some(metadata_id.clone()),
+            None,
+            None,
+            None,
+        )
+        .await?;
         let (_, history) = self
             .is_metadata_finished_by_user(&user_id, &media_details)
             .await?;
@@ -771,7 +835,6 @@ impl MiscellaneousService {
         let user_to_meta =
             get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
                 .await;
-        let units_consumed = user_to_meta.clone().and_then(|n| n.metadata_units_consumed);
         let average_rating = if reviews.is_empty() {
             None
         } else {
@@ -847,7 +910,6 @@ impl MiscellaneousService {
             in_progress,
             show_progress,
             average_rating,
-            units_consumed,
             podcast_progress,
             seen_by_user_count,
             seen_by_all_count: seen_by,
@@ -861,9 +923,15 @@ impl MiscellaneousService {
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = self
-            .item_reviews(&user_id, None, Some(person_id.clone()), None, None)
-            .await?;
+        let reviews = item_reviews(
+            &self.db,
+            &user_id,
+            None,
+            Some(person_id.clone()),
+            None,
+            None,
+        )
+        .await?;
         let collections = entity_in_collections(
             &self.db,
             &user_id,
@@ -897,9 +965,15 @@ impl MiscellaneousService {
             None,
         )
         .await?;
-        let reviews = self
-            .item_reviews(&user_id, None, None, Some(metadata_group_id), None)
-            .await?;
+        let reviews = item_reviews(
+            &self.db,
+            &user_id,
+            None,
+            None,
+            Some(metadata_group_id),
+            None,
+        )
+        .await?;
         Ok(UserMetadataGroupDetails {
             reviews,
             collections,
@@ -1229,7 +1303,7 @@ impl MiscellaneousService {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
         }
-        tracing::debug!("Input for progress_update = {:?}", input);
+        ryot_log!(debug, "Input for progress_update = {:?}", input);
 
         let all_prev_seen = Seen::find()
             .filter(seen::Column::Progress.lt(100))
@@ -1276,7 +1350,7 @@ impl MiscellaneousService {
             },
             Some(_) => ProgressUpdateAction::ChangeState,
         };
-        tracing::debug!("Progress update action = {:?}", action);
+        ryot_log!(debug, "Progress update action = {:?}", action);
         let err = || {
             Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::NoSeenInProgress,
@@ -1354,7 +1428,12 @@ impl MiscellaneousService {
                     .await
                     .unwrap()
                     .unwrap();
-                tracing::debug!("Progress update for meta {:?} ({:?})", meta.title, meta.lot);
+                ryot_log!(
+                    debug,
+                    "Progress update for meta {:?} ({:?})",
+                    meta.title,
+                    meta.lot
+                );
 
                 let show_ei = if matches!(meta.lot, MediaLot::Show) {
                     let season = input.show_season_number.ok_or_else(|| {
@@ -1395,7 +1474,7 @@ impl MiscellaneousService {
                 } else {
                     input.date
                 };
-                tracing::debug!("Progress update finished on = {:?}", finished_on);
+                ryot_log!(debug, "Progress update finished on = {:?}", finished_on);
                 let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted)
                 {
                     (
@@ -1405,7 +1484,7 @@ impl MiscellaneousService {
                 } else {
                     (dec!(100), None)
                 };
-                tracing::debug!("Progress update percentage = {:?}", progress);
+                ryot_log!(debug, "Progress update percentage = {:?}", progress);
                 let seen_insert = seen::ActiveModel {
                     progress: ActiveValue::Set(progress),
                     user_id: ActiveValue::Set(user_id.to_owned()),
@@ -1423,7 +1502,7 @@ impl MiscellaneousService {
                 seen_insert.insert(&self.db).await.unwrap()
             }
         };
-        tracing::debug!("Progress update = {:?}", seen);
+        ryot_log!(debug, "Progress update = {:?}", seen);
         let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
             self.seen_progress_cache.cache_set(cache, ()).unwrap();
@@ -1461,14 +1540,14 @@ impl MiscellaneousService {
         user_id: &String,
         job_name: BackgroundJob,
     ) -> Result<bool> {
-        let core_sqlite_storage = &mut self.perform_core_application_job.clone();
-        let sqlite_storage = &mut self.perform_application_job.clone();
+        let core_storage = &mut self.perform_core_application_job.clone();
+        let storage = &mut self.perform_application_job.clone();
         match job_name {
             BackgroundJob::UpdateAllMetadata
             | BackgroundJob::UpdateAllExercises
             | BackgroundJob::RecalculateCalendarEvents
             | BackgroundJob::PerformBackgroundTasks => {
-                self.admin_account_guard(user_id).await?;
+                admin_account_guard(&self.db, user_id).await?;
             }
             _ => {}
         }
@@ -1493,31 +1572,34 @@ impl MiscellaneousService {
                     .unwrap();
             }
             BackgroundJob::RecalculateCalendarEvents => {
-                sqlite_storage
+                storage
                     .enqueue(ApplicationJob::RecalculateCalendarEvents)
                     .await
                     .unwrap();
             }
             BackgroundJob::PerformBackgroundTasks => {
-                sqlite_storage
+                storage
                     .enqueue(ApplicationJob::PerformBackgroundTasks)
                     .await
                     .unwrap();
             }
             BackgroundJob::SyncIntegrationsData => {
-                core_sqlite_storage
+                core_storage
                     .enqueue(CoreApplicationJob::SyncIntegrationsData(user_id.to_owned()))
                     .await
                     .unwrap();
             }
-            BackgroundJob::CalculateSummary => {
-                sqlite_storage
-                    .enqueue(ApplicationJob::RecalculateUserSummary(user_id.to_owned()))
+            BackgroundJob::CalculateUserActivitiesAndSummary => {
+                storage
+                    .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
+                        user_id.to_owned(),
+                        true,
+                    ))
                     .await
                     .unwrap();
             }
-            BackgroundJob::EvaluateWorkouts => {
-                sqlite_storage
+            BackgroundJob::ReEvaluateUserWorkouts => {
+                storage
                     .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
                     .await
                     .unwrap();
@@ -1590,7 +1672,7 @@ impl MiscellaneousService {
                     }
                 } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
                 } else {
-                    tracing::debug!("Skipping user_to_entity = {:?}", ute.id);
+                    ryot_log!(debug, "Skipping user_to_entity = {:?}", ute.id);
                     continue;
                 };
 
@@ -1647,12 +1729,12 @@ impl MiscellaneousService {
                 let previous_reasons =
                     HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons.is_empty() {
-                    tracing::debug!("Deleting user_to_entity = {id:?}", id = (&ute.id));
+                    ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
                     ute.delete(&self.db).await.unwrap();
                 } else {
                     let mut ute: user_to_entity::ActiveModel = ute.into();
                     if new_reasons != previous_reasons {
-                        tracing::debug!("Updating user_to_entity = {id:?}", id = (&ute.id));
+                        ryot_log!(debug, "Updating user_to_entity = {id:?}", id = (&ute.id));
                         ute.media_reason =
                             ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
@@ -2175,14 +2257,12 @@ impl MiscellaneousService {
         metadata_id: &String,
         force_update: bool,
     ) -> Result<bool> {
-        let metadata = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
         self.perform_application_job
             .clone()
-            .enqueue(ApplicationJob::UpdateMetadata(metadata.id, force_update))
+            .enqueue(ApplicationJob::UpdateMetadata(
+                metadata_id.to_owned(),
+                force_update,
+            ))
             .await
             .unwrap();
         Ok(true)
@@ -2309,27 +2389,6 @@ impl MiscellaneousService {
         Ok(true)
     }
 
-    pub async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
-        let mut preferences = user_by_id(&self.db, user_id).await?.preferences;
-        preferences.features_enabled.media.anime =
-            self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
-        preferences.features_enabled.media.audio_book =
-            self.config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
-        preferences.features_enabled.media.book =
-            self.config.books.is_enabled() && preferences.features_enabled.media.book;
-        preferences.features_enabled.media.show =
-            self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
-        preferences.features_enabled.media.manga =
-            self.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
-        preferences.features_enabled.media.movie =
-            self.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
-        preferences.features_enabled.media.podcast =
-            self.config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
-        preferences.features_enabled.media.video_game =
-            self.config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
-        Ok(preferences)
-    }
-
     pub async fn metadata_search(
         &self,
         user_id: &String,
@@ -2346,7 +2405,7 @@ impl MiscellaneousService {
             });
         }
         let cloned_user_id = user_id.to_owned();
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -2421,7 +2480,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
@@ -2449,7 +2508,7 @@ impl MiscellaneousService {
                 items: vec![],
             });
         }
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let provider = self.get_metadata_provider(input.lot, input.source).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
@@ -2641,7 +2700,7 @@ impl MiscellaneousService {
             .await?
         {
             if input.force_update.unwrap_or_default() {
-                tracing::debug!("Forcing update of metadata with id {}", m.id);
+                ryot_log!(debug, "Forcing update of metadata with id {}", m.id);
                 self.update_metadata_and_notify_users(&m.id, true).await?;
             }
             Ok(m)
@@ -2702,313 +2761,12 @@ impl MiscellaneousService {
         Ok(StringIdObject { id: group_id })
     }
 
-    async fn item_reviews(
-        &self,
-        user_id: &String,
-        metadata_id: Option<String>,
-        person_id: Option<String>,
-        metadata_group_id: Option<String>,
-        collection_id: Option<String>,
-    ) -> Result<Vec<ReviewItem>> {
-        let all_reviews = Review::find()
-            .select_only()
-            .column(review::Column::Id)
-            .order_by_desc(review::Column::PostedOn)
-            .apply_if(metadata_id, |query, v| {
-                query.filter(review::Column::MetadataId.eq(v))
-            })
-            .apply_if(metadata_group_id, |query, v| {
-                query.filter(review::Column::MetadataGroupId.eq(v))
-            })
-            .apply_if(person_id, |query, v| {
-                query.filter(review::Column::PersonId.eq(v))
-            })
-            .apply_if(collection_id, |query, v| {
-                query.filter(review::Column::CollectionId.eq(v))
-            })
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await
-            .unwrap();
-        let mut reviews = vec![];
-        for r_id in all_reviews {
-            reviews.push(review_by_id(&self.db, r_id, user_id, true).await?);
-        }
-        let all_reviews = reviews
-            .into_iter()
-            .filter(|r| match r.visibility {
-                Visibility::Private => &r.posted_by.id == user_id,
-                _ => true,
-            })
-            .collect();
-        Ok(all_reviews)
-    }
-
-    pub async fn user_collections_list(
-        &self,
-        user_id: &String,
-        name: Option<String>,
-    ) -> Result<Vec<CollectionItem>> {
-        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/787 is merged
-        struct JsonBuildObject;
-        impl Iden for JsonBuildObject {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "JSON_BUILD_OBJECT").unwrap();
-            }
-        }
-        struct JsonAgg;
-        impl Iden for JsonAgg {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "JSON_AGG").unwrap();
-            }
-        }
-        let collaborators_subquery = Query::select()
-            .from(UserToCollection)
-            .expr(SimpleExpr::FunctionCall(
-                Func::cust(JsonAgg).arg(
-                    Func::cust(JsonBuildObject)
-                        .arg(Expr::val("id"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
-                        .arg(Expr::val("name"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
-                ),
-            ))
-            .join(
-                JoinType::InnerJoin,
-                AliasedUser::Table,
-                Expr::col((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::UserId,
-                ))
-                .equals((AliasedUser::Table, AliasedUser::Id)),
-            )
-            .and_where(
-                Expr::col((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::CollectionId,
-                ))
-                .equals((AliasedCollection::Table, AliasedCollection::Id)),
-            )
-            .and_where(
-                Expr::col((AliasedUser::Table, AliasedUser::Id))
-                    .not_equals((AliasedCollection::Table, AliasedCollection::UserId)),
-            )
-            .to_owned();
-        let count_subquery = Query::select()
-            .expr(collection_to_entity::Column::Id.count())
-            .from(CollectionToEntity)
-            .and_where(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    AliasedCollectionToEntity::CollectionId,
-                ))
-                .equals((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::CollectionId,
-                )),
-            )
-            .to_owned();
-        let collections = Collection::find()
-            .apply_if(name, |query, v| {
-                query.filter(collection::Column::Name.eq(v))
-            })
-            .select_only()
-            .column(collection::Column::Id)
-            .column(collection::Column::Name)
-            .column_as(
-                collection::Column::Name
-                    .is_in(DefaultCollection::iter().map(|s| s.to_string()))
-                    .and(collection::Column::UserId.eq(user_id)),
-                "is_default",
-            )
-            .column(collection::Column::InformationTemplate)
-            .expr_as_(
-                SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
-                "count",
-            )
-            .expr_as_(
-                SimpleExpr::FunctionCall(Func::coalesce([
-                    SimpleExpr::SubQuery(
-                        None,
-                        Box::new(collaborators_subquery.into_sub_query_statement()),
-                    ),
-                    SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
-                ])),
-                "collaborators",
-            )
-            .column(collection::Column::Description)
-            .column_as(
-                SimpleExpr::FunctionCall(
-                    Func::cust(JsonBuildObject)
-                        .arg(Expr::val("id"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
-                        .arg(Expr::val("name"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
-                ),
-                "creator",
-            )
-            .order_by_desc(collection::Column::LastUpdatedOn)
-            .left_join(User)
-            .left_join(UserToCollection)
-            .filter(user_to_collection::Column::UserId.eq(user_id))
-            .into_model::<CollectionItem>()
-            .all(&self.db)
-            .await
-            .unwrap();
-        Ok(collections)
-    }
-
-    pub async fn collection_contents(
-        &self,
-        input: CollectionContentsInput,
-    ) -> Result<CollectionContents> {
-        let search = input.search.unwrap_or_default();
-        let sort = input.sort.unwrap_or_default();
-        let filter = input.filter.unwrap_or_default();
-        let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
-        let maybe_collection = Collection::find_by_id(input.collection_id.clone())
-            .one(&self.db)
-            .await
-            .unwrap();
-        let collection = match maybe_collection {
-            Some(c) => c,
-            None => return Err(Error::new("Collection not found".to_owned())),
-        };
-
-        let take = input
-            .take
-            .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap());
-        let results = if take != 0 {
-            let paginator = CollectionToEntity::find()
-                .left_join(Metadata)
-                .left_join(MetadataGroup)
-                .left_join(Person)
-                .left_join(Exercise)
-                .left_join(Workout)
-                .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
-                .apply_if(search.query, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((
-                                    AliasedMetadataGroup::Table,
-                                    AliasedMetadataGroup::Title,
-                                ))
-                                .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedPerson::Table, AliasedPerson::Name))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
-                                    .ilike(ilike_sql(&v)),
-                            ),
-                    )
-                })
-                .apply_if(filter.metadata_lot, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
-                    )
-                })
-                .apply_if(filter.entity_type, |query, v| {
-                    let f = match v {
-                        EntityLot::Metadata => {
-                            collection_to_entity::Column::MetadataId.is_not_null()
-                        }
-                        EntityLot::MetadataGroup => {
-                            collection_to_entity::Column::MetadataGroupId.is_not_null()
-                        }
-                        EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
-                        EntityLot::Exercise => {
-                            collection_to_entity::Column::ExerciseId.is_not_null()
-                        }
-                        EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
-                        EntityLot::WorkoutTemplate => {
-                            collection_to_entity::Column::WorkoutTemplateId.is_not_null()
-                        }
-                        EntityLot::Collection => unreachable!(),
-                    };
-                    query.filter(f)
-                })
-                .order_by(
-                    match sort.by {
-                        CollectionContentsSortBy::LastUpdatedOn => {
-                            Expr::col(collection_to_entity::Column::LastUpdatedOn)
-                        }
-                        CollectionContentsSortBy::Title => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)).into(),
-                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)).into(),
-                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)).into(),
-                        ])),
-                        CollectionContentsSortBy::Date => Expr::expr(Func::coalesce([
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::PublishDate))
-                                .into(),
-                            Expr::col((AliasedPerson::Table, AliasedPerson::BirthDate)).into(),
-                        ])),
-                    },
-                    sort.order.into(),
-                )
-                .paginate(&self.db, take);
-            let mut items = vec![];
-            let ItemsAndPagesNumber {
-                number_of_items,
-                number_of_pages,
-            } = paginator.num_items_and_pages().await?;
-            for cte in paginator.fetch_page(page - 1).await? {
-                items.push(EntityWithLot {
-                    entity_id: cte.entity_id,
-                    entity_lot: cte.entity_lot,
-                });
-            }
-            SearchResults {
-                details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
-                    next_page: if page < number_of_pages {
-                        Some((page + 1).try_into().unwrap())
-                    } else {
-                        None
-                    },
-                },
-                items,
-            }
-        } else {
-            SearchResults {
-                details: SearchDetails::default(),
-                items: vec![],
-            }
-        };
-        let user = collection.find_related(User).one(&self.db).await?.unwrap();
-        let reviews = self
-            .item_reviews(
-                &collection.user_id,
-                None,
-                None,
-                None,
-                Some(input.collection_id),
-            )
-            .await?;
-        Ok(CollectionContents {
-            details: collection,
-            reviews,
-            results,
-            user,
-        })
-    }
-
     pub async fn post_review(
         &self,
         user_id: &String,
         input: PostReviewInput,
     ) -> Result<StringIdObject> {
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         if preferences.general.disable_reviews {
             return Err(Error::new("Reviews are disabled"));
         }
@@ -3096,16 +2854,12 @@ impl MiscellaneousService {
             } else if let Some(ci) = insert.collection_id.unwrap() {
                 (
                     ci.clone(),
-                    self.collection_contents(CollectionContentsInput {
-                        collection_id: ci,
-                        filter: None,
-                        search: None,
-                        take: None,
-                        sort: None,
-                    })
-                    .await?
-                    .details
-                    .name,
+                    Collection::find_by_id(ci)
+                        .one(&self.db)
+                        .await
+                        .unwrap()
+                        .unwrap()
+                        .name,
                     EntityLot::Collection,
                 )
             } else {
@@ -3158,139 +2912,6 @@ impl MiscellaneousService {
             }
             None => Ok(false),
         }
-    }
-
-    pub async fn create_or_update_collection(
-        &self,
-        user_id: &String,
-        input: CreateOrUpdateCollectionInput,
-    ) -> Result<StringIdObject> {
-        let txn = self.db.begin().await?;
-        let meta = Collection::find()
-            .filter(collection::Column::Name.eq(input.name.clone()))
-            .filter(collection::Column::UserId.eq(user_id))
-            .one(&txn)
-            .await
-            .unwrap();
-        let mut new_name = input.name.clone();
-        let created = match meta {
-            Some(m) if input.update_id.is_none() => m.id,
-            _ => {
-                let col = collection::ActiveModel {
-                    id: match input.update_id {
-                        Some(i) => {
-                            let already = Collection::find_by_id(i.clone())
-                                .one(&txn)
-                                .await
-                                .unwrap()
-                                .unwrap();
-                            if DefaultCollection::iter()
-                                .map(|s| s.to_string())
-                                .contains(&already.name)
-                            {
-                                new_name = already.name;
-                            }
-                            ActiveValue::Unchanged(i.clone())
-                        }
-                        None => ActiveValue::NotSet,
-                    },
-                    last_updated_on: ActiveValue::Set(Utc::now()),
-                    name: ActiveValue::Set(new_name),
-                    user_id: ActiveValue::Set(user_id.to_owned()),
-                    description: ActiveValue::Set(input.description),
-                    information_template: ActiveValue::Set(input.information_template),
-                    ..Default::default()
-                };
-                let inserted = col.save(&txn).await.map_err(|_| {
-                    Error::new("There was an error creating the collection".to_owned())
-                })?;
-                let id = inserted.id.unwrap();
-                let mut collaborators = vec![user_id.to_owned()];
-                if let Some(c) = input.collaborators {
-                    collaborators.extend(c);
-                }
-                let inserts = collaborators
-                    .into_iter()
-                    .map(|c| user_to_collection::ActiveModel {
-                        user_id: ActiveValue::Set(c),
-                        collection_id: ActiveValue::Set(id.clone()),
-                    });
-                UserToCollection::insert_many(inserts)
-                    .on_conflict(OnConflict::new().do_nothing().to_owned())
-                    .exec_without_returning(&txn)
-                    .await?;
-                id
-            }
-        };
-        txn.commit().await?;
-        Ok(StringIdObject { id: created })
-    }
-
-    pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
-        if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
-            return Err(Error::new("Can not delete a default collection".to_owned()));
-        }
-        let collection = Collection::find()
-            .filter(collection::Column::Name.eq(name))
-            .filter(collection::Column::UserId.eq(user_id.to_owned()))
-            .one(&self.db)
-            .await?;
-        let resp = if let Some(c) = collection {
-            Collection::delete_by_id(c.id).exec(&self.db).await.is_ok()
-        } else {
-            false
-        };
-        Ok(resp)
-    }
-
-    pub async fn add_entity_to_collection(
-        &self,
-        user_id: &String,
-        input: ChangeCollectionToEntityInput,
-    ) -> Result<bool> {
-        add_entity_to_collection(&self.db, user_id, input, &self.perform_core_application_job).await
-    }
-
-    pub async fn remove_entity_from_collection(
-        &self,
-        user_id: &String,
-        input: ChangeCollectionToEntityInput,
-    ) -> Result<StringIdObject> {
-        let collect = Collection::find()
-            .left_join(UserToCollection)
-            .filter(collection::Column::Name.eq(input.collection_name))
-            .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-        CollectionToEntity::delete_many()
-            .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-            .filter(
-                collection_to_entity::Column::MetadataId
-                    .eq(input.metadata_id.clone())
-                    .or(collection_to_entity::Column::PersonId.eq(input.person_id.clone()))
-                    .or(collection_to_entity::Column::MetadataGroupId
-                        .eq(input.metadata_group_id.clone()))
-                    .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone()))
-                    .or(collection_to_entity::Column::WorkoutId.eq(input.workout_id.clone()))
-                    .or(collection_to_entity::Column::WorkoutTemplateId
-                        .eq(input.workout_template_id.clone())),
-            )
-            .exec(&self.db)
-            .await?;
-        if input.workout_id.is_none() && input.workout_template_id.is_none() {
-            associate_user_with_entity(
-                user_id,
-                input.metadata_id,
-                input.person_id,
-                input.exercise_id,
-                input.metadata_group_id,
-                &self.db,
-            )
-            .await?;
-        }
-        Ok(StringIdObject { id: collect.id })
     }
 
     pub async fn delete_seen_item(
@@ -3356,11 +2977,15 @@ impl MiscellaneousService {
                 .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
                 .await
             {
-                tracing::debug!("Metadata {:?} does not need to be updated", metadata_id);
+                ryot_log!(
+                    debug,
+                    "Metadata {:?} does not need to be updated",
+                    metadata_id
+                );
                 return Ok(vec![]);
             }
         }
-        tracing::debug!("Updating metadata for {:?}", metadata_id);
+        ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
         Metadata::update_many()
             .filter(metadata::Column::Id.eq(metadata_id))
             .col_expr(metadata::Column::IsPartial, Expr::value(false))
@@ -3372,11 +2997,16 @@ impl MiscellaneousService {
         let notifications = match maybe_details {
             Ok(details) => self.update_media(metadata_id, details).await?,
             Err(e) => {
-                tracing::error!("Error while updating metadata = {:?}: {:?}", metadata_id, e);
+                ryot_log!(
+                    error,
+                    "Error while updating metadata = {:?}: {:?}",
+                    metadata_id,
+                    e
+                );
                 vec![]
             }
         };
-        tracing::debug!("Updated metadata for {:?}", metadata_id);
+        ryot_log!(debug, "Updated metadata for {:?}", metadata_id);
         Ok(notifications)
     }
 
@@ -3403,457 +3033,6 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token, &self.config.users.jwt_secret);
-        if let Ok(user_id) = found_token {
-            let user = user_by_id(&self.db, &user_id).await?;
-            Ok(UserDetailsResult::Ok(Box::new(user)))
-        } else {
-            Ok(UserDetailsResult::Error(UserDetailsError {
-                error: UserDetailsErrorVariant::AuthTokenInvalid,
-            }))
-        }
-    }
-
-    pub async fn latest_user_summary(&self, user_id: &String) -> Result<user_summary::Model> {
-        let ls = UserSummary::find_by_id(user_id)
-            .one(&self.db)
-            .await?
-            .unwrap();
-        Ok(ls)
-    }
-
-    #[tracing::instrument(skip(self))]
-    pub async fn calculate_user_summary(
-        &self,
-        user_id: &String,
-        calculate_from_beginning: bool,
-    ) -> Result<()> {
-        let (mut ls, start_from) = match calculate_from_beginning {
-            true => {
-                UserToEntity::update_many()
-                    .filter(user_to_entity::Column::UserId.eq(user_id))
-                    .col_expr(
-                        user_to_entity::Column::MetadataUnitsConsumed,
-                        Expr::value(Some(0)),
-                    )
-                    .exec(&self.db)
-                    .await?;
-                (UserSummaryData::default(), None)
-            }
-            false => {
-                let here = self.latest_user_summary(user_id).await?;
-                let time = here.calculated_on;
-                (here.data, Some(time))
-            }
-        };
-
-        tracing::debug!("Calculating numbers summary for user: {:?}", ls);
-
-        let metadata_num_reviews = Review::find()
-            .filter(review::Column::UserId.eq(user_id.to_owned()))
-            .filter(review::Column::MetadataId.is_not_null())
-            .count(&self.db)
-            .await?;
-
-        tracing::debug!(
-            "Calculated number of metadata reviews for user: {:?}",
-            metadata_num_reviews
-        );
-
-        let person_num_reviews = Review::find()
-            .filter(review::Column::UserId.eq(user_id.to_owned()))
-            .filter(review::Column::PersonId.is_not_null())
-            .count(&self.db)
-            .await?;
-
-        tracing::debug!(
-            "Calculated number of person reviews for user: {:?}",
-            person_num_reviews
-        );
-
-        let num_measurements = UserMeasurement::find()
-            .filter(user_measurement::Column::UserId.eq(user_id.to_owned()))
-            .count(&self.db)
-            .await?;
-
-        tracing::debug!(
-            "Calculated number measurements for user: {:?}",
-            num_measurements
-        );
-
-        let num_workouts = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id.to_owned()))
-            .count(&self.db)
-            .await?;
-
-        tracing::debug!("Calculated number workouts for user: {:?}", num_workouts);
-
-        let num_metadata_interacted_with = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-            .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .count(&self.db)
-            .await?;
-
-        tracing::debug!(
-            "Calculated number metadata interacted with for user: {:?}",
-            num_metadata_interacted_with
-        );
-
-        let num_people_interacted_with = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-            .filter(user_to_entity::Column::PersonId.is_not_null())
-            .count(&self.db)
-            .await?;
-
-        tracing::debug!(
-            "Calculated number people interacted with for user: {:?}",
-            num_people_interacted_with
-        );
-
-        let num_exercises_interacted_with = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
-            .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .count(&self.db)
-            .await?;
-
-        tracing::debug!(
-            "Calculated number exercises interacted with for user: {:?}",
-            num_exercises_interacted_with
-        );
-
-        let (total_workout_time, total_workout_weight) = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id.to_owned()))
-            .select_only()
-            .column_as(
-                Expr::cust("coalesce(extract(epoch from sum(end_time - start_time)) / 60, 0)"),
-                "minutes",
-            )
-            .column_as(
-                Expr::cust("coalesce(sum((summary -> 'total' ->> 'weight')::numeric), 0)"),
-                "weight",
-            )
-            .into_tuple::<(Decimal, Decimal)>()
-            .one(&self.db)
-            .await?
-            .unwrap();
-
-        tracing::debug!(
-            "Calculated total workout time for user: {:?}",
-            total_workout_time
-        );
-
-        ls.media.metadata_overall.reviewed = metadata_num_reviews;
-        ls.media.metadata_overall.interacted_with = num_metadata_interacted_with;
-        ls.media.people_overall.reviewed = person_num_reviews;
-        ls.media.people_overall.interacted_with = num_people_interacted_with;
-        ls.fitness.measurements_recorded = num_measurements;
-        ls.fitness.exercises_interacted_with = num_exercises_interacted_with;
-        ls.fitness.workouts.recorded = num_workouts;
-        ls.fitness.workouts.weight = total_workout_weight;
-        ls.fitness.workouts.duration = total_workout_time;
-
-        tracing::debug!("Calculated numbers summary for user: {:?}", ls);
-
-        let mut seen_items = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id.to_owned()))
-            .filter(seen::Column::UserId.eq(user_id.to_owned()))
-            .filter(seen::Column::Progress.eq(100))
-            .apply_if(start_from, |query, v| {
-                query.filter(seen::Column::LastUpdatedOn.gt(v))
-            })
-            .find_also_related(Metadata)
-            .stream(&self.db)
-            .await?;
-
-        while let Some((seen, metadata)) = seen_items.try_next().await.unwrap() {
-            let meta = metadata.to_owned().unwrap();
-            let mut units_consumed = None;
-            if let Some(item) = meta.audio_book_specifics {
-                ls.unique_items.audio_books.insert(meta.id.clone());
-                if let Some(r) = item.runtime {
-                    ls.media.audio_books.runtime += r;
-                    units_consumed = Some(r);
-                }
-            } else if let Some(item) = meta.book_specifics {
-                ls.unique_items.books.insert(meta.id.clone());
-                if let Some(pg) = item.pages {
-                    ls.media.books.pages += pg;
-                    units_consumed = Some(pg);
-                }
-            } else if let Some(item) = meta.movie_specifics {
-                ls.unique_items.movies.insert(meta.id.clone());
-                if let Some(r) = item.runtime {
-                    ls.media.movies.runtime += r;
-                    units_consumed = Some(r);
-                }
-            } else if let Some(_item) = meta.anime_specifics {
-                ls.unique_items.anime.insert(meta.id.clone());
-                if let Some(s) = seen.anime_extra_information.to_owned() {
-                    if let Some(episode) = s.episode {
-                        ls.unique_items
-                            .anime_episodes
-                            .insert((meta.id.clone(), episode));
-                        units_consumed = Some(1);
-                    }
-                }
-            } else if let Some(_item) = meta.manga_specifics {
-                ls.unique_items.manga.insert(meta.id.clone());
-                if let Some(s) = seen.manga_extra_information.to_owned() {
-                    units_consumed = Some(1);
-                    if let Some(chapter) = s.chapter {
-                        ls.unique_items
-                            .manga_chapters
-                            .insert((meta.id.clone(), chapter));
-                    }
-                    if let Some(volume) = s.volume {
-                        ls.unique_items
-                            .manga_volumes
-                            .insert((meta.id.clone(), volume));
-                    }
-                }
-            } else if let Some(item) = meta.show_specifics {
-                ls.unique_items.shows.insert(meta.id.clone());
-                if let Some(s) = seen.show_extra_information.to_owned() {
-                    if let Some((season, episode)) = item.get_episode(s.season, s.episode) {
-                        if let Some(r) = episode.runtime {
-                            ls.media.shows.runtime += r;
-                            units_consumed = Some(r);
-                        }
-                        ls.unique_items.show_episodes.insert((
-                            meta.id.clone(),
-                            season.season_number,
-                            episode.episode_number,
-                        ));
-                        ls.unique_items
-                            .show_seasons
-                            .insert((meta.id.clone(), season.season_number));
-                    }
-                };
-            } else if let Some(item) = meta.podcast_specifics {
-                ls.unique_items.podcasts.insert(meta.id.clone());
-                if let Some(s) = seen.podcast_extra_information.to_owned() {
-                    if let Some(episode) = item.episode_by_number(s.episode) {
-                        if let Some(r) = episode.runtime {
-                            ls.media.podcasts.runtime += r;
-                            units_consumed = Some(r);
-                        }
-                        ls.unique_items
-                            .podcast_episodes
-                            .insert((meta.id.clone(), s.episode));
-                    }
-                }
-            } else if let Some(_item) = meta.video_game_specifics {
-                ls.unique_items.video_games.insert(meta.id.clone());
-            } else if let Some(item) = meta.visual_novel_specifics {
-                ls.unique_items.visual_novels.insert(meta.id.clone());
-                if let Some(r) = item.length {
-                    ls.media.visual_novels.runtime += r;
-                    units_consumed = Some(r);
-                }
-            };
-
-            if let Some(consumed_update) = units_consumed {
-                UserToEntity::update_many()
-                    .filter(user_to_entity::Column::UserId.eq(user_id))
-                    .filter(user_to_entity::Column::MetadataId.eq(&meta.id))
-                    .col_expr(
-                        user_to_entity::Column::MetadataUnitsConsumed,
-                        Expr::expr(Func::coalesce([
-                            Expr::col(user_to_entity::Column::MetadataUnitsConsumed).into(),
-                            Expr::val(0).into(),
-                        ]))
-                        .add(consumed_update),
-                    )
-                    .exec(&self.db)
-                    .await?;
-            }
-        }
-
-        ls.media.podcasts.played_episodes = ls.unique_items.podcast_episodes.len();
-        ls.media.podcasts.played = ls.unique_items.podcasts.len();
-
-        ls.media.shows.watched_episodes = ls.unique_items.show_episodes.len();
-        ls.media.shows.watched_seasons = ls.unique_items.show_seasons.len();
-        ls.media.shows.watched = ls.unique_items.shows.len();
-
-        ls.media.anime.episodes = ls.unique_items.anime_episodes.len();
-        ls.media.anime.watched = ls.unique_items.anime.len();
-
-        ls.media.manga.read = ls.unique_items.manga.len();
-        ls.media.manga.chapters = ls.unique_items.manga_chapters.len();
-
-        ls.media.video_games.played = ls.unique_items.video_games.len();
-        ls.media.audio_books.played = ls.unique_items.audio_books.len();
-        ls.media.books.read = ls.unique_items.books.len();
-        ls.media.movies.watched = ls.unique_items.movies.len();
-        ls.media.visual_novels.played = ls.unique_items.visual_novels.len();
-
-        let usr = UserSummary::insert(user_summary::ActiveModel {
-            data: ActiveValue::Set(ls),
-            calculated_on: ActiveValue::Set(Utc::now()),
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            is_fresh: ActiveValue::Set(calculate_from_beginning),
-        })
-        .on_conflict(
-            OnConflict::column(user_summary::Column::UserId)
-                .update_columns([
-                    user_summary::Column::Data,
-                    user_summary::Column::IsFresh,
-                    user_summary::Column::CalculatedOn,
-                ])
-                .to_owned(),
-        )
-        .exec_with_returning(&self.db)
-        .await?;
-        tracing::debug!("Calculated summary for user: {:?}", usr.user_id);
-        Ok(())
-    }
-
-    pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
-        if !self.config.users.allow_registration
-            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
-        {
-            return Ok(RegisterResult::Error(RegisterError {
-                error: RegisterErrorVariant::Disabled,
-            }));
-        }
-        let (filter, username, password) = match input.data.clone() {
-            AuthUserInput::Oidc(data) => (
-                user::Column::OidcIssuerId.eq(&data.issuer_id),
-                data.email,
-                None,
-            ),
-            AuthUserInput::Password(data) => (
-                user::Column::Name.eq(&data.username),
-                data.username,
-                Some(data.password),
-            ),
-        };
-        if User::find().filter(filter).count(&self.db).await.unwrap() != 0 {
-            return Ok(RegisterResult::Error(RegisterError {
-                error: RegisterErrorVariant::IdentifierAlreadyExists,
-            }));
-        };
-        let oidc_issuer_id = match input.data {
-            AuthUserInput::Oidc(data) => Some(data.issuer_id),
-            AuthUserInput::Password(_) => None,
-        };
-        let lot = if User::find().count(&self.db).await.unwrap() == 0 {
-            UserLot::Admin
-        } else {
-            UserLot::Normal
-        };
-        let user = user::ActiveModel {
-            id: ActiveValue::Set(format!("usr_{}", nanoid!(12))),
-            name: ActiveValue::Set(username),
-            password: ActiveValue::Set(password),
-            oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
-            lot: ActiveValue::Set(lot),
-            preferences: ActiveValue::Set(UserPreferences::default()),
-            ..Default::default()
-        };
-        let user = user.insert(&self.db).await.unwrap();
-        tracing::debug!("User {:?} registered with id {:?}", user.name, user.id);
-        self.user_created_job(&user.id).await?;
-        self.calculate_user_summary(&user.id, true).await?;
-        Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
-    }
-
-    pub async fn login_user(&self, input: AuthUserInput) -> Result<LoginResult> {
-        let filter = match input.clone() {
-            AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
-            AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
-        };
-        match User::find().filter(filter).one(&self.db).await.unwrap() {
-            None => Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::UsernameDoesNotExist,
-            })),
-            Some(user) => {
-                if user.is_disabled.unwrap_or_default() {
-                    return Ok(LoginResult::Error(LoginError {
-                        error: LoginErrorVariant::AccountDisabled,
-                    }));
-                }
-                if self.config.users.validate_password {
-                    if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
-                        if let Some(hashed_password) = user.password {
-                            let parsed_hash = PasswordHash::new(&hashed_password).unwrap();
-                            if get_password_hasher()
-                                .verify_password(password.as_bytes(), &parsed_hash)
-                                .is_err()
-                            {
-                                return Ok(LoginResult::Error(LoginError {
-                                    error: LoginErrorVariant::CredentialsMismatch,
-                                }));
-                            }
-                        } else {
-                            return Ok(LoginResult::Error(LoginError {
-                                error: LoginErrorVariant::IncorrectProviderChosen,
-                            }));
-                        }
-                    }
-                }
-                let jwt_key = self.generate_auth_token(user.id).await?;
-                Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
-            }
-        }
-    }
-
-    // this job is run when a user is created for the first time
-    async fn user_created_job(&self, user_id: &String) -> Result<()> {
-        for col in DefaultCollection::iter() {
-            let meta = col.meta().to_owned();
-            self.create_or_update_collection(
-                user_id,
-                CreateOrUpdateCollectionInput {
-                    name: col.to_string(),
-                    description: Some(meta.1.to_owned()),
-                    information_template: meta.0,
-                    ..Default::default()
-                },
-            )
-            .await
-            .ok();
-        }
-        Ok(())
-    }
-
-    pub async fn update_user(
-        &self,
-        user_id: Option<String>,
-        input: UpdateUserInput,
-    ) -> Result<StringIdObject> {
-        if user_id.unwrap_or_default() != input.user_id
-            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
-        {
-            return Err(Error::new("Admin access token mismatch".to_owned()));
-        }
-        let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap()
-            .into();
-        if let Some(n) = input.username {
-            user_obj.name = ActiveValue::Set(n);
-        }
-        if let Some(p) = input.password {
-            user_obj.password = ActiveValue::Set(Some(p));
-        }
-        if let Some(i) = input.extra_information {
-            user_obj.extra_information = ActiveValue::Set(Some(i));
-        }
-        if let Some(l) = input.lot {
-            user_obj.lot = ActiveValue::Set(l);
-        }
-        if let Some(d) = input.is_disabled {
-            user_obj.is_disabled = ActiveValue::Set(Some(d));
-        }
-        let user_obj = user_obj.update(&self.db).await.unwrap();
-        Ok(StringIdObject { id: user_obj.id })
-    }
-
     async fn regenerate_user_summaries(&self) -> Result<()> {
         let all_users = User::find()
             .select_only()
@@ -3863,7 +3042,12 @@ impl MiscellaneousService {
             .await
             .unwrap();
         for user_id in all_users {
-            self.calculate_user_summary(&user_id, false).await?;
+            deploy_job_to_calculate_user_activities_and_summary(
+                &self.perform_application_job,
+                &user_id,
+                false,
+            )
+            .await?;
         }
         Ok(())
     }
@@ -3935,7 +3119,8 @@ impl MiscellaneousService {
         let media = self
             .commit_metadata_internal(details, Some(is_partial))
             .await?;
-        self.add_entity_to_collection(
+        add_entity_to_collection(
+            &self.db,
             &user_id,
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id.to_owned(),
@@ -3943,6 +3128,7 @@ impl MiscellaneousService {
                 metadata_id: Some(media.id.clone()),
                 ..Default::default()
             },
+            &self.perform_core_application_job,
         )
         .await?;
         Ok(media)
@@ -3951,566 +3137,6 @@ impl MiscellaneousService {
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
         let (sql, values) = stmt.build(PostgresQueryBuilder {});
         Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
-    }
-
-    pub async fn update_user_preference(
-        &self,
-        user_id: String,
-        input: UpdateUserPreferenceInput,
-    ) -> Result<bool> {
-        let err = || Error::new("Incorrect property value encountered");
-        let user_model = user_by_id(&self.db, &user_id).await?;
-        let mut preferences = user_model.preferences.clone();
-        match input.property.is_empty() {
-            true => {
-                preferences = UserPreferences::default();
-            }
-            false => {
-                let (left, right) = input.property.split_once('.').ok_or_else(err)?;
-                let value_bool = input.value.parse::<bool>();
-                let value_usize = input.value.parse::<usize>();
-                match left {
-                    "fitness" => {
-                        let (left, right) = right.split_once('.').ok_or_else(err)?;
-                        match left {
-                            "measurements" => {
-                                let (left, right) = right.split_once('.').ok_or_else(err)?;
-                                match left {
-                                    "custom" => {
-                                        let value = serde_json::from_str(&input.value).unwrap();
-                                        preferences.fitness.measurements.custom = value;
-                                    }
-                                    "inbuilt" => match right {
-                                        "weight" => {
-                                            preferences.fitness.measurements.inbuilt.weight =
-                                                value_bool.unwrap();
-                                        }
-                                        "body_mass_index" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .body_mass_index = value_bool.unwrap();
-                                        }
-                                        "total_body_water" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .total_body_water = value_bool.unwrap();
-                                        }
-                                        "muscle" => {
-                                            preferences.fitness.measurements.inbuilt.muscle =
-                                                value_bool.unwrap();
-                                        }
-                                        "lean_body_mass" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .lean_body_mass = value_bool.unwrap();
-                                        }
-                                        "body_fat" => {
-                                            preferences.fitness.measurements.inbuilt.body_fat =
-                                                value_bool.unwrap();
-                                        }
-                                        "bone_mass" => {
-                                            preferences.fitness.measurements.inbuilt.bone_mass =
-                                                value_bool.unwrap();
-                                        }
-                                        "visceral_fat" => {
-                                            preferences.fitness.measurements.inbuilt.visceral_fat =
-                                                value_bool.unwrap();
-                                        }
-                                        "waist_circumference" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .waist_circumference = value_bool.unwrap();
-                                        }
-                                        "waist_to_height_ratio" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .waist_to_height_ratio = value_bool.unwrap();
-                                        }
-                                        "hip_circumference" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .hip_circumference = value_bool.unwrap();
-                                        }
-                                        "waist_to_hip_ratio" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .waist_to_hip_ratio = value_bool.unwrap();
-                                        }
-                                        "chest_circumference" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .chest_circumference = value_bool.unwrap();
-                                        }
-                                        "thigh_circumference" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .thigh_circumference = value_bool.unwrap();
-                                        }
-                                        "biceps_circumference" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .biceps_circumference = value_bool.unwrap();
-                                        }
-                                        "neck_circumference" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .neck_circumference = value_bool.unwrap();
-                                        }
-                                        "body_fat_caliper" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .body_fat_caliper = value_bool.unwrap();
-                                        }
-                                        "chest_skinfold" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .chest_skinfold = value_bool.unwrap();
-                                        }
-                                        "abdominal_skinfold" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .abdominal_skinfold = value_bool.unwrap();
-                                        }
-                                        "thigh_skinfold" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .thigh_skinfold = value_bool.unwrap();
-                                        }
-                                        "basal_metabolic_rate" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .basal_metabolic_rate = value_bool.unwrap();
-                                        }
-                                        "total_daily_energy_expenditure" => {
-                                            preferences
-                                                .fitness
-                                                .measurements
-                                                .inbuilt
-                                                .total_daily_energy_expenditure =
-                                                value_bool.unwrap();
-                                        }
-                                        "calories" => {
-                                            preferences.fitness.measurements.inbuilt.calories =
-                                                value_bool.unwrap();
-                                        }
-                                        _ => return Err(err()),
-                                    },
-                                    _ => return Err(err()),
-                                }
-                            }
-                            "exercises" => match right {
-                                "save_history" => {
-                                    preferences.fitness.exercises.save_history =
-                                        value_usize.unwrap()
-                                }
-                                "unit_system" => {
-                                    preferences.fitness.exercises.unit_system =
-                                        UserUnitSystem::from_str(&input.value).unwrap();
-                                }
-                                _ => return Err(err()),
-                            },
-                            _ => return Err(err()),
-                        }
-                    }
-                    "features_enabled" => {
-                        let (left, right) = right.split_once('.').ok_or_else(err)?;
-                        match left {
-                            "others" => match right {
-                                "collections" => {
-                                    preferences.features_enabled.others.collections =
-                                        value_bool.unwrap()
-                                }
-                                "calendar" => {
-                                    preferences.features_enabled.others.calendar =
-                                        value_bool.unwrap()
-                                }
-                                _ => return Err(err()),
-                            },
-                            "fitness" => match right {
-                                "enabled" => {
-                                    preferences.features_enabled.fitness.enabled =
-                                        value_bool.unwrap()
-                                }
-                                "measurements" => {
-                                    preferences.features_enabled.fitness.measurements =
-                                        value_bool.unwrap()
-                                }
-                                "workouts" => {
-                                    preferences.features_enabled.fitness.workouts =
-                                        value_bool.unwrap()
-                                }
-                                _ => return Err(err()),
-                            },
-                            "media" => {
-                                match right {
-                                    "enabled" => {
-                                        preferences.features_enabled.media.enabled =
-                                            value_bool.unwrap()
-                                    }
-                                    "audio_book" => {
-                                        preferences.features_enabled.media.audio_book =
-                                            value_bool.unwrap()
-                                    }
-                                    "book" => {
-                                        preferences.features_enabled.media.book =
-                                            value_bool.unwrap()
-                                    }
-                                    "movie" => {
-                                        preferences.features_enabled.media.movie =
-                                            value_bool.unwrap()
-                                    }
-                                    "podcast" => {
-                                        preferences.features_enabled.media.podcast =
-                                            value_bool.unwrap()
-                                    }
-                                    "show" => {
-                                        preferences.features_enabled.media.show =
-                                            value_bool.unwrap()
-                                    }
-                                    "video_game" => {
-                                        preferences.features_enabled.media.video_game =
-                                            value_bool.unwrap()
-                                    }
-                                    "visual_novel" => {
-                                        preferences.features_enabled.media.visual_novel =
-                                            value_bool.unwrap()
-                                    }
-                                    "manga" => {
-                                        preferences.features_enabled.media.manga =
-                                            value_bool.unwrap()
-                                    }
-                                    "anime" => {
-                                        preferences.features_enabled.media.anime =
-                                            value_bool.unwrap()
-                                    }
-                                    "people" => {
-                                        preferences.features_enabled.media.people =
-                                            value_bool.unwrap()
-                                    }
-                                    "groups" => {
-                                        preferences.features_enabled.media.groups =
-                                            value_bool.unwrap()
-                                    }
-                                    "genres" => {
-                                        preferences.features_enabled.media.genres =
-                                            value_bool.unwrap()
-                                    }
-                                    _ => return Err(err()),
-                                };
-                            }
-                            _ => return Err(err()),
-                        }
-                    }
-                    "notifications" => match right {
-                        "to_send" => {
-                            preferences.notifications.to_send =
-                                serde_json::from_str(&input.value).unwrap();
-                        }
-                        "enabled" => {
-                            preferences.notifications.enabled = value_bool.unwrap();
-                        }
-                        _ => return Err(err()),
-                    },
-                    "general" => match right {
-                        "review_scale" => {
-                            preferences.general.review_scale =
-                                UserReviewScale::from_str(&input.value).unwrap();
-                        }
-                        "display_nsfw" => {
-                            preferences.general.display_nsfw = value_bool.unwrap();
-                        }
-                        "dashboard" => {
-                            let value = serde_json::from_str::<Vec<UserGeneralDashboardElement>>(
-                                &input.value,
-                            )
-                            .unwrap();
-                            let default_general_preferences = UserGeneralPreferences::default();
-                            if value.len() != default_general_preferences.dashboard.len() {
-                                return Err(err());
-                            }
-                            preferences.general.dashboard = value;
-                        }
-                        "disable_integrations" => {
-                            preferences.general.disable_integrations = value_bool.unwrap();
-                        }
-                        "persist_queries" => {
-                            preferences.general.persist_queries = value_bool.unwrap();
-                        }
-                        "disable_navigation_animation" => {
-                            preferences.general.disable_navigation_animation = value_bool.unwrap();
-                        }
-                        "disable_videos" => {
-                            preferences.general.disable_videos = value_bool.unwrap();
-                        }
-                        "disable_watch_providers" => {
-                            preferences.general.disable_watch_providers = value_bool.unwrap();
-                        }
-                        "watch_providers" => {
-                            preferences.general.watch_providers =
-                                serde_json::from_str(&input.value).unwrap();
-                        }
-                        "disable_reviews" => {
-                            preferences.general.disable_reviews = value_bool.unwrap();
-                        }
-                        _ => return Err(err()),
-                    },
-                    _ => return Err(err()),
-                };
-            }
-        };
-        let mut user_model: user::ActiveModel = user_model.into();
-        user_model.preferences = ActiveValue::Set(preferences);
-        user_model.update(&self.db).await?;
-        Ok(true)
-    }
-
-    pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await?;
-        Ok(integrations)
-    }
-
-    pub async fn user_notification_platforms(
-        &self,
-        user_id: &String,
-    ) -> Result<Vec<notification_platform::Model>> {
-        let all_notifications = NotificationPlatform::find()
-            .filter(notification_platform::Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await?;
-        Ok(all_notifications)
-    }
-
-    pub async fn create_user_integration(
-        &self,
-        user_id: String,
-        input: CreateUserIntegrationInput,
-    ) -> Result<StringIdObject> {
-        if input.minimum_progress > input.maximum_progress {
-            return Err(Error::new(
-                "Minimum progress cannot be greater than maximum progress",
-            ));
-        }
-        let lot = match input.provider {
-            IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
-            IntegrationProvider::Komga => IntegrationLot::Yank,
-            IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
-            _ => IntegrationLot::Sink,
-        };
-        let to_insert = integration::ActiveModel {
-            lot: ActiveValue::Set(lot),
-            user_id: ActiveValue::Set(user_id),
-            provider: ActiveValue::Set(input.provider),
-            minimum_progress: ActiveValue::Set(input.minimum_progress),
-            maximum_progress: ActiveValue::Set(input.maximum_progress),
-            provider_specifics: ActiveValue::Set(input.provider_specifics),
-            ..Default::default()
-        };
-        let integration = to_insert.insert(&self.db).await?;
-        Ok(StringIdObject { id: integration.id })
-    }
-
-    pub async fn update_user_integration(
-        &self,
-        user_id: String,
-        input: UpdateUserIntegrationInput,
-    ) -> Result<bool> {
-        let db_integration = Integration::find_by_id(input.integration_id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
-        if db_integration.user_id != user_id {
-            return Err(Error::new("Integration does not belong to the user"));
-        }
-        if input.minimum_progress > input.maximum_progress {
-            return Err(Error::new(
-                "Minimum progress cannot be greater than maximum progress",
-            ));
-        }
-        let mut db_integration: integration::ActiveModel = db_integration.into();
-        if let Some(s) = input.minimum_progress {
-            db_integration.minimum_progress = ActiveValue::Set(Some(s));
-        }
-        if let Some(s) = input.maximum_progress {
-            db_integration.maximum_progress = ActiveValue::Set(Some(s));
-        }
-        if let Some(d) = input.is_disabled {
-            db_integration.is_disabled = ActiveValue::Set(Some(d));
-        }
-        db_integration.update(&self.db).await?;
-        Ok(true)
-    }
-
-    pub async fn delete_user_integration(
-        &self,
-        user_id: String,
-        integration_id: String,
-    ) -> Result<bool> {
-        let integration = Integration::find_by_id(integration_id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
-        if integration.user_id != user_id {
-            return Err(Error::new("Integration does not belong to the user"));
-        }
-        integration.delete(&self.db).await?;
-        Ok(true)
-    }
-
-    pub async fn create_user_notification_platform(
-        &self,
-        user_id: String,
-        input: CreateUserNotificationPlatformInput,
-    ) -> Result<String> {
-        let specifics = match input.lot {
-            NotificationPlatformLot::Apprise => NotificationPlatformSpecifics::Apprise {
-                url: input.base_url.unwrap(),
-                key: input.api_token.unwrap(),
-            },
-            NotificationPlatformLot::Discord => NotificationPlatformSpecifics::Discord {
-                url: input.base_url.unwrap(),
-            },
-            NotificationPlatformLot::Gotify => NotificationPlatformSpecifics::Gotify {
-                url: input.base_url.unwrap(),
-                token: input.api_token.unwrap(),
-                priority: input.priority,
-            },
-            NotificationPlatformLot::Ntfy => NotificationPlatformSpecifics::Ntfy {
-                url: input.base_url,
-                topic: input.api_token.unwrap(),
-                priority: input.priority,
-                auth_header: input.auth_header,
-            },
-            NotificationPlatformLot::PushBullet => NotificationPlatformSpecifics::PushBullet {
-                api_token: input.api_token.unwrap(),
-            },
-            NotificationPlatformLot::PushOver => NotificationPlatformSpecifics::PushOver {
-                key: input.api_token.unwrap(),
-                app_key: input.auth_header,
-            },
-            NotificationPlatformLot::PushSafer => NotificationPlatformSpecifics::PushSafer {
-                key: input.api_token.unwrap(),
-            },
-            NotificationPlatformLot::Email => NotificationPlatformSpecifics::Email {
-                email: input.api_token.unwrap(),
-            },
-            NotificationPlatformLot::Telegram => NotificationPlatformSpecifics::Telegram {
-                bot_token: input.api_token.unwrap(),
-                chat_id: input.chat_id.unwrap(),
-            },
-        };
-        let description = match &specifics {
-            NotificationPlatformSpecifics::Apprise { url, key } => {
-                format!("URL: {}, Key: {}", url, key)
-            }
-            NotificationPlatformSpecifics::Discord { url } => {
-                format!("Webhook: {}", url)
-            }
-            NotificationPlatformSpecifics::Gotify { url, token, .. } => {
-                format!("URL: {}, Token: {}", url, token)
-            }
-            NotificationPlatformSpecifics::Ntfy { url, topic, .. } => {
-                format!("URL: {:?}, Topic: {}", url, topic)
-            }
-            NotificationPlatformSpecifics::PushBullet { api_token } => {
-                format!("API Token: {}", api_token)
-            }
-            NotificationPlatformSpecifics::PushOver { key, app_key } => {
-                format!("Key: {}, App Key: {:?}", key, app_key)
-            }
-            NotificationPlatformSpecifics::PushSafer { key } => {
-                format!("Key: {}", key)
-            }
-            NotificationPlatformSpecifics::Email { email } => {
-                format!("ID: {}", email)
-            }
-            NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
-                format!("Chat ID: {}", chat_id)
-            }
-        };
-        let notification = notification_platform::ActiveModel {
-            lot: ActiveValue::Set(input.lot),
-            user_id: ActiveValue::Set(user_id),
-            platform_specifics: ActiveValue::Set(specifics),
-            description: ActiveValue::Set(description),
-            ..Default::default()
-        };
-        let new_notification_id = notification.insert(&self.db).await?.id;
-        Ok(new_notification_id)
-    }
-
-    pub async fn update_user_notification_platform(
-        &self,
-        user_id: String,
-        input: UpdateUserNotificationPlatformInput,
-    ) -> Result<bool> {
-        let db_notification = NotificationPlatform::find_by_id(input.notification_id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
-        if db_notification.user_id != user_id {
-            return Err(Error::new(
-                "Notification platform does not belong to the user",
-            ));
-        }
-        let mut db_notification: notification_platform::ActiveModel = db_notification.into();
-        if let Some(s) = input.is_disabled {
-            db_notification.is_disabled = ActiveValue::Set(Some(s));
-        }
-        db_notification.update(&self.db).await?;
-        Ok(true)
-    }
-
-    pub async fn delete_user_notification_platform(
-        &self,
-        user_id: String,
-        notification_id: String,
-    ) -> Result<bool> {
-        let notification = NotificationPlatform::find_by_id(notification_id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
-        if notification.user_id != user_id {
-            return Err(Error::new(
-                "Notification platform does not belong to the user",
-            ));
-        }
-        notification.delete(&self.db).await?;
-        Ok(true)
     }
 
     pub fn providers_language_information(&self) -> Vec<ProviderLanguageInformation> {
@@ -4576,7 +3202,7 @@ impl MiscellaneousService {
     }
 
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<bool> {
-        let preferences = self.user_preferences(user_id).await?;
+        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         if preferences.general.disable_integrations {
             return Ok(false);
         }
@@ -4590,7 +3216,7 @@ impl MiscellaneousService {
         let integration_service = self.get_integration_service();
         for integration in integrations.into_iter() {
             if integration.is_disabled.unwrap_or_default() {
-                tracing::debug!("Integration {} is disabled", integration.id);
+                ryot_log!(debug, "Integration {} is disabled", integration.id);
                 continue;
             }
             let response = match integration.provider {
@@ -4643,7 +3269,8 @@ impl MiscellaneousService {
                     force_update: None,
                 })
                 .await?;
-            self.add_entity_to_collection(
+            add_entity_to_collection(
+                &self.db,
                 user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: user_id.to_owned(),
@@ -4651,6 +3278,7 @@ impl MiscellaneousService {
                     metadata_id: Some(id.clone()),
                     ..Default::default()
                 },
+                &self.perform_core_application_job,
             )
             .await
             .trace_ok();
@@ -4675,14 +3303,14 @@ impl MiscellaneousService {
             .all(&self.db)
             .await?;
         for user_id in users_with_integrations {
-            tracing::debug!("Yanking integrations data for user {}", user_id);
+            ryot_log!(debug, "Yanking integrations data for user {}", user_id);
             self.yank_integrations_data_for_user(&user_id).await?;
         }
         Ok(())
     }
 
     pub async fn sync_integrations_data(&self) -> Result<()> {
-        tracing::trace!("Syncing integrations data...");
+        ryot_log!(trace, "Syncing integrations data...");
         self.yank_integrations_data().await.unwrap();
         Ok(())
     }
@@ -4759,53 +3387,13 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn admin_account_guard(&self, user_id: &String) -> Result<()> {
-        let main_user = user_by_id(&self.db, user_id).await?;
-        if main_user.lot != UserLot::Admin {
-            return Err(Error::new(BackendError::AdminOnlyAction.to_string()));
-        }
-        Ok(())
-    }
-
-    pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
-        let users = User::find()
-            .apply_if(query, |query, value| {
-                query.filter(Expr::col(user::Column::Name).ilike(ilike_sql(&value)))
-            })
-            .order_by_asc(user::Column::Name)
-            .all(&self.db)
-            .await?;
-        Ok(users)
-    }
-
-    pub async fn delete_user(&self, to_delete_user_id: String) -> Result<bool> {
-        let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
-        if let Some(u) = maybe_user {
-            if self
-                .users_list(None)
-                .await?
-                .into_iter()
-                .filter(|u| u.lot == UserLot::Admin)
-                .collect_vec()
-                .len()
-                == 1
-                && u.lot == UserLot::Admin
-            {
-                return Ok(false);
-            }
-            u.delete(&self.db).await?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
     pub async fn process_integration_webhook(
         &self,
         integration_slug: String,
         payload: String,
     ) -> Result<String> {
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Processing integration webhook for slug: {}",
             integration_slug
         );
@@ -4813,7 +3401,8 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
-        let preferences = self.user_preferences(&integration.user_id).await?;
+        let preferences =
+            user_preferences_by_id(&self.db, &integration.user_id, &self.config).await?;
         if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
@@ -4908,14 +3497,15 @@ impl MiscellaneousService {
             )
             .await
         {
-            tracing::debug!("Error updating progress: {:?}", err);
+            ryot_log!(debug, "Error updating progress: {:?}", err);
         };
         Ok(())
     }
 
     async fn after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
         let add_entity_to_collection = |collection_name: &str| {
-            self.add_entity_to_collection(
+            add_entity_to_collection(
+                &self.db,
                 &seen.user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: seen.user_id.clone(),
@@ -4923,10 +3513,12 @@ impl MiscellaneousService {
                     metadata_id: Some(seen.metadata_id.clone()),
                     ..Default::default()
                 },
+                &self.perform_core_application_job,
             )
         };
         let remove_entity_from_collection = |collection_name: &str| {
-            self.remove_entity_from_collection(
+            remove_entity_from_collection(
+                &self.db,
                 &seen.user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: seen.user_id.clone(),
@@ -5074,14 +3666,15 @@ impl MiscellaneousService {
             };
             insert_data.insert(&self.db).await?;
         } else {
-            tracing::debug!("User has disabled notifications");
+            ryot_log!(debug, "User has disabled notifications");
         }
         Ok(true)
     }
 
     async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
         let (meta_map, _, _) = self.get_entities_monitored_by().await?;
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
@@ -5099,7 +3692,8 @@ impl MiscellaneousService {
 
     async fn update_monitored_people_and_queue_notifications(&self) -> Result<()> {
         let (_, _, person_map) = self.get_entities_monitored_by().await?;
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Users to be notified for people state changes: {:?}",
             person_map
         );
@@ -5124,13 +3718,18 @@ impl MiscellaneousService {
         notification: &(String, MediaStateChanged),
     ) -> Result<()> {
         let (msg, change) = notification;
-        let notification_preferences = self.user_preferences(user_id).await?.notifications;
+        let notification_preferences = user_preferences_by_id(&self.db, user_id, &self.config)
+            .await?
+            .notifications;
         if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
             self.queue_notifications_to_user_platforms(user_id, msg)
                 .await
                 .trace_ok();
         } else {
-            tracing::debug!("User id = {user_id} has disabled notifications for {change}");
+            ryot_log!(
+                debug,
+                "User id = {user_id} has disabled notifications for {change}"
+            );
         }
         Ok(())
     }
@@ -5505,7 +4104,8 @@ impl MiscellaneousService {
                     for user in related_users {
                         self.queue_notifications_to_user_platforms(&user.user_id, &reminder.text)
                             .await?;
-                        self.remove_entity_from_collection(
+                        remove_entity_from_collection(
+                            &self.db,
                             &user.user_id,
                             ChangeCollectionToEntityInput {
                                 creator_user_id: col.user_id.clone(),
@@ -5523,16 +4123,6 @@ impl MiscellaneousService {
             }
         }
         Ok(())
-    }
-
-    pub async fn generate_auth_token(&self, user_id: String) -> Result<String> {
-        let auth_token = sign(
-            user_id,
-            &self.config.users.jwt_secret,
-            self.config.users.token_valid_for_days,
-            None,
-        )?;
-        Ok(auth_token)
     }
 
     pub async fn create_review_comment(
@@ -5593,7 +4183,7 @@ impl MiscellaneousService {
             .await?;
 
         while let Some(meta) = meta_stream.try_next().await? {
-            tracing::trace!("Processing metadata id = {:#?}", meta.id);
+            ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
             let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
             for cal_event in calendar_events {
                 let mut need_to_delete = true;
@@ -5635,7 +4225,8 @@ impl MiscellaneousService {
                 };
 
                 if need_to_delete {
-                    tracing::debug!(
+                    ryot_log!(
+                        debug,
                         "Need to delete calendar event id = {:#?} since it is outdated",
                         cal_event.id
                     );
@@ -5646,7 +4237,7 @@ impl MiscellaneousService {
             }
         }
 
-        tracing::debug!("Finished deleting invalid calendar events");
+        ryot_log!(debug, "Finished deleting invalid calendar events");
 
         let mut metadata_stream = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
@@ -5715,10 +4306,10 @@ impl MiscellaneousService {
             metadata_updates.push(meta.id.clone());
         }
         for cal_insert in calendar_events_inserts {
-            tracing::debug!("Inserting calendar event: {:?}", cal_insert);
+            ryot_log!(debug, "Inserting calendar event: {:?}", cal_insert);
             cal_insert.insert(&self.db).await.ok();
         }
-        tracing::debug!("Finished updating calendar events");
+        ryot_log!(debug, "Finished updating calendar events");
         Ok(())
     }
 
@@ -5980,52 +4571,6 @@ GROUP BY m.id;
         url
     }
 
-    pub async fn get_oidc_redirect_url(&self) -> Result<String> {
-        match self.oidc_client.as_ref() {
-            Some(client) => {
-                let (authorize_url, _, _) = client
-                    .authorize_url(
-                        AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
-                        CsrfToken::new_random,
-                        Nonce::new_random,
-                    )
-                    .add_scope(Scope::new("email".to_string()))
-                    .url();
-                Ok(authorize_url.to_string())
-            }
-            _ => Err(Error::new("OIDC client not configured")),
-        }
-    }
-
-    pub async fn get_oidc_token(&self, code: String) -> Result<OidcTokenOutput> {
-        match self.oidc_client.as_ref() {
-            Some(client) => {
-                let token = client
-                    .exchange_code(AuthorizationCode::new(code))
-                    .request_async(async_http_client)
-                    .await?;
-                let id_token = token.id_token().unwrap();
-                let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
-                let subject = claims.subject().to_string();
-                let email = claims
-                    .email()
-                    .map(|e| e.to_string())
-                    .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
-                Ok(OidcTokenOutput { subject, email })
-            }
-            _ => Err(Error::new("OIDC client not configured")),
-        }
-    }
-
-    pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
-        let user = User::find()
-            .filter(user::Column::OidcIssuerId.eq(oidc_issuer_id))
-            .one(&self.db)
-            .await?
-            .map(|u| u.id);
-        Ok(user)
-    }
-
     async fn invalidate_import_jobs(&self) -> Result<()> {
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::WasSuccess.is_null())
@@ -6033,7 +4578,7 @@ GROUP BY m.id;
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
-                tracing::debug!("Invalidating job with id = {id}", id = job.id);
+                ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
                 job.was_success = ActiveValue::Set(Some(false));
                 job.save(&self.db).await?;
@@ -6085,7 +4630,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(meta) = metadata_stream.try_next().await? {
-            tracing::debug!("Removing metadata id = {:#?}", meta);
+            ryot_log!(debug, "Removing metadata id = {:#?}", meta);
             Metadata::delete_by_id(meta).exec(&self.db).await?;
         }
         let mut people_stream = Person::find()
@@ -6097,7 +4642,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(person) = people_stream.try_next().await? {
-            tracing::debug!("Removing person id = {:#?}", person);
+            ryot_log!(debug, "Removing person id = {:#?}", person);
             Person::delete_by_id(person).exec(&self.db).await?;
         }
         let mut metadata_group_stream = MetadataGroup::find()
@@ -6109,7 +4654,7 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(meta_group) = metadata_group_stream.try_next().await? {
-            tracing::debug!("Removing metadata group id = {:#?}", meta_group);
+            ryot_log!(debug, "Removing metadata group id = {:#?}", meta_group);
             MetadataGroup::delete_by_id(meta_group)
                 .exec(&self.db)
                 .await?;
@@ -6123,126 +4668,19 @@ GROUP BY m.id;
             .stream(&self.db)
             .await?;
         while let Some(genre) = genre_stream.try_next().await? {
-            tracing::debug!("Removing genre id = {:#?}", genre);
+            ryot_log!(debug, "Removing genre id = {:#?}", genre);
             Genre::delete_by_id(genre).exec(&self.db).await?;
         }
-        tracing::debug!("Deleting all queued notifications");
+        ryot_log!(debug, "Deleting all queued notifications");
         QueuedNotification::delete_many().exec(&self.db).await?;
         Ok(())
-    }
-
-    pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
-        tracing::debug!("Updating old recommendations to not be recommendations anymore");
-        let mut metadata_stream = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .filter(metadata::Column::IsRecommendation.eq(true))
-            .into_tuple::<String>()
-            .stream(&self.db)
-            .await?;
-        let mut recommendations_to_update = vec![];
-        while let Some(meta) = metadata_stream.try_next().await? {
-            let num_ute = UserToEntity::find()
-                .filter(user_to_entity::Column::MetadataId.eq(&meta))
-                .count(&self.db)
-                .await?;
-            if num_ute > 0 {
-                recommendations_to_update.push(meta);
-            }
-        }
-        Metadata::update_many()
-            .filter(metadata::Column::Id.is_in(recommendations_to_update))
-            .set(metadata::ActiveModel {
-                is_recommendation: ActiveValue::Set(None),
-                ..Default::default()
-            })
-            .exec(&self.db)
-            .await?;
-        tracing::debug!("Downloading new recommendations for users");
-        #[derive(Debug, FromQueryResult)]
-        struct CustomQueryResponse {
-            lot: MediaLot,
-            source: MediaSource,
-            identifier: String,
-        }
-        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            r#"
-SELECT "m"."lot", "m"."identifier", "m"."source"
-FROM (
-    SELECT "user_id", "metadata_id" FROM "user_to_entity"
-    WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
-) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3)
-ORDER BY RANDOM() LIMIT 10;
-        "#,
-            [
-                MediaSource::GoogleBooks.into(),
-                MediaSource::Itunes.into(),
-                MediaSource::Vndb.into(),
-            ],
-        ))
-        .all(&self.db)
-        .await?;
-        let mut media_item_ids = vec![];
-        for media in media_items.into_iter() {
-            let provider = self.get_metadata_provider(media.lot, media.source).await?;
-            if let Ok(recommendations) = provider
-                .get_recommendations_for_metadata(&media.identifier)
-                .await
-            {
-                for mut rec in recommendations {
-                    rec.is_recommendation = Some(true);
-                    if let Ok(meta) = self.create_partial_metadata(rec).await {
-                        media_item_ids.push(meta.id);
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn revoke_invalid_access_tokens(&self) -> Result<()> {
-        let access_links = AccessLink::find()
-            .select_only()
-            .column(access_link::Column::Id)
-            .filter(
-                Condition::any()
-                    .add(
-                        Expr::col(access_link::Column::TimesUsed)
-                            .gte(Expr::col(access_link::Column::MaximumUses)),
-                    )
-                    .add(access_link::Column::ExpiresOn.lte(Utc::now())),
-            )
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        for access_link in access_links {
-            self.revoke_access_link(access_link).await?;
-        }
-        Ok(())
-    }
-
-    pub async fn test_user_notification_platforms(&self, user_id: &String) -> Result<bool> {
-        let notifications = NotificationPlatform::find()
-            .filter(notification_platform::Column::UserId.eq(user_id))
-            .all(&self.db)
-            .await?;
-        for platform in notifications {
-            if platform.is_disabled.unwrap_or_default() {
-                continue;
-            }
-            let msg = format!("This is a test notification for platform: {}", platform.lot);
-            send_notification(platform.platform_specifics, &self.config, &msg).await?;
-        }
-        Ok(true)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.db).await?;
         for user_details in users {
-            tracing::debug!("Sending notification to user: {:?}", user_details.id);
+            ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
             let notifications = QueuedNotification::find()
                 .filter(queued_notification::Column::UserId.eq(&user_details.id))
                 .all(&self.db)
@@ -6261,7 +4699,8 @@ ORDER BY RANDOM() LIMIT 10;
                 .await?;
             for notification in platforms {
                 if notification.is_disabled.unwrap_or_default() {
-                    tracing::debug!(
+                    ryot_log!(
+                        debug,
                         "Skipping sending notification to user: {} for platform: {} since it is disabled",
                         user_details.id,
                         notification.lot
@@ -6271,7 +4710,7 @@ ORDER BY RANDOM() LIMIT 10;
                 if let Err(err) =
                     send_notification(notification.platform_specifics, &self.config, &msg).await
                 {
-                    tracing::trace!("Error sending notification: {:?}", err);
+                    ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
             }
         }
@@ -6279,43 +4718,43 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn perform_background_jobs(&self) -> Result<()> {
-        tracing::debug!("Starting background jobs...");
+        ryot_log!(debug, "Starting background jobs...");
 
-        tracing::trace!("Invalidating invalid media import jobs");
+        ryot_log!(trace, "Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.trace_ok();
-        tracing::trace!("Removing stale entities from Monitoring collection");
+        ryot_log!(trace, "Removing stale entities from Monitoring collection");
         self.remove_old_entities_from_monitoring_collection()
             .await
             .trace_ok();
-        tracing::trace!("Checking for updates for media in Watchlist");
+        ryot_log!(trace, "Checking for updates for media in Watchlist");
         self.update_watchlist_metadata_and_queue_notifications()
             .await
             .trace_ok();
-        tracing::trace!("Checking for updates for monitored people");
+        ryot_log!(trace, "Checking for updates for monitored people");
         self.update_monitored_people_and_queue_notifications()
             .await
             .trace_ok();
-        tracing::trace!("Checking and queuing any pending reminders");
+        ryot_log!(trace, "Checking and queuing any pending reminders");
         self.queue_pending_reminders().await.trace_ok();
-        tracing::trace!("Recalculating calendar events");
+        ryot_log!(trace, "Recalculating calendar events");
         self.recalculate_calendar_events().await.trace_ok();
-        tracing::trace!("Queuing notifications for released media");
+        ryot_log!(trace, "Queuing notifications for released media");
         self.queue_notifications_for_released_media()
             .await
             .trace_ok();
-        tracing::trace!("Sending all pending notifications");
+        ryot_log!(trace, "Sending all pending notifications");
         self.send_pending_notifications().await.trace_ok();
-        tracing::trace!("Cleaning up user and metadata association");
+        ryot_log!(trace, "Cleaning up user and metadata association");
         self.cleanup_user_and_metadata_association()
             .await
             .trace_ok();
-        tracing::trace!("Removing old user summaries and regenerating them");
+        ryot_log!(trace, "Removing old user summaries and regenerating them");
         self.regenerate_user_summaries().await.trace_ok();
-        tracing::trace!("Removing useless data");
+        ryot_log!(trace, "Removing useless data");
         self.remove_useless_data().await.trace_ok();
         // DEV: This is called after removing useless data so that recommendations are not
         // delete right after they are downloaded.
-        tracing::trace!("Downloading recommendations for users");
+        ryot_log!(trace, "Downloading recommendations for users");
         self.update_claimed_recommendations_and_download_new_ones()
             .await
             .trace_ok();
@@ -6323,12 +4762,13 @@ ORDER BY RANDOM() LIMIT 10;
         // function after removing useless data.
         self.revoke_invalid_access_tokens().await.trace_ok();
 
-        tracing::debug!("Completed background jobs...");
+        ryot_log!(debug, "Completed background jobs...");
         Ok(())
     }
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
+        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
         Ok(true)
     }
 }

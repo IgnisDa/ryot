@@ -7,12 +7,10 @@ edition = "2021"
 apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
-argon2 = { workspace = true }
 background = { path = "../../background" }
 cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-enum_meta = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
@@ -21,8 +19,7 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
 file-storage-service = { path = "../../services/file-storage" }
-fitness-models = { path = "../../models/fitness" }
-futures = "=0.3.30"
+futures = { workspace = true }
 integration-service = { path = "../../services/integration" }
 itertools = { workspace = true }
 jwt-service = { path = "../../services/jwt" }
@@ -31,9 +28,7 @@ media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
 notification-service = { path = "../../services/notification" }
-openidconnect = { workspace = true }
 providers = { path = "../../providers" }
-reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
@@ -41,6 +36,7 @@ sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slug = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }

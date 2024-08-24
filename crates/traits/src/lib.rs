@@ -5,6 +5,7 @@ use application_utils::AuthContext;
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
 use common_models::BackendError;
+use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
 use dependent_models::SearchResults;
@@ -135,7 +136,7 @@ pub trait TraceOk<T, E> {
 impl<T, E: Debug> TraceOk<T, E> for Result<T, E> {
     fn trace_ok(self) -> Option<T> {
         if let Err(err) = &self {
-            tracing::debug!("Error: {:?}", err);
+            ryot_log!(debug, "Error: {:?}", err);
         };
         self.ok()
     }

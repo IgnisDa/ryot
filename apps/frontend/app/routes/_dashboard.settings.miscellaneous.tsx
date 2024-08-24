@@ -144,7 +144,7 @@ export default function Page() {
 							<Button
 								disabled={isEditDisabled}
 								{...btnProps}
-								value={BackgroundJob.CalculateSummary}
+								value={BackgroundJob.CalculateUserActivitiesAndSummary}
 							>
 								Clean and regenerate
 							</Button>
@@ -161,7 +161,7 @@ export default function Page() {
 							<Button
 								disabled={isEditDisabled}
 								{...btnProps}
-								value={BackgroundJob.EvaluateWorkouts}
+								value={BackgroundJob.ReEvaluateUserWorkouts}
 							>
 								Re-evaluate workouts
 							</Button>

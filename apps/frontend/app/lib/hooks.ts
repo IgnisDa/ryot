@@ -113,8 +113,14 @@ export const useMetadataDetails = (metadataId?: string | null) => {
 	return useQuery(getMetadataDetailsQuery(metadataId));
 };
 
-export const useUserMetadataDetails = (metadataId?: string | null) => {
-	return useQuery(getUserMetadataDetailsQuery(metadataId));
+export const useUserMetadataDetails = (
+	metadataId?: string | null,
+	enabled?: boolean,
+) => {
+	return useQuery({
+		...getUserMetadataDetailsQuery(metadataId),
+		enabled,
+	});
 };
 
 export const useDashboardLayoutData = () => {

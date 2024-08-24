@@ -30,6 +30,7 @@ FROM $NODE_BASE_IMAGE
 ARG TARGETARCH
 ENV TARGETARCH=${TARGETARCH}
 LABEL org.opencontainers.image.source="https://github.com/IgnisDa/ryot"
+LABEL org.opencontainers.image.description="The only self hosted tracker you will ever need!"
 ENV FRONTEND_UMAMI_SCRIPT_URL="https://umami.diptesh.me/script.js"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 COPY --from=caddy:2.7.5 /usr/bin/caddy /usr/local/bin/caddy

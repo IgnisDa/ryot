@@ -1,20 +1,22 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
+use common_models::SearchDetails;
+use common_utils::ryot_log;
 use convert_case::{Case, Casing};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-    SearchDetails, SearchResults,
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::get_base_http_client;
 
 static URL: &str = "https://openlibrary.org/";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
@@ -101,7 +103,7 @@ impl MediaProviderLanguages for OpenlibraryService {
 
 impl OpenlibraryService {
     pub async fn new(config: &config::OpenlibraryConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, None);
+        let client = get_base_http_client(None);
         Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
@@ -178,7 +180,7 @@ impl MediaProvider for OpenlibraryService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .get("search/authors.json")
+            .get(format!("{}/search/authors.json", URL))
             .query(&json!({
                 "q": query.to_owned(),
                 "offset": (page - 1) * self.page_limit,
@@ -220,7 +222,7 @@ impl MediaProvider for OpenlibraryService {
     ) -> Result<MetadataPerson> {
         let rsp = self
             .client
-            .get(format!("authors/{}.json", identity))
+            .get(format!("{}/authors/{}.json", URL, identity))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -240,7 +242,7 @@ impl MediaProvider for OpenlibraryService {
             .collect();
         let author_works: OpenlibraryEditionsResponse = self
             .client
-            .get(format!("authors/{}/works.json", identity))
+            .get(format!("{}/authors/{}/works.json", URL, identity))
             .query(&serde_json::json!({ "limit": 600 }))
             .send()
             .await
@@ -273,7 +275,7 @@ impl MediaProvider for OpenlibraryService {
                 ))
             }
         }
-        tracing::debug!("Found {} related works.", related.len());
+        ryot_log!(debug, "Found {} related works.", related.len());
         Ok(MetadataPerson {
             identifier,
             source: MediaSource::Openlibrary,
@@ -296,19 +298,19 @@ impl MediaProvider for OpenlibraryService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client
-            .get(format!("works/{}.json", identifier))
+            .get(format!("{}/works/{}.json", URL, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
 
-        tracing::debug!("Getting work details.");
+        ryot_log!(debug, "Getting work details.");
         let data: MetadataDetailsOpenlibraryBook = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let identifier = get_key(&data.key);
-        tracing::debug!("Getting edition details.");
+        ryot_log!(debug, "Getting edition details.");
         let rsp = self
             .client
-            .get(format!("works/{}/editions.json", identifier))
+            .get(format!("{}/works/{}/editions.json", URL, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -390,11 +392,11 @@ impl MediaProvider for OpenlibraryService {
             data: String,
         }
 
-        tracing::debug!("Getting suggestion details.");
+        ryot_log!(debug, "Getting suggestion details.");
         // DEV: Reverse engineered the API
         let html = self
             .client
-            .get("partials.json")
+            .get(format!("{}/partials.json", URL))
             .query(&json!({ "workid": identifier, "_component": "RelatedWorkCarousel" }))
             .send()
             .await
@@ -483,7 +485,7 @@ impl MediaProvider for OpenlibraryService {
         .join(",");
         let rsp = self
             .client
-            .get("search.json")
+            .get(format!("{}/search.json", URL))
             .query(&json!({
                 "q": query.to_owned(),
                 "fields": fields,

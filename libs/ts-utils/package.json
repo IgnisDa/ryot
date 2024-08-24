@@ -4,7 +4,7 @@
 	"dependencies": {
 		"@conform-to/zod": "1.1.5",
 		"@ryot/generated": "workspace:*",
-		"dayjs": "1.11.12",
+		"dayjs": "1.11.13",
 		"humanize-duration-ts": "2.1.1",
 		"lodash": "4.17.21"
 	},

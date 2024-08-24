@@ -1,29 +1,54 @@
 use std::sync::Arc;
 
 use apalis::prelude::MemoryStorage;
-use async_graphql::{extensions::Tracing, EmptySubscription, Schema};
+use application_utils::AuthContext;
+use async_graphql::{extensions::Tracing, EmptySubscription, MergedObject, Schema};
+use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
+use axum::{
+    extract::DefaultBodyLimit,
+    http::{header, Method},
+    routing::{get, post, Router},
+    Extension,
+};
 use background::{ApplicationJob, CoreApplicationJob};
+use collection_resolver::{CollectionMutation, CollectionQuery};
+use collection_service::CollectionService;
+use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT};
+use exporter_resolver::{ExporterMutation, ExporterQuery};
+use exporter_service::ExporterService;
+use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
+use file_storage_service::FileStorageService;
+use fitness_resolver::{ExerciseMutation, ExerciseQuery};
+use fitness_service::ExerciseService;
+use importer_resolver::{ImporterMutation, ImporterQuery};
+use importer_service::ImporterService;
+use itertools::Itertools;
+use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
+use miscellaneous_service::MiscellaneousService;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use resolvers::{GraphqlSchema, MutationRoot, QueryRoot};
+use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
 use sea_orm::DatabaseConnection;
-use services::{
-    ExerciseService, ExporterService, FileStorageService, ImporterService, MiscellaneousService,
+use statistics_resolver::StatisticsQuery;
+use statistics_service::StatisticsService;
+use tower_http::{
+    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
+    trace::TraceLayer as TowerTraceLayer,
 };
-use utils::FRONTEND_OAUTH_ENDPOINT;
+use user_resolver::{UserMutation, UserQuery};
+use user_service::UserService;
 
 /// All the services that are used by the app
 pub struct AppServices {
-    pub db: DatabaseConnection,
-    pub config: Arc<config::AppConfig>,
     pub miscellaneous_service: Arc<MiscellaneousService>,
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
-    pub file_storage_service: Arc<FileStorageService>,
+    pub statistics_service: Arc<StatisticsService>,
+    pub app_router: Router,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -49,22 +74,34 @@ pub async fn create_app_services(
     ));
     let oidc_client = Arc::new(create_oidc_client(&config).await);
 
-    let media_service = Arc::new(
+    let collection_service = Arc::new(CollectionService::new(
+        &db,
+        config.clone(),
+        perform_core_application_job,
+    ));
+    let miscellaneous_service = Arc::new(
         MiscellaneousService::new(
+            oidc_client.is_some(),
             &db,
+            timezone.clone(),
             config.clone(),
             file_storage_service.clone(),
             perform_application_job,
             perform_core_application_job,
-            timezone.clone(),
-            oidc_client.clone(),
         )
         .await,
     );
+    let user_service = Arc::new(UserService::new(
+        &db,
+        config.clone(),
+        perform_application_job,
+        oidc_client.clone(),
+    ));
     let importer_service = Arc::new(ImporterService::new(
         &db,
         perform_application_job,
-        media_service.clone(),
+        perform_core_application_job,
+        miscellaneous_service.clone(),
         exercise_service.clone(),
         timezone.clone(),
     ));
@@ -74,14 +111,66 @@ pub async fn create_app_services(
         perform_application_job,
         file_storage_service.clone(),
     ));
+    let statistics_service = Arc::new(StatisticsService::new(&db));
+    let schema = Schema::build(
+        QueryRoot::default(),
+        MutationRoot::default(),
+        EmptySubscription,
+    )
+    .extension(Tracing)
+    .data(miscellaneous_service.clone())
+    .data(importer_service.clone())
+    .data(exporter_service.clone())
+    .data(exercise_service.clone())
+    .data(file_storage_service.clone())
+    .data(statistics_service.clone())
+    .data(collection_service.clone())
+    .data(user_service.clone())
+    .data(config.clone())
+    .data(db.clone())
+    .finish();
+
+    let cors_origins = config
+        .server
+        .cors_origins
+        .iter()
+        .map(|f| f.parse().unwrap())
+        .collect_vec();
+    let cors = TowerCorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
+        .allow_origin(cors_origins)
+        .allow_credentials(true);
+
+    let webhook_routes =
+        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
+
+    let mut gql = post(graphql_handler);
+    if config.server.graphql_playground_enabled {
+        gql = gql.get(graphql_playground);
+    }
+
+    let app_router = Router::new()
+        .nest("/webhooks", webhook_routes)
+        .route("/config", get(config_handler))
+        .route("/graphql", gql)
+        .route("/upload", post(upload_file))
+        .layer(Extension(config.clone()))
+        .layer(Extension(miscellaneous_service.clone()))
+        .layer(Extension(schema))
+        .layer(TowerTraceLayer::new_for_http())
+        .layer(TowerCatchPanicLayer::new())
+        .layer(DefaultBodyLimit::max(
+            1024 * 1024 * config.server.max_file_size,
+        ))
+        .layer(cors);
     AppServices {
-        db,
-        config,
-        miscellaneous_service: media_service,
+        miscellaneous_service,
         importer_service,
         exporter_service,
         exercise_service,
-        file_storage_service,
+        statistics_service,
+        app_router,
     }
 }
 
@@ -99,36 +188,52 @@ async fn create_oidc_client(config: &config::AppConfig) -> Option<CoreClient> {
                         .set_redirect_uri(redirect_url),
                     ),
                     Err(e) => {
-                        tracing::debug!("Error while creating OIDC client: {:?}", e);
+                        ryot_log!(debug, "Error while creating OIDC client: {:?}", e);
                         None
                     }
                 }
             }
             Err(e) => {
-                tracing::debug!("Error while processing OIDC issuer url: {:?}", e);
+                ryot_log!(debug, "Error while processing OIDC issuer url: {:?}", e);
                 None
             }
         },
         Err(e) => {
-            tracing::debug!("Error while processing OIDC redirect url: {:?}", e);
+            ryot_log!(debug, "Error while processing OIDC redirect url: {:?}", e);
             None
         }
     }
 }
 
-pub async fn get_graphql_schema(app_services: &AppServices) -> GraphqlSchema {
-    Schema::build(
-        QueryRoot::default(),
-        MutationRoot::default(),
-        EmptySubscription,
-    )
-    .extension(Tracing)
-    .data(app_services.miscellaneous_service.clone())
-    .data(app_services.importer_service.clone())
-    .data(app_services.exporter_service.clone())
-    .data(app_services.exercise_service.clone())
-    .data(app_services.file_storage_service.clone())
-    .data(app_services.config.clone())
-    .data(app_services.db.clone())
-    .finish()
+#[derive(MergedObject, Default)]
+pub struct QueryRoot(
+    MiscellaneousQuery,
+    ImporterQuery,
+    ExporterQuery,
+    ExerciseQuery,
+    FileStorageQuery,
+    StatisticsQuery,
+    CollectionQuery,
+    UserQuery,
+);
+
+#[derive(MergedObject, Default)]
+pub struct MutationRoot(
+    MiscellaneousMutation,
+    ImporterMutation,
+    ExporterMutation,
+    ExerciseMutation,
+    FileStorageMutation,
+    CollectionMutation,
+    UserMutation,
+);
+
+pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
+
+pub async fn graphql_handler(
+    schema: Extension<GraphqlSchema>,
+    gql_ctx: AuthContext,
+    req: GraphQLRequest,
+) -> GraphQLResponse {
+    schema.execute(req.into_inner().data(gql_ctx)).await.into()
 }

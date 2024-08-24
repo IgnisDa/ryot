@@ -8,12 +8,14 @@ import {
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";
 import groupBy from "lodash/groupBy";
-import intersection from "lodash/intersection";
+import isBoolean from "lodash/isBoolean";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
+import mapValues from "lodash/mapValues";
 import omitBy from "lodash/omitBy";
+import pickBy from "lodash/pickBy";
 import set from "lodash/set";
 import snakeCase from "lodash/snakeCase";
 import startCase from "lodash/startCase";
@@ -92,12 +94,14 @@ export {
 	camelCase,
 	cloneDeep,
 	groupBy,
-	intersection,
+	isBoolean,
 	isEmpty,
 	isEqual,
 	isNumber,
 	isString,
+	mapValues,
 	omitBy,
+	pickBy,
 	set,
 	snakeCase,
 	startCase,
