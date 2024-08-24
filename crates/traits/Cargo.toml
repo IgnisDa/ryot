@@ -10,6 +10,7 @@ dependent-models = { path = "../models/dependent" }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
 common-models = { path = "../models/common" }
+common-utils = { path = "../utils/common" }
 database-models = { path = "../models/database" }
 media-models = { path = "../models/media" }
 sea-orm = { workspace = true }

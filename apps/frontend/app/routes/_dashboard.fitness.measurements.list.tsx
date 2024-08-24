@@ -1,5 +1,4 @@
 import { LineChart } from "@mantine/charts";
-import "@mantine/charts/styles.css";
 import {
 	ActionIcon,
 	Box,
@@ -13,7 +12,6 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { useLocalStorage } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -34,10 +32,16 @@ import {
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib } from "~/lib/generals";
+import {
+	TimeSpan,
+	dayjsLib,
+	generateColor,
+	getStringAsciiValue,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -50,14 +54,6 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
-
-enum TimeSpan {
-	Last7Days = "Last 7 days",
-	Last30Days = "Last 30 days",
-	Last90Days = "Last 90 days",
-	Last365Days = "Last 365 days",
-	AllTime = "All Time",
-}
 
 const searchParamsSchema = z.object({
 	timeSpan: z.nativeEnum(TimeSpan).optional(),
@@ -139,11 +135,10 @@ export default function Page() {
 			timestamp: tickFormatter(m.timestamp),
 		};
 	});
-	const [selectedStats, setSelectedStats] = useLocalStorage({
-		defaultValue: ["weight"],
-		key: "SavedMeasurementsDisplaySelectedStats",
-		getInitialValueInEffect: true,
-	});
+	const [selectedStats, setSelectedStats] = useLocalStorage(
+		"SavedMeasurementsDisplaySelectedStats",
+		["weight"],
+	);
 	const [_p, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_m, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 
@@ -210,10 +205,10 @@ export default function Page() {
 							{selectedStats ? (
 								<LineChart
 									h={300}
-									series={selectedStats.map((s) => ({
-										name: s,
-										color: "blue",
-									}))}
+									series={selectedStats.map((s) => {
+										const color = generateColor(getStringAsciiValue(s));
+										return { name: s, color };
+									})}
 									data={formattedData}
 									dataKey="timestamp"
 									curveType="monotone"

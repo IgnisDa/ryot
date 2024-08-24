@@ -1,13 +1,17 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_models::SearchDetails;
+use common_utils::{convert_naive_to_utc, TEMP_DIR};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-    PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics, SearchDetails, SearchResults,
+    PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue},
@@ -19,7 +23,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_naive_to_utc, get_base_http_client, TEMP_DIR};
 
 static URL: &str = "https://listen-api.listennotes.com/api/v2/";
 static FILE: &str = "listennotes.json";
@@ -31,6 +34,7 @@ struct Settings {
 
 #[derive(Debug, Clone)]
 pub struct ListennotesService {
+    url: String,
     client: Client,
     page_limit: i32,
     settings: Settings,
@@ -48,17 +52,16 @@ impl MediaProviderLanguages for ListennotesService {
 
 impl ListennotesService {
     pub async fn new(config: &config::PodcastConfig, page_limit: i32) -> Self {
-        let (client, settings) = get_client_config(
-            env::var("LISTENNOTES_API_URL")
-                .unwrap_or_else(|_| URL.to_owned())
-                .as_str(),
-            &config.listennotes.api_token,
-        )
-        .await;
+        let url = env::var("LISTENNOTES_API_URL")
+            .unwrap_or_else(|_| URL.to_owned())
+            .as_str()
+            .to_owned();
+        let (client, settings) = get_client_config(&config.listennotes.api_token).await;
         Self {
+            url,
             client,
-            page_limit,
             settings,
+            page_limit,
         }
     }
 }
@@ -81,7 +84,10 @@ impl MediaProvider for ListennotesService {
         }
         let rec_data: RecommendationResp = self
             .client
-            .get(format!("podcasts/{}/recommendations", identifier))
+            .get(format!(
+                "{}/podcasts/{}/recommendations",
+                self.url, identifier
+            ))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -149,7 +155,7 @@ impl MediaProvider for ListennotesService {
         }
         let rsp = self
             .client
-            .get("search")
+            .get(format!("{}/search", self.url))
             .query(&json!({
                 "q": query.to_owned(),
                 "offset": (page - 1) * self.page_limit,
@@ -209,7 +215,7 @@ impl ListennotesService {
         }
         let  rsp = self
             .client
-            .get(format!("podcasts/{}", identifier))
+            .get(format!("{}/podcasts/{}", self.url, identifier))
             .query(&json!({
                 "sort": "oldest_first",
                 "next_episode_pub_date": next_pub_date.map(|d| d.to_string()).unwrap_or_else(|| "null".to_owned())
@@ -262,14 +268,11 @@ impl ListennotesService {
     }
 }
 
-async fn get_client_config(url: &str, api_token: &str) -> (Client, Settings) {
-    let client = get_base_http_client(
-        url,
-        Some(vec![(
-            HeaderName::from_static("x-listenapi-key"),
-            HeaderValue::from_str(api_token).unwrap(),
-        )]),
-    );
+async fn get_client_config(api_token: &str) -> (Client, Settings) {
+    let client = get_base_http_client(Some(vec![(
+        HeaderName::from_static("x-listenapi-key"),
+        HeaderValue::from_str(api_token).unwrap(),
+    )]));
     let path = PathBuf::new().join(TEMP_DIR).join(FILE);
     let settings = if !path.exists() {
         #[derive(Debug, Serialize, Deserialize, Default)]

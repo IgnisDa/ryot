@@ -17,22 +17,13 @@ use apalis::{
     utils::TokioExecutor,
 };
 use aws_sdk_s3::config::Region;
-use axum::{
-    extract::DefaultBodyLimit,
-    http::{header, Method},
-    routing::{get, post, Router},
-    Extension,
-};
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
-use common::get_graphql_schema;
-use itertools::Itertools;
+use common_utils::{ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
+use database_models::prelude::Exercise;
+use dependent_models::CompleteExport;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
-use models::{prelude::Exercise, CompleteExport};
-use resolvers::{
-    config_handler, graphql_handler, graphql_playground, integration_webhook, upload_file,
-};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
@@ -43,12 +34,7 @@ use tokio::{
     time::{sleep, Duration as TokioDuration},
 };
 use tower::buffer::BufferLayer;
-use tower_http::{
-    catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
-    trace::TraceLayer as TowerTraceLayer,
-};
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use utils::{COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
 
 use crate::{
     common::create_app_services,
@@ -69,31 +55,25 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "backend=info,sea_orm=info");
+        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
     }
     init_tracing()?;
 
-    tracing::info!("Running version: {}", VERSION);
+    ryot_log!(info, "Running version: {}", VERSION);
 
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
-        tracing::info!("Sleeping for {:?} before starting up...", duration);
+        ryot_log!(info, "Sleeping for {:?} before starting up...", duration);
         sleep(duration).await;
     }
-    let cors_origins = config
-        .server
-        .cors_origins
-        .iter()
-        .map(|f| f.parse().unwrap())
-        .collect_vec();
+
     let rate_limit_count = config.scheduler.rate_limit_num;
     let sync_every_minutes = config.integration.sync_every_minutes;
-    let max_file_size = config.server.max_file_size;
     let disable_background_jobs = config.server.disable_background_jobs;
 
     let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
-    tracing::debug!("Compiled at: {}", compile_timestamp);
+    ryot_log!(debug, "Compiled at: {}", compile_timestamp);
 
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
@@ -129,12 +109,12 @@ async fn main() -> Result<()> {
         .expect("Database connection failed");
 
     if let Err(err) = migrate_from_v6(&db).await {
-        tracing::error!("Migration from v6 failed: {}", err);
+        ryot_log!(error, "Migration from v6 failed: {}", err);
         bail!("There was an error migrating from v6.")
     }
 
     if let Err(err) = Migrator::up(&db, None).await {
-        tracing::error!("Database migration failed: {}", err);
+        ryot_log!(error, "Database migration failed: {}", err);
         bail!("There was an error running the database migrations.");
     };
 
@@ -144,7 +124,7 @@ async fn main() -> Result<()> {
     let tz: chrono_tz::Tz = env::var("TZ")
         .map(|s| s.parse().unwrap())
         .unwrap_or_else(|_| chrono_tz::Etc::GMT);
-    tracing::info!("Timezone: {}", tz);
+    ryot_log!(info, "Timezone: {}", tz);
 
     let app_services = create_app_services(
         db.clone(),
@@ -162,7 +142,10 @@ async fn main() -> Result<()> {
         .unwrap();
 
     if Exercise::find().count(&db).await? == 0 {
-        tracing::info!("Instance does not have exercises data. Deploying job to download them...");
+        ryot_log!(
+            info,
+            "Instance does not have exercises data. Deploying job to download them..."
+        );
         perform_application_job_storage
             .enqueue(ApplicationJob::UpdateExerciseLibrary)
             .await
@@ -200,41 +183,12 @@ async fn main() -> Result<()> {
             .ok();
     }
 
-    let schema = get_graphql_schema(&app_services).await;
-
-    let cors = TowerCorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_headers([header::ACCEPT, header::CONTENT_TYPE])
-        .allow_origin(cors_origins)
-        .allow_credentials(true);
-
-    let webhook_routes =
-        Router::new().route("/integrations/:integration_slug", post(integration_webhook));
-
-    let mut gql = post(graphql_handler);
-    if app_services.config.server.graphql_playground_enabled {
-        gql = gql.get(graphql_playground);
-    }
-
-    let app_routes = Router::new()
-        .nest("/webhooks", webhook_routes)
-        .route("/config", get(config_handler))
-        .route("/graphql", gql)
-        .route("/upload", post(upload_file))
-        .layer(Extension(app_services.config.clone()))
-        .layer(Extension(app_services.miscellaneous_service.clone()))
-        .layer(Extension(schema))
-        .layer(TowerTraceLayer::new_for_http())
-        .layer(TowerCatchPanicLayer::new())
-        .layer(DefaultBodyLimit::max(1024 * 1024 * max_file_size))
-        .layer(cors);
-
     let port = env::var("BACKEND_PORT")
         .unwrap_or_else(|_| "5000".to_owned())
         .parse::<usize>()
         .unwrap();
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
-    tracing::info!("Listening on: {}", listener.local_addr()?);
+    ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
@@ -243,6 +197,7 @@ async fn main() -> Result<()> {
     let media_service_4 = app_services.miscellaneous_service.clone();
     let media_service_5 = app_services.miscellaneous_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
+    let statistics_service_1 = app_services.statistics_service.clone();
 
     let monitor = async {
         Monitor::<TokioExecutor>::new()
@@ -292,6 +247,7 @@ async fn main() -> Result<()> {
                     .data(exporter_service_1.clone())
                     .data(media_service_4.clone())
                     .data(exercise_service_1.clone())
+                    .data(statistics_service_1.clone())
                     .source(perform_application_job_storage)
                     // DEV: Had to do this fuckery because of https://github.com/geofmureithi/apalis/issues/297
                     .chain(|s| {
@@ -310,7 +266,7 @@ async fn main() -> Result<()> {
     };
 
     let http = async {
-        axum::serve(listener, app_routes.into_make_service())
+        axum::serve(listener, app_services.app_router.into_make_service())
             .await
             .unwrap();
     };

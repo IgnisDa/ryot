@@ -5,12 +5,39 @@ members = [
     "crates/config",
     "crates/enums",
     "crates/migrations",
-    "crates/models",
+    "crates/models/common",
+    "crates/models/database",
+    "crates/models/dependent",
+    "crates/models/fitness",
+    "crates/models/importer",
+    "crates/models/media",
+    "crates/models/specific",
+    "crates/models/user",
     "crates/providers",
-    "crates/resolvers",
-    "crates/services",
+    "crates/resolvers/collection",
+    "crates/resolvers/exporter",
+    "crates/resolvers/file-storage",
+    "crates/resolvers/fitness",
+    "crates/resolvers/importer",
+    "crates/resolvers/miscellaneous",
+    "crates/resolvers/statistics",
+    "crates/resolvers/router",
+    "crates/resolvers/user",
+    "crates/services/collection",
+    "crates/services/exporter",
+    "crates/services/file-storage",
+    "crates/services/fitness",
+    "crates/services/importer",
+    "crates/services/integration",
+    "crates/services/jwt",
+    "crates/services/miscellaneous",
+    "crates/services/notification",
+    "crates/services/statistics",
+    "crates/services/user",
     "crates/traits",
-    "crates/utils",
+    "crates/utils/application",
+    "crates/utils/common",
+    "crates/utils/database",
 ]
 resolver = "2"
 
@@ -35,6 +62,8 @@ convert_case = "=0.6.0"
 dotenvy_macro = "=0.15.7"
 enum_meta = "=0.7.0"
 itertools = "=0.13.0"
+futures = "=0.3.30"
+hashbag = "=0.1.12"
 markdown = "=1.0.0-alpha.18"
 nanoid = "=0.4.0"
 openidconnect = "=3.5.0"
@@ -71,11 +100,7 @@ serde_json = "=1.0.120"
 serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }
 slug = "=0.1.5"
 strum = { version = "=0.26.2", features = ["derive"] }
-# FIXME: Upgrade once https://github.com/seanmonstar/reqwest/pull/1620 is merged
-reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_url", features = [
-    "json",
-    "stream",
-] }
+reqwest = { version = "=0.12.7", features = ["json", "stream"] }
 tokio = { version = "=1.39.2", features = ["full"] }
 tracing = { version = "=0.1.40", features = ["attributes"] }
 uuid = { version = "=1.10.0", features = ["v4"], default-features = false }

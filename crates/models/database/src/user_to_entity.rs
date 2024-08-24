@@ -20,7 +20,6 @@ pub struct Model {
     pub person_id: Option<String>,
     pub metadata_id: Option<String>,
     pub exercise_id: Option<String>,
-    pub metadata_units_consumed: Option<i32>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
     pub exercise_num_times_interacted: Option<i32>,
     #[graphql(skip)]

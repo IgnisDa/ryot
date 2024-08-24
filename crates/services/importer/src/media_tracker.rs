@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use common_models::IdObject;
-use common_utils::USER_AGENT_STR;
+use common_utils::{ryot_log, USER_AGENT_STR};
 use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
 use media_models::{
@@ -127,19 +127,19 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert("Access-Token", input.api_key.parse().unwrap());
+    let url = format!("{}/api/", api_url);
     let client = ClientBuilder::new()
         .default_headers(headers)
-        .base_url(format!("{}/api/", api_url))
         .build()
         .unwrap();
 
-    let rsp = client.get("user").send().await.unwrap();
+    let rsp = client.get(format!("{}/user", url)).send().await.unwrap();
     let data = rsp.json::<IdObject>().await.unwrap();
 
     let user_id: i32 = data.id;
 
     let rsp = client
-        .get("lists")
+        .get(format!("{}/lists", url))
         .query(&serde_json::json!({ "userId": user_id }))
         .send()
         .await
@@ -159,7 +159,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         .collect();
     for list in lists.iter_mut() {
         let rsp = client
-            .get("list/items")
+            .get(format!("{}/list/items", url))
             .query(&serde_json::json!({ "listId": list.id }))
             .send()
             .await
@@ -171,7 +171,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut failed_items = vec![];
 
     // all items returned here are seen at least once
-    let rsp = client.get("items").send().await.unwrap();
+    let rsp = client.get(format!("{}/items", url)).send().await.unwrap();
     let mut data: Vec<Item> = rsp.json().await.unwrap();
 
     // There are a few items that are added to lists but have not been seen, so will
@@ -185,7 +185,11 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         })
     });
 
-    tracing::debug!("Loaded data for {total:?} lists", total = lists.len());
+    ryot_log!(
+        debug,
+        "Loaded data for {total:?} lists",
+        total = lists.len()
+    );
 
     let data_len = data.len();
 
@@ -205,14 +209,14 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         };
         let lot = MediaLot::from(media_type.clone());
         let rsp = client
-            .get(format!("details/{}", d.id))
+            .get(format!("{}/details/{}", url, d.id))
             .send()
             .await
             .unwrap();
         let details: ItemDetails = match rsp.json().await {
             Ok(s) => s,
             Err(e) => {
-                tracing::error!("Encountered error for id = {id:?}: {e:?}", id = d.id);
+                ryot_log!(error, "Encountered error for id = {id:?}: {e:?}", id = d.id);
                 failed_items.push(ImportFailedItem {
                     lot: Some(lot),
                     step: ImportFailStep::ItemDetailsFromSource,
@@ -244,7 +248,8 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             MediaType::VideoGame => (details.igdb_id.unwrap().to_string(), MediaSource::Igdb),
             MediaType::Audiobook => (details.audible_id.clone().unwrap(), MediaSource::Audible),
         };
-        tracing::debug!(
+        ryot_log!(
+            debug,
             "Got details for {type:?}, with {seen} seen history: {id} ({idx}/{total})",
             type = media_type,
             id = d.id,

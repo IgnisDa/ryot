@@ -8,30 +8,49 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
+application-utils = { path = "../../crates/utils/application" }
 async-graphql = { workspace = true }
+async-graphql-axum = "=7.0.7"
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+collection-resolver = { path = "../../crates/resolvers/collection" }
+collection-service = { path = "../../crates/services/collection" }
+common-utils = { path = "../../crates/utils/common" }
 config = { path = "../../crates/config" }
+database-models = { path = "../../crates/models/database" }
+dependent-models = { path = "../../crates/models/dependent" }
 dotenvy = "=0.15.7"
+exporter-resolver = { path = "../../crates/resolvers/exporter" }
+exporter-service = { path = "../../crates/services/exporter" }
+file-storage-resolver = { path = "../../crates/resolvers/file-storage" }
+file-storage-service = { path = "../../crates/services/file-storage" }
+fitness-resolver = { path = "../../crates/resolvers/fitness" }
+fitness-service = { path = "../../crates/services/fitness" }
 http = "=1.1.0"
+importer-resolver = { path = "../../crates/resolvers/importer" }
+importer-service = { path = "../../crates/services/importer" }
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
+media-models = { path = "../../crates/models/media" }
 migrations = { path = "../../crates/migrations" }
-models = { path = "../../crates/models" }
+miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
+miscellaneous-service = { path = "../../crates/services/miscellaneous" }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
-resolvers = { path = "../../crates/resolvers" }
+router-resolver = { path = "../../crates/resolvers/router" }
 schematic = { workspace = true }
+statistics-resolver = { path = "../../crates/resolvers/statistics" }
+statistics-service = { path = "../../crates/services/statistics" }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 serde_json = { workspace = true }
-services = { path = "../../crates/services" }
 tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
-utils = { path = "../../crates/utils" }
+user-resolver = { path = "../../crates/resolvers/user" }
+user-service = { path = "../../crates/services/user" }

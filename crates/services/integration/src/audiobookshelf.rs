@@ -3,6 +3,7 @@ use std::future::Future;
 use anyhow::anyhow;
 use application_utils::get_base_http_client;
 use async_graphql::Result as GqlResult;
+use common_utils::ryot_log;
 use database_models::metadata;
 use enums::{MediaLot, MediaSource};
 use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
@@ -37,16 +38,14 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {
-        let client = get_base_http_client(
-            &format!("{}/api/", self.base_url),
-            Some(vec![(
-                AUTHORIZATION,
-                HeaderValue::from_str(&format!("Bearer {}", self.access_token)).unwrap(),
-            )]),
-        );
+        let url = format!("{}/api/", self.base_url);
+        let client = get_base_http_client(Some(vec![(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", self.access_token)).unwrap(),
+        )]));
 
         let resp = client
-            .get("me/items-in-progress")
+            .get(format!("{}/me/items-in-progress", url))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -54,7 +53,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
             .await
             .map_err(|e| anyhow!(e))?;
 
-        tracing::debug!("Got response for items in progress {:?}", resp);
+        ryot_log!(debug, "Got response for items in progress {:?}", resp);
 
         let mut media_items = vec![];
 
@@ -72,12 +71,12 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                                 None,
                             ),
                             _ => {
-                                tracing::debug!("No Google Books ID found for ISBN {:#?}", isbn);
+                                ryot_log!(debug, "No Google Books ID found for ISBN {:#?}", isbn);
                                 continue;
                             }
                         },
                         _ => {
-                            tracing::debug!("No ISBN found for item {:#?}", item);
+                            ryot_log!(debug, "No ISBN found for item {:#?}", item);
                             continue;
                         }
                     }
@@ -114,7 +113,8 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                                     Some(episode),
                                 ),
                                 _ => {
-                                    tracing::debug!(
+                                    ryot_log!(
+                                        debug,
                                         "No podcast found for iTunes ID {:#?}",
                                         itunes_id
                                     );
@@ -123,17 +123,21 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                             }
                         }
                         _ => {
-                            tracing::debug!("No recent episode found for item {:#?}", item);
+                            ryot_log!(debug, "No recent episode found for item {:#?}", item);
                             continue;
                         }
                     }
                 } else {
-                    tracing::debug!("No ASIN, ISBN or iTunes ID found for item {:#?}", item);
+                    ryot_log!(
+                        debug,
+                        "No ASIN, ISBN or iTunes ID found for item {:#?}",
+                        item
+                    );
                     continue;
                 };
 
             match client
-                .get(format!("me/progress/{}", progress_id))
+                .get(format!("{}/me/progress/{}", url, progress_id))
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
@@ -142,7 +146,11 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                 .map_err(|e| anyhow!(e))
             {
                 Ok(resp) => {
-                    tracing::debug!("Got response for individual item progress {:?}", resp);
+                    ryot_log!(
+                        debug,
+                        "Got response for individual item progress {:?}",
+                        resp
+                    );
                     let progress = if let Some(ebook_progress) = resp.ebook_progress {
                         ebook_progress
                     } else {
@@ -159,7 +167,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                     });
                 }
                 Err(e) => {
-                    tracing::debug!("Error getting progress for item {:?}: {:?}", item, e);
+                    ryot_log!(debug, "Error getting progress for item {:?}: {:?}", item, e);
                     continue;
                 }
             };

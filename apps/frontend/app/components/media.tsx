@@ -25,7 +25,7 @@ import {
 } from "@mantine/core";
 import { $path } from "remix-routes";
 import "@mantine/dates/styles.css";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { Form, Link, useFetcher } from "@remix-run/react";
 import {
 	EntityLot,
@@ -58,7 +58,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery, withoutHost } from "ufo";
@@ -431,6 +431,7 @@ export const BaseMediaDisplayItem = (props: {
 	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: string | (() => Promise<void>);
 	nameRight?: ReactNode;
+	innerRef?: Ref<HTMLDivElement>;
 }) => {
 	const SurroundingElement = (iProps: { children: ReactNode }) =>
 		isString(props.onImageClickBehavior) ? (
@@ -446,7 +447,7 @@ export const BaseMediaDisplayItem = (props: {
 	} as const;
 
 	return (
-		<Flex justify="space-between" direction="column">
+		<Flex justify="space-between" direction="column" ref={props.innerRef}>
 			<Box pos="relative" w="100%">
 				<SurroundingElement>
 					<Tooltip label={props.name} position="top">
@@ -535,10 +536,15 @@ export const MetadataDisplayItem = (props: {
 	const [_, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const userPreferences = useUserPreferences();
+	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
-		useQuery(getPartialMetadataDetailsQuery(props.metadataId));
+		useQuery({
+			...getPartialMetadataDetailsQuery(props.metadataId),
+			enabled: inViewport,
+		});
 	const { data: userMetadataDetails } = useUserMetadataDetails(
 		props.metadataId,
+		inViewport,
 	);
 	const averageRating = userMetadataDetails?.averageRating;
 	const history = (userMetadataDetails?.history || []).filter(
@@ -565,6 +571,7 @@ export const MetadataDisplayItem = (props: {
 
 	return (
 		<BaseMediaDisplayItem
+			innerRef={ref}
 			name={props.name ?? metadataDetails?.title}
 			altName={props.altName}
 			isLoading={isMetadataDetailsLoading}
@@ -673,6 +680,7 @@ export const MetadataGroupDisplayItem = (props: {
 	rightLabel?: ReactNode;
 	noLeftLabel?: boolean;
 }) => {
+	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useQuery({
 			queryKey: queryFactory.media.metadataGroupDetails(props.metadataGroupId)
@@ -682,10 +690,12 @@ export const MetadataGroupDisplayItem = (props: {
 					.request(MetadataGroupDetailsDocument, props)
 					.then((data) => data.metadataGroupDetails);
 			},
+			enabled: inViewport,
 		});
 
 	return (
 		<BaseMediaDisplayItem
+			innerRef={ref}
 			name={metadataDetails?.details.title}
 			isLoading={isMetadataDetailsLoading}
 			onImageClickBehavior={$path("/media/groups/item/:id", {
@@ -715,6 +725,7 @@ export const PersonDisplayItem = (props: {
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 }) => {
+	const { ref, inViewport } = useInViewport();
 	const { data: personDetails, isLoading: isPersonDetailsLoading } = useQuery({
 		queryKey: queryFactory.media.personDetails(props.personId).queryKey,
 		queryFn: async () => {
@@ -722,10 +733,12 @@ export const PersonDisplayItem = (props: {
 				.request(PersonDetailsDocument, props)
 				.then((data) => data.personDetails);
 		},
+		enabled: inViewport,
 	});
 
 	return (
 		<BaseMediaDisplayItem
+			innerRef={ref}
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
 			onImageClickBehavior={$path("/media/people/item/:id", {
@@ -748,15 +761,21 @@ export const ExerciseDisplayItem = (props: {
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 }) => {
+	const { ref, inViewport } = useInViewport();
 	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
-		useQuery(getExerciseDetailsQuery(props.exerciseId));
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(props.exerciseId),
-	);
+		useQuery({
+			...getExerciseDetailsQuery(props.exerciseId),
+			enabled: inViewport,
+		});
+	const { data: userExerciseDetails } = useQuery({
+		...getUserExerciseDetailsQuery(props.exerciseId),
+		enabled: inViewport,
+	});
 	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
 
 	return (
 		<BaseMediaDisplayItem
+			innerRef={ref}
 			name={exerciseDetails?.id}
 			isLoading={isExerciseDetailsLoading}
 			onImageClickBehavior={$path("/fitness/exercises/item/:id", {
@@ -779,12 +798,14 @@ export const WorkoutDisplayItem = (props: {
 	rightLabel?: ReactNode;
 	topRight?: ReactNode;
 }) => {
+	const { ref, inViewport } = useInViewport();
 	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
-		getWorkoutDetailsQuery(props.workoutId),
+		{ ...getWorkoutDetailsQuery(props.workoutId), enabled: inViewport },
 	);
 
 	return (
 		<BaseMediaDisplayItem
+			innerRef={ref}
 			name={workoutDetails?.details.name}
 			isLoading={isWorkoutDetailsLoading}
 			onImageClickBehavior={$path("/fitness/:entity/:id", {

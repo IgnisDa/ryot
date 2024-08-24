@@ -7,8 +7,9 @@ query UserWorkoutsList($input: SearchInput!) {
     items {
       id
       name
-      startTime
       endTime
+      duration
+      startTime
       summary {
         ...WorkoutSummaryPart
       }

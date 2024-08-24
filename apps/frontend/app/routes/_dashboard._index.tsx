@@ -1,22 +1,30 @@
+import { BarChart } from "@mantine/charts";
 import {
 	Alert,
 	Box,
 	Center,
 	Container,
 	Flex,
+	LoadingOverlay,
+	type MantineColor,
+	Paper,
 	RingProgress,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
 	Title,
 	useMantineTheme,
 } from "@mantine/core";
+import { useInViewport } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	DailyUserActivitiesDocument,
+	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
@@ -24,7 +32,15 @@ import {
 	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration, isNumber } from "@ryot/ts-utils";
+import {
+	changeCase,
+	humanizeDuration,
+	isBoolean,
+	isNumber,
+	mapValues,
+	pickBy,
+	snakeCase,
+} from "@ryot/ts-utils";
 import {
 	IconBarbell,
 	IconFriends,
@@ -32,20 +48,28 @@ import {
 	IconScaleOutline,
 	IconServer,
 } from "@tabler/icons-react";
-import { Fragment, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Fragment, type ReactNode, useMemo } from "react";
 import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { useLocalStorage } from "usehooks-ts";
 import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import {
 	DisplayCollectionEntity,
 	MetadataDisplayItem,
 } from "~/components/media";
-import { dayjsLib, getLot, getMetadataIcon } from "~/lib/generals";
+import {
+	TimeSpan,
+	clientGqlService,
+	dayjsLib,
+	getLot,
+	getMetadataIcon,
+	queryFactory,
+} from "~/lib/generals";
 import {
 	useDashboardLayoutData,
-	useGetMantineColor,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -106,13 +130,30 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
+type EntityColor = Record<MediaLot | (string & {}), MantineColor>;
+
+const MediaColors: EntityColor = {
+	ANIME: "blue",
+	AUDIO_BOOK: "orange",
+	BOOK: "lime",
+	MANGA: "purple",
+	MOVIE: "cyan",
+	PODCAST: "yellow",
+	SHOW: "red",
+	VISUAL_NOVEL: "pink",
+	VIDEO_GAME: "teal",
+	WORKOUT: "violet",
+	MEASUREMENT: "indigo",
+	REVIEW: "green.5",
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
 	const dashboardLayoutData = useDashboardLayoutData();
-	const latestUserSummary = loaderData.latestUserSummary.data;
+	const latestUserSummary = loaderData.latestUserSummary;
 
 	return (
 		<Container>
@@ -124,12 +165,9 @@ export default function Page() {
 				) : null}
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
-						.with([DashboardElementLot.Upcoming, false], () =>
+						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
-								<Section
-									key={DashboardElementLot.Upcoming}
-									lot={DashboardElementLot.Upcoming}
-								>
+								<Section key={v} lot={v}>
 									<Title>Upcoming</Title>
 									<ApplicationGrid>
 										{loaderData.userUpcomingCalendarEvents.map((um) => (
@@ -139,13 +177,10 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.InProgress, false], () =>
+						.with([DashboardElementLot.InProgress, false], ([v, _]) =>
 							loaderData.inProgressCollectionContents.results.items.length >
 							0 ? (
-								<Section
-									key={DashboardElementLot.InProgress}
-									lot={DashboardElementLot.InProgress}
-								>
+								<Section key={v} lot={v}>
 									<Title>In Progress</Title>
 									<ApplicationGrid>
 										{loaderData.inProgressCollectionContents.results.items.map(
@@ -161,27 +196,21 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.Recommendations, false], () => (
-							<Section
-								key={DashboardElementLot.Recommendations}
-								lot={DashboardElementLot.Recommendations}
-							>
+						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
+							<Section key={v} lot={v}>
 								<Title>Recommendations</Title>
 								<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 							</Section>
 						))
-						.with([DashboardElementLot.Summary, false], () => (
-							<Section
-								key={DashboardElementLot.Summary}
-								lot={DashboardElementLot.Summary}
-							>
+						.with([DashboardElementLot.Activity, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<Title>Activity</Title>
+								<ActivitySection />
+							</Section>
+						))
+						.with([DashboardElementLot.Summary, false], ([v, _]) => (
+							<Section key={v} lot={v}>
 								<Title>Summary</Title>
-								<Text size="xs" mt={-15}>
-									Calculated{" "}
-									{dayjsLib(
-										loaderData.latestUserSummary.calculatedOn,
-									).fromNow()}
-								</Text>
 								<SimpleGrid
 									cols={{ base: 1, sm: 2, md: 3 }}
 									style={{ alignItems: "center" }}
@@ -192,12 +221,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Movies",
-												value: latestUserSummary.media.movies.watched,
+												value: latestUserSummary.movieCount,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.movies.runtime,
+												value: latestUserSummary.totalMovieDuration,
 												type: "duration",
 											},
 										]}
@@ -207,22 +236,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Shows",
-												value: latestUserSummary.media.shows.watched,
-												type: "number",
-											},
-											{
-												label: "Seasons",
-												value: latestUserSummary.media.shows.watchedSeasons,
-												type: "number",
-											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.media.shows.watchedEpisodes,
+												value: latestUserSummary.showCount,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.shows.runtime,
+												value: latestUserSummary.totalShowDuration,
 												type: "duration",
 											},
 										]}
@@ -232,7 +251,7 @@ export default function Page() {
 										data={[
 											{
 												label: "Video games",
-												value: latestUserSummary.media.videoGames.played,
+												value: latestUserSummary.videoGameCount,
 												type: "number",
 											},
 										]}
@@ -242,12 +261,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Visual Novels",
-												value: latestUserSummary.media.visualNovels.played,
+												value: latestUserSummary.visualNovelCount,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.visualNovels.runtime,
+												value: latestUserSummary.totalVisualNovelDuration,
 												type: "duration",
 											},
 										]}
@@ -257,12 +276,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Audiobooks",
-												value: latestUserSummary.media.audioBooks.played,
+												value: latestUserSummary.audioBookCount,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.audioBooks.runtime,
+												value: latestUserSummary.totalAudioBookDuration,
 												type: "duration",
 											},
 										]}
@@ -272,12 +291,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Books",
-												value: latestUserSummary.media.books.read,
+												value: latestUserSummary.bookCount,
 												type: "number",
 											},
 											{
 												label: "Pages",
-												value: latestUserSummary.media.books.pages,
+												value: latestUserSummary.totalBookPages,
 												type: "number",
 											},
 										]}
@@ -287,17 +306,12 @@ export default function Page() {
 										data={[
 											{
 												label: "Podcasts",
-												value: latestUserSummary.media.podcasts.played,
-												type: "number",
-											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.media.podcasts.playedEpisodes,
+												value: latestUserSummary.podcastCount,
 												type: "number",
 											},
 											{
 												label: "Runtime",
-												value: latestUserSummary.media.podcasts.runtime,
+												value: latestUserSummary.totalPodcastDuration,
 												type: "duration",
 											},
 										]}
@@ -307,12 +321,7 @@ export default function Page() {
 										data={[
 											{
 												label: "Manga",
-												value: latestUserSummary.media.manga.read,
-												type: "number",
-											},
-											{
-												label: "Chapters",
-												value: latestUserSummary.media.manga.chapters,
+												value: latestUserSummary.mangaCount,
 												type: "number",
 											},
 										]}
@@ -322,12 +331,7 @@ export default function Page() {
 										data={[
 											{
 												label: "Anime",
-												value: latestUserSummary.media.anime.watched,
-												type: "number",
-											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.media.anime.episodes,
+												value: latestUserSummary.animeCount,
 												type: "number",
 											},
 										]}
@@ -341,15 +345,12 @@ export default function Page() {
 												data={[
 													{
 														label: "Media",
-														value:
-															latestUserSummary.media.metadataOverall
-																.interactedWith,
+														value: latestUserSummary.totalMetadataCount,
 														type: "number",
 													},
 													{
 														label: "Reviews",
-														value:
-															latestUserSummary.media.metadataOverall.reviewed,
+														value: latestUserSummary.totalMetadataReviewCount,
 														type: "number",
 														hideIfZero: true,
 													},
@@ -367,17 +368,8 @@ export default function Page() {
 														color={theme.colors.red[9]}
 														data={[
 															{
-																label: "People",
-																value:
-																	latestUserSummary.media.peopleOverall
-																		.interactedWith,
-																type: "number",
-															},
-															{
-																label: "Reviews",
-																value:
-																	latestUserSummary.media.peopleOverall
-																		.reviewed,
+																label: "People Reviewed",
+																value: latestUserSummary.totalPersonReviewCount,
 																type: "number",
 																hideIfZero: true,
 															},
@@ -387,10 +379,7 @@ export default function Page() {
 											) : null}
 										</>
 									) : null}
-									{userPreferences.featuresEnabled.fitness.enabled &&
-									Number(latestUserSummary.fitness.workouts.duration) +
-										latestUserSummary.fitness.workouts.recorded >
-										0 ? (
+									{userPreferences.featuresEnabled.fitness.enabled ? (
 										<UnstyledLink
 											to={$path("/fitness/:entity/list", {
 												entity: "workouts",
@@ -403,19 +392,19 @@ export default function Page() {
 												data={[
 													{
 														label: "Workouts",
-														value: latestUserSummary.fitness.workouts.recorded,
+														value: latestUserSummary.workoutCount,
 														type: "number",
 													},
 													{
 														label: "Runtime",
-														value: latestUserSummary.fitness.workouts.duration,
+														value: latestUserSummary.totalWorkoutDuration,
 														type: "duration",
 													},
 													{
 														label: "Runtime",
 														value: displayWeightWithUnit(
 															unitSystem,
-															latestUserSummary.fitness.workouts.weight,
+															latestUserSummary.totalWorkoutWeight,
 															true,
 														),
 														type: "string",
@@ -424,10 +413,7 @@ export default function Page() {
 											/>
 										</UnstyledLink>
 									) : null}
-									{userPreferences.featuresEnabled.fitness.enabled &&
-									latestUserSummary.fitness.measurementsRecorded +
-										latestUserSummary.fitness.exercisesInteractedWith >
-										0 ? (
+									{userPreferences.featuresEnabled.fitness.enabled ? (
 										<ActualDisplayStat
 											icon={<IconScaleOutline stroke={1.3} />}
 											lot="Fitness"
@@ -435,14 +421,7 @@ export default function Page() {
 											data={[
 												{
 													label: "Measurements",
-													value: latestUserSummary.fitness.measurementsRecorded,
-													type: "number",
-													hideIfZero: true,
-												},
-												{
-													label: "Exercises",
-													value:
-														latestUserSummary.fitness.exercisesInteractedWith,
+													value: latestUserSummary.measurementCount,
 													type: "number",
 													hideIfZero: true,
 												},
@@ -562,7 +541,6 @@ const DisplayStatForMediaType = (props: {
 	lot: MediaLot;
 	data: Array<{ type: "duration" | "number"; label: string; value: number }>;
 }) => {
-	const getMantineColor = useGetMantineColor();
 	const userPreferences = useUserPreferences();
 	const isEnabled = Object.entries(
 		userPreferences.featuresEnabled.media || {},
@@ -581,14 +559,14 @@ const DisplayStatForMediaType = (props: {
 				data={props.data}
 				icon={icon}
 				lot={props.lot.toString()}
-				color={getMantineColor(props.lot)}
+				color={MediaColors[props.lot]}
 			/>
 		</UnstyledLink>
 	) : null;
 };
 
 const Section = (props: {
-	children: Array<ReactNode>;
+	children: ReactNode | Array<ReactNode>;
 	lot: DashboardElementLot;
 }) => {
 	return (
@@ -603,5 +581,153 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 		<Link to={props.to} style={{ all: "unset", cursor: "pointer" }}>
 			{props.children}
 		</Link>
+	);
+};
+
+const ActivitySection = () => {
+	const { ref, inViewport } = useInViewport();
+	const [timeSpan, setTimeSpan] = useLocalStorage(
+		"ActivitySectionTimeSpan",
+		TimeSpan.Last7Days,
+	);
+	const { startDate, endDate } = useMemo(() => {
+		const now = dayjsLib();
+		const end = now.endOf("day");
+		const [startDate, endDate] = match(timeSpan)
+			.with(TimeSpan.Last7Days, () => [now.subtract(7, "days"), end])
+			.with(TimeSpan.Last30Days, () => [now.subtract(30, "days"), end])
+			.with(TimeSpan.Last90Days, () => [now.subtract(90, "days"), end])
+			.with(TimeSpan.Last365Days, () => [now.subtract(365, "days"), end])
+			.with(TimeSpan.AllTime, () => [undefined, undefined])
+			.exhaustive();
+		return {
+			startDate: startDate?.format("YYYY-MM-DD"),
+			endDate: endDate?.format("YYYY-MM-DD"),
+		};
+	}, [timeSpan]);
+	const { data: dailyUserActivitiesData } = useQuery({
+		queryKey: queryFactory.miscellaneous.dailyUserActivities(startDate, endDate)
+			.queryKey,
+		enabled: inViewport,
+		queryFn: async () => {
+			const { dailyUserActivities } = await clientGqlService.request(
+				DailyUserActivitiesDocument,
+				{ input: { startDate, endDate } },
+			);
+			const trackSeries = mapValues(MediaColors, () => false);
+			const data = dailyUserActivities.items.map((d) => {
+				const data = Object.entries(d)
+					.filter(([_, value]) => value !== 0)
+					.map(([key, value]) => ({
+						[snakeCase(
+							key.replace("Count", "").replace("total", ""),
+						).toUpperCase()]: value,
+					}))
+					.reduce(Object.assign, {});
+				for (const key in data)
+					if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+				return data;
+			});
+			const series = pickBy(trackSeries);
+			return {
+				data,
+				series,
+				groupedBy: dailyUserActivities.groupedBy,
+				totalCount: dailyUserActivities.totalCount,
+				totalDuration: dailyUserActivities.totalDuration,
+			};
+		},
+	});
+	const items = dailyUserActivitiesData?.totalCount || 0;
+
+	return (
+		<Stack ref={ref} pos="relative" h={{ base: 500, md: 400 }}>
+			<LoadingOverlay
+				visible={!dailyUserActivitiesData}
+				zIndex={1000}
+				overlayProps={{ radius: "md", blur: 3 }}
+			/>
+			<SimpleGrid cols={{ base: 2, md: 3 }} mx={{ md: "xl" }}>
+				<DisplayStat
+					label="Total"
+					value={`${new Intl.NumberFormat("en-US", {
+						notation: "compact",
+					}).format(Number(items))} items`}
+				/>
+				<DisplayStat
+					label="Duration"
+					value={
+						dailyUserActivitiesData
+							? humanizeDuration(
+									dayjsLib
+										.duration(dailyUserActivitiesData.totalDuration, "minutes")
+										.asMilliseconds(),
+									{ largest: 2 },
+								)
+							: "N/A"
+					}
+				/>
+				<Select
+					label="Time span"
+					defaultValue={timeSpan}
+					labelProps={{ c: "dimmed" }}
+					data={Object.values(TimeSpan)}
+					onChange={(v) => {
+						if (v) setTimeSpan(v as TimeSpan);
+					}}
+				/>
+			</SimpleGrid>
+			{dailyUserActivitiesData && dailyUserActivitiesData.totalCount !== 0 ? (
+				<BarChart
+					h="100%"
+					ml={-15}
+					withLegend
+					tickLine="x"
+					dataKey="DAY"
+					type="stacked"
+					data={dailyUserActivitiesData.data}
+					legendProps={{ verticalAlign: "bottom" }}
+					series={Object.keys(dailyUserActivitiesData.series).map((lot) => ({
+						name: lot,
+						color: MediaColors[lot],
+						label: changeCase(lot),
+					}))}
+					xAxisProps={{
+						tickFormatter: (v) =>
+							dayjsLib(v).format(
+								match(dailyUserActivitiesData.groupedBy)
+									.with(DailyUserActivitiesResponseGroupedBy.Day, () => "MMM D")
+									.with(DailyUserActivitiesResponseGroupedBy.Month, () => "MMM")
+									.with(
+										DailyUserActivitiesResponseGroupedBy.Year,
+										DailyUserActivitiesResponseGroupedBy.Millennium,
+										() => "YYYY",
+									)
+									.exhaustive(),
+							),
+					}}
+				/>
+			) : (
+				<Paper withBorder h="100%" w="100%" display="flex">
+					<Text m="auto" size="xl">
+						No activity found in the selected period
+					</Text>
+				</Paper>
+			)}
+		</Stack>
+	);
+};
+
+const DisplayStat = (props: {
+	label: string;
+	value: string | number;
+}) => {
+	return (
+		<Stack gap={4}>
+			<Text c="dimmed">{props.label}</Text>
+			<Text size="xl" fw="bolder">
+				{props.value}
+			</Text>
+		</Stack>
 	);
 };

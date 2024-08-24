@@ -1,5 +1,5 @@
 use async_graphql::Result;
-use common_utils::{APPLICATION_JSON_HEADER, USER_AGENT_STR};
+use common_utils::{ryot_log, APPLICATION_JSON_HEADER, USER_AGENT_STR};
 use dependent_models::ImportResult;
 use enum_meta::HashMap;
 use enums::{MediaLot, MediaSource};
@@ -82,7 +82,11 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         .json::<AuthenticateResponse>()
         .await
         .unwrap();
-    tracing::debug!("Authenticated with token: {}", authenticate.access_token);
+    ryot_log!(
+        debug,
+        "Authenticated with token: {}",
+        authenticate.access_token
+    );
 
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
@@ -91,20 +95,20 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         "X-Emby-Token",
         HeaderValue::from_str(&authenticate.access_token).unwrap(),
     );
+    let url = input.api_url + "/";
     let client: Client = ClientBuilder::new()
-        .base_url(input.api_url + "/")
         .default_headers(headers)
         .build()
         .unwrap();
     let user_id = authenticate.user.id;
-    tracing::debug!("Authenticated as user id: {}", user_id);
+    ryot_log!(debug, "Authenticated as user id: {}", user_id);
 
     let mut to_handle_media = vec![];
     let mut failed_items = vec![];
 
     let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
     let library_data = client
-        .get(&format!("Users/{}/Items", user_id))
+        .get(&format!("{}/Users/{}/Items", url, user_id))
         .query(&query)
         .send()
         .await
@@ -117,7 +121,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
 
     for item in library_data.items {
         let type_ = item.type_.clone().unwrap();
-        tracing::debug!("Processing item: {:?} ({:?})", item.name, type_);
+        ryot_log!(debug, "Processing item: {:?} ({:?})", item.name, type_);
         let (lot, tmdb_id, ssn, sen) = match type_.clone() {
             MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
             MediaType::Series | MediaType::Episode => {
@@ -125,7 +129,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                     let mut tmdb_id = series_id_to_tmdb_id.get(&series_id).cloned().flatten();
                     if tmdb_id.is_none() {
                         let details = client
-                            .get(&format!("Items/{}", series_id))
+                            .get(&format!("{}/Items/{}", url, series_id))
                             .send()
                             .await
                             .unwrap()

@@ -66,10 +66,7 @@ pub trait GraphqlRepresentation {
         Self: Sized;
 }
 
-pub fn get_base_http_client(
-    url: &str,
-    headers: Option<Vec<(HeaderName, HeaderValue)>>,
-) -> reqwest::Client {
+pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> reqwest::Client {
     let mut req_headers = HeaderMap::new();
     req_headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     for (header, value) in headers.unwrap_or_default().into_iter() {
@@ -77,7 +74,6 @@ pub fn get_base_http_client(
     }
     ClientBuilder::new()
         .default_headers(req_headers)
-        .base_url(url.to_owned())
         .build()
         .unwrap()
 }

@@ -1,17 +1,19 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
+use common_models::{NamedObject, SearchDetails};
+use common_utils::{convert_date_to_year, convert_string_to_date};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
-    MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, NamedObject,
-    PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics, SearchDetails, SearchResults,
-    VisualNovelSpecifics,
+use media_models::{
+    MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
+    PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics, VisualNovelSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_date_to_year, convert_string_to_date, get_base_http_client};
 
 static URL: &str = "https://api.vndb.org/kana/";
 const METADATA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
@@ -39,7 +41,7 @@ impl MediaProviderLanguages for VndbService {
 
 impl VndbService {
     pub async fn new(_config: &config::VisualNovelConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, None);
+        let client = get_base_http_client(None);
         Self { client, page_limit }
     }
 }
@@ -89,7 +91,7 @@ impl MediaProvider for VndbService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let data = self
             .client
-            .post("producer")
+            .post(format!("{}/producer", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "count": true,
@@ -135,7 +137,7 @@ impl MediaProvider for VndbService {
     ) -> Result<MetadataPerson> {
         let rsp = self
             .client
-            .post("producer")
+            .post(format!("{}/producer", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
@@ -165,7 +167,7 @@ impl MediaProvider for VndbService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client
-            .post("vn")
+            .post(format!("{}/vn", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
@@ -189,7 +191,7 @@ impl MediaProvider for VndbService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .post("vn")
+            .post(format!("{}/vn", URL))
             .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "fields": METADATA_FIELDS_SMALL,

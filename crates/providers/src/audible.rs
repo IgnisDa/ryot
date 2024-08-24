@@ -1,13 +1,17 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
+use common_models::{NamedObject, SearchDetails};
+use common_utils::{convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
+use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
-    metadata_group::MetadataGroupWithoutId, AudioBookSpecifics, MediaDetails, MetadataFreeCreator,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, NamedObject,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
-    SearchDetails, SearchResults,
+use media_models::{
+    AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+    MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics,
 };
 use paginate::Pages;
 use reqwest::Client;
@@ -16,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::{Display, EnumIter, IntoEnumIterator};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::{convert_date_to_year, convert_string_to_date, get_base_http_client};
 
 static LOCALES: [&str; 10] = ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"];
 static AUDNEX_URL: &str = "https://api.audnex.us";
@@ -139,9 +142,10 @@ struct AudibleItemSimResponse {
 
 #[derive(Debug, Clone)]
 pub struct AudibleService {
+    url: String,
     client: Client,
-    page_limit: i32,
     locale: String,
+    page_limit: i32,
 }
 
 impl MediaProviderLanguages for AudibleService {
@@ -174,8 +178,9 @@ impl AudibleService {
 
     pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
         let url = Self::url_from_locale(&config.locale);
-        let client = get_base_http_client(&url, None);
+        let client = get_base_http_client(None);
         Self {
+            url,
             client,
             page_limit,
             locale: config.locale.clone(),
@@ -268,7 +273,7 @@ impl MediaProvider for AudibleService {
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         let data: AudibleItemResponse = self
             .client
-            .get(identifier)
+            .get(format!("{}/{}", self.url, identifier))
             .query(&PrimaryQuery::default())
             .send()
             .await
@@ -288,7 +293,7 @@ impl MediaProvider for AudibleService {
         for i in items {
             let rsp = self
                 .client
-                .get(&i)
+                .get(format!("{}/{}", self.url, i))
                 .query(&PrimaryQuery::default())
                 .send()
                 .await
@@ -320,7 +325,7 @@ impl MediaProvider for AudibleService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client
-            .get(identifier)
+            .get(format!("{}/{}", self.url, identifier))
             .query(&PrimaryQuery::default())
             .send()
             .await
@@ -335,7 +340,7 @@ impl MediaProvider for AudibleService {
         for sim_type in AudibleSimilarityType::iter() {
             let data: AudibleItemSimResponse = self
                 .client
-                .get(format!("{}/sims", identifier))
+                .get(format!("{}/{}/sims", self.url, identifier))
                 .query(&json!({
                     "similarity_type": sim_type.to_string(),
                     "response_groups": "media"
@@ -375,7 +380,7 @@ impl MediaProvider for AudibleService {
         }
         let rsp = self
             .client
-            .get("")
+            .get(&self.url)
             .query(&SearchQuery {
                 title: query.to_owned(),
                 num_results: self.page_limit,

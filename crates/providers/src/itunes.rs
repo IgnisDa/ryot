@@ -1,17 +1,19 @@
 use anyhow::{anyhow, Result};
+use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
+use common_models::{NamedObject, SearchDetails};
+use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
-use models::{
+use media_models::{
     MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
-    NamedObject, PodcastEpisode, PodcastSpecifics, SearchDetails, SearchResults,
+    PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
 use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
-use utils::get_base_http_client;
 
 static URL: &str = "https://itunes.apple.com/";
 
@@ -34,7 +36,7 @@ impl MediaProviderLanguages for ITunesService {
 
 impl ITunesService {
     pub async fn new(config: &config::ITunesConfig, page_limit: i32) -> Self {
-        let client = get_base_http_client(URL, None);
+        let client = get_base_http_client(None);
         Self {
             client,
             language: config.locale.clone(),
@@ -80,7 +82,7 @@ impl MediaProvider for ITunesService {
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client
-            .get("lookup")
+            .get(format!("{}/lookup", URL))
             .query(&serde_json::json!({
                 "id": identifier,
                 "media": "podcast",
@@ -115,7 +117,7 @@ impl MediaProvider for ITunesService {
         let details = get_search_response(ht);
         let rsp = self
             .client
-            .get("lookup")
+            .get(format!("{}/lookup", URL))
             .query(&serde_json::json!({
                 "id": identifier,
                 "media": "podcast",
@@ -180,7 +182,7 @@ impl MediaProvider for ITunesService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .get("search")
+            .get(format!("{}/search", URL))
             .query(&serde_json::json!({
                 "term": query,
                 "media": "podcast",

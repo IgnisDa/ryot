@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
-use background::ApplicationJob;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
+use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
-use database_utils::user_by_id;
+use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
 use enums::ImportSource;
 use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
@@ -40,6 +41,7 @@ mod trakt;
 pub struct ImporterService {
     db: DatabaseConnection,
     perform_application_job: MemoryStorage<ApplicationJob>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     media_service: Arc<MiscellaneousService>,
     exercise_service: Arc<ExerciseService>,
     timezone: Arc<chrono_tz::Tz>,
@@ -49,6 +51,7 @@ impl ImporterService {
     pub fn new(
         db: &DatabaseConnection,
         perform_application_job: &MemoryStorage<ApplicationJob>,
+        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
         media_service: Arc<MiscellaneousService>,
         exercise_service: Arc<ExerciseService>,
         timezone: Arc<chrono_tz::Tz>,
@@ -59,6 +62,7 @@ impl ImporterService {
             timezone,
             db: db.clone(),
             perform_application_job: perform_application_job.clone(),
+            perform_core_application_job: perform_core_application_job.clone(),
         }
     }
 
@@ -73,7 +77,7 @@ impl ImporterService {
             .enqueue(job)
             .await
             .unwrap();
-        tracing::debug!("Deployed import job");
+        ryot_log!(debug, "Deployed import job");
         Ok(true)
     }
 
@@ -157,12 +161,11 @@ impl ImporterService {
             });
         }
         for col_details in import.collections.clone() {
-            self.media_service
-                .create_or_update_collection(&user_id, col_details)
-                .await?;
+            create_or_update_collection(&self.db, &user_id, col_details).await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Importing media with identifier = {iden}",
                 iden = &item.source_id
             );
@@ -180,7 +183,7 @@ impl ImporterService {
             let metadata = match data {
                 Ok(r) => r,
                 Err(e) => {
-                    tracing::error!("{e:?}");
+                    ryot_log!(error, "{e:?}");
                     import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::MediaDetailsFromProvider,
@@ -244,29 +247,31 @@ impl ImporterService {
                 }
             }
             for col in item.collections.iter() {
-                self.media_service
-                    .create_or_update_collection(
-                        &user_id,
-                        CreateOrUpdateCollectionInput {
-                            name: col.to_string(),
-                            ..Default::default()
-                        },
-                    )
-                    .await?;
-                self.media_service
-                    .add_entity_to_collection(
-                        &user_id,
-                        ChangeCollectionToEntityInput {
-                            creator_user_id: user_id.clone(),
-                            collection_name: col.to_string(),
-                            metadata_id: Some(metadata.id.clone()),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
+                create_or_update_collection(
+                    &self.db,
+                    &user_id,
+                    CreateOrUpdateCollectionInput {
+                        name: col.to_string(),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+                add_entity_to_collection(
+                    &self.db,
+                    &user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.clone(),
+                        collection_name: col.to_string(),
+                        metadata_id: Some(metadata.id.clone()),
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .ok();
             }
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
                 idx = idx + 1,
                 total = import.media.len(),
@@ -277,7 +282,8 @@ impl ImporterService {
             );
         }
         for (idx, item) in import.media_groups.iter().enumerate() {
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Importing media group with identifier = {iden}",
                 iden = &item.title
             );
@@ -289,7 +295,7 @@ impl ImporterService {
             let metadata_group_id = match data {
                 Ok(r) => r.0,
                 Err(e) => {
-                    tracing::error!("{e:?}");
+                    ryot_log!(error, "{e:?}");
                     import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::MediaDetailsFromProvider,
@@ -318,29 +324,31 @@ impl ImporterService {
                 }
             }
             for col in item.collections.iter() {
-                self.media_service
-                    .create_or_update_collection(
-                        &user_id,
-                        CreateOrUpdateCollectionInput {
-                            name: col.to_string(),
-                            ..Default::default()
-                        },
-                    )
-                    .await?;
-                self.media_service
-                    .add_entity_to_collection(
-                        &user_id,
-                        ChangeCollectionToEntityInput {
-                            creator_user_id: user_id.clone(),
-                            collection_name: col.to_string(),
-                            metadata_group_id: Some(metadata_group_id.clone()),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
+                create_or_update_collection(
+                    &self.db,
+                    &user_id,
+                    CreateOrUpdateCollectionInput {
+                        name: col.to_string(),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+                add_entity_to_collection(
+                    &self.db,
+                    &user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.clone(),
+                        collection_name: col.to_string(),
+                        metadata_group_id: Some(metadata_group_id.clone()),
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .ok();
             }
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Imported item: {idx}/{total}, lot: {lot}, review count: {rev}, collection count: {col}",
                 idx = idx + 1,
                 total = import.media.len(),
@@ -378,29 +386,31 @@ impl ImporterService {
                 }
             }
             for col in item.collections.iter() {
-                self.media_service
-                    .create_or_update_collection(
-                        &user_id,
-                        CreateOrUpdateCollectionInput {
-                            name: col.to_string(),
-                            ..Default::default()
-                        },
-                    )
-                    .await?;
-                self.media_service
-                    .add_entity_to_collection(
-                        &user_id,
-                        ChangeCollectionToEntityInput {
-                            creator_user_id: user_id.clone(),
-                            collection_name: col.to_string(),
-                            person_id: Some(person.id.clone()),
-                            ..Default::default()
-                        },
-                    )
-                    .await
-                    .ok();
+                create_or_update_collection(
+                    &self.db,
+                    &user_id,
+                    CreateOrUpdateCollectionInput {
+                        name: col.to_string(),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+                add_entity_to_collection(
+                    &self.db,
+                    &user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.clone(),
+                        collection_name: col.to_string(),
+                        person_id: Some(person.id.clone()),
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .ok();
             }
-            tracing::debug!(
+            ryot_log!(
+                debug,
                 "Imported person: {idx}/{total}, name: {name}",
                 idx = idx + 1,
                 total = import.people.len(),
@@ -449,7 +459,7 @@ impl ImporterService {
         };
         self.finish_import_job(db_import_job, details).await?;
         self.media_service
-            .deploy_background_job(&user_id, BackgroundJob::CalculateSummary)
+            .deploy_background_job(&user_id, BackgroundJob::CalculateUserActivitiesAndSummary)
             .await
             .trace_ok();
         Ok(())
@@ -466,7 +476,7 @@ impl ImporterService {
             ..Default::default()
         };
         let model = model.insert(&self.db).await.unwrap();
-        tracing::debug!("Started import job with id = {id}", id = model.id);
+        ryot_log!(debug, "Started import job with id = {id}", id = model.id);
         Ok(model)
     }
 
@@ -492,7 +502,7 @@ fn convert_review_into_input(
     metadata_group_id: Option<String>,
 ) -> Option<PostReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
-        tracing::debug!("Skipping review since it has no content");
+        ryot_log!(debug, "Skipping review since it has no content");
         return None;
     }
     let rating = match preferences.general.review_scale {

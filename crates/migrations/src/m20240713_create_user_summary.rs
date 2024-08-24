@@ -1,3 +1,5 @@
+// FIXME: Delete this file in the next major version
+
 use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;

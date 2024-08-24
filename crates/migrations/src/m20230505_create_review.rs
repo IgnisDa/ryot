@@ -1,4 +1,5 @@
 use enums::Visibility;
+use indoc::indoc;
 use sea_orm_migration::prelude::*;
 
 use super::{
@@ -13,6 +14,16 @@ pub struct Migration;
 pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 pub static METADATA_GROUP_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_group_foreign_key";
 pub static COLLECTION_TO_REVIEW_FOREIGN_KEY: &str = "review_to_collection_foreign_key";
+pub static ENTITY_LOT_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        CASE
+            WHEN "metadata_id" IS NOT NULL THEN 'metadata'
+            WHEN "person_id" IS NOT NULL THEN 'person'
+            WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
+            WHEN "collection_id" IS NOT NULL THEN 'collection'
+        END
+    ) STORED
+"# };
 
 /// A review can be for either a creator or a media item.
 #[derive(Iden)]
@@ -34,6 +45,7 @@ pub enum Review {
     PodcastExtraInformation,
     AnimeExtraInformation,
     MangaExtraInformation,
+    EntityLot,
 }
 
 #[async_trait::async_trait]
@@ -74,6 +86,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::PersonId).text())
                     .col(ColumnDef::new(Review::MetadataId).text())
                     .col(ColumnDef::new(Review::UserId).text().not_null())
+                    .col(
+                        ColumnDef::new(Review::EntityLot)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_LOT_SQL),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("review_to_user_foreign_key")

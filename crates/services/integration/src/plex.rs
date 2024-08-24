@@ -1,5 +1,6 @@
 use anyhow::{bail, Context};
 use async_graphql::async_trait::async_trait;
+use common_utils::ryot_log;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use regex::Regex;
@@ -112,7 +113,7 @@ impl PlexIntegration {
     async fn plex_progress(
         &self,
     ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
-        tracing::debug!("Processing Plex payload {:#?}", self.payload);
+        ryot_log!(debug, "Processing Plex payload {:#?}", self.payload);
 
         let payload = Self::parse_payload(&self.payload)?;
 

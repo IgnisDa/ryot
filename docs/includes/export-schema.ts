@@ -292,11 +292,12 @@ export interface WorkoutSummaryExercise {
 
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
-	total: WorkoutOrExerciseTotals | null;
+	total: WorkoutOrExerciseTotals;
 }
 
 /** A workout that was completed by the user. */
 export interface Workout {
+	duration: number;
 	end_time: string;
 	id: string;
 	information: WorkoutInformation;

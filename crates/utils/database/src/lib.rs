@@ -3,31 +3,39 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background::CoreApplicationJob;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
-use common_models::{ChangeCollectionToEntityInput, IdAndNamedObject};
+use common_models::{
+    BackendError, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
+    StringIdObject,
+};
+use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
     collection, collection_to_entity,
     functions::associate_user_with_entity,
     prelude::{
         Collection, CollectionToEntity, Review, User, UserMeasurement, UserToCollection, Workout,
     },
-    user, user_measurement, user_to_collection, workout,
+    review, user, user_measurement, user_to_collection, workout,
 };
 use dependent_models::UserWorkoutDetails;
+use enums::{UserLot, Visibility};
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use markdown::to_html as markdown_to_html;
-use media_models::{ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem};
+use media_models::{
+    CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem,
+};
 use migrations::AliasedCollectionToEntity;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::Expr, sea_query::PgFunc, ActiveModelTrait, ActiveValue, ColumnTrait,
-    DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
-    Select,
+    prelude::Expr,
+    sea_query::{OnConflict, PgFunc},
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
+    ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
-use user_models::UserReviewScale;
+use user_models::{UserPreferences, UserReviewScale};
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
@@ -39,6 +47,39 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<use
         .await
         .unwrap()
         .ok_or_else(|| Error::new("No user found"))
+}
+
+pub async fn user_preferences_by_id(
+    db: &DatabaseConnection,
+    user_id: &String,
+    config: &Arc<config::AppConfig>,
+) -> Result<UserPreferences> {
+    let mut preferences = user_by_id(db, user_id).await?.preferences;
+    preferences.features_enabled.media.anime =
+        config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
+    preferences.features_enabled.media.audio_book =
+        config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
+    preferences.features_enabled.media.book =
+        config.books.is_enabled() && preferences.features_enabled.media.book;
+    preferences.features_enabled.media.show =
+        config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
+    preferences.features_enabled.media.manga =
+        config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
+    preferences.features_enabled.media.movie =
+        config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
+    preferences.features_enabled.media.podcast =
+        config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
+    preferences.features_enabled.media.video_game =
+        config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
+    Ok(preferences)
+}
+
+pub async fn admin_account_guard(db: &DatabaseConnection, user_id: &String) -> Result<()> {
+    let main_user = user_by_id(db, user_id).await?;
+    if main_user.lot != UserLot::Admin {
+        return Err(Error::new(BackendError::AdminOnlyAction.to_string()));
+    }
+    Ok(())
 }
 
 pub async fn user_measurements_list(
@@ -286,7 +327,7 @@ pub async fn add_entity_to_collection(
             ..Default::default()
         };
         let created = created_collection.insert(db).await?;
-        tracing::debug!("Created collection to entity: {:?}", created);
+        ryot_log!(debug, "Created collection to entity: {:?}", created);
         if input.workout_id.is_none() {
             associate_user_with_entity(
                 user_id,
@@ -309,4 +350,166 @@ pub async fn add_entity_to_collection(
         .await
         .unwrap();
     Ok(true)
+}
+
+pub async fn remove_entity_from_collection(
+    db: &DatabaseConnection,
+    user_id: &String,
+    input: ChangeCollectionToEntityInput,
+) -> Result<StringIdObject> {
+    let collect = Collection::find()
+        .left_join(UserToCollection)
+        .filter(collection::Column::Name.eq(input.collection_name))
+        .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap();
+    CollectionToEntity::delete_many()
+        .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
+        .filter(
+            collection_to_entity::Column::MetadataId
+                .eq(input.metadata_id.clone())
+                .or(collection_to_entity::Column::PersonId.eq(input.person_id.clone()))
+                .or(collection_to_entity::Column::MetadataGroupId
+                    .eq(input.metadata_group_id.clone()))
+                .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone()))
+                .or(collection_to_entity::Column::WorkoutId.eq(input.workout_id.clone())),
+        )
+        .exec(db)
+        .await?;
+    if input.workout_id.is_none() {
+        associate_user_with_entity(
+            user_id,
+            input.metadata_id,
+            input.person_id,
+            input.exercise_id,
+            input.metadata_group_id,
+            db,
+        )
+        .await?;
+    }
+    Ok(StringIdObject { id: collect.id })
+}
+
+pub async fn item_reviews(
+    db: &DatabaseConnection,
+    user_id: &String,
+    metadata_id: Option<String>,
+    person_id: Option<String>,
+    metadata_group_id: Option<String>,
+    collection_id: Option<String>,
+) -> Result<Vec<ReviewItem>> {
+    let all_reviews = Review::find()
+        .select_only()
+        .column(review::Column::Id)
+        .order_by_desc(review::Column::PostedOn)
+        .apply_if(metadata_id, |query, v| {
+            query.filter(review::Column::MetadataId.eq(v))
+        })
+        .apply_if(metadata_group_id, |query, v| {
+            query.filter(review::Column::MetadataGroupId.eq(v))
+        })
+        .apply_if(person_id, |query, v| {
+            query.filter(review::Column::PersonId.eq(v))
+        })
+        .apply_if(collection_id, |query, v| {
+            query.filter(review::Column::CollectionId.eq(v))
+        })
+        .into_tuple::<String>()
+        .all(db)
+        .await
+        .unwrap();
+    let mut reviews = vec![];
+    for r_id in all_reviews {
+        reviews.push(review_by_id(db, r_id, user_id, true).await?);
+    }
+    let all_reviews = reviews
+        .into_iter()
+        .filter(|r| match r.visibility {
+            Visibility::Private => &r.posted_by.id == user_id,
+            _ => true,
+        })
+        .collect();
+    Ok(all_reviews)
+}
+
+pub async fn create_or_update_collection(
+    db: &DatabaseConnection,
+    user_id: &String,
+    input: CreateOrUpdateCollectionInput,
+) -> Result<StringIdObject> {
+    let txn = db.begin().await?;
+    let meta = Collection::find()
+        .filter(collection::Column::Name.eq(input.name.clone()))
+        .filter(collection::Column::UserId.eq(user_id))
+        .one(&txn)
+        .await
+        .unwrap();
+    let mut new_name = input.name.clone();
+    let created = match meta {
+        Some(m) if input.update_id.is_none() => m.id,
+        _ => {
+            let col = collection::ActiveModel {
+                id: match input.update_id {
+                    Some(i) => {
+                        let already = Collection::find_by_id(i.clone())
+                            .one(&txn)
+                            .await
+                            .unwrap()
+                            .unwrap();
+                        if DefaultCollection::iter()
+                            .map(|s| s.to_string())
+                            .contains(&already.name)
+                        {
+                            new_name = already.name;
+                        }
+                        ActiveValue::Unchanged(i.clone())
+                    }
+                    None => ActiveValue::NotSet,
+                },
+                last_updated_on: ActiveValue::Set(Utc::now()),
+                name: ActiveValue::Set(new_name),
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                description: ActiveValue::Set(input.description),
+                information_template: ActiveValue::Set(input.information_template),
+                ..Default::default()
+            };
+            let inserted = col
+                .save(&txn)
+                .await
+                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
+            let id = inserted.id.unwrap();
+            let collaborators = vec![user_id.to_owned()];
+            let inserts = collaborators
+                .into_iter()
+                .map(|c| user_to_collection::ActiveModel {
+                    user_id: ActiveValue::Set(c),
+                    collection_id: ActiveValue::Set(id.clone()),
+                });
+            UserToCollection::insert_many(inserts)
+                .on_conflict(OnConflict::new().do_nothing().to_owned())
+                .exec_without_returning(&txn)
+                .await?;
+            id
+        }
+    };
+    txn.commit().await?;
+    Ok(StringIdObject { id: created })
+}
+
+pub async fn deploy_job_to_calculate_user_activities_and_summary(
+    perform_application_job: &MemoryStorage<ApplicationJob>,
+    user_id: &String,
+    calculate_from_beginning: bool,
+) -> Result<()> {
+    perform_application_job
+        .clone()
+        .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
+            user_id.to_owned(),
+            calculate_from_beginning,
+        ))
+        .await
+        .unwrap();
+    Ok(())
 }
