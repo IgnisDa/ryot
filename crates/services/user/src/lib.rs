@@ -282,7 +282,6 @@ impl UserService {
             false => {
                 let (left, right) = input.property.split_once('.').ok_or_else(err)?;
                 let value_bool = input.value.parse::<bool>();
-                let value_usize = input.value.parse::<usize>();
                 match left {
                     "fitness" => {
                         let (left, right) = right.split_once('.').ok_or_else(err)?;
@@ -445,10 +444,6 @@ impl UserService {
                                 }
                             }
                             "exercises" => match right {
-                                "save_history" => {
-                                    preferences.fitness.exercises.save_history =
-                                        value_usize.unwrap()
-                                }
                                 "unit_system" => {
                                     preferences.fitness.exercises.unit_system =
                                         UserUnitSystem::from_str(&input.value).unwrap();

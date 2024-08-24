@@ -113,14 +113,12 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
 pub struct UserExercisePreferences {
-    pub save_history: usize,
     pub unit_system: UserUnitSystem,
 }
 
 impl Default for UserExercisePreferences {
     fn default() -> Self {
         Self {
-            save_history: 15,
             unit_system: UserUnitSystem::Metric,
         }
     }

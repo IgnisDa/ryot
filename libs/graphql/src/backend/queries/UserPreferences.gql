@@ -49,7 +49,6 @@ query UserPreferences {
         }
       }
       exercises {
-        saveHistory
         unitSystem
       }
     }

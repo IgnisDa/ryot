@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use common_utils::{ryot_log, LengthVec};
+use common_utils::ryot_log;
 use database_models::{
     prelude::{Exercise, UserToEntity, Workout},
     user_to_entity, workout,
@@ -57,7 +57,6 @@ pub async fn calculate_and_commit(
     input: UserWorkoutInput,
     user_id: &String,
     db: &DatabaseConnection,
-    save_history: usize,
 ) -> Result<String> {
     let end_time = input.end_time;
     let mut input = input;
@@ -236,10 +235,9 @@ pub async fn calculate_and_commit(
                         set_idx,
                     };
                     if let Some(record) = personal_bests.iter_mut().find(|pb| pb.lot == *best) {
-                        let mut data =
-                            LengthVec::from_vec_and_length(record.sets.clone(), save_history);
-                        data.push_front(to_insert_record);
-                        record.sets = data.into_vec();
+                        let mut data = record.sets.clone();
+                        data.insert(0, to_insert_record);
+                        record.sets = data;
                     } else {
                         personal_bests.push(UserToExerciseBestSetExtraInformation {
                             lot: *best,

@@ -14,7 +14,7 @@ use database_models::{
     user_measurement, user_to_entity, workout,
 };
 use database_utils::{
-    add_entity_to_collection, entity_in_collections, ilike_sql, user_by_id, user_measurements_list,
+    add_entity_to_collection, entity_in_collections, ilike_sql, user_measurements_list,
     workout_details,
 };
 use dependent_models::{
@@ -425,14 +425,7 @@ impl ExerciseService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let preferences = user_by_id(&self.db, user_id).await?.preferences;
-        let identifier = calculate_and_commit(
-            input,
-            user_id,
-            &self.db,
-            preferences.fitness.exercises.save_history,
-        )
-        .await?;
+        let identifier = calculate_and_commit(input, user_id, &self.db).await?;
         Ok(identifier)
     }
 

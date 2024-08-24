@@ -464,16 +464,6 @@ export default function Page() {
 								cols={{ base: 1, md: 2 }}
 								style={{ alignItems: "center" }}
 							>
-								<NumberInput
-									size="xs"
-									label="Number of elements in exercise history"
-									defaultValue={userPreferences.fitness.exercises.saveHistory}
-									disabled={!!isEditDisabled}
-									onChange={(num) => {
-										if (num)
-											appendPref("fitness.exercises.save_history", String(num));
-									}}
-								/>
 								<Select
 									size="xs"
 									label="Unit system to use for measurements"
