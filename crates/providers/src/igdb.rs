@@ -5,7 +5,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
-use common_utils::TEMP_DIR;
+use common_utils::{ryot_log, TEMP_DIR};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
@@ -27,7 +27,7 @@ use serde_json::{json, Value};
 use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://api.igdb.com/v4/";
+static URL: &str = "https://api.igdb.com/v4";
 static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
 static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
 static FILE: &str = "igdb.json";
@@ -421,6 +421,7 @@ where id = {id};
         })
     }
 
+    #[tracing::instrument(skip(self))]
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let client = get_client(&self.config).await;
         let req_body = format!(
@@ -428,12 +429,14 @@ where id = {id};
             field = GAME_FIELDS,
             id = identifier
         );
+        ryot_log!(debug, "Body = {}", req_body);
         let rsp = client
             .post(format!("{}/games", URL))
             .body(req_body)
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
+        ryot_log!(debug, "Response = {:?}", rsp);
         let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let detail = details.pop().unwrap();
         let groups = match detail.collection.as_ref() {
