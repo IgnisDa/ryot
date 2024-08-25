@@ -173,7 +173,7 @@ impl AudibleService {
             "es" => "es",
             _ => unreachable!(),
         };
-        format!("https://api.audible.{}/1.0/catalog/products/", suffix)
+        format!("https://api.audible.{}/1.0/catalog/products", suffix)
     }
 
     pub async fn new(config: &config::AudibleConfig, page_limit: i32) -> Self {
