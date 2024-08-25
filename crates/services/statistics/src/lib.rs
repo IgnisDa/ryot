@@ -253,7 +253,6 @@ impl StatisticsService {
         Ok(ls.items.last().cloned().unwrap_or_default())
     }
 
-    #[tracing::instrument(skip(self))]
     async fn calculate_user_activities(
         &self,
         user_id: &String,

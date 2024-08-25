@@ -308,7 +308,6 @@ impl ExerciseService {
         })
     }
 
-    #[tracing::instrument(skip(self))]
     pub async fn deploy_update_exercise_library_job(&self) -> Result<bool> {
         let exercises = self.get_all_exercises_from_dataset().await?;
         for exercise in exercises {
@@ -321,7 +320,6 @@ impl ExerciseService {
         Ok(true)
     }
 
-    #[tracing::instrument(skip(self, ex))]
     pub async fn update_github_exercise(&self, ex: GithubExercise) -> Result<()> {
         let attributes = ExerciseAttributes {
             instructions: ex.attributes.instructions,
@@ -419,7 +417,6 @@ impl ExerciseService {
         }
     }
 
-    #[tracing::instrument(skip(self, input))]
     pub async fn create_user_workout(
         &self,
         user_id: &String,
