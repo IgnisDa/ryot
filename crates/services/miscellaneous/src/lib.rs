@@ -3320,7 +3320,6 @@ ORDER BY RANDOM() LIMIT 10;
         }
     }
 
-    #[tracing::instrument(skip(self))]
     async fn integration_progress_update(
         &self,
         integration: &integration::Model,
@@ -4038,7 +4037,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(true)
     }
 
-    #[tracing::instrument(skip(self))]
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
         let date_to_calculate_from = get_current_date(self.timezone.as_ref()).pred_opt().unwrap();
 
@@ -4179,7 +4177,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
     async fn queue_notifications_for_released_media(&self) -> Result<()> {
         let today = get_current_date(self.timezone.as_ref());
         let calendar_events = CalendarEvent::find()
@@ -4547,7 +4544,6 @@ GROUP BY m.id;
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.db).await?;
         for user_details in users {

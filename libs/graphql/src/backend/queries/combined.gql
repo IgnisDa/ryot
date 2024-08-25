@@ -170,7 +170,7 @@ query DailyUserActivities($input: DailyUserActivitiesInput!) {
       bookCount
       podcastCount
       mangaCount
-      showCount
+      showCount: showEpisodeCount
       movieCount
       videoGameCount
       visualNovelCount

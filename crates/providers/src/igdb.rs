@@ -421,7 +421,6 @@ where id = {id};
         })
     }
 
-    #[tracing::instrument(skip(self))]
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let client = get_client(&self.config).await;
         let req_body = format!(

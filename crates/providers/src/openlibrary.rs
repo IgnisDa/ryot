@@ -214,7 +214,6 @@ impl MediaProvider for OpenlibraryService {
         Ok(data)
     }
 
-    #[tracing::instrument(skip(self, _source_specifics))]
     async fn person_details(
         &self,
         identity: &str,
@@ -294,7 +293,6 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
-    #[tracing::instrument(skip(self))]
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
         let rsp = self
             .client

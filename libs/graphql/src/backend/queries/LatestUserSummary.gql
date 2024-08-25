@@ -10,14 +10,19 @@ query LatestUserSummary {
     audioBookCount
     totalAudioBookDuration
     animeCount
+    animeEpisodeCount
     bookCount
     totalBookPages
     podcastCount
     totalPodcastDuration
     mangaCount
+    mangaChapterCount
+    mangaVolumeCount
     movieCount
     totalMovieDuration
     showCount
+    showSeasonCount
+    showEpisodeCount
     totalShowDuration
     videoGameCount
     visualNovelCount
