@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Write};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+};
 
 use async_graphql::Result;
 use common_utils::ryot_log;
@@ -153,6 +156,14 @@ impl StatisticsService {
                 "total_audio_book_duration",
             )
             .column_as(daily_user_activity::Column::AnimeCount.sum(), "anime_count")
+            .column_as(
+                daily_user_activity::Column::AnimeEpisodeCount.sum(),
+                "anime_episode_count",
+            )
+            .column_as(
+                daily_user_activity::Column::MangaChapterCount.sum(),
+                "manga_chapter_count",
+            )
             .column_as(daily_user_activity::Column::BookCount.sum(), "book_count")
             .column_as(
                 daily_user_activity::Column::BookPages.sum(),
@@ -167,12 +178,28 @@ impl StatisticsService {
                 "total_podcast_duration",
             )
             .column_as(daily_user_activity::Column::MangaCount.sum(), "manga_count")
+            .column_as(
+                daily_user_activity::Column::MangaVolumeCount.sum(),
+                "manga_volume_count",
+            )
+            .column_as(
+                daily_user_activity::Column::MangaChapterCount.sum(),
+                "manga_chapter_count",
+            )
             .column_as(daily_user_activity::Column::MovieCount.sum(), "movie_count")
             .column_as(
                 daily_user_activity::Column::MovieDuration.sum(),
                 "total_movie_duration",
             )
             .column_as(daily_user_activity::Column::ShowCount.sum(), "show_count")
+            .column_as(
+                daily_user_activity::Column::ShowSeasonCount.sum(),
+                "show_season_count",
+            )
+            .column_as(
+                daily_user_activity::Column::ShowEpisodeCount.sum(),
+                "show_episode_count",
+            )
             .column_as(
                 daily_user_activity::Column::ShowDuration.sum(),
                 "total_show_duration",
@@ -253,13 +280,20 @@ impl StatisticsService {
         Ok(ls.items.last().cloned().unwrap_or_default())
     }
 
-    #[tracing::instrument(skip(self))]
     async fn calculate_user_activities(
         &self,
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        type Tracker = HashMap<Date, daily_user_activity::Model>;
+        struct TrackerItem {
+            activity: daily_user_activity::Model,
+            shows: HashSet<String>,
+            show_seasons: HashSet<i32>,
+            anime_episodes: HashSet<i32>,
+            manga_chapters: HashSet<i32>,
+            manga_volumes: HashSet<i32>,
+        }
+        type Tracker = HashMap<Date, TrackerItem>;
 
         let start_from = match calculate_from_beginning {
             true => {
@@ -284,15 +318,20 @@ impl StatisticsService {
             activities: &'a mut Tracker,
             user_id: &'a String,
             date: Date,
-        ) -> &'a mut daily_user_activity::Model {
+        ) -> &'a mut TrackerItem {
             ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
-            let existing = activities
-                .entry(date)
-                .or_insert(daily_user_activity::Model {
+            let existing = activities.entry(date).or_insert(TrackerItem {
+                activity: daily_user_activity::Model {
                     date,
                     user_id: user_id.to_owned(),
                     ..Default::default()
-                });
+                },
+                shows: HashSet::new(),
+                show_seasons: HashSet::new(),
+                anime_episodes: HashSet::new(),
+                manga_chapters: HashSet::new(),
+                manga_volumes: HashSet::new(),
+            });
             existing
         }
         let mut seen_stream = Seen::find()
@@ -330,10 +369,19 @@ impl StatisticsService {
         while let Some(seen) = seen_stream.try_next().await? {
             let default_date = Date::from_ymd_opt(2023, 4, 3).unwrap(); // DEV: The first commit of Ryot
             let date = seen.finished_on.unwrap_or(default_date);
-            let activity = get_activity_count(seen.seen_id, &mut activities, user_id, date);
+            let TrackerItem {
+                activity,
+                shows,
+                show_seasons,
+                anime_episodes,
+                manga_chapters,
+                manga_volumes,
+            } = get_activity_count(seen.seen_id, &mut activities, user_id, date);
             if let (Some(show_seen), Some(show_extra)) =
                 (seen.show_specifics, seen.show_extra_information)
             {
+                shows.insert(seen.metadata_id.clone());
+                show_seasons.insert(show_extra.season);
                 if let Some(runtime) = show_seen
                     .get_episode(show_extra.season, show_extra.episode)
                     .and_then(|(_, e)| e.runtime)
@@ -348,6 +396,21 @@ impl StatisticsService {
                     .and_then(|e| e.runtime)
                 {
                     activity.podcast_duration += runtime;
+                }
+            } else if let (Some(_), Some(anime_extra)) =
+                (seen.anime_specifics, seen.anime_extra_information)
+            {
+                if let Some(episode) = anime_extra.episode {
+                    anime_episodes.insert(episode);
+                }
+            } else if let (Some(_), Some(manga_extra)) =
+                (seen.manga_specifics, seen.manga_extra_information)
+            {
+                if let Some(chapter) = manga_extra.chapter {
+                    manga_chapters.insert(chapter);
+                }
+                if let Some(volume) = manga_extra.volume {
+                    manga_volumes.insert(volume);
                 }
             } else if let Some(audio_book_extra) = seen.audio_book_specifics {
                 if let Some(runtime) = audio_book_extra.runtime {
@@ -370,7 +433,7 @@ impl StatisticsService {
                 MediaLot::Anime => activity.anime_count += 1,
                 MediaLot::Manga => activity.manga_count += 1,
                 MediaLot::Podcast => activity.podcast_count += 1,
-                MediaLot::Show => activity.show_count += 1,
+                MediaLot::Show => activity.show_episode_count += 1,
                 MediaLot::VideoGame => activity.video_game_count += 1,
                 MediaLot::VisualNovel => activity.visual_novel_count += 1,
                 MediaLot::Book => activity.book_count += 1,
@@ -386,7 +449,8 @@ impl StatisticsService {
             .await?;
         while let Some(item) = workout_stream.try_next().await? {
             let date = item.end_time.date_naive();
-            let activity = get_activity_count(item.id, &mut activities, user_id, date);
+            let TrackerItem { activity, .. } =
+                get_activity_count(item.id, &mut activities, user_id, date);
             activity.workout_count += 1;
             activity.workout_duration += item.duration / 60;
             let workout_total = item.summary.total;
@@ -404,7 +468,7 @@ impl StatisticsService {
             .await?;
         while let Some(item) = measurement_stream.try_next().await? {
             let date = item.timestamp.date_naive();
-            let activity =
+            let TrackerItem { activity, .. } =
                 get_activity_count(item.timestamp.to_string(), &mut activities, user_id, date);
             activity.measurement_count += 1;
         }
@@ -416,7 +480,8 @@ impl StatisticsService {
             .await?;
         while let Some(item) = review_stream.try_next().await? {
             let date = item.posted_on.date_naive();
-            let activity = get_activity_count(item.id, &mut activities, user_id, date);
+            let TrackerItem { activity, .. } =
+                get_activity_count(item.id, &mut activities, user_id, date);
             match item.entity_lot {
                 EntityLot::Metadata => activity.metadata_review_count += 1,
                 EntityLot::Person => activity.person_review_count += 1,
@@ -426,7 +491,8 @@ impl StatisticsService {
             }
         }
 
-        for (_, activity) in activities {
+        for (_, track_item) in activities {
+            let TrackerItem { activity, .. } = track_item;
             if let Some(entity) = DailyUserActivity::find()
                 .filter(daily_user_activity::Column::Date.eq(activity.date))
                 .filter(daily_user_activity::Column::UserId.eq(user_id))
@@ -455,7 +521,17 @@ impl StatisticsService {
                 + activity.podcast_duration
                 + activity.movie_duration
                 + activity.show_duration;
+            let total_anime_episodes = track_item.anime_episodes.len().try_into().unwrap();
+            let total_manga_chapters = track_item.manga_chapters.len().try_into().unwrap();
+            let total_manga_volumes = track_item.manga_volumes.len().try_into().unwrap();
+            let total_shows = track_item.shows.len().try_into().unwrap();
+            let total_show_seasons = track_item.show_seasons.len().try_into().unwrap();
             let mut model: daily_user_activity::ActiveModel = activity.into();
+            model.anime_episode_count = ActiveValue::Set(total_anime_episodes);
+            model.manga_chapter_count = ActiveValue::Set(total_manga_chapters);
+            model.manga_volume_count = ActiveValue::Set(total_manga_volumes);
+            model.show_count = ActiveValue::Set(total_shows);
+            model.show_season_count = ActiveValue::Set(total_show_seasons);
             model.total_review_count = ActiveValue::Set(total_review_count);
             model.total_metadata_count = ActiveValue::Set(total_metadata_count);
             model.total_count = ActiveValue::Set(total_count);

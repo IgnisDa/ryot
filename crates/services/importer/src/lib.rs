@@ -91,7 +91,6 @@ impl ImporterService {
         Ok(reports)
     }
 
-    #[tracing::instrument(skip(self, input))]
     pub async fn start_importing(
         &self,
         user_id: String,
