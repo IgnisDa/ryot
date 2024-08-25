@@ -4346,7 +4346,7 @@ GROUP BY m.id;
     async fn remove_old_entities_from_monitoring_collection(&self) -> Result<()> {
         #[derive(Debug, FromQueryResult)]
         struct CustomQueryResponse {
-            id: i32,
+            id: Uuid,
             created_on: DateTimeUtc,
             last_updated_on: Option<DateTimeUtc>,
         }
