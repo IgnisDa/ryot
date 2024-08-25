@@ -206,17 +206,15 @@ pub async fn calculate_and_commit(
                 .and_then(|record| record.sets.first());
             let set = sets.get_mut(set_idx).unwrap();
             if let Some(r) = possible_record {
-                let workout = Workout::find_by_id(r.workout_id.clone())
-                    .one(db)
-                    .await?
-                    .unwrap();
-                let workout_set =
-                    workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
-                if set.get_personal_best(best_type) > workout_set.get_personal_best(best_type) {
-                    if let Some(ref mut set_personal_bests) = set.personal_bests {
-                        set_personal_bests.push(*best_type);
+                if let Some(workout) = Workout::find_by_id(r.workout_id.clone()).one(db).await? {
+                    let workout_set =
+                        workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
+                    if set.get_personal_best(best_type) > workout_set.get_personal_best(best_type) {
+                        if let Some(ref mut set_personal_bests) = set.personal_bests {
+                            set_personal_bests.push(*best_type);
+                        }
+                        total.personal_bests_achieved += 1;
                     }
-                    total.personal_bests_achieved += 1;
                 }
             } else {
                 if let Some(ref mut set_personal_bests) = set.personal_bests {
