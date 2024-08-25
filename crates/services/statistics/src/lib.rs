@@ -22,7 +22,7 @@ use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
     sea_query::{Alias, Func},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    Iden, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    Iden, ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
 
@@ -426,7 +426,15 @@ impl StatisticsService {
             }
         }
 
-        for (_, activity) in activities.into_iter() {
+        for (_, activity) in activities {
+            if let Some(entity) = DailyUserActivity::find()
+                .filter(daily_user_activity::Column::Date.eq(activity.date))
+                .filter(daily_user_activity::Column::UserId.eq(user_id))
+                .one(&self.db)
+                .await?
+            {
+                entity.delete(&self.db).await?;
+            }
             let total_review_count = activity.metadata_review_count
                 + activity.collection_review_count
                 + activity.metadata_group_review_count
