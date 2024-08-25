@@ -95,7 +95,7 @@ impl MediaProviderLanguages for AnilistService {
 
 impl AnilistService {
     async fn new(page_size: i32, config: &config::AnilistConfig) -> Self {
-        let client = get_client_config().await;
+        let client = get_base_http_client(None);
         Self {
             client,
             page_size,
@@ -527,10 +527,6 @@ impl MediaProvider for AnilistMangaService {
     }
 }
 
-async fn get_client_config() -> Client {
-    get_base_http_client(None)
-}
-
 async fn media_details(
     client: &Client,
     id: &str,
@@ -541,7 +537,7 @@ async fn media_details(
     };
     let body = MediaDetailsQuery::build_query(variables);
     let details = client
-        .post("")
+        .post(URL)
         .json(&body)
         .send()
         .await
@@ -742,7 +738,7 @@ async fn search(
     };
     let body = MediaSearchQuery::build_query(variables);
     let search = client
-        .post("")
+        .post(URL)
         .json(&body)
         .send()
         .await
