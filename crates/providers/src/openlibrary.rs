@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://openlibrary.org/";
+static URL: &str = "https://openlibrary.org";
 static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://api.themoviedb.org/3/";
+static URL: &str = "https://api.themoviedb.org/3";
 static FILE: &str = "tmdb.json";
 static POSSIBLE_ROLES: [&str; 5] = ["Acting", "Directing", "Director", "Production", "Writer"];
 
@@ -1311,9 +1311,17 @@ async fn get_client_config(access_token: &str) -> (Client, Settings) {
         struct TmdbConfiguration {
             images: TmdbImageConfiguration,
         }
-        let rsp = client.get("configuration").send().await.unwrap();
+        let rsp = client
+            .get(format!("{}/configuration", URL))
+            .send()
+            .await
+            .unwrap();
         let data_1: TmdbConfiguration = rsp.json().await.unwrap();
-        let rsp = client.get("configuration/languages").send().await.unwrap();
+        let rsp = client
+            .get(format!("{}/configuration/languages", URL))
+            .send()
+            .await
+            .unwrap();
         let data_2: Vec<TmdbLanguage> = rsp.json().await.unwrap();
         let tmdb_settings = Settings {
             image_url: data_1.images.secure_base_url,

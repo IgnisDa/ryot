@@ -15,7 +15,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://api.vndb.org/kana/";
+static URL: &str = "https://api.vndb.org/kana";
 const METADATA_FIELDS_SMALL: &str = "title,image.url,released,screenshots.url,developers.name";
 const METADATA_FIELDS: &str = const_str::concat!(
     METADATA_FIELDS_SMALL,

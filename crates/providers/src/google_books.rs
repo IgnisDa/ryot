@@ -19,7 +19,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://www.googleapis.com/books/v1/volumes/";
+static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 
 #[derive(Debug, Clone)]
 pub struct GoogleBooksService {

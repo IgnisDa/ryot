@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://api.myanimelist.net/v2/";
+static URL: &str = "https://api.myanimelist.net/v2";
 
 #[derive(Debug, Clone)]
 pub struct MalService {

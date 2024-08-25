@@ -15,7 +15,7 @@ use sea_orm::prelude::ChronoDateTimeUtc;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://itunes.apple.com/";
+static URL: &str = "https://itunes.apple.com";
 
 #[derive(Debug, Clone)]
 pub struct ITunesService {

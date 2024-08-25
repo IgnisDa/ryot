@@ -24,7 +24,7 @@ use serde_json::json;
 use serde_with::{formats::Flexible, serde_as, TimestampMilliSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://listen-api.listennotes.com/api/v2/";
+static URL: &str = "https://listen-api.listennotes.com/api/v2";
 static FILE: &str = "listennotes.json";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -285,7 +285,7 @@ async fn get_client_config(api_token: &str) -> (Client, Settings) {
         struct GenreResponse {
             genres: Vec<ListennotesIdAndNamedObject>,
         }
-        let rsp = client.get("genres").send().await.unwrap();
+        let rsp = client.get(format!("{}/genres", URL)).send().await.unwrap();
         let data: GenreResponse = rsp.json().await.unwrap_or_default();
         let mut genres = HashMap::new();
         for genre in data.genres {
