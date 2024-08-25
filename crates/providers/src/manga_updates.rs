@@ -15,7 +15,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, MediaProviderLanguages};
 
-static URL: &str = "https://api.mangaupdates.com/v1/";
+static URL: &str = "https://api.mangaupdates.com/v1";
 
 #[derive(Debug, Clone)]
 pub struct MangaUpdatesService {

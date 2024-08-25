@@ -28,7 +28,7 @@ use serde_with::{formats::Flexible, serde_as, TimestampSeconds};
 use traits::{MediaProvider, MediaProviderLanguages};
 
 static URL: &str = "https://api.igdb.com/v4";
-static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload/";
+static IMAGE_URL: &str = "https://images.igdb.com/igdb/image/upload";
 static AUTH_URL: &str = "https://id.twitch.tv/oauth2/token";
 static FILE: &str = "igdb.json";
 
@@ -606,7 +606,7 @@ impl IgdbService {
     }
 
     fn get_cover_image_url(&self, hash: String) -> String {
-        format!("{}{}/{}.jpg", self.image_url, self.image_size, hash)
+        format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
     }
 }
 
