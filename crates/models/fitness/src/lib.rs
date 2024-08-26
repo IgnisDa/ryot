@@ -182,6 +182,7 @@ pub struct WorkoutOrExerciseTotals {
     pub rest_time: u16,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]

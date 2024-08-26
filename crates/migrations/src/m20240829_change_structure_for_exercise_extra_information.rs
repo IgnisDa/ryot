@@ -30,9 +30,10 @@ BEGIN
             SELECT * FROM jsonb_array_elements(rec.exercise_extra_information->'history')
         LOOP
             -- Build the new history element with the value
-            new_history := new_history || jsonb_build_object(
-                'value', history_element,
-                'workout_end_on', '2024-08-26 00:43:30 +00:00'
+            new_history := new_history || jsonb_set(
+                history_element,
+                '{workout_end_on}',
+                '"2024-08-26 00:43:30 +00:00"'
             );
         END LOOP;
 

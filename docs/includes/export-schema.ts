@@ -246,7 +246,7 @@ export interface WorkoutSetRecord {
 	note: string | null;
 	personal_bests: WorkoutSetPersonalBest[] | null;
 	statistic: WorkoutSetStatistic;
-	totals?: WorkoutSetTotals | null;
+	totals: WorkoutSetTotals | null;
 }
 
 /** The totals of a workout and the different bests achieved. */
