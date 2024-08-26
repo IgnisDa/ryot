@@ -6,6 +6,10 @@ query UserExerciseDetails($exerciseId: String!) {
     history {
       idx
       workoutId
+      workoutEndOn
+      bestSet {
+        ...WorkoutSetRecordPart
+      }
     }
     details {
       exerciseId
