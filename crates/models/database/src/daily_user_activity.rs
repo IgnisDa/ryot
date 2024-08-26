@@ -14,6 +14,7 @@ pub struct Model {
     pub collection_review_count: i32,
     pub metadata_group_review_count: i32,
     pub person_review_count: i32,
+    pub exercise_review_count: i32,
     pub measurement_count: i32,
     pub workout_count: i32,
     pub workout_duration: i32,
