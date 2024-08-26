@@ -267,7 +267,7 @@ export const ExerciseHistory = (props: {
 													props.exerciseIdx.toString(),
 												)
 											: $path("/fitness/exercises/item/:id", {
-													id: exercise.name,
+													id: encodeURIComponent(exercise.name),
 												})
 									}
 									fw="bold"

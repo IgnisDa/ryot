@@ -257,7 +257,7 @@ export default function Page() {
 											</Indicator>
 											<Link
 												to={$path("/fitness/exercises/item/:id", {
-													id: exercise.id,
+													id: encodeURIComponent(exercise.id),
 												})}
 												style={{ all: "unset", cursor: "pointer" }}
 											>

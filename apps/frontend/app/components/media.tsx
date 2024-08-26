@@ -779,7 +779,7 @@ export const ExerciseDisplayItem = (props: {
 			name={exerciseDetails?.id}
 			isLoading={isExerciseDetailsLoading}
 			onImageClickBehavior={$path("/fitness/exercises/item/:id", {
-				id: props.exerciseId,
+				id: encodeURIComponent(props.exerciseId),
 			})}
 			imageUrl={exerciseDetails?.attributes.images.at(0)}
 			labels={{

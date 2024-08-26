@@ -897,7 +897,7 @@ const ExerciseDisplay = (props: {
 								<Anchor
 									component={Link}
 									to={$path("/fitness/exercises/item/:id", {
-										id: exercise.exerciseId,
+										id: encodeURIComponent(exercise.exerciseId),
 									})}
 									fw="bold"
 									lineClamp={1}
