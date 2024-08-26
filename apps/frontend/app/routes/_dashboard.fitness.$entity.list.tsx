@@ -160,23 +160,25 @@ export default function Page() {
 														data={workout.detail}
 													/>
 												) : null}
-												<Group>
-													<DisplayStat
-														icon={<IconWeight size={16} />}
-														data={displayWeightWithUnit(
-															unitSystem,
-															workout.summary.total.weight,
-														)}
-													/>
-													{Number(
-														workout.summary.total.personalBestsAchieved,
-													) !== 0 ? (
+												{workout.summary.total ? (
+													<Group>
 														<DisplayStat
-															icon={<IconTrophy size={16} />}
-															data={`${workout.summary.total.personalBestsAchieved} PRs`}
+															icon={<IconWeight size={16} />}
+															data={displayWeightWithUnit(
+																unitSystem,
+																workout.summary.total.weight,
+															)}
 														/>
-													) : null}
-												</Group>
+														{Number(
+															workout.summary.total.personalBestsAchieved,
+														) !== 0 ? (
+															<DisplayStat
+																icon={<IconTrophy size={16} />}
+																data={`${workout.summary.total.personalBestsAchieved} PRs`}
+															/>
+														) : null}
+													</Group>
+												) : null}
 											</Stack>
 										</Accordion.Control>
 										<Anchor

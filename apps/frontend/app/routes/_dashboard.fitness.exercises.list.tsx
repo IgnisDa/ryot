@@ -59,6 +59,7 @@ import {
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getEnhancedCookieName,
+	getWorkoutCookieValue,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -93,6 +94,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = await getEnhancedCookieName("exercises.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
+	const workoutInProgress = !!getWorkoutCookieValue(request);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query.page = query.page ?? 1;
 	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
@@ -113,7 +115,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			},
 		}),
 	]);
-	return { query, exerciseParameters, exercisesList, cookieName };
+	return {
+		query,
+		workoutInProgress,
+		exerciseParameters,
+		exercisesList,
+		cookieName,
+	};
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -295,7 +303,7 @@ export default function Page() {
 					</>
 				)}
 			</Stack>
-			{currentWorkout ? (
+			{currentWorkout && loaderData.workoutInProgress ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"
