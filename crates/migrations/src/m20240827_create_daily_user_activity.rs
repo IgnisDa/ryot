@@ -20,6 +20,7 @@ pub enum DailyUserActivity {
     CollectionReviewCount,
     MetadataGroupReviewCount,
     PersonReviewCount,
+    ExerciseReviewCount,
     MeasurementCount,
     WorkoutCount,
     /// DEV: all durations are in minutes
@@ -76,6 +77,7 @@ impl MigrationTrait for Migration {
                         DailyUserActivity::MetadataGroupReviewCount,
                     ))
                     .col(integer_not_null(DailyUserActivity::PersonReviewCount))
+                    .col(integer_not_null(DailyUserActivity::ExerciseReviewCount))
                     .col(integer_not_null(DailyUserActivity::WorkoutCount))
                     .col(integer_not_null(DailyUserActivity::WorkoutDuration))
                     .col(integer_not_null(DailyUserActivity::MeasurementCount))

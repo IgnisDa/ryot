@@ -74,6 +74,12 @@ ALTER TABLE "review" ADD COLUMN "entity_lot" TEXT GENERATED ALWAYS AS (
 "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "daily_user_activity" ADD COLUMN IF NOT EXISTS "exercise_review_count" INTEGER NOT NULL DEFAULT 0;
+"#,
+        )
+        .await?;
         Ok(())
     }
 
