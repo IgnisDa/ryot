@@ -50,6 +50,28 @@ END $$;
 "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "exercise_id" TEXT;
+ALTER TABLE "review" ADD CONSTRAINT IF NOT EXISTS "review_to_exercise_foreign_key" FOREIGN KEY ("exercise_id") REFERENCES "exercise"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+            "#,
+        )
+        .await?;
+        db.execute_unprepared(
+            r#"
+ALTER TABLE "review" DROP COLUMN IF EXISTS "entity_lot";
+ALTER TABLE "review" ADD COLUMN IF NOT EXISTS "entity_lot" TEXT GENERATED ALWAYS AS (
+    CASE
+        WHEN "metadata_id" IS NOT NULL THEN 'metadata'
+        WHEN "person_id" IS NOT NULL THEN 'person'
+        WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
+        WHEN "collection_id" IS NOT NULL THEN 'collection'
+        WHEN "exercise_id" IS NOT NULL THEN 'exercise'
+    END
+) STORED;
+"#,
+        )
+        .await?;
         Ok(())
     }
 
