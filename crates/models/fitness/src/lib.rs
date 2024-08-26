@@ -479,7 +479,8 @@ pub struct WorkoutSummaryExercise {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSummary {
-    pub total: WorkoutOrExerciseTotals,
+    // DEV: This is nullable because it is also used for the workout templates
+    pub total: Option<WorkoutOrExerciseTotals>,
     pub exercises: Vec<WorkoutSummaryExercise>,
 }
 

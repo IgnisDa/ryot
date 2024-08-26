@@ -459,42 +459,47 @@ export default function Page() {
 									)}
 								/>
 							) : null}
-							{Number(loaderData.summary.total.weight) !== 0 ? (
-								<DisplayStat
-									icon={<IconWeight size={16} />}
-									data={displayWeightWithUnit(
-										unitSystem,
-										loaderData.summary.total.weight,
-									)}
-								/>
-							) : null}
-							{Number(loaderData.summary.total.distance) > 0 ? (
-								<DisplayStat
-									icon={<IconRun size={16} />}
-									data={displayDistanceWithUnit(
-										unitSystem,
-										loaderData.summary.total.distance,
-									)}
-								/>
-							) : null}
-							<DisplayStat
-								icon={<IconBarbell size={16} />}
-								data={`${loaderData.summary.exercises.length} Exercises`}
-							/>
-							{Number(loaderData.summary.total.personalBestsAchieved) !== 0 ? (
-								<DisplayStat
-									icon={<IconTrophy size={16} />}
-									data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
-								/>
-							) : null}
-							{loaderData.summary.total.restTime > 0 ? (
-								<DisplayStat
-									icon={<IconZzz size={16} />}
-									data={humanizeDuration(
-										loaderData.summary.total.restTime * 1e3,
-										{ round: true, units: ["m", "s"] },
-									)}
-								/>
+							{loaderData.summary.total ? (
+								<>
+									{Number(loaderData.summary.total.weight) !== 0 ? (
+										<DisplayStat
+											icon={<IconWeight size={16} />}
+											data={displayWeightWithUnit(
+												unitSystem,
+												loaderData.summary.total.weight,
+											)}
+										/>
+									) : null}
+									{Number(loaderData.summary.total.distance) > 0 ? (
+										<DisplayStat
+											icon={<IconRun size={16} />}
+											data={displayDistanceWithUnit(
+												unitSystem,
+												loaderData.summary.total.distance,
+											)}
+										/>
+									) : null}
+									<DisplayStat
+										icon={<IconBarbell size={16} />}
+										data={`${loaderData.summary.exercises.length} Exercises`}
+									/>
+									{Number(loaderData.summary.total.personalBestsAchieved) !==
+									0 ? (
+										<DisplayStat
+											icon={<IconTrophy size={16} />}
+											data={`${loaderData.summary.total.personalBestsAchieved} PRs`}
+										/>
+									) : null}
+									{loaderData.summary.total.restTime > 0 ? (
+										<DisplayStat
+											icon={<IconZzz size={16} />}
+											data={humanizeDuration(
+												loaderData.summary.total.restTime * 1e3,
+												{ round: true, units: ["m", "s"] },
+											)}
+										/>
+									) : null}
+								</>
 							) : null}
 						</SimpleGrid>
 					</Box>

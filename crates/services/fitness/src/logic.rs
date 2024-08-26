@@ -278,7 +278,7 @@ pub async fn calculate_and_commit(
         user_id: user_id.clone(),
         name: input.name,
         summary: WorkoutSummary {
-            total: summary_total,
+            total: Some(summary_total),
             exercises: exercises
                 .iter()
                 .map(|(lot, e)| WorkoutSummaryExercise {

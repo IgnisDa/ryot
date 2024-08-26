@@ -32,8 +32,8 @@ use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseSortBy, ExercisesListInput, GithubExercise, GithubExerciseAttributes,
     ProcessedExercise, UpdateUserWorkoutInput, UserExerciseInput, UserMeasurementsListInput,
-    UserWorkoutInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals,
-    WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
+    UserWorkoutInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutSetRecord, WorkoutSummary,
+    WorkoutSummaryExercise,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -146,7 +146,7 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let mut summary = WorkoutSummary {
-            total: WorkoutOrExerciseTotals::default(),
+            total: None,
             exercises: vec![],
         };
         let mut information = WorkoutInformation {

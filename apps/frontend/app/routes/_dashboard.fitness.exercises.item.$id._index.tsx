@@ -58,7 +58,10 @@ import {
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
-import { serverGqlService } from "~/lib/utilities.server";
+import {
+	getWorkoutCookieValue,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
@@ -69,6 +72,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const { id: exerciseId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
+	const workoutInProgress = !!getWorkoutCookieValue(request);
 	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
 		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
 		serverGqlService.authenticatedRequest(
@@ -77,7 +81,13 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			{ exerciseId },
 		),
 	]);
-	return { query, exerciseDetails, userExerciseDetails, exerciseId };
+	return {
+		query,
+		workoutInProgress,
+		exerciseDetails,
+		userExerciseDetails,
+		exerciseId,
+	};
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -353,7 +363,7 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 			</Stack>
-			{currentWorkout ? (
+			{currentWorkout && loaderData.workoutInProgress ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"
