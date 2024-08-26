@@ -96,8 +96,9 @@ pub async fn calculate_and_commit(
             .ok()
             .flatten();
         let history_item = UserToExerciseHistoryExtraInformation {
-            workout_id: id.clone(),
+            best_set: None,
             idx: exercise_idx,
+            workout_id: id.clone(),
         };
         let association = match association {
             None => {
@@ -245,10 +246,12 @@ pub async fn calculate_and_commit(
                 }
             }
         }
+        let best_set = get_best_set_index(&sets).and_then(|i| sets.get(i).cloned());
         let mut association_extra_information = association
             .exercise_extra_information
             .clone()
             .unwrap_or_default();
+        association_extra_information.history[0].best_set = best_set.clone();
         let mut association: user_to_entity::ActiveModel = association.into();
         association_extra_information.lifetime_stats += total.clone();
         association_extra_information.personal_bests = personal_bests;
@@ -256,6 +259,7 @@ pub async fn calculate_and_commit(
             ActiveValue::Set(Some(association_extra_information));
         association.update(db).await?;
         exercises.push((
+            best_set,
             db_ex.lot,
             ProcessedExercise {
                 sets,
@@ -280,19 +284,20 @@ pub async fn calculate_and_commit(
         summary: WorkoutSummary {
             total: summary_total,
             exercises: exercises
-                .iter()
-                .map(|(lot, e)| WorkoutSummaryExercise {
-                    lot: Some(*lot),
+                .clone()
+                .into_iter()
+                .map(|(best_set, lot, e)| WorkoutSummaryExercise {
+                    best_set,
+                    lot: Some(lot),
                     id: e.name.clone(),
                     num_sets: e.sets.len(),
-                    best_set: Some(e.sets[get_best_set_index(&e.sets).unwrap()].clone()),
                 })
                 .collect(),
         },
         information: WorkoutInformation {
             comment: input.comment,
             assets: input.assets,
-            exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
+            exercises: exercises.into_iter().map(|(_, _, ex)| ex).collect(),
         },
         duration: 0,
     };

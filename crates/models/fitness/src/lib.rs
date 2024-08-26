@@ -186,8 +186,9 @@ pub struct WorkoutOrExerciseTotals {
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseHistoryExtraInformation {
-    pub workout_id: String,
     pub idx: usize,
+    pub workout_id: String,
+    pub best_set: Option<WorkoutSetRecord>,
 }
 
 /// Details about the statistics of the set performed.
