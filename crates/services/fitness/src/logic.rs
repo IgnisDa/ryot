@@ -4,7 +4,6 @@ use database_models::{
     prelude::{Exercise, UserToEntity, Workout},
     user_to_entity, workout,
 };
-use enums::ExerciseLot;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
     UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
@@ -17,6 +16,8 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
     QueryFilter,
 };
+
+use super::LOT_MAPPINGS;
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
     records
@@ -187,19 +188,11 @@ pub async fn calculate_and_commit(
             .clone()
             .unwrap_or_default()
             .personal_bests;
-        let types_of_prs = match db_ex.lot {
-            ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
-            ExerciseLot::DistanceAndDuration => {
-                vec![WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time]
-            }
-            ExerciseLot::RepsAndWeight => vec![
-                WorkoutSetPersonalBest::Weight,
-                WorkoutSetPersonalBest::OneRm,
-                WorkoutSetPersonalBest::Volume,
-                WorkoutSetPersonalBest::Reps,
-            ],
-            ExerciseLot::Reps => vec![WorkoutSetPersonalBest::Reps],
-        };
+        let types_of_prs = LOT_MAPPINGS
+            .iter()
+            .find(|lm| lm.0 == db_ex.lot)
+            .map(|lm| lm.1)
+            .unwrap();
         for best_type in types_of_prs.iter() {
             let set_idx = get_index_of_highest_pb(&sets, best_type).unwrap();
             let possible_record = personal_bests

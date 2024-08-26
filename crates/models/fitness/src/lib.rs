@@ -576,10 +576,18 @@ pub struct ExercisesListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseParametersLotMapping {
+    pub lot: ExerciseLot,
+    pub bests: Vec<WorkoutSetPersonalBest>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExerciseParameters {
     /// All filters applicable to an exercises query.
     pub filters: ExerciseFilters,
     pub download_required: bool,
+    /// Exercise type mapped to the personal bests possible.
+    pub lot_mapping: Vec<ExerciseParametersLotMapping>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

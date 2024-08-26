@@ -1,5 +1,6 @@
 query ExerciseParameters {
   exerciseParameters {
+    downloadRequired
     filters {
       type
       level
@@ -8,6 +9,9 @@ query ExerciseParameters {
       equipment
       muscle
     }
-    downloadRequired
+    lotMapping {
+      lot
+      bests
+    }
   }
 }
