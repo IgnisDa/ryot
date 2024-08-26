@@ -29,7 +29,7 @@ import {
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
-import { IconCheck, IconExternalLink } from "@tabler/icons-react";
+import { IconChartPie, IconCheck, IconExternalLink } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -59,6 +59,7 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import {
+	getCachedExerciseParameters,
 	getWorkoutCookieValue,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -73,20 +74,23 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const { id: exerciseId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const workoutInProgress = !!getWorkoutCookieValue(request);
-	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
-		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-		serverGqlService.authenticatedRequest(
-			request,
-			UserExerciseDetailsDocument,
-			{ exerciseId },
-		),
-	]);
+	const [exerciseParameters, { exerciseDetails }, { userExerciseDetails }] =
+		await Promise.all([
+			getCachedExerciseParameters(),
+			serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+			serverGqlService.authenticatedRequest(
+				request,
+				UserExerciseDetailsDocument,
+				{ exerciseId },
+			),
+		]);
 	return {
 		query,
-		workoutInProgress,
-		exerciseDetails,
-		userExerciseDetails,
 		exerciseId,
+		exerciseDetails,
+		workoutInProgress,
+		exerciseParameters,
+		userExerciseDetails,
 	};
 });
 
@@ -143,9 +147,20 @@ export default function Page() {
 							</Tabs.Tab>
 						) : null}
 						{loaderData.userExerciseDetails.details ? (
-							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
-								Records
-							</Tabs.Tab>
+							<>
+								<Tabs.Tab
+									value="records"
+									leftSection={<IconTrophy size={16} />}
+								>
+									Records
+								</Tabs.Tab>
+								<Tabs.Tab
+									value="charts"
+									leftSection={<IconChartPie size={16} />}
+								>
+									Charts
+								</Tabs.Tab>
+							</>
 						) : null}
 						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 							Actions
@@ -256,75 +271,78 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					{loaderData.userExerciseDetails.details?.exerciseExtraInformation ? (
-						<Tabs.Panel value="records">
-							<Stack gap="xl">
-								<Stack gap="xs">
-									<Text size="lg" td="underline">
-										Lifetime Stats
-									</Text>
-									<Box>
-										<DisplayLifetimeStatistic
-											stat="weight"
-											val={displayWeightWithUnit(
-												unitSystem,
-												loaderData.userExerciseDetails.details
-													.exerciseExtraInformation.lifetimeStats.weight,
-											)}
-										/>
-										<DisplayLifetimeStatistic
-											stat="distance"
-											val={displayDistanceWithUnit(
-												unitSystem,
-												loaderData.userExerciseDetails.details
-													.exerciseExtraInformation.lifetimeStats.distance,
-											)}
-										/>
-										<DisplayLifetimeStatistic
-											stat="duration"
-											val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
-										/>
-										<DisplayLifetimeStatistic
-											stat="reps"
-											val={
-												loaderData.userExerciseDetails.details
-													.exerciseExtraInformation.lifetimeStats.reps
-											}
-										/>
-										<DisplayLifetimeStatistic
-											stat="times done"
-											val={
-												loaderData.userExerciseDetails.details
-													.exerciseNumTimesInteracted || 0
-											}
-										/>
-									</Box>
-								</Stack>
-								{loaderData.userExerciseDetails.details.exerciseExtraInformation
-									.personalBests.length > 0 ? (
-									<Stack gap="sm">
+						<>
+							<Tabs.Panel value="records">
+								<Stack gap="xl">
+									<Stack gap="xs">
 										<Text size="lg" td="underline">
-											Personal Bests
+											Lifetime Stats
 										</Text>
-										{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
-											(personalBest) => (
-												<Box key={personalBest.lot}>
-													<Text size="sm" c="dimmed">
-														{changeCase(personalBest.lot)}
-													</Text>
-													{personalBest.sets.map((pbSet) => (
-														<DisplayPersonalBest
-															set={pbSet}
-															key={pbSet.workoutId}
-															personalBestLot={personalBest.lot}
-														/>
-													))}
-												</Box>
-											),
-										)}
+										<Box>
+											<DisplayLifetimeStatistic
+												stat="weight"
+												val={displayWeightWithUnit(
+													unitSystem,
+													loaderData.userExerciseDetails.details
+														.exerciseExtraInformation.lifetimeStats.weight,
+												)}
+											/>
+											<DisplayLifetimeStatistic
+												stat="distance"
+												val={displayDistanceWithUnit(
+													unitSystem,
+													loaderData.userExerciseDetails.details
+														.exerciseExtraInformation.lifetimeStats.distance,
+												)}
+											/>
+											<DisplayLifetimeStatistic
+												stat="duration"
+												val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
+											/>
+											<DisplayLifetimeStatistic
+												stat="reps"
+												val={
+													loaderData.userExerciseDetails.details
+														.exerciseExtraInformation.lifetimeStats.reps
+												}
+											/>
+											<DisplayLifetimeStatistic
+												stat="times done"
+												val={
+													loaderData.userExerciseDetails.details
+														.exerciseNumTimesInteracted || 0
+												}
+											/>
+										</Box>
 									</Stack>
-								) : null}
-							</Stack>
-						</Tabs.Panel>
+									{loaderData.userExerciseDetails.details
+										.exerciseExtraInformation.personalBests.length > 0 ? (
+										<Stack gap="sm">
+											<Text size="lg" td="underline">
+												Personal Bests
+											</Text>
+											{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
+												(personalBest) => (
+													<Box key={personalBest.lot}>
+														<Text size="sm" c="dimmed">
+															{changeCase(personalBest.lot)}
+														</Text>
+														{personalBest.sets.map((pbSet) => (
+															<DisplayPersonalBest
+																set={pbSet}
+																key={pbSet.workoutId}
+																personalBestLot={personalBest.lot}
+															/>
+														))}
+													</Box>
+												),
+											)}
+										</Stack>
+									) : null}
+								</Stack>
+							</Tabs.Panel>
+							<Tabs.Panel value="charts">Charts</Tabs.Panel>
+						</>
 					) : null}
 					<Tabs.Panel value="actions">
 						<MediaScrollArea>
