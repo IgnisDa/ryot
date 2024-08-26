@@ -1,3 +1,4 @@
+import { LineChart } from "@mantine/charts";
 import {
 	ActionIcon,
 	Affix,
@@ -10,6 +11,7 @@ import {
 	Group,
 	Image,
 	List,
+	Paper,
 	ScrollArea,
 	SimpleGrid,
 	Stack,
@@ -28,7 +30,7 @@ import {
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
+import { changeCase, reverse, startCase } from "@ryot/ts-utils";
 import { IconChartPie, IconCheck, IconExternalLink } from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
@@ -40,6 +42,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "remix-routes";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { z } from "zod";
@@ -109,6 +112,10 @@ export default function Page() {
 	const navigate = useNavigate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 
+	const bestMappings =
+		loaderData.exerciseParameters.lotMapping.find(
+			(lm) => lm.lot === loaderData.exerciseDetails.lot,
+		)?.bests || [];
 	return (
 		<Container size="xs" px="lg">
 			<Stack>
@@ -341,7 +348,59 @@ export default function Page() {
 									) : null}
 								</Stack>
 							</Tabs.Panel>
-							<Tabs.Panel value="charts">Charts</Tabs.Panel>
+							<Tabs.Panel value="charts">
+								<Stack>
+									{bestMappings.map((best) => {
+										const history =
+											loaderData.userExerciseDetails.history || [];
+										const reversedHistory = reverse(history);
+										const data = reversedHistory.map((h) => {
+											const stat = h.bestSet?.statistic;
+											const value =
+												match(best)
+													.with(WorkoutSetPersonalBest.OneRm, () => stat?.oneRm)
+													.with(WorkoutSetPersonalBest.Pace, () => stat?.pace)
+													.with(WorkoutSetPersonalBest.Reps, () => stat?.reps)
+													.with(
+														WorkoutSetPersonalBest.Time,
+														() => stat?.duration,
+													)
+													.with(
+														WorkoutSetPersonalBest.Volume,
+														() => stat?.volume,
+													)
+													.with(
+														WorkoutSetPersonalBest.Weight,
+														() => stat?.weight,
+													)
+													.exhaustive() || "0";
+											return {
+												name: dayjsLib(h.workoutEndOn).format("DD/MM/YYYY"),
+												value: Number.parseFloat(value),
+											};
+										});
+										invariant(data);
+										return (
+											<Paper key={best} withBorder py="md" radius="md">
+												<Stack>
+													<Title order={3} ta="center">
+														{changeCase(best)}
+													</Title>
+													<LineChart
+														ml={-15}
+														h={300}
+														data={data}
+														series={[
+															{ name: "value", label: changeCase(best) },
+														]}
+														dataKey="name"
+													/>
+												</Stack>
+											</Paper>
+										);
+									})}
+								</Stack>
+							</Tabs.Panel>
 						</>
 					) : null}
 					<Tabs.Panel value="actions">
