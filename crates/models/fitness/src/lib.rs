@@ -289,13 +289,13 @@ pub struct WorkoutSetTotals {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSetRecord {
-    pub statistic: WorkoutSetStatistic,
     pub lot: SetLot,
-    pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
-    pub confirmed_at: Option<DateTimeUtc>,
-    pub totals: Option<WorkoutSetTotals>,
-    pub actual_rest_time: Option<i64>,
     pub note: Option<String>,
+    pub actual_rest_time: Option<i64>,
+    pub statistic: WorkoutSetStatistic,
+    pub totals: Option<WorkoutSetTotals>,
+    pub confirmed_at: Option<DateTimeUtc>,
+    pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
 }
 
 impl WorkoutSetRecord {
