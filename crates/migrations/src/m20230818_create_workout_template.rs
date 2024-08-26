@@ -1,3 +1,4 @@
+// FIXME: Rename this to m20230507_create_exercise in the next major release
 use enums::Visibility;
 use sea_orm_migration::prelude::*;
 
