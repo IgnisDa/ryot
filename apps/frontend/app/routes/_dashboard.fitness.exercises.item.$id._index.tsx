@@ -13,6 +13,7 @@ import {
 	List,
 	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -45,6 +46,7 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -53,7 +55,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { DisplayCollection, MediaScrollArea } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
+import { TimeSpan, dayjsLib } from "~/lib/generals";
 import { useUserDetails, useUserUnitSystem } from "~/lib/hooks";
 import {
 	addExerciseToWorkout,
@@ -111,11 +113,15 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
-
+	const [timeSpan, setTimeSpan] = useLocalStorage(
+		"ExerciseChartTimeSpan",
+		TimeSpan.Last90Days,
+	);
 	const bestMappings =
 		loaderData.exerciseParameters.lotMapping.find(
 			(lm) => lm.lot === loaderData.exerciseDetails.lot,
 		)?.bests || [];
+
 	return (
 		<Container size="xs" px="lg">
 			<Stack>
@@ -350,10 +356,38 @@ export default function Page() {
 							</Tabs.Panel>
 							<Tabs.Panel value="charts">
 								<Stack>
+									<Select
+										label="Time span"
+										defaultValue={timeSpan}
+										labelProps={{ c: "dimmed" }}
+										data={Object.values(TimeSpan)}
+										onChange={(v) => {
+											if (v) setTimeSpan(v as TimeSpan);
+										}}
+									/>
 									{bestMappings.map((best) => {
-										const history =
-											loaderData.userExerciseDetails.history || [];
-										const reversedHistory = reverse(history);
+										const reversedHistory = reverse(
+											loaderData.userExerciseDetails.history || [],
+										).filter((h) => {
+											const workoutEndOn = dayjsLib(h.workoutEndOn);
+											return match(timeSpan)
+												.with(TimeSpan.Last7Days, () =>
+													workoutEndOn.isAfter(dayjsLib().subtract(7, "days")),
+												)
+												.with(TimeSpan.Last30Days, () =>
+													workoutEndOn.isAfter(dayjsLib().subtract(30, "days")),
+												)
+												.with(TimeSpan.Last90Days, () =>
+													workoutEndOn.isAfter(dayjsLib().subtract(90, "days")),
+												)
+												.with(TimeSpan.Last365Days, () =>
+													workoutEndOn.isAfter(
+														dayjsLib().subtract(365, "days"),
+													),
+												)
+												.with(TimeSpan.AllTime, () => true)
+												.exhaustive();
+										});
 										const data = reversedHistory.map((h) => {
 											const stat = h.bestSet?.statistic;
 											const value = match(best)
