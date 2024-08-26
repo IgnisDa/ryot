@@ -293,7 +293,6 @@ pub struct WorkoutSetRecord {
     pub lot: SetLot,
     pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
     pub confirmed_at: Option<DateTimeUtc>,
-    #[serde(default)]
     pub totals: Option<WorkoutSetTotals>,
     pub actual_rest_time: Option<i64>,
     pub note: Option<String>,
