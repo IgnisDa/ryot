@@ -356,27 +356,17 @@ export default function Page() {
 										const reversedHistory = reverse(history);
 										const data = reversedHistory.map((h) => {
 											const stat = h.bestSet?.statistic;
-											const value =
-												match(best)
-													.with(WorkoutSetPersonalBest.OneRm, () => stat?.oneRm)
-													.with(WorkoutSetPersonalBest.Pace, () => stat?.pace)
-													.with(WorkoutSetPersonalBest.Reps, () => stat?.reps)
-													.with(
-														WorkoutSetPersonalBest.Time,
-														() => stat?.duration,
-													)
-													.with(
-														WorkoutSetPersonalBest.Volume,
-														() => stat?.volume,
-													)
-													.with(
-														WorkoutSetPersonalBest.Weight,
-														() => stat?.weight,
-													)
-													.exhaustive() || "0";
+											const value = match(best)
+												.with(WorkoutSetPersonalBest.OneRm, () => stat?.oneRm)
+												.with(WorkoutSetPersonalBest.Pace, () => stat?.pace)
+												.with(WorkoutSetPersonalBest.Reps, () => stat?.reps)
+												.with(WorkoutSetPersonalBest.Time, () => stat?.duration)
+												.with(WorkoutSetPersonalBest.Volume, () => stat?.volume)
+												.with(WorkoutSetPersonalBest.Weight, () => stat?.weight)
+												.exhaustive();
 											return {
 												name: dayjsLib(h.workoutEndOn).format("DD/MM/YYYY"),
-												value: Number.parseFloat(value),
+												value: value ? Number.parseFloat(value) : null,
 											};
 										});
 										invariant(data);
@@ -388,6 +378,7 @@ export default function Page() {
 													</Title>
 													<LineChart
 														ml={-15}
+														connectNulls
 														h={300}
 														data={data}
 														series={[
