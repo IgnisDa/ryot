@@ -99,6 +99,7 @@ pub async fn calculate_and_commit(
             best_set: None,
             idx: exercise_idx,
             workout_id: id.clone(),
+            workout_end_on: input.end_time,
         };
         let association = match association {
             None => {

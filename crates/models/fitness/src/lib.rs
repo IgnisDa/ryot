@@ -188,6 +188,7 @@ pub struct WorkoutOrExerciseTotals {
 pub struct UserToExerciseHistoryExtraInformation {
     pub idx: usize,
     pub workout_id: String,
+    pub workout_end_on: DateTimeUtc,
     pub best_set: Option<WorkoutSetRecord>,
 }
 
