@@ -372,9 +372,12 @@ export const extendResponseHeaders = (
 		responseHeaders.append(key, value);
 };
 
+export const getWorkoutCookieValue = (request: Request) => {
+	return parse(request.headers.get("cookie") || "")[CurrentWorkoutKey];
+};
+
 export const isWorkoutActive = (request: Request) => {
-	const cookies = request.headers.get("cookie");
-	const inProgress = parse(cookies || "")[CurrentWorkoutKey] === "workouts";
+	const inProgress = getWorkoutCookieValue(request) === "workouts";
 	return inProgress;
 };
 

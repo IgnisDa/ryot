@@ -292,7 +292,7 @@ export interface WorkoutSummaryExercise {
 
 export interface WorkoutSummary {
 	exercises: WorkoutSummaryExercise[];
-	total: WorkoutOrExerciseTotals;
+	total: WorkoutOrExerciseTotals | null;
 }
 
 /** A workout that was completed by the user. */

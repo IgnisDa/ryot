@@ -453,7 +453,7 @@ impl StatisticsService {
                 get_activity_count(item.id, &mut activities, user_id, date);
             activity.workout_count += 1;
             activity.workout_duration += item.duration / 60;
-            let workout_total = item.summary.total;
+            let workout_total = item.summary.total.unwrap();
             activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
             activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
             activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
