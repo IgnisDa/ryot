@@ -396,6 +396,7 @@ pub struct PostReviewInput {
     pub person_id: Option<String>,
     pub metadata_group_id: Option<String>,
     pub collection_id: Option<String>,
+    pub exercise_id: Option<String>,
     pub date: Option<DateTimeUtc>,
     /// ID of the review if this is an update to an existing review
     pub review_id: Option<String>,

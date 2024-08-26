@@ -1476,6 +1476,7 @@ export type PostReviewInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   collectionId?: InputMaybe<Scalars['String']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
+  exerciseId?: InputMaybe<Scalars['String']['input']>;
   isSpoiler?: InputMaybe<Scalars['Boolean']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;

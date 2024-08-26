@@ -2568,15 +2568,16 @@ impl MiscellaneousService {
                 },
             )),
             text: ActiveValue::Set(input.text),
+            person_id: ActiveValue::Set(input.person_id),
             user_id: ActiveValue::Set(user_id.to_owned()),
             metadata_id: ActiveValue::Set(input.metadata_id),
-            metadata_group_id: ActiveValue::Set(input.metadata_group_id),
-            person_id: ActiveValue::Set(input.person_id),
-            collection_id: ActiveValue::Set(input.collection_id),
+            exercise_id: ActiveValue::Set(input.exercise_id),
             show_extra_information: ActiveValue::Set(show_ei),
-            podcast_extra_information: ActiveValue::Set(podcast_ei),
             anime_extra_information: ActiveValue::Set(anime_ei),
             manga_extra_information: ActiveValue::Set(manga_ei),
+            collection_id: ActiveValue::Set(input.collection_id),
+            podcast_extra_information: ActiveValue::Set(podcast_ei),
+            metadata_group_id: ActiveValue::Set(input.metadata_group_id),
             comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
@@ -2620,6 +2621,8 @@ impl MiscellaneousService {
                         .name,
                     EntityLot::Collection,
                 )
+            } else if let Some(ei) = insert.exercise_id.unwrap() {
+                (ei.clone(), ei, EntityLot::Exercise)
             } else {
                 unreachable!()
             };
