@@ -100,7 +100,7 @@ pub async fn calculate_and_commit(
             best_set: None,
             idx: exercise_idx,
             workout_id: id.clone(),
-            workout_end_on: input.end_time,
+            workout_end_on: end_time,
         };
         let association = match association {
             None => {
@@ -270,7 +270,7 @@ pub async fn calculate_and_commit(
     let summary_total = workout_totals.into_iter().sum();
     let model = workout::Model {
         id,
-        end_time: input.end_time,
+        end_time,
         start_time: input.start_time,
         repeated_from: input.repeated_from,
         user_id: user_id.clone(),
