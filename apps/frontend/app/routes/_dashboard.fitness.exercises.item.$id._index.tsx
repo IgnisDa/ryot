@@ -62,7 +62,7 @@ import {
 	getWorkoutDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
-import { useAddEntityToCollection } from "~/lib/state/media";
+import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
 	getCachedExerciseParameters,
 	getWorkoutCookieValue,
@@ -121,6 +121,7 @@ export default function Page() {
 		loaderData.exerciseParameters.lotMapping.find(
 			(lm) => lm.lot === loaderData.exerciseDetails.lot,
 		)?.bests || [];
+	const [_r, setEntityToReview] = useReviewEntity();
 
 	return (
 		<Container size="xs" px="lg">
@@ -445,6 +446,19 @@ export default function Page() {
 									}}
 								>
 									Add to collection
+								</Button>
+								<Button
+									variant="outline"
+									w="100%"
+									onClick={() => {
+										setEntityToReview({
+											entityId: loaderData.exerciseId,
+											entityLot: EntityLot.Exercise,
+											entityTitle: loaderData.exerciseDetails.id,
+										});
+									}}
+								>
+									Post a review
 								</Button>
 								{canCurrentUserUpdate ? (
 									<Button

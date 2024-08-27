@@ -1195,6 +1195,7 @@ const ReviewEntityForm = ({
 					.with(EntityLot.MetadataGroup, () => "metadataGroupId")
 					.with(EntityLot.Person, () => "personId")
 					.with(EntityLot.Collection, () => "collection")
+					.with(EntityLot.Exercise, () => "exerciseId")
 					.run()}
 				value={entityToReview.entityId}
 				readOnly

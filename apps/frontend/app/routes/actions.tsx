@@ -467,6 +467,7 @@ const reviewSchema = z
 		metadataId: z.string().optional(),
 		metadataGroupId: z.string().optional(),
 		collectionId: z.string().optional(),
+		exerciseId: z.string().optional(),
 		personId: z.string().optional(),
 		reviewId: z.string().optional(),
 	})
