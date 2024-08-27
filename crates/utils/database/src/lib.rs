@@ -167,7 +167,7 @@ pub fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
     }
 }
 
-pub async fn review_by_id(
+async fn review_by_id(
     db: &DatabaseConnection,
     review_id: String,
     user_id: &String,

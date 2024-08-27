@@ -7,11 +7,11 @@ use chrono::{DateTime, Utc};
 use common_models::{ExportItem, ExportJob};
 use common_utils::{IsFeatureEnabled, TEMP_DIR};
 use database_models::{
-    prelude::{Metadata, MetadataGroup, Person, Review, Seen, UserToEntity, Workout},
-    review, seen, user_to_entity, workout,
+    prelude::{Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout},
+    seen, user_to_entity, workout,
 };
 use database_utils::{
-    entity_in_collections, get_review_export_item, review_by_id, user_measurements_list,
+    entity_in_collections, get_review_export_item, item_reviews, user_measurements_list,
     workout_details,
 };
 use file_storage_service::FileStorageService;
@@ -236,21 +236,19 @@ impl ExporterService {
                     }
                 })
                 .collect();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
+            let reviews = item_reviews(
+                &self.db,
+                user_id,
+                Some(m.id.clone()),
+                None,
+                None,
+                None,
+                None,
+            )
+            .await?
+            .into_iter()
+            .map(get_review_export_item)
+            .collect();
             let collections =
                 entity_in_collections(&self.db, user_id, Some(m.id), None, None, None, None)
                     .await?
@@ -289,21 +287,19 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
+            let reviews = item_reviews(
+                &self.db,
+                user_id,
+                None,
+                None,
+                Some(m.id.clone()),
+                None,
+                None,
+            )
+            .await?
+            .into_iter()
+            .map(get_review_export_item)
+            .collect();
             let collections =
                 entity_in_collections(&self.db, user_id, None, None, Some(m.id), None, None)
                     .await?
@@ -341,21 +337,19 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let db_reviews = p
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
+            let reviews = item_reviews(
+                &self.db,
+                user_id,
+                None,
+                Some(p.id.clone()),
+                None,
+                None,
+                None,
+            )
+            .await?
+            .into_iter()
+            .map(get_review_export_item)
+            .collect();
             let collections =
                 entity_in_collections(&self.db, user_id, None, Some(p.id), None, None, None)
                     .await?
