@@ -17,6 +17,17 @@ pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 pub static METADATA_GROUP_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_group_foreign_key";
 pub static COLLECTION_TO_REVIEW_FOREIGN_KEY: &str = "review_to_collection_foreign_key";
 pub static EXERCISE_TO_REVIEW_FOREIGN_KEY: &str = "review_to_exercise_foreign_key";
+pub static ENTITY_ID_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        COALESCE(
+            "metadata_id",
+            "person_id",
+            "metadata_group_id",
+            "collection_id",
+            "exercise_id"
+        )
+    ) STORED
+"# };
 pub static ENTITY_LOT_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
         CASE
@@ -39,6 +50,7 @@ pub enum Review {
     Text,
     Visibility,
     UserId,
+    EntityId,
     MetadataId,
     PersonId,
     MetadataGroupId,
@@ -92,6 +104,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::MetadataId).text())
                     .col(ColumnDef::new(Review::UserId).text().not_null())
                     .col(ColumnDef::new(Review::ExerciseId).text())
+                    .col(
+                        ColumnDef::new(Review::EntityId)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_ID_SQL),
+                    )
                     .col(
                         ColumnDef::new(Review::EntityLot)
                             .text()

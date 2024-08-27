@@ -59,6 +59,22 @@ ALTER TABLE "review" ADD CONSTRAINT "review_to_exercise_foreign_key" FOREIGN KEY
         )
         .await?;
         }
+        if !manager.has_column("review", "entity_id").await? {
+            db.execute_unprepared(
+                r#"
+ALTER TABLE "review" ADD COLUMN "entity_id" TEXT NOT NULL GENERATED ALWAYS AS (
+    COALESCE(
+        "metadata_id",
+        "person_id",
+        "metadata_group_id",
+        "collection_id",
+        "exercise_id"
+    )
+) STORED;
+"#,
+            )
+            .await?;
+        }
         db.execute_unprepared(
             r#"
 ALTER TABLE "review" DROP COLUMN "entity_lot";
