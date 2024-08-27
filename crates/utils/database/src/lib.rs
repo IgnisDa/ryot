@@ -399,6 +399,7 @@ pub async fn item_reviews(
     person_id: Option<String>,
     metadata_group_id: Option<String>,
     collection_id: Option<String>,
+    exercise_id: Option<String>,
 ) -> Result<Vec<ReviewItem>> {
     let all_reviews = Review::find()
         .select_only()
@@ -415,6 +416,9 @@ pub async fn item_reviews(
         })
         .apply_if(collection_id, |query, v| {
             query.filter(review::Column::CollectionId.eq(v))
+        })
+        .apply_if(exercise_id, |query, v| {
+            query.filter(review::Column::ExerciseId.eq(v))
         })
         .into_tuple::<String>()
         .all(db)

@@ -303,6 +303,7 @@ impl CollectionService {
             None,
             None,
             Some(input.collection_id),
+            None,
         )
         .await?;
         Ok(CollectionContents {

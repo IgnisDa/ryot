@@ -3,6 +3,9 @@ query UserExerciseDetails($exerciseId: String!) {
     collections {
       ...CollectionPart
     }
+    reviews {
+      ...ReviewItemPart
+    }
     history {
       idx
       workoutId

@@ -70,6 +70,7 @@ pub struct UserExerciseDetails {
     pub details: Option<user_to_entity::Model>,
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
     pub collections: Vec<collection::Model>,
+    pub reviews: Vec<ReviewItem>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

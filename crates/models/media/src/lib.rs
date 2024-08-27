@@ -932,7 +932,7 @@ pub struct IntegrationProviderSpecifics {
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct ReviewItem {
     pub id: String,
     pub posted_on: DateTimeUtc,

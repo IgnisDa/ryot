@@ -14,8 +14,8 @@ use database_models::{
     user_measurement, user_to_entity, workout,
 };
 use database_utils::{
-    add_entity_to_collection, entity_in_collections, ilike_sql, user_measurements_list,
-    workout_details,
+    add_entity_to_collection, entity_in_collections, ilike_sql, item_reviews,
+    user_measurements_list, workout_details,
 };
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
@@ -170,10 +170,21 @@ impl ExerciseService {
             None,
         )
         .await?;
+        let reviews = item_reviews(
+            &self.db,
+            &user_id,
+            None,
+            None,
+            None,
+            None,
+            Some(exercise_id.clone()),
+        )
+        .await?;
         let mut resp = UserExerciseDetails {
             details: None,
             history: None,
             collections,
+            reviews,
         };
         if let Some(association) = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))

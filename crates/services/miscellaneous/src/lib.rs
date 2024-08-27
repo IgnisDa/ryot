@@ -504,6 +504,7 @@ impl MiscellaneousService {
             None,
             None,
             None,
+            None,
         )
         .await?;
         let (_, history) = self
@@ -698,6 +699,7 @@ impl MiscellaneousService {
             Some(person_id.clone()),
             None,
             None,
+            None,
         )
         .await?;
         let collections =
@@ -730,6 +732,7 @@ impl MiscellaneousService {
             None,
             None,
             Some(metadata_group_id),
+            None,
             None,
         )
         .await?;
