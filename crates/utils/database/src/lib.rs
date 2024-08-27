@@ -402,6 +402,7 @@ pub async fn item_reviews(
     exercise_id: Option<String>,
 ) -> Result<Vec<ReviewItem>> {
     let all_reviews = Review::find()
+        .filter(review::Column::UserId.eq(user_id))
         .select_only()
         .column(review::Column::Id)
         .order_by_desc(review::Column::PostedOn)
