@@ -33,7 +33,7 @@ use sea_orm::{
     prelude::Expr,
     sea_query::{OnConflict, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
-    ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
 use user_models::{UserPreferences, UserReviewScale};
 
@@ -164,53 +164,6 @@ pub fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
             true => None,
             false => Some(rev.comments),
         },
-    }
-}
-
-async fn review_by_id(
-    db: &DatabaseConnection,
-    review_id: String,
-    user_id: &String,
-    respect_preferences: bool,
-) -> Result<ReviewItem> {
-    let review = Review::find_by_id(review_id).one(db).await?;
-    match review {
-        Some(r) => {
-            let user = r.find_related(User).one(db).await.unwrap().unwrap();
-            let rating = match respect_preferences {
-                true => {
-                    let preferences = user_by_id(db, user_id).await?.preferences;
-                    r.rating.map(|s| {
-                        s.checked_div(match preferences.general.review_scale {
-                            UserReviewScale::OutOfFive => dec!(20),
-                            UserReviewScale::OutOfHundred => dec!(1),
-                        })
-                        .unwrap()
-                        .round_dp(1)
-                    })
-                }
-                false => r.rating,
-            };
-            Ok(ReviewItem {
-                id: r.id,
-                posted_on: r.posted_on,
-                rating,
-                is_spoiler: r.is_spoiler,
-                text_original: r.text.clone(),
-                text_rendered: r.text.map(|t| markdown_to_html(&t)),
-                visibility: r.visibility,
-                show_extra_information: r.show_extra_information,
-                podcast_extra_information: r.podcast_extra_information,
-                anime_extra_information: r.anime_extra_information,
-                manga_extra_information: r.manga_extra_information,
-                posted_by: IdAndNamedObject {
-                    id: user.id,
-                    name: user.name,
-                },
-                comments: r.comments,
-            })
-        }
-        None => Err(Error::new("Unable to find review".to_owned())),
     }
 }
 
@@ -403,8 +356,7 @@ pub async fn item_reviews(
 ) -> Result<Vec<ReviewItem>> {
     let all_reviews = Review::find()
         .filter(review::Column::UserId.eq(user_id))
-        .select_only()
-        .column(review::Column::Id)
+        .find_also_related(User)
         .order_by_desc(review::Column::PostedOn)
         .apply_if(metadata_id, |query, v| {
             query.filter(review::Column::MetadataId.eq(v))
@@ -421,13 +373,45 @@ pub async fn item_reviews(
         .apply_if(exercise_id, |query, v| {
             query.filter(review::Column::ExerciseId.eq(v))
         })
-        .into_tuple::<String>()
         .all(db)
         .await
         .unwrap();
     let mut reviews = vec![];
-    for r_id in all_reviews {
-        reviews.push(review_by_id(db, r_id, user_id, true).await?);
+    for (review, user) in all_reviews {
+        let user = user.unwrap();
+        let rating = match true {
+            true => {
+                let preferences = user_by_id(db, user_id).await?.preferences;
+                review.rating.map(|s| {
+                    s.checked_div(match preferences.general.review_scale {
+                        UserReviewScale::OutOfFive => dec!(20),
+                        UserReviewScale::OutOfHundred => dec!(1),
+                    })
+                    .unwrap()
+                    .round_dp(1)
+                })
+            }
+            false => review.rating,
+        };
+        let to_push = ReviewItem {
+            rating,
+            id: review.id,
+            posted_on: review.posted_on,
+            is_spoiler: review.is_spoiler,
+            text_original: review.text.clone(),
+            text_rendered: review.text.map(|t| markdown_to_html(&t)),
+            visibility: review.visibility,
+            show_extra_information: review.show_extra_information,
+            podcast_extra_information: review.podcast_extra_information,
+            anime_extra_information: review.anime_extra_information,
+            manga_extra_information: review.manga_extra_information,
+            posted_by: IdAndNamedObject {
+                id: user.id,
+                name: user.name,
+            },
+            comments: review.comments,
+        };
+        reviews.push(to_push);
     }
     let all_reviews = reviews
         .into_iter()
