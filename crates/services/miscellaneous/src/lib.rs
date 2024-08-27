@@ -3238,7 +3238,7 @@ impl MiscellaneousService {
                 ProgressUpdateInput {
                     metadata_id: id,
                     progress: Some(progress),
-                    date: Some(Utc::now().date_naive()),
+                    date: Some(get_current_date(&self.timezone)),
                     show_season_number: pu.show_season_number,
                     show_episode_number: pu.show_episode_number,
                     podcast_episode_number: pu.podcast_episode_number,
