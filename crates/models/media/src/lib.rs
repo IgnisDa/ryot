@@ -392,11 +392,8 @@ pub struct PostReviewInput {
     pub text: Option<String>,
     pub visibility: Option<Visibility>,
     pub is_spoiler: Option<bool>,
-    pub metadata_id: Option<String>,
-    pub person_id: Option<String>,
-    pub metadata_group_id: Option<String>,
-    pub collection_id: Option<String>,
-    pub exercise_id: Option<String>,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
     pub date: Option<DateTimeUtc>,
     /// ID of the review if this is an update to an existing review
     pub review_id: Option<String>,

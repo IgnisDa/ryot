@@ -8,10 +8,8 @@ use crate::{prelude::UserToEntity, user_to_entity};
 
 pub async fn get_user_to_entity_association<C>(
     user_id: &String,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    exercise_id: Option<String>,
-    metadata_group_id: Option<String>,
+    entity_id: String,
+    entity_lot: EntityLot,
     db: &C,
 ) -> Option<user_to_entity::Model>
 where
@@ -35,10 +33,8 @@ where
 
 pub async fn associate_user_with_entity<C>(
     user_id: &String,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    exercise_id: Option<String>,
-    metadata_group_id: Option<String>,
+    entity_id: String,
+    entity_lot: EntityLot,
     db: &C,
 ) -> Result<user_to_entity::Model>
 where

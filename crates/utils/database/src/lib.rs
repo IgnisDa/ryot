@@ -106,11 +106,8 @@ type CteColAlias = collection_to_entity::Column;
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: &String,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    metadata_group_id: Option<String>,
-    exercise_id: Option<String>,
-    workout_id: Option<String>,
+    entity_id: String,
+    entity_lot: EntityLot,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
         .left_join(UserToCollection)
@@ -348,11 +345,8 @@ pub async fn remove_entity_from_collection(
 pub async fn item_reviews(
     db: &DatabaseConnection,
     user_id: &String,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    metadata_group_id: Option<String>,
-    collection_id: Option<String>,
-    exercise_id: Option<String>,
+    entity_id: String,
+    entity_lot: EntityLot,
 ) -> Result<Vec<ReviewItem>> {
     let all_reviews = Review::find()
         .filter(review::Column::UserId.eq(user_id))

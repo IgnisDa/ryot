@@ -167,11 +167,8 @@ pub struct SearchDetails {
 pub struct ChangeCollectionToEntityInput {
     pub creator_user_id: String,
     pub collection_name: String,
-    pub metadata_id: Option<String>,
-    pub person_id: Option<String>,
-    pub metadata_group_id: Option<String>,
-    pub exercise_id: Option<String>,
-    pub workout_id: Option<String>,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
     pub information: Option<serde_json::Value>,
 }
 
