@@ -1,5 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
+use enums::EntityLot;
 use schematic::Schematic;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
