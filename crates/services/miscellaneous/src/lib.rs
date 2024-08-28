@@ -2589,39 +2589,33 @@ impl MiscellaneousService {
         }
         let insert = review_obj.save(&self.db).await.unwrap();
         if insert.visibility.unwrap() == Visibility::Public {
-            let (obj_id, obj_title, entity_lot) = if let Some(mi) = insert.metadata_id.unwrap() {
-                (
-                    mi.to_string(),
-                    self.generic_metadata(&mi).await?.model.title,
-                    EntityLot::Metadata,
-                )
-            } else if let Some(mgi) = insert.metadata_group_id.unwrap() {
-                (
-                    mgi.to_string(),
-                    self.metadata_group_details(mgi).await?.details.title,
-                    EntityLot::MetadataGroup,
-                )
-            } else if let Some(pi) = insert.person_id.unwrap() {
-                (
-                    pi.to_string(),
-                    self.person_details(pi).await?.details.name,
-                    EntityLot::Person,
-                )
-            } else if let Some(ci) = insert.collection_id.unwrap() {
-                (
-                    ci.clone(),
-                    Collection::find_by_id(ci)
+            let entity_lot = insert.entity_lot.unwrap();
+            let id = insert.entity_id.unwrap();
+            let obj_title = match entity_lot {
+                EntityLot::Metadata => {
+                    Metadata::find_by_id(&id)
                         .one(&self.db)
-                        .await
+                        .await?
                         .unwrap()
+                        .title
+                }
+                EntityLot::MetadataGroup => {
+                    MetadataGroup::find_by_id(&id)
+                        .one(&self.db)
+                        .await?
                         .unwrap()
-                        .name,
-                    EntityLot::Collection,
-                )
-            } else if let Some(ei) = insert.exercise_id.unwrap() {
-                (ei.clone(), ei, EntityLot::Exercise)
-            } else {
-                unreachable!()
+                        .title
+                }
+                EntityLot::Person => Person::find_by_id(&id).one(&self.db).await?.unwrap().name,
+                EntityLot::Collection => {
+                    Collection::find_by_id(&id)
+                        .one(&self.db)
+                        .await?
+                        .unwrap()
+                        .name
+                }
+                EntityLot::Exercise => id,
+                _ => unreachable!(),
             };
             let user = user_by_id(&self.db, &insert.user_id.unwrap()).await?;
             // DEV: Do not send notification if updating a review
@@ -2629,9 +2623,9 @@ impl MiscellaneousService {
                 self.perform_core_application_job
                     .clone()
                     .enqueue(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
-                        obj_id,
                         obj_title,
                         entity_lot,
+                        obj_id: id,
                         username: user.name,
                         review_id: insert.id.clone().unwrap(),
                     }))
