@@ -173,7 +173,7 @@ pub struct ChangeCollectionToEntityInput {
     pub information: Option<serde_json::Value>,
 }
 
-#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
+#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
 #[strum(serialize_all = "snake_case")]
 pub enum ExportItem {
     Media,
@@ -201,6 +201,5 @@ pub enum MediaStateChanged {
 pub struct ExportJob {
     pub started_at: DateTimeUtc,
     pub ended_at: DateTimeUtc,
-    pub exported: Vec<ExportItem>,
     pub url: String,
 }

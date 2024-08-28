@@ -27,7 +27,8 @@ use reqwest::{
     Body, Client,
 };
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, QueryOrder, QuerySelect,
+    ColumnTrait, DatabaseConnection, EntityTrait, Iterable, ModelTrait, QueryFilter, QueryOrder,
+    QuerySelect,
 };
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use tokio::fs::File;
@@ -75,7 +76,7 @@ impl ExporterService {
         let file = std::fs::File::create(&export_path).unwrap();
         let mut writer = JsonStreamWriter::new(file);
         writer.begin_object().unwrap();
-        for export in to_export.iter() {
+        for export in ExportItem::iter() {
             writer.name(&export.to_string())?;
             writer.begin_array().unwrap();
             match export {
@@ -114,10 +115,6 @@ impl ExporterService {
                 Some(HashMap::from([
                     ("started_at".to_string(), started_at.to_rfc2822()),
                     ("ended_at".to_string(), ended_at.to_rfc2822()),
-                    (
-                        "exported".to_string(),
-                        serde_json::to_string(&to_export).unwrap(),
-                    ),
                 ])),
             )
             .await;
@@ -133,10 +130,6 @@ impl ExporterService {
             .header(CONTENT_LENGTH, content_length)
             .header("x-amz-meta-started_at", started_at.to_rfc2822())
             .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
-            .header(
-                "x-amz-meta-exported",
-                serde_json::to_string(&to_export).unwrap(),
-            )
             .body(body)
             .send()
             .await
@@ -165,13 +158,10 @@ impl ExporterService {
             let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
                 .unwrap()
                 .with_timezone(&Utc);
-            let exported: Vec<ExportItem> =
-                serde_json::from_str(metadata.get("exported").unwrap()).unwrap();
             let exp = ExportJob {
                 url,
                 started_at,
                 ended_at,
-                exported,
             };
             resp.push(exp);
         }

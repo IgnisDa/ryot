@@ -136,8 +136,8 @@ mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {
   deployBulkProgressUpdate(input: $input)
 }
 
-mutation DeployExportJob($toExport: [ExportItem!]!) {
-  deployExportJob(toExport: $toExport)
+mutation DeployExportJob {
+  deployExportJob
 }
 
 mutation DeployImportJob($input: DeployImportJobInput!) {
