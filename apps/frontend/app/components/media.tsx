@@ -61,7 +61,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode, Ref } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
-import { withQuery, withoutHost } from "ufo";
+import { withQuery } from "ufo";
 import { MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
@@ -69,7 +69,6 @@ import {
 	dayjsLib,
 	getPartialMetadataDetailsQuery,
 	queryFactory,
-	redirectToQueryParam,
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
@@ -188,7 +187,6 @@ export const ReviewItemDisplay = (props: {
 									if (conf)
 										deleteReviewFetcher.submit(
 											{
-												[redirectToQueryParam]: withoutHost(location.href),
 												shouldDelete: "true",
 												reviewId: props.review.id || null,
 											},

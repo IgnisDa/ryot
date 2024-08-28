@@ -60,7 +60,6 @@ import {
 } from "@remix-run/react";
 import {
 	CollectionExtraInformationLot,
-	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
 	type UserCollectionsListQuery,
@@ -1188,16 +1187,11 @@ const ReviewEntityForm = ({
 				closeReviewEntityModal();
 			}}
 		>
+			<input hidden name="entityId" value={entityToReview.entityId} readOnly />
 			<input
 				hidden
-				name={match(entityToReview.entityLot)
-					.with(EntityLot.Metadata, () => "metadataId")
-					.with(EntityLot.MetadataGroup, () => "metadataGroupId")
-					.with(EntityLot.Person, () => "personId")
-					.with(EntityLot.Collection, () => "collection")
-					.with(EntityLot.Exercise, () => "exerciseId")
-					.run()}
-				value={entityToReview.entityId}
+				name="entityLot"
+				value={entityToReview.entityLot}
 				readOnly
 			/>
 			{entityToReview.existingReview?.id ? (

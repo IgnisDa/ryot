@@ -55,7 +55,6 @@ import {
 import { DisplayCollectionEntity, ReviewItemDisplay } from "~/components/media";
 import {
 	clientGqlService,
-	convertEntityToIndividualId,
 	dayjsLib,
 	queryClient,
 	queryFactory,
@@ -128,18 +127,14 @@ export const action = unstable_defineAction(async ({ request }) => {
 		bulkRemove: async () => {
 			const submission = processSubmission(formData, bulkRemoveSchema);
 			for (const item of submission.items) {
-				const input = convertEntityToIndividualId(
-					item.entityId,
-					item.entityLot,
-				);
 				await serverGqlService.authenticatedRequest(
 					request,
 					RemoveEntityFromCollectionDocument,
 					{
 						input: {
+							...item,
 							collectionName: submission.collectionName,
 							creatorUserId: submission.creatorUserId,
-							...input,
 						},
 					},
 				);

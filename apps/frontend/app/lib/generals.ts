@@ -4,7 +4,6 @@ import {
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
 import {
-	EntityLot,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
@@ -325,19 +324,6 @@ export const queryFactory = mergeQueryKeys(
 	fitnessQueryKeys,
 	miscellaneousQueryKeys,
 );
-
-export const convertEntityToIndividualId = (
-	entityId: string,
-	entityLot: EntityLot,
-) => {
-	const metadataId = entityLot === EntityLot.Metadata ? entityId : undefined;
-	const metadataGroupId =
-		entityLot === EntityLot.MetadataGroup ? entityId : undefined;
-	const personId = entityLot === EntityLot.Person ? entityId : undefined;
-	const exerciseId = entityLot === EntityLot.Exercise ? entityId : undefined;
-	const workoutId = entityLot === EntityLot.Workout ? entityId : undefined;
-	return { metadataId, metadataGroupId, personId, exerciseId, workoutId };
-};
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>
 	queryOptions({
