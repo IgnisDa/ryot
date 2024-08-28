@@ -32,7 +32,12 @@ import {
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, reverse, startCase } from "@ryot/ts-utils";
-import { IconChartPie, IconCheck, IconExternalLink } from "@tabler/icons-react";
+import {
+	IconChartPie,
+	IconCheck,
+	IconExternalLink,
+	IconMessageCircle2,
+} from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -49,7 +54,7 @@ import { withFragment } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
-import { DisplayCollection } from "~/components/common";
+import { DisplayCollection, ReviewItemDisplay } from "~/components/common";
 import {
 	ExerciseHistory,
 	displayDistanceWithUnit,
@@ -57,7 +62,11 @@ import {
 } from "~/components/fitness";
 import { MediaScrollArea } from "~/components/media";
 import { TimeSpan, dayjsLib } from "~/lib/generals";
-import { useUserDetails, useUserUnitSystem } from "~/lib/hooks";
+import {
+	useUserDetails,
+	useUserPreferences,
+	useUserUnitSystem,
+} from "~/lib/hooks";
 import {
 	addExerciseToWorkout,
 	getWorkoutDetailsQuery,
@@ -106,11 +115,14 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
 	const canCurrentUserUpdate =
 		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === loaderData.exerciseDetails.createdByUserId;
+	const exerciseNumTimesInteracted =
+		loaderData.userExerciseDetails.details?.exerciseNumTimesInteracted || 0;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
@@ -153,7 +165,7 @@ export default function Page() {
 						>
 							Overview
 						</Tabs.Tab>
-						{loaderData.userExerciseDetails.history ? (
+						{exerciseNumTimesInteracted > 0 ? (
 							<Tabs.Tab
 								value="history"
 								leftSection={<IconHistoryToggle size={16} />}
@@ -161,7 +173,7 @@ export default function Page() {
 								History
 							</Tabs.Tab>
 						) : null}
-						{loaderData.userExerciseDetails.details ? (
+						{exerciseNumTimesInteracted > 0 ? (
 							<>
 								<Tabs.Tab
 									value="records"
@@ -180,6 +192,14 @@ export default function Page() {
 						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 							Actions
 						</Tabs.Tab>
+						{!userPreferences.general.disableReviews ? (
+							<Tabs.Tab
+								value="reviews"
+								leftSection={<IconMessageCircle2 size={16} />}
+							>
+								Reviews
+							</Tabs.Tab>
+						) : null}
 					</Tabs.List>
 					<Tabs.Panel value="overview">
 						<Stack>
@@ -209,11 +229,10 @@ export default function Page() {
 										data={changeCase(loaderData.exerciseDetails.lot)}
 									/>
 								) : null}
-								{loaderData.userExerciseDetails.details
-									?.exerciseNumTimesInteracted ? (
+								{exerciseNumTimesInteracted > 0 ? (
 									<DisplayData
 										name="Times done"
-										data={`${loaderData.userExerciseDetails.details.exerciseNumTimesInteracted} times`}
+										data={`${exerciseNumTimesInteracted} times`}
 										noCasing
 									/>
 								) : null}
@@ -477,6 +496,27 @@ export default function Page() {
 							</SimpleGrid>
 						</MediaScrollArea>
 					</Tabs.Panel>
+					{!userPreferences.general.disableReviews ? (
+						<Tabs.Panel value="reviews">
+							<MediaScrollArea>
+								{loaderData.userExerciseDetails.reviews.length > 0 ? (
+									<Stack>
+										{loaderData.userExerciseDetails.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												entityLot={EntityLot.Exercise}
+												entityId={loaderData.exerciseId}
+												title={loaderData.exerciseDetails.id}
+											/>
+										))}
+									</Stack>
+								) : (
+									<Text>No reviews</Text>
+								)}
+							</MediaScrollArea>
+						</Tabs.Panel>
+					) : null}
 				</Tabs>
 			</Stack>
 			{currentWorkout && loaderData.workoutInProgress ? (
