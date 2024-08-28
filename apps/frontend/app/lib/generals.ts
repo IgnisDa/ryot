@@ -67,6 +67,16 @@ export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });
 
+export const getDateFromTimeSpan = (timeSpan: TimeSpan) => {
+	return match(timeSpan)
+		.with(TimeSpan.Last7Days, () => dayjs().subtract(7, "days"))
+		.with(TimeSpan.Last30Days, () => dayjs().subtract(30, "days"))
+		.with(TimeSpan.Last90Days, () => dayjs().subtract(90, "days"))
+		.with(TimeSpan.Last365Days, () => dayjs().subtract(365, "days"))
+		.with(TimeSpan.AllTime, () => null)
+		.exhaustive();
+};
+
 export enum TimeSpan {
 	Last7Days = "Last 7 days",
 	Last30Days = "Last 30 days",

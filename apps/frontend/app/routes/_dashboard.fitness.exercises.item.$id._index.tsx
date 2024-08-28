@@ -61,7 +61,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { MediaScrollArea } from "~/components/media";
-import { TimeSpan, dayjsLib } from "~/lib/generals";
+import { TimeSpan, dayjsLib, getDateFromTimeSpan } from "~/lib/generals";
 import {
 	useUserDetails,
 	useUserPreferences,
@@ -130,6 +130,7 @@ export default function Page() {
 		"ExerciseChartTimeSpan",
 		TimeSpan.Last90Days,
 	);
+	const computedDateAfter = getDateFromTimeSpan(timeSpan);
 	const bestMappings =
 		loaderData.exerciseParameters.lotMapping.find(
 			(lm) => lm.lot === loaderData.exerciseDetails.lot,
@@ -388,23 +389,9 @@ export default function Page() {
 											loaderData.userExerciseDetails.history || [],
 										).filter((h) => {
 											const workoutEndOn = dayjsLib(h.workoutEndOn);
-											return match(timeSpan)
-												.with(TimeSpan.Last7Days, () =>
-													workoutEndOn.isAfter(dayjsLib().subtract(7, "days")),
-												)
-												.with(TimeSpan.Last30Days, () =>
-													workoutEndOn.isAfter(dayjsLib().subtract(30, "days")),
-												)
-												.with(TimeSpan.Last90Days, () =>
-													workoutEndOn.isAfter(dayjsLib().subtract(90, "days")),
-												)
-												.with(TimeSpan.Last365Days, () =>
-													workoutEndOn.isAfter(
-														dayjsLib().subtract(365, "days"),
-													),
-												)
-												.with(TimeSpan.AllTime, () => true)
-												.exhaustive();
+											return computedDateAfter === null
+												? true
+												: workoutEndOn.isAfter(computedDateAfter);
 										});
 										const data = reversedHistory.map((h) => {
 											const stat = h.bestSet?.statistic;

@@ -65,6 +65,7 @@ import {
 	TimeSpan,
 	clientGqlService,
 	dayjsLib,
+	getDateFromTimeSpan,
 	getLot,
 	getMetadataIcon,
 	queryFactory,
@@ -627,16 +628,10 @@ const ActivitySection = () => {
 	const { startDate, endDate } = useMemo(() => {
 		const now = dayjsLib();
 		const end = now.endOf("day");
-		const [startDate, endDate] = match(timeSpan)
-			.with(TimeSpan.Last7Days, () => [now.subtract(7, "days"), end])
-			.with(TimeSpan.Last30Days, () => [now.subtract(30, "days"), end])
-			.with(TimeSpan.Last90Days, () => [now.subtract(90, "days"), end])
-			.with(TimeSpan.Last365Days, () => [now.subtract(365, "days"), end])
-			.with(TimeSpan.AllTime, () => [null, null])
-			.exhaustive();
+		const startDate = getDateFromTimeSpan(timeSpan);
 		return {
 			startDate: startDate?.format("YYYY-MM-DD"),
-			endDate: endDate?.format("YYYY-MM-DD"),
+			endDate: end.format("YYYY-MM-DD"),
 		};
 	}, [timeSpan]);
 	const { data: dailyUserActivitiesData } = useQuery({
