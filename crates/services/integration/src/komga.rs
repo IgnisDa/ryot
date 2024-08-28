@@ -225,7 +225,7 @@ impl KomgaIntegration {
         komga_username: String,
         komga_password: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let url = format!("{}/sse/v1/", base_url);
+        let url = format!("{}/sse/v1", base_url);
         let client = get_base_http_client(None);
 
         loop {
@@ -343,7 +343,7 @@ impl KomgaIntegration {
     }
 
     async fn process_events(&self, data: komga_events::Data) -> Option<IntegrationMediaSeen> {
-        let url = format!("{}/api/v1/", self.base_url);
+        let url = format!("{}/api/v1", self.base_url);
         let client = get_base_http_client(None);
 
         let book: komga_book::Item = self
