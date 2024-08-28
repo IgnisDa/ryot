@@ -1024,7 +1024,7 @@ ORDER BY RANDOM() LIMIT 10;
     ) -> Result<SearchResults<String>> {
         let preferences = user_preferences_by_id(&self.db, &user_id, &self.config).await?;
 
-        let avg_rating_col = "average_rating";
+        let avg_rating_col = "user_average_rating";
         let cloned_user_id_1 = user_id.clone();
         let cloned_user_id_2 = user_id.clone();
         #[derive(Debug, FromQueryResult)]
@@ -1131,13 +1131,18 @@ ORDER BY RANDOM() LIMIT 10;
                     order_by,
                     NullOrdering::Last,
                 ),
+                MediaSortBy::LastSeen => query.order_by_with_nulls(
+                    seen::Column::FinishedOn.max(),
+                    order_by,
+                    NullOrdering::Last,
+                ),
                 MediaSortBy::UserRating => query.order_by_with_nulls(
                     Expr::col(Alias::new(avg_rating_col)),
                     order_by,
                     NullOrdering::Last,
                 ),
-                MediaSortBy::LastSeen => query.order_by_with_nulls(
-                    seen::Column::FinishedOn.max(),
+                MediaSortBy::ProviderRating => query.order_by_with_nulls(
+                    metadata::Column::ProviderRating,
                     order_by,
                     NullOrdering::Last,
                 ),
