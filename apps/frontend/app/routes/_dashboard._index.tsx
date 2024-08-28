@@ -632,7 +632,7 @@ const ActivitySection = () => {
 			.with(TimeSpan.Last30Days, () => [now.subtract(30, "days"), end])
 			.with(TimeSpan.Last90Days, () => [now.subtract(90, "days"), end])
 			.with(TimeSpan.Last365Days, () => [now.subtract(365, "days"), end])
-			.with(TimeSpan.AllTime, () => [undefined, undefined])
+			.with(TimeSpan.AllTime, () => [null, null])
 			.exhaustive();
 		return {
 			startDate: startDate?.format("YYYY-MM-DD"),
