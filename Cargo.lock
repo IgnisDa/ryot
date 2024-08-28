@@ -889,7 +889,6 @@ dependencies = [
  "apalis",
  "chrono",
  "chrono-tz",
- "common-models",
  "enums",
  "fitness-models",
  "media-models",

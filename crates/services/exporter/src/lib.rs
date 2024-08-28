@@ -55,24 +55,16 @@ impl ExporterService {
         }
     }
 
-    pub async fn deploy_export_job(
-        &self,
-        user_id: String,
-        to_export: Vec<ExportItem>,
-    ) -> Result<bool> {
+    pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
         self.perform_application_job
             .clone()
-            .enqueue(ApplicationJob::PerformExport(user_id, to_export))
+            .enqueue(ApplicationJob::PerformExport(user_id))
             .await
             .unwrap();
         Ok(true)
     }
 
-    pub async fn perform_export(
-        &self,
-        user_id: String,
-        to_export: Vec<ExportItem>,
-    ) -> Result<bool> {
+    pub async fn perform_export(&self, user_id: String) -> Result<bool> {
         if !self.config.file_storage.is_enabled() {
             return Err(Error::new(
                 "File storage needs to be enabled to perform an export.",

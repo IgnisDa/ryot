@@ -118,10 +118,9 @@ pub async fn perform_application_job(
             })
             .await
             .is_ok(),
-        ApplicationJob::PerformExport(user_id, to_export) => exporter_service
-            .perform_export(user_id, to_export)
-            .await
-            .is_ok(),
+        ApplicationJob::PerformExport(user_id) => {
+            exporter_service.perform_export(user_id).await.is_ok()
+        }
         ApplicationJob::UpdateExerciseLibrary => exercise_service
             .deploy_update_exercise_library_job()
             .await

@@ -1,7 +1,6 @@
 use apalis::prelude::{Job, Message};
 use chrono::DateTime;
 use chrono_tz::Tz;
-use common_models::ExportItem;
 use enums::{MediaLot, MediaSource};
 use fitness_models::GithubExercise;
 use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
@@ -32,7 +31,7 @@ pub enum ApplicationJob {
     UpdatePerson(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
-    PerformExport(String, Vec<ExportItem>),
+    PerformExport(String),
     RecalculateUserActivitiesAndSummary(String, bool),
     PerformBackgroundTasks,
     UpdateExerciseLibrary,
