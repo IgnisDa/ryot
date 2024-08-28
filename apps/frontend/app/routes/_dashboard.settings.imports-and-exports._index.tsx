@@ -40,6 +40,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, processSubmission } from "@ryot/ts-utils";
 import { IconDownload } from "@tabler/icons-react";
+import { filesize } from "filesize";
 import { type ReactNode, useState } from "react";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -530,9 +531,14 @@ export default function Page() {
 									{loaderData.userExports.map((exp) => (
 										<Box key={exp.startedAt} w="100%">
 											<Group justify="space-between" wrap="nowrap">
-												<Text>
-													{changeCase(dayjsLib(exp.endedAt).fromNow())}
-												</Text>
+												<Group gap="xs">
+													<Text span size="lg">
+														{changeCase(dayjsLib(exp.endedAt).fromNow())}
+													</Text>
+													<Text span size="xs" c="dimmed">
+														({filesize(exp.size)})
+													</Text>
+												</Group>
 												<Anchor href={exp.url} target="_blank" rel="noreferrer">
 													<ThemeIcon color="blue" variant="transparent">
 														<IconDownload />
