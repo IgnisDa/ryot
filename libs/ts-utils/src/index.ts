@@ -16,9 +16,9 @@ import isString from "lodash/isString";
 import mapValues from "lodash/mapValues";
 import omitBy from "lodash/omitBy";
 import pickBy from "lodash/pickBy";
-import reverse from "lodash/reverse";
 import set from "lodash/set";
 import snakeCase from "lodash/snakeCase";
+import sortBy from "lodash/sortBy";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
 import truncate from "lodash/truncate";
@@ -103,9 +103,9 @@ export {
 	mapValues,
 	omitBy,
 	pickBy,
-	reverse,
 	set,
 	snakeCase,
+	sortBy,
 	startCase,
 	sum,
 	truncate,

@@ -31,7 +31,7 @@ import {
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, reverse, startCase } from "@ryot/ts-utils";
+import { changeCase, sortBy, startCase } from "@ryot/ts-utils";
 import {
 	IconChartPie,
 	IconCheck,
@@ -126,11 +126,20 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
-	const [timeSpan, setTimeSpan] = useLocalStorage(
+	const [timeSpanForCharts, setTimeSpanForCharts] = useLocalStorage(
 		"ExerciseChartTimeSpan",
 		TimeSpan.Last90Days,
 	);
-	const computedDateAfter = getDateFromTimeSpan(timeSpan);
+	const computedDateAfterForCharts = getDateFromTimeSpan(timeSpanForCharts);
+	const filteredHistoryForCharts = sortBy(
+		loaderData.userExerciseDetails.history || [],
+		(e) => e.workoutEndOn,
+	).filter((h) => {
+		const workoutEndOn = dayjsLib(h.workoutEndOn);
+		return computedDateAfterForCharts === null
+			? true
+			: workoutEndOn.isAfter(computedDateAfterForCharts);
+	});
 	const bestMappings =
 		loaderData.exerciseParameters.lotMapping.find(
 			(lm) => lm.lot === loaderData.exerciseDetails.lot,
@@ -377,23 +386,15 @@ export default function Page() {
 								<Stack>
 									<Select
 										label="Time span"
-										defaultValue={timeSpan}
+										defaultValue={timeSpanForCharts}
 										labelProps={{ c: "dimmed" }}
 										data={Object.values(TimeSpan)}
 										onChange={(v) => {
-											if (v) setTimeSpan(v as TimeSpan);
+											if (v) setTimeSpanForCharts(v as TimeSpan);
 										}}
 									/>
 									{bestMappings.map((best) => {
-										const reversedHistory = reverse(
-											loaderData.userExerciseDetails.history || [],
-										).filter((h) => {
-											const workoutEndOn = dayjsLib(h.workoutEndOn);
-											return computedDateAfter === null
-												? true
-												: workoutEndOn.isAfter(computedDateAfter);
-										});
-										const data = reversedHistory.map((h) => {
+										const data = filteredHistoryForCharts.map((h) => {
 											const stat = h.bestSet?.statistic;
 											const value = match(best)
 												.with(WorkoutSetPersonalBest.OneRm, () => stat?.oneRm)
