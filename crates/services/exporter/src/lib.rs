@@ -4,10 +4,10 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::{DateTime, Utc};
-use common_models::{ExportItem, ExportJob};
+use common_models::ExportJob;
 use common_utils::{IsFeatureEnabled, TEMP_DIR};
 use database_models::{
-    prelude::{Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout},
+    prelude::{Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout},
     seen, user_to_entity, workout,
 };
 use database_utils::{
@@ -18,8 +18,8 @@ use enums::EntityLot;
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use media_models::{
-    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-    ImportOrExportPersonItem,
+    ImportOrExportExerciseItem, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+    ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -27,12 +27,23 @@ use reqwest::{
     Body, Client,
 };
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, Iterable, ModelTrait, QueryFilter, QueryOrder,
-    QuerySelect,
+    strum::Display, ColumnTrait, DatabaseConnection, EntityTrait, EnumIter, Iterable, ModelTrait,
+    QueryFilter, QueryOrder, QuerySelect,
 };
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
+
+#[derive(Eq, PartialEq, Copy, Display, Clone, Debug, EnumIter)]
+#[strum(serialize_all = "snake_case")]
+enum ExportItem {
+    Media,
+    People,
+    Workouts,
+    Exercises,
+    MediaGroups,
+    Measurements,
+}
 
 pub struct ExporterService {
     db: DatabaseConnection,
@@ -80,21 +91,12 @@ impl ExporterService {
             writer.name(&export.to_string())?;
             writer.begin_array().unwrap();
             match export {
-                ExportItem::Media => {
-                    self.export_media(&user_id, &mut writer).await?;
-                }
-                ExportItem::MediaGroup => {
-                    self.export_media_group(&user_id, &mut writer).await?;
-                }
-                ExportItem::People => {
-                    self.export_people(&user_id, &mut writer).await?;
-                }
-                ExportItem::Measurements => {
-                    self.export_measurements(&user_id, &mut writer).await?;
-                }
-                ExportItem::Workouts => {
-                    self.export_workouts(&user_id, &mut writer).await?;
-                }
+                ExportItem::Media => self.export_media(&user_id, &mut writer).await?,
+                ExportItem::People => self.export_people(&user_id, &mut writer).await?,
+                ExportItem::Workouts => self.export_workouts(&user_id, &mut writer).await?,
+                ExportItem::Exercises => self.export_exercises(&user_id, &mut writer).await?,
+                ExportItem::MediaGroups => self.export_media_group(&user_id, &mut writer).await?,
+                ExportItem::Measurements => self.export_measurements(&user_id, &mut writer).await?,
             };
             writer.end_array().unwrap();
         }
@@ -363,6 +365,45 @@ impl ExporterService {
         .await?;
         for measurement in measurements {
             writer.serialize_value(&measurement).unwrap();
+        }
+        Ok(())
+    }
+
+    async fn export_exercises(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<()> {
+        let exercises = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
+        for rm in exercises.iter() {
+            let e = rm
+                .find_related(Exercise)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let reviews = item_reviews(&self.db, user_id, e.id.clone(), EntityLot::Exercise)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
+            let collections =
+                entity_in_collections(&self.db, user_id, e.id.clone(), EntityLot::Exercise)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportExerciseItem {
+                name: e.id,
+                collections,
+                reviews,
+            };
+            writer.serialize_value(&exp).unwrap();
         }
         Ok(())
     }

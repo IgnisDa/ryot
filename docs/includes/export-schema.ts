@@ -2,49 +2,6 @@
 
 /* eslint-disable */
 
-/** The actual statistics that were logged in a user measurement. */
-export interface UserMeasurementStats {
-	abdominal_skinfold: string | null;
-	basal_metabolic_rate: string | null;
-	biceps_circumference: string | null;
-	body_fat: string | null;
-	body_fat_caliper: string | null;
-	body_mass_index: string | null;
-	bone_mass: string | null;
-	calories: string | null;
-	chest_circumference: string | null;
-	chest_skinfold: string | null;
-	custom: Record<string, string> | null;
-	hip_circumference: string | null;
-	lean_body_mass: string | null;
-	muscle: string | null;
-	neck_circumference: string | null;
-	thigh_circumference: string | null;
-	thigh_skinfold: string | null;
-	total_body_water: string | null;
-	total_daily_energy_expenditure: string | null;
-	visceral_fat: string | null;
-	waist_circumference: string | null;
-	waist_to_height_ratio: string | null;
-	waist_to_hip_ratio: string | null;
-	weight: string | null;
-}
-
-/** An export of a measurement taken at a point in time. */
-export interface UserMeasurement {
-	/** Any comment associated entered by the user. */
-	comment: string | null;
-	/** The name given to this measurement by the user. */
-	name: string | null;
-	/** The contents of the actual measurement. */
-	stats: UserMeasurementStats;
-	/** The date and time this measurement was made. */
-	timestamp: string;
-}
-
-/** The different types of media that can be stored. */
-export type MediaLot = 'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel';
-
 export interface IdAndNamedObject {
 	id: string;
 	name: string;
@@ -97,6 +54,59 @@ export interface ImportOrExportItemRating {
 	/** If for a show, the season for which this review was for. */
 	show_season_number: number | null;
 }
+
+/** Details about a specific exercise item that needs to be exported. */
+export interface ImportOrExportExerciseItem {
+	/** The collections this entity was added to. */
+	collections: string[];
+	/** The name of the exercise. */
+	name: string;
+	/** The review history for the user. */
+	reviews: ImportOrExportItemRating[];
+}
+
+/** The actual statistics that were logged in a user measurement. */
+export interface UserMeasurementStats {
+	abdominal_skinfold: string | null;
+	basal_metabolic_rate: string | null;
+	biceps_circumference: string | null;
+	body_fat: string | null;
+	body_fat_caliper: string | null;
+	body_mass_index: string | null;
+	bone_mass: string | null;
+	calories: string | null;
+	chest_circumference: string | null;
+	chest_skinfold: string | null;
+	custom: Record<string, string> | null;
+	hip_circumference: string | null;
+	lean_body_mass: string | null;
+	muscle: string | null;
+	neck_circumference: string | null;
+	thigh_circumference: string | null;
+	thigh_skinfold: string | null;
+	total_body_water: string | null;
+	total_daily_energy_expenditure: string | null;
+	visceral_fat: string | null;
+	waist_circumference: string | null;
+	waist_to_height_ratio: string | null;
+	waist_to_hip_ratio: string | null;
+	weight: string | null;
+}
+
+/** An export of a measurement taken at a point in time. */
+export interface UserMeasurement {
+	/** Any comment associated entered by the user. */
+	comment: string | null;
+	/** The name given to this measurement by the user. */
+	name: string | null;
+	/** The contents of the actual measurement. */
+	stats: UserMeasurementStats;
+	/** The date and time this measurement was made. */
+	timestamp: string;
+}
+
+/** The different types of media that can be stored. */
+export type MediaLot = 'audio_book' | 'anime' | 'book' | 'podcast' | 'manga' | 'movie' | 'show' | 'video_game' | 'visual_novel';
 
 /** A specific instance when an entity was seen. */
 export interface ImportOrExportMediaItemSeen {
@@ -308,6 +318,8 @@ export interface Workout {
 
 /** Complete export of the user. */
 export interface CompleteExport {
+	/** Data about user's exercises. */
+	exercises: ImportOrExportExerciseItem[] | null;
 	/** Data about user's measurements. */
 	measurements: UserMeasurement[] | null;
 	/** Data about user's media. */

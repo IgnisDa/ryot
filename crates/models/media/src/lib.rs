@@ -666,6 +666,19 @@ pub struct ImportOrExportPersonItem {
     pub collections: Vec<String>,
 }
 
+/// Details about a specific exercise item that needs to be exported.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[serde(rename_all = "snake_case")]
+pub struct ImportOrExportExerciseItem {
+    /// The name of the exercise.
+    pub name: String,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<String>,
+}
+
 #[derive(
     Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
 )]
