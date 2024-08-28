@@ -9,6 +9,7 @@ import {
 import {
 	BackendError,
 	CoreDetailsDocument,
+	ExerciseParametersDocument,
 	GetPresignedS3UrlDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
@@ -183,6 +184,16 @@ export const getCachedUserDetails = async (request: Request) => {
 				UserDetailsDocument,
 				undefined,
 			),
+	});
+};
+
+export const getCachedExerciseParameters = async () => {
+	return queryClient.ensureQueryData({
+		queryKey: queryFactory.fitness.exerciseParameters().queryKey,
+		queryFn: () =>
+			serverGqlService
+				.request(ExerciseParametersDocument)
+				.then((data) => data.exerciseParameters),
 	});
 };
 

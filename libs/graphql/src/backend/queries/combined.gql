@@ -27,10 +27,10 @@ query ProvidersLanguageInformation {
 
 query UserExports {
   userExports {
-    startedAt
-    endedAt
     url
-    exported
+    size
+    endedAt
+    startedAt
   }
 }
 

@@ -9,10 +9,10 @@ use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
-    EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportMediaGroupItem,
-    ImportOrExportMediaItem, ImportOrExportPersonItem, MetadataCreatorGroupedByRole,
-    PersonDetailsGroupedByRole, ReviewItem, UserDetailsError, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    EntityWithLot, GenreListItem, GraphqlMediaAssets, ImportOrExportExerciseItem,
+    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportPersonItem,
+    MetadataCreatorGroupedByRole, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -58,6 +58,8 @@ pub struct CompleteExport {
     pub workouts: Option<Vec<workout::Model>>,
     /// Data about user's media groups.
     pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
+    /// Data about user's exercises.
+    pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -71,6 +73,7 @@ pub struct UserExerciseDetails {
     pub details: Option<user_to_entity::Model>,
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
     pub collections: Vec<collection::Model>,
+    pub reviews: Vec<ReviewItem>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

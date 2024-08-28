@@ -1,3 +1,4 @@
+import { LineChart } from "@mantine/charts";
 import {
 	ActionIcon,
 	Affix,
@@ -10,7 +11,9 @@ import {
 	Group,
 	Image,
 	List,
+	Paper,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -28,8 +31,13 @@ import {
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, startCase } from "@ryot/ts-utils";
-import { IconCheck, IconExternalLink } from "@tabler/icons-react";
+import { changeCase, sortBy, startCase } from "@ryot/ts-utils";
+import {
+	IconChartPie,
+	IconCheck,
+	IconExternalLink,
+	IconMessageCircle2,
+} from "@tabler/icons-react";
 import {
 	IconHistoryToggle,
 	IconInfoCircle,
@@ -40,25 +48,38 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "remix-routes";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
+import { DisplayCollection, ReviewItemDisplay } from "~/components/common";
 import {
 	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { DisplayCollection, MediaScrollArea } from "~/components/media";
-import { FitnessEntity, dayjsLib } from "~/lib/generals";
-import { useUserDetails, useUserUnitSystem } from "~/lib/hooks";
+import { MediaScrollArea } from "~/components/media";
+import {
+	FitnessEntity,
+	TimeSpan,
+	dayjsLib,
+	getDateFromTimeSpan,
+} from "~/lib/generals";
+import {
+	useUserDetails,
+	useUserPreferences,
+	useUserUnitSystem,
+} from "~/lib/hooks";
 import {
 	addExerciseToWorkout,
 	getWorkoutDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
-import { useAddEntityToCollection } from "~/lib/state/media";
+import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
+	getCachedExerciseParameters,
 	getWorkoutCookieValue,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -73,20 +94,23 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const { id: exerciseId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const workoutInProgress = !!getWorkoutCookieValue(request);
-	const [{ exerciseDetails }, { userExerciseDetails }] = await Promise.all([
-		serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
-		serverGqlService.authenticatedRequest(
-			request,
-			UserExerciseDetailsDocument,
-			{ exerciseId },
-		),
-	]);
+	const [exerciseParameters, { exerciseDetails }, { userExerciseDetails }] =
+		await Promise.all([
+			getCachedExerciseParameters(),
+			serverGqlService.request(ExerciseDetailsDocument, { exerciseId }),
+			serverGqlService.authenticatedRequest(
+				request,
+				UserExerciseDetailsDocument,
+				{ exerciseId },
+			),
+		]);
 	return {
 		query,
-		workoutInProgress,
-		exerciseDetails,
-		userExerciseDetails,
 		exerciseId,
+		exerciseDetails,
+		workoutInProgress,
+		exerciseParameters,
+		userExerciseDetails,
 	};
 });
 
@@ -96,14 +120,36 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const userDetails = useUserDetails();
 	const canCurrentUserUpdate =
 		loaderData.exerciseDetails.source === ExerciseSource.Custom &&
 		userDetails.id === loaderData.exerciseDetails.createdByUserId;
+	const exerciseNumTimesInteracted =
+		loaderData.userExerciseDetails.details?.exerciseNumTimesInteracted || 0;
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const navigate = useNavigate();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [timeSpanForCharts, setTimeSpanForCharts] = useLocalStorage(
+		"ExerciseChartTimeSpan",
+		TimeSpan.Last90Days,
+	);
+	const computedDateAfterForCharts = getDateFromTimeSpan(timeSpanForCharts);
+	const filteredHistoryForCharts = sortBy(
+		loaderData.userExerciseDetails.history || [],
+		(e) => e.workoutEndOn,
+	).filter((h) => {
+		const workoutEndOn = dayjsLib(h.workoutEndOn);
+		return computedDateAfterForCharts === null
+			? true
+			: workoutEndOn.isAfter(computedDateAfterForCharts);
+	});
+	const bestMappings =
+		loaderData.exerciseParameters.lotMapping.find(
+			(lm) => lm.lot === loaderData.exerciseDetails.lot,
+		)?.bests || [];
+	const [_r, setEntityToReview] = useReviewEntity();
 
 	return (
 		<Container size="xs" px="lg">
@@ -134,7 +180,7 @@ export default function Page() {
 						>
 							Overview
 						</Tabs.Tab>
-						{loaderData.userExerciseDetails.history ? (
+						{exerciseNumTimesInteracted > 0 ? (
 							<Tabs.Tab
 								value="history"
 								leftSection={<IconHistoryToggle size={16} />}
@@ -142,14 +188,33 @@ export default function Page() {
 								History
 							</Tabs.Tab>
 						) : null}
-						{loaderData.userExerciseDetails.details ? (
-							<Tabs.Tab value="records" leftSection={<IconTrophy size={16} />}>
-								Records
-							</Tabs.Tab>
+						{exerciseNumTimesInteracted > 0 ? (
+							<>
+								<Tabs.Tab
+									value="records"
+									leftSection={<IconTrophy size={16} />}
+								>
+									Records
+								</Tabs.Tab>
+								<Tabs.Tab
+									value="charts"
+									leftSection={<IconChartPie size={16} />}
+								>
+									Charts
+								</Tabs.Tab>
+							</>
 						) : null}
 						<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
 							Actions
 						</Tabs.Tab>
+						{!userPreferences.general.disableReviews ? (
+							<Tabs.Tab
+								value="reviews"
+								leftSection={<IconMessageCircle2 size={16} />}
+							>
+								Reviews
+							</Tabs.Tab>
+						) : null}
 					</Tabs.List>
 					<Tabs.Panel value="overview">
 						<Stack>
@@ -179,11 +244,10 @@ export default function Page() {
 										data={changeCase(loaderData.exerciseDetails.lot)}
 									/>
 								) : null}
-								{loaderData.userExerciseDetails.details
-									?.exerciseNumTimesInteracted ? (
+								{exerciseNumTimesInteracted > 0 ? (
 									<DisplayData
 										name="Times done"
-										data={`${loaderData.userExerciseDetails.details.exerciseNumTimesInteracted} times`}
+										data={`${exerciseNumTimesInteracted} times`}
 										noCasing
 									/>
 								) : null}
@@ -257,75 +321,124 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					{loaderData.userExerciseDetails.details?.exerciseExtraInformation ? (
-						<Tabs.Panel value="records">
-							<Stack gap="xl">
-								<Stack gap="xs">
-									<Text size="lg" td="underline">
-										Lifetime Stats
-									</Text>
-									<Box>
-										<DisplayLifetimeStatistic
-											stat="weight"
-											val={displayWeightWithUnit(
-												unitSystem,
-												loaderData.userExerciseDetails.details
-													.exerciseExtraInformation.lifetimeStats.weight,
-											)}
-										/>
-										<DisplayLifetimeStatistic
-											stat="distance"
-											val={displayDistanceWithUnit(
-												unitSystem,
-												loaderData.userExerciseDetails.details
-													.exerciseExtraInformation.lifetimeStats.distance,
-											)}
-										/>
-										<DisplayLifetimeStatistic
-											stat="duration"
-											val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
-										/>
-										<DisplayLifetimeStatistic
-											stat="reps"
-											val={
-												loaderData.userExerciseDetails.details
-													.exerciseExtraInformation.lifetimeStats.reps
-											}
-										/>
-										<DisplayLifetimeStatistic
-											stat="times done"
-											val={
-												loaderData.userExerciseDetails.details
-													.exerciseNumTimesInteracted || 0
-											}
-										/>
-									</Box>
-								</Stack>
-								{loaderData.userExerciseDetails.details.exerciseExtraInformation
-									.personalBests.length > 0 ? (
-									<Stack gap="sm">
+						<>
+							<Tabs.Panel value="records">
+								<Stack gap="xl">
+									<Stack gap="xs">
 										<Text size="lg" td="underline">
-											Personal Bests
+											Lifetime Stats
 										</Text>
-										{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
-											(personalBest) => (
-												<Box key={personalBest.lot}>
-													<Text size="sm" c="dimmed">
-														{changeCase(personalBest.lot)}
-													</Text>
-													{personalBest.sets.map((pbSet) => (
-														<DisplayPersonalBest
-															set={pbSet}
-															key={pbSet.workoutId}
-															personalBestLot={personalBest.lot}
-														/>
-													))}
-												</Box>
-											),
-										)}
+										<Box>
+											<DisplayLifetimeStatistic
+												stat="weight"
+												val={displayWeightWithUnit(
+													unitSystem,
+													loaderData.userExerciseDetails.details
+														.exerciseExtraInformation.lifetimeStats.weight,
+												)}
+											/>
+											<DisplayLifetimeStatistic
+												stat="distance"
+												val={displayDistanceWithUnit(
+													unitSystem,
+													loaderData.userExerciseDetails.details
+														.exerciseExtraInformation.lifetimeStats.distance,
+												)}
+											/>
+											<DisplayLifetimeStatistic
+												stat="duration"
+												val={`${loaderData.userExerciseDetails.details.exerciseExtraInformation.lifetimeStats.duration} MIN`}
+											/>
+											<DisplayLifetimeStatistic
+												stat="reps"
+												val={
+													loaderData.userExerciseDetails.details
+														.exerciseExtraInformation.lifetimeStats.reps
+												}
+											/>
+											<DisplayLifetimeStatistic
+												stat="times done"
+												val={exerciseNumTimesInteracted}
+											/>
+										</Box>
 									</Stack>
-								) : null}
-							</Stack>
-						</Tabs.Panel>
+									{loaderData.userExerciseDetails.details
+										.exerciseExtraInformation.personalBests.length > 0 ? (
+										<Stack gap="sm">
+											<Text size="lg" td="underline">
+												Personal Bests
+											</Text>
+											{loaderData.userExerciseDetails.details.exerciseExtraInformation.personalBests.map(
+												(personalBest) => (
+													<Box key={personalBest.lot}>
+														<Text size="sm" c="dimmed">
+															{changeCase(personalBest.lot)}
+														</Text>
+														{personalBest.sets.map((pbSet) => (
+															<DisplayPersonalBest
+																set={pbSet}
+																key={pbSet.workoutId}
+																personalBestLot={personalBest.lot}
+															/>
+														))}
+													</Box>
+												),
+											)}
+										</Stack>
+									) : null}
+								</Stack>
+							</Tabs.Panel>
+							<Tabs.Panel value="charts">
+								<Stack>
+									<Select
+										label="Time span"
+										defaultValue={timeSpanForCharts}
+										labelProps={{ c: "dimmed" }}
+										data={Object.values(TimeSpan)}
+										onChange={(v) => {
+											if (v) setTimeSpanForCharts(v as TimeSpan);
+										}}
+									/>
+									{bestMappings.map((best) => {
+										const data = filteredHistoryForCharts.map((h) => {
+											const stat = h.bestSet?.statistic;
+											const value = match(best)
+												.with(WorkoutSetPersonalBest.OneRm, () => stat?.oneRm)
+												.with(WorkoutSetPersonalBest.Pace, () => stat?.pace)
+												.with(WorkoutSetPersonalBest.Reps, () => stat?.reps)
+												.with(WorkoutSetPersonalBest.Time, () => stat?.duration)
+												.with(WorkoutSetPersonalBest.Volume, () => stat?.volume)
+												.with(WorkoutSetPersonalBest.Weight, () => stat?.weight)
+												.exhaustive();
+											return {
+												name: dayjsLib(h.workoutEndOn).format("DD/MM/YYYY"),
+												value: value ? Number.parseFloat(value) : null,
+											};
+										});
+										invariant(data);
+										return (
+											<Paper key={best} withBorder py="md" radius="md">
+												<Stack>
+													<Title order={3} ta="center">
+														{changeCase(best)}
+													</Title>
+													<LineChart
+														ml={-15}
+														connectNulls
+														h={300}
+														data={data}
+														series={[
+															{ name: "value", label: changeCase(best) },
+														]}
+														dataKey="name"
+													/>
+												</Stack>
+											</Paper>
+										);
+									})}
+								</Stack>
+							</Tabs.Panel>
+						</>
 					) : null}
 					<Tabs.Panel value="actions">
 						<MediaScrollArea>
@@ -345,6 +458,19 @@ export default function Page() {
 								>
 									Add to collection
 								</Button>
+								<Button
+									variant="outline"
+									w="100%"
+									onClick={() => {
+										setEntityToReview({
+											entityId: loaderData.exerciseId,
+											entityLot: EntityLot.Exercise,
+											entityTitle: loaderData.exerciseDetails.id,
+										});
+									}}
+								>
+									Post a review
+								</Button>
 								{canCurrentUserUpdate ? (
 									<Button
 										variant="outline"
@@ -361,6 +487,27 @@ export default function Page() {
 							</SimpleGrid>
 						</MediaScrollArea>
 					</Tabs.Panel>
+					{!userPreferences.general.disableReviews ? (
+						<Tabs.Panel value="reviews">
+							<MediaScrollArea>
+								{loaderData.userExerciseDetails.reviews.length > 0 ? (
+									<Stack>
+										{loaderData.userExerciseDetails.reviews.map((r) => (
+											<ReviewItemDisplay
+												review={r}
+												key={r.id}
+												entityLot={EntityLot.Exercise}
+												entityId={loaderData.exerciseId}
+												title={loaderData.exerciseDetails.id}
+											/>
+										))}
+									</Stack>
+								) : (
+									<Text>No reviews</Text>
+								)}
+							</MediaScrollArea>
+						</Tabs.Panel>
+					) : null}
 				</Tabs>
 			</Stack>
 			{currentWorkout && loaderData.workoutInProgress ? (

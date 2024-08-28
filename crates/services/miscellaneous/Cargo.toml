@@ -40,3 +40,6 @@ tracing = { workspace = true }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }
 uuid = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

@@ -24,11 +24,13 @@ pub struct Model {
     pub visibility: Visibility,
     pub is_spoiler: bool,
     pub user_id: String,
+    pub entity_id: String,
     pub metadata_id: Option<String>,
     pub person_id: Option<String>,
     pub entity_lot: EntityLot,
     pub metadata_group_id: Option<String>,
     pub collection_id: Option<String>,
+    pub exercise_id: Option<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
@@ -47,6 +49,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Collection,
+    #[sea_orm(
+        belongs_to = "super::exercise::Entity",
+        from = "Column::ExerciseId",
+        to = "super::exercise::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Exercise,
     #[sea_orm(
         belongs_to = "super::metadata::Entity",
         from = "Column::MetadataId",
@@ -84,6 +94,12 @@ pub enum Relation {
 impl Related<super::collection::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Collection.def()
+    }
+}
+
+impl Related<super::exercise::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Exercise.def()
     }
 }
 
@@ -129,12 +145,10 @@ impl ActiveModelBehavior for ActiveModel {
     {
         if insert {
             associate_user_with_entity(
-                &model.user_id,
-                model.metadata_id.clone(),
-                model.person_id.clone(),
-                None,
-                model.metadata_group_id.clone(),
                 db,
+                &model.user_id,
+                model.entity_id.clone(),
+                model.entity_lot,
             )
             .await
             .ok();

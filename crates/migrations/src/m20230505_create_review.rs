@@ -1,4 +1,4 @@
-// FIXME: Rename this to m20230507_create_review in the next major release
+// FIXME: Rename this to m20230508_create_review in the next major release
 use enums::Visibility;
 use indoc::indoc;
 use sea_orm_migration::prelude::*;
@@ -6,15 +6,28 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
-    m20230504_create_collection::Collection,
+    m20230504_create_collection::Collection, m20230822_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static METADATA_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_foreign_key";
 pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 pub static METADATA_GROUP_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_group_foreign_key";
 pub static COLLECTION_TO_REVIEW_FOREIGN_KEY: &str = "review_to_collection_foreign_key";
+pub static EXERCISE_TO_REVIEW_FOREIGN_KEY: &str = "review_to_exercise_foreign_key";
+pub static ENTITY_ID_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        COALESCE(
+            "metadata_id",
+            "person_id",
+            "metadata_group_id",
+            "collection_id",
+            "exercise_id"
+        )
+    ) STORED
+"# };
 pub static ENTITY_LOT_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
         CASE
@@ -22,6 +35,7 @@ pub static ENTITY_LOT_SQL: &str = indoc! { r#"
             WHEN "person_id" IS NOT NULL THEN 'person'
             WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
             WHEN "collection_id" IS NOT NULL THEN 'collection'
+            WHEN "exercise_id" IS NOT NULL THEN 'exercise'
         END
     ) STORED
 "# };
@@ -36,10 +50,12 @@ pub enum Review {
     Text,
     Visibility,
     UserId,
+    EntityId,
     MetadataId,
     PersonId,
     MetadataGroupId,
     CollectionId,
+    ExerciseId,
     IsSpoiler,
     Comments,
     ShowExtraInformation,
@@ -87,6 +103,13 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Review::PersonId).text())
                     .col(ColumnDef::new(Review::MetadataId).text())
                     .col(ColumnDef::new(Review::UserId).text().not_null())
+                    .col(ColumnDef::new(Review::ExerciseId).text())
+                    .col(
+                        ColumnDef::new(Review::EntityId)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_ID_SQL),
+                    )
                     .col(
                         ColumnDef::new(Review::EntityLot)
                             .text()
@@ -103,7 +126,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("review_to_metadata_foreign_key")
+                            .name(METADATA_TO_REVIEW_FOREIGN_KEY)
                             .from(Review::Table, Review::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -130,6 +153,14 @@ impl MigrationTrait for Migration {
                             .name(METADATA_GROUP_TO_REVIEW_FOREIGN_KEY)
                             .from(Review::Table, Review::MetadataGroupId)
                             .to(MetadataGroup::Table, MetadataGroup::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(EXERCISE_TO_REVIEW_FOREIGN_KEY)
+                            .from(Review::Table, Review::ExerciseId)
+                            .to(Exercise::Table, Exercise::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )

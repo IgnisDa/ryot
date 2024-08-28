@@ -4,7 +4,6 @@ use database_models::{
     prelude::{Exercise, UserToEntity, Workout},
     user_to_entity, workout,
 };
-use enums::ExerciseLot;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
     UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
@@ -17,6 +16,8 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
     QueryFilter,
 };
+
+use super::LOT_MAPPINGS;
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
     records
@@ -61,7 +62,7 @@ pub async fn calculate_and_commit(
     let end_time = input.end_time;
     let mut input = input;
     let id = input.id.unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
-    ryot_log!(trace, "Creating new workout with id = {}", id);
+    ryot_log!(debug, "Creating new workout with id = {}", id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
@@ -96,8 +97,10 @@ pub async fn calculate_and_commit(
             .ok()
             .flatten();
         let history_item = UserToExerciseHistoryExtraInformation {
-            workout_id: id.clone(),
+            best_set: None,
             idx: exercise_idx,
+            workout_id: id.clone(),
+            workout_end_on: end_time,
         };
         let association = match association {
             None => {
@@ -185,19 +188,11 @@ pub async fn calculate_and_commit(
             .clone()
             .unwrap_or_default()
             .personal_bests;
-        let types_of_prs = match db_ex.lot {
-            ExerciseLot::Duration => vec![WorkoutSetPersonalBest::Time],
-            ExerciseLot::DistanceAndDuration => {
-                vec![WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time]
-            }
-            ExerciseLot::RepsAndWeight => vec![
-                WorkoutSetPersonalBest::Weight,
-                WorkoutSetPersonalBest::OneRm,
-                WorkoutSetPersonalBest::Volume,
-                WorkoutSetPersonalBest::Reps,
-            ],
-            ExerciseLot::Reps => vec![WorkoutSetPersonalBest::Reps],
-        };
+        let types_of_prs = LOT_MAPPINGS
+            .iter()
+            .find(|lm| lm.0 == db_ex.lot)
+            .map(|lm| lm.1)
+            .unwrap();
         for best_type in types_of_prs.iter() {
             let set_idx = get_index_of_highest_pb(&sets, best_type).unwrap();
             let possible_record = personal_bests
@@ -245,10 +240,12 @@ pub async fn calculate_and_commit(
                 }
             }
         }
+        let best_set = get_best_set_index(&sets).and_then(|i| sets.get(i).cloned());
         let mut association_extra_information = association
             .exercise_extra_information
             .clone()
             .unwrap_or_default();
+        association_extra_information.history[0].best_set = best_set.clone();
         let mut association: user_to_entity::ActiveModel = association.into();
         association_extra_information.lifetime_stats += total.clone();
         association_extra_information.personal_bests = personal_bests;
@@ -256,6 +253,7 @@ pub async fn calculate_and_commit(
             ActiveValue::Set(Some(association_extra_information));
         association.update(db).await?;
         exercises.push((
+            best_set,
             db_ex.lot,
             ProcessedExercise {
                 sets,
@@ -272,7 +270,7 @@ pub async fn calculate_and_commit(
     let summary_total = workout_totals.into_iter().sum();
     let model = workout::Model {
         id,
-        end_time: input.end_time,
+        end_time,
         start_time: input.start_time,
         repeated_from: input.repeated_from,
         user_id: user_id.clone(),
@@ -280,19 +278,20 @@ pub async fn calculate_and_commit(
         summary: WorkoutSummary {
             total: Some(summary_total),
             exercises: exercises
-                .iter()
-                .map(|(lot, e)| WorkoutSummaryExercise {
-                    lot: Some(*lot),
+                .clone()
+                .into_iter()
+                .map(|(best_set, lot, e)| WorkoutSummaryExercise {
+                    best_set,
+                    lot: Some(lot),
                     id: e.name.clone(),
                     num_sets: e.sets.len(),
-                    best_set: Some(e.sets[get_best_set_index(&e.sets).unwrap()].clone()),
                 })
                 .collect(),
         },
         information: WorkoutInformation {
             comment: input.comment,
             assets: input.assets,
-            exercises: exercises.into_iter().map(|(_, ex)| ex).collect(),
+            exercises: exercises.into_iter().map(|(_, _, ex)| ex).collect(),
         },
         template_id: input.template_id,
         duration: 0,

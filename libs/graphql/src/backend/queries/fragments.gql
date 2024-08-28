@@ -90,6 +90,14 @@ fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
   volume
 }
 
+fragment WorkoutSetRecordPart on WorkoutSetRecord {
+  statistic {
+    ...WorkoutSetStatisticPart
+  }
+  lot
+  personalBests
+}
+
 fragment WorkoutSummaryPart on WorkoutSummary {
   total {
     ...WorkoutOrExerciseTotalsPart
@@ -99,11 +107,7 @@ fragment WorkoutSummaryPart on WorkoutSummary {
     id
     lot
     bestSet {
-      statistic {
-        ...WorkoutSetStatisticPart
-      }
-      lot
-      personalBests
+      ...WorkoutSetRecordPart
     }
   }
 }

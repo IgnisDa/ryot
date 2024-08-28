@@ -258,11 +258,11 @@ impl KomgaIntegration {
                         }
                     }
                 } else {
-                    ryot_log!(trace, event_type = ?event.event, "Received unhandled event type");
+                    ryot_log!(debug, event_type = ?event.event, "Received unhandled event type");
                 }
             }
 
-            ryot_log!(trace, "SSE listener finished");
+            ryot_log!(debug, "SSE listener finished");
             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
         }
     }

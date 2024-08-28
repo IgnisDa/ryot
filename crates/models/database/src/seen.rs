@@ -4,7 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use educe::Educe;
-use enums::SeenState;
+use enums::{EntityLot, SeenState};
 use media_models::{
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation,
@@ -103,12 +103,10 @@ impl ActiveModelBehavior for ActiveModel {
     {
         if insert {
             associate_user_with_entity(
-                &model.user_id,
-                Some(model.metadata_id.clone()),
-                None,
-                None,
-                None,
                 db,
+                &model.user_id,
+                model.metadata_id.clone(),
+                EntityLot::Metadata,
             )
             .await
             .ok();

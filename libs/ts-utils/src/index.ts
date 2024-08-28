@@ -18,6 +18,7 @@ import omitBy from "lodash/omitBy";
 import pickBy from "lodash/pickBy";
 import set from "lodash/set";
 import snakeCase from "lodash/snakeCase";
+import sortBy from "lodash/sortBy";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
 import truncate from "lodash/truncate";
@@ -104,6 +105,7 @@ export {
 	pickBy,
 	set,
 	snakeCase,
+	sortBy,
 	startCase,
 	sum,
 	truncate,

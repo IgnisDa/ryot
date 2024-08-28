@@ -4,21 +4,22 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::{DateTime, Utc};
-use common_models::{ExportItem, ExportJob};
+use common_models::ExportJob;
 use common_utils::{IsFeatureEnabled, TEMP_DIR};
 use database_models::{
-    prelude::{Metadata, MetadataGroup, Person, Review, Seen, UserToEntity, Workout},
-    review, seen, user_to_entity, workout,
+    prelude::{Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout},
+    seen, user_to_entity, workout,
 };
 use database_utils::{
-    entity_in_collections, get_review_export_item, review_by_id, user_measurements_list,
+    entity_in_collections, get_review_export_item, item_reviews, user_measurements_list,
     workout_details,
 };
+use enums::EntityLot;
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use media_models::{
-    ImportOrExportMediaGroupItem, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-    ImportOrExportPersonItem,
+    ImportOrExportExerciseItem, ImportOrExportMediaGroupItem, ImportOrExportMediaItem,
+    ImportOrExportMediaItemSeen, ImportOrExportPersonItem,
 };
 use nanoid::nanoid;
 use reqwest::{
@@ -26,11 +27,23 @@ use reqwest::{
     Body, Client,
 };
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait, QueryFilter, QueryOrder, QuerySelect,
+    strum::Display, ColumnTrait, DatabaseConnection, EntityTrait, EnumIter, Iterable, ModelTrait,
+    QueryFilter, QueryOrder, QuerySelect,
 };
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
+
+#[derive(Eq, PartialEq, Copy, Display, Clone, Debug, EnumIter)]
+#[strum(serialize_all = "snake_case")]
+enum ExportItem {
+    Media,
+    People,
+    Workouts,
+    Exercises,
+    MediaGroups,
+    Measurements,
+}
 
 pub struct ExporterService {
     db: DatabaseConnection,
@@ -54,24 +67,52 @@ impl ExporterService {
         }
     }
 
-    pub async fn deploy_export_job(
-        &self,
-        user_id: String,
-        to_export: Vec<ExportItem>,
-    ) -> Result<bool> {
+    pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
         self.perform_application_job
             .clone()
-            .enqueue(ApplicationJob::PerformExport(user_id, to_export))
+            .enqueue(ApplicationJob::PerformExport(user_id))
             .await
             .unwrap();
         Ok(true)
     }
 
-    pub async fn perform_export(
-        &self,
-        user_id: String,
-        to_export: Vec<ExportItem>,
-    ) -> Result<bool> {
+    pub async fn user_exports(&self, user_id: String) -> Result<Vec<ExportJob>> {
+        if !self.config.file_storage.is_enabled() {
+            return Ok(vec![]);
+        }
+        let mut resp = vec![];
+        let objects = self
+            .file_storage_service
+            .list_objects_at_prefix(format!("exports/{}", user_id))
+            .await;
+        for (size, object_key) in objects {
+            let url = self
+                .file_storage_service
+                .get_presigned_url(object_key.clone())
+                .await;
+            let metadata = self
+                .file_storage_service
+                .get_object_metadata(object_key)
+                .await;
+            let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())
+                .unwrap()
+                .with_timezone(&Utc);
+            let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
+                .unwrap()
+                .with_timezone(&Utc);
+            let exp = ExportJob {
+                size,
+                url,
+                ended_at,
+                started_at,
+            };
+            resp.push(exp);
+        }
+        resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
+        Ok(resp)
+    }
+
+    pub async fn perform_export(&self, user_id: String) -> Result<bool> {
         if !self.config.file_storage.is_enabled() {
             return Err(Error::new(
                 "File storage needs to be enabled to perform an export.",
@@ -82,25 +123,16 @@ impl ExporterService {
         let file = std::fs::File::create(&export_path).unwrap();
         let mut writer = JsonStreamWriter::new(file);
         writer.begin_object().unwrap();
-        for export in to_export.iter() {
+        for export in ExportItem::iter() {
             writer.name(&export.to_string())?;
             writer.begin_array().unwrap();
             match export {
-                ExportItem::Media => {
-                    self.export_media(&user_id, &mut writer).await?;
-                }
-                ExportItem::MediaGroup => {
-                    self.export_media_group(&user_id, &mut writer).await?;
-                }
-                ExportItem::People => {
-                    self.export_people(&user_id, &mut writer).await?;
-                }
-                ExportItem::Measurements => {
-                    self.export_measurements(&user_id, &mut writer).await?;
-                }
-                ExportItem::Workouts => {
-                    self.export_workouts(&user_id, &mut writer).await?;
-                }
+                ExportItem::Media => self.export_media(&user_id, &mut writer).await?,
+                ExportItem::People => self.export_people(&user_id, &mut writer).await?,
+                ExportItem::Workouts => self.export_workouts(&user_id, &mut writer).await?,
+                ExportItem::Exercises => self.export_exercises(&user_id, &mut writer).await?,
+                ExportItem::MediaGroups => self.export_media_group(&user_id, &mut writer).await?,
+                ExportItem::Measurements => self.export_measurements(&user_id, &mut writer).await?,
             };
             writer.end_array().unwrap();
         }
@@ -121,10 +153,6 @@ impl ExporterService {
                 Some(HashMap::from([
                     ("started_at".to_string(), started_at.to_rfc2822()),
                     ("ended_at".to_string(), ended_at.to_rfc2822()),
-                    (
-                        "exported".to_string(),
-                        serde_json::to_string(&to_export).unwrap(),
-                    ),
                 ])),
             )
             .await;
@@ -140,10 +168,6 @@ impl ExporterService {
             .header(CONTENT_LENGTH, content_length)
             .header("x-amz-meta-started_at", started_at.to_rfc2822())
             .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
-            .header(
-                "x-amz-meta-exported",
-                serde_json::to_string(&to_export).unwrap(),
-            )
             .body(body)
             .send()
             .await
@@ -151,46 +175,11 @@ impl ExporterService {
         Ok(true)
     }
 
-    pub async fn user_exports(&self, user_id: String) -> Result<Vec<ExportJob>> {
-        if !self.config.file_storage.is_enabled() {
-            return Ok(vec![]);
-        }
-        let mut resp = vec![];
-        let objects = self
-            .file_storage_service
-            .list_objects_at_prefix(format!("exports/{}", user_id))
-            .await;
-        for object in objects {
-            let url = self
-                .file_storage_service
-                .get_presigned_url(object.clone())
-                .await;
-            let metadata = self.file_storage_service.get_object_metadata(object).await;
-            let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())
-                .unwrap()
-                .with_timezone(&Utc);
-            let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
-                .unwrap()
-                .with_timezone(&Utc);
-            let exported: Vec<ExportItem> =
-                serde_json::from_str(metadata.get("exported").unwrap()).unwrap();
-            let exp = ExportJob {
-                url,
-                started_at,
-                ended_at,
-                exported,
-            };
-            resp.push(exp);
-        }
-        resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
-        Ok(resp)
-    }
-
     async fn export_media(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
@@ -236,27 +225,16 @@ impl ExporterService {
                     }
                 })
                 .collect();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
-            let collections =
-                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None, None, None)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
+            let reviews = item_reviews(&self.db, user_id, m.id.clone(), EntityLot::Metadata)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
+            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Metadata)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
             let exp = ImportOrExportMediaItem {
                 source_id: m.title,
                 lot: m.lot,
@@ -268,14 +246,14 @@ impl ExporterService {
             };
             writer.serialize_value(&exp).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_media_group(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
@@ -289,23 +267,13 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let db_reviews = m
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
+            let reviews = item_reviews(&self.db, user_id, m.id.clone(), EntityLot::MetadataGroup)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
             let collections =
-                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None, None, None)
+                entity_in_collections(&self.db, user_id, m.id, EntityLot::MetadataGroup)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -320,14 +288,14 @@ impl ExporterService {
             };
             writer.serialize_value(&exp).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_people(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let related_people = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::PersonId.is_not_null())
@@ -341,27 +309,16 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let db_reviews = p
-                .find_related(Review)
-                .filter(review::Column::UserId.eq(user_id))
-                .all(&self.db)
-                .await
-                .unwrap();
-            let mut reviews = vec![];
-            for review in db_reviews {
-                let review_item = get_review_export_item(
-                    review_by_id(&self.db, review.id, user_id, false)
-                        .await
-                        .unwrap(),
-                );
-                reviews.push(review_item);
-            }
-            let collections =
-                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None, None, None)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
+            let reviews = item_reviews(&self.db, user_id, p.id.clone(), EntityLot::Person)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
+            let collections = entity_in_collections(&self.db, user_id, p.id, EntityLot::Person)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
             let exp = ImportOrExportPersonItem {
                 identifier: p.identifier,
                 source: p.source,
@@ -372,14 +329,14 @@ impl ExporterService {
             };
             writer.serialize_value(&exp).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_workouts(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let workout_ids = Workout::find()
             .select_only()
             .column(workout::Column::Id)
@@ -393,14 +350,14 @@ impl ExporterService {
                 workout_details(&self.db, &self.file_storage_service, user_id, workout_id).await?;
             writer.serialize_value(&details).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_measurements(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let measurements = user_measurements_list(
             &self.db,
             user_id,
@@ -413,6 +370,45 @@ impl ExporterService {
         for measurement in measurements {
             writer.serialize_value(&measurement).unwrap();
         }
-        Ok(true)
+        Ok(())
+    }
+
+    async fn export_exercises(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<()> {
+        let exercises = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .all(&self.db)
+            .await
+            .unwrap();
+        for rm in exercises.iter() {
+            let e = rm
+                .find_related(Exercise)
+                .one(&self.db)
+                .await
+                .unwrap()
+                .unwrap();
+            let reviews = item_reviews(&self.db, user_id, e.id.clone(), EntityLot::Exercise)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
+            let collections =
+                entity_in_collections(&self.db, user_id, e.id.clone(), EntityLot::Exercise)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
+            let exp = ImportOrExportExerciseItem {
+                name: e.id,
+                collections,
+                reviews,
+            };
+            writer.serialize_value(&exp).unwrap();
+        }
+        Ok(())
     }
 }

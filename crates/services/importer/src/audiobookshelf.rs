@@ -64,7 +64,7 @@ where
         for (idx, item) in finished_items.results.into_iter().enumerate() {
             let metadata = item.media.clone().unwrap().metadata;
             let title = metadata.title.clone();
-            ryot_log!(trace, "Importing item {:?} ({}/{})", title, idx + 1, len);
+            ryot_log!(debug, "Importing item {:?} ({}/{})", title, idx + 1, len);
             let (identifier, lot, source, episodes) =
                 if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
                     match &metadata.isbn {
@@ -100,7 +100,7 @@ where
                             let source = MediaSource::Itunes;
                             let mut to_return = vec![];
                             for episode in episodes {
-                                ryot_log!(trace, "Importing episode {:?}", episode.title);
+                                ryot_log!(debug, "Importing episode {:?}", episode.title);
                                 let episode_details = get_item_details(
                                     &client,
                                     &url,

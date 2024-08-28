@@ -1,5 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
+use enums::EntityLot;
 use schematic::Schematic;
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
@@ -167,23 +168,9 @@ pub struct SearchDetails {
 pub struct ChangeCollectionToEntityInput {
     pub creator_user_id: String,
     pub collection_name: String,
-    pub metadata_id: Option<String>,
-    pub person_id: Option<String>,
-    pub metadata_group_id: Option<String>,
-    pub exercise_id: Option<String>,
-    pub workout_id: Option<String>,
-    pub workout_template_id: Option<String>,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
     pub information: Option<serde_json::Value>,
-}
-
-#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum ExportItem {
-    Media,
-    People,
-    Workouts,
-    MediaGroup,
-    Measurements,
 }
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
@@ -202,8 +189,8 @@ pub enum MediaStateChanged {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExportJob {
-    pub started_at: DateTimeUtc,
-    pub ended_at: DateTimeUtc,
-    pub exported: Vec<ExportItem>,
+    pub size: i64,
     pub url: String,
+    pub ended_at: DateTimeUtc,
+    pub started_at: DateTimeUtc,
 }

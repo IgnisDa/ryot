@@ -115,7 +115,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 						{ input },
 					);
 				return redirect(
-					$path("/fitness/exercises/item/:id", { id: createCustomExercise }),
+					$path("/fitness/exercises/item/:id", {
+						id: encodeURIComponent(createCustomExercise),
+					}),
 				);
 			},
 			[Action.Update]: async () => {

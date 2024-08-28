@@ -36,10 +36,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { zx } from "zodix";
-import {
-	convertEntityToIndividualId,
-	redirectToQueryParam,
-} from "~/lib/generals";
+import { redirectToQueryParam } from "~/lib/generals";
 import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
@@ -154,8 +151,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		})
 		.with("addEntityToCollection", async () => {
 			removeCachedUserCollectionsList(request);
-			const [submission, input] =
-				getChangeCollectionToEntityVariables(formData);
+			const [submission] = getChangeCollectionToEntityVariables(formData);
 			const addTo = [submission.collectionName];
 			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
 			for (const co of addTo) {
@@ -164,7 +160,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 					AddEntityToCollectionDocument,
 					{
 						input: {
-							...input,
+							...submission,
 							collectionName: co,
 							creatorUserId: submission.creatorUserId,
 							information: omitBy(submission.information || {}, isEmpty),
@@ -182,14 +178,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 		})
 		.with("removeEntityFromCollection", async () => {
 			removeCachedUserCollectionsList(request);
-			const [submission, input] =
-				getChangeCollectionToEntityVariables(formData);
+			const [submission] = getChangeCollectionToEntityVariables(formData);
 			await serverGqlService.authenticatedRequest(
 				request,
 				RemoveEntityFromCollectionDocument,
 				{
 					input: {
-						...input,
+						...submission,
 						collectionName: submission.collectionName,
 						creatorUserId: submission.creatorUserId,
 					},
@@ -213,10 +208,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 					}),
 				);
 			} else {
+				const entityId = submission.entityId;
+				const entityLot = submission.entityLot;
+				invariant(entityId && entityLot);
 				await serverGqlService.authenticatedRequest(
 					request,
 					PostReviewDocument,
-					{ input: submission },
+					{ input: { ...submission, entityId, entityLot } },
 				);
 				extendResponseHeaders(
 					headers,
@@ -464,10 +462,8 @@ const reviewSchema = z
 		text: z.string().optional(),
 		visibility: z.nativeEnum(Visibility).optional(),
 		isSpoiler: zx.CheckboxAsString.optional(),
-		metadataId: z.string().optional(),
-		metadataGroupId: z.string().optional(),
-		collectionId: z.string().optional(),
-		personId: z.string().optional(),
+		entityId: z.string().optional(),
+		entityLot: z.nativeEnum(EntityLot).optional(),
 		reviewId: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema);
@@ -477,11 +473,7 @@ const getChangeCollectionToEntityVariables = (formData: FormData) => {
 		formData,
 		changeCollectionToEntitySchema.passthrough(),
 	);
-	const individualIds = convertEntityToIndividualId(
-		submission.entityId,
-		submission.entityLot,
-	);
-	return [submission, individualIds] as const;
+	return [submission] as const;
 };
 
 const progressUpdateSchema = z
