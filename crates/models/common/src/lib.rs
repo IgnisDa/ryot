@@ -174,16 +174,6 @@ pub struct ChangeCollectionToEntityInput {
 }
 
 #[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
-#[strum(serialize_all = "snake_case")]
-pub enum ExportItem {
-    Media,
-    People,
-    Workouts,
-    MediaGroup,
-    Measurements,
-}
-
-#[derive(Enum, Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize, Display, EnumIter)]
 pub enum MediaStateChanged {
     MetadataPublished,
     MetadataStatusChanged,
