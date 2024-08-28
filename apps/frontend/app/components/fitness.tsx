@@ -486,11 +486,11 @@ export const WorkoutTemplateDisplayItem = (props: {
 			isLoading={isWorkoutTemplateDetailsLoading}
 			onImageClickBehavior={$path("/fitness/:entity/:id", {
 				id: props.workoutTemplateId,
-				entity: "template",
+				entity: FitnessEntity.Templates,
 			})}
 			labels={{
 				left: dayjsLib(workoutTemplateDetails?.details.createdOn).format("l"),
-				right: 'Template'
+				right: "Template",
 			}}
 			imageOverlay={{ topRight: props.topRight }}
 		/>
