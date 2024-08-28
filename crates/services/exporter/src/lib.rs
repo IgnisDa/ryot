@@ -76,6 +76,42 @@ impl ExporterService {
         Ok(true)
     }
 
+    pub async fn user_exports(&self, user_id: String) -> Result<Vec<ExportJob>> {
+        if !self.config.file_storage.is_enabled() {
+            return Ok(vec![]);
+        }
+        let mut resp = vec![];
+        let objects = self
+            .file_storage_service
+            .list_objects_at_prefix(format!("exports/{}", user_id))
+            .await;
+        for (size, object_key) in objects {
+            let url = self
+                .file_storage_service
+                .get_presigned_url(object_key.clone())
+                .await;
+            let metadata = self
+                .file_storage_service
+                .get_object_metadata(object_key)
+                .await;
+            let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())
+                .unwrap()
+                .with_timezone(&Utc);
+            let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
+                .unwrap()
+                .with_timezone(&Utc);
+            let exp = ExportJob {
+                size,
+                url,
+                ended_at,
+                started_at,
+            };
+            resp.push(exp);
+        }
+        resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
+        Ok(resp)
+    }
+
     pub async fn perform_export(&self, user_id: String) -> Result<bool> {
         if !self.config.file_storage.is_enabled() {
             return Err(Error::new(
@@ -137,38 +173,6 @@ impl ExporterService {
             .await
             .unwrap();
         Ok(true)
-    }
-
-    pub async fn user_exports(&self, user_id: String) -> Result<Vec<ExportJob>> {
-        if !self.config.file_storage.is_enabled() {
-            return Ok(vec![]);
-        }
-        let mut resp = vec![];
-        let objects = self
-            .file_storage_service
-            .list_objects_at_prefix(format!("exports/{}", user_id))
-            .await;
-        for object in objects {
-            let url = self
-                .file_storage_service
-                .get_presigned_url(object.clone())
-                .await;
-            let metadata = self.file_storage_service.get_object_metadata(object).await;
-            let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())
-                .unwrap()
-                .with_timezone(&Utc);
-            let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
-                .unwrap()
-                .with_timezone(&Utc);
-            let exp = ExportJob {
-                url,
-                started_at,
-                ended_at,
-            };
-            resp.push(exp);
-        }
-        resp.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
-        Ok(resp)
     }
 
     async fn export_media(

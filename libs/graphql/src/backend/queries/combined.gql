@@ -28,6 +28,7 @@ query ProvidersLanguageInformation {
 query UserExports {
   userExports {
     url
+    size
     endedAt
     startedAt
   }

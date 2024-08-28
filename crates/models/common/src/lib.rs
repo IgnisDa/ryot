@@ -189,7 +189,8 @@ pub enum MediaStateChanged {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExportJob {
-    pub started_at: DateTimeUtc,
-    pub ended_at: DateTimeUtc,
+    pub size: i64,
     pub url: String,
+    pub ended_at: DateTimeUtc,
+    pub started_at: DateTimeUtc,
 }
