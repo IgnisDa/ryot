@@ -2615,7 +2615,7 @@ impl MiscellaneousService {
                         .name
                 }
                 EntityLot::Exercise => id.clone(),
-                _ => unreachable!(),
+                EntityLot::Workout => unreachable!(),
             };
             let user = user_by_id(&self.db, &insert.user_id.unwrap()).await?;
             // DEV: Do not send notification if updating a review
