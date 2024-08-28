@@ -11,7 +11,6 @@ import {
 	Group,
 	Indicator,
 	JsonInput,
-	MultiSelect,
 	PasswordInput,
 	Select,
 	Stack,
@@ -35,7 +34,6 @@ import {
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
-	ExportItem,
 	ImportReportsDocument,
 	ImportSource,
 	UserExportsDocument,
@@ -135,11 +133,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 		deployExport: async () => {
-			const toExport = processSubmission(formData, deployExportForm);
 			await serverGqlService.authenticatedRequest(
 				request,
 				DeployExportJobDocument,
-				toExport,
+				{},
 			);
 			return Response.json(
 				{ status: "success", generateAuthToken: false } as const,
@@ -190,10 +187,6 @@ const jsonImportFormSchema = z.object({ export: z.string() });
 const malImportFormSchema = z.object({
 	animePath: z.string().optional(),
 	mangaPath: z.string().optional(),
-});
-
-const deployExportForm = z.object({
-	toExport: z.string().transform((v) => v.split(",") as Array<ExportItem>),
 });
 
 export default function Page() {
@@ -513,16 +506,6 @@ export default function Page() {
 								encType="multipart/form-data"
 								action={withQuery("", { intent: "deployExport" })}
 							>
-								<MultiSelect
-									name="toExport"
-									label="Data to export"
-									description="Multiple items can be selected"
-									required
-									data={Object.values(ExportItem).map((is) => ({
-										label: changeCase(is),
-										value: is,
-									}))}
-								/>
 								<Tooltip
 									label="Please enable file storage to use this feature"
 									disabled={fileUploadNotAllowed}
@@ -547,12 +530,9 @@ export default function Page() {
 									{loaderData.userExports.map((exp) => (
 										<Box key={exp.startedAt} w="100%">
 											<Group justify="space-between" wrap="nowrap">
-												<Box>
-													<Text>{exp.exported.map(changeCase).join(", ")}</Text>
-													<Text size="xs" span c="dimmed">
-														({dayjsLib(exp.endedAt).fromNow()})
-													</Text>
-												</Box>
+												<Text>
+													{changeCase(dayjsLib(exp.endedAt).fromNow())}
+												</Text>
 												<Anchor href={exp.url} target="_blank" rel="noreferrer">
 													<ThemeIcon color="blue" variant="transparent">
 														<IconDownload />
