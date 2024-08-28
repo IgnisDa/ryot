@@ -2614,7 +2614,7 @@ impl MiscellaneousService {
                         .unwrap()
                         .name
                 }
-                EntityLot::Exercise => id,
+                EntityLot::Exercise => id.clone(),
                 _ => unreachable!(),
             };
             let user = user_by_id(&self.db, &insert.user_id.unwrap()).await?;
