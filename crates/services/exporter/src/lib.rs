@@ -173,7 +173,7 @@ impl ExporterService {
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
@@ -240,14 +240,14 @@ impl ExporterService {
             };
             writer.serialize_value(&exp).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_media_group(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
@@ -282,14 +282,14 @@ impl ExporterService {
             };
             writer.serialize_value(&exp).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_people(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let related_people = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::PersonId.is_not_null())
@@ -323,14 +323,14 @@ impl ExporterService {
             };
             writer.serialize_value(&exp).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_workouts(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let workout_ids = Workout::find()
             .select_only()
             .column(workout::Column::Id)
@@ -344,14 +344,14 @@ impl ExporterService {
                 workout_details(&self.db, &self.file_storage_service, user_id, workout_id).await?;
             writer.serialize_value(&details).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 
     async fn export_measurements(
         &self,
         user_id: &String,
         writer: &mut JsonStreamWriter<StdFile>,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         let measurements = user_measurements_list(
             &self.db,
             user_id,
@@ -364,6 +364,6 @@ impl ExporterService {
         for measurement in measurements {
             writer.serialize_value(&measurement).unwrap();
         }
-        Ok(true)
+        Ok(())
     }
 }
