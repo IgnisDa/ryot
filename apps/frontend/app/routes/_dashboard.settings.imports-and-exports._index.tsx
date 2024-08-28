@@ -78,6 +78,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return namedAction(request, {
 		deployImport: async () => {
 			const source = formData.get("source") as ImportSource;
+			formData.delete("source");
 			const values = await match(source)
 				.with(
 					ImportSource.StoryGraph,
