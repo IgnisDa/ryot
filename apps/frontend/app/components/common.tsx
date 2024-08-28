@@ -24,15 +24,15 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
-import { Form, useFetcher, useNavigate } from "@remix-run/react";
+import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
-	type EntityLot,
+	EntityLot,
 	type MediaLot,
 	type MediaSource,
 	type ReviewItem,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials, isNumber, snakeCase } from "@ryot/ts-utils";
+import { changeCase, getInitials, isNumber, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconCheck,
@@ -49,6 +49,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { dayjsLib, getSurroundingElements } from "~/lib/generals";
 import {
@@ -56,6 +57,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
+	useGetMantineColor,
 	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
@@ -64,6 +66,12 @@ import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 import { confirmWrapper } from "./confirmation";
+import { ExerciseDisplayItem, WorkoutDisplayItem } from "./fitness";
+import {
+	MetadataDisplayItem,
+	MetadataGroupDisplayItem,
+	PersonDisplayItem,
+} from "./media";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
@@ -538,5 +546,104 @@ export const ReviewItemDisplay = (props: {
 			</Box>
 			<Divider />
 		</>
+	);
+};
+
+export const DisplayCollectionEntity = (props: {
+	entityId: string;
+	entityLot: EntityLot;
+	topRight?: ReactNode;
+}) =>
+	match(props.entityLot)
+		.with(EntityLot.Metadata, () => (
+			<MetadataDisplayItem
+				metadataId={props.entityId}
+				topRight={props.topRight}
+				rightLabelLot
+			/>
+		))
+		.with(EntityLot.MetadataGroup, () => (
+			<MetadataGroupDisplayItem
+				metadataGroupId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+				noLeftLabel
+			/>
+		))
+		.with(EntityLot.Person, () => (
+			<PersonDisplayItem
+				personId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.Exercise, () => (
+			<ExerciseDisplayItem
+				exerciseId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.Workout, () => (
+			<WorkoutDisplayItem
+				workoutId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.run();
+
+export const DisplayCollection = (props: {
+	creatorUserId: string;
+	col: { id: string; name: string };
+	entityId: string;
+	entityLot: EntityLot;
+}) => {
+	const getMantineColor = useGetMantineColor();
+	const submit = useConfirmSubmit();
+
+	return (
+		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
+			<Form
+				method="POST"
+				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}
+			>
+				<Flex gap={2}>
+					<Anchor
+						component={Link}
+						truncate
+						style={{ all: "unset", cursor: "pointer" }}
+						to={$path("/collections/:id", {
+							id: props.col.id,
+						})}
+					>
+						{props.col.name}
+					</Anchor>
+					<input readOnly hidden name="entityId" value={props.entityId} />
+					<input readOnly hidden name="entityLot" value={props.entityLot} />
+					<input readOnly hidden name="collectionName" value={props.col.name} />
+					<input
+						readOnly
+						hidden
+						name="creatorUserId"
+						value={props.creatorUserId}
+					/>
+					<ActionIcon
+						size={16}
+						onClick={async (e) => {
+							const form = e.currentTarget.form;
+							e.preventDefault();
+							const conf = await confirmWrapper({
+								confirmation:
+									"Are you sure you want to remove this media from this collection?",
+							});
+							if (conf && form) submit(form);
+						}}
+					>
+						<IconX />
+					</ActionIcon>
+				</Flex>
+			</Form>
+		</Badge>
 	);
 };

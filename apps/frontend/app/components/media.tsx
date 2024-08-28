@@ -2,7 +2,6 @@ import {
 	ActionIcon,
 	Anchor,
 	Avatar,
-	Badge,
 	Box,
 	Center,
 	Flex,
@@ -29,13 +28,7 @@ import {
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	getInitials,
-	isNumber,
-	isString,
-	snakeCase,
-} from "@ryot/ts-utils";
+import { changeCase, getInitials, isString, snakeCase } from "@ryot/ts-utils";
 import {
 	IconBackpack,
 	IconBookmarks,
@@ -43,7 +36,6 @@ import {
 	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
-	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode, Ref } from "react";
@@ -53,23 +45,16 @@ import { MEDIA_DETAILS_HEIGHT } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
-	dayjsLib,
 	getPartialMetadataDetailsQuery,
 	queryFactory,
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useFallbackImageUrl,
-	useGetMantineColor,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import {
-	getExerciseDetailsQuery,
-	getUserExerciseDetailsQuery,
-	getWorkoutDetailsQuery,
-} from "~/lib/state/fitness";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
 
@@ -463,170 +448,6 @@ export const PersonDisplayItem = (props: {
 			}}
 			imageOverlay={{ topRight: props.topRight }}
 		/>
-	);
-};
-
-export const ExerciseDisplayItem = (props: {
-	exerciseId: string;
-	topRight?: ReactNode;
-	rightLabel?: ReactNode;
-}) => {
-	const { ref, inViewport } = useInViewport();
-	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
-		useQuery({
-			...getExerciseDetailsQuery(props.exerciseId),
-			enabled: inViewport,
-		});
-	const { data: userExerciseDetails } = useQuery({
-		...getUserExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
-	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
-
-	return (
-		<BaseMediaDisplayItem
-			innerRef={ref}
-			name={exerciseDetails?.id}
-			isLoading={isExerciseDetailsLoading}
-			onImageClickBehavior={$path("/fitness/exercises/item/:id", {
-				id: encodeURIComponent(props.exerciseId),
-			})}
-			imageUrl={exerciseDetails?.attributes.images.at(0)}
-			labels={{
-				left: isNumber(times)
-					? `${times} time${times > 1 ? "s" : ""}`
-					: undefined,
-				right: props.rightLabel,
-			}}
-			imageOverlay={{ topRight: props.topRight }}
-		/>
-	);
-};
-
-export const WorkoutDisplayItem = (props: {
-	workoutId: string;
-	rightLabel?: ReactNode;
-	topRight?: ReactNode;
-}) => {
-	const { ref, inViewport } = useInViewport();
-	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
-		{ ...getWorkoutDetailsQuery(props.workoutId), enabled: inViewport },
-	);
-
-	return (
-		<BaseMediaDisplayItem
-			innerRef={ref}
-			name={workoutDetails?.details.name}
-			isLoading={isWorkoutDetailsLoading}
-			onImageClickBehavior={$path("/fitness/:entity/:id", {
-				id: props.workoutId,
-				entity: "workouts",
-			})}
-			labels={{
-				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
-				right: props.rightLabel,
-			}}
-			imageOverlay={{ topRight: props.topRight }}
-		/>
-	);
-};
-
-export const DisplayCollectionEntity = (props: {
-	entityId: string;
-	entityLot: EntityLot;
-	topRight?: ReactNode;
-}) =>
-	match(props.entityLot)
-		.with(EntityLot.Metadata, () => (
-			<MetadataDisplayItem
-				metadataId={props.entityId}
-				topRight={props.topRight}
-				rightLabelLot
-			/>
-		))
-		.with(EntityLot.MetadataGroup, () => (
-			<MetadataGroupDisplayItem
-				metadataGroupId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
-				noLeftLabel
-			/>
-		))
-		.with(EntityLot.Person, () => (
-			<PersonDisplayItem
-				personId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
-			/>
-		))
-		.with(EntityLot.Exercise, () => (
-			<ExerciseDisplayItem
-				exerciseId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
-			/>
-		))
-		.with(EntityLot.Workout, () => (
-			<WorkoutDisplayItem
-				workoutId={props.entityId}
-				topRight={props.topRight}
-				rightLabel={changeCase(snakeCase(props.entityLot))}
-			/>
-		))
-		.run();
-
-export const DisplayCollection = (props: {
-	creatorUserId: string;
-	col: { id: string; name: string };
-	entityId: string;
-	entityLot: EntityLot;
-}) => {
-	const getMantineColor = useGetMantineColor();
-	const submit = useConfirmSubmit();
-
-	return (
-		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
-			<Form
-				method="POST"
-				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}
-			>
-				<Flex gap={2}>
-					<Anchor
-						component={Link}
-						truncate
-						style={{ all: "unset", cursor: "pointer" }}
-						to={$path("/collections/:id", {
-							id: props.col.id,
-						})}
-					>
-						{props.col.name}
-					</Anchor>
-					<input readOnly hidden name="entityId" value={props.entityId} />
-					<input readOnly hidden name="entityLot" value={props.entityLot} />
-					<input readOnly hidden name="collectionName" value={props.col.name} />
-					<input
-						readOnly
-						hidden
-						name="creatorUserId"
-						value={props.creatorUserId}
-					/>
-					<ActionIcon
-						size={16}
-						onClick={async (e) => {
-							const form = e.currentTarget.form;
-							e.preventDefault();
-							const conf = await confirmWrapper({
-								confirmation:
-									"Are you sure you want to remove this media from this collection?",
-							});
-							if (conf && form) submit(form);
-						}}
-					>
-						<IconX />
-					</ActionIcon>
-				</Flex>
-			</Form>
-		</Badge>
 	);
 };
 
