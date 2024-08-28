@@ -1367,6 +1367,7 @@ pub enum MediaSortBy {
     ReleaseDate,
     LastSeen,
     UserRating,
+    ProviderRating,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
