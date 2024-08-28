@@ -445,6 +445,8 @@ impl ImporterService {
             }
         }
 
+        // TODO: Allow importing exercises
+
         let details = ImportResultResponse {
             import: ImportDetails {
                 total: import.collections.len()
