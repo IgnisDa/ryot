@@ -95,7 +95,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         "X-Emby-Token",
         HeaderValue::from_str(&authenticate.access_token).unwrap(),
     );
-    let url = input.api_url + "/";
+    let url = input.api_url;
     let client: Client = ClientBuilder::new()
         .default_headers(headers)
         .build()
