@@ -299,11 +299,8 @@ impl CollectionService {
         let reviews = item_reviews(
             &self.db,
             &collection.user_id,
-            None,
-            None,
-            None,
-            Some(input.collection_id),
-            None,
+            input.collection_id,
+            EntityLot::Collection,
         )
         .await?;
         Ok(CollectionContents {

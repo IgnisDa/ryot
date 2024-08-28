@@ -21,8 +21,8 @@ use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
 };
 use enums::{
-    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    ExerciseSource,
+    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseMuscle, ExerciseSource,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
@@ -160,26 +160,11 @@ impl ExerciseService {
         user_id: String,
         exercise_id: String,
     ) -> Result<UserExerciseDetails> {
-        let collections = entity_in_collections(
-            &self.db,
-            &user_id,
-            None,
-            None,
-            None,
-            Some(exercise_id.clone()),
-            None,
-        )
-        .await?;
-        let reviews = item_reviews(
-            &self.db,
-            &user_id,
-            None,
-            None,
-            None,
-            None,
-            Some(exercise_id.clone()),
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, &user_id, exercise_id.clone(), EntityLot::Exercise)
+                .await?;
+        let reviews =
+            item_reviews(&self.db, &user_id, exercise_id.clone(), EntityLot::Exercise).await?;
         let mut resp = UserExerciseDetails {
             details: None,
             history: None,
@@ -525,7 +510,8 @@ impl ExerciseService {
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id,
                 collection_name: DefaultCollection::Custom.to_string(),
-                exercise_id: Some(exercise.id.clone()),
+                entity_id: exercise.id.clone(),
+                entity_lot: EntityLot::Exercise,
                 ..Default::default()
             },
             &self.perform_core_application_job,

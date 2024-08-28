@@ -489,26 +489,11 @@ impl MiscellaneousService {
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
         let media_details = self.generic_metadata(&metadata_id).await?;
-        let collections = entity_in_collections(
-            &self.db,
-            &user_id,
-            Some(metadata_id.clone()),
-            None,
-            None,
-            None,
-            None,
-        )
-        .await?;
-        let reviews = item_reviews(
-            &self.db,
-            &user_id,
-            Some(metadata_id.clone()),
-            None,
-            None,
-            None,
-            None,
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, &user_id, metadata_id.clone(), EntityLot::Metadata)
+                .await?;
+        let reviews =
+            item_reviews(&self.db, &user_id, metadata_id.clone(), EntityLot::Metadata).await?;
         let (_, history) = self
             .is_metadata_finished_by_user(&user_id, &media_details)
             .await?;
@@ -604,7 +589,7 @@ impl MiscellaneousService {
             .unwrap();
         let seen_by: usize = seen_by.try_into().unwrap();
         let user_to_meta =
-            get_user_to_entity_association(&user_id, Some(metadata_id), None, None, None, &self.db)
+            get_user_to_entity_association(&self.db, &user_id, metadata_id, EntityLot::Metadata)
                 .await;
         let average_rating = if reviews.is_empty() {
             None
@@ -694,19 +679,10 @@ impl MiscellaneousService {
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = item_reviews(
-            &self.db,
-            &user_id,
-            None,
-            Some(person_id.clone()),
-            None,
-            None,
-            None,
-        )
-        .await?;
+        let reviews =
+            item_reviews(&self.db, &user_id, person_id.clone(), EntityLot::Person).await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, None, Some(person_id), None, None, None)
-                .await?;
+            entity_in_collections(&self.db, &user_id, person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -721,21 +697,15 @@ impl MiscellaneousService {
         let collections = entity_in_collections(
             &self.db,
             &user_id,
-            None,
-            None,
-            Some(metadata_group_id.clone()),
-            None,
-            None,
+            metadata_group_id.clone(),
+            EntityLot::MetadataGroup,
         )
         .await?;
         let reviews = item_reviews(
             &self.db,
             &user_id,
-            None,
-            None,
-            Some(metadata_group_id),
-            None,
-            None,
+            metadata_group_id,
+            EntityLot::MetadataGroup,
         )
         .await?;
         Ok(UserMetadataGroupDetails {
@@ -2138,23 +2108,15 @@ impl MiscellaneousService {
                 item_active.update(&txn).await?;
             }
         }
-        if let Some(_association) = get_user_to_entity_association(
-            &user_id,
-            Some(merge_into.clone()),
-            None,
-            None,
-            None,
-            &txn,
-        )
-        .await
+        if let Some(_association) =
+            get_user_to_entity_association(&txn, &user_id, merge_into.clone(), EntityLot::Metadata)
+                .await
         {
             let old_association = get_user_to_entity_association(
-                &user_id,
-                Some(merge_from.clone()),
-                None,
-                None,
-                None,
                 &txn,
+                &user_id,
+                merge_from.clone(),
+                EntityLot::Metadata,
             )
             .await
             .unwrap();
@@ -2597,18 +2559,24 @@ impl MiscellaneousService {
                 },
             )),
             text: ActiveValue::Set(input.text),
-            person_id: ActiveValue::Set(input.person_id),
             user_id: ActiveValue::Set(user_id.to_owned()),
-            metadata_id: ActiveValue::Set(input.metadata_id),
-            exercise_id: ActiveValue::Set(input.exercise_id),
             show_extra_information: ActiveValue::Set(show_ei),
             anime_extra_information: ActiveValue::Set(anime_ei),
             manga_extra_information: ActiveValue::Set(manga_ei),
-            collection_id: ActiveValue::Set(input.collection_id),
             podcast_extra_information: ActiveValue::Set(podcast_ei),
-            metadata_group_id: ActiveValue::Set(input.metadata_group_id),
             comments: ActiveValue::Set(vec![]),
             ..Default::default()
+        };
+        let entity_id = input.entity_id.clone();
+        match input.entity_lot {
+            EntityLot::Metadata => review_obj.metadata_id = ActiveValue::Set(Some(entity_id)),
+            EntityLot::Person => review_obj.person_id = ActiveValue::Set(Some(entity_id)),
+            EntityLot::MetadataGroup => {
+                review_obj.metadata_group_id = ActiveValue::Set(Some(entity_id))
+            }
+            EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
+            EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
+            EntityLot::Workout => unreachable!(),
         };
         if let Some(s) = input.is_spoiler {
             review_obj.is_spoiler = ActiveValue::Set(s);
@@ -2686,12 +2654,10 @@ impl MiscellaneousService {
             Some(r) => {
                 if r.user_id == user_id {
                     associate_user_with_entity(
-                        &user_id,
-                        r.metadata_id.clone(),
-                        r.person_id.clone(),
-                        None,
-                        r.metadata_group_id.clone(),
                         &self.db,
+                        &user_id,
+                        r.entity_id.clone(),
+                        r.entity_lot,
                     )
                     .await?;
                     r.delete(&self.db).await?;
@@ -2739,8 +2705,7 @@ impl MiscellaneousService {
                 ));
             }
             si.delete(&self.db).await.trace_ok();
-            associate_user_with_entity(user_id, Some(metadata_id), None, None, None, &self.db)
-                .await?;
+            associate_user_with_entity(&self.db, user_id, metadata_id, EntityLot::Metadata).await?;
             self.after_media_seen_tasks(cloned_seen).await?;
             Ok(StringIdObject { id: seen_id })
         } else {
@@ -2915,7 +2880,8 @@ impl MiscellaneousService {
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id.to_owned(),
                 collection_name: DefaultCollection::Custom.to_string(),
-                metadata_id: Some(media.id.clone()),
+                entity_id: media.id.clone(),
+                entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
             &self.perform_core_application_job,
@@ -3064,7 +3030,8 @@ impl MiscellaneousService {
                 ChangeCollectionToEntityInput {
                     creator_user_id: user_id.to_owned(),
                     collection_name: col_update.collection,
-                    metadata_id: Some(id.clone()),
+                    entity_id: id.clone(),
+                    entity_lot: EntityLot::Metadata,
                     ..Default::default()
                 },
                 &self.perform_core_application_job,
@@ -3298,7 +3265,8 @@ impl MiscellaneousService {
                 ChangeCollectionToEntityInput {
                     creator_user_id: seen.user_id.clone(),
                     collection_name: collection_name.to_string(),
-                    metadata_id: Some(seen.metadata_id.clone()),
+                    entity_id: seen.metadata_id.clone(),
+                    entity_lot: EntityLot::Metadata,
                     ..Default::default()
                 },
                 &self.perform_core_application_job,
@@ -3311,7 +3279,8 @@ impl MiscellaneousService {
                 ChangeCollectionToEntityInput {
                     creator_user_id: seen.user_id.clone(),
                     collection_name: collection_name.to_string(),
-                    metadata_id: Some(seen.metadata_id.clone()),
+                    entity_id: seen.metadata_id.clone(),
+                    entity_lot: EntityLot::Metadata,
                     ..Default::default()
                 },
             )
@@ -3898,10 +3867,8 @@ impl MiscellaneousService {
                             ChangeCollectionToEntityInput {
                                 creator_user_id: col.user_id.clone(),
                                 collection_name: DefaultCollection::Reminders.to_string(),
-                                metadata_id: cte.metadata_id.clone(),
-                                exercise_id: cte.exercise_id.clone(),
-                                metadata_group_id: cte.metadata_group_id.clone(),
-                                person_id: cte.person_id.clone(),
+                                entity_id: cte.entity_id.clone(),
+                                entity_lot: cte.entity_lot,
                                 ..Default::default()
                             },
                         )

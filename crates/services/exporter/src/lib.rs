@@ -14,6 +14,7 @@ use database_utils::{
     entity_in_collections, get_review_export_item, item_reviews, user_measurements_list,
     workout_details,
 };
+use enums::EntityLot;
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use media_models::{
@@ -236,25 +237,16 @@ impl ExporterService {
                     }
                 })
                 .collect();
-            let reviews = item_reviews(
-                &self.db,
-                user_id,
-                Some(m.id.clone()),
-                None,
-                None,
-                None,
-                None,
-            )
-            .await?
-            .into_iter()
-            .map(get_review_export_item)
-            .collect();
-            let collections =
-                entity_in_collections(&self.db, user_id, Some(m.id), None, None, None, None)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
+            let reviews = item_reviews(&self.db, user_id, m.id.clone(), EntityLot::Metadata)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
+            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Metadata)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
             let exp = ImportOrExportMediaItem {
                 source_id: m.title,
                 lot: m.lot,
@@ -287,21 +279,13 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(
-                &self.db,
-                user_id,
-                None,
-                None,
-                Some(m.id.clone()),
-                None,
-                None,
-            )
-            .await?
-            .into_iter()
-            .map(get_review_export_item)
-            .collect();
+            let reviews = item_reviews(&self.db, user_id, m.id.clone(), EntityLot::MetadataGroup)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
             let collections =
-                entity_in_collections(&self.db, user_id, None, None, Some(m.id), None, None)
+                entity_in_collections(&self.db, user_id, m.id, EntityLot::MetadataGroup)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -337,25 +321,16 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(
-                &self.db,
-                user_id,
-                None,
-                Some(p.id.clone()),
-                None,
-                None,
-                None,
-            )
-            .await?
-            .into_iter()
-            .map(get_review_export_item)
-            .collect();
-            let collections =
-                entity_in_collections(&self.db, user_id, None, Some(p.id), None, None, None)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
+            let reviews = item_reviews(&self.db, user_id, p.id.clone(), EntityLot::Person)
+                .await?
+                .into_iter()
+                .map(get_review_export_item)
+                .collect();
+            let collections = entity_in_collections(&self.db, user_id, p.id, EntityLot::Person)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
             let exp = ImportOrExportPersonItem {
                 identifier: p.identifier,
                 source: p.source,

@@ -107,12 +107,9 @@ export type BookSpecificsInput = {
 export type ChangeCollectionToEntityInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['String']['input'];
-  exerciseId?: InputMaybe<Scalars['String']['input']>;
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
   information?: InputMaybe<Scalars['JSON']['input']>;
-  metadataGroupId?: InputMaybe<Scalars['String']['input']>;
-  metadataId?: InputMaybe<Scalars['String']['input']>;
-  personId?: InputMaybe<Scalars['String']['input']>;
-  workoutId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Collection = {
@@ -1475,15 +1472,12 @@ export type PodcastSpecificsInput = {
 
 export type PostReviewInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  collectionId?: InputMaybe<Scalars['String']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
-  exerciseId?: InputMaybe<Scalars['String']['input']>;
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
   isSpoiler?: InputMaybe<Scalars['Boolean']['input']>;
   mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
-  metadataGroupId?: InputMaybe<Scalars['String']['input']>;
-  metadataId?: InputMaybe<Scalars['String']['input']>;
-  personId?: InputMaybe<Scalars['String']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   rating?: InputMaybe<Scalars['Decimal']['input']>;
   /** ID of the review if this is an update to an existing review */

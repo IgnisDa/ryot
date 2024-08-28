@@ -2192,6 +2192,7 @@ dependencies = [
  "config",
  "database-models",
  "database-utils",
+ "enums",
  "file-storage-service",
  "fitness-models",
  "media-models",

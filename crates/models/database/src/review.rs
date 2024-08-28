@@ -24,6 +24,7 @@ pub struct Model {
     pub visibility: Visibility,
     pub is_spoiler: bool,
     pub user_id: String,
+    pub entity_id: String,
     pub metadata_id: Option<String>,
     pub person_id: Option<String>,
     pub entity_lot: EntityLot,
@@ -144,12 +145,10 @@ impl ActiveModelBehavior for ActiveModel {
     {
         if insert {
             associate_user_with_entity(
-                &model.user_id,
-                model.metadata_id.clone(),
-                model.person_id.clone(),
-                None,
-                model.metadata_group_id.clone(),
                 db,
+                &model.user_id,
+                model.entity_id.clone(),
+                model.entity_lot,
             )
             .await
             .ok();

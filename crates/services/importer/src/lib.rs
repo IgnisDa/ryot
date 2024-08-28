@@ -8,7 +8,7 @@ use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
-use enums::ImportSource;
+use enums::{EntityLot, ImportSource};
 use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
@@ -231,9 +231,8 @@ impl ImporterService {
                 if let Some(input) = convert_review_into_input(
                     review,
                     &preferences,
-                    Some(metadata.id.clone()),
-                    None,
-                    None,
+                    metadata.id.clone(),
+                    EntityLot::Metadata,
                 ) {
                     if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
@@ -261,7 +260,8 @@ impl ImporterService {
                     ChangeCollectionToEntityInput {
                         creator_user_id: user_id.clone(),
                         collection_name: col.to_string(),
-                        metadata_id: Some(metadata.id.clone()),
+                        entity_id: metadata.id.clone(),
+                        entity_lot: EntityLot::Metadata,
                         ..Default::default()
                     },
                     &self.perform_core_application_job,
@@ -308,9 +308,8 @@ impl ImporterService {
                 if let Some(input) = convert_review_into_input(
                     review,
                     &preferences,
-                    None,
-                    None,
-                    Some(metadata_group_id.clone()),
+                    metadata_group_id.clone(),
+                    EntityLot::MetadataGroup,
                 ) {
                     if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
@@ -338,7 +337,8 @@ impl ImporterService {
                     ChangeCollectionToEntityInput {
                         creator_user_id: user_id.clone(),
                         collection_name: col.to_string(),
-                        metadata_group_id: Some(metadata_group_id.clone()),
+                        entity_id: metadata_group_id.clone(),
+                        entity_lot: EntityLot::MetadataGroup,
                         ..Default::default()
                     },
                     &self.perform_core_application_job,
@@ -370,9 +370,8 @@ impl ImporterService {
                 if let Some(input) = convert_review_into_input(
                     review,
                     &preferences,
-                    None,
-                    Some(person.id.clone()),
-                    None,
+                    person.id.clone(),
+                    EntityLot::Person,
                 ) {
                     if let Err(e) = self.media_service.post_review(&user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
@@ -400,7 +399,8 @@ impl ImporterService {
                     ChangeCollectionToEntityInput {
                         creator_user_id: user_id.clone(),
                         collection_name: col.to_string(),
-                        person_id: Some(person.id.clone()),
+                        entity_id: person.id.clone(),
+                        entity_lot: EntityLot::Person,
                         ..Default::default()
                     },
                     &self.perform_core_application_job,
@@ -496,9 +496,8 @@ impl ImporterService {
 fn convert_review_into_input(
     review: &ImportOrExportItemRating,
     preferences: &UserPreferences,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    metadata_group_id: Option<String>,
+    entity_id: String,
+    entity_lot: EntityLot,
 ) -> Option<PostReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
         ryot_log!(debug, "Skipping review since it has no content");
@@ -517,9 +516,8 @@ fn convert_review_into_input(
         is_spoiler,
         visibility: review.review.clone().and_then(|r| r.visibility),
         date: date.flatten(),
-        metadata_id,
-        person_id,
-        metadata_group_id,
+        entity_id,
+        entity_lot,
         show_season_number: review.show_season_number,
         show_episode_number: review.show_episode_number,
         podcast_episode_number: review.podcast_episode_number,
