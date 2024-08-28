@@ -13,8 +13,8 @@ order. Please make sure to replace `ryot` with `ryot-pro` if you are using the p
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v7.*`). For example you can make this
-   change: `image: "ignisda/ryot:latest"` in your docker-compose file. This will
-   automatically apply all migrations.
+   change: `image: "ignisda/ryot:v7"` in your docker-compose file. This will
+   automatically apply all migrations required for the new version.
 
 4. Login as the admin user and go to the "Miscellaneous" settings page and click on the
    button to "Perform background tasks".

@@ -71,7 +71,9 @@ use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
-use migrations::{AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity};
+use migrations::{
+    AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
+};
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
@@ -917,6 +919,8 @@ impl MiscellaneousService {
         user_id: String,
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
+        let preferences = user_preferences_by_id(&self.db, &user_id, &self.config).await?;
+
         let avg_rating_col = "average_rating";
         let cloned_user_id_1 = user_id.clone();
         let cloned_user_id_2 = user_id.clone();
@@ -934,6 +938,23 @@ impl MiscellaneousService {
         let select = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
+            .expr_as(
+                Func::round_with_precision(
+                    Func::avg(
+                        Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(
+                            match preferences.general.review_scale {
+                                UserReviewScale::OutOfFive => 20,
+                                UserReviewScale::OutOfHundred => 1,
+                            },
+                        ),
+                    ),
+                    match preferences.general.review_scale {
+                        UserReviewScale::OutOfFive => 1,
+                        UserReviewScale::OutOfHundred => 0,
+                    },
+                ),
+                avg_rating_col,
+            )
             .group_by(metadata::Column::Id)
             .group_by(user_to_entity::Column::MediaReason)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
@@ -1007,7 +1028,7 @@ impl MiscellaneousService {
                     order_by,
                     NullOrdering::Last,
                 ),
-                MediaSortBy::Rating => query.order_by_with_nulls(
+                MediaSortBy::UserRating => query.order_by_with_nulls(
                     Expr::col(Alias::new(avg_rating_col)),
                     order_by,
                     NullOrdering::Last,
@@ -3244,7 +3265,7 @@ impl MiscellaneousService {
                 ProgressUpdateInput {
                     metadata_id: id,
                     progress: Some(progress),
-                    date: Some(Utc::now().date_naive()),
+                    date: Some(get_current_date(&self.timezone)),
                     show_season_number: pu.show_season_number,
                     show_episode_number: pu.show_episode_number,
                     podcast_episode_number: pu.podcast_episode_number,
