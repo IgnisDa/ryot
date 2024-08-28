@@ -49,13 +49,13 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
+import { DisplayCollection } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { DisplayCollection } from "~/components/media";
 import { dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,

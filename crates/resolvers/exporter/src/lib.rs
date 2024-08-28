@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::{ExportItem, ExportJob};
+use common_models::ExportJob;
 use exporter_service::ExporterService;
 use traits::AuthProvider;
 
@@ -32,13 +32,9 @@ impl AuthProvider for ExporterMutation {
 #[Object]
 impl ExporterMutation {
     /// Deploy a job to export data for a user.
-    async fn deploy_export_job(
-        &self,
-        gql_ctx: &Context<'_>,
-        to_export: Vec<ExportItem>,
-    ) -> Result<bool> {
+    async fn deploy_export_job(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_export_job(user_id, to_export).await
+        service.deploy_export_job(user_id).await
     }
 }

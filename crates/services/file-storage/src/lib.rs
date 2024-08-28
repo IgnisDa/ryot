@@ -79,7 +79,7 @@ impl FileStorageService {
         (key, url)
     }
 
-    pub async fn list_objects_at_prefix(&self, prefix: String) -> Vec<String> {
+    pub async fn list_objects_at_prefix(&self, prefix: String) -> Vec<(i64, String)> {
         self.s3_client
             .list_objects_v2()
             .bucket(&self.bucket_name)
@@ -90,7 +90,7 @@ impl FileStorageService {
             .contents
             .unwrap_or_default()
             .into_iter()
-            .map(|o| o.key.unwrap())
+            .map(|o| (o.size.unwrap_or_default(), o.key.unwrap()))
             .collect()
     }
 

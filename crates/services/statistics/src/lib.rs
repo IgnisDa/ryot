@@ -487,6 +487,7 @@ impl StatisticsService {
                 EntityLot::Person => activity.person_review_count += 1,
                 EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
                 EntityLot::Collection => activity.collection_review_count += 1,
+                EntityLot::Exercise => activity.exercise_review_count += 1,
                 _ => {}
             }
         }
@@ -504,7 +505,8 @@ impl StatisticsService {
             let total_review_count = activity.metadata_review_count
                 + activity.collection_review_count
                 + activity.metadata_group_review_count
-                + activity.person_review_count;
+                + activity.person_review_count
+                + activity.exercise_review_count;
             let total_metadata_count = activity.movie_count
                 + activity.show_count
                 + activity.podcast_count

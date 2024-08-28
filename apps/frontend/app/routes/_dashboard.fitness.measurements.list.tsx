@@ -31,7 +31,6 @@ import {
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
 import { namedAction } from "remix-utils/named-action";
-import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -40,6 +39,7 @@ import {
 	TimeSpan,
 	dayjsLib,
 	generateColor,
+	getDateFromTimeSpan,
 	getStringAsciiValue,
 } from "~/lib/generals";
 import {
@@ -68,20 +68,14 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const now = dayjsLib();
-	const [startTime, endTime] = match(query.timeSpan || defaultTimeSpan)
-		.with(TimeSpan.Last7Days, () => [now, now.subtract(7, "days")])
-		.with(TimeSpan.Last30Days, () => [now, now.subtract(30, "days")])
-		.with(TimeSpan.Last90Days, () => [now, now.subtract(90, "days")])
-		.with(TimeSpan.Last365Days, () => [now, now.subtract(365, "days")])
-		.with(TimeSpan.AllTime, () => [null, null])
-		.exhaustive();
+	const endTime = getDateFromTimeSpan(query.timeSpan || defaultTimeSpan);
 	const [{ userMeasurementsList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request,
 			UserMeasurementsListDocument,
 			{
 				input: {
-					startTime: startTime?.toISOString(),
+					startTime: now.toISOString(),
 					endTime: endTime?.toISOString(),
 				},
 			},

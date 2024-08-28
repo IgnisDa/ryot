@@ -1,4 +1,4 @@
-// FIXME: Rename this to m20230506_create_exercise in the next major release
+// FIXME: Rename this to m20230507_create_workout in the next major release
 use sea_orm_migration::prelude::*;
 
 use super::m20230417_create_user::User;

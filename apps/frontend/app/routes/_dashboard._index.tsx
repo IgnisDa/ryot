@@ -54,16 +54,18 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
-import { displayWeightWithUnit } from "~/components/fitness";
 import {
+	ApplicationGrid,
 	DisplayCollectionEntity,
-	MetadataDisplayItem,
-} from "~/components/media";
+	ProRequiredAlert,
+} from "~/components/common";
+import { displayWeightWithUnit } from "~/components/fitness";
+import { MetadataDisplayItem } from "~/components/media";
 import {
 	TimeSpan,
 	clientGqlService,
 	dayjsLib,
+	getDateFromTimeSpan,
 	getLot,
 	getMetadataIcon,
 	queryFactory,
@@ -626,16 +628,10 @@ const ActivitySection = () => {
 	const { startDate, endDate } = useMemo(() => {
 		const now = dayjsLib();
 		const end = now.endOf("day");
-		const [startDate, endDate] = match(timeSpan)
-			.with(TimeSpan.Last7Days, () => [now.subtract(7, "days"), end])
-			.with(TimeSpan.Last30Days, () => [now.subtract(30, "days"), end])
-			.with(TimeSpan.Last90Days, () => [now.subtract(90, "days"), end])
-			.with(TimeSpan.Last365Days, () => [now.subtract(365, "days"), end])
-			.with(TimeSpan.AllTime, () => [undefined, undefined])
-			.exhaustive();
+		const startDate = getDateFromTimeSpan(timeSpan);
 		return {
 			startDate: startDate?.format("YYYY-MM-DD"),
-			endDate: endDate?.format("YYYY-MM-DD"),
+			endDate: end.format("YYYY-MM-DD"),
 		};
 	}, [timeSpan]);
 	const { data: dailyUserActivitiesData } = useQuery({

@@ -14,22 +14,22 @@ use database_models::{
     user_measurement, user_to_entity, workout,
 };
 use database_utils::{
-    add_entity_to_collection, entity_in_collections, ilike_sql, user_measurements_list,
-    workout_details,
+    add_entity_to_collection, entity_in_collections, ilike_sql, item_reviews,
+    user_measurements_list, workout_details,
 };
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
 };
 use enums::{
-    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
-    ExerciseSource,
+    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
+    ExerciseMuscle, ExerciseSource,
 };
 use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
-    ExerciseSortBy, ExercisesListInput, GithubExercise, GithubExerciseAttributes,
-    UpdateUserWorkoutInput, UserExerciseInput, UserMeasurementsListInput, UserWorkoutInput,
-    UserWorkoutSetRecord,
+    ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
+    GithubExerciseAttributes, UpdateUserWorkoutInput, UserExerciseInput, UserMeasurementsListInput,
+    UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetPersonalBest,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -48,6 +48,23 @@ mod logic;
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
 const JSON_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/dist/exercises.json");
 const IMAGES_PREFIX_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/exercises");
+const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
+    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
+    (
+        ExerciseLot::DistanceAndDuration,
+        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
+    ),
+    (
+        ExerciseLot::RepsAndWeight,
+        &[
+            WorkoutSetPersonalBest::Weight,
+            WorkoutSetPersonalBest::OneRm,
+            WorkoutSetPersonalBest::Volume,
+            WorkoutSetPersonalBest::Reps,
+        ],
+    ),
+    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
+];
 
 pub struct ExerciseService {
     db: DatabaseConnection,
@@ -88,6 +105,13 @@ impl ExerciseService {
                 muscle: ExerciseMuscle::iter().collect_vec(),
             },
             download_required,
+            lot_mapping: LOT_MAPPINGS
+                .iter()
+                .map(|(lot, pbs)| ExerciseParametersLotMapping {
+                    lot: *lot,
+                    bests: pbs.to_vec(),
+                })
+                .collect(),
         })
     }
 
@@ -136,20 +160,16 @@ impl ExerciseService {
         user_id: String,
         exercise_id: String,
     ) -> Result<UserExerciseDetails> {
-        let collections = entity_in_collections(
-            &self.db,
-            &user_id,
-            None,
-            None,
-            None,
-            Some(exercise_id.clone()),
-            None,
-        )
-        .await?;
+        let collections =
+            entity_in_collections(&self.db, &user_id, exercise_id.clone(), EntityLot::Exercise)
+                .await?;
+        let reviews =
+            item_reviews(&self.db, &user_id, exercise_id.clone(), EntityLot::Exercise).await?;
         let mut resp = UserExerciseDetails {
             details: None,
             history: None,
             collections,
+            reviews,
         };
         if let Some(association) = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -490,7 +510,8 @@ impl ExerciseService {
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id,
                 collection_name: DefaultCollection::Custom.to_string(),
-                exercise_id: Some(exercise.id.clone()),
+                entity_id: exercise.id.clone(),
+                entity_lot: EntityLot::Exercise,
                 ..Default::default()
             },
             &self.perform_core_application_job,

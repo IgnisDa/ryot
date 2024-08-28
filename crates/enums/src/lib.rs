@@ -103,6 +103,7 @@ pub enum UserLot {
     Serialize,
     Enum,
     Display,
+    Default,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -110,6 +111,7 @@ pub enum UserLot {
     rename_all = "snake_case"
 )]
 pub enum EntityLot {
+    #[default]
     Metadata,
     Person,
     MetadataGroup,

@@ -35,7 +35,6 @@ import {
 	ExerciseLot,
 	ExerciseMechanic,
 	ExerciseMuscle,
-	ExerciseParametersDocument,
 	ExerciseSortBy,
 	ExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -58,6 +57,7 @@ import {
 } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
+	getCachedExerciseParameters,
 	getEnhancedCookieName,
 	getWorkoutCookieValue,
 	redirectUsingEnhancedCookieSearchParams,
@@ -97,8 +97,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const workoutInProgress = !!getWorkoutCookieValue(request);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
 	query.page = query.page ?? 1;
-	const [{ exerciseParameters }, { exercisesList }] = await Promise.all([
-		serverGqlService.request(ExerciseParametersDocument, {}),
+	const [exerciseParameters, { exercisesList }] = await Promise.all([
+		getCachedExerciseParameters(),
 		serverGqlService.authenticatedRequest(request, ExercisesListDocument, {
 			input: {
 				search: { page: query.page, query: query.query },
@@ -257,7 +257,7 @@ export default function Page() {
 											</Indicator>
 											<Link
 												to={$path("/fitness/exercises/item/:id", {
-													id: exercise.id,
+													id: encodeURIComponent(exercise.id),
 												})}
 												style={{ all: "unset", cursor: "pointer" }}
 											>

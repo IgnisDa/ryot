@@ -4,7 +4,6 @@ import {
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
 import {
-	EntityLot,
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
@@ -67,6 +66,16 @@ export const toastKey = "Toast";
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 });
+
+export const getDateFromTimeSpan = (timeSpan: TimeSpan) => {
+	return match(timeSpan)
+		.with(TimeSpan.Last7Days, () => dayjs().subtract(7, "days"))
+		.with(TimeSpan.Last30Days, () => dayjs().subtract(30, "days"))
+		.with(TimeSpan.Last90Days, () => dayjs().subtract(90, "days"))
+		.with(TimeSpan.Last365Days, () => dayjs().subtract(365, "days"))
+		.with(TimeSpan.AllTime, () => null)
+		.exhaustive();
+};
 
 export enum TimeSpan {
 	Last7Days = "Last 7 days",
@@ -304,6 +313,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	workoutDetails: (workoutId: string) => ({
 		queryKey: ["workoutDetails", workoutId],
 	}),
+	exerciseParameters: () => ({
+		queryKey: ["exerciseParameters"],
+	}),
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
@@ -322,19 +334,6 @@ export const queryFactory = mergeQueryKeys(
 	fitnessQueryKeys,
 	miscellaneousQueryKeys,
 );
-
-export const convertEntityToIndividualId = (
-	entityId: string,
-	entityLot: EntityLot,
-) => {
-	const metadataId = entityLot === EntityLot.Metadata ? entityId : undefined;
-	const metadataGroupId =
-		entityLot === EntityLot.MetadataGroup ? entityId : undefined;
-	const personId = entityLot === EntityLot.Person ? entityId : undefined;
-	const exerciseId = entityLot === EntityLot.Exercise ? entityId : undefined;
-	const workoutId = entityLot === EntityLot.Workout ? entityId : undefined;
-	return { metadataId, metadataGroupId, personId, exerciseId, workoutId };
-};
 
 export const getPartialMetadataDetailsQuery = (metadataId: string) =>
 	queryOptions({

@@ -392,10 +392,8 @@ pub struct PostReviewInput {
     pub text: Option<String>,
     pub visibility: Option<Visibility>,
     pub is_spoiler: Option<bool>,
-    pub metadata_id: Option<String>,
-    pub person_id: Option<String>,
-    pub metadata_group_id: Option<String>,
-    pub collection_id: Option<String>,
+    pub entity_id: String,
+    pub entity_lot: EntityLot,
     pub date: Option<DateTimeUtc>,
     /// ID of the review if this is an update to an existing review
     pub review_id: Option<String>,
@@ -668,6 +666,19 @@ pub struct ImportOrExportPersonItem {
     pub collections: Vec<String>,
 }
 
+/// Details about a specific exercise item that needs to be exported.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[serde(rename_all = "snake_case")]
+pub struct ImportOrExportExerciseItem {
+    /// The name of the exercise.
+    pub name: String,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<String>,
+}
+
 #[derive(
     Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize, Default, Hash,
 )]
@@ -931,7 +942,7 @@ pub struct IntegrationProviderSpecifics {
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
 }
 
-#[derive(Debug, SimpleObject)]
+#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct ReviewItem {
     pub id: String,
     pub posted_on: DateTimeUtc,

@@ -16,7 +16,7 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { Link } from "@remix-run/react";
 import {
 	ExerciseLot,
@@ -25,7 +25,7 @@ import {
 	type WorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { isNumber, startCase } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconInfoCircle,
@@ -44,8 +44,10 @@ import { dayjsLib, getSetColor } from "~/lib/generals";
 import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
+	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
 } from "~/lib/state/fitness";
+import { BaseMediaDisplayItem } from "./media";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
@@ -267,7 +269,7 @@ export const ExerciseHistory = (props: {
 													props.exerciseIdx.toString(),
 												)
 											: $path("/fitness/exercises/item/:id", {
-													id: exercise.name,
+													id: encodeURIComponent(exercise.name),
 												})
 									}
 									fw="bold"
@@ -384,5 +386,70 @@ export const ExerciseHistory = (props: {
 				<Skeleton h={20} />
 			)}
 		</Paper>
+	);
+};
+
+export const ExerciseDisplayItem = (props: {
+	exerciseId: string;
+	topRight?: ReactNode;
+	rightLabel?: ReactNode;
+}) => {
+	const { ref, inViewport } = useInViewport();
+	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
+		useQuery({
+			...getExerciseDetailsQuery(props.exerciseId),
+			enabled: inViewport,
+		});
+	const { data: userExerciseDetails } = useQuery({
+		...getUserExerciseDetailsQuery(props.exerciseId),
+		enabled: inViewport,
+	});
+	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
+
+	return (
+		<BaseMediaDisplayItem
+			innerRef={ref}
+			name={exerciseDetails?.id}
+			isLoading={isExerciseDetailsLoading}
+			onImageClickBehavior={$path("/fitness/exercises/item/:id", {
+				id: encodeURIComponent(props.exerciseId),
+			})}
+			imageUrl={exerciseDetails?.attributes.images.at(0)}
+			labels={{
+				left: isNumber(times)
+					? `${times} time${times > 1 ? "s" : ""}`
+					: undefined,
+				right: props.rightLabel,
+			}}
+			imageOverlay={{ topRight: props.topRight }}
+		/>
+	);
+};
+
+export const WorkoutDisplayItem = (props: {
+	workoutId: string;
+	rightLabel?: ReactNode;
+	topRight?: ReactNode;
+}) => {
+	const { ref, inViewport } = useInViewport();
+	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
+		{ ...getWorkoutDetailsQuery(props.workoutId), enabled: inViewport },
+	);
+
+	return (
+		<BaseMediaDisplayItem
+			innerRef={ref}
+			name={workoutDetails?.details.name}
+			isLoading={isWorkoutDetailsLoading}
+			onImageClickBehavior={$path("/fitness/:entity/:id", {
+				id: props.workoutId,
+				entity: "workouts",
+			})}
+			labels={{
+				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
+				right: props.rightLabel,
+			}}
+			imageOverlay={{ topRight: props.topRight }}
+		/>
 	);
 };

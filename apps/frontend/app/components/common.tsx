@@ -4,13 +4,18 @@ import {
 	ActionIcon,
 	Alert,
 	Anchor,
+	Avatar,
 	Badge,
 	Box,
+	Button,
+	Collapse,
+	Divider,
 	Flex,
 	Group,
 	Image,
 	Modal,
 	MultiSelect,
+	Paper,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -18,30 +23,55 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { useDebouncedValue, useDidUpdate } from "@mantine/hooks";
-import { useNavigate } from "@remix-run/react";
-import type {
-	MediaLot,
-	MediaSource,
-} from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot/ts-utils";
+import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
+	EntityLot,
+	type MediaLot,
+	type MediaSource,
+	type ReviewItem,
+	UserReviewScale,
+} from "@ryot/generated/graphql/backend/graphql";
+import { changeCase, getInitials, isNumber, snakeCase } from "@ryot/ts-utils";
+import {
+	IconArrowBigUp,
+	IconCheck,
+	IconEdit,
 	IconExternalLink,
 	IconFilterOff,
 	IconSearch,
+	IconStarFilled,
+	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { getSurroundingElements } from "~/lib/generals";
+import { $path } from "remix-routes";
+import type { DeepPartial } from "ts-essentials";
+import { match } from "ts-pattern";
+import { withQuery } from "ufo";
+import { dayjsLib, getSurroundingElements } from "~/lib/generals";
 import {
 	useAppSearchParam,
+	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
+	useGetMantineColor,
 	useUserCollections,
+	useUserDetails,
+	useUserPreferences,
 } from "~/lib/hooks";
+import { useReviewEntity } from "~/lib/state/media";
+import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
+import { confirmWrapper } from "./confirmation";
+import { ExerciseDisplayItem, WorkoutDisplayItem } from "./fitness";
+import {
+	MetadataDisplayItem,
+	MetadataGroupDisplayItem,
+	PersonDisplayItem,
+} from "./media";
 
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
@@ -242,5 +272,378 @@ export const CollectionsFilter = (props: {
 			clearable
 			searchable
 		/>
+	);
+};
+
+export const ReviewItemDisplay = (props: {
+	review: DeepPartial<ReviewItem>;
+	entityLot: EntityLot;
+	title: string;
+	entityId: string;
+	lot?: MediaLot;
+}) => {
+	const userDetails = useUserDetails();
+	const userPreferences = useUserPreferences();
+	const submit = useConfirmSubmit();
+	const reviewScale = userPreferences.general.reviewScale;
+	const [opened, { toggle }] = useDisclosure(false);
+	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
+		useDisclosure(false);
+	const deleteReviewFetcher = useFetcher<typeof action>();
+	const [_, setEntityToReview] = useReviewEntity();
+
+	return (
+		<>
+			<Box key={props.review.id} data-review-id={props.review.id}>
+				<Flex align="center" gap="sm">
+					<Avatar color="cyan" radius="xl">
+						{getInitials(props.review.postedBy?.name || "")}{" "}
+					</Avatar>
+					<Box>
+						<Text>{props.review.postedBy?.name}</Text>
+						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
+					</Box>
+					{userDetails.id === props.review.postedBy?.id ? (
+						<>
+							<ActionIcon
+								onClick={() => {
+									setEntityToReview({
+										entityLot: props.entityLot,
+										entityId: props.entityId,
+										entityTitle: props.title,
+										metadataLot: props.lot,
+										existingReview: props.review,
+									});
+								}}
+							>
+								<IconEdit size={16} />
+							</ActionIcon>
+							<ActionIcon
+								onClick={async () => {
+									const conf = await confirmWrapper({
+										confirmation:
+											"Are you sure you want to delete this review? This action cannot be undone.",
+									});
+									if (conf)
+										deleteReviewFetcher.submit(
+											{
+												shouldDelete: "true",
+												reviewId: props.review.id || null,
+											},
+											{
+												method: "post",
+												action: $path("/actions", {
+													intent: "performReviewAction",
+												}),
+											},
+										);
+								}}
+								color="red"
+							>
+								<IconTrash size={16} />
+							</ActionIcon>
+						</>
+					) : null}
+				</Flex>
+				<Box ml="sm" mt="xs">
+					{isNumber(props.review.showExtraInformation?.season) ? (
+						<Text c="dimmed">
+							S{props.review.showExtraInformation.season}-E
+							{props.review.showExtraInformation.episode}
+						</Text>
+					) : null}
+					{isNumber(props.review.podcastExtraInformation?.episode) ? (
+						<Text c="dimmed">
+							EP-{props.review.podcastExtraInformation.episode}
+						</Text>
+					) : null}
+					{isNumber(props.review.animeExtraInformation?.episode) ? (
+						<Text c="dimmed">
+							EP-{props.review.animeExtraInformation.episode}
+						</Text>
+					) : null}
+					{isNumber(props.review.mangaExtraInformation?.chapter) ? (
+						<Text c="dimmed">
+							Ch-{props.review.mangaExtraInformation.chapter}
+						</Text>
+					) : null}
+					{isNumber(props.review.mangaExtraInformation?.volume) ? (
+						<Text c="dimmed">
+							VOL-{props.review.mangaExtraInformation.volume}
+						</Text>
+					) : null}
+					{(Number(props.review.rating) || 0) > 0 ? (
+						<Flex align="center" gap={4}>
+							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
+							<Text className={classes.text} fw="bold">
+								{props.review.rating}
+								{reviewScale === UserReviewScale.OutOfFive ? undefined : "%"}
+							</Text>
+						</Flex>
+					) : null}
+					{props.review.textRendered ? (
+						!props.review.isSpoiler ? (
+							<>
+								<div
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+									dangerouslySetInnerHTML={{
+										__html: props.review.textRendered,
+									}}
+								/>
+							</>
+						) : (
+							<>
+								{!opened ? (
+									<Button onClick={toggle} variant="subtle" size="compact-md">
+										Show spoiler
+									</Button>
+								) : null}
+								<Collapse in={opened}>
+									<Text
+										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+										dangerouslySetInnerHTML={{
+											__html: props.review.textRendered,
+										}}
+									/>
+								</Collapse>
+							</>
+						)
+					) : null}
+					{openedLeaveComment ? (
+						<Form
+							method="POST"
+							onSubmit={(e) => {
+								submit(e);
+								toggleLeaveComment();
+							}}
+							action={withQuery("/actions", { intent: "createReviewComment" })}
+						>
+							<input hidden name="reviewId" defaultValue={props.review.id} />
+							<Group>
+								<TextInput
+									name="text"
+									placeholder="Enter comment"
+									style={{ flex: 1 }}
+								/>
+								<ActionIcon color="green" type="submit">
+									<IconCheck />
+								</ActionIcon>
+							</Group>
+						</Form>
+					) : null}
+					{!openedLeaveComment ? (
+						<Button
+							variant="subtle"
+							size="compact-md"
+							onClick={toggleLeaveComment}
+							type="submit"
+						>
+							Leave comment
+						</Button>
+					) : null}
+					{(props.review.comments?.length || 0) > 0 ? (
+						<Paper withBorder ml="xl" mt="sm" p="xs">
+							<Stack>
+								{props.review.comments
+									? props.review.comments.map((c) => (
+											<Stack key={c?.id}>
+												<Flex align="center" gap="sm">
+													<Avatar color="cyan" radius="xl">
+														{getInitials(c?.user?.name || "")}{" "}
+													</Avatar>
+													<Box>
+														<Text>{c?.user?.name}</Text>
+														{c?.createdOn ? (
+															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
+														) : null}
+													</Box>
+													{userDetails.id === c?.user?.id ? (
+														<Form
+															method="POST"
+															action={withQuery("/actions", {
+																intent: "createReviewComment",
+															})}
+														>
+															<input
+																hidden
+																name="reviewId"
+																defaultValue={props.review.id}
+															/>
+															<input
+																hidden
+																name="commentId"
+																defaultValue={c?.id}
+															/>
+															<input
+																hidden
+																name="shouldDelete"
+																defaultValue="true"
+															/>
+															<ActionIcon
+																color="red"
+																type="submit"
+																onClick={async (e) => {
+																	const form = e.currentTarget.form;
+																	e.preventDefault();
+																	const conf = await confirmWrapper({
+																		confirmation:
+																			"Are you sure you want to delete this comment?",
+																	});
+																	if (conf && form) submit(form);
+																}}
+															>
+																<IconTrash size={16} />
+															</ActionIcon>
+														</Form>
+													) : null}
+													<Form
+														method="POST"
+														action={withQuery("/actions", {
+															intent: "createReviewComment",
+														})}
+														onSubmit={submit}
+													>
+														<input
+															hidden
+															name="reviewId"
+															defaultValue={props.review.id}
+														/>
+														<input
+															hidden
+															name="commentId"
+															defaultValue={c?.id}
+														/>
+														<input
+															hidden
+															name="incrementLikes"
+															value={String(
+																!c?.likedBy?.includes(userDetails.id),
+															)}
+															readOnly
+														/>
+														<input
+															hidden
+															name="decrementLikes"
+															value={String(
+																c?.likedBy?.includes(userDetails.id),
+															)}
+															readOnly
+														/>
+														<ActionIcon type="submit">
+															<IconArrowBigUp size={16} />
+															<Text>{c?.likedBy?.length}</Text>
+														</ActionIcon>
+													</Form>
+												</Flex>
+												<Text ml="xs">{c?.text}</Text>
+											</Stack>
+										))
+									: null}
+							</Stack>
+						</Paper>
+					) : null}
+				</Box>
+			</Box>
+			<Divider />
+		</>
+	);
+};
+
+export const DisplayCollectionEntity = (props: {
+	entityId: string;
+	entityLot: EntityLot;
+	topRight?: ReactNode;
+}) =>
+	match(props.entityLot)
+		.with(EntityLot.Metadata, () => (
+			<MetadataDisplayItem
+				metadataId={props.entityId}
+				topRight={props.topRight}
+				rightLabelLot
+			/>
+		))
+		.with(EntityLot.MetadataGroup, () => (
+			<MetadataGroupDisplayItem
+				metadataGroupId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+				noLeftLabel
+			/>
+		))
+		.with(EntityLot.Person, () => (
+			<PersonDisplayItem
+				personId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.Exercise, () => (
+			<ExerciseDisplayItem
+				exerciseId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.Workout, () => (
+			<WorkoutDisplayItem
+				workoutId={props.entityId}
+				topRight={props.topRight}
+				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.run();
+
+export const DisplayCollection = (props: {
+	creatorUserId: string;
+	col: { id: string; name: string };
+	entityId: string;
+	entityLot: EntityLot;
+}) => {
+	const getMantineColor = useGetMantineColor();
+	const submit = useConfirmSubmit();
+
+	return (
+		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
+			<Form
+				method="POST"
+				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}
+			>
+				<Flex gap={2}>
+					<Anchor
+						component={Link}
+						truncate
+						style={{ all: "unset", cursor: "pointer" }}
+						to={$path("/collections/:id", {
+							id: props.col.id,
+						})}
+					>
+						{props.col.name}
+					</Anchor>
+					<input readOnly hidden name="entityId" value={props.entityId} />
+					<input readOnly hidden name="entityLot" value={props.entityLot} />
+					<input readOnly hidden name="collectionName" value={props.col.name} />
+					<input
+						readOnly
+						hidden
+						name="creatorUserId"
+						value={props.creatorUserId}
+					/>
+					<ActionIcon
+						size={16}
+						onClick={async (e) => {
+							const form = e.currentTarget.form;
+							e.preventDefault();
+							const conf = await confirmWrapper({
+								confirmation:
+									"Are you sure you want to remove this media from this collection?",
+							});
+							if (conf && form) submit(form);
+						}}
+					>
+						<IconX />
+					</ActionIcon>
+				</Flex>
+			</Form>
+		</Badge>
 	);
 };

@@ -82,14 +82,17 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { MEDIA_DETAILS_HEIGHT, MediaDetailsLayout } from "~/components/common";
-import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplayCollection,
+	MEDIA_DETAILS_HEIGHT,
+	MediaDetailsLayout,
+	ReviewItemDisplay,
+} from "~/components/common";
+import { confirmWrapper } from "~/components/confirmation";
+import {
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
-	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import {

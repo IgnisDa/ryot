@@ -19,7 +19,7 @@ use database_models::{
     review, user, user_measurement, user_to_collection, workout,
 };
 use dependent_models::UserWorkoutDetails;
-use enums::{UserLot, Visibility};
+use enums::{EntityLot, UserLot, Visibility};
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
@@ -33,7 +33,7 @@ use sea_orm::{
     prelude::Expr,
     sea_query::{OnConflict, PgFunc},
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
-    ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
 use user_models::{UserPreferences, UserReviewScale};
 
@@ -103,14 +103,22 @@ pub async fn user_measurements_list(
 
 type CteColAlias = collection_to_entity::Column;
 
+fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Column {
+    match entity_lot {
+        EntityLot::Metadata => CteColAlias::MetadataId,
+        EntityLot::Person => CteColAlias::PersonId,
+        EntityLot::MetadataGroup => CteColAlias::MetadataGroupId,
+        EntityLot::Exercise => CteColAlias::ExerciseId,
+        EntityLot::Workout => CteColAlias::WorkoutId,
+        EntityLot::Collection => unreachable!(),
+    }
+}
+
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: &String,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    metadata_group_id: Option<String>,
-    exercise_id: Option<String>,
-    workout_id: Option<String>,
+    entity_id: String,
+    entity_lot: EntityLot,
 ) -> Result<Vec<collection::Model>> {
     let user_collections = Collection::find()
         .left_join(UserToCollection)
@@ -118,19 +126,13 @@ pub async fn entity_in_collections(
         .all(db)
         .await
         .unwrap();
+    let column = get_cte_column_from_lot(entity_lot);
     let mtc = CollectionToEntity::find()
         .filter(
             CteColAlias::CollectionId
                 .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(
-            CteColAlias::MetadataId
-                .eq(metadata_id)
-                .or(CteColAlias::PersonId.eq(person_id))
-                .or(CteColAlias::MetadataGroupId.eq(metadata_group_id))
-                .or(CteColAlias::ExerciseId.eq(exercise_id))
-                .or(CteColAlias::WorkoutId.eq(workout_id)),
-        )
+        .filter(column.eq(entity_id))
         .find_also_related(Collection)
         .all(db)
         .await
@@ -167,53 +169,6 @@ pub fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
     }
 }
 
-pub async fn review_by_id(
-    db: &DatabaseConnection,
-    review_id: String,
-    user_id: &String,
-    respect_preferences: bool,
-) -> Result<ReviewItem> {
-    let review = Review::find_by_id(review_id).one(db).await?;
-    match review {
-        Some(r) => {
-            let user = r.find_related(User).one(db).await.unwrap().unwrap();
-            let rating = match respect_preferences {
-                true => {
-                    let preferences = user_by_id(db, user_id).await?.preferences;
-                    r.rating.map(|s| {
-                        s.checked_div(match preferences.general.review_scale {
-                            UserReviewScale::OutOfFive => dec!(20),
-                            UserReviewScale::OutOfHundred => dec!(1),
-                        })
-                        .unwrap()
-                        .round_dp(1)
-                    })
-                }
-                false => r.rating,
-            };
-            Ok(ReviewItem {
-                id: r.id,
-                posted_on: r.posted_on,
-                rating,
-                is_spoiler: r.is_spoiler,
-                text_original: r.text.clone(),
-                text_rendered: r.text.map(|t| markdown_to_html(&t)),
-                visibility: r.visibility,
-                show_extra_information: r.show_extra_information,
-                podcast_extra_information: r.podcast_extra_information,
-                anime_extra_information: r.anime_extra_information,
-                manga_extra_information: r.manga_extra_information,
-                posted_by: IdAndNamedObject {
-                    id: user.id,
-                    name: user.name,
-                },
-                comments: r.comments,
-            })
-        }
-        None => Err(Error::new("Unable to find review".to_owned())),
-    }
-}
-
 pub async fn workout_details(
     db: &DatabaseConnection,
     file_storage_service: &Arc<FileStorageService>,
@@ -230,8 +185,7 @@ pub async fn workout_details(
         )),
         Some(e) => {
             let collections =
-                entity_in_collections(db, user_id, None, None, None, None, Some(workout_id))
-                    .await?;
+                entity_in_collections(db, user_id, workout_id, EntityLot::Workout).await?;
             let details = e.graphql_representation(file_storage_service).await?;
             Ok(UserWorkoutDetails {
                 details,
@@ -299,16 +253,10 @@ pub async fn add_entity_to_collection(
     let mut updated: collection::ActiveModel = collection.into();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(db).await.unwrap();
+    let column = get_cte_column_from_lot(input.entity_lot);
     let resp = if let Some(etc) = CollectionToEntity::find()
         .filter(CteColAlias::CollectionId.eq(collection.id.clone()))
-        .filter(
-            CteColAlias::MetadataId
-                .eq(input.metadata_id.clone())
-                .or(CteColAlias::PersonId.eq(input.person_id.clone()))
-                .or(CteColAlias::MetadataGroupId.eq(input.metadata_group_id.clone()))
-                .or(CteColAlias::ExerciseId.eq(input.exercise_id.clone()))
-                .or(CteColAlias::WorkoutId.eq(input.workout_id.clone())),
-        )
+        .filter(column.eq(input.entity_id.clone()))
         .one(db)
         .await?
     {
@@ -316,29 +264,28 @@ pub async fn add_entity_to_collection(
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
         to_update.update(db).await?
     } else {
-        let created_collection = collection_to_entity::ActiveModel {
+        let mut created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
             information: ActiveValue::Set(input.information),
-            person_id: ActiveValue::Set(input.person_id.clone()),
-            workout_id: ActiveValue::Set(input.workout_id.clone()),
-            metadata_id: ActiveValue::Set(input.metadata_id.clone()),
-            exercise_id: ActiveValue::Set(input.exercise_id.clone()),
-            metadata_group_id: ActiveValue::Set(input.metadata_group_id.clone()),
             ..Default::default()
         };
+        let id = input.entity_id.clone();
+        match input.entity_lot {
+            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
+            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
+            EntityLot::MetadataGroup => {
+                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+            }
+            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
+            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
+            EntityLot::Collection => unreachable!(),
+        }
         let created = created_collection.insert(db).await?;
         ryot_log!(debug, "Created collection to entity: {:?}", created);
-        if input.workout_id.is_none() {
-            associate_user_with_entity(
-                user_id,
-                input.metadata_id,
-                input.person_id,
-                input.exercise_id,
-                input.metadata_group_id,
-                db,
-            )
-            .await
-            .ok();
+        if input.entity_lot != EntityLot::Workout {
+            associate_user_with_entity(db, user_id, input.entity_id, input.entity_lot)
+                .await
+                .ok();
         }
         created
     };
@@ -365,29 +312,14 @@ pub async fn remove_entity_from_collection(
         .await
         .unwrap()
         .unwrap();
+    let column = get_cte_column_from_lot(input.entity_lot);
     CollectionToEntity::delete_many()
         .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-        .filter(
-            collection_to_entity::Column::MetadataId
-                .eq(input.metadata_id.clone())
-                .or(collection_to_entity::Column::PersonId.eq(input.person_id.clone()))
-                .or(collection_to_entity::Column::MetadataGroupId
-                    .eq(input.metadata_group_id.clone()))
-                .or(collection_to_entity::Column::ExerciseId.eq(input.exercise_id.clone()))
-                .or(collection_to_entity::Column::WorkoutId.eq(input.workout_id.clone())),
-        )
+        .filter(column.eq(input.entity_id.clone()))
         .exec(db)
         .await?;
-    if input.workout_id.is_none() {
-        associate_user_with_entity(
-            user_id,
-            input.metadata_id,
-            input.person_id,
-            input.exercise_id,
-            input.metadata_group_id,
-            db,
-        )
-        .await?;
+    if input.entity_lot != EntityLot::Workout {
+        associate_user_with_entity(db, user_id, input.entity_id, input.entity_lot).await?;
     }
     Ok(StringIdObject { id: collect.id })
 }
@@ -395,34 +327,61 @@ pub async fn remove_entity_from_collection(
 pub async fn item_reviews(
     db: &DatabaseConnection,
     user_id: &String,
-    metadata_id: Option<String>,
-    person_id: Option<String>,
-    metadata_group_id: Option<String>,
-    collection_id: Option<String>,
+    entity_id: String,
+    entity_lot: EntityLot,
 ) -> Result<Vec<ReviewItem>> {
+    let column = match entity_lot {
+        EntityLot::Metadata => review::Column::MetadataId,
+        EntityLot::MetadataGroup => review::Column::MetadataGroupId,
+        EntityLot::Person => review::Column::PersonId,
+        EntityLot::Exercise => review::Column::ExerciseId,
+        EntityLot::Collection => review::Column::CollectionId,
+        EntityLot::Workout => unreachable!(),
+    };
     let all_reviews = Review::find()
-        .select_only()
-        .column(review::Column::Id)
+        .filter(review::Column::UserId.eq(user_id))
+        .find_also_related(User)
         .order_by_desc(review::Column::PostedOn)
-        .apply_if(metadata_id, |query, v| {
-            query.filter(review::Column::MetadataId.eq(v))
-        })
-        .apply_if(metadata_group_id, |query, v| {
-            query.filter(review::Column::MetadataGroupId.eq(v))
-        })
-        .apply_if(person_id, |query, v| {
-            query.filter(review::Column::PersonId.eq(v))
-        })
-        .apply_if(collection_id, |query, v| {
-            query.filter(review::Column::CollectionId.eq(v))
-        })
-        .into_tuple::<String>()
+        .filter(column.eq(entity_id))
         .all(db)
         .await
         .unwrap();
     let mut reviews = vec![];
-    for r_id in all_reviews {
-        reviews.push(review_by_id(db, r_id, user_id, true).await?);
+    for (review, user) in all_reviews {
+        let user = user.unwrap();
+        let rating = match true {
+            true => {
+                let preferences = user_by_id(db, user_id).await?.preferences;
+                review.rating.map(|s| {
+                    s.checked_div(match preferences.general.review_scale {
+                        UserReviewScale::OutOfFive => dec!(20),
+                        UserReviewScale::OutOfHundred => dec!(1),
+                    })
+                    .unwrap()
+                    .round_dp(1)
+                })
+            }
+            false => review.rating,
+        };
+        let to_push = ReviewItem {
+            rating,
+            id: review.id,
+            posted_on: review.posted_on,
+            is_spoiler: review.is_spoiler,
+            text_original: review.text.clone(),
+            text_rendered: review.text.map(|t| markdown_to_html(&t)),
+            visibility: review.visibility,
+            show_extra_information: review.show_extra_information,
+            podcast_extra_information: review.podcast_extra_information,
+            anime_extra_information: review.anime_extra_information,
+            manga_extra_information: review.manga_extra_information,
+            posted_by: IdAndNamedObject {
+                id: user.id,
+                name: user.name,
+            },
+            comments: review.comments,
+        };
+        reviews.push(to_push);
     }
     let all_reviews = reviews
         .into_iter()

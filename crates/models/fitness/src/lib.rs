@@ -182,12 +182,15 @@ pub struct WorkoutOrExerciseTotals {
     pub rest_time: u16,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseHistoryExtraInformation {
-    pub workout_id: String,
     pub idx: usize,
+    pub workout_id: String,
+    pub workout_end_on: DateTimeUtc,
+    pub best_set: Option<WorkoutSetRecord>,
 }
 
 /// Details about the statistics of the set performed.
@@ -287,14 +290,13 @@ pub struct WorkoutSetTotals {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSetRecord {
-    pub statistic: WorkoutSetStatistic,
     pub lot: SetLot,
-    pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
-    pub confirmed_at: Option<DateTimeUtc>,
-    #[serde(default)]
-    pub totals: Option<WorkoutSetTotals>,
-    pub actual_rest_time: Option<i64>,
     pub note: Option<String>,
+    pub actual_rest_time: Option<i64>,
+    pub statistic: WorkoutSetStatistic,
+    pub totals: Option<WorkoutSetTotals>,
+    pub confirmed_at: Option<DateTimeUtc>,
+    pub personal_bests: Option<Vec<WorkoutSetPersonalBest>>,
 }
 
 impl WorkoutSetRecord {
@@ -574,10 +576,18 @@ pub struct ExercisesListInput {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct ExerciseParametersLotMapping {
+    pub lot: ExerciseLot,
+    pub bests: Vec<WorkoutSetPersonalBest>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExerciseParameters {
     /// All filters applicable to an exercises query.
     pub filters: ExerciseFilters,
     pub download_required: bool,
+    /// Exercise type mapped to the personal bests possible.
+    pub lot_mapping: Vec<ExerciseParametersLotMapping>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

@@ -6,7 +6,7 @@ configuration parameters under the
 in JSON format and always follows the schema (`CompleteExport`) described below.
 
 You can export your data from the app by going to the "Imports and Exports" settings page
-and then selecting the data you want to export under the "Export" tab.
+and then clicking the button under the "Export" tab.
 
 Once the export is complete, it will appear along with a button to download it.
 
