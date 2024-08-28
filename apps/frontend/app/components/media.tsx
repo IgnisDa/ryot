@@ -4,35 +4,27 @@ import {
 	Avatar,
 	Badge,
 	Box,
-	Button,
 	Center,
-	Collapse,
-	Divider,
 	Flex,
 	Group,
 	Image,
 	Loader,
 	type MantineStyleProp,
 	Menu,
-	Paper,
 	ScrollArea,
 	Skeleton,
-	Stack,
 	Text,
-	TextInput,
 	ThemeIcon,
 	Tooltip,
 } from "@mantine/core";
 import { $path } from "remix-routes";
 import "@mantine/dates/styles.css";
-import { useDisclosure, useInViewport } from "@mantine/hooks";
-import { Form, Link, useFetcher } from "@remix-run/react";
+import { useInViewport } from "@mantine/hooks";
+import { Form, Link } from "@remix-run/react";
 import {
 	EntityLot,
-	type MediaLot,
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
-	type ReviewItem,
 	SeenState,
 	UserReviewScale,
 	UserToMediaReason,
@@ -45,21 +37,16 @@ import {
 	snakeCase,
 } from "@ryot/ts-utils";
 import {
-	IconArrowBigUp,
 	IconBackpack,
 	IconBookmarks,
-	IconCheck,
 	IconCloudDownload,
-	IconEdit,
 	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
-	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode, Ref } from "react";
-import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { MEDIA_DETAILS_HEIGHT } from "~/components/common";
@@ -84,7 +71,6 @@ import {
 	getWorkoutDetailsQuery,
 } from "~/lib/state/fitness";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
-import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 
 export const PartialMetadataDisplay = (props: {
@@ -132,280 +118,6 @@ export const MediaScrollArea = (props: { children: ReactNode }) => {
 		<ScrollArea.Autosize mah={MEDIA_DETAILS_HEIGHT}>
 			{props.children}
 		</ScrollArea.Autosize>
-	);
-};
-
-export const ReviewItemDisplay = (props: {
-	review: DeepPartial<ReviewItem>;
-	entityLot: EntityLot;
-	title: string;
-	entityId: string;
-	lot?: MediaLot;
-}) => {
-	const userDetails = useUserDetails();
-	const userPreferences = useUserPreferences();
-	const submit = useConfirmSubmit();
-	const reviewScale = userPreferences.general.reviewScale;
-	const [opened, { toggle }] = useDisclosure(false);
-	const [openedLeaveComment, { toggle: toggleLeaveComment }] =
-		useDisclosure(false);
-	const deleteReviewFetcher = useFetcher<typeof action>();
-	const [_, setEntityToReview] = useReviewEntity();
-
-	return (
-		<>
-			<Box key={props.review.id} data-review-id={props.review.id}>
-				<Flex align="center" gap="sm">
-					<Avatar color="cyan" radius="xl">
-						{getInitials(props.review.postedBy?.name || "")}{" "}
-					</Avatar>
-					<Box>
-						<Text>{props.review.postedBy?.name}</Text>
-						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
-					</Box>
-					{userDetails.id === props.review.postedBy?.id ? (
-						<>
-							<ActionIcon
-								onClick={() => {
-									setEntityToReview({
-										entityLot: props.entityLot,
-										entityId: props.entityId,
-										entityTitle: props.title,
-										metadataLot: props.lot,
-										existingReview: props.review,
-									});
-								}}
-							>
-								<IconEdit size={16} />
-							</ActionIcon>
-							<ActionIcon
-								onClick={async () => {
-									const conf = await confirmWrapper({
-										confirmation:
-											"Are you sure you want to delete this review? This action cannot be undone.",
-									});
-									if (conf)
-										deleteReviewFetcher.submit(
-											{
-												shouldDelete: "true",
-												reviewId: props.review.id || null,
-											},
-											{
-												method: "post",
-												action: $path("/actions", {
-													intent: "performReviewAction",
-												}),
-											},
-										);
-								}}
-								color="red"
-							>
-								<IconTrash size={16} />
-							</ActionIcon>
-						</>
-					) : null}
-				</Flex>
-				<Box ml="sm" mt="xs">
-					{isNumber(props.review.showExtraInformation?.season) ? (
-						<Text c="dimmed">
-							S{props.review.showExtraInformation.season}-E
-							{props.review.showExtraInformation.episode}
-						</Text>
-					) : null}
-					{isNumber(props.review.podcastExtraInformation?.episode) ? (
-						<Text c="dimmed">
-							EP-{props.review.podcastExtraInformation.episode}
-						</Text>
-					) : null}
-					{isNumber(props.review.animeExtraInformation?.episode) ? (
-						<Text c="dimmed">
-							EP-{props.review.animeExtraInformation.episode}
-						</Text>
-					) : null}
-					{isNumber(props.review.mangaExtraInformation?.chapter) ? (
-						<Text c="dimmed">
-							Ch-{props.review.mangaExtraInformation.chapter}
-						</Text>
-					) : null}
-					{isNumber(props.review.mangaExtraInformation?.volume) ? (
-						<Text c="dimmed">
-							VOL-{props.review.mangaExtraInformation.volume}
-						</Text>
-					) : null}
-					{(Number(props.review.rating) || 0) > 0 ? (
-						<Flex align="center" gap={4}>
-							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
-							<Text className={classes.text} fw="bold">
-								{props.review.rating}
-								{reviewScale === UserReviewScale.OutOfFive ? undefined : "%"}
-							</Text>
-						</Flex>
-					) : null}
-					{props.review.textRendered ? (
-						!props.review.isSpoiler ? (
-							<>
-								<div
-									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-									dangerouslySetInnerHTML={{
-										__html: props.review.textRendered,
-									}}
-								/>
-							</>
-						) : (
-							<>
-								{!opened ? (
-									<Button onClick={toggle} variant="subtle" size="compact-md">
-										Show spoiler
-									</Button>
-								) : null}
-								<Collapse in={opened}>
-									<Text
-										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-										dangerouslySetInnerHTML={{
-											__html: props.review.textRendered,
-										}}
-									/>
-								</Collapse>
-							</>
-						)
-					) : null}
-					{openedLeaveComment ? (
-						<Form
-							method="POST"
-							onSubmit={(e) => {
-								submit(e);
-								toggleLeaveComment();
-							}}
-							action={withQuery("/actions", { intent: "createReviewComment" })}
-						>
-							<input hidden name="reviewId" defaultValue={props.review.id} />
-							<Group>
-								<TextInput
-									name="text"
-									placeholder="Enter comment"
-									style={{ flex: 1 }}
-								/>
-								<ActionIcon color="green" type="submit">
-									<IconCheck />
-								</ActionIcon>
-							</Group>
-						</Form>
-					) : null}
-					{!openedLeaveComment ? (
-						<Button
-							variant="subtle"
-							size="compact-md"
-							onClick={toggleLeaveComment}
-							type="submit"
-						>
-							Leave comment
-						</Button>
-					) : null}
-					{(props.review.comments?.length || 0) > 0 ? (
-						<Paper withBorder ml="xl" mt="sm" p="xs">
-							<Stack>
-								{props.review.comments
-									? props.review.comments.map((c) => (
-											<Stack key={c?.id}>
-												<Flex align="center" gap="sm">
-													<Avatar color="cyan" radius="xl">
-														{getInitials(c?.user?.name || "")}{" "}
-													</Avatar>
-													<Box>
-														<Text>{c?.user?.name}</Text>
-														{c?.createdOn ? (
-															<Text>{dayjsLib(c.createdOn).format("L")}</Text>
-														) : null}
-													</Box>
-													{userDetails.id === c?.user?.id ? (
-														<Form
-															method="POST"
-															action={withQuery("/actions", {
-																intent: "createReviewComment",
-															})}
-														>
-															<input
-																hidden
-																name="reviewId"
-																defaultValue={props.review.id}
-															/>
-															<input
-																hidden
-																name="commentId"
-																defaultValue={c?.id}
-															/>
-															<input
-																hidden
-																name="shouldDelete"
-																defaultValue="true"
-															/>
-															<ActionIcon
-																color="red"
-																type="submit"
-																onClick={async (e) => {
-																	const form = e.currentTarget.form;
-																	e.preventDefault();
-																	const conf = await confirmWrapper({
-																		confirmation:
-																			"Are you sure you want to delete this comment?",
-																	});
-																	if (conf && form) submit(form);
-																}}
-															>
-																<IconTrash size={16} />
-															</ActionIcon>
-														</Form>
-													) : null}
-													<Form
-														method="POST"
-														action={withQuery("/actions", {
-															intent: "createReviewComment",
-														})}
-														onSubmit={submit}
-													>
-														<input
-															hidden
-															name="reviewId"
-															defaultValue={props.review.id}
-														/>
-														<input
-															hidden
-															name="commentId"
-															defaultValue={c?.id}
-														/>
-														<input
-															hidden
-															name="incrementLikes"
-															value={String(
-																!c?.likedBy?.includes(userDetails.id),
-															)}
-															readOnly
-														/>
-														<input
-															hidden
-															name="decrementLikes"
-															value={String(
-																c?.likedBy?.includes(userDetails.id),
-															)}
-															readOnly
-														/>
-														<ActionIcon type="submit">
-															<IconArrowBigUp size={16} />
-															<Text>{c?.likedBy?.length}</Text>
-														</ActionIcon>
-													</Form>
-												</Flex>
-												<Text ml="xs">{c?.text}</Text>
-											</Stack>
-										))
-									: null}
-							</Stack>
-						</Paper>
-					) : null}
-				</Box>
-			</Box>
-			<Divider />
-		</>
 	);
 };
 
