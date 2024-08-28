@@ -342,10 +342,7 @@ export default function Page() {
 											/>
 											<DisplayLifetimeStatistic
 												stat="times done"
-												val={
-													loaderData.userExerciseDetails.details
-														.exerciseNumTimesInteracted || 0
-												}
+												val={exerciseNumTimesInteracted}
 											/>
 										</Box>
 									</Stack>
