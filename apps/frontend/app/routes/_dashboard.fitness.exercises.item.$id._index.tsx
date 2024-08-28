@@ -49,12 +49,13 @@ import { withFragment } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
+import { DisplayCollection } from "~/components/common";
 import {
 	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { DisplayCollection, MediaScrollArea } from "~/components/media";
+import { MediaScrollArea } from "~/components/media";
 import { TimeSpan, dayjsLib } from "~/lib/generals";
 import { useUserDetails, useUserUnitSystem } from "~/lib/hooks";
 import {

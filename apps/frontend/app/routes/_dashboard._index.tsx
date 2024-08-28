@@ -54,12 +54,13 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
-import { displayWeightWithUnit } from "~/components/fitness";
 import {
+	ApplicationGrid,
 	DisplayCollectionEntity,
-	MetadataDisplayItem,
-} from "~/components/media";
+	ProRequiredAlert,
+} from "~/components/common";
+import { displayWeightWithUnit } from "~/components/fitness";
+import { MetadataDisplayItem } from "~/components/media";
 import {
 	TimeSpan,
 	clientGqlService,

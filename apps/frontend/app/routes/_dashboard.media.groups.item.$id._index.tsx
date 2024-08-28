@@ -25,13 +25,15 @@ import {
 } from "@tabler/icons-react";
 import { z } from "zod";
 import { zx } from "zodix";
-import { MediaDetailsLayout } from "~/components/common";
 import {
 	DisplayCollection,
+	MediaDetailsLayout,
+	ReviewItemDisplay,
+} from "~/components/common";
+import {
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
-	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import { useUserPreferences } from "~/lib/hooks";

@@ -50,9 +50,10 @@ import { zx } from "zodix";
 import {
 	ApplicationGrid,
 	DebouncedSearchInput,
+	DisplayCollectionEntity,
 	FiltersModal,
+	ReviewItemDisplay,
 } from "~/components/common";
-import { DisplayCollectionEntity, ReviewItemDisplay } from "~/components/media";
 import {
 	clientGqlService,
 	dayjsLib,

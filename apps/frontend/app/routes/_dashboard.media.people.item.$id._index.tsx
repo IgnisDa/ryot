@@ -34,13 +34,15 @@ import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { MediaDetailsLayout } from "~/components/common";
 import {
 	DisplayCollection,
+	MediaDetailsLayout,
+	ReviewItemDisplay,
+} from "~/components/common";
+import {
 	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
-	ReviewItemDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import { useUserPreferences } from "~/lib/hooks";
