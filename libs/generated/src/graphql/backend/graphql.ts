@@ -874,9 +874,9 @@ export enum MediaLot {
 export enum MediaSortBy {
   LastSeen = 'LAST_SEEN',
   LastUpdated = 'LAST_UPDATED',
-  Rating = 'RATING',
   ReleaseDate = 'RELEASE_DATE',
-  Title = 'TITLE'
+  Title = 'TITLE',
+  UserRating = 'USER_RATING'
 }
 
 export type MediaSortInput = {
