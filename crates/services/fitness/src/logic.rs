@@ -62,7 +62,7 @@ pub async fn calculate_and_commit(
     let end_time = input.end_time;
     let mut input = input;
     let id = input.id.unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
-    ryot_log!(trace, "Creating new workout with id = {}", id);
+    ryot_log!(debug, "Creating new workout with id = {}", id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
