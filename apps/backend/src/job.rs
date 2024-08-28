@@ -34,7 +34,7 @@ pub async fn perform_core_application_job(
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    ryot_log!(trace, "Started job: {:#?}", name);
+    ryot_log!(trace, "Started job {:?}", information);
     let start = Instant::now();
     let status = match information {
         CoreApplicationJob::SyncIntegrationsData(user_id) => misc_service
@@ -74,7 +74,7 @@ pub async fn perform_application_job(
     statistics_service: Data<Arc<StatisticsService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
-    ryot_log!(trace, "Started job: {:#?}", name);
+    ryot_log!(trace, "Started job {:?}", information);
     let start = Instant::now();
     let status = match information {
         ApplicationJob::ImportFromExternalSource(user_id, input) => importer_service
