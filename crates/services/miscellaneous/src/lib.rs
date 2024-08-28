@@ -2594,19 +2594,23 @@ impl MiscellaneousService {
             let (obj_id, obj_title, entity_lot) = if let Some(mi) = insert.metadata_id.unwrap() {
                 (
                     mi.to_string(),
-                    self.generic_metadata(&mi).await?.model.title,
+                    Metadata::find_by_id(mi).one(&self.db).await?.unwrap().title,
                     EntityLot::Metadata,
                 )
             } else if let Some(mgi) = insert.metadata_group_id.unwrap() {
                 (
                     mgi.to_string(),
-                    self.metadata_group_details(mgi).await?.details.title,
+                    MetadataGroup::find_by_id(mgi)
+                        .one(&self.db)
+                        .await?
+                        .unwrap()
+                        .title,
                     EntityLot::MetadataGroup,
                 )
             } else if let Some(pi) = insert.person_id.unwrap() {
                 (
                     pi.to_string(),
-                    self.person_details(pi).await?.details.name,
+                    Person::find_by_id(pi).one(&self.db).await?.unwrap().name,
                     EntityLot::Person,
                 )
             } else if let Some(ci) = insert.collection_id.unwrap() {
