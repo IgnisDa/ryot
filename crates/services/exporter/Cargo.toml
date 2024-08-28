@@ -21,7 +21,6 @@ mime_guess = "=2.0.5"
 nanoid = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
-serde_json = { workspace = true }
 struson = { version = "=0.5.0", features = ["serde"] }
 tokio = { workspace = true }
 tokio-util = { version = "=0.7.11", features = ["codec"] }
