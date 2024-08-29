@@ -11,9 +11,21 @@ query UserPreferences {
       disableWatchProviders
       disableNavigationAnimation
       dashboard {
-        section
-        hidden
-        numElements
+        upcoming {
+          ...UserGeneralDashboardCommonPreferencesPart
+        }
+        inProgress {
+          ...UserGeneralDashboardCommonPreferencesPart
+        }
+        summary {
+          ...UserGeneralDashboardNoSettingsPreferencesPart
+        }
+        recommendations {
+          ...UserGeneralDashboardCommonPreferencesPart
+        }
+        activity {
+          ...UserGeneralDashboardNoSettingsPreferencesPart
+        }
       }
     }
     fitness {

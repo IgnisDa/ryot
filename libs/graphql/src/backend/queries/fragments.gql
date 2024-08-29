@@ -181,3 +181,16 @@ fragment WorkoutInformationPart on WorkoutInformation {
     }
   }
 }
+
+fragment UserGeneralDashboardCommonPreferencesPart on UserGeneralDashboardCommonPreferences {
+  index
+  isHidden
+  settings {
+    numElements
+  }
+}
+
+fragment UserGeneralDashboardNoSettingsPreferencesPart on UserGeneralDashboardNoSettingsPreferences {
+  index
+  isHidden
+}
