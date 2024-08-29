@@ -1,9 +1,8 @@
-use async_graphql::{Enum, SimpleObject};
+use async_graphql::{Enum, OutputType, SimpleObject};
 use common_models::MediaStateChanged;
 use fitness_models::UserUnitSystem;
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use strum::EnumString;
 
 const WATCH_PROVIDERS: [&str; 8] = [
@@ -17,9 +16,7 @@ const WATCH_PROVIDERS: [&str; 8] = [
     "Crunchyroll",
 ];
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserNotificationsPreferences {
     pub to_send: Vec<MediaStateChanged>,
     pub enabled: bool,
@@ -34,9 +31,7 @@ impl Default for UserNotificationsPreferences {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserMediaFeaturesEnabledPreferences {
     pub enabled: bool,
     pub anime: bool,
@@ -73,9 +68,7 @@ impl Default for UserMediaFeaturesEnabledPreferences {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserOthersFeaturesEnabledPreferences {
     pub collections: bool,
     pub calendar: bool,
@@ -90,9 +83,7 @@ impl Default for UserOthersFeaturesEnabledPreferences {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
@@ -109,9 +100,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserExercisePreferences {
     pub unit_system: UserUnitSystem,
 }
@@ -124,9 +113,7 @@ impl Default for UserExercisePreferences {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserMeasurementsInBuiltPreferences {
     pub weight: bool,
     pub body_mass_index: bool,
@@ -183,27 +170,21 @@ impl Default for UserMeasurementsInBuiltPreferences {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy, Default,
-)]
+#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, Copy, Default)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum UserCustomMeasurementDataType {
     #[default]
     Decimal,
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Default,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UserCustomMeasurement {
     pub name: String,
     pub data_type: UserCustomMeasurementDataType,
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserMeasurementsPreferences {
     pub custom: Vec<UserCustomMeasurement>,
     pub inbuilt: UserMeasurementsInBuiltPreferences,
@@ -221,36 +202,20 @@ impl Default for UserMeasurementsPreferences {
     }
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default)]
 pub struct UserFeaturesEnabledPreferences {
     pub media: UserMediaFeaturesEnabledPreferences,
     pub fitness: UserFitnessFeaturesEnabledPreferences,
     pub others: UserOthersFeaturesEnabledPreferences,
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default)]
 pub struct UserFitnessPreferences {
     pub exercises: UserExercisePreferences,
     pub measurements: UserMeasurementsPreferences,
 }
 
-#[derive(
-    Debug,
-    Serialize,
-    Default,
-    Deserialize,
-    Enum,
-    Clone,
-    Eq,
-    PartialEq,
-    FromJsonQueryResult,
-    Copy,
-    EnumString,
-)]
+#[derive(Debug, Serialize, Default, Deserialize, Enum, Clone, Eq, PartialEq, Copy, EnumString)]
 #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserReviewScale {
     OutOfFive,
@@ -258,30 +223,33 @@ pub enum UserReviewScale {
     OutOfHundred,
 }
 
-#[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum DashboardElementLot {
-    Upcoming,
-    InProgress,
-    Summary,
-    Recommendations,
-    Activity,
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
+pub struct UserGeneralDashboardElementCommonPreference {
+    pub num_elements: u64,
 }
 
-#[skip_serializing_none]
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct UserGeneralDashboardElement {
-    pub section: DashboardElementLot,
-    pub hidden: bool,
-    pub num_elements: Option<i32>,
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
+#[graphql(concrete(name = "UserGeneralDashboardSummaryPreferences", params(bool)))]
+#[graphql(concrete(
+    name = "UserGeneralDashboardCommonPreferences",
+    params(UserGeneralDashboardElementCommonPreference)
+))]
+pub struct UserGeneralDashboardElement<T: OutputType> {
+    pub index: usize,
+    pub is_hidden: bool,
+    pub settings: T,
 }
 
-#[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
-)]
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
+pub struct UserGeneralDashboardPreferences {
+    pub upcoming: UserGeneralDashboardElement<UserGeneralDashboardElementCommonPreference>,
+    pub in_progress: UserGeneralDashboardElement<UserGeneralDashboardElementCommonPreference>,
+    pub summary: UserGeneralDashboardElement<bool>,
+    pub recommendations: UserGeneralDashboardElement<UserGeneralDashboardElementCommonPreference>,
+    pub activity: UserGeneralDashboardElement<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
 pub struct UserGeneralPreferences {
     pub display_nsfw: bool,
     pub disable_videos: bool,
@@ -292,7 +260,7 @@ pub struct UserGeneralPreferences {
     pub disable_watch_providers: bool,
     pub disable_integrations: bool,
     pub disable_navigation_animation: bool,
-    pub dashboard: Vec<UserGeneralDashboardElement>,
+    pub dashboard: UserGeneralDashboardPreferences,
 }
 
 impl Default for UserGeneralPreferences {
@@ -300,33 +268,6 @@ impl Default for UserGeneralPreferences {
         Self {
             review_scale: UserReviewScale::default(),
             display_nsfw: true,
-            dashboard: vec![
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Upcoming,
-                    hidden: false,
-                    num_elements: Some(8),
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::InProgress,
-                    hidden: false,
-                    num_elements: Some(8),
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Summary,
-                    hidden: false,
-                    num_elements: None,
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Recommendations,
-                    hidden: false,
-                    num_elements: Some(8),
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Activity,
-                    hidden: false,
-                    num_elements: None,
-                },
-            ],
             persist_queries: true,
             disable_integrations: false,
             disable_navigation_animation: false,
@@ -334,6 +275,33 @@ impl Default for UserGeneralPreferences {
             disable_watch_providers: false,
             watch_providers: WATCH_PROVIDERS.into_iter().map(|s| s.to_owned()).collect(),
             disable_reviews: false,
+            dashboard: UserGeneralDashboardPreferences {
+                upcoming: UserGeneralDashboardElement {
+                    index: 0,
+                    is_hidden: false,
+                    settings: UserGeneralDashboardElementCommonPreference { num_elements: 8 },
+                },
+                in_progress: UserGeneralDashboardElement {
+                    index: 1,
+                    is_hidden: false,
+                    settings: UserGeneralDashboardElementCommonPreference { num_elements: 8 },
+                },
+                summary: UserGeneralDashboardElement {
+                    index: 2,
+                    is_hidden: false,
+                    settings: false,
+                },
+                recommendations: UserGeneralDashboardElement {
+                    index: 3,
+                    is_hidden: false,
+                    settings: UserGeneralDashboardElementCommonPreference { num_elements: 8 },
+                },
+                activity: UserGeneralDashboardElement {
+                    index: 4,
+                    is_hidden: false,
+                    settings: false,
+                },
+            },
         }
     }
 }
