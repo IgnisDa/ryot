@@ -229,7 +229,7 @@ pub struct UserGeneralDashboardElementCommonPreference {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq)]
-#[graphql(concrete(name = "UserGeneralDashboardSummaryPreferences", params(bool)))]
+#[graphql(concrete(name = "UserGeneralDashboardNoSettingsPreferences", params(bool)))]
 #[graphql(concrete(
     name = "UserGeneralDashboardCommonPreferences",
     params(UserGeneralDashboardElementCommonPreference)
