@@ -25,11 +25,10 @@ import {
 	CollectionContentsDocument,
 	DailyUserActivitiesDocument,
 	DailyUserActivitiesResponseGroupedBy,
-	DashboardElementLot,
 	GraphqlSortOrder,
 	LatestUserSummaryDocument,
 	MediaLot,
-	type UserPreferences,
+	type UserPreferencesQuery,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -81,19 +80,13 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
-	const t = preferences.general.dashboard.find(
-		(de) => de.section === el,
-	)?.numElements;
-	invariant(isNumber(t));
-	return t;
-};
-
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const preferences = await getCachedUserPreferences(request);
-	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
 	const userCollectionsList = await getCachedUserCollectionsList(request);
+	const takeInProgress =
+		preferences.general.dashboard.inProgress.settings.numElements;
+	const takeUpcoming =
+		preferences.general.dashboard.upcoming.settings.numElements;
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
 	);
@@ -149,6 +142,9 @@ const MediaColors: EntityColor = {
 	REVIEW: "green.5",
 };
 
+type DashboardSection =
+	keyof UserPreferencesQuery["userPreferences"]["general"]["dashboard"];
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -156,6 +152,10 @@ export default function Page() {
 	const theme = useMantineTheme();
 	const dashboardLayoutData = useDashboardLayoutData();
 	const latestUserSummary = loaderData.latestUserSummary;
+
+	const sections = Object.entries(userPreferences.general.dashboard)
+		.filter(([_, v]) => v.isHidden === false)
+		.map(([section, _]) => section as DashboardSection);
 
 	return (
 		<Container>
@@ -165,9 +165,9 @@ export default function Page() {
 						{dashboardLayoutData.envData.FRONTEND_DASHBOARD_MESSAGE}
 					</Alert>
 				) : null}
-				{userPreferences.general.dashboard.map((de) =>
-					match([de.section, de.hidden])
-						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
+				{sections.map((de) =>
+					match(de)
+						.with("upcoming", (v) =>
 							loaderData.userUpcomingCalendarEvents.length > 0 ? (
 								<Section key={v} lot={v}>
 									<Title>Upcoming</Title>
@@ -179,7 +179,7 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.InProgress, false], ([v, _]) =>
+						.with("inProgress", (v) =>
 							loaderData.inProgressCollectionContents.results.items.length >
 							0 ? (
 								<Section key={v} lot={v}>
@@ -198,19 +198,19 @@ export default function Page() {
 								</Section>
 							) : null,
 						)
-						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
+						.with("recommendations", (v) => (
 							<Section key={v} lot={v}>
 								<Title>Recommendations</Title>
 								<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 							</Section>
 						))
-						.with([DashboardElementLot.Activity, false], ([v, _]) => (
+						.with("activity", (v) => (
 							<Section key={v} lot={v}>
 								<Title>Activity</Title>
 								<ActivitySection />
 							</Section>
 						))
-						.with([DashboardElementLot.Summary, false], ([v, _]) => (
+						.with("summary", (v) => (
 							<Section key={v} lot={v}>
 								<Title>Summary</Title>
 								<SimpleGrid
@@ -602,7 +602,7 @@ const DisplayStatForMediaType = (props: {
 
 const Section = (props: {
 	children: ReactNode | Array<ReactNode>;
-	lot: DashboardElementLot;
+	lot: DashboardSection;
 }) => {
 	return (
 		<Stack gap="sm" id={props.lot}>
