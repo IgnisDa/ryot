@@ -290,56 +290,65 @@ export default function Page() {
 								</ActionIcon>
 							</Menu.Target>
 							<Menu.Dropdown>
-								{loaderData.entity === FitnessEntity.Templates ? (
-									<>
-										<Menu.Item
-											onClick={() =>
-												performDecision(
-													FitnessEntity.Workouts,
-													undefined,
-													loaderData.entityId,
-													undefined,
-												)
-											}
-											leftSection={<IconPlayerPlay size={14} />}
-										>
-											Start workout
-										</Menu.Item>
-										<Menu.Item
-											onClick={() =>
-												performDecision(
-													FitnessEntity.Templates,
-													undefined,
-													undefined,
-													loaderData.entityId,
-												)
-											}
-											leftSection={<IconPencil size={14} />}
-										>
-											Edit template
-										</Menu.Item>
-									</>
-								) : (
-									<>
-										<Menu.Item
-											onClick={() =>
-												performDecision(
-													FitnessEntity.Workouts,
-													loaderData.entityId,
-												)
-											}
-											leftSection={<IconRepeat size={14} />}
-										>
-											Duplicate
-										</Menu.Item>
-										<Menu.Item
-											onClick={adjustTimeModalOpen}
-											leftSection={<IconClockEdit size={14} />}
-										>
-											Adjust time
-										</Menu.Item>
-									</>
-								)}
+								{match(loaderData.entity)
+									.with(FitnessEntity.Templates, () => (
+										<>
+											<Menu.Item
+												onClick={() =>
+													performDecision(
+														FitnessEntity.Workouts,
+														undefined,
+														loaderData.entityId,
+														undefined,
+													)
+												}
+												leftSection={<IconPlayerPlay size={14} />}
+											>
+												Start workout
+											</Menu.Item>
+											<Menu.Item
+												onClick={() =>
+													performDecision(
+														FitnessEntity.Templates,
+														undefined,
+														undefined,
+														loaderData.entityId,
+													)
+												}
+												leftSection={<IconPencil size={14} />}
+											>
+												Edit template
+											</Menu.Item>
+										</>
+									))
+									.with(FitnessEntity.Workouts, () => (
+										<>
+											<Menu.Item
+												onClick={() =>
+													performDecision(
+														FitnessEntity.Workouts,
+														loaderData.entityId,
+													)
+												}
+												leftSection={<IconRepeat size={14} />}
+											>
+												Duplicate
+											</Menu.Item>
+											<Menu.Item
+												onClick={adjustTimeModalOpen}
+												leftSection={<IconClockEdit size={14} />}
+											>
+												Adjust time
+											</Menu.Item>
+											<Menu.Item
+												onClick={() => performDecision(FitnessEntity.Templates)}
+												leftSection={<IconRepeat size={14} />}
+											>
+												Create template
+											</Menu.Item>
+										</>
+									))
+									.exhaustive()}
 								<Menu.Item
 									onClick={() =>
 										setAddEntityToCollectionData({
