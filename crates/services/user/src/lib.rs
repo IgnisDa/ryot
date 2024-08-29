@@ -45,8 +45,8 @@ use sea_orm::{
     QueryFilter, QueryOrder, QueryTrait,
 };
 use user_models::{
-    NotificationPlatformSpecifics, UserGeneralDashboardElement, UserGeneralPreferences,
-    UserPreferences, UserReviewScale,
+    NotificationPlatformSpecifics, UserGeneralDashboardPreferences, UserPreferences,
+    UserReviewScale,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -565,14 +565,10 @@ impl UserService {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
                         "dashboard" => {
-                            let value = serde_json::from_str::<Vec<UserGeneralDashboardElement>>(
+                            let value = serde_json::from_str::<UserGeneralDashboardPreferences>(
                                 &input.value,
                             )
                             .unwrap();
-                            let default_general_preferences = UserGeneralPreferences::default();
-                            if value.len() != default_general_preferences.dashboard.len() {
-                                return Err(err());
-                            }
                             preferences.general.dashboard = value;
                         }
                         "disable_integrations" => {
