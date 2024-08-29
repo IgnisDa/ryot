@@ -39,6 +39,7 @@ import {
 	mapValues,
 	pickBy,
 	snakeCase,
+	sortBy,
 } from "@ryot/ts-utils";
 import {
 	IconBarbell,
@@ -151,11 +152,14 @@ export default function Page() {
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
 	const dashboardLayoutData = useDashboardLayoutData();
-	const latestUserSummary = loaderData.latestUserSummary;
 
-	const sections = Object.entries(userPreferences.general.dashboard)
-		.filter(([_, v]) => v.isHidden === false)
-		.map(([section, _]) => section as DashboardSection);
+	const latestUserSummary = loaderData.latestUserSummary;
+	const sections = sortBy(
+		Object.entries(userPreferences.general.dashboard).filter(
+			([_, v]) => v.isHidden === false,
+		),
+		(e) => e[1].index,
+	).map(([section, _]) => section as DashboardSection);
 
 	return (
 		<Container>
