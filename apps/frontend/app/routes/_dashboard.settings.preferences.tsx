@@ -1,4 +1,4 @@
-import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
@@ -28,15 +28,16 @@ import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
-	type DashboardElementLot,
 	MediaStateChanged,
 	UpdateUserPreferenceDocument,
+	type UserPreferencesQuery,
 	UserReviewScale,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	camelCase,
 	changeCase,
+	isBoolean,
 	isNumber,
 	snakeCase,
 	startCase,
@@ -45,10 +46,8 @@ import { IconCheckbox } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
 	IconBellRinging,
-	IconGripVertical,
 	IconRotate360,
 } from "@tabler/icons-react";
-import clsx from "clsx";
 import { Fragment, useState } from "react";
 import { match } from "ts-pattern";
 import { z } from "zod";
@@ -62,7 +61,6 @@ import {
 	redirectIfNotAuthenticatedOrUpdated,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import classes from "~/styles/preferences.module.css";
 
 const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
@@ -116,13 +114,22 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return Response.json({}, { headers: toastHeaders });
 });
 
+type DashboardSection =
+	keyof UserPreferencesQuery["userPreferences"]["general"]["dashboard"];
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
 	const [dashboardElements, setDashboardElements] = useState(
-		userPreferences.general.dashboard,
+		Object.entries(userPreferences.general.dashboard).map(
+			([section, settings]) => ({
+				name: section as DashboardSection,
+				settings,
+			}),
+		),
 	);
+	const [parent] = useAutoAnimate();
 	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
 		[string, string]
 	>([]);
@@ -228,35 +235,55 @@ export default function Page() {
 							The different sections on the dashboard. Drag and drop using the
 							handle to re-arrange them.
 						</Text>
-						<DragDropContext
-							onDragEnd={({ destination, source }) => {
-								if (!isEditDisabled) {
-									const newOrder = reorder(dashboardElements, {
-										from: source.index,
-										to: destination?.index || 0,
-									});
-									setDashboardElements(newOrder);
-									appendPref("general.dashboard", JSON.stringify(newOrder));
-								} else notifications.show(notificationContent);
-							}}
-						>
-							<Droppable droppableId="dnd-list">
-								{(provided) => (
-									<Stack {...provided.droppableProps} ref={provided.innerRef}>
-										{dashboardElements.map((de, index) => (
-											<EditDashboardElement
-												index={index}
-												key={de.section}
-												lot={de.section}
-												appendPref={appendPref}
-												isEditDisabled={isEditDisabled}
-											/>
-										))}
-										{provided.placeholder}
-									</Stack>
-								)}
-							</Droppable>
-						</DragDropContext>
+						<Stack ref={parent}>
+							{dashboardElements.map((section) => {
+								const settings = section.settings;
+								return (
+									<Paper key={section.name} withBorder p="xs">
+										<Group justify="space-between">
+											<Title order={3}>{changeCase(section.name)}</Title>
+											{isBoolean(settings.isHidden) ? (
+												<Switch
+													label="Hidden"
+													labelPosition="left"
+													defaultChecked={settings.isHidden}
+													disabled={isEditDisabled}
+													onChange={(ev) => {
+														const newValue = ev.currentTarget.checked;
+														console.log(newValue);
+													}}
+												/>
+											) : null}
+										</Group>
+										{settings.__typename ===
+										"UserGeneralDashboardCommonPreferences" ? (
+											<Flex>
+												<NumberInput
+													label="Number of elements"
+													size="xs"
+													defaultValue={settings.numElements}
+													disabled={isEditDisabled}
+													onChange={(num) => {
+														if (isNumber(num)) {
+															// const newDashboardData = Array.from(
+															// 	userPreferences.general.dashboard,
+															// );
+															// newDashboardData[
+															// 	focusedElementIndex
+															// ].numElements = num;
+															// appendPref(
+															// 	"general.dashboard",
+															// 	JSON.stringify(newDashboardData),
+															// );
+														}
+													}}
+												/>
+											</Flex>
+										) : null}
+									</Paper>
+								);
+							})}
+						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="features">
 						<Stack>
@@ -539,92 +566,6 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const EditDashboardElement = (props: {
-	isEditDisabled: boolean;
-	lot: DashboardElementLot;
-	index: number;
-	appendPref: (property: string, value: string) => void;
-}) => {
-	const userPreferences = useUserPreferences();
-	const focusedElementIndex = userPreferences.general.dashboard.findIndex(
-		(de) => de.section === props.lot,
-	);
-	const focusedElement = userPreferences.general.dashboard[focusedElementIndex];
-
-	return (
-		<Draggable index={props.index} draggableId={props.lot}>
-			{(provided, snapshot) => (
-				<Paper
-					withBorder
-					p="xs"
-					ref={provided.innerRef}
-					{...provided.draggableProps}
-					className={clsx({ [classes.itemDragging]: snapshot.isDragging })}
-				>
-					<Group justify="space-between">
-						<Group>
-							<div
-								{...provided.dragHandleProps}
-								style={{
-									display: "flex",
-									justifyContent: "center",
-									height: "100%",
-									cursor: "grab",
-								}}
-							>
-								<IconGripVertical
-									style={{ width: rem(18), height: rem(18) }}
-									stroke={1.5}
-								/>
-							</div>
-							<Title order={3}>{changeCase(props.lot)}</Title>
-						</Group>
-						<Switch
-							label="Hidden"
-							labelPosition="left"
-							defaultChecked={focusedElement.hidden}
-							disabled={!!props.isEditDisabled}
-							onChange={(ev) => {
-								const newValue = ev.currentTarget.checked;
-								const newDashboardData = Array.from(
-									userPreferences.general.dashboard,
-								);
-								newDashboardData[focusedElementIndex].hidden = newValue;
-								props.appendPref(
-									"general.dashboard",
-									JSON.stringify(newDashboardData),
-								);
-							}}
-						/>
-					</Group>
-					{isNumber(focusedElement.numElements) ? (
-						<Flex>
-							<NumberInput
-								label="Number of elements"
-								size="xs"
-								defaultValue={focusedElement.numElements}
-								disabled={!!props.isEditDisabled}
-								onChange={(num) => {
-									if (isNumber(num)) {
-										const newDashboardData = Array.from(
-											userPreferences.general.dashboard,
-										);
-										newDashboardData[focusedElementIndex].numElements = num;
-										props.appendPref(
-											"general.dashboard",
-											JSON.stringify(newDashboardData),
-										);
-									}
-								}}
-							/>
-						</Flex>
-					) : null}
-				</Paper>
-			)}
-		</Draggable>
-	);
-};
 
 const reorder = <T,>(
 	array: Array<T>,
