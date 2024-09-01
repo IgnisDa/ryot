@@ -490,10 +490,8 @@ impl MiscellaneousService {
     ) -> Result<UserMetadataDetails> {
         let media_details = self.generic_metadata(&metadata_id).await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, metadata_id.clone(), EntityLot::Metadata)
-                .await?;
-        let reviews =
-            item_reviews(&self.db, &user_id, metadata_id.clone(), EntityLot::Metadata).await?;
+            entity_in_collections(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
+        let reviews = item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
         let (_, history) = self
             .is_metadata_finished_by_user(&user_id, &media_details)
             .await?;
@@ -679,10 +677,9 @@ impl MiscellaneousService {
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews =
-            item_reviews(&self.db, &user_id, person_id.clone(), EntityLot::Person).await?;
+        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person).await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, person_id, EntityLot::Person).await?;
+            entity_in_collections(&self.db, &user_id, &person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -697,14 +694,14 @@ impl MiscellaneousService {
         let collections = entity_in_collections(
             &self.db,
             &user_id,
-            metadata_group_id.clone(),
+            &metadata_group_id,
             EntityLot::MetadataGroup,
         )
         .await?;
         let reviews = item_reviews(
             &self.db,
             &user_id,
-            metadata_group_id,
+            &metadata_group_id,
             EntityLot::MetadataGroup,
         )
         .await?;
@@ -1439,7 +1436,7 @@ impl MiscellaneousService {
                 };
 
                 let collections_part_of =
-                    entity_in_collections(&self.db, &user_id, entity_id, entity_lot)
+                    entity_in_collections(&self.db, &user_id, &entity_id, entity_lot)
                         .await?
                         .into_iter()
                         .map(|c| c.id)

@@ -225,12 +225,12 @@ impl ExporterService {
                     }
                 })
                 .collect();
-            let reviews = item_reviews(&self.db, user_id, m.id.clone(), EntityLot::Metadata)
+            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::Metadata)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections(&self.db, user_id, m.id, EntityLot::Metadata)
+            let collections = entity_in_collections(&self.db, user_id, &m.id, EntityLot::Metadata)
                 .await?
                 .into_iter()
                 .map(|c| c.name)
@@ -267,13 +267,13 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, m.id.clone(), EntityLot::MetadataGroup)
+            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::MetadataGroup)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
             let collections =
-                entity_in_collections(&self.db, user_id, m.id, EntityLot::MetadataGroup)
+                entity_in_collections(&self.db, user_id, &m.id, EntityLot::MetadataGroup)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -309,12 +309,12 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, p.id.clone(), EntityLot::Person)
+            let reviews = item_reviews(&self.db, user_id, &p.id, EntityLot::Person)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
-            let collections = entity_in_collections(&self.db, user_id, p.id, EntityLot::Person)
+            let collections = entity_in_collections(&self.db, user_id, &p.id, EntityLot::Person)
                 .await?
                 .into_iter()
                 .map(|c| c.name)
@@ -391,17 +391,16 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, e.id.clone(), EntityLot::Exercise)
+            let reviews = item_reviews(&self.db, user_id, &e.id, EntityLot::Exercise)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect();
-            let collections =
-                entity_in_collections(&self.db, user_id, e.id.clone(), EntityLot::Exercise)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.name)
-                    .collect();
+            let collections = entity_in_collections(&self.db, user_id, &e.id, EntityLot::Exercise)
+                .await?
+                .into_iter()
+                .map(|c| c.name)
+                .collect();
             let exp = ImportOrExportExerciseItem {
                 name: e.id,
                 collections,

@@ -118,7 +118,7 @@ fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Colum
 pub async fn entity_in_collections_with_collection_to_entity_ids(
     db: &DatabaseConnection,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<Vec<(collection::Model, Uuid)>> {
     let user_collections = Collection::find()
@@ -148,7 +148,7 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
 pub async fn entity_in_collections(
     db: &DatabaseConnection,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<Vec<collection::Model>> {
     let eic =
@@ -201,7 +201,7 @@ pub async fn workout_details(
         )),
         Some(e) => {
             let collections =
-                entity_in_collections(db, user_id, workout_id, EntityLot::Workout).await?;
+                entity_in_collections(db, user_id, &workout_id, EntityLot::Workout).await?;
             let details = e.graphql_representation(file_storage_service).await?;
             Ok(UserWorkoutDetails {
                 details,
@@ -343,7 +343,7 @@ pub async fn remove_entity_from_collection(
 pub async fn item_reviews(
     db: &DatabaseConnection,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<Vec<ReviewItem>> {
     let column = match entity_lot {
