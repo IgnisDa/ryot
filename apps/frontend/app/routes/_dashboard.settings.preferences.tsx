@@ -40,6 +40,7 @@ import {
 	isBoolean,
 	isNumber,
 	snakeCase,
+	sortBy,
 	startCase,
 } from "@ryot/ts-utils";
 import { IconCheckbox } from "@tabler/icons-react";
@@ -114,21 +115,20 @@ export const action = unstable_defineAction(async ({ request }) => {
 	return Response.json({}, { headers: toastHeaders });
 });
 
-type DashboardSection =
-	keyof UserPreferencesQuery["userPreferences"]["general"]["dashboard"];
+type DashboardPreferences =
+	UserPreferencesQuery["userPreferences"]["general"]["dashboard"];
+type DashboardSection = keyof DashboardPreferences;
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
-	const [dashboardElements, setDashboardElements] = useState(
-		Object.entries(userPreferences.general.dashboard).map(
-			([section, settings]) => ({
-				name: section as DashboardSection,
-				settings,
-			}),
-		),
-	);
+	const [elements, setElements] = useState(() => {
+		const elements = Object.entries(userPreferences.general.dashboard);
+		return Object.fromEntries(
+			sortBy(elements, ([_, value]) => value.index),
+		) as DashboardPreferences;
+	});
 	const [parent] = useAutoAnimate();
 	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
 		[string, string]
@@ -236,7 +236,8 @@ export default function Page() {
 							handle to re-arrange them.
 						</Text>
 						<Stack ref={parent}>
-							{dashboardElements.map((section) => {
+							{JSON.stringify(elements)}
+							{/* {dashboardElements.map((section) => {
 								const settings = section.settings;
 								return (
 									<Paper key={section.name} withBorder p="xs">
@@ -282,7 +283,7 @@ export default function Page() {
 										) : null}
 									</Paper>
 								);
-							})}
+							})} */}
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="features">
@@ -566,14 +567,3 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const reorder = <T,>(
-	array: Array<T>,
-	{ from, to }: { from: number; to: number },
-) => {
-	const cloned = [...array];
-	const item = array[from];
-	cloned.splice(from, 1);
-	cloned.splice(to, 0, item);
-	return cloned;
-};
