@@ -36,8 +36,9 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
-    deploy_job_to_calculate_user_activities_and_summary, entity_in_collections, ilike_sql,
-    item_reviews, remove_entity_from_collection, user_by_id, user_preferences_by_id,
+    deploy_job_to_calculate_user_activities_and_summary, entity_in_collections,
+    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    remove_entity_from_collection, user_by_id, user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -2135,7 +2136,42 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<bool> {
-        todo!()
+        let delete_review = Review::delete_many()
+            .filter(review::Column::MetadataId.eq(&metadata_id))
+            .filter(review::Column::UserId.eq(&user_id))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Deleted {} reviews", delete_review.rows_affected);
+        let delete_seen = Seen::delete_many()
+            .filter(seen::Column::MetadataId.eq(&metadata_id))
+            .filter(seen::Column::UserId.eq(&user_id))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
+        let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
+            &self.db,
+            &user_id,
+            &metadata_id,
+            EntityLot::Metadata,
+        )
+        .await?
+        .into_iter()
+        .map(|(_, id)| id);
+        let delete_collections = CollectionToEntity::delete_many()
+            .filter(collection_to_entity::Column::Id.is_in(collections_part_of))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(
+            debug,
+            "Deleted {} collections",
+            delete_collections.rows_affected
+        );
+        UserToEntity::delete_many()
+            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .exec(&self.db)
+            .await?;
+        Ok(true)
     }
 
     pub async fn metadata_search(
