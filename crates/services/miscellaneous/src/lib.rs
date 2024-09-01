@@ -36,8 +36,9 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
-    deploy_job_to_calculate_user_activities_and_summary, entity_in_collections, ilike_sql,
-    item_reviews, remove_entity_from_collection, user_by_id, user_preferences_by_id,
+    deploy_job_to_calculate_user_activities_and_summary, entity_in_collections,
+    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
+    remove_entity_from_collection, user_by_id, user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -490,10 +491,8 @@ impl MiscellaneousService {
     ) -> Result<UserMetadataDetails> {
         let media_details = self.generic_metadata(&metadata_id).await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, metadata_id.clone(), EntityLot::Metadata)
-                .await?;
-        let reviews =
-            item_reviews(&self.db, &user_id, metadata_id.clone(), EntityLot::Metadata).await?;
+            entity_in_collections(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
+        let reviews = item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
         let (_, history) = self
             .is_metadata_finished_by_user(&user_id, &media_details)
             .await?;
@@ -679,10 +678,9 @@ impl MiscellaneousService {
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews =
-            item_reviews(&self.db, &user_id, person_id.clone(), EntityLot::Person).await?;
+        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person).await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, person_id, EntityLot::Person).await?;
+            entity_in_collections(&self.db, &user_id, &person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -697,14 +695,14 @@ impl MiscellaneousService {
         let collections = entity_in_collections(
             &self.db,
             &user_id,
-            metadata_group_id.clone(),
+            &metadata_group_id,
             EntityLot::MetadataGroup,
         )
         .await?;
         let reviews = item_reviews(
             &self.db,
             &user_id,
-            metadata_group_id,
+            &metadata_group_id,
             EntityLot::MetadataGroup,
         )
         .await?;
@@ -1411,13 +1409,13 @@ impl MiscellaneousService {
                 .unwrap();
             let all_user_to_entities = UserToEntity::find()
                 .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
-                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
-                if let Some(metadata_id) = ute.metadata_id.clone() {
+                let (entity_id, entity_lot) = if let Some(metadata_id) = ute.metadata_id.clone() {
                     let metadata = self.generic_metadata(&metadata_id).await?;
                     let (is_finished, seen_history) = self
                         .is_metadata_finished_by_user(&ute.user_id, &metadata)
@@ -1428,27 +1426,22 @@ impl MiscellaneousService {
                     if !seen_history.is_empty() && is_finished {
                         new_reasons.insert(UserToMediaReason::Finished);
                     }
-                } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
+                    (metadata_id, EntityLot::Metadata)
+                } else if let Some(person_id) = ute.person_id.clone() {
+                    (person_id, EntityLot::Person)
+                } else if let Some(metadata_group_id) = ute.metadata_group_id.clone() {
+                    (metadata_group_id, EntityLot::MetadataGroup)
                 } else {
                     ryot_log!(debug, "Skipping user_to_entity = {:?}", ute.id);
                     continue;
                 };
 
-                let collections_part_of = CollectionToEntity::find()
-                    .select_only()
-                    .column(collection_to_entity::Column::CollectionId)
-                    .filter(
-                        collection_to_entity::Column::MetadataId
-                            .eq(ute.metadata_id.clone())
-                            .or(collection_to_entity::Column::PersonId.eq(ute.person_id.clone()))
-                            .or(collection_to_entity::Column::MetadataGroupId
-                                .eq(ute.metadata_group_id.clone())),
-                    )
-                    .filter(collection_to_entity::Column::CollectionId.is_not_null())
-                    .into_tuple::<String>()
-                    .all(&self.db)
-                    .await
-                    .unwrap();
+                let collections_part_of =
+                    entity_in_collections(&self.db, &user_id, &entity_id, entity_lot)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.id)
+                        .collect_vec();
                 if Review::find()
                     .filter(review::Column::UserId.eq(&ute.user_id))
                     .filter(
@@ -2135,6 +2128,49 @@ impl MiscellaneousService {
                 .await?;
         }
         txn.commit().await?;
+        Ok(true)
+    }
+
+    pub async fn disassociate_metadata(
+        &self,
+        user_id: String,
+        metadata_id: String,
+    ) -> Result<bool> {
+        let delete_review = Review::delete_many()
+            .filter(review::Column::MetadataId.eq(&metadata_id))
+            .filter(review::Column::UserId.eq(&user_id))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Deleted {} reviews", delete_review.rows_affected);
+        let delete_seen = Seen::delete_many()
+            .filter(seen::Column::MetadataId.eq(&metadata_id))
+            .filter(seen::Column::UserId.eq(&user_id))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
+        let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
+            &self.db,
+            &user_id,
+            &metadata_id,
+            EntityLot::Metadata,
+        )
+        .await?
+        .into_iter()
+        .map(|(_, id)| id);
+        let delete_collections = CollectionToEntity::delete_many()
+            .filter(collection_to_entity::Column::Id.is_in(collections_part_of))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(
+            debug,
+            "Deleted {} collections",
+            delete_collections.rows_affected
+        );
+        UserToEntity::delete_many()
+            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .exec(&self.db)
+            .await?;
         Ok(true)
     }
 

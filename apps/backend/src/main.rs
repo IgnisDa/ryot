@@ -24,9 +24,7 @@ use database_models::prelude::Exercise;
 use dependent_models::CompleteExport;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
-use sea_orm::{
-    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
-};
+use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
 use tokio::{
     join,
@@ -98,13 +96,7 @@ async fn main() -> Result<()> {
     let aws_conf = aws_conf.build();
     let s3_client = aws_sdk_s3::Client::from_conf(aws_conf);
 
-    let opt = ConnectOptions::new(config.database.url.clone())
-        .min_connections(5)
-        .max_connections(10)
-        .connect_timeout(Duration::from_secs(10))
-        .acquire_timeout(Duration::from_secs(10))
-        .to_owned();
-    let db = Database::connect(opt)
+    let db = Database::connect(config.database.url.clone())
         .await
         .expect("Database connection failed");
 
