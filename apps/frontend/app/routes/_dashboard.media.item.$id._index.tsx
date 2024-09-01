@@ -1199,7 +1199,7 @@ const VideoIframe = (props: {
 	}, [inViewport]);
 
 	return (
-		<Box key={props.videoId} ref={ref}>
+		<Box ref={ref}>
 			{isMounted ? (
 				<iframe
 					width="100%"
