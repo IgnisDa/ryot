@@ -27,7 +27,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -1130,27 +1130,11 @@ export default function Page() {
 							<MediaScrollArea>
 								<Stack>
 									{loaderData.metadataDetails.assets.videos.map((v) => (
-										<Box key={v.videoId}>
-											<iframe
-												width="100%"
-												height={200}
-												src={
-													match(v.source)
-														.with(
-															MetadataVideoSource.Youtube,
-															() => "https://www.youtube.com/embed/",
-														)
-														.with(
-															MetadataVideoSource.Dailymotion,
-															() => "https://www.dailymotion.com/embed/video/",
-														)
-														.with(MetadataVideoSource.Custom, () => "")
-														.exhaustive() + v.videoId
-												}
-												title="YouTube video player"
-												allowFullScreen
-											/>
-										</Box>
+										<VideoIframe
+											key={v.videoId}
+											videoId={v.videoId}
+											videoSource={v.source}
+										/>
 									))}
 								</Stack>
 							</MediaScrollArea>
@@ -1202,6 +1186,39 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const VideoIframe = (props: {
+	videoId: string;
+	videoSource: MetadataVideoSource;
+}) => {
+	const { ref, inViewport } = useInViewport();
+
+	return (
+		<Box key={props.videoId} ref={ref}>
+			{inViewport ? (
+				<iframe
+					width="100%"
+					height={200}
+					src={
+						match(props.videoSource)
+							.with(
+								MetadataVideoSource.Youtube,
+								() => "https://www.youtube.com/embed/",
+							)
+							.with(
+								MetadataVideoSource.Dailymotion,
+								() => "https://www.dailymotion.com/embed/video/",
+							)
+							.with(MetadataVideoSource.Custom, () => "")
+							.exhaustive() + props.videoId
+					}
+					title="Video player"
+					allowFullScreen
+				/>
+			) : null}
+		</Box>
+	);
+};
 
 const MetadataCreator = (props: {
 	name: string;
