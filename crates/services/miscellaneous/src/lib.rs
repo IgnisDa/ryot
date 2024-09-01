@@ -1411,13 +1411,13 @@ impl MiscellaneousService {
                 .unwrap();
             let all_user_to_entities = UserToEntity::find()
                 .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
-                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
-                if let Some(metadata_id) = ute.metadata_id.clone() {
+                let (entity_id, entity_lot) = if let Some(metadata_id) = ute.metadata_id.clone() {
                     let metadata = self.generic_metadata(&metadata_id).await?;
                     let (is_finished, seen_history) = self
                         .is_metadata_finished_by_user(&ute.user_id, &metadata)
@@ -1428,27 +1428,22 @@ impl MiscellaneousService {
                     if !seen_history.is_empty() && is_finished {
                         new_reasons.insert(UserToMediaReason::Finished);
                     }
-                } else if ute.person_id.is_some() || ute.metadata_group_id.is_some() {
+                    (metadata_id, EntityLot::Metadata)
+                } else if let Some(person_id) = ute.person_id.clone() {
+                    (person_id, EntityLot::Person)
+                } else if let Some(metadata_group_id) = ute.metadata_group_id.clone() {
+                    (metadata_group_id, EntityLot::MetadataGroup)
                 } else {
                     ryot_log!(debug, "Skipping user_to_entity = {:?}", ute.id);
                     continue;
                 };
 
-                let collections_part_of = CollectionToEntity::find()
-                    .select_only()
-                    .column(collection_to_entity::Column::CollectionId)
-                    .filter(
-                        collection_to_entity::Column::MetadataId
-                            .eq(ute.metadata_id.clone())
-                            .or(collection_to_entity::Column::PersonId.eq(ute.person_id.clone()))
-                            .or(collection_to_entity::Column::MetadataGroupId
-                                .eq(ute.metadata_group_id.clone())),
-                    )
-                    .filter(collection_to_entity::Column::CollectionId.is_not_null())
-                    .into_tuple::<String>()
-                    .all(&self.db)
-                    .await
-                    .unwrap();
+                let collections_part_of =
+                    entity_in_collections(&self.db, &user_id, entity_id, entity_lot)
+                        .await?
+                        .into_iter()
+                        .map(|c| c.id)
+                        .collect_vec();
                 if Review::find()
                     .filter(review::Column::UserId.eq(&ute.user_id))
                     .filter(
