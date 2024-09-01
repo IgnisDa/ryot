@@ -183,7 +183,6 @@ fragment WorkoutInformationPart on WorkoutInformation {
 }
 
 fragment UserGeneralDashboardCommonPreferencesPart on UserGeneralDashboardCommonPreferences {
-  __typename
   index
   isHidden
   settings {
@@ -192,7 +191,6 @@ fragment UserGeneralDashboardCommonPreferencesPart on UserGeneralDashboardCommon
 }
 
 fragment UserGeneralDashboardNoSettingsPreferencesPart on UserGeneralDashboardNoSettingsPreferences {
-  __typename
   index
   isHidden
 }
