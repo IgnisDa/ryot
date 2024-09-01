@@ -24,5 +24,5 @@
 			{{ httpInclude "/backend/config" }}
 		TXT
 	}
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy {vars.frontend_url}
 }
