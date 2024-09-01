@@ -302,7 +302,7 @@ impl CollectionService {
         let reviews = item_reviews(
             &self.db,
             &collection.user_id,
-            input.collection_id,
+            &input.collection_id,
             EntityLot::Collection,
         )
         .await?;

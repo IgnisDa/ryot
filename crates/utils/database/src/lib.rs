@@ -26,9 +26,7 @@ use fitness_models::UserMeasurementsListInput;
 use itertools::Itertools;
 use jwt_service::{verify, Claims};
 use markdown::to_html as markdown_to_html;
-use media_models::{
-    CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportItemReview, ReviewItem,
-};
+use media_models::{CreateOrUpdateCollectionInput, ReviewItem};
 use migrations::AliasedCollectionToEntity;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -38,6 +36,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
 use user_models::{UserPreferences, UserReviewScale};
+use uuid::Uuid;
 
 pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String) -> Result<bool> {
     AccessLink::update(access_link::ActiveModel {
@@ -128,12 +127,12 @@ fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Colum
     }
 }
 
-pub async fn entity_in_collections(
+pub async fn entity_in_collections_with_collection_to_entity_ids(
     db: &DatabaseConnection,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
-) -> Result<Vec<collection::Model>> {
+) -> Result<Vec<(collection::Model, Uuid)>> {
     let user_collections = Collection::find()
         .left_join(UserToCollection)
         .filter(user_to_collection::Column::UserId.eq(user_id))
@@ -151,36 +150,23 @@ pub async fn entity_in_collections(
         .all(db)
         .await
         .unwrap();
-    let resp = mtc.into_iter().flat_map(|(_, b)| b).collect_vec();
+    let resp = mtc
+        .into_iter()
+        .map(|(cte, col)| (col.unwrap(), cte.id))
+        .collect_vec();
     Ok(resp)
 }
 
-pub fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
-    let (show_season_number, show_episode_number) = match rev.show_extra_information {
-        Some(d) => (Some(d.season), Some(d.episode)),
-        None => (None, None),
-    };
-    let podcast_episode_number = rev.podcast_extra_information.map(|d| d.episode);
-    let anime_episode_number = rev.anime_extra_information.and_then(|d| d.episode);
-    let manga_chapter_number = rev.manga_extra_information.and_then(|d| d.chapter);
-    ImportOrExportItemRating {
-        review: Some(ImportOrExportItemReview {
-            visibility: Some(rev.visibility),
-            date: Some(rev.posted_on),
-            spoiler: Some(rev.is_spoiler),
-            text: rev.text_original,
-        }),
-        rating: rev.rating,
-        show_season_number,
-        show_episode_number,
-        podcast_episode_number,
-        anime_episode_number,
-        manga_chapter_number,
-        comments: match rev.comments.is_empty() {
-            true => None,
-            false => Some(rev.comments),
-        },
-    }
+pub async fn entity_in_collections(
+    db: &DatabaseConnection,
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+) -> Result<Vec<collection::Model>> {
+    let eic =
+        entity_in_collections_with_collection_to_entity_ids(db, user_id, entity_id, entity_lot)
+            .await?;
+    Ok(eic.into_iter().map(|(c, _)| c).collect_vec())
 }
 
 pub async fn workout_details(
@@ -199,7 +185,7 @@ pub async fn workout_details(
         )),
         Some(e) => {
             let collections =
-                entity_in_collections(db, user_id, workout_id, EntityLot::Workout).await?;
+                entity_in_collections(db, user_id, &workout_id, EntityLot::Workout).await?;
             let details = e.graphql_representation(file_storage_service).await?;
             Ok(UserWorkoutDetails {
                 details,
@@ -382,7 +368,7 @@ pub async fn remove_entity_from_collection(
 pub async fn item_reviews(
     db: &DatabaseConnection,
     user_id: &String,
-    entity_id: String,
+    entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<Vec<ReviewItem>> {
     let column = match entity_lot {
