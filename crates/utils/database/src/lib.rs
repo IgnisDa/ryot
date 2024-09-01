@@ -36,6 +36,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
 };
 use user_models::{UserPreferences, UserReviewScale};
+use uuid::Uuid;
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
@@ -114,12 +115,12 @@ fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Colum
     }
 }
 
-pub async fn entity_in_collections(
+pub async fn entity_in_collections_with_collection_to_entity_ids(
     db: &DatabaseConnection,
     user_id: &String,
     entity_id: String,
     entity_lot: EntityLot,
-) -> Result<Vec<collection::Model>> {
+) -> Result<Vec<(collection::Model, Uuid)>> {
     let user_collections = Collection::find()
         .left_join(UserToCollection)
         .filter(user_to_collection::Column::UserId.eq(user_id))
@@ -137,8 +138,23 @@ pub async fn entity_in_collections(
         .all(db)
         .await
         .unwrap();
-    let resp = mtc.into_iter().flat_map(|(_, b)| b).collect_vec();
+    let resp = mtc
+        .into_iter()
+        .map(|(cte, col)| (col.unwrap(), cte.id))
+        .collect_vec();
     Ok(resp)
+}
+
+pub async fn entity_in_collections(
+    db: &DatabaseConnection,
+    user_id: &String,
+    entity_id: String,
+    entity_lot: EntityLot,
+) -> Result<Vec<collection::Model>> {
+    let eic =
+        entity_in_collections_with_collection_to_entity_ids(db, user_id, entity_id, entity_lot)
+            .await?;
+    Ok(eic.into_iter().map(|(c, _)| c).collect_vec())
 }
 
 pub fn get_review_export_item(rev: ReviewItem) -> ImportOrExportItemRating {
