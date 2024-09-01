@@ -4,16 +4,21 @@
 }
 
 :{$PORT:8000} {
+	vars {
+		frontend_url "127.0.0.1:3000"
+		backend_url "127.0.0.1:5000"
+	}
+
 	handle_path /_i/* {
 		rewrite * /webhooks/integrations{path}
-		reverse_proxy 127.0.0.1:5000
+		reverse_proxy {vars.backend_url}
 	}
 	handle_path /_s/* {
 		rewrite * /api/sharing{path}
 		reverse_proxy 127.0.0.1:3000
 	}
 	handle_path /backend* {
-		reverse_proxy 127.0.0.1:5000
+		reverse_proxy {vars.backend_url}
 	}
 	handle /health {
 		header Content-Type text/plain
@@ -23,5 +28,5 @@
 			{{ httpInclude "/backend/config" }}
 		TXT
 	}
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy {vars.frontend_url}
 }
