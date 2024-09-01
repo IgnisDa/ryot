@@ -38,6 +38,7 @@ import {
 import {
 	DeleteSeenItemDocument,
 	DeployUpdateMetadataJobDocument,
+	DisassociateMetadataDocument,
 	EntityLot,
 	MediaLot,
 	MediaSource,
@@ -206,7 +207,11 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		removeItem: async () => {
 			const submission = processSubmission(formData, MetadataIdSchema);
-			console.log({ submission });
+			await serverGqlService.authenticatedRequest(
+				request,
+				DisassociateMetadataDocument,
+				submission,
+			);
 			return redirectWithToast($path("/"), {
 				type: "success",
 				message: "Removed item successfully",
