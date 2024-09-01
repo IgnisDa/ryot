@@ -19,6 +19,7 @@ pub struct Model {
     pub times_used: i32,
     pub maximum_uses: Option<i32>,
     pub is_revoked: Option<bool>,
+    pub is_account_default: Option<bool>,
     pub is_mutation_allowed: Option<bool>,
     pub is_demo: Option<bool>,
     #[graphql(skip)]

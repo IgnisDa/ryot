@@ -28,10 +28,11 @@ use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateCollectionInput,
     CreateUserIntegrationInput, CreateUserNotificationPlatformInput, LoginError, LoginErrorVariant,
     LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput, ProcessAccessLinkError,
-    ProcessAccessLinkErrorVariant, ProcessAccessLinkResponse, ProcessAccessLinkResult,
-    RegisterError, RegisterErrorVariant, RegisterResult, RegisterUserInput, UpdateUserInput,
-    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
-    UserDetailsError, UserDetailsErrorVariant,
+    ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
+    ProcessAccessLinkResult, RegisterError, RegisterErrorVariant, RegisterResult,
+    RegisterUserInput, UpdateUserInput, UpdateUserIntegrationInput,
+    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserDetailsError,
+    UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -136,6 +137,7 @@ impl UserService {
             expires_on: ActiveValue::Set(input.expires_on),
             redirect_to: ActiveValue::Set(input.redirect_to),
             maximum_uses: ActiveValue::Set(input.maximum_uses),
+            is_account_default: ActiveValue::Set(input.is_account_default),
             is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
             ..Default::default()
         };
@@ -145,9 +147,28 @@ impl UserService {
 
     pub async fn process_access_link(
         &self,
-        access_link_id: String,
+        input: ProcessAccessLinkInput,
     ) -> Result<ProcessAccessLinkResult> {
-        let link = match AccessLink::find_by_id(access_link_id).one(&self.db).await? {
+        let maybe_link = match input {
+            ProcessAccessLinkInput::Id(id) => AccessLink::find_by_id(id).one(&self.db).await?,
+            ProcessAccessLinkInput::Username(username) => {
+                let user = User::find()
+                    .filter(user::Column::Name.eq(username))
+                    .one(&self.db)
+                    .await?;
+                match user {
+                    None => None,
+                    Some(u) => {
+                        u.find_related(AccessLink)
+                            .filter(access_link::Column::IsAccountDefault.eq(true))
+                            .filter(access_link::Column::IsRevoked.is_null())
+                            .one(&self.db)
+                            .await?
+                    }
+                }
+            }
+        };
+        let link = match maybe_link {
             None => {
                 return Ok(ProcessAccessLinkResult::Error(ProcessAccessLinkError {
                     error: ProcessAccessLinkErrorVariant::NotFound,

@@ -11,6 +11,7 @@ import {
 	NumberInput,
 	Paper,
 	PasswordInput,
+	Skeleton,
 	Stack,
 	Tabs,
 	Text,
@@ -41,6 +42,7 @@ import {
 	IconLock,
 	IconLockAccess,
 } from "@tabler/icons-react";
+import { ClientOnly } from "remix-utils/client-only";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -124,6 +126,19 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
+		createDefaultAccessLink: async () => {
+			await serverGqlService.authenticatedRequest(
+				request,
+				CreateAccessLinkDocument,
+				{ input: { name: "Account default", isAccountDefault: true } },
+			);
+			return Response.json({ status: "success" } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Account default access link created successfully",
+				}),
+			});
+		},
 	});
 });
 
@@ -156,6 +171,12 @@ export default function Page() {
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
 	] = useDisclosure(false);
+
+	const defaultAccountLink = loaderData.userAccessLinks.find(
+		(acl) => acl.isAccountDefault,
+	);
+	const hasDefaultAccountLink =
+		defaultAccountLink && defaultAccountLink?.isRevoked !== true;
 
 	return (
 		<Container size="xs">
@@ -207,6 +228,7 @@ export default function Page() {
 													: undefined
 										}
 									/>
+
 									<Button
 										type="submit"
 										onClick={async (e) => {
@@ -228,6 +250,47 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="sharing">
 						<Stack>
+							<ClientOnly fallback={<Skeleton h={90} />}>
+								{() => (
+									<Paper withBorder p="md">
+										<Form
+											method="POST"
+											action={withQuery(".", {
+												intent: hasDefaultAccountLink
+													? "revokeAccessLink"
+													: "createDefaultAccessLink",
+											})}
+										>
+											{hasDefaultAccountLink ? (
+												<input
+													readOnly
+													type="hidden"
+													name="accessLinkId"
+													value={defaultAccountLink.id}
+												/>
+											) : null}
+											<Group wrap="nowrap">
+												<Box>
+													<Text>Make my account public</Text>
+													<Text size="xs" c="dimmed">
+														Anyone would be able to view your profile by
+														visiting {window.location.origin}/u/
+														{userDetails.name}
+													</Text>
+												</Box>
+												<Button
+													w="30%"
+													type="submit"
+													color={hasDefaultAccountLink ? "blue" : "green"}
+													variant="light"
+												>
+													{hasDefaultAccountLink ? "Disable" : "Enable"}
+												</Button>
+											</Group>
+										</Form>
+									</Paper>
+								)}
+							</ClientOnly>
 							{loaderData.userAccessLinks.length > 0 ? (
 								loaderData.userAccessLinks.map((link, idx) => (
 									<DisplayAccessLink
@@ -268,13 +331,18 @@ const DisplayAccessLink = (props: {
 	accessLink: AccessLink;
 	isEditDisabled: boolean;
 }) => {
+	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 	const submit = useConfirmSubmit();
 
 	const accessLinkUrl =
 		typeof window !== "undefined"
-			? `${window.location.origin}/_s/${props.accessLink.id}`
+			? `${window.location.origin}/${
+					props.accessLink.isAccountDefault
+						? `u/${userDetails.name}`
+						: `_s/${props.accessLink.id}`
+				}`
 			: "";
 
 	const optionalDetails = [
@@ -291,7 +359,7 @@ const DisplayAccessLink = (props: {
 		.join(", ");
 
 	return (
-		<Paper p="xs" withBorder data-access-link-url={accessLinkUrl}>
+		<Paper p="xs" withBorder>
 			<Stack ref={parent}>
 				<Flex align="center" justify="space-between">
 					<Box>

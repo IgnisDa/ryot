@@ -13,9 +13,13 @@
 		rewrite * /webhooks/integrations{path}
 		reverse_proxy {vars.backend_url}
 	}
+	handle_path /u/* {
+		rewrite * /api/sharing{path}?isAccountDefault=true
+		reverse_proxy {vars.frontend_url}
+	}
 	handle_path /_s/* {
 		rewrite * /api/sharing{path}
-		reverse_proxy 127.0.0.1:3000
+		reverse_proxy {vars.frontend_url}
 	}
 	handle_path /backend* {
 		reverse_proxy {vars.backend_url}

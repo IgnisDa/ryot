@@ -6,9 +6,9 @@ use database_models::{access_link, integration, notification_platform, user};
 use dependent_models::UserDetailsResult;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkResult,
-    RegisterResult, RegisterUserInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
+    CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
+    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, UpdateUserInput,
+    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
 };
 use traits::AuthProvider;
 use user_models::UserPreferences;
@@ -125,10 +125,10 @@ impl UserMutation {
     async fn process_access_link(
         &self,
         gql_ctx: &Context<'_>,
-        access_link_id: String,
+        input: ProcessAccessLinkInput,
     ) -> Result<ProcessAccessLinkResult> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        service.process_access_link(access_link_id).await
+        service.process_access_link(input).await
     }
 
     /// Revoke an access link.

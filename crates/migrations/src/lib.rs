@@ -31,6 +31,7 @@ mod m20240827_zz_changes_for_daily_user_activity;
 mod m20240828_add_last_login_on_column_to_user;
 mod m20240828_zz_add_columns_to_daily_user_activity;
 mod m20240829_change_structure_for_exercise_extra_information;
+mod m20240831_add_is_account_default_column_to_access_link;
 mod m20240831_add_templates_key_to_preferences;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -85,6 +86,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240828_zz_add_columns_to_daily_user_activity::Migration),
             Box::new(m20240829_change_structure_for_exercise_extra_information::Migration),
             Box::new(m20240831_add_templates_key_to_preferences::Migration),
+            Box::new(m20240831_add_is_account_default_column_to_access_link::Migration),
         ]
     }
 }

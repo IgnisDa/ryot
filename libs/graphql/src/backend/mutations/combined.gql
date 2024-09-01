@@ -219,8 +219,8 @@ mutation CreateAccessLink($input: CreateAccessLinkInput!) {
   }
 }
 
-mutation ProcessAccessLink($accessLinkId: String!) {
-  processAccessLink(accessLinkId: $accessLinkId) {
+mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
+  processAccessLink(input: $input) {
     __typename
     ... on ProcessAccessLinkError {
       error

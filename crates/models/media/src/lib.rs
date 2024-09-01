@@ -1567,6 +1567,13 @@ pub struct CreateAccessLinkInput {
     pub expires_on: Option<DateTimeUtc>,
     pub redirect_to: Option<String>,
     pub is_mutation_allowed: Option<bool>,
+    pub is_account_default: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum ProcessAccessLinkInput {
+    Id(String),
+    Username(String),
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]

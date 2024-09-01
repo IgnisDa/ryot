@@ -13,6 +13,7 @@ pub enum AccessLink {
     CreatedOn,
     Name,
     IsMutationAllowed,
+    IsAccountDefault,
     IsDemo,
     IssuedTokens,
     // The maximum number of times this link can be used to generate a token
@@ -60,6 +61,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(AccessLink::MaximumUses).integer())
                     .col(ColumnDef::new(AccessLink::IsRevoked).boolean())
+                    .col(ColumnDef::new(AccessLink::IsAccountDefault).boolean())
                     .col(ColumnDef::new(AccessLink::UserId).text().not_null())
                     .col(ColumnDef::new(AccessLink::Name).text().not_null())
                     .col(ColumnDef::new(AccessLink::IsMutationAllowed).boolean())
