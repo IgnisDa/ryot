@@ -325,6 +325,18 @@ impl MiscellaneousMutation {
             .await
     }
 
+    /// Delete all history and reviews for a given media item and remove it from all
+    /// collections for the user.
+    async fn disassociate_metadata(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: String,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.disassociate_metadata(user_id, metadata_id).await
+    }
+
     /// Fetch details about a media and create a media item in the database.
     async fn commit_metadata(
         &self,

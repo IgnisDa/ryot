@@ -486,7 +486,6 @@ export const ToggleMediaMonitorMenuItem = (props: {
 			<input readOnly hidden name="creatorUserId" value={userDetails.id} />
 			<Menu.Item
 				type="submit"
-				color={isMonitored ? "red" : undefined}
 				onClick={async (e) => {
 					const form = e.currentTarget.form;
 					if (form) {

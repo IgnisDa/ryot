@@ -27,7 +27,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useDisclosure } from "@mantine/hooks";
+import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -38,6 +38,7 @@ import {
 import {
 	DeleteSeenItemDocument,
 	DeployUpdateMetadataJobDocument,
+	DisassociateMetadataDocument,
 	EntityLot,
 	MediaLot,
 	MediaSource,
@@ -202,6 +203,18 @@ export const action = unstable_defineAction(async ({ request }) => {
 					type: "success",
 					message: "Edited history item successfully",
 				}),
+			});
+		},
+		removeItem: async () => {
+			const submission = processSubmission(formData, MetadataIdSchema);
+			await serverGqlService.authenticatedRequest(
+				request,
+				DisassociateMetadataDocument,
+				submission,
+			);
+			return redirectWithToast($path("/"), {
+				type: "success",
+				message: "Removed item successfully",
 			});
 		},
 	});
@@ -882,23 +895,21 @@ export default function Page() {
 										Post a review
 									</Button>
 								) : null}
-								<>
-									<Button
-										variant="outline"
-										onClick={() => {
-											setAddEntityToCollectionData({
-												entityId: loaderData.metadataId,
-												entityLot: EntityLot.Metadata,
-												alreadyInCollections:
-													loaderData.userMetadataDetails.collections.map(
-														(c) => c.id,
-													),
-											});
-										}}
-									>
-										Add to collection
-									</Button>
-								</>
+								<Button
+									variant="outline"
+									onClick={() => {
+										setAddEntityToCollectionData({
+											entityId: loaderData.metadataId,
+											entityLot: EntityLot.Metadata,
+											alreadyInCollections:
+												loaderData.userMetadataDetails.collections.map(
+													(c) => c.id,
+												),
+										});
+									}}
+								>
+									Add to collection
+								</Button>
 								<Menu shadow="md">
 									<Menu.Target>
 										<Button variant="outline">More actions</Button>
@@ -940,6 +951,33 @@ export default function Page() {
 										</Menu.Item>
 									</Menu.Dropdown>
 								</Menu>
+								<Form
+									method="POST"
+									action={withQuery("", { intent: "removeItem" })}
+								>
+									<input
+										hidden
+										name="metadataId"
+										defaultValue={loaderData.metadataId}
+									/>
+									<Button
+										w="100%"
+										variant="outline"
+										onClick={async (e) => {
+											const form = e.currentTarget.form;
+											if (form) {
+												e.preventDefault();
+												const conf = await confirmWrapper({
+													confirmation:
+														"Are you sure you want to remove this item? This will remove it from all collections and delete all history and reviews.",
+												});
+												if (conf && form) submit(form);
+											}
+										}}
+									>
+										Remove item
+									</Button>
+								</Form>
 							</SimpleGrid>
 						</MediaScrollArea>
 					</Tabs.Panel>
@@ -1092,27 +1130,11 @@ export default function Page() {
 							<MediaScrollArea>
 								<Stack>
 									{loaderData.metadataDetails.assets.videos.map((v) => (
-										<Box key={v.videoId}>
-											<iframe
-												width="100%"
-												height={200}
-												src={
-													match(v.source)
-														.with(
-															MetadataVideoSource.Youtube,
-															() => "https://www.youtube.com/embed/",
-														)
-														.with(
-															MetadataVideoSource.Dailymotion,
-															() => "https://www.dailymotion.com/embed/video/",
-														)
-														.with(MetadataVideoSource.Custom, () => "")
-														.exhaustive() + v.videoId
-												}
-												title="YouTube video player"
-												allowFullScreen
-											/>
-										</Box>
+										<VideoIframe
+											key={v.videoId}
+											videoId={v.videoId}
+											videoSource={v.source}
+										/>
 									))}
 								</Stack>
 							</MediaScrollArea>
@@ -1164,6 +1186,44 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const VideoIframe = (props: {
+	videoId: string;
+	videoSource: MetadataVideoSource;
+}) => {
+	const [isMounted, setIsMounted] = useState(false);
+	const { ref, inViewport } = useInViewport();
+
+	useDidUpdate(() => {
+		if (inViewport) setIsMounted(true);
+	}, [inViewport]);
+
+	return (
+		<Box ref={ref}>
+			{isMounted ? (
+				<iframe
+					width="100%"
+					height={200}
+					src={
+						match(props.videoSource)
+							.with(
+								MetadataVideoSource.Youtube,
+								() => "https://www.youtube.com/embed/",
+							)
+							.with(
+								MetadataVideoSource.Dailymotion,
+								() => "https://www.dailymotion.com/embed/video/",
+							)
+							.with(MetadataVideoSource.Custom, () => "")
+							.exhaustive() + props.videoId
+					}
+					title="Video player"
+					allowFullScreen
+				/>
+			) : null}
+		</Box>
+	);
+};
 
 const MetadataCreator = (props: {
 	name: string;
