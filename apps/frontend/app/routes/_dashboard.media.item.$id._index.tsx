@@ -204,6 +204,14 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			});
 		},
+		removeItem: async () => {
+			const submission = processSubmission(formData, MetadataIdSchema);
+			console.log({ submission });
+			return redirectWithToast($path("/"), {
+				type: "success",
+				message: "Removed item successfully",
+			});
+		},
 	});
 });
 
@@ -882,23 +890,21 @@ export default function Page() {
 										Post a review
 									</Button>
 								) : null}
-								<>
-									<Button
-										variant="outline"
-										onClick={() => {
-											setAddEntityToCollectionData({
-												entityId: loaderData.metadataId,
-												entityLot: EntityLot.Metadata,
-												alreadyInCollections:
-													loaderData.userMetadataDetails.collections.map(
-														(c) => c.id,
-													),
-											});
-										}}
-									>
-										Add to collection
-									</Button>
-								</>
+								<Button
+									variant="outline"
+									onClick={() => {
+										setAddEntityToCollectionData({
+											entityId: loaderData.metadataId,
+											entityLot: EntityLot.Metadata,
+											alreadyInCollections:
+												loaderData.userMetadataDetails.collections.map(
+													(c) => c.id,
+												),
+										});
+									}}
+								>
+									Add to collection
+								</Button>
 								<Menu shadow="md">
 									<Menu.Target>
 										<Button variant="outline">More actions</Button>
@@ -940,6 +946,33 @@ export default function Page() {
 										</Menu.Item>
 									</Menu.Dropdown>
 								</Menu>
+								<Form
+									method="POST"
+									action={withQuery("", { intent: "removeItem" })}
+								>
+									<input
+										hidden
+										name="metadataId"
+										defaultValue={loaderData.metadataId}
+									/>
+									<Button
+										w="100%"
+										variant="outline"
+										onClick={async (e) => {
+											const form = e.currentTarget.form;
+											if (form) {
+												e.preventDefault();
+												const conf = await confirmWrapper({
+													confirmation:
+														"Are you sure you want to remove this item? This will remove it from all collections and delete all history and reviews.",
+												});
+												if (conf && form) submit(form);
+											}
+										}}
+									>
+										Remove item
+									</Button>
+								</Form>
 							</SimpleGrid>
 						</MediaScrollArea>
 					</Tabs.Panel>
