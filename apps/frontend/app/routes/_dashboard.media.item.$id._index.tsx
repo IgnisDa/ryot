@@ -27,7 +27,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { useDisclosure, useInViewport } from "@mantine/hooks";
+import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -1191,11 +1191,16 @@ const VideoIframe = (props: {
 	videoId: string;
 	videoSource: MetadataVideoSource;
 }) => {
+	const [isMounted, setIsMounted] = useState(false);
 	const { ref, inViewport } = useInViewport();
+
+	useDidUpdate(() => {
+		if (inViewport) setIsMounted(true);
+	}, [inViewport]);
 
 	return (
 		<Box key={props.videoId} ref={ref}>
-			{inViewport ? (
+			{isMounted ? (
 				<iframe
 					width="100%"
 					height={200}
