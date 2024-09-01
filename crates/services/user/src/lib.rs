@@ -44,10 +44,7 @@ use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, Iterable, ModelTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QueryTrait,
 };
-use user_models::{
-    NotificationPlatformSpecifics, UserGeneralDashboardPreferences, UserPreferences,
-    UserReviewScale,
-};
+use user_models::{NotificationPlatformSpecifics, UserPreferences, UserReviewScale};
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
     Ok(())
@@ -565,10 +562,7 @@ impl UserService {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
                         "dashboard" => {
-                            let value = serde_json::from_str::<UserGeneralDashboardPreferences>(
-                                &input.value,
-                            )
-                            .unwrap();
+                            let value = serde_json::from_str(&input.value).unwrap();
                             preferences.general.dashboard = value;
                         }
                         "disable_integrations" => {
