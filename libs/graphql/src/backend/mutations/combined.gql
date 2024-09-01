@@ -172,6 +172,10 @@ mutation MergeMetadata($mergeFrom: String!, $mergeInto: String!) {
   mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
 }
 
+mutation DisassociateMetadata($metadataId: String!) {
+  disassociateMetadata(metadataId: $metadataId)
+}
+
 mutation PostReview($input: PostReviewInput!) {
   postReview(input: $input) {
     id
@@ -204,3 +208,4 @@ mutation UpdateUser($input: UpdateUserInput!) {
 mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {
   updateUserPreference(input: $input)
 }
+

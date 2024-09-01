@@ -2138,6 +2138,14 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    pub async fn disassociate_metadata(
+        &self,
+        user_id: String,
+        metadata_id: String,
+    ) -> Result<bool> {
+        todo!()
+    }
+
     pub async fn metadata_search(
         &self,
         user_id: &String,
