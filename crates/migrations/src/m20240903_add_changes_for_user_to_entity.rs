@@ -8,11 +8,11 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
         if !manager
             .has_column("user_to_entity", "collection_id")
             .await?
         {
-            let db = manager.get_connection();
             db.execute_unprepared(
                 r#"
 ALTER TABLE "user_to_entity" ADD COLUMN "collection_id" TEXT;
@@ -22,6 +22,14 @@ CREATE UNIQUE INDEX "user_to_entity-uqi5" ON "user_to_entity" ("user_id", "colle
             )
             .await?;
             db.execute_unprepared(CONSTRAINT_SQL).await?;
+        }
+        if manager.has_table("user_to_collection").await? {
+            db.execute_unprepared(
+                r#"
+DROP TABLE "user_to_collection";
+"#,
+            )
+            .await?;
         }
         Ok(())
     }
