@@ -1702,6 +1702,7 @@ dependencies = [
  "enums",
  "file-storage-service",
  "fitness-models",
+ "futures",
  "itertools 0.13.0",
  "jwt-service",
  "markdown",
@@ -1710,6 +1711,7 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
+ "serde",
  "tracing",
  "user-models",
  "uuid",
@@ -2330,9 +2332,9 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.32"
+version = "1.0.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c0596c1eac1f9e04ed902702e9878208b336edc9d6fddc8a48387349bab3666"
+checksum = "324a1be68054ef05ad64b861cc9eaf1d623d2d8cb25b4bf2cb9cdd902b4bf253"
 dependencies = [
  "crc32fast",
  "miniz_oxide 0.8.0",
@@ -6030,15 +6032,11 @@ name = "statistics-service"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "common-utils",
  "database-models",
+ "database-utils",
  "dependent-models",
- "enums",
- "futures",
  "media-models",
- "rust_decimal",
  "sea-orm",
- "serde",
  "tracing",
 ]
 

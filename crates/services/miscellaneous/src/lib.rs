@@ -36,7 +36,7 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
-    deploy_job_to_calculate_user_activities_and_summary, entity_in_collections,
+    calculate_user_activities_and_summary, entity_in_collections,
     entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
     remove_entity_from_collection, revoke_access_link, user_by_id, user_preferences_by_id,
 };
@@ -2924,12 +2924,7 @@ ORDER BY RANDOM() LIMIT 10;
             .await
             .unwrap();
         for user_id in all_users {
-            deploy_job_to_calculate_user_activities_and_summary(
-                &self.perform_application_job,
-                &user_id,
-                false,
-            )
-            .await?;
+            calculate_user_activities_and_summary(&self.db, &user_id, false).await?;
         }
         Ok(())
     }

@@ -74,6 +74,7 @@
 		"postcss": "8.4.41",
 		"postcss-preset-mantine": "1.17.0",
 		"postcss-simple-vars": "7.0.1",
+		"remix-development-tools": "4.4.1",
 		"ts-essentials": "10.0.2",
 		"typescript": "5.5.4",
 		"typescript-plugin-css-modules": "5.1.0",
