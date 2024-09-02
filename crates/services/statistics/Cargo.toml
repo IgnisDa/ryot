@@ -5,15 +5,11 @@ edition = "2021"
 
 [dependencies]
 async-graphql = { workspace = true }
-common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
+database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-enums = { path = "../../enums" }
-futures = { workspace = true }
 media-models = { path = "../../models/media" }
-rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
-serde = { workspace = true }
 tracing = { workspace = true }
 
 [package.metadata.cargo-machete]
