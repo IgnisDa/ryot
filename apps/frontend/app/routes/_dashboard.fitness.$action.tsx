@@ -79,6 +79,7 @@ import {
 	IconInfoCircle,
 	IconLayersIntersect,
 	IconPhoto,
+	IconReorder,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -475,11 +476,12 @@ export default function Page() {
 								<Divider />
 								{currentWorkout.exercises.map((ex, idx) => (
 									<ExerciseDisplay
-										key={ex.identifier}
 										exerciseIdx={idx}
-										startTimer={startTimer}
+										key={ex.identifier}
 										stopTimer={stopTimer}
+										startTimer={startTimer}
 										openTimerDrawer={timerDrawerOpen}
+										reorderDrawerToggle={reorderDrawerToggle}
 									/>
 								))}
 								<Group justify="center">
@@ -719,6 +721,7 @@ const ExerciseDisplay = (props: {
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	stopTimer: () => void;
+	reorderDrawerToggle: () => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const unitSystem = useUserUnitSystem();
@@ -1026,6 +1029,12 @@ const ExerciseDisplay = (props: {
 									{exercise.isShowDetailsOpen ? "Hide" : "Show"} details
 								</Menu.Item>
 							) : null}
+							<Menu.Item
+								leftSection={<IconReorder size={14} />}
+								onClick={props.reorderDrawerToggle}
+							>
+								Reorder
+							</Menu.Item>
 							<Menu.Item
 								color="red"
 								leftSection={<IconTrash size={14} />}
