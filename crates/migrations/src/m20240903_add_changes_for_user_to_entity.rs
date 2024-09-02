@@ -26,6 +26,7 @@ CREATE UNIQUE INDEX "user_to_entity-uqi5" ON "user_to_entity" ("user_id", "colle
         if manager.has_table("user_to_collection").await? {
             db.execute_unprepared(
                 r#"
+INSERT INTO "user_to_entity" ("user_id", "collection_id") SELECT "user_id", "collection_id" FROM "user_to_collection";
 DROP TABLE "user_to_collection";
 "#,
             )
