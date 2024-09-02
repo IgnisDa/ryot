@@ -44,7 +44,6 @@ pub use m20230505_create_review::Review as AliasedReview;
 pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
-pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
 
 pub struct Migrator;
 
