@@ -19,9 +19,9 @@ use database_models::{
     metadata,
     prelude::{
         Collection, CollectionToEntity, DailyUserActivity, Metadata, Review, Seen, User,
-        UserMeasurement, UserToCollection, Workout,
+        UserMeasurement, UserToEntity, Workout,
     },
-    review, seen, user, user_measurement, user_to_collection, workout,
+    review, seen, user, user_measurement, user_to_entity, workout,
 };
 use dependent_models::UserWorkoutDetails;
 use enums::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
@@ -134,8 +134,8 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
     entity_lot: EntityLot,
 ) -> Result<Vec<(collection::Model, Uuid)>> {
     let user_collections = Collection::find()
-        .left_join(UserToCollection)
-        .filter(user_to_collection::Column::UserId.eq(user_id))
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
@@ -243,8 +243,8 @@ pub async fn add_entity_to_collection(
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
 ) -> Result<bool> {
     let collection = Collection::find()
-        .left_join(UserToCollection)
-        .filter(user_to_collection::Column::UserId.eq(user_id))
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
         .filter(collection::Column::Name.eq(input.collection_name))
         .one(db)
         .await
@@ -305,9 +305,9 @@ pub async fn remove_entity_from_collection(
     input: ChangeCollectionToEntityInput,
 ) -> Result<StringIdObject> {
     let collect = Collection::find()
-        .left_join(UserToCollection)
+        .left_join(UserToEntity)
         .filter(collection::Column::Name.eq(input.collection_name))
-        .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
+        .filter(user_to_entity::Column::UserId.eq(input.creator_user_id))
         .one(db)
         .await
         .unwrap()
@@ -442,11 +442,12 @@ pub async fn create_or_update_collection(
             let collaborators = vec![user_id.to_owned()];
             let inserts = collaborators
                 .into_iter()
-                .map(|c| user_to_collection::ActiveModel {
+                .map(|c| user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c),
-                    collection_id: ActiveValue::Set(id.clone()),
+                    collection_id: ActiveValue::Set(Some(id.clone())),
+                    ..Default::default()
                 });
-            UserToCollection::insert_many(inserts)
+            UserToEntity::insert_many(inserts)
                 .on_conflict(OnConflict::new().do_nothing().to_owned())
                 .exec_without_returning(&txn)
                 .await?;
