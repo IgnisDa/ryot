@@ -40,7 +40,13 @@ import {
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
+import {
+	Link,
+	useFetcher,
+	useLoaderData,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateUserWorkoutDocument,
@@ -191,6 +197,7 @@ export default function Page() {
 	const events = useApplicationEvents();
 	const [parent] = useAutoAnimate();
 	const navigate = useNavigate();
+	const revalidator = useRevalidator();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
@@ -430,6 +437,7 @@ export default function Page() {
 														deleteUploadedAsset(asset.key);
 												}
 												navigate($path("/"), { replace: true });
+												revalidator.revalidate();
 												Cookies.remove(workoutCookieName);
 												setCurrentWorkout(RESET);
 											}

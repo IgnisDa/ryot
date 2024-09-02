@@ -2,6 +2,7 @@ import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import {
 	useNavigate,
+	useRevalidator,
 	useRouteLoaderData,
 	useSearchParams,
 	useSubmit,
@@ -92,6 +93,7 @@ export const useConfirmSubmit = () => {
 
 export const useGetWorkoutStarter = () => {
 	const navigate = useNavigate();
+	const revalidator = useRevalidator();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
 	const fn = (wkt: InProgressWorkout, value: "workouts" | "templates") => {
@@ -105,6 +107,7 @@ export const useGetWorkoutStarter = () => {
 				action: value === "workouts" ? "log-workout" : "create-template",
 			}),
 		);
+		revalidator.revalidate();
 	};
 	return fn;
 };
