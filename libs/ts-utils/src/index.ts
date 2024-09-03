@@ -11,6 +11,8 @@ import groupBy from "lodash/groupBy";
 import isBoolean from "lodash/isBoolean";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
+import isFinite from "lodash/isFinite";
+import isNaN from "lodash/isNaN";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
 import mapValues from "lodash/mapValues";
@@ -98,6 +100,8 @@ export {
 	isBoolean,
 	isEmpty,
 	isEqual,
+	isFinite,
+	isNaN,
 	isNumber,
 	isString,
 	mapValues,

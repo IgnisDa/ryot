@@ -58,6 +58,9 @@ import {
 	formatDateToNaiveDate,
 	humanizeDuration,
 	isNumber,
+	isString,
+	isNaN,
+	isFinite,
 	processSubmission,
 } from "@ryot/ts-utils";
 import {
@@ -1353,10 +1356,10 @@ const HistoryItem = (props: { history: History; index: number }) => {
 				)
 		: null;
 	const isNumberOrDecimalString = (value: unknown): boolean =>
-		typeof value === "number" ||
-		(typeof value === "string" &&
-			!Number.isNaN(Number.parseFloat(value)) &&
-			Number.isFinite(Number(value)));
+		isNumber(value) ||
+		(isString(value) &&
+			!isNaN(Number.parseFloat(value)) &&
+			isFinite(Number(value)));
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
