@@ -98,8 +98,6 @@ export {
 	isBoolean,
 	isEmpty,
 	isEqual,
-	isFinite,
-	isNaN,
 	isNumber,
 	isString,
 	mapValues,
