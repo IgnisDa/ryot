@@ -1385,9 +1385,8 @@ const HistoryItem = (props: { history: History; index: number }) => {
 			return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
 		}
 
-		if (isNumber(volume)) {
+		if (isNumber(volume))
 			return `VOL-${volume}`;
-		}
 
 		return null;
 	})();
