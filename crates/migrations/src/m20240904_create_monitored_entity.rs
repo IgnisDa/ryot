@@ -18,7 +18,7 @@ pub static MONITORED_ENTITY_VIEW_CREATION_SQL: &str = indoc! { r#"
     JOIN
         "user_to_entity" ute ON cte."collection_id" = ute."collection_id"
     WHERE
-        c."name" = 'Monitoring';
+        c."name" = 'Monitoring'
 "# };
 
 #[async_trait::async_trait]
