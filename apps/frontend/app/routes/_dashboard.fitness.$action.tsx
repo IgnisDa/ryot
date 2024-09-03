@@ -690,6 +690,11 @@ type FuncStartTimer = (
 	triggeredBy: { exerciseIdentifier: string; setIdx: number },
 ) => void;
 
+const focusOnExercise = (idx: number) => {
+	const exercise = document.getElementById(idx.toString());
+	exercise?.scrollIntoView({ behavior: "smooth" });
+};
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	startTimer: FuncStartTimer;
@@ -1572,10 +1577,12 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 		>
 			<DragDropContext
 				onDragEnd={({ destination, source }) => {
+					const reorderedExerciseDestinationIndex = destination?.index || 0;
 					exerciseElementsHandlers.reorder({
 						from: source.index,
-						to: destination?.index || 0,
+						to: reorderedExerciseDestinationIndex,
 					});
+					focusOnExercise(reorderedExerciseDestinationIndex);
 				}}
 			>
 				<Droppable droppableId="dnd-list">
