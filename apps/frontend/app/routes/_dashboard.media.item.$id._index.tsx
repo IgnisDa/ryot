@@ -59,8 +59,6 @@ import {
 	humanizeDuration,
 	isNumber,
 	isString,
-	isNaN,
-	isFinite,
 	processSubmission,
 } from "@ryot/ts-utils";
 import {
@@ -1358,8 +1356,8 @@ const HistoryItem = (props: { history: History; index: number }) => {
 	const isNumberOrDecimalString = (value: unknown): boolean =>
 		isNumber(value) ||
 		(isString(value) &&
-			!isNaN(Number.parseFloat(value)) &&
-			isFinite(Number(value)));
+			!Number.isNaN(Number.parseFloat(value)) &&
+			Number.isFinite(Number(value)));
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
@@ -1385,8 +1383,7 @@ const HistoryItem = (props: { history: History; index: number }) => {
 			return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
 		}
 
-		if (isNumber(volume))
-			return `VOL-${volume}`;
+		if (isNumber(volume)) return `VOL-${volume}`;
 
 		return null;
 	})();

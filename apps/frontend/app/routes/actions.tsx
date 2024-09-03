@@ -296,12 +296,15 @@ export const action = unstable_defineAction(async ({ request }) => {
 						const targetChapter = Number(submission.mangaChapterNumber);
 						const markedChapters = new Set();
 
-						userMetadataDetails?.history?.forEach(historyItem => {
-							const chapter = Number(historyItem?.mangaExtraInformation?.chapter);
-							if (!isNaN(chapter) && chapter < targetChapter) {
+						for (const historyItem of userMetadataDetails?.history ?? []) {
+							const chapter = Number(
+								historyItem?.mangaExtraInformation?.chapter,
+							);
+
+							if (!Number.isNaN(chapter) && chapter < targetChapter) {
 								markedChapters.add(chapter);
 							}
-						});
+						}
 
 						for (let i = 1; i < targetChapter; i++) {
 							if (!markedChapters.has(i)) {
