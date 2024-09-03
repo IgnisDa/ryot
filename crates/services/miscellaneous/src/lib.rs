@@ -90,8 +90,8 @@ use providers::{
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
     vndb::VndbService,
 };
-use rust_decimal::Decimal;
 use rust_decimal::prelude::{One, ToPrimitive};
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,

@@ -37,8 +37,8 @@ use media_models::{
     ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
