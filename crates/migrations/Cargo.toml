@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+common-models = { path = "../models/common" }
 enums = { path = "../enums" }
 indoc = "=2.0.5"
 sea-orm = { workspace = true }
