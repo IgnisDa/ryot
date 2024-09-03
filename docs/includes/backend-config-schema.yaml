@@ -115,6 +115,10 @@ integration:
   # @envvar INTEGRATION_SYNC_EVERY_MINUTES
   sync_every_minutes: 5
 
+# The logging level of the server.
+# @envvar LOG_LEVEL
+log_level: "application"
+
 # Settings related to media.
 media:
   # Number of days after which a media should be removed from the Monitoring collection.

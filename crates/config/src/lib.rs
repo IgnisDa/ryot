@@ -414,6 +414,17 @@ pub struct UsersConfig {
     pub validate_password: bool,
 }
 
+derive_enum!(
+    #[derive(ConfigEnum, Default)]
+    #[config(rename_all = "snake_case")]
+    pub enum LogLevel {
+        #[default]
+        Minimal,
+        Application,
+        ApplicationAndDatabase,
+    }
+);
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
@@ -470,6 +481,9 @@ pub struct AppConfig {
     /// Whether to disable telemetry.
     #[setting(default = false, env = "DISABLE_TELEMETRY")]
     pub disable_telemetry: bool,
+    /// The logging level of the server.
+    #[setting(env = "LOG_LEVEL")]
+    pub log_level: LogLevel,
 }
 
 impl AppConfig {
