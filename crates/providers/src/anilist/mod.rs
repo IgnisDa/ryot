@@ -543,7 +543,6 @@ async fn media_details(
         .await
         .map_err(|e| anyhow!(e))?;
 
-    // Handles rate limit timeout
     let data = details.data.ok_or_else(|| anyhow!("No data in response"))?;
     let media = data.media.ok_or_else(|| anyhow!("No media in data"))?;
 
@@ -551,7 +550,7 @@ async fn media_details(
     if let Some(i) = media.banner_image {
         images.push(i);
     }
-    let images = media
+    let images = images
         .into_iter()
         .map(|i| MetadataImageForMediaDetails { image: i })
         .unique()
