@@ -24,13 +24,13 @@ use database_models::{
     calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, notification_platform,
-    person,
+    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
+    notification_platform, person,
     prelude::{
         CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Integration, Metadata,
         MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, NotificationPlatform, Person, QueuedNotification, Review, Seen, User,
-        UserToEntity,
+        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, QueuedNotification,
+        Review, Seen, User, UserToEntity,
     },
     queued_notification, review, seen, user, user_to_entity,
 };
@@ -94,7 +94,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, DbBackend, EntityTrait, FromQueryResult,
+    ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult,
     ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
     QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
@@ -187,8 +187,6 @@ impl MiscellaneousService {
         }
     }
 }
-
-type EntityBeingMonitoredByMap = HashMap<String, Vec<String>>;
 
 impl MiscellaneousService {
     pub async fn core_details(&self) -> CoreDetails {
@@ -2805,8 +2803,9 @@ impl MiscellaneousService {
             .await
             .unwrap();
         if !notifications.is_empty() {
-            let (meta_map, _, _) = self.get_entities_monitored_by().await.unwrap();
-            let users_to_notify = meta_map.get(metadata_id).cloned().unwrap_or_default();
+            let users_to_notify = self
+                .get_entities_monitored_by(metadata_id, EntityLot::Metadata)
+                .await?;
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
                     self.queue_media_state_changed_notification_for_user(user_id, &notification)
@@ -3453,8 +3452,26 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    async fn get_monitored_entities(
+        &self,
+        entity_lot: EntityLot,
+    ) -> Result<HashMap<String, HashSet<String>>> {
+        let monitored_entities = MonitoredEntity::find()
+            .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
+            .all(&self.db)
+            .await?;
+        let mut monitored_by = HashMap::new();
+        for entity in monitored_entities {
+            let user_ids = monitored_by
+                .entry(entity.entity_id)
+                .or_insert(HashSet::new());
+            user_ids.insert(entity.user_id);
+        }
+        Ok(monitored_by)
+    }
+
     async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
-        let (meta_map, _, _) = self.get_entities_monitored_by().await?;
+        let meta_map = self.get_monitored_entities(EntityLot::Metadata).await?;
         ryot_log!(
             debug,
             "Users to be notified for metadata state changes: {:?}",
@@ -3473,7 +3490,7 @@ impl MiscellaneousService {
     }
 
     async fn update_monitored_people_and_queue_notifications(&self) -> Result<()> {
-        let (_, _, person_map) = self.get_entities_monitored_by().await?;
+        let person_map = self.get_monitored_entities(EntityLot::Person).await?;
         ryot_log!(
             debug,
             "Users to be notified for people state changes: {:?}",
@@ -4127,9 +4144,10 @@ impl MiscellaneousService {
                 )
             })
             .collect_vec();
-        let (meta_map, _, _) = self.get_entities_monitored_by().await?;
         for (metadata_id, notification) in notifications.into_iter() {
-            let users_to_notify = meta_map.get(&metadata_id).cloned().unwrap_or_default();
+            let users_to_notify = self
+                .get_entities_monitored_by(&metadata_id, EntityLot::Metadata)
+                .await?;
             for user in users_to_notify {
                 self.queue_media_state_changed_notification_for_user(&user, &notification)
                     .await?;
@@ -4217,8 +4235,9 @@ impl MiscellaneousService {
             .await
             .unwrap_or_default();
         if !notifications.is_empty() {
-            let (_, _, person_map) = self.get_entities_monitored_by().await.unwrap();
-            let users_to_notify = person_map.get(&person_id).cloned().unwrap_or_default();
+            let users_to_notify = self
+                .get_entities_monitored_by(&person_id, EntityLot::Person)
+                .await?;
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
                     self.queue_media_state_changed_notification_for_user(user_id, &notification)
@@ -4232,72 +4251,24 @@ impl MiscellaneousService {
 
     async fn get_entities_monitored_by(
         &self,
-    ) -> Result<(
-        EntityBeingMonitoredByMap,
-        EntityBeingMonitoredByMap,
-        EntityBeingMonitoredByMap,
-    )> {
-        #[derive(Debug, FromQueryResult, Clone, Default)]
-        struct UsersToBeNotified {
-            entity_id: String,
-            to_notify: Vec<String>,
-        }
-        let get_sql = |entity_type: &str| {
-            format!(
-                r#"
-SELECT
-    m.id as entity_id,
-    array_agg(DISTINCT u.id) as to_notify
-FROM {entity_type} m
-JOIN collection_to_entity cte ON m.id = cte.{entity_type}_id
-JOIN collection c ON cte.collection_id = c.id AND c.name = '{}'
-JOIN "user" u ON c.user_id = u.id
-GROUP BY m.id;
-        "#,
-                DefaultCollection::Monitoring
-            )
-        };
-        let meta_map: Vec<_> = UsersToBeNotified::find_by_statement(
-            Statement::from_sql_and_values(DbBackend::Postgres, get_sql("metadata"), []),
-        )
-        .all(&self.db)
-        .await?;
-        let meta_map = meta_map
-            .into_iter()
-            .map(|m| (m.entity_id, m.to_notify))
-            .collect::<EntityBeingMonitoredByMap>();
-        let meta_group_map: Vec<_> = UsersToBeNotified::find_by_statement(
-            Statement::from_sql_and_values(DbBackend::Postgres, get_sql("metadata_group"), []),
-        )
-        .all(&self.db)
-        .await?;
-        let meta_group_map = meta_group_map
-            .into_iter()
-            .map(|m| (m.entity_id, m.to_notify))
-            .collect::<EntityBeingMonitoredByMap>();
-        let person_map: Vec<_> = UsersToBeNotified::find_by_statement(
-            Statement::from_sql_and_values(DbBackend::Postgres, get_sql("person"), []),
-        )
-        .all(&self.db)
-        .await?;
-        let person_map = person_map
-            .into_iter()
-            .map(|m| (m.entity_id, m.to_notify))
-            .collect::<EntityBeingMonitoredByMap>();
-        Ok((meta_map, meta_group_map, person_map))
+        entity_id: &String,
+        entity_lot: EntityLot,
+    ) -> Result<Vec<String>> {
+        let all_entities = MonitoredEntity::find()
+            .select_only()
+            .column(monitored_entity::Column::UserId)
+            .filter(monitored_entity::Column::EntityId.eq(entity_id))
+            .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        Ok(all_entities)
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        let (meta_map, meta_group_map, person_map) = self.get_entities_monitored_by().await?;
-        let monitored_by = match event.entity_lot {
-            EntityLot::Metadata => meta_map.get(&event.obj_id).cloned().unwrap_or_default(),
-            EntityLot::MetadataGroup => meta_group_map
-                .get(&event.obj_id)
-                .cloned()
-                .unwrap_or_default(),
-            EntityLot::Person => person_map.get(&event.obj_id).cloned().unwrap_or_default(),
-            _ => vec![],
-        };
+        let monitored_by = self
+            .get_entities_monitored_by(&event.obj_id, event.entity_lot)
+            .await?;
         let users = User::find()
             .select_only()
             .column(user::Column::Id)
