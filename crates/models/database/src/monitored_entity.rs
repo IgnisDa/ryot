@@ -13,7 +13,7 @@ pub struct Model {
     pub entity_id: String,
     #[sea_orm(primary_key, auto_increment = false)]
     pub entity_lot: EntityLot,
-    pub origin_collection_id: Option<String>,
+    pub origin_collection_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
