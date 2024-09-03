@@ -30,9 +30,9 @@ use database_models::{
         AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport,
         Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, NotificationPlatform, Person,
-        QueuedNotification, Review, Seen, User, UserToCollection, UserToEntity,
+        QueuedNotification, Review, Seen, User, UserToEntity,
     },
-    queued_notification, review, seen, user, user_to_collection, user_to_entity,
+    queued_notification, review, seen, user, user_to_entity,
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
@@ -1471,8 +1471,8 @@ ORDER BY RANDOM() LIMIT 10;
             let collections = Collection::find()
                 .column(collection::Column::Id)
                 .column(collection::Column::UserId)
-                .left_join(UserToCollection)
-                .filter(user_to_collection::Column::UserId.eq(&user_id))
+                .left_join(UserToEntity)
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
@@ -2173,8 +2173,8 @@ ORDER BY RANDOM() LIMIT 10;
         let collections = Collection::find()
             .select_only()
             .column(collection::Column::Id)
-            .left_join(UserToCollection)
-            .filter(user_to_collection::Column::UserId.eq(&user_id))
+            .left_join(UserToEntity)
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
             .into_tuple::<String>()
             .all(&txn)
             .await
@@ -3979,7 +3979,7 @@ ORDER BY RANDOM() LIMIT 10;
                 let reminder: UserMediaReminder =
                     serde_json::from_str(&serde_json::to_string(&reminder)?)?;
                 let col = col.unwrap();
-                let related_users = col.find_related(UserToCollection).all(&self.db).await?;
+                let related_users = col.find_related(UserToEntity).all(&self.db).await?;
                 if get_current_date(self.timezone.as_ref()) == reminder.reminder {
                     for user in related_users {
                         self.queue_notifications_to_user_platforms(&user.user_id, &reminder.text)

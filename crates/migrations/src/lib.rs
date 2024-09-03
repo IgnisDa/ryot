@@ -33,6 +33,7 @@ mod m20240828_zz_add_columns_to_daily_user_activity;
 mod m20240829_change_structure_for_exercise_extra_information;
 mod m20240831_add_is_account_default_column_to_access_link;
 mod m20240831_add_templates_key_to_preferences;
+mod m20240903_add_changes_for_user_to_collection_removal;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -47,7 +48,6 @@ pub use m20230505_create_review::Review as AliasedReview;
 pub use m20230822_create_exercise::Exercise as AliasedExercise;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
-pub use m20240509_create_user_to_collection::UserToCollection as AliasedUserToCollection;
 
 pub struct Migrator;
 
@@ -87,6 +87,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240829_change_structure_for_exercise_extra_information::Migration),
             Box::new(m20240831_add_templates_key_to_preferences::Migration),
             Box::new(m20240831_add_is_account_default_column_to_access_link::Migration),
+            Box::new(m20240903_add_changes_for_user_to_collection_removal::Migration),
         ]
     }
 }

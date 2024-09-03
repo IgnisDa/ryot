@@ -37,8 +37,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
-    #[sea_orm(has_many = "super::user_to_collection::Entity")]
-    UserToCollection,
+    #[sea_orm(has_many = "super::user_to_entity::Entity")]
+    UserToEntity,
 }
 
 impl Related<super::collection_to_entity::Entity> for Entity {
@@ -59,9 +59,9 @@ impl Related<super::user::Entity> for Entity {
     }
 }
 
-impl Related<super::user_to_collection::Entity> for Entity {
+impl Related<super::user_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserToCollection.def()
+        Relation::UserToEntity.def()
     }
 }
 
