@@ -222,7 +222,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             .num_volumes
             .zip(details.num_chapters)
             .map(|(v, c)| MangaSpecifics {
-                chapters: Some(c),
+                chapters: Some(Decimal::from(c)),
                 volumes: Some(v),
                 url: None,
             });

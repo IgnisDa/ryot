@@ -1352,6 +1352,11 @@ const HistoryItem = (props: { history: History; index: number }) => {
 						e.episodeNumber === props.history.showExtraInformation?.episode,
 				)
 		: null;
+	const isNumberOrDecimalString = (value: unknown): boolean =>
+		typeof value === "number" ||
+		(typeof value === "string" &&
+			!Number.isNaN(Number.parseFloat(value)) &&
+			Number.isFinite(Number(value)));
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
@@ -1368,13 +1373,21 @@ const HistoryItem = (props: { history: History; index: number }) => {
 	)
 		? `EP-${props.history.animeExtraInformation.episode}`
 		: null;
-	const displayMangaExtraInformation = isNumber(
-		props.history.mangaExtraInformation?.chapter,
-	)
-		? `CH-${props.history.mangaExtraInformation.chapter}`
-		: isNumber(props.history.mangaExtraInformation?.volume)
-			? `VOL-${props.history.mangaExtraInformation.volume}`
-			: null;
+	const displayMangaExtraInformation = (() => {
+		const { chapter, volume } = props.history.mangaExtraInformation || {};
+
+		if (isNumberOrDecimalString(chapter)) {
+			const chapterNum = Number.parseFloat(chapter);
+			const isWholeNumber = chapterNum % 1 === 0;
+			return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
+		}
+
+		if (isNumber(volume)) {
+			return `VOL-${volume}`;
+		}
+
+		return null;
+	})();
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const filteredDisplayInformation = [

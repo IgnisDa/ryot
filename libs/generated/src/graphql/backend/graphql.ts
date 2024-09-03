@@ -824,13 +824,13 @@ export type LoginResponse = {
 export type LoginResult = LoginError | LoginResponse;
 
 export type MangaSpecifics = {
-  chapters?: Maybe<Scalars['Int']['output']>;
+  chapters?: Maybe<Scalars['Decimal']['output']>;
   url?: Maybe<Scalars['String']['output']>;
   volumes?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MangaSpecificsInput = {
-  chapters?: InputMaybe<Scalars['Int']['input']>;
+  chapters?: InputMaybe<Scalars['Decimal']['input']>;
   url?: InputMaybe<Scalars['String']['input']>;
   volumes?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -1473,7 +1473,7 @@ export type PostReviewInput = {
   entityId: Scalars['String']['input'];
   entityLot: EntityLot;
   isSpoiler?: InputMaybe<Scalars['Boolean']['input']>;
-  mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   rating?: InputMaybe<Scalars['Decimal']['input']>;
@@ -1512,7 +1512,7 @@ export type ProgressUpdateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   changeState?: InputMaybe<SeenState>;
   date?: InputMaybe<Scalars['NaiveDate']['input']>;
-  mangaChapterNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   metadataId: Scalars['String']['input'];
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1828,7 +1828,7 @@ export type SeenAnimeExtraInformation = {
 };
 
 export type SeenMangaExtraInformation = {
-  chapter?: Maybe<Scalars['Int']['output']>;
+  chapter?: Maybe<Scalars['Decimal']['output']>;
   volume?: Maybe<Scalars['Int']['output']>;
 };
 
@@ -2217,7 +2217,7 @@ export type UserMediaFeaturesEnabledPreferences = {
 };
 
 export type UserMediaNextEntry = {
-  chapter?: Maybe<Scalars['Int']['output']>;
+  chapter?: Maybe<Scalars['Decimal']['output']>;
   episode?: Maybe<Scalars['Int']['output']>;
   season?: Maybe<Scalars['Int']['output']>;
   volume?: Maybe<Scalars['Int']['output']>;
@@ -2779,7 +2779,7 @@ export type CollectionContentsQueryVariables = Exact<{
 }>;
 
 
-export type CollectionContentsQuery = { collectionContents: { user: { id: string, name: string }, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, results: { details: { total: number, nextPage?: number | null }, items: Array<{ entityId: string, entityLot: EntityLot }> }, details: { name: string, description?: string | null, createdOn: string } } };
+export type CollectionContentsQuery = { collectionContents: { user: { id: string, name: string }, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null }>, results: { details: { total: number, nextPage?: number | null }, items: Array<{ entityId: string, entityLot: EntityLot }> }, details: { name: string, description?: string | null, createdOn: string } } };
 
 export type CoreDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2834,7 +2834,7 @@ export type MetadataDetailsQueryVariables = Exact<{
 }>;
 
 
-export type MetadataDetailsQuery = { metadataDetails: { id: string, lot: MediaLot, title: string, source: MediaSource, isNsfw?: boolean | null, isPartial?: boolean | null, sourceUrl?: string | null, identifier: string, description?: string | null, suggestions: Array<string>, publishYear?: number | null, publishDate?: string | null, providerRating?: string | null, productionStatus?: string | null, originalLanguage?: string | null, genres: Array<{ id: string, name: string }>, group?: { id: string, name: string, part: number } | null, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> }, creators: Array<{ name: string, items: Array<{ id?: string | null, name: string, image?: string | null, character?: string | null }> }>, watchProviders: Array<{ name: string, image?: string | null, languages: Array<string> }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: number | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ id: string, title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: string }> } | null, showSpecifics?: { totalSeasons?: number | null, totalEpisodes?: number | null, runtime?: number | null, seasons: Array<{ id: number, seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: string | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
+export type MetadataDetailsQuery = { metadataDetails: { id: string, lot: MediaLot, title: string, source: MediaSource, isNsfw?: boolean | null, isPartial?: boolean | null, sourceUrl?: string | null, identifier: string, description?: string | null, suggestions: Array<string>, publishYear?: number | null, publishDate?: string | null, providerRating?: string | null, productionStatus?: string | null, originalLanguage?: string | null, genres: Array<{ id: string, name: string }>, group?: { id: string, name: string, part: number } | null, assets: { images: Array<string>, videos: Array<{ videoId: string, source: MetadataVideoSource }> }, creators: Array<{ name: string, items: Array<{ id?: string | null, name: string, image?: string | null, character?: string | null }> }>, watchProviders: Array<{ name: string, image?: string | null, languages: Array<string> }>, animeSpecifics?: { episodes?: number | null } | null, audioBookSpecifics?: { runtime?: number | null } | null, bookSpecifics?: { pages?: number | null } | null, movieSpecifics?: { runtime?: number | null } | null, mangaSpecifics?: { volumes?: number | null, chapters?: string | null } | null, podcastSpecifics?: { totalEpisodes: number, episodes: Array<{ id: string, title: string, overview?: string | null, thumbnail?: string | null, number: number, runtime?: number | null, publishDate: string }> } | null, showSpecifics?: { totalSeasons?: number | null, totalEpisodes?: number | null, runtime?: number | null, seasons: Array<{ id: number, seasonNumber: number, name: string, overview?: string | null, backdropImages: Array<string>, posterImages: Array<string>, episodes: Array<{ id: number, name: string, posterImages: Array<string>, episodeNumber: number, publishDate?: string | null, overview?: string | null, runtime?: number | null }> }> } | null, visualNovelSpecifics?: { length?: number | null } | null, videoGameSpecifics?: { platforms: Array<string> } | null } };
 
 export type MetadataGroupDetailsQueryVariables = Exact<{
   metadataGroupId: Scalars['String']['input'];
@@ -2888,7 +2888,7 @@ export type UserExerciseDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserExerciseDetailsQuery = { userExerciseDetails: { collections: Array<{ id: string, name: string, userId: string }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, history?: Array<{ idx: number, workoutId: string, workoutEndOn: string, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> | null, details?: { exerciseId?: string | null, createdOn: string, lastUpdatedOn: string, exerciseNumTimesInteracted?: number | null, exerciseExtraInformation?: { lifetimeStats: { weight: string, reps: string, distance: string, duration: string, personalBestsAchieved: number }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, exerciseIdx: number, setIdx: number }> }> } | null } | null } };
+export type UserExerciseDetailsQuery = { userExerciseDetails: { collections: Array<{ id: string, name: string, userId: string }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null }>, history?: Array<{ idx: number, workoutId: string, workoutEndOn: string, bestSet?: { lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } } | null }> | null, details?: { exerciseId?: string | null, createdOn: string, lastUpdatedOn: string, exerciseNumTimesInteracted?: number | null, exerciseExtraInformation?: { lifetimeStats: { weight: string, reps: string, distance: string, duration: string, personalBestsAchieved: number }, personalBests: Array<{ lot: WorkoutSetPersonalBest, sets: Array<{ workoutId: string, exerciseIdx: number, setIdx: number }> }> } | null } | null } };
 
 export type UserMeasurementsListQueryVariables = Exact<{
   input: UserMeasurementsListInput;
@@ -2902,21 +2902,21 @@ export type UserMetadataDetailsQueryVariables = Exact<{
 }>;
 
 
-export type UserMetadataDetailsQuery = { userMetadataDetails: { mediaReason?: Array<UserToMediaReason> | null, hasInteracted: boolean, averageRating?: string | null, seenByAllCount: number, seenByUserCount: number, collections: Array<{ id: string, name: string, userId: string }>, inProgress?: { id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null } | null, history: Array<{ id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, nextEntry?: { season?: number | null, volume?: number | null, episode?: number | null, chapter?: number | null } | null, showProgress?: Array<{ timesSeen: number, seasonNumber: number, episodes: Array<{ episodeNumber: number, timesSeen: number }> }> | null, podcastProgress?: Array<{ episodeNumber: number, timesSeen: number }> | null } };
+export type UserMetadataDetailsQuery = { userMetadataDetails: { mediaReason?: Array<UserToMediaReason> | null, hasInteracted: boolean, averageRating?: string | null, seenByAllCount: number, seenByUserCount: number, collections: Array<{ id: string, name: string, userId: string }>, inProgress?: { id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null } | null, history: Array<{ id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null }>, nextEntry?: { season?: number | null, volume?: number | null, episode?: number | null, chapter?: string | null } | null, showProgress?: Array<{ timesSeen: number, seasonNumber: number, episodes: Array<{ episodeNumber: number, timesSeen: number }> }> | null, podcastProgress?: Array<{ episodeNumber: number, timesSeen: number }> | null } };
 
 export type UserMetadataGroupDetailsQueryVariables = Exact<{
   metadataGroupId: Scalars['String']['input'];
 }>;
 
 
-export type UserMetadataGroupDetailsQuery = { userMetadataGroupDetails: { reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }>, collections: Array<{ id: string, name: string, userId: string }> } };
+export type UserMetadataGroupDetailsQuery = { userMetadataGroupDetails: { reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null }>, collections: Array<{ id: string, name: string, userId: string }> } };
 
 export type UserPersonDetailsQueryVariables = Exact<{
   personId: Scalars['String']['input'];
 }>;
 
 
-export type UserPersonDetailsQuery = { userPersonDetails: { collections: Array<{ id: string, name: string, userId: string }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null }> } };
+export type UserPersonDetailsQuery = { userPersonDetails: { collections: Array<{ id: string, name: string, userId: string }>, reviews: Array<{ id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null }> } };
 
 export type UserPreferencesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -3045,11 +3045,11 @@ export type SeenShowExtraInformationPartFragment = { episode: number, season: nu
 
 export type SeenAnimeExtraInformationPartFragment = { episode?: number | null };
 
-export type SeenMangaExtraInformationPartFragment = { chapter?: number | null, volume?: number | null };
+export type SeenMangaExtraInformationPartFragment = { chapter?: string | null, volume?: number | null };
 
 export type CalendarEventPartFragment = { date: string, metadataId: string, metadataLot: MediaLot, episodeName?: string | null, metadataTitle: string, metadataImage?: string | null, calendarEventId: string, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null };
 
-export type SeenPartFragment = { id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null };
+export type SeenPartFragment = { id: string, progress: string, providerWatchedOn?: string | null, state: SeenState, startedOn?: string | null, finishedOn?: string | null, lastUpdatedOn: string, numTimesUpdated: number, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null };
 
 export type MetadataSearchItemPartFragment = { identifier: string, title: string, image?: string | null, publishYear?: number | null };
 
@@ -3065,7 +3065,7 @@ export type WorkoutSummaryPartFragment = { total?: { personalBestsAchieved: numb
 
 export type CollectionPartFragment = { id: string, name: string, userId: string };
 
-export type ReviewItemPartFragment = { id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: number | null, volume?: number | null } | null };
+export type ReviewItemPartFragment = { id: string, rating?: string | null, textOriginal?: string | null, textRendered?: string | null, isSpoiler: boolean, visibility: Visibility, postedOn: string, postedBy: { id: string, name: string }, comments: Array<{ id: string, text: string, createdOn: string, likedBy: Array<string>, user: { id: string, name: string } }>, showExtraInformation?: { episode: number, season: number } | null, podcastExtraInformation?: { episode: number } | null, animeExtraInformation?: { episode?: number | null } | null, mangaExtraInformation?: { chapter?: string | null, volume?: number | null } | null };
 
 export type WorkoutInformationPartFragment = { comment?: string | null, assets?: { images: Array<string>, videos: Array<string> } | null, exercises: Array<{ name: string, lot: ExerciseLot, notes: Array<string>, restTime?: number | null, supersetWith: Array<number>, total?: { personalBestsAchieved: number, weight: string, reps: string, distance: string, duration: string, restTime: number } | null, assets?: { images: Array<string>, videos: Array<string> } | null, sets: Array<{ note?: string | null, lot: SetLot, personalBests?: Array<WorkoutSetPersonalBest> | null, confirmedAt?: string | null, statistic: { duration?: string | null, distance?: string | null, reps?: string | null, weight?: string | null, oneRm?: string | null, pace?: string | null, volume?: string | null } }> }> };
 

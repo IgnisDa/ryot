@@ -91,6 +91,7 @@ use providers::{
     vndb::VndbService,
 };
 use rust_decimal::Decimal;
+use rust_decimal::prelude::{One, ToPrimitive};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
@@ -130,7 +131,7 @@ struct ProgressUpdateCache {
     show_episode_number: Option<i32>,
     podcast_episode_number: Option<i32>,
     anime_episode_number: Option<i32>,
-    manga_chapter_number: Option<i32>,
+    manga_chapter_number: Option<Decimal>,
     manga_volume_number: Option<i32>,
 }
 
@@ -545,7 +546,7 @@ impl MiscellaneousService {
                 h.manga_extra_information.as_ref().and_then(|hist| {
                     hist.chapter
                         .map(|e| UserMediaNextEntry {
-                            chapter: Some(e + 1),
+                            chapter: Some(e.floor() + dec!(1)),
                             ..Default::default()
                         })
                         .or(hist.volume.map(|e| UserMediaNextEntry {
@@ -3391,7 +3392,11 @@ impl MiscellaneousService {
             } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes) {
                 (1..e + 1).map(|e| format!("{}", e)).collect_vec()
             } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters) {
-                (1..c + 1).map(|e| format!("{}", e)).collect_vec()
+                let one = Decimal::one();
+                (0..c.to_u32().unwrap_or(0))
+                    .map(|i| Decimal::from(i) + one)
+                    .map(|d| d.to_string())
+                    .collect_vec()
             } else {
                 vec![]
             };

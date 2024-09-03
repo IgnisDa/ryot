@@ -42,7 +42,7 @@ export interface ImportOrExportItemRating {
 	/** The comments attached to this review. */
 	comments: ImportOrExportItemReviewComment[] | null;
 	/** If for a manga, the chapter for which this review was for. */
-	manga_chapter_number: number | null;
+	manga_chapter_number: string | null;
 	/** If for a podcast, the episode for which this review was for. */
 	podcast_episode_number: number | null;
 	/** The score of the review. */
@@ -115,7 +115,7 @@ export interface ImportOrExportMediaItemSeen {
 	/** The timestamp when finished watching. */
 	ended_on: string | null;
 	/** If for a manga, the chapter which was seen. */
-	manga_chapter_number: number | null;
+	manga_chapter_number: string | null;
 	/** If for a manga, the volume which was seen. */
 	manga_volume_number: number | null;
 	/** If for a podcast, the episode which was seen. */
