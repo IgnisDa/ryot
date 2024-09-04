@@ -39,6 +39,7 @@ use media_models::{
 };
 use migrations::AliasedCollectionToEntity;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
@@ -546,7 +547,7 @@ pub async fn calculate_user_activities_and_summary(
         shows: HashSet<String>,
         show_seasons: HashSet<i32>,
         anime_episodes: HashSet<i32>,
-        manga_chapters: HashSet<i32>,
+        manga_chapters: HashSet<Decimal>,
         manga_volumes: HashSet<i32>,
     }
     type Tracker = HashMap<Date, TrackerItem>;

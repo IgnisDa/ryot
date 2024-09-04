@@ -365,7 +365,7 @@ pub struct AnimeSpecifics {
 )]
 #[graphql(input_name = "MangaSpecificsInput")]
 pub struct MangaSpecifics {
-    pub chapters: Option<i32>,
+    pub chapters: Option<Decimal>,
     pub volumes: Option<i32>,
     pub url: Option<String>,
 }
@@ -401,7 +401,7 @@ pub struct PostReviewInput {
     pub show_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
     pub manga_volume_number: Option<i32>,
 }
 
@@ -414,7 +414,7 @@ pub struct ProgressUpdateInput {
     pub show_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
     pub manga_volume_number: Option<i32>,
     pub change_state: Option<SeenState>,
     pub provider_watched_on: Option<String>,
@@ -562,7 +562,7 @@ pub struct ImportOrExportMediaItemSeen {
     /// If for an anime, the episode which was seen.
     pub anime_episode_number: Option<i32>,
     /// If for a manga, the chapter which was seen.
-    pub manga_chapter_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
     /// If for a manga, the volume which was seen.
     pub manga_volume_number: Option<i32>,
     /// The provider this item was watched on.
@@ -602,7 +602,7 @@ pub struct ImportOrExportItemRating {
     /// If for an anime, the episode for which this review was for.
     pub anime_episode_number: Option<i32>,
     /// If for a manga, the chapter for which this review was for.
-    pub manga_chapter_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
     /// The comments attached to this review.
     pub comments: Option<Vec<ImportOrExportItemReviewComment>>,
 }
@@ -811,7 +811,7 @@ pub struct SeenAnimeExtraInformation {
     Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject, FromJsonQueryResult,
 )]
 pub struct SeenMangaExtraInformation {
-    pub chapter: Option<i32>,
+    pub chapter: Option<Decimal>,
     pub volume: Option<i32>,
 }
 
@@ -1055,7 +1055,7 @@ pub struct IntegrationMediaSeen {
     pub show_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
     pub manga_volume_number: Option<i32>,
     pub provider_watched_on: Option<String>,
 }
@@ -1464,7 +1464,7 @@ pub struct UserMetadataDetailsShowSeasonProgress {
 pub struct UserMediaNextEntry {
     pub season: Option<i32>,
     pub volume: Option<i32>,
-    pub chapter: Option<i32>,
+    pub chapter: Option<Decimal>,
     pub episode: Option<i32>,
 }
 

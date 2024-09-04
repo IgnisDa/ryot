@@ -45,7 +45,7 @@ resolver = "2"
 anyhow = "=1.0.82"
 apalis = { version = "=0.5.3", features = ["cron", "limit"] }
 argon2 = "=0.6.0-pre.1"
-async-graphql = { version = "=7.0.7", features = [
+async-graphql = { version = "=7.0.9", features = [
     "chrono",
     "decimal",
     "log",
@@ -68,10 +68,11 @@ markdown = "=1.0.0-alpha.18"
 nanoid = "=0.4.0"
 openidconnect = "=3.5.0"
 regex = "=1.10.5"
-rust_decimal = "=1.35.0"
-rust_decimal_macros = "=1.35.0"
-schematic = { version = "=0.16.6", features = [
+rust_decimal = "=1.36.0"
+rust_decimal_macros = "=1.36.0"
+schematic = { version = "=0.17.4", features = [
     "config",
+    "env",
     "json",
     "schema",
     "toml",
@@ -80,6 +81,7 @@ schematic = { version = "=0.16.6", features = [
     "type_rust_decimal",
     "url",
     "renderer_template",
+    "validate",
     "yaml",
 ], default-features = false }
 sea-orm = { version = "=1.0.0", features = [
@@ -95,8 +97,8 @@ sea-orm = { version = "=1.0.0", features = [
 ], default-features = false }
 sea-orm-migration = "=1.0.0"
 sea-query = "=0.31.0"
-serde = { version = "=1.0.204", features = ["derive"] }
-serde_json = "=1.0.120"
+serde = { version = "=1.0.209", features = ["derive"] }
+serde_json = "=1.0.127"
 serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }
 slug = "=0.1.5"
 strum = { version = "=0.26.2", features = ["derive"] }
