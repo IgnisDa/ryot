@@ -236,7 +236,11 @@ export default function Page() {
 							handle to re-arrange them.
 						</Text>
 						<Stack ref={parent}>
-							{JSON.stringify(elements)}
+							<Text size="xs">
+								<pre>
+									<code>{JSON.stringify(elements, null, 4)}</code>
+								</pre>
+							</Text>
 							{/* {dashboardElements.map((section) => {
 								const settings = section.settings;
 								return (
