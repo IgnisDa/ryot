@@ -3139,28 +3139,31 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         for col_update in collection_updates.into_iter() {
-            let metadata::Model { id, .. } = self
+            let metadata_result = self
                 .commit_metadata(CommitMediaInput {
                     lot: col_update.lot,
                     source: col_update.source,
                     identifier: col_update.identifier.clone(),
                     force_update: None,
                 })
-                .await?;
-            add_entity_to_collection(
-                &self.db,
-                user_id,
-                ChangeCollectionToEntityInput {
-                    creator_user_id: user_id.to_owned(),
-                    collection_name: col_update.collection,
-                    entity_id: id.clone(),
-                    entity_lot: EntityLot::Metadata,
-                    ..Default::default()
-                },
-                &self.perform_core_application_job,
-            )
-            .await
-            .trace_ok();
+                .await;
+
+            if let Ok(metadata::Model { id, .. }) = metadata_result {
+                add_entity_to_collection(
+                    &self.db,
+                    user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.to_owned(),
+                        collection_name: col_update.collection,
+                        entity_id: id.clone(),
+                        entity_lot: EntityLot::Metadata,
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .trace_ok();
+            }
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
