@@ -10,9 +10,9 @@ use database_models::{
     collection, collection_to_entity,
     prelude::{
         Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, User,
-        UserToCollection, Workout,
+        UserToEntity, Workout,
     },
-    user_to_collection,
+    user_to_entity,
 };
 use database_utils::{
     add_entity_to_collection, create_or_update_collection, ilike_sql, item_reviews,
@@ -26,7 +26,7 @@ use media_models::{
 };
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedPerson, AliasedUser, AliasedUserToCollection,
+    AliasedMetadataGroup, AliasedPerson, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::{
     ColumnTrait, DatabaseConnection, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType,
@@ -76,7 +76,7 @@ impl CollectionService {
             }
         }
         let collaborators_subquery = Query::select()
-            .from(UserToCollection)
+            .from(UserToEntity)
             .expr(
                 Func::cust(JsonAgg).arg(
                     Func::cust(JsonBuildObject)
@@ -89,16 +89,13 @@ impl CollectionService {
             .join(
                 JoinType::InnerJoin,
                 AliasedUser::Table,
-                Expr::col((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::UserId,
-                ))
-                .equals((AliasedUser::Table, AliasedUser::Id)),
+                Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
+                    .equals((AliasedUser::Table, AliasedUser::Id)),
             )
             .and_where(
                 Expr::col((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::CollectionId,
+                    AliasedUserToEntity::Table,
+                    AliasedUserToEntity::CollectionId,
                 ))
                 .equals((AliasedCollection::Table, AliasedCollection::Id)),
             )
@@ -116,8 +113,8 @@ impl CollectionService {
                     AliasedCollectionToEntity::CollectionId,
                 ))
                 .equals((
-                    AliasedUserToCollection::Table,
-                    AliasedUserToCollection::CollectionId,
+                    AliasedUserToEntity::Table,
+                    AliasedUserToEntity::CollectionId,
                 )),
             )
             .to_owned();
@@ -162,8 +159,8 @@ impl CollectionService {
             )
             .order_by_desc(collection::Column::LastUpdatedOn)
             .left_join(User)
-            .left_join(UserToCollection)
-            .filter(user_to_collection::Column::UserId.eq(user_id))
+            .left_join(UserToEntity)
+            .filter(user_to_entity::Column::UserId.eq(user_id))
             .into_model::<CollectionItem>()
             .all(&self.db)
             .await

@@ -30,9 +30,9 @@ use database_models::{
         CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Integration, Metadata,
         MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
         MetadataToPerson, NotificationPlatform, Person, QueuedNotification, Review, Seen, User,
-        UserToCollection, UserToEntity,
+        UserToEntity,
     },
-    queued_notification, review, seen, user, user_to_collection, user_to_entity,
+    queued_notification, review, seen, user, user_to_entity,
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
@@ -1377,8 +1377,8 @@ impl MiscellaneousService {
             let collections = Collection::find()
                 .column(collection::Column::Id)
                 .column(collection::Column::UserId)
-                .left_join(UserToCollection)
-                .filter(user_to_collection::Column::UserId.eq(&user_id))
+                .left_join(UserToEntity)
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
                 .all(&self.db)
                 .await
                 .unwrap();
@@ -2077,8 +2077,8 @@ impl MiscellaneousService {
         let collections = Collection::find()
             .select_only()
             .column(collection::Column::Id)
-            .left_join(UserToCollection)
-            .filter(user_to_collection::Column::UserId.eq(&user_id))
+            .left_join(UserToEntity)
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
             .into_tuple::<String>()
             .all(&txn)
             .await
@@ -3042,28 +3042,31 @@ impl MiscellaneousService {
             }
         }
         for col_update in collection_updates.into_iter() {
-            let metadata::Model { id, .. } = self
+            let metadata_result = self
                 .commit_metadata(CommitMediaInput {
                     lot: col_update.lot,
                     source: col_update.source,
                     identifier: col_update.identifier.clone(),
                     force_update: None,
                 })
-                .await?;
-            add_entity_to_collection(
-                &self.db,
-                user_id,
-                ChangeCollectionToEntityInput {
-                    creator_user_id: user_id.to_owned(),
-                    collection_name: col_update.collection,
-                    entity_id: id.clone(),
-                    entity_lot: EntityLot::Metadata,
-                    ..Default::default()
-                },
-                &self.perform_core_application_job,
-            )
-            .await
-            .trace_ok();
+                .await;
+
+            if let Ok(metadata::Model { id, .. }) = metadata_result {
+                add_entity_to_collection(
+                    &self.db,
+                    user_id,
+                    ChangeCollectionToEntityInput {
+                        creator_user_id: user_id.to_owned(),
+                        collection_name: col_update.collection,
+                        entity_id: id.clone(),
+                        entity_lot: EntityLot::Metadata,
+                        ..Default::default()
+                    },
+                    &self.perform_core_application_job,
+                )
+                .await
+                .trace_ok();
+            }
         }
         Integration::update_many()
             .filter(integration::Column::Id.is_in(to_update_integrations))
@@ -3886,7 +3889,7 @@ impl MiscellaneousService {
                 let reminder: UserMediaReminder =
                     serde_json::from_str(&serde_json::to_string(&reminder)?)?;
                 let col = col.unwrap();
-                let related_users = col.find_related(UserToCollection).all(&self.db).await?;
+                let related_users = col.find_related(UserToEntity).all(&self.db).await?;
                 if get_current_date(self.timezone.as_ref()) == reminder.reminder {
                     for user in related_users {
                         self.queue_notifications_to_user_platforms(&user.user_id, &reminder.text)
