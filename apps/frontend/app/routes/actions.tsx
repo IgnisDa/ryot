@@ -270,10 +270,15 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}
 			}
 			if (submission.metadataLot === MediaLot.Manga) {
+				const isValidNumber = (value: unknown): boolean => {
+					const num = Number(value);
+					return !Number.isNaN(num) && Number.isFinite(num);
+				};
+
 				if (
-					(isNumber(submission.mangaChapterNumber) &&
+					(isValidNumber(submission.mangaChapterNumber) &&
 						isNumber(submission.mangaVolumeNumber)) ||
-					(!isNumber(submission.mangaChapterNumber) &&
+					(!isValidNumber(submission.mangaChapterNumber) &&
 						!isNumber(submission.mangaVolumeNumber))
 				)
 					throw Response.json({
@@ -308,7 +313,10 @@ export const action = unstable_defineAction(async ({ request }) => {
 
 						for (let i = 1; i < targetChapter; i++) {
 							if (!markedChapters.has(i)) {
-								updates.push({ ...variables, mangaChapterNumber: i });
+								updates.push({
+									...variables,
+									mangaChapterNumber: i.toString(),
+								});
 							}
 						}
 					}

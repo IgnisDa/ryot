@@ -158,7 +158,7 @@ const emptyNumberString = z
 
 const emptyDecimalString = z
 	.any()
-	.transform((v) => (!v ? undefined : Number.parseFloat(v)))
+	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
 	.nullable();
 
 export const MetadataIdSchema = z.object({ metadataId: z.string() });

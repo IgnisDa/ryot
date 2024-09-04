@@ -57,6 +57,7 @@ import {
 	changeCase,
 	formatDateToNaiveDate,
 	humanizeDuration,
+	isInteger,
 	isNumber,
 	isString,
 	processSubmission,
@@ -1353,11 +1354,6 @@ const HistoryItem = (props: { history: History; index: number }) => {
 						e.episodeNumber === props.history.showExtraInformation?.episode,
 				)
 		: null;
-	const isNumberOrDecimalString = (value: unknown): boolean =>
-		isNumber(value) ||
-		(isString(value) &&
-			!Number.isNaN(Number.parseFloat(value)) &&
-			Number.isFinite(Number(value)));
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
@@ -1377,10 +1373,15 @@ const HistoryItem = (props: { history: History; index: number }) => {
 	const displayMangaExtraInformation = (() => {
 		const { chapter, volume } = props.history.mangaExtraInformation || {};
 
-		if (isNumberOrDecimalString(chapter)) {
-			const chapterNum = Number.parseFloat(chapter);
-			const isWholeNumber = chapterNum % 1 === 0;
-			return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
+		if (chapter != null) {
+			const chapterNum = isString(chapter)
+				? Number.parseFloat(chapter)
+				: chapter;
+
+			if (!Number.isNaN(chapterNum)) {
+				const isWholeNumber = isInteger(chapterNum);
+				return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
+			}
 		}
 
 		if (isNumber(volume)) return `VOL-${volume}`;
