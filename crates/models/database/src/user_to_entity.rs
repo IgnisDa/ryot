@@ -20,6 +20,7 @@ pub struct Model {
     pub person_id: Option<String>,
     pub metadata_id: Option<String>,
     pub exercise_id: Option<String>,
+    pub collection_id: Option<String>,
     pub exercise_extra_information: Option<UserToExerciseExtraInformation>,
     pub exercise_num_times_interacted: Option<i32>,
     #[graphql(skip)]
@@ -31,6 +32,14 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::collection::Entity",
+        from = "Column::CollectionId",
+        to = "super::collection::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Collection,
     #[sea_orm(
         belongs_to = "super::exercise::Entity",
         from = "Column::ExerciseId",
@@ -71,6 +80,12 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+}
+
+impl Related<super::collection::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Collection.def()
+    }
 }
 
 impl Related<super::exercise::Entity> for Entity {

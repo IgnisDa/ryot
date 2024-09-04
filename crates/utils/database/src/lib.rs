@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
@@ -11,28 +14,39 @@ use common_models::{
 };
 use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
-    collection, collection_to_entity,
+    collection, collection_to_entity, daily_user_activity,
     functions::associate_user_with_entity,
+    metadata,
     prelude::{
-        Collection, CollectionToEntity, Review, User, UserMeasurement, UserToCollection, Workout,
+        Collection, CollectionToEntity, DailyUserActivity, Metadata, Review, Seen, User,
+        UserMeasurement, UserToEntity, Workout,
     },
-    review, user, user_measurement, user_to_collection, workout,
+    review, seen, user, user_measurement, user_to_entity, workout,
 };
 use dependent_models::UserWorkoutDetails;
-use enums::{EntityLot, UserLot, Visibility};
+use enums::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
+use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::to_html as markdown_to_html;
-use media_models::{CreateOrUpdateCollectionInput, ReviewItem};
+use media_models::{
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CreateOrUpdateCollectionInput,
+    MangaSpecifics, MovieSpecifics, PodcastSpecifics, ReviewItem, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
+};
 use migrations::AliasedCollectionToEntity;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::Expr,
+    prelude::{Date, DateTimeUtc, Expr},
     sea_query::{OnConflict, PgFunc},
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
+    Iterable, ModelTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
+    TransactionTrait,
 };
+use serde::{Deserialize, Serialize};
 use user_models::{UserPreferences, UserReviewScale};
 use uuid::Uuid;
 
@@ -120,8 +134,8 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
     entity_lot: EntityLot,
 ) -> Result<Vec<(collection::Model, Uuid)>> {
     let user_collections = Collection::find()
-        .left_join(UserToCollection)
-        .filter(user_to_collection::Column::UserId.eq(user_id))
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
         .all(db)
         .await
         .unwrap();
@@ -229,8 +243,8 @@ pub async fn add_entity_to_collection(
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
 ) -> Result<bool> {
     let collection = Collection::find()
-        .left_join(UserToCollection)
-        .filter(user_to_collection::Column::UserId.eq(user_id))
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
         .filter(collection::Column::Name.eq(input.collection_name))
         .one(db)
         .await
@@ -291,9 +305,9 @@ pub async fn remove_entity_from_collection(
     input: ChangeCollectionToEntityInput,
 ) -> Result<StringIdObject> {
     let collect = Collection::find()
-        .left_join(UserToCollection)
+        .left_join(UserToEntity)
         .filter(collection::Column::Name.eq(input.collection_name))
-        .filter(user_to_collection::Column::UserId.eq(input.creator_user_id))
+        .filter(user_to_entity::Column::UserId.eq(input.creator_user_id))
         .one(db)
         .await
         .unwrap()
@@ -428,11 +442,12 @@ pub async fn create_or_update_collection(
             let collaborators = vec![user_id.to_owned()];
             let inserts = collaborators
                 .into_iter()
-                .map(|c| user_to_collection::ActiveModel {
+                .map(|c| user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c),
-                    collection_id: ActiveValue::Set(id.clone()),
+                    collection_id: ActiveValue::Set(Some(id.clone())),
+                    ..Default::default()
                 });
-            UserToCollection::insert_many(inserts)
+            UserToEntity::insert_many(inserts)
                 .on_conflict(OnConflict::new().do_nothing().to_owned())
                 .exec_without_returning(&txn)
                 .await?;
@@ -441,6 +456,291 @@ pub async fn create_or_update_collection(
     };
     txn.commit().await?;
     Ok(StringIdObject { id: created })
+}
+
+pub async fn calculate_user_activities_and_summary(
+    db: &DatabaseConnection,
+    user_id: &String,
+    calculate_from_beginning: bool,
+) -> Result<()> {
+    #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
+    struct SeenItem {
+        seen_id: String,
+        show_extra_information: Option<SeenShowExtraInformation>,
+        podcast_extra_information: Option<SeenPodcastExtraInformation>,
+        anime_extra_information: Option<SeenAnimeExtraInformation>,
+        manga_extra_information: Option<SeenMangaExtraInformation>,
+        metadata_id: String,
+        finished_on: Option<Date>,
+        last_updated_on: DateTimeUtc,
+        metadata_lot: MediaLot,
+        audio_book_specifics: Option<AudioBookSpecifics>,
+        book_specifics: Option<BookSpecifics>,
+        movie_specifics: Option<MovieSpecifics>,
+        podcast_specifics: Option<PodcastSpecifics>,
+        show_specifics: Option<ShowSpecifics>,
+        video_game_specifics: Option<VideoGameSpecifics>,
+        visual_novel_specifics: Option<VisualNovelSpecifics>,
+        anime_specifics: Option<AnimeSpecifics>,
+        manga_specifics: Option<MangaSpecifics>,
+    }
+    struct TrackerItem {
+        activity: daily_user_activity::Model,
+        shows: HashSet<String>,
+        show_seasons: HashSet<i32>,
+        anime_episodes: HashSet<i32>,
+        manga_chapters: HashSet<i32>,
+        manga_volumes: HashSet<i32>,
+    }
+    type Tracker = HashMap<Date, TrackerItem>;
+
+    let start_from = match calculate_from_beginning {
+        true => {
+            DailyUserActivity::delete_many()
+                .filter(daily_user_activity::Column::UserId.eq(user_id))
+                .exec(db)
+                .await?;
+            Date::default()
+        }
+        false => DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .order_by_desc(daily_user_activity::Column::Date)
+            .one(db)
+            .await?
+            .map(|i| i.date)
+            .unwrap_or_default(),
+    };
+    let mut activities: Tracker = HashMap::new();
+
+    fn get_activity_count<'a>(
+        entity_id: String,
+        activities: &'a mut Tracker,
+        user_id: &'a String,
+        date: Date,
+    ) -> &'a mut TrackerItem {
+        ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
+        let existing = activities.entry(date).or_insert(TrackerItem {
+            activity: daily_user_activity::Model {
+                date,
+                user_id: user_id.to_owned(),
+                ..Default::default()
+            },
+            shows: HashSet::new(),
+            show_seasons: HashSet::new(),
+            anime_episodes: HashSet::new(),
+            manga_chapters: HashSet::new(),
+            manga_volumes: HashSet::new(),
+        });
+        existing
+    }
+    let mut seen_stream = Seen::find()
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::State.eq(SeenState::Completed))
+        .filter(seen::Column::LastUpdatedOn.gt(start_from))
+        .left_join(Metadata)
+        .select_only()
+        .column_as(seen::Column::Id, "seen_id")
+        .columns([
+            seen::Column::ShowExtraInformation,
+            seen::Column::PodcastExtraInformation,
+            seen::Column::AnimeExtraInformation,
+            seen::Column::MangaExtraInformation,
+            seen::Column::MetadataId,
+            seen::Column::FinishedOn,
+            seen::Column::LastUpdatedOn,
+        ])
+        .column_as(metadata::Column::Lot, "metadata_lot")
+        .columns([
+            metadata::Column::AudioBookSpecifics,
+            metadata::Column::BookSpecifics,
+            metadata::Column::MovieSpecifics,
+            metadata::Column::PodcastSpecifics,
+            metadata::Column::ShowSpecifics,
+            metadata::Column::VideoGameSpecifics,
+            metadata::Column::VisualNovelSpecifics,
+            metadata::Column::AnimeSpecifics,
+            metadata::Column::MangaSpecifics,
+        ])
+        .into_model::<SeenItem>()
+        .stream(db)
+        .await?;
+
+    while let Some(seen) = seen_stream.try_next().await? {
+        let default_date = Date::from_ymd_opt(2023, 4, 3).unwrap(); // DEV: The first commit of Ryot
+        let date = seen.finished_on.unwrap_or(default_date);
+        let TrackerItem {
+            activity,
+            shows,
+            show_seasons,
+            anime_episodes,
+            manga_chapters,
+            manga_volumes,
+        } = get_activity_count(seen.seen_id, &mut activities, user_id, date);
+        if let (Some(show_seen), Some(show_extra)) =
+            (seen.show_specifics, seen.show_extra_information)
+        {
+            shows.insert(seen.metadata_id.clone());
+            show_seasons.insert(show_extra.season);
+            if let Some(runtime) = show_seen
+                .get_episode(show_extra.season, show_extra.episode)
+                .and_then(|(_, e)| e.runtime)
+            {
+                activity.show_duration += runtime;
+            }
+        } else if let (Some(podcast_seen), Some(podcast_extra)) =
+            (seen.podcast_specifics, seen.podcast_extra_information)
+        {
+            if let Some(runtime) = podcast_seen
+                .episode_by_number(podcast_extra.episode)
+                .and_then(|e| e.runtime)
+            {
+                activity.podcast_duration += runtime;
+            }
+        } else if let (Some(_), Some(anime_extra)) =
+            (seen.anime_specifics, seen.anime_extra_information)
+        {
+            if let Some(episode) = anime_extra.episode {
+                anime_episodes.insert(episode);
+            }
+        } else if let (Some(_), Some(manga_extra)) =
+            (seen.manga_specifics, seen.manga_extra_information)
+        {
+            if let Some(chapter) = manga_extra.chapter {
+                manga_chapters.insert(chapter);
+            }
+            if let Some(volume) = manga_extra.volume {
+                manga_volumes.insert(volume);
+            }
+        } else if let Some(audio_book_extra) = seen.audio_book_specifics {
+            if let Some(runtime) = audio_book_extra.runtime {
+                activity.audio_book_duration += runtime;
+            }
+        } else if let Some(movie_extra) = seen.movie_specifics {
+            if let Some(runtime) = movie_extra.runtime {
+                activity.movie_duration += runtime;
+            }
+        } else if let Some(book_extra) = seen.book_specifics {
+            if let Some(pages) = book_extra.pages {
+                activity.book_pages += pages;
+            }
+        } else if let Some(visual_novel_extra) = seen.visual_novel_specifics {
+            if let Some(runtime) = visual_novel_extra.length {
+                activity.visual_novel_duration += runtime;
+            }
+        }
+        match seen.metadata_lot {
+            MediaLot::Anime => activity.anime_count += 1,
+            MediaLot::Manga => activity.manga_count += 1,
+            MediaLot::Podcast => activity.podcast_count += 1,
+            MediaLot::Show => activity.show_episode_count += 1,
+            MediaLot::VideoGame => activity.video_game_count += 1,
+            MediaLot::VisualNovel => activity.visual_novel_count += 1,
+            MediaLot::Book => activity.book_count += 1,
+            MediaLot::AudioBook => activity.audio_book_count += 1,
+            MediaLot::Movie => activity.movie_count += 1,
+        };
+    }
+
+    let mut workout_stream = Workout::find()
+        .filter(workout::Column::UserId.eq(user_id))
+        .filter(workout::Column::EndTime.gte(start_from))
+        .stream(db)
+        .await?;
+    while let Some(item) = workout_stream.try_next().await? {
+        let date = item.end_time.date_naive();
+        let TrackerItem { activity, .. } =
+            get_activity_count(item.id, &mut activities, user_id, date);
+        activity.workout_count += 1;
+        activity.workout_duration += item.duration / 60;
+        let workout_total = item.summary.total.unwrap();
+        activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
+        activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
+        activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
+        activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
+        activity.workout_rest_time += workout_total.rest_time as i32;
+    }
+
+    let mut measurement_stream = UserMeasurement::find()
+        .filter(user_measurement::Column::UserId.eq(user_id))
+        .filter(user_measurement::Column::Timestamp.gte(start_from))
+        .stream(db)
+        .await?;
+    while let Some(item) = measurement_stream.try_next().await? {
+        let date = item.timestamp.date_naive();
+        let TrackerItem { activity, .. } =
+            get_activity_count(item.timestamp.to_string(), &mut activities, user_id, date);
+        activity.measurement_count += 1;
+    }
+
+    let mut review_stream = Review::find()
+        .filter(review::Column::UserId.eq(user_id))
+        .filter(review::Column::PostedOn.gte(start_from))
+        .stream(db)
+        .await?;
+    while let Some(item) = review_stream.try_next().await? {
+        let date = item.posted_on.date_naive();
+        let TrackerItem { activity, .. } =
+            get_activity_count(item.id, &mut activities, user_id, date);
+        match item.entity_lot {
+            EntityLot::Metadata => activity.metadata_review_count += 1,
+            EntityLot::Person => activity.person_review_count += 1,
+            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
+            EntityLot::Collection => activity.collection_review_count += 1,
+            EntityLot::Exercise => activity.exercise_review_count += 1,
+            _ => {}
+        }
+    }
+
+    for (_, track_item) in activities {
+        let TrackerItem { activity, .. } = track_item;
+        if let Some(entity) = DailyUserActivity::find()
+            .filter(daily_user_activity::Column::Date.eq(activity.date))
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .one(db)
+            .await?
+        {
+            entity.delete(db).await?;
+        }
+        let total_review_count = activity.metadata_review_count
+            + activity.collection_review_count
+            + activity.metadata_group_review_count
+            + activity.person_review_count
+            + activity.exercise_review_count;
+        let total_metadata_count = activity.movie_count
+            + activity.show_count
+            + activity.podcast_count
+            + activity.anime_count
+            + activity.manga_count
+            + activity.audio_book_count
+            + activity.book_count
+            + activity.video_game_count
+            + activity.visual_novel_count;
+        let total_count =
+            total_metadata_count + activity.measurement_count + activity.workout_count;
+        let total_duration = activity.workout_duration
+            + activity.audio_book_duration
+            + activity.podcast_duration
+            + activity.movie_duration
+            + activity.show_duration;
+        let total_anime_episodes = track_item.anime_episodes.len().try_into().unwrap();
+        let total_manga_chapters = track_item.manga_chapters.len().try_into().unwrap();
+        let total_manga_volumes = track_item.manga_volumes.len().try_into().unwrap();
+        let total_shows = track_item.shows.len().try_into().unwrap();
+        let total_show_seasons = track_item.show_seasons.len().try_into().unwrap();
+        let mut model: daily_user_activity::ActiveModel = activity.into();
+        model.anime_episode_count = ActiveValue::Set(total_anime_episodes);
+        model.manga_chapter_count = ActiveValue::Set(total_manga_chapters);
+        model.manga_volume_count = ActiveValue::Set(total_manga_volumes);
+        model.show_count = ActiveValue::Set(total_shows);
+        model.show_season_count = ActiveValue::Set(total_show_seasons);
+        model.total_review_count = ActiveValue::Set(total_review_count);
+        model.total_metadata_count = ActiveValue::Set(total_metadata_count);
+        model.total_count = ActiveValue::Set(total_count);
+        model.total_duration = ActiveValue::Set(total_duration);
+        model.insert(db).await.ok();
+    }
+
+    Ok(())
 }
 
 pub async fn deploy_job_to_calculate_user_activities_and_summary(

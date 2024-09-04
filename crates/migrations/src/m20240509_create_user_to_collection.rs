@@ -1,3 +1,4 @@
+// FIXME: Delete this migration
 use sea_orm_migration::prelude::*;
 
 use super::{m20230417_create_user::User, m20230504_create_collection::Collection};

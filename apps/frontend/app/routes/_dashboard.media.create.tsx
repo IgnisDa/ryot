@@ -53,8 +53,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 			: undefined,
 	};
 	input.specifics = undefined;
-	input.genres = input.genres?.split(", ");
-	input.creators = input.creators?.split(", ");
+	input.genres = input.genres?.split(",");
+	input.creators = input.creators?.split(",");
 	const { createCustomMetadata } = await serverGqlService.authenticatedRequest(
 		request,
 		CreateCustomMetadataDocument,

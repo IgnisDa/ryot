@@ -24,6 +24,5 @@ pub mod review;
 pub mod seen;
 pub mod user;
 pub mod user_measurement;
-pub mod user_to_collection;
 pub mod user_to_entity;
 pub mod workout;

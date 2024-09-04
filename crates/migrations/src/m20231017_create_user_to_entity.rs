@@ -4,7 +4,7 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230410_create_metadata::Metadata, m20230413_create_person::Person,
     m20230417_create_user::User, m20230501_create_metadata_group::MetadataGroup,
-    m20230822_create_exercise::Exercise,
+    m20230504_create_collection::Collection, m20230822_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
@@ -13,7 +13,9 @@ pub struct Migration;
 pub static PERSON_FK_NAME: &str = "user_to_entity-fk4";
 pub static PERSON_INDEX_NAME: &str = "user_to_entity-uqi3";
 pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
+pub static COLLECTION_FK_NAME: &str = "user_to_entity-fk6";
 pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
+pub static COLLECTION_INDEX_NAME: &str = "user_to_entity-uqi5";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
     ALTER TABLE "user_to_entity" DROP CONSTRAINT IF EXISTS "user_to_entity__ensure_one_entity";
     ALTER TABLE "user_to_entity"
@@ -22,7 +24,8 @@ pub static CONSTRAINT_SQL: &str = indoc! { r#"
         (CASE WHEN "metadata_id" IS NOT NULL THEN 1 ELSE 0 END) +
         (CASE WHEN "person_id" IS NOT NULL THEN 1 ELSE 0 END) +
         (CASE WHEN "exercise_id" IS NOT NULL THEN 1 ELSE 0 END) +
-        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END)
+        (CASE WHEN "metadata_group_id" IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN "collection_id" IS NOT NULL THEN 1 ELSE 0 END)
         = 1
     );
 "# };
@@ -31,8 +34,6 @@ pub static CONSTRAINT_SQL: &str = indoc! { r#"
 /// - the user has it in their seen history
 /// - added it to a collection
 /// - has reviewed it
-/// - owns it
-/// - added a reminder
 #[derive(Iden)]
 pub enum UserToEntity {
     Table,
@@ -46,6 +47,7 @@ pub enum UserToEntity {
     ExerciseId,
     PersonId,
     MetadataGroupId,
+    CollectionId,
     // specifics
     ExerciseExtraInformation,
     ExerciseNumTimesInteracted,
@@ -80,6 +82,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::MetadataGroupId).text())
                     .col(ColumnDef::new(UserToEntity::PersonId).text())
                     .col(ColumnDef::new(UserToEntity::MetadataId).text())
+                    .col(ColumnDef::new(UserToEntity::CollectionId).text())
                     .col(ColumnDef::new(UserToEntity::UserId).text().not_null())
                     .col(
                         ColumnDef::new(UserToEntity::Id)
@@ -128,6 +131,14 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(COLLECTION_FK_NAME)
+                            .from(UserToEntity::Table, UserToEntity::CollectionId)
+                            .to(Collection::Table, MetadataGroup::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -172,6 +183,17 @@ impl MigrationTrait for Migration {
                     .table(UserToEntity::Table)
                     .col(UserToEntity::UserId)
                     .col(UserToEntity::MetadataGroupId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .unique()
+                    .name(COLLECTION_INDEX_NAME)
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::CollectionId)
                     .to_owned(),
             )
             .await?;

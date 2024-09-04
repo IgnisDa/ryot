@@ -541,13 +541,13 @@ async fn media_details(
         .map_err(|e| anyhow!(e))?
         .json::<Response<media_details_query::ResponseData>>()
         .await
-        .map_err(|e| anyhow!(e))?
-        .data
-        .unwrap()
-        .media
-        .unwrap();
-    let mut images = Vec::from_iter(details.cover_image.and_then(|i| i.extra_large));
-    if let Some(i) = details.banner_image {
+        .map_err(|e| anyhow!(e))?;
+
+    let data = details.data.ok_or_else(|| anyhow!("No data in response"))?;
+    let media = data.media.ok_or_else(|| anyhow!("No media in data"))?;
+
+    let mut images = Vec::from_iter(media.cover_image.and_then(|i| i.extra_large));
+    if let Some(i) = media.banner_image {
         images.push(i);
     }
     let images = images
@@ -555,21 +555,21 @@ async fn media_details(
         .map(|i| MetadataImageForMediaDetails { image: i })
         .unique()
         .collect();
-    let mut genres = details
+    let mut genres = media
         .genres
         .into_iter()
         .flatten()
         .map(|t| t.unwrap())
         .collect_vec();
     genres.extend(
-        details
+        media
             .tags
             .unwrap_or_default()
             .into_iter()
             .flatten()
             .map(|t| t.name),
     );
-    let mut people = Vec::from_iter(details.staff)
+    let mut people = Vec::from_iter(media.staff)
         .into_iter()
         .flat_map(|s| s.edges.unwrap())
         .flatten()
@@ -586,7 +586,7 @@ async fn media_details(
         })
         .collect_vec();
     people.extend(
-        Vec::from_iter(details.studios)
+        Vec::from_iter(media.studios)
             .into_iter()
             .flat_map(|s| s.edges.unwrap())
             .flatten()
@@ -606,7 +606,7 @@ async fn media_details(
             }),
     );
     let people = people.into_iter().unique().collect_vec();
-    let airing_schedule = details.airing_schedule.and_then(|a| a.nodes).map(|a| {
+    let airing_schedule = media.airing_schedule.and_then(|a| a.nodes).map(|a| {
         a.into_iter()
             .flat_map(|s| {
                 s.and_then(|data| {
@@ -620,11 +620,11 @@ async fn media_details(
             })
             .collect_vec()
     });
-    let (lot, anime_specifics, manga_specifics) = match details.type_.unwrap() {
+    let (lot, anime_specifics, manga_specifics) = match media.type_.unwrap() {
         media_details_query::MediaType::ANIME => (
             MediaLot::Anime,
             Some(AnimeSpecifics {
-                episodes: details.episodes.and_then(|c| c.try_into().ok()),
+                episodes: media.episodes.and_then(|c| c.try_into().ok()),
                 airing_schedule,
             }),
             None,
@@ -633,19 +633,19 @@ async fn media_details(
             MediaLot::Manga,
             None,
             Some(MangaSpecifics {
-                chapters: details.chapters.and_then(|c| c.try_into().ok()),
-                volumes: details.volumes.and_then(|v| v.try_into().ok()),
+                chapters: media.chapters.and_then(|c| c.try_into().ok()),
+                volumes: media.volumes.and_then(|v| v.try_into().ok()),
                 url: None,
             }),
         ),
         media_details_query::MediaType::Other(_) => unreachable!(),
     };
 
-    let year = details
+    let year = media
         .start_date
         .and_then(|b| b.year.map(|y| y.try_into().unwrap()));
 
-    let suggestions = details
+    let suggestions = media
         .recommendations
         .unwrap()
         .nodes
@@ -674,8 +674,8 @@ async fn media_details(
             })
         })
         .collect();
-    let score = details.average_score.map(Decimal::from);
-    let videos = Vec::from_iter(details.trailer.map(|t| MetadataVideo {
+    let score = media.average_score.map(Decimal::from);
+    let videos = Vec::from_iter(media.trailer.map(|t| MetadataVideo {
         identifier: StoredUrl::Url(t.id.unwrap()),
         source: match t.site.unwrap().as_str() {
             "youtube" => MetadataVideoSource::Youtube,
@@ -683,7 +683,7 @@ async fn media_details(
             _ => unreachable!(),
         },
     }));
-    let title = details.title.unwrap();
+    let title = media.title.unwrap();
     let title = get_in_preferred_language(
         title.native,
         title.english,
@@ -692,10 +692,10 @@ async fn media_details(
     );
     Ok(MediaDetails {
         title,
-        identifier: details.id.to_string(),
-        is_nsfw: details.is_adult,
+        identifier: media.id.to_string(),
+        is_nsfw: media.is_adult,
         source: MediaSource::Anilist,
-        description: details.description,
+        description: media.description,
         lot,
         people,
         creators: vec![],
@@ -710,7 +710,7 @@ async fn media_details(
         provider_rating: score,
         group_identifiers: vec![],
         s3_images: vec![],
-        production_status: media_status_string(details.status),
+        production_status: media_status_string(media.status),
         original_language: None,
         ..Default::default()
     })
