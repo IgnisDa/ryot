@@ -155,6 +155,7 @@ const emptyNumberString = z
 	.any()
 	.transform((v) => (!v ? undefined : Number.parseInt(v)))
 	.nullable();
+
 const emptyDecimalString = z
 	.any()
 	.transform((v) => (!v ? undefined : Number.parseFloat(v)))
