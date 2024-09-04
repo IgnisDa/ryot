@@ -420,8 +420,8 @@ derive_enum!(
     pub enum LogLevel {
         #[default]
         Minimal,
-        Application,
-        ApplicationAndDatabase,
+        App,
+        AppAndDb,
     }
 );
 

@@ -117,7 +117,7 @@ integration:
 
 # The logging level of the server.
 # @envvar LOG_LEVEL
-log_level: "application"
+log_level: "minimal"
 
 # Settings related to media.
 media:
