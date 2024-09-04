@@ -44,8 +44,9 @@ jobs:
               `name=${ghcrRegistry}/${owner}/${repositoryName}`
             ];
 
+            let shouldRun = 'false';
             if (context.eventName === "push") {
-              core.setOutput('should-run', 'true');
+              shouldRun = 'true';
             } else if (context.eventName === "pull_request") {
               const commitMsg = await github.rest.repos.getCommit({
                 owner: context.repo.owner,
@@ -53,22 +54,17 @@ jobs:
                 ref: context.payload.pull_request.head.sha
               }).then(commit => commit.data.commit.message);
               if (commitMsg.includes("Run CI")) {
-                core.setOutput('should-run', 'true');
+                shouldRun = 'true';
                 if (context.payload.pull_request.head.repo.full_name !== context.repo.full_name) {
                   imageNames.shift();
                 }
-              } else {
-                core.setOutput('should-run', 'false');
               }
-            } else {
-              core.setOutput('should-run', 'false');
             }
 
-            if (context.eventName === "push" && context.ref.startsWith("refs/tags/")) {
-              core.setOutput('should-release', 'true');
-            } else {
-              core.setOutput('should-release', 'false');
-            }
+            core.setOutput('should-run', shouldRun);
+
+            const shouldRelease = (context.eventName === "push" && context.ref.startsWith("refs/tags/")) ? 'true' : 'false';
+            core.setOutput('should-release', shouldRelease);
 
             core.setOutput('image-names', imageNames.join('\n'));
 
