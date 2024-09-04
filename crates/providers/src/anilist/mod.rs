@@ -633,7 +633,7 @@ async fn media_details(
             MediaLot::Manga,
             None,
             Some(MangaSpecifics {
-                chapters: media.chapters.and_then(|c| c.try_into().ok()),
+                chapters: media.chapters.map(Decimal::from),
                 volumes: media.volumes.and_then(|v| v.try_into().ok()),
                 url: None,
             }),

@@ -358,7 +358,7 @@ impl MediaProvider for MangaUpdatesService {
                 .collect(),
             publish_year: data.year.and_then(|y| y.parse().ok()),
             manga_specifics: Some(MangaSpecifics {
-                chapters: data.latest_chapter.map(|c| Decimal::from(c)),
+                chapters: data.latest_chapter.map(Decimal::from),
                 url: data.url,
                 volumes,
             }),

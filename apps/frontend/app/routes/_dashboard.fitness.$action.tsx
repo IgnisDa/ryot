@@ -691,8 +691,10 @@ type FuncStartTimer = (
 ) => void;
 
 const focusOnExercise = (idx: number) => {
-	const exercise = document.getElementById(idx.toString());
-	exercise?.scrollIntoView({ behavior: "smooth" });
+	setTimeout(() => {
+		const exercise = document.getElementById(idx.toString());
+		exercise?.scrollIntoView({ behavior: "smooth" });
+	});
 };
 
 const ExerciseDisplay = (props: {
