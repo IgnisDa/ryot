@@ -20,7 +20,7 @@ export type UpdateProgressData = {
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
 	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: number | null;
+	mangaChapterNumber?: string | null;
 	mangaVolumeNumber?: number | null;
 };
 

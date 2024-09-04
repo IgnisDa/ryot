@@ -897,12 +897,12 @@ const MetadataInProgressUpdateForm = ({
 						</Text>
 						<Flex align="center" gap="xs">
 							<NumberInput
-								defaultValue={((total || 1) * (value || 1)) / 100}
+								defaultValue={((Number(total) || 1) * (value || 1)) / 100}
 								onChange={(v) => {
-									const value = (Number(v) / (total || 1)) * 100;
+									const value = (Number(v) / (Number(total) || 1)) * 100;
 									setValue(value);
 								}}
-								max={total}
+								max={Number(total)}
 								min={0}
 								step={1}
 								hideControls
@@ -999,7 +999,8 @@ const NewProgressUpdateForm = ({
 									onChange={(e) => {
 										setMetadataToUpdate(
 											produce(metadataToUpdate, (draft) => {
-												draft.mangaChapterNumber = Number(e);
+												draft.mangaChapterNumber =
+													e === "" ? undefined : Number(e).toString();
 											}),
 										);
 									}}
@@ -1014,7 +1015,8 @@ const NewProgressUpdateForm = ({
 									onChange={(e) => {
 										setMetadataToUpdate(
 											produce(metadataToUpdate, (draft) => {
-												draft.mangaVolumeNumber = Number(e);
+												draft.mangaVolumeNumber =
+													e === "" ? undefined : Number(e);
 											}),
 										);
 									}}

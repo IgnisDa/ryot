@@ -270,10 +270,15 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}
 			}
 			if (submission.metadataLot === MediaLot.Manga) {
+				const isValidNumber = (value: unknown): boolean => {
+					const num = Number(value);
+					return !Number.isNaN(num) && Number.isFinite(num);
+				};
+
 				if (
-					(isNumber(submission.mangaChapterNumber) &&
+					(isValidNumber(submission.mangaChapterNumber) &&
 						isNumber(submission.mangaVolumeNumber)) ||
-					(!isNumber(submission.mangaChapterNumber) &&
+					(!isValidNumber(submission.mangaChapterNumber) &&
 						!isNumber(submission.mangaVolumeNumber))
 				)
 					throw Response.json({
@@ -293,14 +298,26 @@ export const action = unstable_defineAction(async ({ request }) => {
 						}
 					}
 					if (submission.mangaChapterNumber) {
-						const lastSeenChapter =
-							latestHistoryItem?.mangaExtraInformation?.chapter || 0;
-						for (
-							let i = lastSeenChapter + 1;
-							i < submission.mangaChapterNumber;
-							i++
-						) {
-							updates.push({ ...variables, mangaChapterNumber: i });
+						const targetChapter = Number(submission.mangaChapterNumber);
+						const markedChapters = new Set();
+
+						for (const historyItem of userMetadataDetails?.history ?? []) {
+							const chapter = Number(
+								historyItem?.mangaExtraInformation?.chapter,
+							);
+
+							if (!Number.isNaN(chapter) && chapter < targetChapter) {
+								markedChapters.add(chapter);
+							}
+						}
+
+						for (let i = 1; i < targetChapter; i++) {
+							if (!markedChapters.has(i)) {
+								updates.push({
+									...variables,
+									mangaChapterNumber: i.toString(),
+								});
+							}
 						}
 					}
 				}

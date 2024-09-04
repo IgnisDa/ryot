@@ -65,7 +65,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         .map(|i| {
             let (anime_episode, manga_chapter) = match lot {
                 MediaLot::Anime => (Some(i), None),
-                MediaLot::Manga => (None, Some(i)),
+                MediaLot::Manga => (None, Some(Decimal::new(i as i64, 0))),
                 _ => unreachable!(),
             };
             ImportOrExportMediaItemSeen {

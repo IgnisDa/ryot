@@ -156,6 +156,11 @@ const emptyNumberString = z
 	.transform((v) => (!v ? undefined : Number.parseInt(v)))
 	.nullable();
 
+const emptyDecimalString = z
+	.any()
+	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
+	.nullable();
+
 export const MetadataIdSchema = z.object({ metadataId: z.string() });
 
 export const MetadataSpecificsSchema = z.object({
@@ -163,7 +168,7 @@ export const MetadataSpecificsSchema = z.object({
 	showEpisodeNumber: emptyNumberString,
 	podcastEpisodeNumber: emptyNumberString,
 	animeEpisodeNumber: emptyNumberString,
-	mangaChapterNumber: emptyNumberString,
+	mangaChapterNumber: emptyDecimalString,
 	mangaVolumeNumber: emptyNumberString,
 });
 
