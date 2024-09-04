@@ -961,35 +961,34 @@ export default function Page() {
 										<Menu.Item onClick={mergeMetadataModalOpen}>
 											Merge media
 										</Menu.Item>
+										<Form
+											method="POST"
+											action={withQuery("", { intent: "removeItem" })}
+										>
+											<input
+												hidden
+												name="metadataId"
+												defaultValue={loaderData.metadataId}
+											/>
+											<Menu.Item
+												color="red"
+												onClick={async (e) => {
+													const form = e.currentTarget.form;
+													if (form) {
+														e.preventDefault();
+														const conf = await confirmWrapper({
+															confirmation:
+																"Are you sure you want to remove this item? This will remove it from all collections and delete all history and reviews.",
+														});
+														if (conf && form) submit(form);
+													}
+												}}
+											>
+												Remove item
+											</Menu.Item>
+										</Form>
 									</Menu.Dropdown>
 								</Menu>
-								<Form
-									method="POST"
-									action={withQuery("", { intent: "removeItem" })}
-								>
-									<input
-										hidden
-										name="metadataId"
-										defaultValue={loaderData.metadataId}
-									/>
-									<Button
-										w="100%"
-										variant="outline"
-										onClick={async (e) => {
-											const form = e.currentTarget.form;
-											if (form) {
-												e.preventDefault();
-												const conf = await confirmWrapper({
-													confirmation:
-														"Are you sure you want to remove this item? This will remove it from all collections and delete all history and reviews.",
-												});
-												if (conf && form) submit(form);
-											}
-										}}
-									>
-										Remove item
-									</Button>
-								</Form>
 							</SimpleGrid>
 						</MediaScrollArea>
 					</Tabs.Panel>
