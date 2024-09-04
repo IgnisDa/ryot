@@ -3,7 +3,7 @@ use std::{
     fs::{self, create_dir_all},
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 
@@ -20,6 +20,7 @@ use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use chrono::{TimeZone, Utc};
 use common_utils::{ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
+use config::LogLevel;
 use database_models::prelude::Exercise;
 use dependent_models::CompleteExport;
 use logs_wheel::LogFileInitializer;
@@ -32,7 +33,7 @@ use tokio::{
     time::{sleep, Duration as TokioDuration},
 };
 use tower::buffer::BufferLayer;
-use tracing_subscriber::{fmt, layer::SubscriberExt};
+use tracing::level_filters::LevelFilter;
 
 use crate::{
     common::create_app_services,
@@ -52,14 +53,11 @@ async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
-    }
-    init_tracing()?;
-
+    let config = Arc::new(config::load_app_config()?);
     ryot_log!(info, "Running version: {}", VERSION);
 
-    let config = Arc::new(config::load_app_config()?);
+    init_tracing(config.log_level.clone())?;
+
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = TokioDuration::from_secs(config.server.sleep_before_startup_seconds);
         ryot_log!(info, "Sleeping for {:?} before starting up...", duration);
@@ -272,24 +270,43 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn init_tracing() -> Result<()> {
+fn init_tracing(log_level: LogLevel) -> Result<()> {
+    use tracing_subscriber::{filter::Targets, fmt, layer::SubscriberExt};
+
     let tmp_dir = PathBuf::new().join(TEMP_DIR);
     create_dir_all(&tmp_dir)?;
-    let log_file = LogFileInitializer {
+    let writer = LogFileInitializer {
         directory: tmp_dir,
         filename: PROJECT_NAME,
         max_n_old_files: 2,
         preferred_max_file_size_mib: 1,
     }
     .init()?;
-    let writer = Mutex::new(log_file);
+
+    static APPLICATION_TARGET: &str = PROJECT_NAME;
+    static SEA_ORM_TARGET: &str = "sea_orm";
+
+    let default_targets = Targets::new()
+        .with_target(APPLICATION_TARGET, LevelFilter::INFO)
+        .with_target(SEA_ORM_TARGET, LevelFilter::INFO);
+
+    let filter = match log_level {
+        LogLevel::Minimal => default_targets,
+        LogLevel::App => default_targets.with_target(APPLICATION_TARGET, LevelFilter::DEBUG),
+        LogLevel::AppAndDb => default_targets
+            .with_target(APPLICATION_TARGET, LevelFilter::DEBUG)
+            .with_target(SEA_ORM_TARGET, LevelFilter::DEBUG),
+    };
+
+    dbg!(&filter);
+
     tracing::subscriber::set_global_default(
-        fmt::Subscriber::builder()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .finish()
+        fmt::Subscriber::default()
+            .with(filter)
             .with(fmt::Layer::default().with_writer(writer).with_ansi(false)),
     )
     .expect("Unable to set global tracing subscriber");
+
     Ok(())
 }
 
