@@ -49,7 +49,7 @@ import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -145,7 +145,7 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
-		.filter((k) => k !== "page" && k !== "query")
+		.filter((k) => k !== pageQueryParam && k !== "query")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
@@ -291,7 +291,7 @@ export default function Page() {
 							<Pagination
 								size="sm"
 								value={loaderData.query.page}
-								onChange={(v) => setP("page", v.toString())}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.exercisesList.details.total /
 										coreDetails.pageLimit,

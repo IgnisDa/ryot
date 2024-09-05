@@ -15,6 +15,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
+import { pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -66,7 +67,7 @@ export default function Page() {
 					<Pagination
 						size="sm"
 						value={loaderData.query.page}
-						onChange={(v) => setP("page", v.toString())}
+						onChange={(v) => setP(pageQueryParam, v.toString())}
 						total={Math.ceil(
 							loaderData.genreDetails.contents.details.total /
 								coreDetails.pageLimit,

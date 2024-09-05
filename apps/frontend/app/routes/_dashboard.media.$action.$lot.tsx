@@ -60,7 +60,13 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, MetadataDisplayItem } from "~/components/media";
-import { Verb, commaDelimitedString, getLot, getVerb } from "~/lib/generals";
+import {
+	Verb,
+	commaDelimitedString,
+	getLot,
+	getVerb,
+	pageQueryParam,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useApplicationEvents,
@@ -311,7 +317,7 @@ export default function Page() {
 								<Pagination
 									size="sm"
 									value={loaderData.numPage}
-									onChange={(v) => setP("page", v.toString())}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
 									total={Math.ceil(
 										loaderData.mediaList.list.details.total /
 											coreDetails.pageLimit,
@@ -379,7 +385,7 @@ export default function Page() {
 								<Pagination
 									size="sm"
 									value={loaderData.numPage}
-									onChange={(v) => setP("page", v.toString())}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
 									total={Math.ceil(
 										loaderData.mediaSearch.search.details.total /
 											coreDetails.pageLimit,

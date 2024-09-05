@@ -57,6 +57,7 @@ import {
 import {
 	clientGqlService,
 	dayjsLib,
+	pageQueryParam,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
@@ -365,7 +366,7 @@ export default function Page() {
 									<Pagination
 										size="sm"
 										value={loaderData.query.page}
-										onChange={(v) => setP("page", v.toString())}
+										onChange={(v) => setP(pageQueryParam, v.toString())}
 										total={Math.ceil(
 											loaderData.collectionContents.results.details.total /
 												coreDetails.pageLimit,

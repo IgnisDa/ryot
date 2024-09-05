@@ -54,7 +54,7 @@ import {
 	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
-import { commaDelimitedString } from "~/lib/generals";
+import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -237,7 +237,7 @@ export default function Page() {
 							<Pagination
 								size="sm"
 								value={loaderData.page}
-								onChange={(v) => setP("page", v.toString())}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.list.list.details.total / coreDetails.pageLimit,
 								)}
@@ -267,7 +267,7 @@ export default function Page() {
 							<Pagination
 								size="sm"
 								value={loaderData.page}
-								onChange={(v) => setP("page", v.toString())}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.search.search.details.total /
 										coreDetails.pageLimit,

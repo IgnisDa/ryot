@@ -41,7 +41,7 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -222,7 +222,7 @@ export default function Page() {
 					<Pagination
 						size="sm"
 						value={loaderData.query.page}
-						onChange={(v) => setP("page", v.toString())}
+						onChange={(v) => setP(pageQueryParam, v.toString())}
 						total={Math.ceil(
 							loaderData.itemList.details.total / coreDetails.pageLimit,
 						)}

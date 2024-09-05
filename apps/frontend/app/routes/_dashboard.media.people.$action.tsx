@@ -49,7 +49,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
-import { commaDelimitedString } from "~/lib/generals";
+import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -260,7 +260,7 @@ export default function Page() {
 							<Pagination
 								size="sm"
 								value={loaderData.page}
-								onChange={(v) => setP("page", v.toString())}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.peopleList.list.details.total /
 										coreDetails.pageLimit,
@@ -290,7 +290,7 @@ export default function Page() {
 							<Pagination
 								size="sm"
 								value={loaderData.page}
-								onChange={(v) => setP("page", v.toString())}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.peopleSearch.search.details.total /
 										coreDetails.pageLimit,

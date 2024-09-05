@@ -30,6 +30,7 @@ import {
 	DebouncedSearchInput,
 	ProRequiredAlert,
 } from "~/components/common";
+import { pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -103,7 +104,7 @@ export default function Page() {
 						<Pagination
 							size="sm"
 							value={loaderData.query.page}
-							onChange={(v) => setP("page", v.toString())}
+							onChange={(v) => setP(pageQueryParam, v.toString())}
 							total={Math.ceil(
 								loaderData.genresList.details.total / coreDetails.pageLimit,
 							)}
