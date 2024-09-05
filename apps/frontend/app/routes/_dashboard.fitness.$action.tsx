@@ -694,7 +694,7 @@ const focusOnExercise = (idx: number) => {
 	setTimeout(() => {
 		const exercise = document.getElementById(idx.toString());
 		exercise?.scrollIntoView({ behavior: "smooth" });
-	});
+	}, 800);
 };
 
 const ExerciseDisplay = (props: {
