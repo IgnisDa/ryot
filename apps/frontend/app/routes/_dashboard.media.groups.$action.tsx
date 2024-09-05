@@ -225,27 +225,24 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.list.list.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.list.list.items.map((gr) => (
-										<MetadataGroupDisplayItem key={gr} metadataGroupId={gr} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.list.list.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.list.list.items.map((gr) => (
+									<MetadataGroupDisplayItem key={gr} metadataGroupId={gr} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No information to display</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								value={loaderData.page}
+								onChange={(v) => setP("page", v.toString())}
+								total={Math.ceil(
+									loaderData.list.list.details.total / coreDetails.pageLimit,
+								)}
+							/>
+						</Center>
 					</>
 				) : null}
 
@@ -258,27 +255,25 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.search.search.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.search.search.items.map((group) => (
-										<GroupSearchItem item={group} key={group.identifier} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.search.search.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.search.search.items.map((group) => (
+									<GroupSearchItem item={group} key={group.identifier} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No groups found matching your query</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								value={loaderData.page}
+								onChange={(v) => setP("page", v.toString())}
+								total={Math.ceil(
+									loaderData.search.search.details.total /
+										coreDetails.pageLimit,
+								)}
+							/>
+						</Center>
 					</>
 				) : null}
 			</Stack>
