@@ -58,6 +58,7 @@ import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -87,7 +88,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query: z.string().optional(),
 		[pageQueryParam]: zx.IntAsString.default("1"),
 	});
-	const [list, search] = await match(action)
+	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
@@ -108,7 +109,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 						},
 					},
 				);
-			return [{ list: metadataGroupsList, url: urlParse }, undefined] as const;
+			return [
+				metadataGroupsList.details.total,
+				{ list: metadataGroupsList, url: urlParse },
+				undefined,
+			] as const;
 		})
 		.with(Action.Search, async () => {
 			const urlParse = zx.parseQuery(request, {
@@ -129,11 +134,17 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					},
 				);
 			return [
+				metadataGroupSearch.details.total,
 				undefined,
 				{ search: metadataGroupSearch, url: urlParse, lot },
 			] as const;
 		})
 		.exhaustive();
+	await redirectToFirstPageIfOnInvalidPage(
+		request,
+		totalResults,
+		query[pageQueryParam],
+	);
 	return {
 		list,
 		query,

@@ -19,6 +19,7 @@ import { pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -39,6 +40,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			input: { genreId, page: query[pageQueryParam] },
 		}),
 	]);
+	await redirectToFirstPageIfOnInvalidPage(
+		request,
+		genreDetails.contents.details.total,
+		query[pageQueryParam],
+	);
 	return { query, genreDetails, cookieName };
 });
 

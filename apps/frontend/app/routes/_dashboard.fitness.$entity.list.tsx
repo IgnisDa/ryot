@@ -51,6 +51,7 @@ import {
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -96,6 +97,11 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			};
 		})
 		.exhaustive();
+	await redirectToFirstPageIfOnInvalidPage(
+		request,
+		itemList.details.total,
+		query[pageQueryParam],
+	);
 	return { query, entity, itemList, cookieName };
 });
 

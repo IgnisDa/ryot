@@ -69,6 +69,7 @@ import {
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
 	serverGqlService,
@@ -116,6 +117,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			},
 		}),
 	]);
+	await redirectToFirstPageIfOnInvalidPage(
+		request,
+		collectionContents.results.details.total,
+		query[pageQueryParam] || 1,
+	);
 	return { collectionId, query, collectionContents, cookieName };
 });
 

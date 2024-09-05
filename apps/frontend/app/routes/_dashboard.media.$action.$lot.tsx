@@ -80,6 +80,7 @@ import {
 } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -130,7 +131,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query: z.string().optional(),
 		[pageQueryParam]: zx.IntAsString.default("1"),
 	});
-	const [mediaList, mediaSearch] = await match(action)
+	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
 				sortOrder: z
@@ -159,7 +160,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					},
 				},
 			);
-			return [{ list: metadataList, url: urlParse }, undefined] as const;
+			return [
+				metadataList.details.total,
+				{ list: metadataList, url: urlParse },
+				undefined,
+			] as const;
 		})
 		.with(Action.Search, async () => {
 			const metadataSourcesForLot = metadataMapping[lot];
@@ -178,6 +183,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				},
 			);
 			return [
+				metadataSearch.details.total,
 				undefined,
 				{
 					search: metadataSearch,
@@ -188,6 +194,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		})
 		.exhaustive();
 	const url = new URL(request.url);
+	await redirectToFirstPageIfOnInvalidPage(
+		request,
+		totalResults,
+		query[pageQueryParam],
+	);
 	return {
 		lot,
 		query,

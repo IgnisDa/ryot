@@ -34,6 +34,7 @@ import {
 	AUTH_COOKIE_NAME,
 	CurrentWorkoutKey,
 	dayjsLib,
+	pageQueryParam,
 	queryClient,
 	queryFactory,
 	redirectToQueryParam,
@@ -397,6 +398,11 @@ export const isWorkoutActive = (request: Request) => {
 	return inProgress;
 };
 
+export const getEnhancedCookieName = async (path: string, request: Request) => {
+	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
+	return `SearchParams__${userDetails.id}__${path}`;
+};
+
 export const redirectUsingEnhancedCookieSearchParams = async (
 	request: Request,
 	cookieName: string,
@@ -409,7 +415,16 @@ export const redirectUsingEnhancedCookieSearchParams = async (
 	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
 };
 
-export const getEnhancedCookieName = async (path: string, request: Request) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	return `SearchParams__${userDetails.id}__${path}`;
+export const redirectToFirstPageIfOnInvalidPage = async (
+	request: Request,
+	totalResults: number,
+	currentPage: number,
+) => {
+	const { coreDetails } = await getCachedCoreDetails();
+	const { searchParams } = new URL(request.url);
+	const totalPages = Math.ceil(totalResults / coreDetails.pageLimit);
+	if (currentPage > totalPages && currentPage !== 1) {
+		searchParams.set(pageQueryParam, "1");
+		throw redirect(`?${searchParams.toString()}`);
+	}
 };

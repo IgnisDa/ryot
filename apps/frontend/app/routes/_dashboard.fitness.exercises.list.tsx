@@ -60,6 +60,7 @@ import {
 	getCachedExerciseParameters,
 	getEnhancedCookieName,
 	getWorkoutCookieValue,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -99,28 +100,37 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	query[pageQueryParam] = query[pageQueryParam] ?? 1;
 	const [exerciseParameters, { exercisesList }] = await Promise.all([
 		getCachedExerciseParameters(),
-		serverGqlService.authenticatedRequest(request, ExercisesListDocument, {
-			input: {
-				search: { page: query[pageQueryParam], query: query.query },
-				filter: {
-					equipment: query.equipment,
-					force: query.force,
-					level: query.level,
-					mechanic: query.mechanic,
-					muscle: query.muscle,
-					type: query.type,
-					collection: query.collection,
+		serverGqlService.authenticatedRequest(
+			request.clone(),
+			ExercisesListDocument,
+			{
+				input: {
+					search: { page: query[pageQueryParam], query: query.query },
+					filter: {
+						equipment: query.equipment,
+						force: query.force,
+						level: query.level,
+						mechanic: query.mechanic,
+						muscle: query.muscle,
+						type: query.type,
+						collection: query.collection,
+					},
+					sortBy: query.sortBy,
 				},
-				sortBy: query.sortBy,
 			},
-		}),
+		),
 	]);
+	await redirectToFirstPageIfOnInvalidPage(
+		request,
+		exercisesList.details.total,
+		query[pageQueryParam],
+	);
 	return {
 		query,
+		cookieName,
+		exercisesList,
 		workoutInProgress,
 		exerciseParameters,
-		exercisesList,
-		cookieName,
 	};
 });
 
