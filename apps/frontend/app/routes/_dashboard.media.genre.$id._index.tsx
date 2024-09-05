@@ -15,15 +15,17 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { pageQueryParam } from "~/lib/generals";
+import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.default("1"),
+	[pageQueryParam]: zx.IntAsString.default("1"),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -35,10 +37,15 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genreDetails }] = await Promise.all([
 		serverGqlService.request(GenreDetailsDocument, {
-			input: { genreId, page: query.page },
+			input: { genreId, page: query[pageQueryParam] },
 		}),
 	]);
-	return { query, genreDetails, cookieName };
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		genreDetails.contents.details.total,
+		query[pageQueryParam],
+	);
+	return { query, genreDetails, cookieName, totalPages };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -47,7 +54,6 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
@@ -65,12 +71,9 @@ export default function Page() {
 				<Center>
 					<Pagination
 						size="sm"
-						value={loaderData.query.page}
-						onChange={(v) => setP("page", v.toString())}
-						total={Math.ceil(
-							loaderData.genreDetails.contents.details.total /
-								coreDetails.pageLimit,
-						)}
+						total={loaderData.totalPages}
+						value={loaderData.query[pageQueryParam]}
+						onChange={(v) => setP(pageQueryParam, v.toString())}
 					/>
 				</Center>
 			</Stack>

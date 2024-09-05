@@ -41,22 +41,22 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
-import { dayjsLib } from "~/lib/generals";
+import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
-	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import { getDefaultWorkout } from "~/lib/state/fitness";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.default("1"),
+	[pageQueryParam]: zx.IntAsString.default("1"),
 	query: z.string().optional(),
 });
 
@@ -76,7 +76,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutsListDocument,
-				{ input: { page: query.page, query: query.query } },
+				{ input: { page: query[pageQueryParam], query: query.query } },
 			);
 			return {
 				details: userWorkoutsList.details,
@@ -96,7 +96,12 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			};
 		})
 		.exhaustive();
-	return { query, entity, itemList, cookieName };
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		itemList.details.total,
+		query[pageQueryParam],
+	);
+	return { query, entity, itemList, cookieName, totalPages };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -105,7 +110,6 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const unitSystem = useUserUnitSystem();
@@ -221,11 +225,9 @@ export default function Page() {
 				<Center>
 					<Pagination
 						size="sm"
-						value={loaderData.query.page}
-						onChange={(v) => setP("page", v.toString())}
-						total={Math.ceil(
-							loaderData.itemList.details.total / coreDetails.pageLimit,
-						)}
+						total={loaderData.totalPages}
+						value={loaderData.query[pageQueryParam]}
+						onChange={(v) => setP(pageQueryParam, v.toString())}
 					/>
 				</Center>
 			</Stack>

@@ -54,10 +54,11 @@ import {
 	BaseMediaDisplayItem,
 	MetadataGroupDisplayItem,
 } from "~/components/media";
-import { commaDelimitedString } from "~/lib/generals";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
+import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -83,11 +84,11 @@ const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
-	const { query, page } = zx.parseQuery(request, {
+	const query = zx.parseQuery(request, {
 		query: z.string().optional(),
-		page: zx.IntAsString.default("1"),
+		[pageQueryParam]: zx.IntAsString.default("1"),
 	});
-	const [list, search] = await match(action)
+	const [totalResults, list, search] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
@@ -101,14 +102,18 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					MetadataGroupsListDocument,
 					{
 						input: {
-							search: { page, query },
+							search: { page: query[pageQueryParam], query: query.query },
 							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 							filter: { collections: urlParse.collections },
 							invertCollection: urlParse.invertCollection,
 						},
 					},
 				);
-			return [{ list: metadataGroupsList, url: urlParse }, undefined] as const;
+			return [
+				metadataGroupsList.details.total,
+				{ list: metadataGroupsList, url: urlParse },
+				undefined,
+			] as const;
 		})
 		.with(Action.Search, async () => {
 			const urlParse = zx.parseQuery(request, {
@@ -120,15 +125,35 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				await serverGqlService.authenticatedRequest(
 					request,
 					MetadataGroupSearchDocument,
-					{ input: { lot, source: urlParse.source, search: { page, query } } },
+					{
+						input: {
+							lot,
+							source: urlParse.source,
+							search: { page: query[pageQueryParam], query: query.query },
+						},
+					},
 				);
 			return [
+				metadataGroupSearch.details.total,
 				undefined,
 				{ search: metadataGroupSearch, url: urlParse, lot },
 			] as const;
 		})
 		.exhaustive();
-	return { action, query, page, list, search, cookieName };
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		totalResults,
+		query[pageQueryParam],
+	);
+	return {
+		list,
+		query,
+		action,
+		search,
+		totalPages,
+		cookieName,
+		[pageQueryParam]: query[pageQueryParam],
+	};
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -137,7 +162,6 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const navigate = useNavigate();
 	const [
@@ -158,7 +182,11 @@ export default function Page() {
 								$path(
 									"/media/groups/:action",
 									{ action: v },
-									{ query: loaderData.query },
+									{
+										...(loaderData.query.query && {
+											query: loaderData.query.query,
+										}),
+									},
 								),
 							);
 					}}
@@ -176,7 +204,7 @@ export default function Page() {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for groups"
-						initialValue={loaderData.query}
+						initialValue={loaderData.query.query}
 						enhancedQueryParams={loaderData.cookieName}
 					/>
 					{loaderData.action === Action.List ? (
@@ -225,27 +253,22 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.list.list.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.list.list.items.map((gr) => (
-										<MetadataGroupDisplayItem key={gr} metadataGroupId={gr} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.list.list.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.list.list.items.map((gr) => (
+									<MetadataGroupDisplayItem key={gr} metadataGroupId={gr} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No information to display</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
+						</Center>
 					</>
 				) : null}
 
@@ -258,27 +281,22 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.search.search.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.search.search.items.map((group) => (
-										<GroupSearchItem item={group} key={group.identifier} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.search.search.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.search.search.items.map((group) => (
+									<GroupSearchItem item={group} key={group.identifier} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No groups found matching your query</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
+						</Center>
 					</>
 				) : null}
 			</Stack>
