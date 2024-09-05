@@ -76,7 +76,7 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.optional(),
+	[pageQueryParam]: zx.IntAsString.optional(),
 	query: z.string().optional(),
 	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
 	type: z.nativeEnum(ExerciseLot).optional(),
@@ -96,12 +96,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const workoutInProgress = !!getWorkoutCookieValue(request);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
-	query.page = query.page ?? 1;
+	query[pageQueryParam] = query[pageQueryParam] ?? 1;
 	const [exerciseParameters, { exercisesList }] = await Promise.all([
 		getCachedExerciseParameters(),
 		serverGqlService.authenticatedRequest(request, ExercisesListDocument, {
 			input: {
-				search: { page: query.page, query: query.query },
+				search: { page: query[pageQueryParam], query: query.query },
 				filter: {
 					equipment: query.equipment,
 					force: query.force,
@@ -290,7 +290,7 @@ export default function Page() {
 						<Center>
 							<Pagination
 								size="sm"
-								value={loaderData.query.page}
+								value={loaderData.query[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.exercisesList.details.total /

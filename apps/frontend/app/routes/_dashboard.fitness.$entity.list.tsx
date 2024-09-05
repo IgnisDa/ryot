@@ -56,7 +56,7 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.default("1"),
+	[pageQueryParam]: zx.IntAsString.default("1"),
 	query: z.string().optional(),
 });
 
@@ -76,7 +76,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutsListDocument,
-				{ input: { page: query.page, query: query.query } },
+				{ input: { page: query[pageQueryParam], query: query.query } },
 			);
 			return {
 				details: userWorkoutsList.details,
@@ -221,7 +221,7 @@ export default function Page() {
 				<Center>
 					<Pagination
 						size="sm"
-						value={loaderData.query.page}
+						value={loaderData.query[pageQueryParam]}
 						onChange={(v) => setP(pageQueryParam, v.toString())}
 						total={Math.ceil(
 							loaderData.itemList.details.total / coreDetails.pageLimit,

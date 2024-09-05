@@ -83,7 +83,7 @@ const defaultFiltersValue = {
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
-	page: zx.IntAsString.optional(),
+	[pageQueryParam]: zx.IntAsString.optional(),
 	query: z.string().optional(),
 	sortBy: z
 		.nativeEnum(CollectionContentsSortBy)
@@ -112,7 +112,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					metadataLot: query.metadataLot,
 				},
 				sort: { by: query.sortBy, order: query.orderBy },
-				search: { page: query.page, query: query.query },
+				search: { page: query[pageQueryParam], query: query.query },
 			},
 		}),
 	]);
@@ -365,7 +365,7 @@ export default function Page() {
 								<Center>
 									<Pagination
 										size="sm"
-										value={loaderData.query.page}
+										value={loaderData.query[pageQueryParam]}
 										onChange={(v) => setP(pageQueryParam, v.toString())}
 										total={Math.ceil(
 											loaderData.collectionContents.results.details.total /

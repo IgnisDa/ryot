@@ -83,9 +83,9 @@ const SEARCH_SOURCES_ALLOWED: Partial<Record<MediaSource, MediaLot>> = {
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const cookieName = await getEnhancedCookieName(`groups.${action}`, request);
-	const { query, page } = zx.parseQuery(request, {
+	const query = zx.parseQuery(request, {
 		query: z.string().optional(),
-		page: zx.IntAsString.default("1"),
+		[pageQueryParam]: zx.IntAsString.default("1"),
 	});
 	const [list, search] = await match(action)
 		.with(Action.List, async () => {
@@ -101,7 +101,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					MetadataGroupsListDocument,
 					{
 						input: {
-							search: { page, query },
+							search: { page: query[pageQueryParam], query: query.query },
 							sort: { by: urlParse.sortBy, order: urlParse.orderBy },
 							filter: { collections: urlParse.collections },
 							invertCollection: urlParse.invertCollection,
@@ -120,7 +120,13 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				await serverGqlService.authenticatedRequest(
 					request,
 					MetadataGroupSearchDocument,
-					{ input: { lot, source: urlParse.source, search: { page, query } } },
+					{
+						input: {
+							lot,
+							source: urlParse.source,
+							search: { page: query[pageQueryParam], query: query.query },
+						},
+					},
 				);
 			return [
 				undefined,
@@ -128,7 +134,14 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			] as const;
 		})
 		.exhaustive();
-	return { action, query, page, list, search, cookieName };
+	return {
+		list,
+		query,
+		action,
+		search,
+		cookieName,
+		[pageQueryParam]: query[pageQueryParam],
+	};
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -158,7 +171,11 @@ export default function Page() {
 								$path(
 									"/media/groups/:action",
 									{ action: v },
-									{ query: loaderData.query },
+									{
+										...(loaderData.query.query && {
+											query: loaderData.query.query,
+										}),
+									},
 								),
 							);
 					}}
@@ -176,7 +193,7 @@ export default function Page() {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for groups"
-						initialValue={loaderData.query}
+						initialValue={loaderData.query.query}
 						enhancedQueryParams={loaderData.cookieName}
 					/>
 					{loaderData.action === Action.List ? (
@@ -236,7 +253,7 @@ export default function Page() {
 						<Center>
 							<Pagination
 								size="sm"
-								value={loaderData.page}
+								value={loaderData[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.list.list.details.total / coreDetails.pageLimit,
@@ -266,7 +283,7 @@ export default function Page() {
 						<Center>
 							<Pagination
 								size="sm"
-								value={loaderData.page}
+								value={loaderData[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
 								total={Math.ceil(
 									loaderData.search.search.details.total /

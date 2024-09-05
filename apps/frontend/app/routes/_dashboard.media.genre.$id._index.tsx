@@ -24,7 +24,7 @@ import {
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.default("1"),
+	[pageQueryParam]: zx.IntAsString.default("1"),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -36,7 +36,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genreDetails }] = await Promise.all([
 		serverGqlService.request(GenreDetailsDocument, {
-			input: { genreId, page: query.page },
+			input: { genreId, page: query[pageQueryParam] },
 		}),
 	]);
 	return { query, genreDetails, cookieName };
@@ -66,7 +66,7 @@ export default function Page() {
 				<Center>
 					<Pagination
 						size="sm"
-						value={loaderData.query.page}
+						value={loaderData.query[pageQueryParam]}
 						onChange={(v) => setP(pageQueryParam, v.toString())}
 						total={Math.ceil(
 							loaderData.genreDetails.contents.details.total /
