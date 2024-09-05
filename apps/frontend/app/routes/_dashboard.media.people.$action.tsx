@@ -248,27 +248,25 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.peopleList.list.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.peopleList?.list.items.map((person) => (
-										<PersonDisplayItem key={person} personId={person} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.peopleList.list.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.peopleList?.list.items.map((person) => (
+									<PersonDisplayItem key={person} personId={person} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No information to display</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								value={loaderData.page}
+								onChange={(v) => setP("page", v.toString())}
+								total={Math.ceil(
+									loaderData.peopleList.list.details.total /
+										coreDetails.pageLimit,
+								)}
+							/>
+						</Center>
 					</>
 				) : null}
 				{loaderData.peopleSearch ? (
@@ -280,27 +278,25 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.peopleSearch.search.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.peopleSearch.search.items.map((person) => (
-										<PersonSearchItem item={person} key={person.identifier} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.peopleSearch.search.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.peopleSearch.search.items.map((person) => (
+									<PersonSearchItem item={person} key={person.identifier} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No people found matching your query</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								value={loaderData.page}
+								onChange={(v) => setP("page", v.toString())}
+								total={Math.ceil(
+									loaderData.peopleSearch.search.details.total /
+										coreDetails.pageLimit,
+								)}
+							/>
+						</Center>
 					</>
 				) : null}
 			</Stack>
