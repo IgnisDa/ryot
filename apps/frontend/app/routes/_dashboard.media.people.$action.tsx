@@ -274,7 +274,7 @@ export default function Page() {
 						</Box>
 						{loaderData.peopleList.list.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.peopleList?.list.items.map((person) => (
+								{loaderData.peopleList.list.items.map((person) => (
 									<PersonDisplayItem key={person} personId={person} />
 								))}
 							</ApplicationGrid>
