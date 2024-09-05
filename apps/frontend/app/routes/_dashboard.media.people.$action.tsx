@@ -49,10 +49,11 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
-import { commaDelimitedString } from "~/lib/generals";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
+import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -85,11 +86,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const { query, page } = zx.parseQuery(request, {
+	const query = zx.parseQuery(request, {
 		query: z.string().optional(),
-		page: zx.IntAsString.default("1"),
+		[pageQueryParam]: zx.IntAsString.default("1"),
 	});
-	const [peopleList, peopleSearch] = await match(action)
+	const [totalResults, peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
 				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
@@ -102,14 +103,18 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				PeopleListDocument,
 				{
 					input: {
-						search: { page, query },
-						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-						filter: { collections: urlParse.collections },
 						invertCollection: urlParse.invertCollection,
+						filter: { collections: urlParse.collections },
+						sort: { by: urlParse.sortBy, order: urlParse.orderBy },
+						search: { page: query[pageQueryParam], query: query.query },
 					},
 				},
 			);
-			return [{ list: peopleList, url: urlParse }, undefined] as const;
+			return [
+				peopleList.details.total,
+				{ list: peopleList, url: urlParse },
+				undefined,
+			] as const;
 		})
 		.with(Action.Search, async () => {
 			const urlParse = zx.parseQuery(request, {
@@ -123,18 +128,35 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				{
 					input: {
 						source: urlParse.source,
-						search: { page, query },
 						sourceSpecifics: {
 							isAnilistStudio: urlParse.isAnilistStudio,
 							isTmdbCompany: urlParse.isTmdbCompany,
 						},
+						search: { page: query[pageQueryParam], query: query.query },
 					},
 				},
 			);
-			return [undefined, { search: peopleSearch, url: urlParse }] as const;
+			return [
+				peopleSearch.details.total,
+				undefined,
+				{ search: peopleSearch, url: urlParse },
+			] as const;
 		})
 		.exhaustive();
-	return { action, query, page, peopleList, peopleSearch, cookieName };
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		totalResults,
+		query[pageQueryParam],
+	);
+	return {
+		query,
+		action,
+		peopleList,
+		totalPages,
+		cookieName,
+		peopleSearch,
+		[pageQueryParam]: query[pageQueryParam],
+	};
 });
 
 export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -143,7 +165,6 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
@@ -164,7 +185,11 @@ export default function Page() {
 								$path(
 									"/media/people/:action",
 									{ action: v },
-									{ query: loaderData.query },
+									{
+										...(loaderData.query.query && {
+											query: loaderData.query.query,
+										}),
+									},
 								),
 							);
 					}}
@@ -182,7 +207,7 @@ export default function Page() {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						placeholder="Search for people"
-						initialValue={loaderData.query}
+						initialValue={loaderData.query.query}
 						enhancedQueryParams={loaderData.cookieName}
 					/>
 					{loaderData.action === Action.List ? (
@@ -248,27 +273,22 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.peopleList.list.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.peopleList?.list.items.map((person) => (
-										<PersonDisplayItem key={person} personId={person} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.peopleList.list.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.peopleList.list.items.map((person) => (
+									<PersonDisplayItem key={person} personId={person} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No information to display</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
+						</Center>
 					</>
 				) : null}
 				{loaderData.peopleSearch ? (
@@ -280,27 +300,22 @@ export default function Page() {
 							items found
 						</Box>
 						{loaderData.peopleSearch.search.details.total > 0 ? (
-							<>
-								<ApplicationGrid>
-									{loaderData.peopleSearch.search.items.map((person) => (
-										<PersonSearchItem item={person} key={person.identifier} />
-									))}
-								</ApplicationGrid>
-								<Center>
-									<Pagination
-										size="sm"
-										value={loaderData.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.peopleSearch.search.details.total /
-												coreDetails.pageLimit,
-										)}
-									/>
-								</Center>
-							</>
+							<ApplicationGrid>
+								{loaderData.peopleSearch.search.items.map((person) => (
+									<PersonSearchItem item={person} key={person.identifier} />
+								))}
+							</ApplicationGrid>
 						) : (
 							<Text>No people found matching your query</Text>
 						)}
+						<Center>
+							<Pagination
+								size="sm"
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
+						</Center>
 					</>
 				) : null}
 			</Stack>

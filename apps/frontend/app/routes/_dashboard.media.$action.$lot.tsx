@@ -60,11 +60,16 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { BaseMediaDisplayItem, MetadataDisplayItem } from "~/components/media";
-import { Verb, commaDelimitedString, getLot, getVerb } from "~/lib/generals";
+import {
+	Verb,
+	commaDelimitedString,
+	getLot,
+	getVerb,
+	pageQueryParam,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useApplicationEvents,
-	useCoreDetails,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -74,6 +79,7 @@ import {
 } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -120,12 +126,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		request,
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const { query, page } = zx.parseQuery(request, {
+	const query = zx.parseQuery(request, {
 		query: z.string().optional(),
-		page: zx.IntAsString.default("1"),
+		[pageQueryParam]: zx.IntAsString.default("1"),
 	});
-	const numPage = Number(page);
-	const [mediaList, mediaSearch] = await match(action)
+	const [totalResults, mediaList, mediaSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
 				sortOrder: z
@@ -144,7 +149,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				{
 					input: {
 						lot,
-						search: { page: numPage, query },
+						search: { page: query[pageQueryParam], query: query.query },
 						sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
 						filter: {
 							general: urlParse.generalFilter,
@@ -154,7 +159,11 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					},
 				},
 			);
-			return [{ list: metadataList, url: urlParse }, undefined] as const;
+			return [
+				metadataList.details.total,
+				{ list: metadataList, url: urlParse },
+				undefined,
+			] as const;
 		})
 		.with(Action.Search, async () => {
 			const metadataSourcesForLot = metadataMapping[lot];
@@ -167,12 +176,13 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				{
 					input: {
 						lot,
-						search: { page, query },
+						search: { page: query[pageQueryParam], query: query.query },
 						source: urlParse.source,
 					},
 				},
 			);
 			return [
+				metadataSearch.details.total,
 				undefined,
 				{
 					search: metadataSearch,
@@ -183,15 +193,21 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		})
 		.exhaustive();
 	const url = new URL(request.url);
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		totalResults,
+		query[pageQueryParam],
+	);
 	return {
 		lot,
 		query,
 		action,
-		numPage,
 		mediaList,
+		totalPages,
 		cookieName,
 		mediaSearch,
 		url: withoutHost(url.href),
+		[pageQueryParam]: Number(query[pageQueryParam]),
 	};
 });
 
@@ -208,7 +224,6 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
@@ -235,7 +250,11 @@ export default function Page() {
 							$path(
 								"/media/:action/:lot",
 								{ action: v, lot: loaderData.lot.toLowerCase() },
-								{ ...(loaderData.query && { query: loaderData.query }) },
+								{
+									...(loaderData.query.query && {
+										query: loaderData.query.query,
+									}),
+								},
 							),
 						);
 				}}
@@ -265,7 +284,7 @@ export default function Page() {
 					<>
 						<Group wrap="nowrap">
 							<DebouncedSearchInput
-								initialValue={loaderData.query}
+								initialValue={loaderData.query.query}
 								enhancedQueryParams={loaderData.cookieName}
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
@@ -310,12 +329,9 @@ export default function Page() {
 							<Center>
 								<Pagination
 									size="sm"
-									value={loaderData.numPage}
-									onChange={(v) => setP("page", v.toString())}
-									total={Math.ceil(
-										loaderData.mediaList.list.details.total /
-											coreDetails.pageLimit,
-									)}
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
 								/>
 							</Center>
 						) : null}
@@ -328,7 +344,7 @@ export default function Page() {
 								placeholder={`Sift through your ${changeCase(
 									loaderData.lot.toLowerCase(),
 								).toLowerCase()}s`}
-								initialValue={loaderData.query}
+								initialValue={loaderData.query.query}
 								enhancedQueryParams={loaderData.cookieName}
 							/>
 							{loaderData.mediaSearch.mediaSources.length > 1 ? (
@@ -378,12 +394,9 @@ export default function Page() {
 							<Center>
 								<Pagination
 									size="sm"
-									value={loaderData.numPage}
-									onChange={(v) => setP("page", v.toString())}
-									total={Math.ceil(
-										loaderData.mediaSearch.search.details.total /
-											coreDetails.pageLimit,
-									)}
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
 								/>
 							</Center>
 						) : null}

@@ -49,17 +49,14 @@ import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
-import { dayjsLib } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useUserCollections,
-} from "~/lib/hooks";
+import { dayjsLib, pageQueryParam } from "~/lib/generals";
+import { useAppSearchParam, useUserCollections } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getCachedExerciseParameters,
 	getEnhancedCookieName,
 	getWorkoutCookieValue,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -76,7 +73,7 @@ const defaultFiltersValue = {
 };
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.optional(),
+	[pageQueryParam]: zx.IntAsString.optional(),
 	query: z.string().optional(),
 	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
 	type: z.nativeEnum(ExerciseLot).optional(),
@@ -96,31 +93,41 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const workoutInProgress = !!getWorkoutCookieValue(request);
 	query.sortBy = query.sortBy ?? defaultFiltersValue.sortBy;
-	query.page = query.page ?? 1;
+	query[pageQueryParam] = query[pageQueryParam] ?? 1;
 	const [exerciseParameters, { exercisesList }] = await Promise.all([
 		getCachedExerciseParameters(),
-		serverGqlService.authenticatedRequest(request, ExercisesListDocument, {
-			input: {
-				search: { page: query.page, query: query.query },
-				filter: {
-					equipment: query.equipment,
-					force: query.force,
-					level: query.level,
-					mechanic: query.mechanic,
-					muscle: query.muscle,
-					type: query.type,
-					collection: query.collection,
+		serverGqlService.authenticatedRequest(
+			request.clone(),
+			ExercisesListDocument,
+			{
+				input: {
+					search: { page: query[pageQueryParam], query: query.query },
+					filter: {
+						equipment: query.equipment,
+						force: query.force,
+						level: query.level,
+						mechanic: query.mechanic,
+						muscle: query.muscle,
+						type: query.type,
+						collection: query.collection,
+					},
+					sortBy: query.sortBy,
 				},
-				sortBy: query.sortBy,
 			},
-		}),
+		),
 	]);
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		exercisesList.details.total,
+		query[pageQueryParam],
+	);
 	return {
 		query,
+		totalPages,
+		cookieName,
+		exercisesList,
 		workoutInProgress,
 		exerciseParameters,
-		exercisesList,
-		cookieName,
 	};
 });
 
@@ -130,7 +137,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
@@ -145,7 +151,7 @@ export default function Page() {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
-		.filter((k) => k !== "page" && k !== "query")
+		.filter((k) => k !== pageQueryParam && k !== "query")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
@@ -287,19 +293,14 @@ export default function Page() {
 						) : (
 							<Text>No information to display</Text>
 						)}
-						{loaderData.exercisesList.details.total > 0 ? (
-							<Center>
-								<Pagination
-									size="sm"
-									value={loaderData.query.page}
-									onChange={(v) => setP("page", v.toString())}
-									total={Math.ceil(
-										loaderData.exercisesList.details.total /
-											coreDetails.pageLimit,
-									)}
-								/>
-							</Center>
-						) : null}
+						<Center>
+							<Pagination
+								size="sm"
+								value={loaderData.query[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+								total={loaderData.totalPages}
+							/>
+						</Center>
 					</>
 				)}
 			</Stack>

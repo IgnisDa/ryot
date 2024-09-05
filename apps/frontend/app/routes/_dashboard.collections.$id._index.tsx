@@ -57,17 +57,15 @@ import {
 import {
 	clientGqlService,
 	dayjsLib,
+	pageQueryParam,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
 	serverGqlService,
@@ -82,7 +80,7 @@ const defaultFiltersValue = {
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional(),
-	page: zx.IntAsString.optional(),
+	[pageQueryParam]: zx.IntAsString.optional(),
 	query: z.string().optional(),
 	sortBy: z
 		.nativeEnum(CollectionContentsSortBy)
@@ -111,11 +109,16 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					metadataLot: query.metadataLot,
 				},
 				sort: { by: query.sortBy, order: query.orderBy },
-				search: { page: query.page, query: query.query },
+				search: { page: query[pageQueryParam], query: query.query },
 			},
 		}),
 	]);
-	return { collectionId, query, collectionContents, cookieName };
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		collectionContents.results.details.total,
+		query[pageQueryParam] || 1,
+	);
+	return { collectionId, query, collectionContents, cookieName, totalPages };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -160,7 +163,6 @@ const bulkRemoveSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const coreDetails = useCoreDetails();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
@@ -364,12 +366,9 @@ export default function Page() {
 								<Center>
 									<Pagination
 										size="sm"
-										value={loaderData.query.page}
-										onChange={(v) => setP("page", v.toString())}
-										total={Math.ceil(
-											loaderData.collectionContents.results.details.total /
-												coreDetails.pageLimit,
-										)}
+										total={loaderData.totalPages}
+										value={loaderData.query[pageQueryParam]}
+										onChange={(v) => setP(pageQueryParam, v.toString())}
 									/>
 								</Center>
 							) : null}

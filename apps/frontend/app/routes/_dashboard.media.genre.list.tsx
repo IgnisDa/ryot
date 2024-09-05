@@ -36,19 +36,17 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useGetMantineColor,
-} from "~/lib/hooks";
+import { pageQueryParam } from "~/lib/generals";
+import { useAppSearchParam, useGetMantineColor } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
+	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	page: zx.IntAsString.default("1"),
+	[pageQueryParam]: zx.IntAsString.default("1"),
 	query: z.string().optional(),
 });
 
@@ -60,10 +58,15 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ genresList }] = await Promise.all([
 		serverGqlService.request(GenresListDocument, {
-			input: { page: query.page, query: query.query },
+			input: { page: query[pageQueryParam], query: query.query },
 		}),
 	]);
-	return { query, genresList, cookieName };
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
+		request,
+		genresList.details.total,
+		query[pageQueryParam],
+	);
+	return { query, genresList, cookieName, totalPages };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -72,7 +75,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
@@ -107,11 +109,9 @@ export default function Page() {
 					<Center mt="xl">
 						<Pagination
 							size="sm"
-							value={loaderData.query.page}
-							onChange={(v) => setP("page", v.toString())}
-							total={Math.ceil(
-								loaderData.genresList.details.total / coreDetails.pageLimit,
-							)}
+							total={loaderData.totalPages}
+							value={loaderData.query[pageQueryParam]}
+							onChange={(v) => setP(pageQueryParam, v.toString())}
 						/>
 					</Center>
 				) : null}

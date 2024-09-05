@@ -53,8 +53,8 @@ export const loader = async () => redirect($path("/"));
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await request.clone().formData();
-	const url = new URL(request.url);
-	const intent = url.searchParams.get("intent") as string;
+	const { searchParams } = new URL(request.url);
+	const intent = searchParams.get("intent") as string;
 	invariant(intent);
 	const redirectToForm = formData.get(redirectToQueryParam);
 	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
