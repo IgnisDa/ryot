@@ -50,11 +50,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useUserCollections,
-} from "~/lib/hooks";
+import { useAppSearchParam, useUserCollections } from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getCachedExerciseParameters,
@@ -120,13 +116,14 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			},
 		),
 	]);
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		exercisesList.details.total,
 		query[pageQueryParam],
 	);
 	return {
 		query,
+		totalPages,
 		cookieName,
 		exercisesList,
 		workoutInProgress,
@@ -140,7 +137,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
@@ -302,10 +298,7 @@ export default function Page() {
 								size="sm"
 								value={loaderData.query[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
-								total={Math.ceil(
-									loaderData.exercisesList.details.total /
-										coreDetails.pageLimit,
-								)}
+								total={loaderData.totalPages}
 							/>
 						</Center>
 					</>

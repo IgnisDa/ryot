@@ -55,7 +55,7 @@ import {
 	MetadataGroupDisplayItem,
 } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -140,7 +140,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			] as const;
 		})
 		.exhaustive();
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		totalResults,
 		query[pageQueryParam],
@@ -150,6 +150,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query,
 		action,
 		search,
+		totalPages,
 		cookieName,
 		[pageQueryParam]: query[pageQueryParam],
 	};
@@ -161,7 +162,6 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const navigate = useNavigate();
 	const [
@@ -264,11 +264,9 @@ export default function Page() {
 						<Center>
 							<Pagination
 								size="sm"
+								total={loaderData.totalPages}
 								value={loaderData[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
-								total={Math.ceil(
-									loaderData.list.list.details.total / coreDetails.pageLimit,
-								)}
 							/>
 						</Center>
 					</>
@@ -294,12 +292,9 @@ export default function Page() {
 						<Center>
 							<Pagination
 								size="sm"
+								total={loaderData.totalPages}
 								value={loaderData[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
-								total={Math.ceil(
-									loaderData.search.search.details.total /
-										coreDetails.pageLimit,
-								)}
 							/>
 						</Center>
 					</>

@@ -61,11 +61,7 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useCoreDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
@@ -117,12 +113,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			},
 		}),
 	]);
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		collectionContents.results.details.total,
 		query[pageQueryParam] || 1,
 	);
-	return { collectionId, query, collectionContents, cookieName };
+	return { collectionId, query, collectionContents, cookieName, totalPages };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -167,7 +163,6 @@ const bulkRemoveSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const coreDetails = useCoreDetails();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
@@ -371,12 +366,9 @@ export default function Page() {
 								<Center>
 									<Pagination
 										size="sm"
+										total={loaderData.totalPages}
 										value={loaderData.query[pageQueryParam]}
 										onChange={(v) => setP(pageQueryParam, v.toString())}
-										total={Math.ceil(
-											loaderData.collectionContents.results.details.total /
-												coreDetails.pageLimit,
-										)}
 									/>
 								</Center>
 							) : null}

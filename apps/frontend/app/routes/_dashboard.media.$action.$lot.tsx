@@ -70,7 +70,6 @@ import {
 import {
 	useAppSearchParam,
 	useApplicationEvents,
-	useCoreDetails,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -194,7 +193,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		})
 		.exhaustive();
 	const url = new URL(request.url);
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		totalResults,
 		query[pageQueryParam],
@@ -204,6 +203,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query,
 		action,
 		mediaList,
+		totalPages,
 		cookieName,
 		mediaSearch,
 		url: withoutHost(url.href),
@@ -224,7 +224,6 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
 		filtersModalOpened,
@@ -330,12 +329,9 @@ export default function Page() {
 							<Center>
 								<Pagination
 									size="sm"
+									total={loaderData.totalPages}
 									value={loaderData[pageQueryParam]}
 									onChange={(v) => setP(pageQueryParam, v.toString())}
-									total={Math.ceil(
-										loaderData.mediaList.list.details.total /
-											coreDetails.pageLimit,
-									)}
 								/>
 							</Center>
 						) : null}
@@ -398,12 +394,9 @@ export default function Page() {
 							<Center>
 								<Pagination
 									size="sm"
+									total={loaderData.totalPages}
 									value={loaderData[pageQueryParam]}
 									onChange={(v) => setP(pageQueryParam, v.toString())}
-									total={Math.ceil(
-										loaderData.mediaSearch.search.details.total /
-											coreDetails.pageLimit,
-									)}
 								/>
 							</Center>
 						) : null}

@@ -33,7 +33,6 @@ import {
 import { pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
-	useCoreDetails,
 	useFallbackImageUrl,
 	useGetMantineColor,
 } from "~/lib/hooks";
@@ -60,12 +59,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			input: { page: query[pageQueryParam], query: query.query },
 		}),
 	]);
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		genresList.details.total,
 		query[pageQueryParam],
 	);
-	return { query, genresList, cookieName };
+	return { query, genresList, cookieName, totalPages };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -74,7 +73,6 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
@@ -109,11 +107,9 @@ export default function Page() {
 					<Center mt="xl">
 						<Pagination
 							size="sm"
+							total={loaderData.totalPages}
 							value={loaderData.query[pageQueryParam]}
 							onChange={(v) => setP(pageQueryParam, v.toString())}
-							total={Math.ceil(
-								loaderData.genresList.details.total / coreDetails.pageLimit,
-							)}
 						/>
 					</Center>
 				) : null}

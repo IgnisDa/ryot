@@ -16,7 +16,7 @@ import { zx } from "zodix";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import { pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -40,12 +40,12 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			input: { genreId, page: query[pageQueryParam] },
 		}),
 	]);
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		genreDetails.contents.details.total,
 		query[pageQueryParam],
 	);
-	return { query, genreDetails, cookieName };
+	return { query, genreDetails, cookieName, totalPages };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -54,7 +54,6 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	return (
@@ -72,12 +71,9 @@ export default function Page() {
 				<Center>
 					<Pagination
 						size="sm"
+						total={loaderData.totalPages}
 						value={loaderData.query[pageQueryParam]}
 						onChange={(v) => setP(pageQueryParam, v.toString())}
-						total={Math.ceil(
-							loaderData.genreDetails.contents.details.total /
-								coreDetails.pageLimit,
-						)}
 					/>
 				</Center>
 			</Stack>

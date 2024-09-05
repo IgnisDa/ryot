@@ -50,7 +50,7 @@ import {
 } from "~/components/common";
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -143,7 +143,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			] as const;
 		})
 		.exhaustive();
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		totalResults,
 		query[pageQueryParam],
@@ -152,6 +152,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query,
 		action,
 		peopleList,
+		totalPages,
 		cookieName,
 		peopleSearch,
 		[pageQueryParam]: query[pageQueryParam],
@@ -164,7 +165,6 @@ export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const navigate = useNavigate();
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [
@@ -284,12 +284,9 @@ export default function Page() {
 						<Center>
 							<Pagination
 								size="sm"
+								total={loaderData.totalPages}
 								value={loaderData[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
-								total={Math.ceil(
-									loaderData.peopleList.list.details.total /
-										coreDetails.pageLimit,
-								)}
 							/>
 						</Center>
 					</>
@@ -314,12 +311,9 @@ export default function Page() {
 						<Center>
 							<Pagination
 								size="sm"
+								total={loaderData.totalPages}
 								value={loaderData[pageQueryParam]}
 								onChange={(v) => setP(pageQueryParam, v.toString())}
-								total={Math.ceil(
-									loaderData.peopleSearch.search.details.total /
-										coreDetails.pageLimit,
-								)}
 							/>
 						</Center>
 					</>

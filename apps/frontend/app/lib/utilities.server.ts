@@ -427,4 +427,5 @@ export const redirectToFirstPageIfOnInvalidPage = async (
 		searchParams.set(pageQueryParam, "1");
 		throw redirect(`?${searchParams.toString()}`);
 	}
+	return totalPages;
 };

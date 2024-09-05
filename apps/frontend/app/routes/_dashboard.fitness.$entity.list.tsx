@@ -44,7 +44,6 @@ import {
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
-	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -97,12 +96,12 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			};
 		})
 		.exhaustive();
-	await redirectToFirstPageIfOnInvalidPage(
+	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
 		itemList.details.total,
 		query[pageQueryParam],
 	);
-	return { query, entity, itemList, cookieName };
+	return { query, entity, itemList, cookieName, totalPages };
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
@@ -111,7 +110,6 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const unitSystem = useUserUnitSystem();
@@ -227,11 +225,9 @@ export default function Page() {
 				<Center>
 					<Pagination
 						size="sm"
+						total={loaderData.totalPages}
 						value={loaderData.query[pageQueryParam]}
 						onChange={(v) => setP(pageQueryParam, v.toString())}
-						total={Math.ceil(
-							loaderData.itemList.details.total / coreDetails.pageLimit,
-						)}
 					/>
 				</Center>
 			</Stack>
