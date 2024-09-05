@@ -287,19 +287,17 @@ export default function Page() {
 						) : (
 							<Text>No information to display</Text>
 						)}
-						{loaderData.exercisesList.details.total > 0 ? (
-							<Center>
-								<Pagination
-									size="sm"
-									value={loaderData.query.page}
-									onChange={(v) => setP("page", v.toString())}
-									total={Math.ceil(
-										loaderData.exercisesList.details.total /
-											coreDetails.pageLimit,
-									)}
-								/>
-							</Center>
-						) : null}
+						<Center>
+							<Pagination
+								size="sm"
+								value={loaderData.query.page}
+								onChange={(v) => setP("page", v.toString())}
+								total={Math.ceil(
+									loaderData.exercisesList.details.total /
+										coreDetails.pageLimit,
+								)}
+							/>
+						</Center>
 					</>
 				)}
 			</Stack>
