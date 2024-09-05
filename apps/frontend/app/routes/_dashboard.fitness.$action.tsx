@@ -1529,9 +1529,7 @@ const SetDisplay = (props: {
 													exerciseHasDetailsToShow(nextExercise);
 												if (nextExerciseHasDetailsToShow)
 													nextExercise.isShowDetailsOpen = true;
-												setTimeout(() => {
-													focusOnExercise(nextExerciseIdx);
-												}, 800);
+												focusOnExercise(nextExerciseIdx);
 											}
 										}),
 									);
