@@ -402,7 +402,7 @@ export const redirectUsingEnhancedCookieSearchParams = async (
 	cookieName: string,
 ) => {
 	const preferences = await getCachedUserPreferences(request);
-	const searchParams = new URL(request.url).searchParams;
+	const { searchParams } = new URL(request.url);
 	if (searchParams.size > 0 || !preferences.general.persistQueries) return;
 	const cookies = parse(request.headers.get("cookie") || "");
 	const savedSearchParams = cookies[cookieName];
