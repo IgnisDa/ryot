@@ -13,6 +13,7 @@ use database_models::{
 use database_utils::{
     entity_in_collections, item_reviews, user_measurements_list, workout_details,
 };
+use dependent_models::ImportOrExportWorkoutItem;
 use enums::EntityLot;
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
@@ -348,7 +349,11 @@ impl ExporterService {
         for workout_id in workout_ids {
             let details =
                 workout_details(&self.db, &self.file_storage_service, user_id, workout_id).await?;
-            writer.serialize_value(&details).unwrap();
+            let exp = ImportOrExportWorkoutItem {
+                details: details.details,
+                collections: details.collections.into_iter().map(|c| c.name).collect(),
+            };
+            writer.serialize_value(&exp).unwrap();
         }
         Ok(())
     }

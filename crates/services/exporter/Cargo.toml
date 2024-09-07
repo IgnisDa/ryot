@@ -13,6 +13,7 @@ common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
 file-storage-service = { path = "../file-storage" }
 fitness-models = { path = "../../models/fitness" }

@@ -316,6 +316,14 @@ export interface Workout {
 	summary: WorkoutSummary;
 }
 
+/** Details about a specific exercise item that needs to be exported. */
+export interface ImportOrExportWorkoutItem {
+	/** The collections this entity was added to. */
+	collections: string[];
+	/** The details of the workout. */
+	details: Workout;
+}
+
 /** Complete export of the user. */
 export interface CompleteExport {
 	/** Data about user's exercises. */
@@ -329,5 +337,5 @@ export interface CompleteExport {
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workouts. */
-	workouts: Workout[] | null;
+	workouts: ImportOrExportWorkoutItem[] | null;
 }

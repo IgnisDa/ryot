@@ -1,7 +1,7 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
 use enums::EntityLot;
-use schematic::Schematic;
+use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter};
@@ -46,7 +46,7 @@ impl Default for StoredUrl {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
 pub enum CollectionExtraInformationLot {
     String,
     Number,
@@ -65,6 +65,7 @@ pub enum CollectionExtraInformationLot {
     SimpleObject,
     FromJsonQueryResult,
     InputObject,
+    Schematic,
 )]
 #[graphql(input_name = "CollectionExtraInformationInput")]
 pub struct CollectionExtraInformation {

@@ -4,11 +4,14 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use common_models::CollectionExtraInformation;
 use nanoid::nanoid;
+use schematic::Schematic;
 use sea_orm::entity::prelude::*;
 use sea_orm::ActiveValue;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject)]
+#[derive(
+    Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Schematic,
+)]
 #[sea_orm(table_name = "collection")]
 #[graphql(name = "Collection")]
 pub struct Model {
