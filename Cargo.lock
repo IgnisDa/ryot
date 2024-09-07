@@ -6147,9 +6147,9 @@ dependencies = [
 
 [[package]]
 name = "starbase_styles"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44854a14e28e3b1d602d802576162380504df73efae50d4b901934d25579524b"
+checksum = "21a18837e83f7754c667fddb2c954ce27a068f9d85053a88d41db4a81435b5fe"
 dependencies = [
  "dirs",
  "owo-colors",
@@ -6277,9 +6277,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supports-color"
-version = "3.0.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9829b314621dfc575df4e409e79f9d6a66a3bd707ab73f23cb4aa3a854ac854f"
+checksum = "8775305acf21c96926c900ad056abeef436701108518cf890020387236ac5a77"
 dependencies = [
  "is_ci",
 ]

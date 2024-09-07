@@ -19,11 +19,11 @@ use database_models::{
     metadata,
     prelude::{
         AccessLink, Collection, CollectionToEntity, DailyUserActivity, Metadata, Review, Seen,
-        User, UserMeasurement, UserToEntity, Workout,
+        User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
-use dependent_models::UserWorkoutDetails;
+use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
 use enums::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
@@ -202,6 +202,34 @@ pub async fn workout_details(
                 entity_in_collections(db, user_id, &workout_id, EntityLot::Workout).await?;
             let details = e.graphql_representation(file_storage_service).await?;
             Ok(UserWorkoutDetails {
+                details,
+                collections,
+            })
+        }
+    }
+}
+
+pub async fn workout_template_details(
+    db: &DatabaseConnection,
+    user_id: &String,
+    workout_template_id: String,
+) -> Result<UserWorkoutTemplateDetails> {
+    let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
+        .one(db)
+        .await?;
+    match maybe_template {
+        None => Err(Error::new(
+            "Workout template with the given ID could not be found.",
+        )),
+        Some(details) => {
+            let collections = entity_in_collections(
+                db,
+                user_id,
+                &workout_template_id,
+                EntityLot::WorkoutTemplate,
+            )
+            .await?;
+            Ok(UserWorkoutTemplateDetails {
                 details,
                 collections,
             })

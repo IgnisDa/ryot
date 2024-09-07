@@ -3,9 +3,13 @@
 use async_graphql::SimpleObject;
 use enums::Visibility;
 use fitness_models::{WorkoutInformation, WorkoutSummary};
+use schematic::Schematic;
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject)]
+#[derive(
+    Clone, Debug, PartialEq, DeriveEntityModel, Eq, SimpleObject, Serialize, Deserialize, Schematic,
+)]
 #[sea_orm(table_name = "workout_template")]
 #[graphql(name = "WorkoutTemplate")]
 pub struct Model {
@@ -14,6 +18,8 @@ pub struct Model {
     pub name: String,
     pub visibility: Visibility,
     pub created_on: DateTimeUtc,
+    #[graphql(skip)]
+    #[serde(skip)]
     pub user_id: String,
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,

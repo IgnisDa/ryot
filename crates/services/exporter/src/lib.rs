@@ -7,11 +7,14 @@ use chrono::{DateTime, Utc};
 use common_models::ExportJob;
 use common_utils::{IsFeatureEnabled, TEMP_DIR};
 use database_models::{
-    prelude::{Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout},
-    seen, user_to_entity, workout,
+    prelude::{
+        Exercise, Metadata, MetadataGroup, Person, Seen, UserToEntity, Workout, WorkoutTemplate,
+    },
+    seen, user_to_entity, workout, workout_template,
 };
 use database_utils::{
     entity_in_collections, item_reviews, user_measurements_list, workout_details,
+    workout_template_details,
 };
 use enums::EntityLot;
 use file_storage_service::FileStorageService;
@@ -43,6 +46,7 @@ enum ExportItem {
     Exercises,
     MediaGroups,
     Measurements,
+    WorkoutTemplates,
 }
 
 pub struct ExporterService {
@@ -133,6 +137,9 @@ impl ExporterService {
                 ExportItem::Exercises => self.export_exercises(&user_id, &mut writer).await?,
                 ExportItem::MediaGroups => self.export_media_group(&user_id, &mut writer).await?,
                 ExportItem::Measurements => self.export_measurements(&user_id, &mut writer).await?,
+                ExportItem::WorkoutTemplates => {
+                    self.export_workout_templates(&user_id, &mut writer).await?
+                }
             };
             writer.end_array().unwrap();
         }
@@ -407,6 +414,26 @@ impl ExporterService {
                 reviews,
             };
             writer.serialize_value(&exp).unwrap();
+        }
+        Ok(())
+    }
+
+    async fn export_workout_templates(
+        &self,
+        user_id: &String,
+        writer: &mut JsonStreamWriter<StdFile>,
+    ) -> Result<()> {
+        let workout_template_ids = WorkoutTemplate::find()
+            .select_only()
+            .column(workout_template::Column::Id)
+            .filter(workout_template::Column::UserId.eq(user_id))
+            .order_by_asc(workout_template::Column::CreatedOn)
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for workout_template_id in workout_template_ids {
+            let details = workout_template_details(&self.db, user_id, workout_template_id).await?;
+            writer.serialize_value(&details).unwrap();
         }
         Ok(())
     }

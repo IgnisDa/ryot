@@ -60,6 +60,8 @@ pub struct CompleteExport {
     pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
+    /// Data about user's workout templates.
+    pub workout_templates: Option<Vec<UserWorkoutTemplateDetails>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -204,7 +206,7 @@ pub struct DailyUserActivitiesResponse {
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
 }
 
-#[derive(Debug, SimpleObject, Clone)]
+#[derive(Debug, SimpleObject, Clone, Serialize, Deserialize, Schematic)]
 pub struct UserWorkoutTemplateDetails {
     pub details: workout_template::Model,
     pub collections: Vec<collection::Model>,

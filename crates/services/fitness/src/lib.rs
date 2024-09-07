@@ -17,7 +17,7 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, entity_in_collections, ilike_sql, item_reviews,
-    user_measurements_list, workout_details,
+    user_measurements_list, workout_details, workout_template_details,
 };
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
@@ -130,27 +130,7 @@ impl ExerciseService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
-            .one(&self.db)
-            .await?;
-        match maybe_template {
-            None => Err(Error::new(
-                "Workout template with the given ID could not be found.",
-            )),
-            Some(details) => {
-                let collections = entity_in_collections(
-                    &self.db,
-                    &user_id,
-                    &workout_template_id,
-                    EntityLot::WorkoutTemplate,
-                )
-                .await?;
-                Ok(UserWorkoutTemplateDetails {
-                    details,
-                    collections,
-                })
-            }
-        }
+        workout_template_details(&self.db, &user_id, workout_template_id).await
     }
 
     pub async fn create_or_update_workout_template(
