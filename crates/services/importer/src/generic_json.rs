@@ -30,7 +30,7 @@ pub async fn import(
         .workouts
         .unwrap_or_default()
         .into_iter()
-        .map(|w| exercises_service.db_workout_to_workout_input(w))
+        .map(|w| exercises_service.db_workout_to_workout_input(w.details))
         .collect_vec();
 
     Ok(ImportResult {
