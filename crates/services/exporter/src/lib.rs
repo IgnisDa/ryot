@@ -16,6 +16,7 @@ use database_utils::{
     entity_in_collections, item_reviews, user_measurements_list, workout_details,
     workout_template_details,
 };
+use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use enums::EntityLot;
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
@@ -355,7 +356,11 @@ impl ExporterService {
         for workout_id in workout_ids {
             let details =
                 workout_details(&self.db, &self.file_storage_service, user_id, workout_id).await?;
-            writer.serialize_value(&details).unwrap();
+            let exp = ImportOrExportWorkoutItem {
+                details: details.details,
+                collections: details.collections.into_iter().map(|c| c.name).collect(),
+            };
+            writer.serialize_value(&exp).unwrap();
         }
         Ok(())
     }
@@ -427,13 +432,17 @@ impl ExporterService {
             .select_only()
             .column(workout_template::Column::Id)
             .filter(workout_template::Column::UserId.eq(user_id))
-            .order_by_asc(workout_template::Column::CreatedOn)
+            .order_by_desc(workout_template::Column::CreatedOn)
             .into_tuple::<String>()
             .all(&self.db)
             .await?;
         for workout_template_id in workout_template_ids {
             let details = workout_template_details(&self.db, user_id, workout_template_id).await?;
-            writer.serialize_value(&details).unwrap();
+            let exp = ImportOrExportWorkoutTemplateItem {
+                details: details.details,
+                collections: details.collections.into_iter().map(|c| c.name).collect(),
+            };
+            writer.serialize_value(&exp).unwrap();
         }
         Ok(())
     }

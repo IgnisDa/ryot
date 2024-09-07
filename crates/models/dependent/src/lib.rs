@@ -43,6 +43,23 @@ pub struct SearchResults<T: OutputType> {
     pub items: Vec<T>,
 }
 
+/// Details about a specific exercise item that needs to be exported.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[serde(rename_all = "snake_case")]
+pub struct ImportOrExportWorkoutItem {
+    /// The details of the workout.
+    pub details: workout::Model,
+    /// The collections this entity was added to.
+    pub collections: Vec<String>,
+}
+
+#[derive(Debug, SimpleObject, Clone, Serialize, Deserialize, Schematic)]
+pub struct ImportOrExportWorkoutTemplateItem {
+    pub details: workout_template::Model,
+    pub collections: Vec<String>,
+}
+
 /// Complete export of the user.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
@@ -55,13 +72,13 @@ pub struct CompleteExport {
     /// Data about user's measurements.
     pub measurements: Option<Vec<user_measurement::Model>>,
     /// Data about user's workouts.
-    pub workouts: Option<Vec<workout::Model>>,
+    pub workouts: Option<Vec<ImportOrExportWorkoutItem>>,
     /// Data about user's media groups.
     pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
     /// Data about user's workout templates.
-    pub workout_templates: Option<Vec<UserWorkoutTemplateDetails>>,
+    pub workout_templates: Option<Vec<ImportOrExportWorkoutTemplateItem>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
