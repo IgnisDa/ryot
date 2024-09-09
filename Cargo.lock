@@ -3381,9 +3381,14 @@ name = "integration-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "apalis",
  "application-utils",
  "async-graphql",
+ "background",
+ "chrono",
+ "common-models",
  "common-utils",
+ "config",
  "database-models",
  "database-utils",
  "enums",

@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Instant};
 use apalis::prelude::*;
 use background::{ApplicationJob, CoreApplicationJob, ScheduledJob};
 use common_utils::ryot_log;
+use database_models::integration;
 use exporter_service::ExporterService;
 use fitness_service::ExerciseService;
 use importer_service::ImporterService;
@@ -21,9 +22,9 @@ pub async fn background_jobs(
 
 pub async fn sync_integrations_data(
     _information: ScheduledJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
+    integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {
-    misc_service.sync_integrations_data().await.unwrap();
+    integration_service.yank_integrations_data().await.unwrap();
     Ok(())
 }
 

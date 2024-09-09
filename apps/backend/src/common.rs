@@ -47,6 +47,7 @@ pub struct AppServices {
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
+    pub integration_service: Arc<IntegrationService>,
     pub statistics_service: Arc<StatisticsService>,
     pub app_router: Router,
 }
@@ -75,6 +76,11 @@ pub async fn create_app_services(
     let oidc_client = Arc::new(create_oidc_client(&config).await);
 
     let collection_service = Arc::new(CollectionService::new(
+        &db,
+        config.clone(),
+        perform_core_application_job,
+    ));
+    let integration_service = Arc::new(IntegrationService::new(
         &db,
         config.clone(),
         perform_core_application_job,
@@ -163,12 +169,13 @@ pub async fn create_app_services(
         ))
         .layer(cors);
     AppServices {
-        miscellaneous_service,
+        app_router,
         importer_service,
         exporter_service,
         exercise_service,
         statistics_service,
-        app_router,
+        integration_service,
+        miscellaneous_service,
     }
 }
 

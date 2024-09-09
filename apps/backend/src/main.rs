@@ -185,11 +185,11 @@ async fn main() -> Result<()> {
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
     let media_service_2 = app_services.miscellaneous_service.clone();
-    let media_service_3 = app_services.miscellaneous_service.clone();
     let media_service_4 = app_services.miscellaneous_service.clone();
     let media_service_5 = app_services.miscellaneous_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
     let statistics_service_1 = app_services.statistics_service.clone();
+    let integration_service_1 = app_services.integration_service.clone();
 
     let monitor = async {
         Monitor::<TokioExecutor>::new()
@@ -220,7 +220,7 @@ async fn main() -> Result<()> {
                         .into_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .data(media_service_3.clone())
+                    .data(integration_service_1.clone())
                     .build_fn(sync_integrations_data),
             )
             // application jobs
