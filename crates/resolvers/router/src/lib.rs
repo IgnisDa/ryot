@@ -9,7 +9,7 @@ use axum::{
     Extension, Json,
 };
 use common_utils::{ryot_log, TEMP_DIR};
-use miscellaneous_service::MiscellaneousService;
+use integration_service::IntegrationService;
 use nanoid::nanoid;
 use serde_json::json;
 
@@ -49,10 +49,10 @@ pub async fn upload_file(
 
 pub async fn integration_webhook(
     Path(integration_slug): Path<String>,
-    Extension(media_service): Extension<Arc<MiscellaneousService>>,
+    Extension(integration_service): Extension<Arc<IntegrationService>>,
     payload: String,
 ) -> std::result::Result<(StatusCode, String), StatusCode> {
-    let response = media_service
+    let response = integration_service
         .process_integration_webhook(integration_slug, payload)
         .await
         .map_err(|e| {

@@ -8,6 +8,7 @@ use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
+use dependent_utils::{commit_metadata, commit_person, get_isbn_service};
 use enums::{EntityLot, ImportSource};
 use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
@@ -40,26 +41,29 @@ mod trakt;
 
 pub struct ImporterService {
     db: DatabaseConnection,
+    timezone: Arc<chrono_tz::Tz>,
+    config: Arc<config::AppConfig>,
+    exercise_service: Arc<ExerciseService>,
+    miscellaneous_service: Arc<MiscellaneousService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
-    media_service: Arc<MiscellaneousService>,
-    exercise_service: Arc<ExerciseService>,
-    timezone: Arc<chrono_tz::Tz>,
 }
 
 impl ImporterService {
     pub fn new(
         db: &DatabaseConnection,
+        timezone: Arc<chrono_tz::Tz>,
+        config: Arc<config::AppConfig>,
+        exercise_service: Arc<ExerciseService>,
+        miscellaneous_service: Arc<MiscellaneousService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-        media_service: Arc<MiscellaneousService>,
-        exercise_service: Arc<ExerciseService>,
-        timezone: Arc<chrono_tz::Tz>,
     ) -> Self {
         Self {
-            media_service,
-            exercise_service,
             timezone,
+            config,
+            miscellaneous_service,
+            exercise_service,
             db: db.clone(),
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
@@ -110,7 +114,7 @@ impl ImporterService {
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.generic_csv.unwrap(),
-                &self.media_service.get_isbn_service().await.unwrap(),
+                &get_isbn_service(&self.config).await.unwrap(),
             )
             .await
             .unwrap(),
@@ -118,14 +122,22 @@ impl ImporterService {
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
                 input.generic_csv.unwrap(),
-                &self.media_service.get_isbn_service().await.unwrap(),
+                &get_isbn_service(&self.config).await.unwrap(),
             )
             .await
             .unwrap(),
             ImportSource::Audiobookshelf => audiobookshelf::import(
                 input.url_and_key.unwrap(),
-                &self.media_service.get_isbn_service().await.unwrap(),
-                |input| self.media_service.commit_metadata(input),
+                &get_isbn_service(&self.config).await.unwrap(),
+                |input| {
+                    commit_metadata(
+                        input,
+                        &self.db,
+                        &self.config,
+                        &self.timezone,
+                        &self.perform_application_job,
+                    )
+                },
             )
             .await
             .unwrap(),
@@ -133,7 +145,7 @@ impl ImporterService {
             ImportSource::Imdb => imdb::import(
                 input.generic_csv.unwrap(),
                 &self
-                    .media_service
+                    .miscellaneous_service
                     .get_tmdb_non_media_service()
                     .await
                     .unwrap(),
@@ -170,15 +182,19 @@ impl ImporterService {
             );
             let rev_length = item.reviews.len();
             let identifier = item.identifier.clone();
-            let data = self
-                .media_service
-                .commit_metadata(CommitMediaInput {
+            let data = commit_metadata(
+                CommitMediaInput {
                     identifier,
                     lot: item.lot,
                     source: item.source,
                     force_update: Some(true),
-                })
-                .await;
+                },
+                &self.db,
+                &self.config,
+                &self.timezone,
+                &self.perform_application_job,
+            )
+            .await;
             let metadata = match data {
                 Ok(r) => r,
                 Err(e) => {
@@ -199,7 +215,7 @@ impl ImporterService {
                     Some(dec!(100))
                 };
                 if let Err(e) = self
-                    .media_service
+                    .miscellaneous_service
                     .progress_update(
                         ProgressUpdateInput {
                             metadata_id: metadata.id.clone(),
@@ -234,7 +250,11 @@ impl ImporterService {
                     metadata.id.clone(),
                     EntityLot::Metadata,
                 ) {
-                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
+                    if let Err(e) = self
+                        .miscellaneous_service
+                        .post_review(&user_id, input)
+                        .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -288,7 +308,7 @@ impl ImporterService {
             );
             let rev_length = item.reviews.len();
             let data = self
-                .media_service
+                .miscellaneous_service
                 .commit_metadata_group_internal(&item.identifier, item.lot, item.source)
                 .await;
             let metadata_group_id = match data {
@@ -311,7 +331,11 @@ impl ImporterService {
                     metadata_group_id.clone(),
                     EntityLot::MetadataGroup,
                 ) {
-                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
+                    if let Err(e) = self
+                        .miscellaneous_service
+                        .post_review(&user_id, input)
+                        .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -357,15 +381,16 @@ impl ImporterService {
             );
         }
         for (idx, item) in import.people.iter().enumerate() {
-            let person = self
-                .media_service
-                .commit_person(CommitPersonInput {
+            let person = commit_person(
+                CommitPersonInput {
                     identifier: item.identifier.clone(),
                     name: item.name.clone(),
                     source: item.source,
                     source_specifics: item.source_specifics.clone(),
-                })
-                .await?;
+                },
+                &self.db,
+            )
+            .await?;
             for review in item.reviews.iter() {
                 if let Some(input) = convert_review_into_input(
                     review,
@@ -373,7 +398,11 @@ impl ImporterService {
                     person.id.clone(),
                     EntityLot::Person,
                 ) {
-                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
+                    if let Err(e) = self
+                        .miscellaneous_service
+                        .post_review(&user_id, input)
+                        .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: None,
                             step: ImportFailStep::ReviewConversion,
@@ -459,7 +488,7 @@ impl ImporterService {
             failed_items: import.failed_items,
         };
         self.finish_import_job(db_import_job, details).await?;
-        self.media_service
+        self.miscellaneous_service
             .deploy_background_job(&user_id, BackgroundJob::CalculateUserActivitiesAndSummary)
             .await
             .trace_ok();

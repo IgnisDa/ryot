@@ -184,12 +184,14 @@ async fn main() -> Result<()> {
 
     let importer_service_1 = app_services.importer_service.clone();
     let exporter_service_1 = app_services.exporter_service.clone();
-    let media_service_2 = app_services.miscellaneous_service.clone();
-    let media_service_4 = app_services.miscellaneous_service.clone();
-    let media_service_5 = app_services.miscellaneous_service.clone();
+    let miscellaneous_service_2 = app_services.miscellaneous_service.clone();
+    let miscellaneous_service_4 = app_services.miscellaneous_service.clone();
+    let miscellaneous_service_5 = app_services.miscellaneous_service.clone();
     let exercise_service_1 = app_services.exercise_service.clone();
     let statistics_service_1 = app_services.statistics_service.clone();
     let integration_service_1 = app_services.integration_service.clone();
+    let integration_service_2 = app_services.integration_service.clone();
+    let integration_service_3 = app_services.integration_service.clone();
 
     let monitor = async {
         Monitor::<TokioExecutor>::new()
@@ -205,7 +207,7 @@ async fn main() -> Result<()> {
                         .into_stream(),
                     )
                     .layer(ApalisTraceLayer::new())
-                    .data(media_service_2.clone())
+                    .data(miscellaneous_service_2.clone())
                     .build_fn(background_jobs),
             )
             .register_with_count(
@@ -228,7 +230,8 @@ async fn main() -> Result<()> {
                 1,
                 WorkerBuilder::new("perform_core_application_job")
                     .layer(ApalisTraceLayer::new())
-                    .data(media_service_5.clone())
+                    .data(miscellaneous_service_5.clone())
+                    .data(integration_service_2.clone())
                     .source(perform_core_application_job_storage)
                     .build_fn(perform_core_application_job),
             )
@@ -236,8 +239,9 @@ async fn main() -> Result<()> {
                 3,
                 WorkerBuilder::new("perform_application_job")
                     .data(importer_service_1.clone())
+                    .data(integration_service_3.clone())
                     .data(exporter_service_1.clone())
-                    .data(media_service_4.clone())
+                    .data(miscellaneous_service_4.clone())
                     .data(exercise_service_1.clone())
                     .data(statistics_service_1.clone())
                     .source(perform_application_job_storage)

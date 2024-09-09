@@ -135,7 +135,7 @@ pub async fn get_metadata_provider(
     Ok(service)
 }
 
-async fn details_from_provider(
+pub async fn details_from_provider(
     lot: MediaLot,
     source: MediaSource,
     identifier: &str,
@@ -147,7 +147,7 @@ async fn details_from_provider(
     Ok(results)
 }
 
-async fn commit_person(
+pub async fn commit_person(
     input: CommitPersonInput,
     db: &DatabaseConnection,
 ) -> Result<StringIdObject> {
@@ -231,7 +231,7 @@ async fn associate_genre_with_metadata(
     Ok(())
 }
 
-async fn create_partial_metadata(
+pub async fn create_partial_metadata(
     data: PartialMetadataWithoutId,
     db: &DatabaseConnection,
 ) -> Result<PartialMetadata> {
@@ -357,7 +357,7 @@ async fn change_metadata_associations(
     Ok(())
 }
 
-async fn update_metadata(
+pub async fn update_metadata(
     metadata_id: &String,
     force_update: bool,
     db: &DatabaseConnection,
@@ -632,7 +632,7 @@ async fn update_metadata(
     Ok(notifications)
 }
 
-async fn get_entities_monitored_by(
+pub async fn get_entities_monitored_by(
     entity_id: &String,
     entity_lot: EntityLot,
     db: &DatabaseConnection,
@@ -648,7 +648,7 @@ async fn get_entities_monitored_by(
     Ok(all_entities)
 }
 
-async fn queue_notifications_to_user_platforms(
+pub async fn queue_notifications_to_user_platforms(
     user_id: &String,
     msg: &str,
     db: &DatabaseConnection,
@@ -667,7 +667,7 @@ async fn queue_notifications_to_user_platforms(
     Ok(true)
 }
 
-async fn queue_media_state_changed_notification_for_user(
+pub async fn queue_media_state_changed_notification_for_user(
     user_id: &String,
     notification: &(String, MediaStateChanged),
     db: &DatabaseConnection,

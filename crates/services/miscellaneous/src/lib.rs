@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt,
-    iter::zip,
     path::PathBuf,
     sync::Arc,
 };
@@ -23,11 +22,11 @@ use common_utils::{
 use database_models::{
     calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
-    genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
-    notification_platform, person,
+    genre, import_report, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+    metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
+    person,
     prelude::{
-        CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Integration, Metadata,
+        CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Metadata,
         MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
         MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, QueuedNotification,
         Review, Seen, User, UserToEntity,
@@ -44,9 +43,15 @@ use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
     SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
+use dependent_utils::{
+    commit_metadata, commit_metadata_internal, commit_person, create_partial_metadata,
+    get_entities_monitored_by, get_metadata_provider, get_openlibrary_service,
+    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
+    update_metadata, update_metadata_and_notify_users,
+};
 use enums::{
-    EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
-    MetadataToMetadataRelation, SeenState, UserToMediaReason, Visibility,
+    EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
+    Visibility,
 };
 use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
@@ -61,10 +66,10 @@ use media_models::{
     MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
     MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
     MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
-    MetadataVideo, MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleListInput, PeopleSearchInput, PeopleSearchItem,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics,
-    PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    MetadataVideo, MetadataVideoSource, PartialMetadataWithoutId, PeopleListInput,
+    PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, PostReviewInput,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ProviderLanguageInformation, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
@@ -77,16 +82,16 @@ use migrations::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
-    anilist::{AnilistAnimeService, AnilistMangaService, AnilistService, NonMediaAnilistService},
+    anilist::{AnilistService, NonMediaAnilistService},
     audible::AudibleService,
     google_books::GoogleBooksService,
     igdb::IgdbService,
     itunes::ITunesService,
     listennotes::ListennotesService,
-    mal::{MalAnimeService, MalMangaService, MalService, NonMediaMalService},
+    mal::{MalService, NonMediaMalService},
     manga_updates::MangaUpdatesService,
     openlibrary::OpenlibraryService,
-    tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
+    tmdb::{NonMediaTmdbService, TmdbService},
     vndb::VndbService,
 };
 use rust_decimal::prelude::{One, ToPrimitive};
@@ -1503,7 +1508,7 @@ impl MiscellaneousService {
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
-        let provider = self.get_metadata_provider(lot, source).await?;
+        let provider = get_metadata_provider(lot, source, &self.config, &self.timezone).await?;
         let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
             Some(eg) => eg.id,
@@ -1674,6 +1679,21 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
+        commit_metadata(
+            input,
+            &self.db,
+            &self.config,
+            &self.timezone,
+            &self.perform_application_job,
+        )
+        .await
+    }
+
+    pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
+        commit_person(input, &self.db).await
+    }
+
     pub async fn disassociate_metadata(
         &self,
         user_id: String,
@@ -1734,7 +1754,8 @@ impl MiscellaneousService {
         }
         let cloned_user_id = user_id.to_owned();
         let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
-        let provider = self.get_metadata_provider(input.lot, input.source).await?;
+        let provider =
+            get_metadata_provider(input.lot, input.source, &self.config, &self.timezone).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -1837,7 +1858,8 @@ impl MiscellaneousService {
             });
         }
         let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
-        let provider = self.get_metadata_provider(input.lot, input.source).await?;
+        let provider =
+            get_metadata_provider(input.lot, input.source, &self.config, &self.timezone).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -1854,7 +1876,7 @@ impl MiscellaneousService {
             MediaSource::Vndb => Box::new(
                 VndbService::new(&self.config.visual_novels, self.config.frontend.page_size).await,
             ),
-            MediaSource::Openlibrary => Box::new(self.get_openlibrary_service().await?),
+            MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.config).await?),
             MediaSource::Itunes => Box::new(
                 ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
                     .await,
@@ -1906,7 +1928,7 @@ impl MiscellaneousService {
             .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
             .await?;
         for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = self.create_partial_metadata(media).await?;
+            let db_partial_metadata = create_partial_metadata(media, &self.db).await?;
             MetadataToMetadataGroup::delete_many()
                 .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
                 .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -2198,9 +2220,13 @@ impl MiscellaneousService {
             visual_novel_specifics: input.visual_novel_specifics,
             ..Default::default()
         };
-        let media = self
-            .commit_metadata_internal(details, Some(is_partial))
-            .await?;
+        let media = commit_metadata_internal(
+            details,
+            Some(is_partial),
+            &self.db,
+            &self.perform_application_job,
+        )
+        .await?;
         add_entity_to_collection(
             &self.db,
             &user_id,
@@ -2289,70 +2315,7 @@ impl MiscellaneousService {
         user_id: String,
         collection_to_entity_id: Uuid,
     ) -> Result<()> {
-        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
-        if !matches!(cte.entity_lot, EntityLot::Metadata) {
-            return Ok(());
-        }
-        let integration_service = self.get_integration_service();
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
-            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
-            .all(&self.db)
-            .await?;
-        for integration in integrations {
-            let possible_collection_ids = match integration.provider_specifics.clone() {
-                Some(s) => match integration.provider {
-                    IntegrationProvider::Radarr => s.radarr_sync_collection_ids.unwrap_or_default(),
-                    IntegrationProvider::Sonarr => s.sonarr_sync_collection_ids.unwrap_or_default(),
-                    _ => vec![],
-                },
-                None => vec![],
-            };
-            if !possible_collection_ids.contains(&cte.collection_id) {
-                continue;
-            }
-            let specifics = integration.provider_specifics.unwrap();
-            let metadata = Metadata::find_by_id(&cte.entity_id)
-                .one(&self.db)
-                .await?
-                .ok_or_else(|| Error::new("Metadata does not exist"))?;
-            let maybe_entity_id = match metadata.lot {
-                MediaLot::Show => metadata
-                    .external_identifiers
-                    .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
-                _ => Some(metadata.identifier.clone()),
-            };
-            if let Some(entity_id) = maybe_entity_id {
-                let _push_result = match integration.provider {
-                    IntegrationProvider::Radarr => {
-                        integration_service
-                            .push(IntegrationType::Radarr(
-                                specifics.radarr_base_url.unwrap(),
-                                specifics.radarr_api_key.unwrap(),
-                                specifics.radarr_profile_id.unwrap(),
-                                specifics.radarr_root_folder_path.unwrap(),
-                                entity_id,
-                            ))
-                            .await
-                    }
-                    IntegrationProvider::Sonarr => {
-                        integration_service
-                            .push(IntegrationType::Sonarr(
-                                specifics.sonarr_base_url.unwrap(),
-                                specifics.sonarr_api_key.unwrap(),
-                                specifics.sonarr_profile_id.unwrap(),
-                                specifics.sonarr_root_folder_path.unwrap(),
-                                entity_id,
-                            ))
-                            .await
-                    }
-                    _ => unreachable!(),
-                };
-            }
-        }
+        // FIXME: Deploy job to perform integrations
         Ok(())
     }
 
@@ -2538,11 +2501,24 @@ impl MiscellaneousService {
             meta_map
         );
         for (metadata_id, to_notify) in meta_map {
-            let notifications = self.update_metadata(&metadata_id, false).await?;
+            let notifications = update_metadata(
+                &metadata_id,
+                false,
+                &self.db,
+                &self.config,
+                &self.timezone,
+                &self.perform_application_job,
+            )
+            .await?;
             for user in to_notify {
                 for notification in notifications.iter() {
-                    self.queue_media_state_changed_notification_for_user(&user, notification)
-                        .await?;
+                    queue_media_state_changed_notification_for_user(
+                        &user,
+                        notification,
+                        &self.db,
+                        &self.config,
+                    )
+                    .await?;
                 }
             }
         }
@@ -2563,8 +2539,13 @@ impl MiscellaneousService {
                 .unwrap_or_default();
             for user in to_notify {
                 for notification in notifications.iter() {
-                    self.queue_media_state_changed_notification_for_user(&user, notification)
-                        .await?;
+                    queue_media_state_changed_notification_for_user(
+                        &user,
+                        notification,
+                        &self.db,
+                        &self.config,
+                    )
+                    .await?;
                 }
             }
         }
@@ -2939,8 +2920,12 @@ impl MiscellaneousService {
                 let related_users = col.find_related(UserToEntity).all(&self.db).await?;
                 if get_current_date(self.timezone.as_ref()) == reminder.reminder {
                     for user in related_users {
-                        self.queue_notifications_to_user_platforms(&user.user_id, &reminder.text)
-                            .await?;
+                        queue_notifications_to_user_platforms(
+                            &user.user_id,
+                            &reminder.text,
+                            &self.db,
+                        )
+                        .await?;
                         remove_entity_from_collection(
                             &self.db,
                             &user.user_id,
@@ -3183,12 +3168,16 @@ impl MiscellaneousService {
             })
             .collect_vec();
         for (metadata_id, notification) in notifications.into_iter() {
-            let users_to_notify = self
-                .get_entities_monitored_by(&metadata_id, EntityLot::Metadata)
-                .await?;
+            let users_to_notify =
+                get_entities_monitored_by(&metadata_id, EntityLot::Metadata, &self.db).await?;
             for user in users_to_notify {
-                self.queue_media_state_changed_notification_for_user(&user, &notification)
-                    .await?;
+                queue_media_state_changed_notification_for_user(
+                    &user,
+                    &notification,
+                    &self.db,
+                    &self.config,
+                )
+                .await?;
             }
         }
         Ok(())
@@ -3226,7 +3215,7 @@ impl MiscellaneousService {
         to_update_person.name = ActiveValue::Set(provider_person.name);
         for (role, media) in provider_person.related.clone() {
             let title = media.title.clone();
-            let pm = self.create_partial_metadata(media).await?;
+            let pm = create_partial_metadata(media, &self.db).await?;
             let already_intermediate = MetadataToPerson::find()
                 .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
                 .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -3267,20 +3256,40 @@ impl MiscellaneousService {
         Ok(notifications)
     }
 
+    pub async fn update_metadata_and_notify_users(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<()> {
+        update_metadata_and_notify_users(
+            metadata_id,
+            force_update,
+            &self.db,
+            &self.config,
+            &self.timezone,
+            &self.perform_application_job,
+        )
+        .await
+    }
+
     pub async fn update_person_and_notify_users(&self, person_id: String) -> Result<()> {
         let notifications = self
             .update_person(person_id.clone())
             .await
             .unwrap_or_default();
         if !notifications.is_empty() {
-            let users_to_notify = self
-                .get_entities_monitored_by(&person_id, EntityLot::Person)
-                .await?;
+            let users_to_notify =
+                get_entities_monitored_by(&person_id, EntityLot::Person, &self.db).await?;
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
-                    self.queue_media_state_changed_notification_for_user(user_id, &notification)
-                        .await
-                        .trace_ok();
+                    queue_media_state_changed_notification_for_user(
+                        user_id,
+                        &notification,
+                        &self.db,
+                        &self.config,
+                    )
+                    .await
+                    .trace_ok();
                 }
             }
         }
@@ -3288,9 +3297,8 @@ impl MiscellaneousService {
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        let monitored_by = self
-            .get_entities_monitored_by(&event.obj_id, event.entity_lot)
-            .await?;
+        let monitored_by =
+            get_entities_monitored_by(&event.obj_id, event.entity_lot, &self.db).await?;
         let users = User::find()
             .select_only()
             .column(user::Column::Id)
@@ -3308,12 +3316,13 @@ impl MiscellaneousService {
                 event.entity_lot,
                 Some("reviews"),
             );
-            self.queue_notifications_to_user_platforms(
+            queue_notifications_to_user_platforms(
                 &user_id,
                 &format!(
                     "New review posted for {} ({}, {}) by {}.",
                     event.obj_title, event.entity_lot, url, event.username
                 ),
+                &self.db,
             )
             .await?;
         }

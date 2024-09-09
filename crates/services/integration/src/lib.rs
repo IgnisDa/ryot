@@ -7,11 +7,14 @@ use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::ChangeCollectionToEntityInput;
 use common_utils::ryot_log;
-use database_models::metadata;
 use database_models::{integration, prelude::Integration};
+use database_models::{
+    metadata,
+    prelude::{CollectionToEntity, Metadata},
+};
 use database_utils::{add_entity_to_collection, user_preferences_by_id};
 use dependent_utils::commit_metadata;
-use enums::{EntityLot, IntegrationLot, IntegrationProvider};
+use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
@@ -21,6 +24,7 @@ use sea_orm::{
 };
 use sea_query::Expr;
 use traits::TraceOk;
+use uuid::Uuid;
 
 mod audiobookshelf;
 mod emby;
@@ -215,6 +219,75 @@ impl IntegrationService {
         }
     }
 
+    pub async fn handle_entity_added_to_collection_event(
+        &self,
+        user_id: String,
+        collection_to_entity_id: Uuid,
+    ) -> GqlResult<()> {
+        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
+        if !matches!(cte.entity_lot, EntityLot::Metadata) {
+            return Ok(());
+        }
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(user_id))
+            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
+            .all(&self.db)
+            .await?;
+        for integration in integrations {
+            let possible_collection_ids = match integration.provider_specifics.clone() {
+                Some(s) => match integration.provider {
+                    IntegrationProvider::Radarr => s.radarr_sync_collection_ids.unwrap_or_default(),
+                    IntegrationProvider::Sonarr => s.sonarr_sync_collection_ids.unwrap_or_default(),
+                    _ => vec![],
+                },
+                None => vec![],
+            };
+            if !possible_collection_ids.contains(&cte.collection_id) {
+                continue;
+            }
+            let specifics = integration.provider_specifics.unwrap();
+            let metadata = Metadata::find_by_id(&cte.entity_id)
+                .one(&self.db)
+                .await?
+                .ok_or_else(|| Error::new("Metadata does not exist"))?;
+            let maybe_entity_id = match metadata.lot {
+                MediaLot::Show => metadata
+                    .external_identifiers
+                    .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
+                _ => Some(metadata.identifier.clone()),
+            };
+            if let Some(entity_id) = maybe_entity_id {
+                let _push_result = match integration.provider {
+                    IntegrationProvider::Radarr => {
+                        self.push(IntegrationType::Radarr(
+                            specifics.radarr_base_url.unwrap(),
+                            specifics.radarr_api_key.unwrap(),
+                            specifics.radarr_profile_id.unwrap(),
+                            specifics.radarr_root_folder_path.unwrap(),
+                            entity_id,
+                        ))
+                        .await
+                    }
+                    IntegrationProvider::Sonarr => {
+                        self.push(IntegrationType::Sonarr(
+                            specifics.sonarr_base_url.unwrap(),
+                            specifics.sonarr_api_key.unwrap(),
+                            specifics.sonarr_profile_id.unwrap(),
+                            specifics.sonarr_root_folder_path.unwrap(),
+                            entity_id,
+                        ))
+                        .await
+                    }
+                    _ => unreachable!(),
+                };
+            }
+        }
+        Ok(())
+    }
+
     async fn integration_progress_update(
         &self,
         integration: &integration::Model,
@@ -242,7 +315,7 @@ impl IntegrationService {
             &self.perform_application_job,
         )
         .await?;
-        // TODO: Use importer service here somehow
+        // FIXME: Use importer service here somehow
         // if let Err(err) = self
         //     .progress_update(
         //         ProgressUpdateInput {
@@ -268,7 +341,7 @@ impl IntegrationService {
         Ok(())
     }
 
-    async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
+    pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
         let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         if preferences.general.disable_integrations {
             return Ok(false);

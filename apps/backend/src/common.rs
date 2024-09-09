@@ -22,6 +22,7 @@ use fitness_resolver::{ExerciseMutation, ExerciseQuery};
 use fitness_service::ExerciseService;
 use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
+use integration_service::IntegrationService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
@@ -82,7 +83,9 @@ pub async fn create_app_services(
     ));
     let integration_service = Arc::new(IntegrationService::new(
         &db,
+        timezone.clone(),
         config.clone(),
+        perform_application_job,
         perform_core_application_job,
     ));
     let miscellaneous_service = Arc::new(
@@ -105,11 +108,12 @@ pub async fn create_app_services(
     ));
     let importer_service = Arc::new(ImporterService::new(
         &db,
+        timezone.clone(),
+        config.clone(),
+        exercise_service.clone(),
+        miscellaneous_service.clone(),
         perform_application_job,
         perform_core_application_job,
-        miscellaneous_service.clone(),
-        exercise_service.clone(),
-        timezone.clone(),
     ));
     let exporter_service = Arc::new(ExporterService::new(
         &db,
@@ -160,7 +164,7 @@ pub async fn create_app_services(
         .route("/graphql", gql)
         .route("/upload", post(upload_file))
         .layer(Extension(config.clone()))
-        .layer(Extension(miscellaneous_service.clone()))
+        .layer(Extension(integration_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())

@@ -17,10 +17,10 @@ config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
+dependent-utils = { path = "../../utils/dependent" }
 enums = { path = "../../enums" }
 file-storage-service = { path = "../../services/file-storage" }
 futures = { workspace = true }
-integration-service = { path = "../../services/integration" }
 itertools = { workspace = true }
 markdown = { workspace = true }
 media-models = { path = "../../models/media" }

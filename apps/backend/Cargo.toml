@@ -32,6 +32,7 @@ fitness-service = { path = "../../crates/services/fitness" }
 http = "=1.1.0"
 importer-resolver = { path = "../../crates/resolvers/importer" }
 importer-service = { path = "../../crates/services/importer" }
+integration-service = { path = "../../crates/services/integration" }
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
 media-models = { path = "../../crates/models/media" }

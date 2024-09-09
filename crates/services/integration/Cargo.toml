@@ -35,6 +35,7 @@ specific-models = { path = "../../models/specific" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
+uuid = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

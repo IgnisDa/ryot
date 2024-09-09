@@ -21,3 +21,6 @@ providers = { path = "../../providers" }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]
