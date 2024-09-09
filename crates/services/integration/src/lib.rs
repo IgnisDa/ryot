@@ -3,13 +3,14 @@ use std::{future::Future, sync::Arc};
 use anyhow::Result;
 use apalis::prelude::MemoryStorage;
 use async_graphql::{Error, Result as GqlResult};
-use background::CoreApplicationJob;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
 use common_models::ChangeCollectionToEntityInput;
 use common_utils::ryot_log;
 use database_models::metadata;
 use database_models::{integration, prelude::Integration};
 use database_utils::{add_entity_to_collection, user_preferences_by_id};
+use dependent_utils::commit_metadata;
 use enums::{EntityLot, IntegrationLot, IntegrationProvider};
 use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
 use providers::google_books::GoogleBooksService;
@@ -43,19 +44,25 @@ use crate::{
 #[derive(Debug)]
 pub struct IntegrationService {
     db: DatabaseConnection,
+    timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
+    perform_application_job: MemoryStorage<ApplicationJob>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
 impl IntegrationService {
     pub fn new(
         db: &DatabaseConnection,
+        timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {
             config,
+            timezone,
             db: db.clone(),
+            perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
         }
     }
@@ -222,36 +229,42 @@ impl IntegrationService {
         } else {
             pu.progress
         };
-        let metadata::Model { id, .. } = self
-            .commit_metadata(CommitMediaInput {
+        let metadata::Model { id, .. } = commit_metadata(
+            CommitMediaInput {
                 lot: pu.lot,
                 source: pu.source,
                 identifier: pu.identifier,
                 force_update: None,
-            })
-            .await?;
-        if let Err(err) = self
-            .progress_update(
-                ProgressUpdateInput {
-                    metadata_id: id,
-                    progress: Some(progress),
-                    date: Some(get_current_date(&self.timezone)),
-                    show_season_number: pu.show_season_number,
-                    show_episode_number: pu.show_episode_number,
-                    podcast_episode_number: pu.podcast_episode_number,
-                    anime_episode_number: pu.anime_episode_number,
-                    manga_chapter_number: pu.manga_chapter_number,
-                    manga_volume_number: pu.manga_volume_number,
-                    provider_watched_on: pu.provider_watched_on,
-                    change_state: None,
-                },
-                user_id,
-                true,
-            )
-            .await
-        {
-            ryot_log!(debug, "Error updating progress: {:?}", err);
-        };
+            },
+            &self.db,
+            &self.config,
+            &self.timezone,
+            &self.perform_application_job,
+        )
+        .await?;
+        // TODO: Use importer service here somehow
+        // if let Err(err) = self
+        //     .progress_update(
+        //         ProgressUpdateInput {
+        //             metadata_id: id,
+        //             progress: Some(progress),
+        //             date: Some(get_current_date(&self.timezone)),
+        //             show_season_number: pu.show_season_number,
+        //             show_episode_number: pu.show_episode_number,
+        //             podcast_episode_number: pu.podcast_episode_number,
+        //             anime_episode_number: pu.anime_episode_number,
+        //             manga_chapter_number: pu.manga_chapter_number,
+        //             manga_volume_number: pu.manga_volume_number,
+        //             provider_watched_on: pu.provider_watched_on,
+        //             change_state: None,
+        //         },
+        //         user_id,
+        //         true,
+        //     )
+        //     .await
+        // {
+        //     ryot_log!(debug, "Error updating progress: {:?}", err);
+        // };
         Ok(())
     }
 
@@ -285,7 +298,15 @@ impl IntegrationService {
                             )
                             .await,
                         ),
-                        |input| self.commit_metadata(input),
+                        |input| {
+                            commit_metadata(
+                                input,
+                                &self.db,
+                                &self.config,
+                                &self.timezone,
+                                &self.perform_application_job,
+                            )
+                        },
                     )
                     .await
                 }
@@ -315,14 +336,19 @@ impl IntegrationService {
             }
         }
         for col_update in collection_updates.into_iter() {
-            let metadata_result = self
-                .commit_metadata(CommitMediaInput {
+            let metadata_result = commit_metadata(
+                CommitMediaInput {
                     lot: col_update.lot,
                     source: col_update.source,
                     identifier: col_update.identifier.clone(),
                     force_update: None,
-                })
-                .await;
+                },
+                &self.db,
+                &self.config,
+                &self.timezone,
+                &self.perform_application_job,
+            )
+            .await;
             if let Ok(metadata::Model { id, .. }) = metadata_result {
                 add_entity_to_collection(
                     &self.db,
