@@ -1,0 +1,12 @@
+[package]
+name = "dependent-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+chrono-tz = { workspace = true }
+config = { path = "../../config" }
+enums = { path = "../../enums" }
+providers = { path = "../../providers" }
+traits = { path = "../../traits" }

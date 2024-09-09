@@ -38,6 +38,7 @@ members = [
     "crates/utils/application",
     "crates/utils/common",
     "crates/utils/database",
+    "crates/utils/dependent",
 ]
 resolver = "2"
 

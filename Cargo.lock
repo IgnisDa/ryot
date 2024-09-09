@@ -1738,6 +1738,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-utils"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "chrono-tz",
+ "config",
+ "enums",
+ "providers",
+ "traits",
+]
+
+[[package]]
 name = "der"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
