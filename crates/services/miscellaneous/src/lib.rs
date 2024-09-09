@@ -2315,7 +2315,13 @@ impl MiscellaneousService {
         user_id: String,
         collection_to_entity_id: Uuid,
     ) -> Result<()> {
-        // FIXME: Deploy job to perform integrations
+        self.perform_application_job
+            .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(
+                user_id,
+                collection_to_entity_id,
+            ))
+            .await
+            .unwrap();
         Ok(())
     }
 

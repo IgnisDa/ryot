@@ -131,6 +131,12 @@ pub async fn perform_application_job(
         ApplicationJob::SyncIntegrationsData => {
             integration_service.yank_integrations_data().await.is_ok()
         }
+        ApplicationJob::HandleEntityAddedToCollectionEvent(user_id, collection_to_entity_id) => {
+            integration_service
+                .handle_entity_added_to_collection_event(user_id, collection_to_entity_id)
+                .await
+                .is_ok()
+        }
     };
     ryot_log!(
         trace,

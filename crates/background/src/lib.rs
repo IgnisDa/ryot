@@ -36,6 +36,7 @@ pub enum ApplicationJob {
     PerformBackgroundTasks,
     UpdateExerciseLibrary,
     SyncIntegrationsData,
+    HandleEntityAddedToCollectionEvent(String, Uuid),
 }
 
 impl Message for ApplicationJob {
