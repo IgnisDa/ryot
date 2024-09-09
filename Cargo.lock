@@ -1741,11 +1741,22 @@ dependencies = [
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
+ "apalis",
  "async-graphql",
+ "background",
+ "chrono",
  "chrono-tz",
+ "common-models",
+ "common-utils",
  "config",
+ "database-models",
+ "database-utils",
  "enums",
+ "itertools 0.13.0",
+ "media-models",
  "providers",
+ "sea-orm",
+ "tracing",
  "traits",
 ]
 

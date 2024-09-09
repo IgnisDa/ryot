@@ -4,9 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+apalis = { workspace = true }
 async-graphql = { workspace = true }
+background = { path = "../../background" }
+chrono = { workspace = true }
 chrono-tz = { workspace = true }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../common" }
 config = { path = "../../config" }
+database-models = { path = "../../models/database" }
+database-utils = { path = "../database" }
 enums = { path = "../../enums" }
+itertools = { workspace = true }
+media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
 traits = { path = "../../traits" }
