@@ -8,6 +8,7 @@ use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
+use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, commit_person, get_isbn_service};
 use enums::{EntityLot, ImportSource};
 use fitness_service::ExerciseService;
@@ -101,8 +102,7 @@ impl ImporterService {
         input: Box<DeployImportJobInput>,
     ) -> Result<()> {
         let db_import_job = self.start_import_job(&user_id, input.source).await?;
-        let preferences = user_by_id(&self.db, &user_id).await?.preferences;
-        let mut import = match input.source {
+        let import = match input.source {
             ImportSource::StrongApp => {
                 strong_app::import(input.strong_app.unwrap(), self.timezone.clone())
                     .await
@@ -164,6 +164,22 @@ impl ImporterService {
             }
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
         };
+        let details = self.process_import(&user_id, import).await?;
+        self.finish_import_job(db_import_job, details).await?;
+        self.miscellaneous_service
+            .deploy_background_job(&user_id, BackgroundJob::CalculateUserActivitiesAndSummary)
+            .await
+            .trace_ok();
+        Ok(())
+    }
+
+    pub async fn process_import(
+        &self,
+        user_id: &String,
+        import: ImportResult,
+    ) -> Result<ImportResultResponse> {
+        let mut import = import;
+        let preferences = user_by_id(&self.db, user_id).await?.preferences;
         for m in import.media.iter_mut() {
             m.seen_history.sort_by(|a, b| {
                 a.ended_on
@@ -172,7 +188,7 @@ impl ImporterService {
             });
         }
         for col_details in import.collections.clone() {
-            create_or_update_collection(&self.db, &user_id, col_details).await?;
+            create_or_update_collection(&self.db, user_id, col_details).await?;
         }
         for (idx, item) in import.media.iter().enumerate() {
             ryot_log!(
@@ -230,7 +246,7 @@ impl ImporterService {
                             provider_watched_on: seen.provider_watched_on.clone(),
                             change_state: None,
                         },
-                        &user_id,
+                        user_id,
                         false,
                     )
                     .await
@@ -250,11 +266,7 @@ impl ImporterService {
                     metadata.id.clone(),
                     EntityLot::Metadata,
                 ) {
-                    if let Err(e) = self
-                        .miscellaneous_service
-                        .post_review(&user_id, input)
-                        .await
-                    {
+                    if let Err(e) = self.miscellaneous_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -267,7 +279,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 create_or_update_collection(
                     &self.db,
-                    &user_id,
+                    user_id,
                     CreateOrUpdateCollectionInput {
                         name: col.to_string(),
                         ..Default::default()
@@ -276,7 +288,7 @@ impl ImporterService {
                 .await?;
                 add_entity_to_collection(
                     &self.db,
-                    &user_id,
+                    user_id,
                     ChangeCollectionToEntityInput {
                         creator_user_id: user_id.clone(),
                         collection_name: col.to_string(),
@@ -331,11 +343,7 @@ impl ImporterService {
                     metadata_group_id.clone(),
                     EntityLot::MetadataGroup,
                 ) {
-                    if let Err(e) = self
-                        .miscellaneous_service
-                        .post_review(&user_id, input)
-                        .await
-                    {
+                    if let Err(e) = self.miscellaneous_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -348,7 +356,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 create_or_update_collection(
                     &self.db,
-                    &user_id,
+                    user_id,
                     CreateOrUpdateCollectionInput {
                         name: col.to_string(),
                         ..Default::default()
@@ -357,7 +365,7 @@ impl ImporterService {
                 .await?;
                 add_entity_to_collection(
                     &self.db,
-                    &user_id,
+                    user_id,
                     ChangeCollectionToEntityInput {
                         creator_user_id: user_id.clone(),
                         collection_name: col.to_string(),
@@ -398,11 +406,7 @@ impl ImporterService {
                     person.id.clone(),
                     EntityLot::Person,
                 ) {
-                    if let Err(e) = self
-                        .miscellaneous_service
-                        .post_review(&user_id, input)
-                        .await
-                    {
+                    if let Err(e) = self.miscellaneous_service.post_review(user_id, input).await {
                         import.failed_items.push(ImportFailedItem {
                             lot: None,
                             step: ImportFailStep::ReviewConversion,
@@ -415,7 +419,7 @@ impl ImporterService {
             for col in item.collections.iter() {
                 create_or_update_collection(
                     &self.db,
-                    &user_id,
+                    user_id,
                     CreateOrUpdateCollectionInput {
                         name: col.to_string(),
                         ..Default::default()
@@ -424,7 +428,7 @@ impl ImporterService {
                 .await?;
                 add_entity_to_collection(
                     &self.db,
-                    &user_id,
+                    user_id,
                     ChangeCollectionToEntityInput {
                         creator_user_id: user_id.clone(),
                         collection_name: col.to_string(),
@@ -448,7 +452,7 @@ impl ImporterService {
         for workout in import.workouts.clone() {
             if let Err(err) = self
                 .exercise_service
-                .create_user_workout(&user_id, workout)
+                .create_user_workout(user_id, workout)
                 .await
             {
                 import.failed_items.push(ImportFailedItem {
@@ -462,7 +466,7 @@ impl ImporterService {
         for measurement in import.measurements.clone() {
             if let Err(err) = self
                 .exercise_service
-                .create_user_measurement(&user_id, measurement)
+                .create_user_measurement(user_id, measurement)
                 .await
             {
                 import.failed_items.push(ImportFailedItem {
@@ -487,12 +491,8 @@ impl ImporterService {
             },
             failed_items: import.failed_items,
         };
-        self.finish_import_job(db_import_job, details).await?;
-        self.miscellaneous_service
-            .deploy_background_job(&user_id, BackgroundJob::CalculateUserActivitiesAndSummary)
-            .await
-            .trace_ok();
-        Ok(())
+
+        Ok(details)
     }
 
     async fn start_import_job(
