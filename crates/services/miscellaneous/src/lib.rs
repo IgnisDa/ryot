@@ -1491,222 +1491,6 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn update_media(
-        &self,
-        metadata_id: &String,
-        input: MediaDetails,
-    ) -> Result<Vec<(String, MediaStateChanged)>> {
-        let mut notifications = vec![];
-
-        let meta = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-
-        if let (Some(p1), Some(p2)) = (&meta.production_status, &input.production_status) {
-            if p1 != p2 {
-                notifications.push((
-                    format!("Status changed from {:#?} to {:#?}", p1, p2),
-                    MediaStateChanged::MetadataStatusChanged,
-                ));
-            }
-        }
-        if let (Some(p1), Some(p2)) = (meta.publish_year, input.publish_year) {
-            if p1 != p2 {
-                notifications.push((
-                    format!("Publish year from {:#?} to {:#?}", p1, p2),
-                    MediaStateChanged::MetadataReleaseDateChanged,
-                ));
-            }
-        }
-        if let (Some(s1), Some(s2)) = (&meta.show_specifics, &input.show_specifics) {
-            if s1.seasons.len() != s2.seasons.len() {
-                notifications.push((
-                    format!(
-                        "Number of seasons changed from {:#?} to {:#?}",
-                        s1.seasons.len(),
-                        s2.seasons.len()
-                    ),
-                    MediaStateChanged::MetadataNumberOfSeasonsChanged,
-                ));
-            } else {
-                for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
-                    if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
-                        && SHOW_SPECIAL_SEASON_NAMES.contains(&s2.name.as_str())
-                    {
-                        continue;
-                    }
-                    if s1.episodes.len() != s2.episodes.len() {
-                        notifications.push((
-                            format!(
-                                "Number of episodes changed from {:#?} to {:#?} (Season {})",
-                                s1.episodes.len(),
-                                s2.episodes.len(),
-                                s1.season_number
-                            ),
-                            MediaStateChanged::MetadataEpisodeReleased,
-                        ));
-                    } else {
-                        for (before_episode, after_episode) in
-                            zip(s1.episodes.iter(), s2.episodes.iter())
-                        {
-                            if before_episode.name != after_episode.name {
-                                notifications.push((
-                                    format!(
-                                        "Episode name changed from {:#?} to {:#?} (S{}E{})",
-                                        before_episode.name,
-                                        after_episode.name,
-                                        s1.season_number,
-                                        before_episode.episode_number
-                                    ),
-                                    MediaStateChanged::MetadataEpisodeNameChanged,
-                                ));
-                            }
-                            if before_episode.poster_images != after_episode.poster_images {
-                                notifications.push((
-                                    format!(
-                                        "Episode image changed for S{}E{}",
-                                        s1.season_number, before_episode.episode_number
-                                    ),
-                                    MediaStateChanged::MetadataEpisodeImagesChanged,
-                                ));
-                            }
-                            if let (Some(pd1), Some(pd2)) =
-                                (before_episode.publish_date, after_episode.publish_date)
-                            {
-                                if pd1 != pd2 {
-                                    notifications.push((
-                                            format!(
-                                                "Episode release date changed from {:?} to {:?} (S{}E{})",
-                                                pd1,
-                                                pd2,
-                                                s1.season_number,
-                                                before_episode.episode_number
-                                            ),
-                                            MediaStateChanged::MetadataReleaseDateChanged,
-                                        ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &input.anime_specifics) {
-            if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
-                if e1 != e2 {
-                    notifications.push((
-                        format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
-                        MediaStateChanged::MetadataChaptersOrEpisodesChanged,
-                    ));
-                }
-            }
-        };
-        if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &input.manga_specifics) {
-            if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
-                if c1 != c2 {
-                    notifications.push((
-                        format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
-                        MediaStateChanged::MetadataChaptersOrEpisodesChanged,
-                    ));
-                }
-            }
-        };
-        if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &input.podcast_specifics) {
-            if p1.episodes.len() != p2.episodes.len() {
-                notifications.push((
-                    format!(
-                        "Number of episodes changed from {:#?} to {:#?}",
-                        p1.episodes.len(),
-                        p2.episodes.len()
-                    ),
-                    MediaStateChanged::MetadataEpisodeReleased,
-                ));
-            } else {
-                for (before_episode, after_episode) in zip(p1.episodes.iter(), p2.episodes.iter()) {
-                    if before_episode.title != after_episode.title {
-                        notifications.push((
-                            format!(
-                                "Episode name changed from {:#?} to {:#?} (EP{})",
-                                before_episode.title, after_episode.title, before_episode.number
-                            ),
-                            MediaStateChanged::MetadataEpisodeNameChanged,
-                        ));
-                    }
-                    if before_episode.thumbnail != after_episode.thumbnail {
-                        notifications.push((
-                            format!("Episode image changed for EP{}", before_episode.number),
-                            MediaStateChanged::MetadataEpisodeImagesChanged,
-                        ));
-                    }
-                }
-            }
-        };
-
-        let notifications = notifications
-            .into_iter()
-            .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
-            .collect_vec();
-
-        let mut images = vec![];
-        images.extend(input.url_images.into_iter().map(|i| MetadataImage {
-            url: StoredUrl::Url(i.image),
-        }));
-        images.extend(input.s3_images.into_iter().map(|i| MetadataImage {
-            url: StoredUrl::S3(i.image),
-        }));
-        let free_creators = if input.creators.is_empty() {
-            None
-        } else {
-            Some(input.creators)
-        };
-        let watch_providers = if input.watch_providers.is_empty() {
-            None
-        } else {
-            Some(input.watch_providers)
-        };
-
-        let mut meta: metadata::ActiveModel = meta.into();
-        meta.last_updated_on = ActiveValue::Set(Utc::now());
-        meta.title = ActiveValue::Set(input.title);
-        meta.is_nsfw = ActiveValue::Set(input.is_nsfw);
-        meta.is_partial = ActiveValue::Set(Some(false));
-        meta.provider_rating = ActiveValue::Set(input.provider_rating);
-        meta.description = ActiveValue::Set(input.description);
-        meta.images = ActiveValue::Set(Some(images));
-        meta.videos = ActiveValue::Set(Some(input.videos));
-        meta.production_status = ActiveValue::Set(input.production_status);
-        meta.original_language = ActiveValue::Set(input.original_language);
-        meta.publish_year = ActiveValue::Set(input.publish_year);
-        meta.publish_date = ActiveValue::Set(input.publish_date);
-        meta.free_creators = ActiveValue::Set(free_creators);
-        meta.watch_providers = ActiveValue::Set(watch_providers);
-        meta.anime_specifics = ActiveValue::Set(input.anime_specifics);
-        meta.audio_book_specifics = ActiveValue::Set(input.audio_book_specifics);
-        meta.manga_specifics = ActiveValue::Set(input.manga_specifics);
-        meta.movie_specifics = ActiveValue::Set(input.movie_specifics);
-        meta.podcast_specifics = ActiveValue::Set(input.podcast_specifics);
-        meta.show_specifics = ActiveValue::Set(input.show_specifics);
-        meta.book_specifics = ActiveValue::Set(input.book_specifics);
-        meta.video_game_specifics = ActiveValue::Set(input.video_game_specifics);
-        meta.visual_novel_specifics = ActiveValue::Set(input.visual_novel_specifics);
-        meta.external_identifiers = ActiveValue::Set(input.external_identifiers);
-        let metadata = meta.update(&self.db).await.unwrap();
-
-        self.change_metadata_associations(
-            &metadata.id,
-            metadata.lot,
-            metadata.source,
-            input.genres,
-            input.suggestions,
-            input.group_identifiers,
-            input.people,
-        )
-        .await?;
-        Ok(notifications)
-    }
-
     async fn associate_person_with_metadata(
         &self,
         metadata_id: &str,
@@ -2774,7 +2558,224 @@ impl MiscellaneousService {
             .details_from_provider(metadata.lot, metadata.source, &metadata.identifier)
             .await;
         let notifications = match maybe_details {
-            Ok(details) => self.update_media(metadata_id, details).await?,
+            Ok(details) => {
+                let mut notifications = vec![];
+
+                let meta = Metadata::find_by_id(metadata_id)
+                    .one(&self.db)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                if let (Some(p1), Some(p2)) = (&meta.production_status, &input.production_status) {
+                    if p1 != p2 {
+                        notifications.push((
+                            format!("Status changed from {:#?} to {:#?}", p1, p2),
+                            MediaStateChanged::MetadataStatusChanged,
+                        ));
+                    }
+                }
+                if let (Some(p1), Some(p2)) = (meta.publish_year, input.publish_year) {
+                    if p1 != p2 {
+                        notifications.push((
+                            format!("Publish year from {:#?} to {:#?}", p1, p2),
+                            MediaStateChanged::MetadataReleaseDateChanged,
+                        ));
+                    }
+                }
+                if let (Some(s1), Some(s2)) = (&meta.show_specifics, &input.show_specifics) {
+                    if s1.seasons.len() != s2.seasons.len() {
+                        notifications.push((
+                            format!(
+                                "Number of seasons changed from {:#?} to {:#?}",
+                                s1.seasons.len(),
+                                s2.seasons.len()
+                            ),
+                            MediaStateChanged::MetadataNumberOfSeasonsChanged,
+                        ));
+                    } else {
+                        for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
+                            if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
+                                && SHOW_SPECIAL_SEASON_NAMES.contains(&s2.name.as_str())
+                            {
+                                continue;
+                            }
+                            if s1.episodes.len() != s2.episodes.len() {
+                                notifications.push((
+                                    format!(
+                                "Number of episodes changed from {:#?} to {:#?} (Season {})",
+                                s1.episodes.len(),
+                                s2.episodes.len(),
+                                s1.season_number
+                            ),
+                                    MediaStateChanged::MetadataEpisodeReleased,
+                                ));
+                            } else {
+                                for (before_episode, after_episode) in
+                                    zip(s1.episodes.iter(), s2.episodes.iter())
+                                {
+                                    if before_episode.name != after_episode.name {
+                                        notifications.push((
+                                            format!(
+                                                "Episode name changed from {:#?} to {:#?} (S{}E{})",
+                                                before_episode.name,
+                                                after_episode.name,
+                                                s1.season_number,
+                                                before_episode.episode_number
+                                            ),
+                                            MediaStateChanged::MetadataEpisodeNameChanged,
+                                        ));
+                                    }
+                                    if before_episode.poster_images != after_episode.poster_images {
+                                        notifications.push((
+                                            format!(
+                                                "Episode image changed for S{}E{}",
+                                                s1.season_number, before_episode.episode_number
+                                            ),
+                                            MediaStateChanged::MetadataEpisodeImagesChanged,
+                                        ));
+                                    }
+                                    if let (Some(pd1), Some(pd2)) =
+                                        (before_episode.publish_date, after_episode.publish_date)
+                                    {
+                                        if pd1 != pd2 {
+                                            notifications.push((
+                                            format!(
+                                                "Episode release date changed from {:?} to {:?} (S{}E{})",
+                                                pd1,
+                                                pd2,
+                                                s1.season_number,
+                                                before_episode.episode_number
+                                            ),
+                                            MediaStateChanged::MetadataReleaseDateChanged,
+                                        ));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+                if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &input.anime_specifics) {
+                    if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
+                        if e1 != e2 {
+                            notifications.push((
+                                format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
+                                MediaStateChanged::MetadataChaptersOrEpisodesChanged,
+                            ));
+                        }
+                    }
+                };
+                if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &input.manga_specifics) {
+                    if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
+                        if c1 != c2 {
+                            notifications.push((
+                                format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
+                                MediaStateChanged::MetadataChaptersOrEpisodesChanged,
+                            ));
+                        }
+                    }
+                };
+                if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &input.podcast_specifics) {
+                    if p1.episodes.len() != p2.episodes.len() {
+                        notifications.push((
+                            format!(
+                                "Number of episodes changed from {:#?} to {:#?}",
+                                p1.episodes.len(),
+                                p2.episodes.len()
+                            ),
+                            MediaStateChanged::MetadataEpisodeReleased,
+                        ));
+                    } else {
+                        for (before_episode, after_episode) in
+                            zip(p1.episodes.iter(), p2.episodes.iter())
+                        {
+                            if before_episode.title != after_episode.title {
+                                notifications.push((
+                                    format!(
+                                        "Episode name changed from {:#?} to {:#?} (EP{})",
+                                        before_episode.title,
+                                        after_episode.title,
+                                        before_episode.number
+                                    ),
+                                    MediaStateChanged::MetadataEpisodeNameChanged,
+                                ));
+                            }
+                            if before_episode.thumbnail != after_episode.thumbnail {
+                                notifications.push((
+                                    format!(
+                                        "Episode image changed for EP{}",
+                                        before_episode.number
+                                    ),
+                                    MediaStateChanged::MetadataEpisodeImagesChanged,
+                                ));
+                            }
+                        }
+                    }
+                };
+
+                let notifications = notifications
+                    .into_iter()
+                    .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
+                    .collect_vec();
+
+                let mut images = vec![];
+                images.extend(input.url_images.into_iter().map(|i| MetadataImage {
+                    url: StoredUrl::Url(i.image),
+                }));
+                images.extend(input.s3_images.into_iter().map(|i| MetadataImage {
+                    url: StoredUrl::S3(i.image),
+                }));
+                let free_creators = if input.creators.is_empty() {
+                    None
+                } else {
+                    Some(input.creators)
+                };
+                let watch_providers = if input.watch_providers.is_empty() {
+                    None
+                } else {
+                    Some(input.watch_providers)
+                };
+
+                let mut meta: metadata::ActiveModel = meta.into();
+                meta.last_updated_on = ActiveValue::Set(Utc::now());
+                meta.title = ActiveValue::Set(input.title);
+                meta.is_nsfw = ActiveValue::Set(input.is_nsfw);
+                meta.is_partial = ActiveValue::Set(Some(false));
+                meta.provider_rating = ActiveValue::Set(input.provider_rating);
+                meta.description = ActiveValue::Set(input.description);
+                meta.images = ActiveValue::Set(Some(images));
+                meta.videos = ActiveValue::Set(Some(input.videos));
+                meta.production_status = ActiveValue::Set(input.production_status);
+                meta.original_language = ActiveValue::Set(input.original_language);
+                meta.publish_year = ActiveValue::Set(input.publish_year);
+                meta.publish_date = ActiveValue::Set(input.publish_date);
+                meta.free_creators = ActiveValue::Set(free_creators);
+                meta.watch_providers = ActiveValue::Set(watch_providers);
+                meta.anime_specifics = ActiveValue::Set(input.anime_specifics);
+                meta.audio_book_specifics = ActiveValue::Set(input.audio_book_specifics);
+                meta.manga_specifics = ActiveValue::Set(input.manga_specifics);
+                meta.movie_specifics = ActiveValue::Set(input.movie_specifics);
+                meta.podcast_specifics = ActiveValue::Set(input.podcast_specifics);
+                meta.show_specifics = ActiveValue::Set(input.show_specifics);
+                meta.book_specifics = ActiveValue::Set(input.book_specifics);
+                meta.video_game_specifics = ActiveValue::Set(input.video_game_specifics);
+                meta.visual_novel_specifics = ActiveValue::Set(input.visual_novel_specifics);
+                meta.external_identifiers = ActiveValue::Set(input.external_identifiers);
+                let metadata = meta.update(&self.db).await.unwrap();
+
+                self.change_metadata_associations(
+                    &metadata.id,
+                    metadata.lot,
+                    metadata.source,
+                    input.genres,
+                    input.suggestions,
+                    input.group_identifiers,
+                    input.people,
+                )
+                .await?;
+                notifications
+            }
             Err(e) => {
                 ryot_log!(
                     error,
