@@ -1,16 +1,13 @@
-use std::{fs, sync::Arc};
+use std::fs;
 
 use async_graphql::Result;
 use dependent_models::{CompleteExport, ImportResult};
+use dependent_utils::db_workout_to_workout_input;
 use enums::ImportSource;
-use fitness_service::ExerciseService;
 use itertools::Itertools;
 use media_models::DeployJsonImportInput;
 
-pub async fn import(
-    input: DeployJsonImportInput,
-    exercises_service: &Arc<ExerciseService>,
-) -> Result<ImportResult> {
+pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
     let complete_data = serde_json::from_str::<CompleteExport>(&export).unwrap();
 
@@ -30,7 +27,7 @@ pub async fn import(
         .workouts
         .unwrap_or_default()
         .into_iter()
-        .map(|w| exercises_service.db_workout_to_workout_input(w.details))
+        .map(|w| db_workout_to_workout_input(w.details))
         .collect_vec();
 
     Ok(ImportResult {

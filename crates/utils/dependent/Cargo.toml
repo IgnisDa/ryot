@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = { workspace = true }
 apalis = { workspace = true }
 application-utils = { path = "../application" }
 async-graphql = { workspace = true }
@@ -18,9 +19,11 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
+fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
+nanoid = { workspace = true }
 providers = { path = "../../providers" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }

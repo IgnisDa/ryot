@@ -5,30 +5,21 @@ use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
 use cached::DiskCache;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
-use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
+use common_models::BackgroundJob;
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
-use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
-use dependent_models::ImportResult;
 use dependent_utils::{
-    commit_metadata, commit_metadata_group_internal, commit_person, deploy_background_job,
-    get_isbn_service, get_tmdb_non_media_service, post_review, progress_update,
+    commit_metadata, deploy_background_job, get_isbn_service, get_tmdb_non_media_service,
+    process_import,
 };
-use enums::{EntityLot, ImportSource};
-use fitness_service::ExerciseService;
-use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
-use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, DeployImportJobInput,
-    ImportOrExportItemRating, ImportOrExportMediaItem, PostReviewInput, ProgressUpdateCache,
-    ProgressUpdateInput,
-};
-use rust_decimal_macros::dec;
+use enums::ImportSource;
+use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
+use media_models::{DeployImportJobInput, ImportOrExportMediaItem, ProgressUpdateCache};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder,
 };
 use traits::TraceOk;
-use user_models::{UserPreferences, UserReviewScale};
 
 mod audiobookshelf;
 mod generic_json;
@@ -151,11 +142,9 @@ impl ImporterService {
             )
             .await
             .unwrap(),
-            ImportSource::GenericJson => {
-                generic_json::import(input.generic_json.unwrap(), &self.exercise_service)
-                    .await
-                    .unwrap()
-            }
+            ImportSource::GenericJson => generic_json::import(input.generic_json.unwrap())
+                .await
+                .unwrap(),
             ImportSource::OpenScale => {
                 open_scale::import(input.generic_csv.unwrap(), self.timezone.clone())
                     .await
@@ -163,7 +152,17 @@ impl ImporterService {
             }
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
         };
-        let details = self.process_import(&user_id, import).await?;
+        let details = process_import(
+            &user_id,
+            import,
+            &self.db,
+            &self.config,
+            &self.timezone,
+            &self.perform_application_job,
+            &self.seen_progress_cache,
+            &self.perform_core_application_job,
+        )
+        .await?;
         self.finish_import_job(db_import_job, details).await?;
         deploy_background_job(
             &user_id,

@@ -1743,6 +1743,7 @@ dependencies = [
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "apalis",
  "application-utils",
  "async-graphql",
@@ -1757,9 +1758,11 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "enums",
+ "fitness-models",
  "importer-models",
  "itertools 0.13.0",
  "media-models",
+ "nanoid",
  "providers",
  "rust_decimal",
  "rust_decimal_macros",
@@ -2369,10 +2372,7 @@ dependencies = [
  "fitness-models",
  "itertools 0.13.0",
  "migrations",
- "nanoid",
  "reqwest 0.12.7",
- "rust_decimal",
- "rust_decimal_macros",
  "sea-orm",
  "sea-query",
  "slug",
@@ -3337,13 +3337,11 @@ dependencies = [
  "csv",
  "data-encoding",
  "database-models",
- "database-utils",
  "dependent-models",
  "dependent-utils",
  "enum_meta",
  "enums",
  "fitness-models",
- "fitness-service",
  "flate2",
  "importer-models",
  "itertools 0.13.0",
@@ -3361,7 +3359,6 @@ dependencies = [
  "specific-models",
  "tracing",
  "traits",
- "user-models",
 ]
 
 [[package]]

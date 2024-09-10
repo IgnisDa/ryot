@@ -20,7 +20,7 @@ use database_utils::{
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
 };
-use dependent_utils::create_user_measurement;
+use dependent_utils::{calculate_and_commit, create_user_measurement, db_workout_to_workout_input};
 use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
     ExerciseMuscle, ExerciseSource,
@@ -29,8 +29,8 @@ use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
-    GithubExerciseAttributes, UpdateUserWorkoutInput, UserExerciseInput, UserMeasurementsListInput,
-    UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetPersonalBest, LOT_MAPPINGS,
+    GithubExerciseAttributes, UpdateUserWorkoutInput, UserMeasurementsListInput, UserWorkoutInput,
+    LOT_MAPPINGS,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -42,7 +42,7 @@ use sea_orm::{
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType};
 use slug::slugify;
 
-use logic::{calculate_and_commit, delete_existing_workout};
+use logic::delete_existing_workout;
 
 mod logic;
 
@@ -395,7 +395,7 @@ impl ExerciseService {
     pub async fn create_user_measurement(
         &self,
         user_id: &String,
-        mut input: user_measurement::Model,
+        input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
         create_user_measurement(user_id, input, &self.db).await
     }
@@ -526,45 +526,11 @@ impl ExerciseService {
         let total = workouts.len();
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
-            let workout_input = self.db_workout_to_workout_input(workout);
+            let workout_input = db_workout_to_workout_input(workout);
             self.create_user_workout(&user_id, workout_input).await?;
             ryot_log!(debug, "Re-evaluated workout: {}/{}", idx + 1, total);
         }
         Ok(())
-    }
-
-    pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
-        UserWorkoutInput {
-            name: user_workout.name,
-            id: Some(user_workout.id),
-            end_time: user_workout.end_time,
-            start_time: user_workout.start_time,
-            assets: user_workout.information.assets,
-            repeated_from: user_workout.repeated_from,
-            comment: user_workout.information.comment,
-            exercises: user_workout
-                .information
-                .exercises
-                .into_iter()
-                .map(|e| UserExerciseInput {
-                    exercise_id: e.name,
-                    sets: e
-                        .sets
-                        .into_iter()
-                        .map(|s| UserWorkoutSetRecord {
-                            lot: s.lot,
-                            note: s.note,
-                            statistic: s.statistic,
-                            confirmed_at: s.confirmed_at,
-                        })
-                        .collect(),
-                    notes: e.notes,
-                    rest_time: e.rest_time,
-                    assets: e.assets,
-                    superset_with: e.superset_with,
-                })
-                .collect(),
-        }
     }
 
     pub async fn update_custom_exercise(
