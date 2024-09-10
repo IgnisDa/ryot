@@ -9,7 +9,10 @@ use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
 use database_utils::{add_entity_to_collection, create_or_update_collection, user_by_id};
 use dependent_models::ImportResult;
-use dependent_utils::{commit_metadata, commit_person, get_isbn_service};
+use dependent_utils::{
+    commit_metadata, commit_metadata_group_internal, commit_person, deploy_background_job,
+    get_isbn_service, get_tmdb_non_media_service, post_review,
+};
 use enums::{EntityLot, ImportSource};
 use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
@@ -17,6 +20,7 @@ use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, DeployImportJobInput,
     ImportOrExportItemRating, ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
 };
+// FIXME: Remove dependency on misc service
 use miscellaneous_service::MiscellaneousService;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -144,9 +148,7 @@ impl ImporterService {
             ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await.unwrap(),
             ImportSource::Imdb => imdb::import(
                 input.generic_csv.unwrap(),
-                &self
-                    .miscellaneous_service
-                    .get_tmdb_non_media_service()
+                &get_tmdb_non_media_service(&self.config, &self.timezone)
                     .await
                     .unwrap(),
             )
@@ -166,10 +168,15 @@ impl ImporterService {
         };
         let details = self.process_import(&user_id, import).await?;
         self.finish_import_job(db_import_job, details).await?;
-        self.miscellaneous_service
-            .deploy_background_job(&user_id, BackgroundJob::CalculateUserActivitiesAndSummary)
-            .await
-            .trace_ok();
+        deploy_background_job(
+            &user_id,
+            BackgroundJob::CalculateUserActivitiesAndSummary,
+            &self.db,
+            &self.perform_application_job,
+            &self.perform_core_application_job,
+        )
+        .await
+        .trace_ok();
         Ok(())
     }
 
@@ -266,7 +273,15 @@ impl ImporterService {
                     metadata.id.clone(),
                     EntityLot::Metadata,
                 ) {
-                    if let Err(e) = self.miscellaneous_service.post_review(user_id, input).await {
+                    if let Err(e) = post_review(
+                        user_id,
+                        input,
+                        &self.db,
+                        &self.config,
+                        &self.perform_core_application_job,
+                    )
+                    .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -319,10 +334,15 @@ impl ImporterService {
                 iden = &item.title
             );
             let rev_length = item.reviews.len();
-            let data = self
-                .miscellaneous_service
-                .commit_metadata_group_internal(&item.identifier, item.lot, item.source)
-                .await;
+            let data = commit_metadata_group_internal(
+                &item.identifier,
+                item.lot,
+                item.source,
+                &self.db,
+                &self.config,
+                &self.timezone,
+            )
+            .await;
             let metadata_group_id = match data {
                 Ok(r) => r.0,
                 Err(e) => {
@@ -343,7 +363,15 @@ impl ImporterService {
                     metadata_group_id.clone(),
                     EntityLot::MetadataGroup,
                 ) {
-                    if let Err(e) = self.miscellaneous_service.post_review(user_id, input).await {
+                    if let Err(e) = post_review(
+                        user_id,
+                        input,
+                        &self.db,
+                        &self.config,
+                        &self.perform_core_application_job,
+                    )
+                    .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -406,7 +434,15 @@ impl ImporterService {
                     person.id.clone(),
                     EntityLot::Person,
                 ) {
-                    if let Err(e) = self.miscellaneous_service.post_review(user_id, input).await {
+                    if let Err(e) = post_review(
+                        user_id,
+                        input,
+                        &self.db,
+                        &self.config,
+                        &self.perform_core_application_job,
+                    )
+                    .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: None,
                             step: ImportFailStep::ReviewConversion,

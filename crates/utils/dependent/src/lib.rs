@@ -2,25 +2,27 @@ use std::{iter::zip, sync::Arc};
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
+use background::{ApplicationJob, CoreApplicationJob};
 use chrono::Utc;
-use common_models::{MediaStateChanged, StoredUrl, StringIdObject};
+use common_models::{BackgroundJob, MediaStateChanged, StoredUrl, StringIdObject};
 use common_utils::{ryot_log, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
-    genre, metadata, metadata_to_genre, metadata_to_metadata, metadata_to_person, monitored_entity,
-    person,
+    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
+    monitored_entity, person,
     prelude::{
-        Genre, Metadata, MetadataToGenre, MetadataToMetadata, MetadataToPerson, MonitoredEntity,
-        Person,
+        Collection, Genre, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        MetadataToPerson, MonitoredEntity, Person,
     },
-    queued_notification,
+    queued_notification, review,
 };
-use database_utils::{user_by_id, user_preferences_by_id};
-use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation};
+use database_utils::{admin_account_guard, user_by_id, user_preferences_by_id};
+use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, Visibility};
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, CommitPersonInput, MediaDetails, MetadataImage, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId,
+    PartialMetadataPerson, PartialMetadataWithoutId, PostReviewInput, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation,
 };
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
@@ -32,14 +34,16 @@ use providers::{
     mal::{MalAnimeService, MalMangaService},
     manga_updates::MangaUpdatesService,
     openlibrary::OpenlibraryService,
-    tmdb::{TmdbMovieService, TmdbShowService},
+    tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
     vndb::VndbService,
 };
+use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
-    QueryFilter, QuerySelect, QueryTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use traits::{MediaProvider, TraceOk};
+use user_models::UserReviewScale;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -51,6 +55,18 @@ pub async fn get_openlibrary_service(
 
 pub async fn get_isbn_service(config: &Arc<config::AppConfig>) -> Result<GoogleBooksService> {
     Ok(GoogleBooksService::new(&config.books.google_books, config.frontend.page_size).await)
+}
+
+pub async fn get_tmdb_non_media_service(
+    config: &Arc<config::AppConfig>,
+    timezone: &Arc<chrono_tz::Tz>,
+) -> Result<NonMediaTmdbService> {
+    Ok(NonMediaTmdbService::new(
+        &config.movies_and_shows.tmdb.access_token,
+        config.movies_and_shows.tmdb.locale.clone(),
+        timezone.clone(),
+    )
+    .await)
 }
 
 pub async fn get_metadata_provider(
@@ -79,7 +95,7 @@ pub async fn get_metadata_provider(
             MediaLot::Show => Box::new(
                 TmdbShowService::new(
                     &config.movies_and_shows.tmdb,
-                    **timezone,
+                    timezone.clone(),
                     config.frontend.page_size,
                 )
                 .await,
@@ -87,7 +103,7 @@ pub async fn get_metadata_provider(
             MediaLot::Movie => Box::new(
                 TmdbMovieService::new(
                     &config.movies_and_shows.tmdb,
-                    **timezone,
+                    timezone.clone(),
                     config.frontend.page_size,
                 )
                 .await,
@@ -823,4 +839,238 @@ pub async fn commit_metadata(
         let media = commit_metadata_internal(details, None, db, perform_application_job).await?;
         Ok(media)
     }
+}
+
+pub async fn deploy_update_metadata_job(
+    metadata_id: &String,
+    force_update: bool,
+    perform_application_job: &MemoryStorage<ApplicationJob>,
+) -> Result<bool> {
+    perform_application_job
+        .clone()
+        .enqueue(ApplicationJob::UpdateMetadata(
+            metadata_id.to_owned(),
+            force_update,
+        ))
+        .await
+        .unwrap();
+    Ok(true)
+}
+
+pub async fn deploy_background_job(
+    user_id: &String,
+    job_name: BackgroundJob,
+    db: &DatabaseConnection,
+    perform_application_job: &MemoryStorage<ApplicationJob>,
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+) -> Result<bool> {
+    let core_storage = &mut perform_core_application_job.clone();
+    let storage = &mut perform_application_job.clone();
+    match job_name {
+        BackgroundJob::UpdateAllMetadata
+        | BackgroundJob::UpdateAllExercises
+        | BackgroundJob::RecalculateCalendarEvents
+        | BackgroundJob::PerformBackgroundTasks => {
+            admin_account_guard(db, user_id).await?;
+        }
+        _ => {}
+    }
+    match job_name {
+        BackgroundJob::UpdateAllMetadata => {
+            let many_metadata = Metadata::find()
+                .select_only()
+                .column(metadata::Column::Id)
+                .order_by_asc(metadata::Column::LastUpdatedOn)
+                .into_tuple::<String>()
+                .all(db)
+                .await
+                .unwrap();
+            for metadata_id in many_metadata {
+                deploy_update_metadata_job(&metadata_id, true, perform_application_job).await?;
+            }
+        }
+        BackgroundJob::UpdateAllExercises => {
+            perform_application_job
+                .enqueue(ApplicationJob::UpdateExerciseLibrary)
+                .await
+                .unwrap();
+        }
+        BackgroundJob::RecalculateCalendarEvents => {
+            storage
+                .enqueue(ApplicationJob::RecalculateCalendarEvents)
+                .await
+                .unwrap();
+        }
+        BackgroundJob::PerformBackgroundTasks => {
+            storage
+                .enqueue(ApplicationJob::PerformBackgroundTasks)
+                .await
+                .unwrap();
+        }
+        BackgroundJob::SyncIntegrationsData => {
+            core_storage
+                .enqueue(CoreApplicationJob::SyncIntegrationsData(user_id.to_owned()))
+                .await
+                .unwrap();
+        }
+        BackgroundJob::CalculateUserActivitiesAndSummary => {
+            storage
+                .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
+                    user_id.to_owned(),
+                    true,
+                ))
+                .await
+                .unwrap();
+        }
+        BackgroundJob::ReEvaluateUserWorkouts => {
+            storage
+                .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+                .await
+                .unwrap();
+        }
+    };
+    Ok(true)
+}
+
+pub async fn post_review(
+    user_id: &String,
+    input: PostReviewInput,
+    db: &DatabaseConnection,
+    config: &Arc<config::AppConfig>,
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+) -> Result<StringIdObject> {
+    let preferences = user_preferences_by_id(db, user_id, config).await?;
+    if preferences.general.disable_reviews {
+        return Err(Error::new("Reviews are disabled"));
+    }
+    let show_ei = if let (Some(season), Some(episode)) =
+        (input.show_season_number, input.show_episode_number)
+    {
+        Some(SeenShowExtraInformation { season, episode })
+    } else {
+        None
+    };
+    let podcast_ei = input
+        .podcast_episode_number
+        .map(|episode| SeenPodcastExtraInformation { episode });
+    let anime_ei = input
+        .anime_episode_number
+        .map(|episode| SeenAnimeExtraInformation {
+            episode: Some(episode),
+        });
+    let manga_ei = if input.manga_chapter_number.is_none() && input.manga_volume_number.is_none() {
+        None
+    } else {
+        Some(SeenMangaExtraInformation {
+            chapter: input.manga_chapter_number,
+            volume: input.manga_volume_number,
+        })
+    };
+
+    if input.rating.is_none() && input.text.is_none() {
+        return Err(Error::new("At-least one of rating or review is required."));
+    }
+    let mut review_obj =
+        review::ActiveModel {
+            id: match input.review_id.clone() {
+                Some(i) => ActiveValue::Unchanged(i),
+                None => ActiveValue::NotSet,
+            },
+            rating: ActiveValue::Set(input.rating.map(
+                |r| match preferences.general.review_scale {
+                    UserReviewScale::OutOfFive => r * dec!(20),
+                    UserReviewScale::OutOfHundred => r,
+                },
+            )),
+            text: ActiveValue::Set(input.text),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            show_extra_information: ActiveValue::Set(show_ei),
+            anime_extra_information: ActiveValue::Set(anime_ei),
+            manga_extra_information: ActiveValue::Set(manga_ei),
+            podcast_extra_information: ActiveValue::Set(podcast_ei),
+            comments: ActiveValue::Set(vec![]),
+            ..Default::default()
+        };
+    let entity_id = input.entity_id.clone();
+    match input.entity_lot {
+        EntityLot::Metadata => review_obj.metadata_id = ActiveValue::Set(Some(entity_id)),
+        EntityLot::Person => review_obj.person_id = ActiveValue::Set(Some(entity_id)),
+        EntityLot::MetadataGroup => {
+            review_obj.metadata_group_id = ActiveValue::Set(Some(entity_id))
+        }
+        EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
+        EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
+        EntityLot::Workout => unreachable!(),
+    };
+    if let Some(s) = input.is_spoiler {
+        review_obj.is_spoiler = ActiveValue::Set(s);
+    }
+    if let Some(v) = input.visibility {
+        review_obj.visibility = ActiveValue::Set(v);
+    }
+    if let Some(d) = input.date {
+        review_obj.posted_on = ActiveValue::Set(d);
+    }
+    let insert = review_obj.save(db).await.unwrap();
+    if insert.visibility.unwrap() == Visibility::Public {
+        let entity_lot = insert.entity_lot.unwrap();
+        let id = insert.entity_id.unwrap();
+        let obj_title = match entity_lot {
+            EntityLot::Metadata => Metadata::find_by_id(&id).one(db).await?.unwrap().title,
+            EntityLot::MetadataGroup => {
+                MetadataGroup::find_by_id(&id).one(db).await?.unwrap().title
+            }
+            EntityLot::Person => Person::find_by_id(&id).one(db).await?.unwrap().name,
+            EntityLot::Collection => Collection::find_by_id(&id).one(db).await?.unwrap().name,
+            EntityLot::Exercise => id.clone(),
+            EntityLot::Workout => unreachable!(),
+        };
+        let user = user_by_id(db, &insert.user_id.unwrap()).await?;
+        // DEV: Do not send notification if updating a review
+        if input.review_id.is_none() {
+            perform_core_application_job
+                .clone()
+                .enqueue(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
+                    obj_title,
+                    entity_lot,
+                    obj_id: id,
+                    username: user.name,
+                    review_id: insert.id.clone().unwrap(),
+                }))
+                .await
+                .unwrap();
+        }
+    }
+    Ok(StringIdObject {
+        id: insert.id.unwrap(),
+    })
+}
+
+pub async fn commit_metadata_group_internal(
+    identifier: &String,
+    lot: MediaLot,
+    source: MediaSource,
+    db: &DatabaseConnection,
+    config: &Arc<config::AppConfig>,
+    timezone: &Arc<chrono_tz::Tz>,
+) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
+    let existing_group = MetadataGroup::find()
+        .filter(metadata_group::Column::Identifier.eq(identifier))
+        .filter(metadata_group::Column::Lot.eq(lot))
+        .filter(metadata_group::Column::Source.eq(source))
+        .one(db)
+        .await?;
+    let provider = get_metadata_provider(lot, source, config, timezone).await?;
+    let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
+    let group_id = match existing_group {
+        Some(eg) => eg.id,
+        None => {
+            let mut db_group: metadata_group::ActiveModel =
+                group_details.into_model("".to_string(), None).into();
+            db_group.id = ActiveValue::NotSet;
+            let new_group = db_group.insert(db).await?;
+            new_group.id
+        }
+    };
+    Ok((group_id, associated_items))
 }

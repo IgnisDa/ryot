@@ -34,24 +34,23 @@ use database_models::{
     queued_notification, review, seen, user, user_to_entity,
 };
 use database_utils::{
-    add_entity_to_collection, admin_account_guard, apply_collection_filter,
-    calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
-    remove_entity_from_collection, user_by_id, user_preferences_by_id,
+    add_entity_to_collection, apply_collection_filter, calculate_user_activities_and_summary,
+    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
+    item_reviews, remove_entity_from_collection, user_by_id, user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
     SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
-    commit_metadata, commit_metadata_internal, commit_person, create_partial_metadata,
+    commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
+    create_partial_metadata, deploy_background_job, deploy_update_metadata_job,
     get_entities_monitored_by, get_metadata_provider, get_openlibrary_service,
-    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
-    update_metadata, update_metadata_and_notify_users,
+    get_tmdb_non_media_service, post_review, queue_media_state_changed_notification_for_user,
+    queue_notifications_to_user_platforms, update_metadata, update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
-    Visibility,
 };
 use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
@@ -66,10 +65,9 @@ use media_models::{
     MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
     MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
     MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
-    MetadataVideo, MetadataVideoSource, PartialMetadataWithoutId, PeopleListInput,
-    PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, PostReviewInput,
-    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    MetadataVideo, MetadataVideoSource, PeopleListInput, PeopleSearchInput, PeopleSearchItem,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics,
+    PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
     ProgressUpdateResultUnion, ProviderLanguageInformation, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
@@ -91,7 +89,7 @@ use providers::{
     mal::{MalService, NonMediaMalService},
     manga_updates::MangaUpdatesService,
     openlibrary::OpenlibraryService,
-    tmdb::{NonMediaTmdbService, TmdbService},
+    tmdb::TmdbService,
     vndb::VndbService,
 };
 use rust_decimal::prelude::{One, ToPrimitive};
@@ -368,6 +366,14 @@ impl MiscellaneousService {
         metadata.image =
             first_metadata_image_as_url(&metadata.images, &self.file_storage_service).await;
         Ok(metadata)
+    }
+
+    pub async fn deploy_update_metadata_job(
+        &self,
+        metadata_id: &String,
+        force_update: bool,
+    ) -> Result<bool> {
+        deploy_update_metadata_job(metadata_id, force_update, &self.perform_application_job).await
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -1295,72 +1301,14 @@ impl MiscellaneousService {
         user_id: &String,
         job_name: BackgroundJob,
     ) -> Result<bool> {
-        let core_storage = &mut self.perform_core_application_job.clone();
-        let storage = &mut self.perform_application_job.clone();
-        match job_name {
-            BackgroundJob::UpdateAllMetadata
-            | BackgroundJob::UpdateAllExercises
-            | BackgroundJob::RecalculateCalendarEvents
-            | BackgroundJob::PerformBackgroundTasks => {
-                admin_account_guard(&self.db, user_id).await?;
-            }
-            _ => {}
-        }
-        match job_name {
-            BackgroundJob::UpdateAllMetadata => {
-                let many_metadata = Metadata::find()
-                    .select_only()
-                    .column(metadata::Column::Id)
-                    .order_by_asc(metadata::Column::LastUpdatedOn)
-                    .into_tuple::<String>()
-                    .all(&self.db)
-                    .await
-                    .unwrap();
-                for metadata_id in many_metadata {
-                    self.deploy_update_metadata_job(&metadata_id, true).await?;
-                }
-            }
-            BackgroundJob::UpdateAllExercises => {
-                self.perform_application_job
-                    .enqueue(ApplicationJob::UpdateExerciseLibrary)
-                    .await
-                    .unwrap();
-            }
-            BackgroundJob::RecalculateCalendarEvents => {
-                storage
-                    .enqueue(ApplicationJob::RecalculateCalendarEvents)
-                    .await
-                    .unwrap();
-            }
-            BackgroundJob::PerformBackgroundTasks => {
-                storage
-                    .enqueue(ApplicationJob::PerformBackgroundTasks)
-                    .await
-                    .unwrap();
-            }
-            BackgroundJob::SyncIntegrationsData => {
-                core_storage
-                    .enqueue(CoreApplicationJob::SyncIntegrationsData(user_id.to_owned()))
-                    .await
-                    .unwrap();
-            }
-            BackgroundJob::CalculateUserActivitiesAndSummary => {
-                storage
-                    .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
-                        user_id.to_owned(),
-                        true,
-                    ))
-                    .await
-                    .unwrap();
-            }
-            BackgroundJob::ReEvaluateUserWorkouts => {
-                storage
-                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
-                    .await
-                    .unwrap();
-            }
-        };
-        Ok(true)
+        deploy_background_job(
+            user_id,
+            job_name,
+            &self.db,
+            &self.perform_application_job,
+            &self.perform_core_application_job,
+        )
+        .await
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
@@ -1496,33 +1444,6 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn commit_metadata_group_internal(
-        &self,
-        identifier: &String,
-        lot: MediaLot,
-        source: MediaSource,
-    ) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
-        let existing_group = MetadataGroup::find()
-            .filter(metadata_group::Column::Identifier.eq(identifier))
-            .filter(metadata_group::Column::Lot.eq(lot))
-            .filter(metadata_group::Column::Source.eq(source))
-            .one(&self.db)
-            .await?;
-        let provider = get_metadata_provider(lot, source, &self.config, &self.timezone).await?;
-        let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
-        let group_id = match existing_group {
-            Some(eg) => eg.id,
-            None => {
-                let mut db_group: metadata_group::ActiveModel =
-                    group_details.into_model("".to_string(), None).into();
-                db_group.id = ActiveValue::NotSet;
-                let new_group = db_group.insert(&self.db).await?;
-                new_group.id
-            }
-        };
-        Ok((group_id, associated_items))
-    }
-
     pub async fn update_seen_item(
         &self,
         user_id: String,
@@ -1547,22 +1468,6 @@ impl MiscellaneousService {
         }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
-        Ok(true)
-    }
-
-    pub async fn deploy_update_metadata_job(
-        &self,
-        metadata_id: &String,
-        force_update: bool,
-    ) -> Result<bool> {
-        self.perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::UpdateMetadata(
-                metadata_id.to_owned(),
-                force_update,
-            ))
-            .await
-            .unwrap();
         Ok(true)
     }
 
@@ -1866,10 +1771,6 @@ impl MiscellaneousService {
         Ok(results)
     }
 
-    pub async fn get_tmdb_non_media_service(&self) -> Result<NonMediaTmdbService> {
-        Ok(NonMediaTmdbService::new(&self.config.movies_and_shows.tmdb, *self.timezone).await)
-    }
-
     async fn get_non_metadata_provider(&self, source: MediaSource) -> Result<Provider> {
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
@@ -1909,7 +1810,9 @@ impl MiscellaneousService {
                 )
                 .await,
             ),
-            MediaSource::Tmdb => Box::new(self.get_tmdb_non_media_service().await?),
+            MediaSource::Tmdb => {
+                Box::new(get_tmdb_non_media_service(&self.config, &self.timezone).await?)
+            }
             MediaSource::Anilist => Box::new(
                 NonMediaAnilistService::new(
                     &self.config.anime_and_manga.anilist,
@@ -1924,9 +1827,15 @@ impl MiscellaneousService {
     }
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        let (group_id, associated_items) = self
-            .commit_metadata_group_internal(&input.identifier, input.lot, input.source)
-            .await?;
+        let (group_id, associated_items) = commit_metadata_group_internal(
+            &input.identifier,
+            input.lot,
+            input.source,
+            &self.db,
+            &self.config,
+            &self.timezone,
+        )
+        .await?;
         for (idx, media) in associated_items.into_iter().enumerate() {
             let db_partial_metadata = create_partial_metadata(media, &self.db).await?;
             MetadataToMetadataGroup::delete_many()
@@ -1950,127 +1859,14 @@ impl MiscellaneousService {
         user_id: &String,
         input: PostReviewInput,
     ) -> Result<StringIdObject> {
-        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
-        if preferences.general.disable_reviews {
-            return Err(Error::new("Reviews are disabled"));
-        }
-        let show_ei = if let (Some(season), Some(episode)) =
-            (input.show_season_number, input.show_episode_number)
-        {
-            Some(SeenShowExtraInformation { season, episode })
-        } else {
-            None
-        };
-        let podcast_ei = input
-            .podcast_episode_number
-            .map(|episode| SeenPodcastExtraInformation { episode });
-        let anime_ei = input
-            .anime_episode_number
-            .map(|episode| SeenAnimeExtraInformation {
-                episode: Some(episode),
-            });
-        let manga_ei =
-            if input.manga_chapter_number.is_none() && input.manga_volume_number.is_none() {
-                None
-            } else {
-                Some(SeenMangaExtraInformation {
-                    chapter: input.manga_chapter_number,
-                    volume: input.manga_volume_number,
-                })
-            };
-
-        if input.rating.is_none() && input.text.is_none() {
-            return Err(Error::new("At-least one of rating or review is required."));
-        }
-        let mut review_obj = review::ActiveModel {
-            id: match input.review_id.clone() {
-                Some(i) => ActiveValue::Unchanged(i),
-                None => ActiveValue::NotSet,
-            },
-            rating: ActiveValue::Set(input.rating.map(
-                |r| match preferences.general.review_scale {
-                    UserReviewScale::OutOfFive => r * dec!(20),
-                    UserReviewScale::OutOfHundred => r,
-                },
-            )),
-            text: ActiveValue::Set(input.text),
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            show_extra_information: ActiveValue::Set(show_ei),
-            anime_extra_information: ActiveValue::Set(anime_ei),
-            manga_extra_information: ActiveValue::Set(manga_ei),
-            podcast_extra_information: ActiveValue::Set(podcast_ei),
-            comments: ActiveValue::Set(vec![]),
-            ..Default::default()
-        };
-        let entity_id = input.entity_id.clone();
-        match input.entity_lot {
-            EntityLot::Metadata => review_obj.metadata_id = ActiveValue::Set(Some(entity_id)),
-            EntityLot::Person => review_obj.person_id = ActiveValue::Set(Some(entity_id)),
-            EntityLot::MetadataGroup => {
-                review_obj.metadata_group_id = ActiveValue::Set(Some(entity_id))
-            }
-            EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
-            EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
-            EntityLot::Workout => unreachable!(),
-        };
-        if let Some(s) = input.is_spoiler {
-            review_obj.is_spoiler = ActiveValue::Set(s);
-        }
-        if let Some(v) = input.visibility {
-            review_obj.visibility = ActiveValue::Set(v);
-        }
-        if let Some(d) = input.date {
-            review_obj.posted_on = ActiveValue::Set(d);
-        }
-        let insert = review_obj.save(&self.db).await.unwrap();
-        if insert.visibility.unwrap() == Visibility::Public {
-            let entity_lot = insert.entity_lot.unwrap();
-            let id = insert.entity_id.unwrap();
-            let obj_title = match entity_lot {
-                EntityLot::Metadata => {
-                    Metadata::find_by_id(&id)
-                        .one(&self.db)
-                        .await?
-                        .unwrap()
-                        .title
-                }
-                EntityLot::MetadataGroup => {
-                    MetadataGroup::find_by_id(&id)
-                        .one(&self.db)
-                        .await?
-                        .unwrap()
-                        .title
-                }
-                EntityLot::Person => Person::find_by_id(&id).one(&self.db).await?.unwrap().name,
-                EntityLot::Collection => {
-                    Collection::find_by_id(&id)
-                        .one(&self.db)
-                        .await?
-                        .unwrap()
-                        .name
-                }
-                EntityLot::Exercise => id.clone(),
-                EntityLot::Workout => unreachable!(),
-            };
-            let user = user_by_id(&self.db, &insert.user_id.unwrap()).await?;
-            // DEV: Do not send notification if updating a review
-            if input.review_id.is_none() {
-                self.perform_core_application_job
-                    .clone()
-                    .enqueue(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
-                        obj_title,
-                        entity_lot,
-                        obj_id: id,
-                        username: user.name,
-                        review_id: insert.id.clone().unwrap(),
-                    }))
-                    .await
-                    .unwrap();
-            }
-        }
-        Ok(StringIdObject {
-            id: insert.id.unwrap(),
-        })
+        post_review(
+            user_id,
+            input,
+            &self.db,
+            &self.config,
+            &self.perform_core_application_job,
+        )
+        .await
     }
 
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
