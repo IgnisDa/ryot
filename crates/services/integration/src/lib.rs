@@ -4,6 +4,7 @@ use anyhow::Result;
 use apalis::prelude::MemoryStorage;
 use async_graphql::{Error, Result as GqlResult};
 use background::{ApplicationJob, CoreApplicationJob};
+use cached::DiskCache;
 use chrono::Utc;
 use common_models::ChangeCollectionToEntityInput;
 use common_utils::ryot_log;
@@ -13,9 +14,11 @@ use database_models::{
     prelude::{CollectionToEntity, Metadata},
 };
 use database_utils::{add_entity_to_collection, user_preferences_by_id};
-use dependent_utils::commit_metadata;
+use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{
+    CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen, ProgressUpdateCache,
+};
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -45,12 +48,12 @@ use crate::{
     plex::PlexIntegration, radarr::RadarrIntegration, sonarr::SonarrIntegration,
 };
 
-#[derive(Debug)]
 pub struct IntegrationService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
     perform_application_job: MemoryStorage<ApplicationJob>,
+    seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
@@ -60,12 +63,14 @@ impl IntegrationService {
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
+        seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {
             config,
             timezone,
             db: db.clone(),
+            seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
         }
@@ -313,6 +318,18 @@ impl IntegrationService {
             &self.config,
             &self.timezone,
             &self.perform_application_job,
+        )
+        .await?;
+        process_import(
+            user_id,
+            todo!(),
+            // import,
+            &self.db,
+            &self.config,
+            &self.timezone,
+            &self.perform_application_job,
+            &self.seen_progress_cache,
+            &self.perform_core_application_job,
         )
         .await?;
         // FIXME: Use importer service here somehow

@@ -102,6 +102,7 @@ pub async fn create_app_services(
         timezone.clone(),
         config.clone(),
         perform_application_job,
+        seen_progress_cache.clone(),
         perform_core_application_job,
     ));
     let miscellaneous_service = Arc::new(
