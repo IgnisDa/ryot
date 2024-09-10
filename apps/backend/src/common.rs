@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::AuthContext;
@@ -11,9 +11,11 @@ use axum::{
     Extension,
 };
 use background::{ApplicationJob, CoreApplicationJob};
+use cached::DiskCache;
+use chrono::Duration;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
-use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT};
+use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT, TEMP_DIR};
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
@@ -62,6 +64,20 @@ pub async fn create_app_services(
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
+    let path = PathBuf::new().join(TEMP_DIR);
+    let seen_progress_cache = Arc::new(
+        DiskCache::new("seen_progress_cache")
+            .set_lifespan(
+                Duration::try_hours(config.server.progress_update_threshold)
+                    .unwrap()
+                    .num_seconds()
+                    .try_into()
+                    .unwrap(),
+            )
+            .set_disk_directory(path)
+            .build()
+            .unwrap(),
+    );
     let timezone = Arc::new(timezone);
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
@@ -96,6 +112,7 @@ pub async fn create_app_services(
             config.clone(),
             file_storage_service.clone(),
             perform_application_job,
+            seen_progress_cache.clone(),
             perform_core_application_job,
         )
         .await,
@@ -111,8 +128,8 @@ pub async fn create_app_services(
         timezone.clone(),
         config.clone(),
         exercise_service.clone(),
-        miscellaneous_service.clone(),
         perform_application_job,
+        seen_progress_cache,
         perform_core_application_job,
     ));
     let exporter_service = Arc::new(ExporterService::new(

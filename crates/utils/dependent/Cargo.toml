@@ -5,8 +5,10 @@ edition = "2021"
 
 [dependencies]
 apalis = { workspace = true }
+application-utils = { path = "../application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
+cached = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
@@ -21,6 +23,7 @@ providers = { path = "../../providers" }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
+serde = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }

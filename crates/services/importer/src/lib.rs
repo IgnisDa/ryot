@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
+use cached::DiskCache;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::{BackgroundJob, ChangeCollectionToEntityInput};
 use common_utils::ryot_log;
@@ -11,17 +12,16 @@ use database_utils::{add_entity_to_collection, create_or_update_collection, user
 use dependent_models::ImportResult;
 use dependent_utils::{
     commit_metadata, commit_metadata_group_internal, commit_person, deploy_background_job,
-    get_isbn_service, get_tmdb_non_media_service, post_review,
+    get_isbn_service, get_tmdb_non_media_service, post_review, progress_update,
 };
 use enums::{EntityLot, ImportSource};
 use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, DeployImportJobInput,
-    ImportOrExportItemRating, ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
+    ImportOrExportItemRating, ImportOrExportMediaItem, PostReviewInput, ProgressUpdateCache,
+    ProgressUpdateInput,
 };
-// FIXME: Remove dependency on misc service
-use miscellaneous_service::MiscellaneousService;
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
@@ -49,8 +49,8 @@ pub struct ImporterService {
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
     exercise_service: Arc<ExerciseService>,
-    miscellaneous_service: Arc<MiscellaneousService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
+    seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
@@ -60,16 +60,16 @@ impl ImporterService {
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
         exercise_service: Arc<ExerciseService>,
-        miscellaneous_service: Arc<MiscellaneousService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
+        seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {
-            timezone,
             config,
-            miscellaneous_service,
-            exercise_service,
+            timezone,
             db: db.clone(),
+            exercise_service,
+            seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
         }
@@ -237,26 +237,28 @@ impl ImporterService {
                 } else {
                     Some(dec!(100))
                 };
-                if let Err(e) = self
-                    .miscellaneous_service
-                    .progress_update(
-                        ProgressUpdateInput {
-                            metadata_id: metadata.id.clone(),
-                            progress,
-                            date: seen.ended_on,
-                            show_season_number: seen.show_season_number,
-                            show_episode_number: seen.show_episode_number,
-                            podcast_episode_number: seen.podcast_episode_number,
-                            anime_episode_number: seen.anime_episode_number,
-                            manga_chapter_number: seen.manga_chapter_number,
-                            manga_volume_number: seen.manga_volume_number,
-                            provider_watched_on: seen.provider_watched_on.clone(),
-                            change_state: None,
-                        },
-                        user_id,
-                        false,
-                    )
-                    .await
+                if let Err(e) = progress_update(
+                    ProgressUpdateInput {
+                        metadata_id: metadata.id.clone(),
+                        progress,
+                        date: seen.ended_on,
+                        show_season_number: seen.show_season_number,
+                        show_episode_number: seen.show_episode_number,
+                        podcast_episode_number: seen.podcast_episode_number,
+                        anime_episode_number: seen.anime_episode_number,
+                        manga_chapter_number: seen.manga_chapter_number,
+                        manga_volume_number: seen.manga_volume_number,
+                        provider_watched_on: seen.provider_watched_on.clone(),
+                        change_state: None,
+                    },
+                    user_id,
+                    false,
+                    &self.db,
+                    &self.seen_progress_cache,
+                    &self.timezone,
+                    &self.perform_core_application_job,
+                )
+                .await
                 {
                     import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),

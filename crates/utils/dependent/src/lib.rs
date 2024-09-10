@@ -1,28 +1,37 @@
-use std::{iter::zip, sync::Arc};
+use std::{collections::HashMap, iter::zip, sync::Arc};
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use async_graphql::{Error, Result};
+use application_utils::get_current_date;
+use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
+use cached::{DiskCache, IOCached};
 use chrono::Utc;
-use common_models::{BackgroundJob, MediaStateChanged, StoredUrl, StringIdObject};
+use common_models::{
+    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, MediaStateChanged, StoredUrl,
+    StringIdObject,
+};
 use common_utils::{ryot_log, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
     genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
     monitored_entity, person,
     prelude::{
         Collection, Genre, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-        MetadataToPerson, MonitoredEntity, Person,
+        MetadataToPerson, MonitoredEntity, Person, Seen,
     },
-    queued_notification, review,
+    queued_notification, review, seen,
 };
-use database_utils::{admin_account_guard, user_by_id, user_preferences_by_id};
-use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, Visibility};
+use database_utils::{
+    add_entity_to_collection, admin_account_guard, remove_entity_from_collection, user_by_id,
+    user_preferences_by_id,
+};
+use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, Visibility};
 use itertools::Itertools;
 use media_models::{
     CommitMediaInput, CommitPersonInput, MediaDetails, MetadataImage, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PostReviewInput, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation,
+    PartialMetadataPerson, PartialMetadataWithoutId, PostReviewInput, ProgressUpdateCache,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
@@ -37,11 +46,16 @@ use providers::{
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
     vndb::VndbService,
 };
+use rust_decimal::{
+    prelude::{One, ToPrimitive},
+    Decimal,
+};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::Expr, ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait,
     QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
+use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, TraceOk};
 use user_models::UserReviewScale;
 
@@ -1073,4 +1087,418 @@ pub async fn commit_metadata_group_internal(
         }
     };
     Ok((group_id, associated_items))
+}
+
+async fn seen_history(
+    user_id: &String,
+    metadata_id: &String,
+    db: &DatabaseConnection,
+) -> Result<Vec<seen::Model>> {
+    let seen_items = Seen::find()
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::MetadataId.eq(metadata_id))
+        .order_by_desc(seen::Column::LastUpdatedOn)
+        .all(db)
+        .await
+        .unwrap();
+    Ok(seen_items)
+}
+
+pub async fn is_metadata_finished_by_user(
+    user_id: &String,
+    metadata_id: &String,
+    db: &DatabaseConnection,
+) -> Result<(bool, Vec<seen::Model>)> {
+    let metadata = Metadata::find_by_id(metadata_id)
+        .one(db)
+        .await
+        .unwrap()
+        .unwrap();
+    let seen_history = seen_history(user_id, metadata_id, db).await?;
+    let is_finished = if metadata.lot == MediaLot::Podcast
+        || metadata.lot == MediaLot::Show
+        || metadata.lot == MediaLot::Anime
+        || metadata.lot == MediaLot::Manga
+    {
+        // DEV: If all episodes have been seen the same number of times, the media can be
+        // considered finished.
+        let all_episodes = if let Some(s) = metadata.show_specifics {
+            s.seasons
+                .into_iter()
+                .filter(|s| !SHOW_SPECIAL_SEASON_NAMES.contains(&s.name.as_str()))
+                .flat_map(|s| {
+                    s.episodes
+                        .into_iter()
+                        .map(move |e| format!("{}-{}", s.season_number, e.episode_number))
+                })
+                .collect_vec()
+        } else if let Some(p) = metadata.podcast_specifics {
+            p.episodes
+                .into_iter()
+                .map(|e| format!("{}", e.number))
+                .collect_vec()
+        } else if let Some(e) = metadata.anime_specifics.and_then(|a| a.episodes) {
+            (1..e + 1).map(|e| format!("{}", e)).collect_vec()
+        } else if let Some(c) = metadata.manga_specifics.and_then(|m| m.chapters) {
+            let one = Decimal::one();
+            (0..c.to_u32().unwrap_or(0))
+                .map(|i| Decimal::from(i) + one)
+                .map(|d| d.to_string())
+                .collect_vec()
+        } else {
+            vec![]
+        };
+        if all_episodes.is_empty() {
+            return Ok((true, seen_history));
+        }
+        let mut bag =
+            HashMap::<String, i32>::from_iter(all_episodes.iter().cloned().map(|e| (e, 0)));
+        seen_history
+            .clone()
+            .into_iter()
+            .map(|h| {
+                if let Some(s) = h.show_extra_information {
+                    format!("{}-{}", s.season, s.episode)
+                } else if let Some(p) = h.podcast_extra_information {
+                    format!("{}", p.episode)
+                } else if let Some(a) = h.anime_extra_information.and_then(|a| a.episode) {
+                    format!("{}", a)
+                } else if let Some(m) = h.manga_extra_information.and_then(|m| m.chapter) {
+                    format!("{}", m)
+                } else {
+                    String::new()
+                }
+            })
+            .for_each(|ep| {
+                bag.entry(ep).and_modify(|c| *c += 1);
+            });
+        let values = bag.values().cloned().collect_vec();
+
+        let min_value = values.iter().min();
+        let max_value = values.iter().max();
+
+        match (min_value, max_value) {
+            (Some(min), Some(max)) => min == max && *min != 0,
+            _ => false,
+        }
+    } else {
+        seen_history.iter().any(|h| h.state == SeenState::Completed)
+    };
+    Ok((is_finished, seen_history))
+}
+
+pub async fn after_media_seen_tasks(
+    seen: seen::Model,
+    db: &DatabaseConnection,
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+) -> Result<()> {
+    let add_entity_to_collection = |collection_name: &str| {
+        add_entity_to_collection(
+            db,
+            &seen.user_id,
+            ChangeCollectionToEntityInput {
+                creator_user_id: seen.user_id.clone(),
+                collection_name: collection_name.to_string(),
+                entity_id: seen.metadata_id.clone(),
+                entity_lot: EntityLot::Metadata,
+                ..Default::default()
+            },
+            perform_core_application_job,
+        )
+    };
+    let remove_entity_from_collection = |collection_name: &str| {
+        remove_entity_from_collection(
+            db,
+            &seen.user_id,
+            ChangeCollectionToEntityInput {
+                creator_user_id: seen.user_id.clone(),
+                collection_name: collection_name.to_string(),
+                entity_id: seen.metadata_id.clone(),
+                entity_lot: EntityLot::Metadata,
+                ..Default::default()
+            },
+        )
+    };
+    remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
+        .await
+        .ok();
+    match seen.state {
+        SeenState::InProgress => {
+            for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
+                add_entity_to_collection(&col.to_string()).await.ok();
+            }
+        }
+        SeenState::Dropped | SeenState::OnAHold => {
+            remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
+                .await
+                .ok();
+        }
+        SeenState::Completed => {
+            let metadata = Metadata::find_by_id(&seen.metadata_id)
+                .one(db)
+                .await?
+                .unwrap();
+            if metadata.lot == MediaLot::Podcast
+                || metadata.lot == MediaLot::Show
+                || metadata.lot == MediaLot::Anime
+                || metadata.lot == MediaLot::Manga
+            {
+                let (is_complete, _) =
+                    is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, db).await?;
+                if is_complete {
+                    remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
+                        .await
+                        .ok();
+                    add_entity_to_collection(&DefaultCollection::Completed.to_string())
+                        .await
+                        .ok();
+                } else {
+                    for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
+                        add_entity_to_collection(&col.to_string()).await.ok();
+                    }
+                }
+            } else {
+                add_entity_to_collection(&DefaultCollection::Completed.to_string())
+                    .await
+                    .ok();
+                for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
+                    remove_entity_from_collection(&col.to_string()).await.ok();
+                }
+            };
+        }
+    };
+    Ok(())
+}
+
+pub async fn progress_update(
+    input: ProgressUpdateInput,
+    user_id: &String,
+    // update only if media has not been consumed for this user in the last `n` duration
+    respect_cache: bool,
+    db: &DatabaseConnection,
+    seen_progress_cache: &DiskCache<ProgressUpdateCache, ()>,
+    timezone: &Arc<chrono_tz::Tz>,
+    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+) -> Result<ProgressUpdateResultUnion> {
+    let cache = ProgressUpdateCache {
+        user_id: user_id.to_owned(),
+        metadata_id: input.metadata_id.clone(),
+        show_season_number: input.show_season_number,
+        show_episode_number: input.show_episode_number,
+        podcast_episode_number: input.podcast_episode_number,
+        anime_episode_number: input.anime_episode_number,
+        manga_chapter_number: input.manga_chapter_number,
+        manga_volume_number: input.manga_volume_number,
+    };
+    let in_cache = seen_progress_cache.cache_get(&cache).unwrap();
+    if respect_cache && in_cache.is_some() {
+        return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+            error: ProgressUpdateErrorVariant::AlreadySeen,
+        }));
+    }
+    ryot_log!(debug, "Input for progress_update = {:?}", input);
+
+    let all_prev_seen = Seen::find()
+        .filter(seen::Column::Progress.lt(100))
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::State.ne(SeenState::Dropped))
+        .filter(seen::Column::MetadataId.eq(&input.metadata_id))
+        .order_by_desc(seen::Column::LastUpdatedOn)
+        .all(db)
+        .await
+        .unwrap();
+    #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
+    enum ProgressUpdateAction {
+        Update,
+        Now,
+        InThePast,
+        JustStarted,
+        ChangeState,
+    }
+    let action = match input.change_state {
+        None => match input.progress {
+            None => ProgressUpdateAction::ChangeState,
+            Some(p) => {
+                if p == dec!(100) {
+                    match input.date {
+                        None => ProgressUpdateAction::InThePast,
+                        Some(u) => {
+                            if get_current_date(timezone) == u {
+                                if all_prev_seen.is_empty() {
+                                    ProgressUpdateAction::Now
+                                } else {
+                                    ProgressUpdateAction::Update
+                                }
+                            } else {
+                                ProgressUpdateAction::InThePast
+                            }
+                        }
+                    }
+                } else if all_prev_seen.is_empty() {
+                    ProgressUpdateAction::JustStarted
+                } else {
+                    ProgressUpdateAction::Update
+                }
+            }
+        },
+        Some(_) => ProgressUpdateAction::ChangeState,
+    };
+    ryot_log!(debug, "Progress update action = {:?}", action);
+    let err = || {
+        Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+            error: ProgressUpdateErrorVariant::NoSeenInProgress,
+        }))
+    };
+    let seen = match action {
+        ProgressUpdateAction::Update => {
+            let prev_seen = all_prev_seen[0].clone();
+            let progress = input.progress.unwrap();
+            let watched_on = prev_seen.provider_watched_on.clone();
+            if prev_seen.progress == progress && watched_on == input.provider_watched_on {
+                return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
+                    error: ProgressUpdateErrorVariant::UpdateWithoutProgressUpdate,
+                }));
+            }
+            let mut updated_at = prev_seen.updated_at.clone();
+            let now = Utc::now();
+            if prev_seen.progress != progress {
+                updated_at.push(now);
+            }
+            let mut last_seen: seen::ActiveModel = prev_seen.into();
+            last_seen.state = ActiveValue::Set(SeenState::InProgress);
+            last_seen.progress = ActiveValue::Set(progress);
+            last_seen.updated_at = ActiveValue::Set(updated_at);
+            last_seen.provider_watched_on =
+                ActiveValue::Set(input.provider_watched_on.or(watched_on));
+            if progress == dec!(100) {
+                last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
+            }
+
+            // This is needed for manga as some of the apps will update in weird orders
+            // For example with komga mihon will update out of order to the server
+            if input.manga_chapter_number.is_some() {
+                last_seen.manga_extra_information =
+                    ActiveValue::set(Some(SeenMangaExtraInformation {
+                        chapter: input.manga_chapter_number,
+                        volume: input.manga_volume_number,
+                    }))
+            }
+
+            last_seen.update(db).await.unwrap()
+        }
+        ProgressUpdateAction::ChangeState => {
+            let new_state = input.change_state.unwrap_or(SeenState::Dropped);
+            let last_seen = Seen::find()
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::MetadataId.eq(input.metadata_id))
+                .order_by_desc(seen::Column::LastUpdatedOn)
+                .one(db)
+                .await
+                .unwrap();
+            match last_seen {
+                Some(ls) => {
+                    let watched_on = ls.provider_watched_on.clone();
+                    let mut updated_at = ls.updated_at.clone();
+                    let now = Utc::now();
+                    updated_at.push(now);
+                    let mut last_seen: seen::ActiveModel = ls.into();
+                    last_seen.state = ActiveValue::Set(new_state);
+                    last_seen.updated_at = ActiveValue::Set(updated_at);
+                    last_seen.provider_watched_on =
+                        ActiveValue::Set(input.provider_watched_on.or(watched_on));
+                    last_seen.update(db).await.unwrap()
+                }
+                None => {
+                    return err();
+                }
+            }
+        }
+        ProgressUpdateAction::Now
+        | ProgressUpdateAction::InThePast
+        | ProgressUpdateAction::JustStarted => {
+            let meta = Metadata::find_by_id(&input.metadata_id)
+                .one(db)
+                .await
+                .unwrap()
+                .unwrap();
+            ryot_log!(
+                debug,
+                "Progress update for meta {:?} ({:?})",
+                meta.title,
+                meta.lot
+            );
+
+            let show_ei = if matches!(meta.lot, MediaLot::Show) {
+                let season = input.show_season_number.ok_or_else(|| {
+                    Error::new("Season number is required for show progress update")
+                })?;
+                let episode = input.show_episode_number.ok_or_else(|| {
+                    Error::new("Episode number is required for show progress update")
+                })?;
+                Some(SeenShowExtraInformation { season, episode })
+            } else {
+                None
+            };
+            let podcast_ei = if matches!(meta.lot, MediaLot::Podcast) {
+                let episode = input.podcast_episode_number.ok_or_else(|| {
+                    Error::new("Episode number is required for podcast progress update")
+                })?;
+                Some(SeenPodcastExtraInformation { episode })
+            } else {
+                None
+            };
+            let anime_ei = if matches!(meta.lot, MediaLot::Anime) {
+                Some(SeenAnimeExtraInformation {
+                    episode: input.anime_episode_number,
+                })
+            } else {
+                None
+            };
+            let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
+                Some(SeenMangaExtraInformation {
+                    chapter: input.manga_chapter_number,
+                    volume: input.manga_volume_number,
+                })
+            } else {
+                None
+            };
+            let finished_on = if action == ProgressUpdateAction::JustStarted {
+                None
+            } else {
+                input.date
+            };
+            ryot_log!(debug, "Progress update finished on = {:?}", finished_on);
+            let (progress, started_on) = if matches!(action, ProgressUpdateAction::JustStarted) {
+                (
+                    input.progress.unwrap_or(dec!(0)),
+                    Some(Utc::now().date_naive()),
+                )
+            } else {
+                (dec!(100), None)
+            };
+            ryot_log!(debug, "Progress update percentage = {:?}", progress);
+            let seen_insert = seen::ActiveModel {
+                progress: ActiveValue::Set(progress),
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                metadata_id: ActiveValue::Set(input.metadata_id),
+                started_on: ActiveValue::Set(started_on),
+                finished_on: ActiveValue::Set(finished_on),
+                state: ActiveValue::Set(SeenState::InProgress),
+                provider_watched_on: ActiveValue::Set(input.provider_watched_on),
+                show_extra_information: ActiveValue::Set(show_ei),
+                podcast_extra_information: ActiveValue::Set(podcast_ei),
+                anime_extra_information: ActiveValue::Set(anime_ei),
+                manga_extra_information: ActiveValue::Set(manga_ei),
+                ..Default::default()
+            };
+            seen_insert.insert(db).await.unwrap()
+        }
+    };
+    ryot_log!(debug, "Progress update = {:?}", seen);
+    let id = seen.id.clone();
+    if seen.state == SeenState::Completed && respect_cache {
+        seen_progress_cache.cache_set(cache, ()).unwrap();
+    }
+    after_media_seen_tasks(seen, db, perform_core_application_job).await?;
+    Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
