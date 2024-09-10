@@ -2,6 +2,7 @@ use std::{future::Future, sync::Arc};
 
 use anyhow::Result;
 use apalis::prelude::MemoryStorage;
+use application_utils::get_current_date;
 use async_graphql::{Error, Result as GqlResult};
 use background::{ApplicationJob, CoreApplicationJob};
 use cached::DiskCache;
@@ -15,10 +16,11 @@ use database_models::{
 };
 use database_utils::{add_entity_to_collection, user_preferences_by_id};
 use dependent_models::ImportResult;
-use dependent_utils::{commit_metadata, process_import};
+use dependent_utils::{commit_metadata, process_import, progress_update};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{
     CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen, ProgressUpdateCache,
+    ProgressUpdateInput,
 };
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
@@ -182,6 +184,7 @@ impl IntegrationService {
         if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
+        // FIXME: Return `ImportResult` from these functions
         let maybe_progress_update = match integration.provider {
             IntegrationProvider::Kodi => {
                 self.process_progress(IntegrationType::Kodi(payload.clone()))
@@ -321,22 +324,25 @@ impl IntegrationService {
             &self.perform_application_job,
         )
         .await?;
-        if let Err(err) = process_import(
-            user_id,
-            ImportResult {
-                collections: vec![],
-                media: (),
-                media_groups: vec![],
-                people: vec![],
-                measurements: vec![],
-                workouts: vec![],
-                failed_items: vec![],
+        if let Err(err) = progress_update(
+            ProgressUpdateInput {
+                metadata_id: id,
+                progress: Some(progress),
+                date: Some(get_current_date(&self.timezone)),
+                show_season_number: pu.show_season_number,
+                show_episode_number: pu.show_episode_number,
+                podcast_episode_number: pu.podcast_episode_number,
+                anime_episode_number: pu.anime_episode_number,
+                manga_chapter_number: pu.manga_chapter_number,
+                manga_volume_number: pu.manga_volume_number,
+                provider_watched_on: pu.provider_watched_on,
+                change_state: None,
             },
+            user_id,
+            true,
             &self.db,
-            &self.config,
-            &self.timezone,
-            &self.perform_application_job,
             &self.seen_progress_cache,
+            &self.timezone,
             &self.perform_core_application_job,
         )
         .await
