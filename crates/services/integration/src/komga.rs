@@ -3,7 +3,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use application_utils::get_base_http_client;
 use async_graphql::futures_util::StreamExt;
 use common_utils::ryot_log;
@@ -439,7 +439,7 @@ impl KomgaIntegration {
                         }
                     }
                     Err(TryRecvError::Empty) => break,
-                    Err(e) => return Err(anyhow::anyhow!("Receiver error: {}", e)),
+                    Err(e) => bail!("Receiver error: {}", e),
                 }
             }
 

@@ -1,6 +1,6 @@
 use std::{future::Future, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use apalis::prelude::MemoryStorage;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result as GqlResult};
@@ -113,7 +113,7 @@ impl IntegrationService {
                 );
                 radarr.push_progress().await
             }
-            _ => Err(anyhow::anyhow!("Unsupported integration type")),
+            _ => bail!("Unsupported integration type"),
         }
     }
 
@@ -143,7 +143,7 @@ impl IntegrationService {
                 let kodi = KodiIntegration::new(payload);
                 kodi.yank_progress().await
             }
-            _ => Err(anyhow::anyhow!("Unsupported integration type")),
+            _ => bail!("Unsupported integration type"),
         }
     }
 
@@ -161,7 +161,7 @@ impl IntegrationService {
                     AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
                 audiobookshelf.yank_progress(commit_metadata).await
             }
-            _ => Err(anyhow::anyhow!("Unsupported integration type")),
+            _ => bail!("Unsupported integration type"),
         }
     }
 

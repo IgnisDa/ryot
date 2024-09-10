@@ -1,3 +1,4 @@
+use anyhow::bail;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use rust_decimal::Decimal;
@@ -90,7 +91,7 @@ impl EmbyIntegration {
                         .await?;
                     (db_show.identifier, MediaLot::Show)
                 }
-                _ => anyhow::bail!("Only movies and shows supported"),
+                _ => bail!("Only movies and shows supported"),
             };
 
         Ok((
