@@ -2,7 +2,7 @@ use enums::MediaSource;
 use providers::google_books::GoogleBooksService;
 
 pub enum IntegrationType {
-    Komga(String, String, String, MediaSource),
+    Komga(String, String, String, MediaSource, Option<bool>),
     Jellyfin(String),
     Emby(String),
     Plex(String, Option<String>),

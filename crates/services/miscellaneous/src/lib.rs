@@ -3120,6 +3120,7 @@ ORDER BY RANDOM() LIMIT 10;
                             specifics.komga_username.unwrap(),
                             specifics.komga_password.unwrap(),
                             specifics.komga_provider.unwrap(),
+                            integration.sync_to_owned_collection,
                         ))
                         .await
                 }

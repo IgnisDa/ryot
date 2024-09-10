@@ -76,9 +76,21 @@ impl IntegrationService {
         integration_type: IntegrationType,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         match integration_type {
-            IntegrationType::Komga(base_url, username, password, provider) => {
-                let komga =
-                    KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
+            IntegrationType::Komga(
+                base_url,
+                username,
+                password,
+                provider,
+                sync_to_owned_collection,
+            ) => {
+                let komga = KomgaIntegration::new(
+                    base_url,
+                    username,
+                    password,
+                    provider,
+                    self.db.clone(),
+                    sync_to_owned_collection,
+                );
                 komga.yank_progress().await
             }
             IntegrationType::Jellyfin(payload) => {
