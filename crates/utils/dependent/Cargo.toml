@@ -16,7 +16,9 @@ common-utils = { path = "../common" }
 config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
+dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
+importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }

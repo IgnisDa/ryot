@@ -20,6 +20,7 @@ use database_utils::{
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
 };
+use dependent_utils::create_user_measurement;
 use enums::{
     EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
     ExerciseMuscle, ExerciseSource,
@@ -413,10 +414,7 @@ impl ExerciseService {
         user_id: &String,
         mut input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        input.user_id = user_id.to_owned();
-        let um: user_measurement::ActiveModel = input.into();
-        let um = um.insert(&self.db).await?;
-        Ok(um.timestamp)
+        create_user_measurement(user_id, input, &self.db).await
     }
 
     pub async fn delete_user_measurement(

@@ -127,7 +127,6 @@ pub async fn create_app_services(
         &db,
         timezone.clone(),
         config.clone(),
-        exercise_service.clone(),
         perform_application_job,
         seen_progress_cache,
         perform_core_application_job,
