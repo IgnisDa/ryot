@@ -3426,6 +3426,7 @@ dependencies = [
  "config",
  "database-models",
  "database-utils",
+ "dependent-models",
  "dependent-utils",
  "enums",
  "eventsource-stream",

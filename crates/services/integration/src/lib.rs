@@ -14,6 +14,7 @@ use database_models::{
     prelude::{CollectionToEntity, Metadata},
 };
 use database_utils::{add_entity_to_collection, user_preferences_by_id};
+use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{
@@ -320,10 +321,17 @@ impl IntegrationService {
             &self.perform_application_job,
         )
         .await?;
-        process_import(
+        if let Err(err) = process_import(
             user_id,
-            todo!(),
-            // import,
+            ImportResult {
+                collections: vec![],
+                media: (),
+                media_groups: vec![],
+                people: vec![],
+                measurements: vec![],
+                workouts: vec![],
+                failed_items: vec![],
+            },
             &self.db,
             &self.config,
             &self.timezone,
@@ -331,30 +339,10 @@ impl IntegrationService {
             &self.seen_progress_cache,
             &self.perform_core_application_job,
         )
-        .await?;
-        // FIXME: Use importer service here somehow
-        // if let Err(err) = self
-        //     .progress_update(
-        //         ProgressUpdateInput {
-        //             metadata_id: id,
-        //             progress: Some(progress),
-        //             date: Some(get_current_date(&self.timezone)),
-        //             show_season_number: pu.show_season_number,
-        //             show_episode_number: pu.show_episode_number,
-        //             podcast_episode_number: pu.podcast_episode_number,
-        //             anime_episode_number: pu.anime_episode_number,
-        //             manga_chapter_number: pu.manga_chapter_number,
-        //             manga_volume_number: pu.manga_volume_number,
-        //             provider_watched_on: pu.provider_watched_on,
-        //             change_state: None,
-        //         },
-        //         user_id,
-        //         true,
-        //     )
-        //     .await
-        // {
-        //     ryot_log!(debug, "Error updating progress: {:?}", err);
-        // };
+        .await
+        {
+            ryot_log!(debug, "Error updating progress: {:?}", err);
+        };
         Ok(())
     }
 
