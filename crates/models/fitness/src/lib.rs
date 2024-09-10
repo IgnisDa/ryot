@@ -16,6 +16,24 @@ use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+pub const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
+    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
+    (
+        ExerciseLot::DistanceAndDuration,
+        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
+    ),
+    (
+        ExerciseLot::RepsAndWeight,
+        &[
+            WorkoutSetPersonalBest::Weight,
+            WorkoutSetPersonalBest::OneRm,
+            WorkoutSetPersonalBest::Volume,
+            WorkoutSetPersonalBest::Reps,
+        ],
+    ),
+    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
+];
+
 #[derive(Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseCategory {

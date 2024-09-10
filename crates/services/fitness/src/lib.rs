@@ -30,7 +30,7 @@ use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
     GithubExerciseAttributes, UpdateUserWorkoutInput, UserExerciseInput, UserMeasurementsListInput,
-    UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetPersonalBest,
+    UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetPersonalBest, LOT_MAPPINGS,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -49,23 +49,6 @@ mod logic;
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
 const JSON_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/dist/exercises.json");
 const IMAGES_PREFIX_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/exercises");
-const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
-    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
-    (
-        ExerciseLot::DistanceAndDuration,
-        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
-    ),
-    (
-        ExerciseLot::RepsAndWeight,
-        &[
-            WorkoutSetPersonalBest::Weight,
-            WorkoutSetPersonalBest::OneRm,
-            WorkoutSetPersonalBest::Volume,
-            WorkoutSetPersonalBest::Reps,
-        ],
-    ),
-    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
-];
 
 pub struct ExerciseService {
     db: DatabaseConnection,

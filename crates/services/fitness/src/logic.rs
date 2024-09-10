@@ -8,7 +8,7 @@ use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
     UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
     WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
-    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
+    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use nanoid::nanoid;
 use rust_decimal_macros::dec;
@@ -16,8 +16,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
     QueryFilter,
 };
-
-use super::LOT_MAPPINGS;
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
     records
