@@ -87,6 +87,9 @@ import {
 	IconDeviceTv,
 	IconHome2,
 	IconLogout,
+	IconMoodEmpty,
+	IconMoodHappy,
+	IconMoodSad,
 	IconMoon,
 	IconPercentage,
 	IconSettings,
@@ -1236,6 +1239,18 @@ const ReviewEntityForm = ({
 										: undefined
 								}
 							/>
+						))
+						.with(UserReviewScale.ThreePointSmiley, () => (
+							<Stack gap={4}>
+								<Text size="xs" c="dimmed">
+									How did it make you feel?
+								</Text>
+								<Group justify="space-around">
+									<IconMoodHappy size={36} />
+									<IconMoodEmpty size={36} />
+									<IconMoodSad size={36} />
+								</Group>
+							</Stack>
 						))
 						.exhaustive()}
 					<Checkbox label="This review is a spoiler" mt="lg" name="isSpoiler" />
