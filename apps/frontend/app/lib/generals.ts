@@ -11,7 +11,7 @@ import {
 	SetLot,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isString } from "@ryot/ts-utils";
+import { inRange, isString } from "@ryot/ts-utils";
 import {
 	IconBook,
 	IconBook2,
@@ -91,6 +91,13 @@ export enum ThreePointSmileyRating {
 	Neutral = "Neutral",
 	Sad = "Sad",
 }
+
+export const convertDecimalToThreePointSmiley = (rating: number) =>
+	inRange(rating, 0, 33.4)
+		? ThreePointSmileyRating.Sad
+		: inRange(rating, 33.4, 66.8)
+			? ThreePointSmileyRating.Neutral
+			: ThreePointSmileyRating.Happy;
 
 export const reviewYellow = "#EBE600FF";
 

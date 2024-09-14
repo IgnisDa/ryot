@@ -28,20 +28,11 @@ import {
 	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	getInitials,
-	inRange,
-	isString,
-	snakeCase,
-} from "@ryot/ts-utils";
+import { changeCase, getInitials, isString, snakeCase } from "@ryot/ts-utils";
 import {
 	IconBackpack,
 	IconBookmarks,
 	IconCloudDownload,
-	IconMoodEmpty,
-	IconMoodHappy,
-	IconMoodSad,
 	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
@@ -50,10 +41,12 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode, Ref } from "react";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { MEDIA_DETAILS_HEIGHT } from "~/components/common";
+import {
+	DisplayThreePointReview,
+	MEDIA_DETAILS_HEIGHT,
+} from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
-	ThreePointSmileyRating,
 	clientGqlService,
 	getPartialMetadataDetailsQuery,
 	queryFactory,
@@ -228,13 +221,6 @@ export const BaseMediaDisplayItem = (props: {
 	);
 };
 
-const convertDecimalToThreePointSmiley = (rating: number) =>
-	inRange(rating, 0, 33.4)
-		? ThreePointSmileyRating.Sad
-		: inRange(rating, 33.4, 66.8)
-			? ThreePointSmileyRating.Neutral
-			: ThreePointSmileyRating.Happy;
-
 export const MetadataDisplayItem = (props: {
 	metadataId: string;
 	name?: string;
@@ -319,19 +305,9 @@ export const MetadataDisplayItem = (props: {
 					props.topRight
 				) : averageRating ? (
 					match(userPreferences.general.reviewScale)
-						.with(UserReviewScale.ThreePointSmiley, () =>
-							match(convertDecimalToThreePointSmiley(Number(averageRating)))
-								.with(ThreePointSmileyRating.Happy, () => (
-									<IconMoodHappy size={20} color={reviewYellow} />
-								))
-								.with(ThreePointSmileyRating.Neutral, () => (
-									<IconMoodEmpty size={20} color={reviewYellow} />
-								))
-								.with(ThreePointSmileyRating.Sad, () => (
-									<IconMoodSad size={20} color={reviewYellow} />
-								))
-								.exhaustive(),
-						)
+						.with(UserReviewScale.ThreePointSmiley, () => (
+							<DisplayThreePointReview rating={averageRating} />
+						))
 						.otherwise(() => (
 							<Group gap={4}>
 								<IconStarFilled size={12} style={{ color: reviewYellow }} />

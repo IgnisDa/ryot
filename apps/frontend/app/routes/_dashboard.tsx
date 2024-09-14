@@ -106,6 +106,7 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
+	convertDecimalToThreePointSmiley,
 	getLot,
 	getVerb,
 	queryClient,
@@ -1186,7 +1187,13 @@ const ReviewEntityForm = ({
 	const [entityToReview] = useReviewEntity();
 	const [ratingInThreePointSmiley, setRatingInThreePointSmiley] = useState<
 		ThreePointSmileyRating | undefined
-	>();
+	>(
+		entityToReview?.existingReview?.rating
+			? convertDecimalToThreePointSmiley(
+					Number(entityToReview.existingReview.rating),
+				)
+			: undefined,
+	);
 
 	const SmileySurround = (props: {
 		children: React.ReactNode;
