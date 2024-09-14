@@ -438,8 +438,9 @@ pub async fn item_reviews(
                 review.rating.map(|s| {
                     s.checked_div(match preferences.general.review_scale {
                         UserReviewScale::OutOfFive => dec!(20),
-                        UserReviewScale::OutOfHundred => dec!(1),
-                        UserReviewScale::ThreePointSmiley => dec!(3),
+                        UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => {
+                            dec!(1)
+                        }
                     })
                     .unwrap()
                     .round_dp(1)
