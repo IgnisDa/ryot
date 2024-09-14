@@ -1177,11 +1177,11 @@ const convertDecimalToThreePointSmiley = (rating: number) =>
 			: ThreePointSmileyRating.Happy;
 
 const convertThreePointSmileyToDecimal = (rating: ThreePointSmileyRating) =>
-	rating === ThreePointSmileyRating.Happy
-		? 100
-		: rating === ThreePointSmileyRating.Neutral
-			? 66.66
-			: 33.33;
+	match(rating)
+		.with(ThreePointSmileyRating.Happy, () => 100)
+		.with(ThreePointSmileyRating.Neutral, () => 66.66)
+		.with(ThreePointSmileyRating.Sad, () => 33.33)
+		.exhaustive();
 
 const ReviewEntityForm = ({
 	closeReviewEntityModal,
