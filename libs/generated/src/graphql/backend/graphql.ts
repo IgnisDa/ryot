@@ -2404,7 +2404,8 @@ export type UserPreferences = {
 
 export enum UserReviewScale {
   OutOfFive = 'OUT_OF_FIVE',
-  OutOfHundred = 'OUT_OF_HUNDRED'
+  OutOfHundred = 'OUT_OF_HUNDRED',
+  ThreePointSmiley = 'THREE_POINT_SMILEY'
 }
 
 export type UserToEntity = {

@@ -508,6 +508,7 @@ fn convert_review_into_input(
     let rating = match preferences.general.review_scale {
         UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
         UserReviewScale::OutOfHundred => review.rating,
+        UserReviewScale::ThreePointSmiley => review.rating.map(|rating| rating / dec!(3)),
     };
     let text = review.review.clone().and_then(|r| r.text);
     let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));

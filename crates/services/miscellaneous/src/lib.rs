@@ -997,23 +997,20 @@ ORDER BY RANDOM() LIMIT 10;
             .map(|a| Order::from(a.order))
             .unwrap_or(Order::Asc);
 
+        let review_scale = match preferences.general.review_scale {
+            UserReviewScale::OutOfFive => 20,
+            UserReviewScale::OutOfHundred => 1,
+            UserReviewScale::ThreePointSmiley => 3,
+        };
         let select = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .expr_as(
                 Func::round_with_precision(
                     Func::avg(
-                        Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(
-                            match preferences.general.review_scale {
-                                UserReviewScale::OutOfFive => 20,
-                                UserReviewScale::OutOfHundred => 1,
-                            },
-                        ),
+                        Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(review_scale),
                     ),
-                    match preferences.general.review_scale {
-                        UserReviewScale::OutOfFive => 1,
-                        UserReviewScale::OutOfHundred => 0,
-                    },
+                    review_scale,
                 ),
                 avg_rating_col,
             )
@@ -2688,6 +2685,7 @@ ORDER BY RANDOM() LIMIT 10;
                 |r| match preferences.general.review_scale {
                     UserReviewScale::OutOfFive => r * dec!(20),
                     UserReviewScale::OutOfHundred => r,
+                    UserReviewScale::ThreePointSmiley => r * dec!(3),
                 },
             )),
             text: ActiveValue::Set(input.text),

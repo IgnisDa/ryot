@@ -97,6 +97,7 @@ import { z } from "zod";
 import { zx } from "zodix";
 import {
 	DisplayCollection,
+	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
@@ -114,6 +115,7 @@ import {
 	getVerb,
 	queryClient,
 	queryFactory,
+	reviewYellow,
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
@@ -477,28 +479,40 @@ export default function Page() {
 								</Text>
 							</Paper>
 						) : null}
-						{loaderData.userMetadataDetails.averageRating ? (
-							<Paper
-								p={4}
-								display="flex"
-								style={{
-									flexDirection: "column",
-									alignItems: "center",
-									gap: 6,
-								}}
-							>
-								<IconStarFilled size={22} style={{ color: "#EBE600FF" }} />
-								<Text fz="sm">
-									{Number(loaderData.userMetadataDetails.averageRating).toFixed(
-										1,
-									)}
-									{userPreferences.general.reviewScale ===
-									UserReviewScale.OutOfFive
-										? undefined
-										: "%"}
-								</Text>
-							</Paper>
-						) : null}
+						{loaderData.userMetadataDetails.averageRating
+							? match(userPreferences.general.reviewScale)
+									.with(UserReviewScale.ThreePointSmiley, () => (
+										<DisplayThreePointReview
+											rating={loaderData.userMetadataDetails.averageRating}
+											size={40}
+										/>
+									))
+									.otherwise(() => (
+										<Paper
+											p={4}
+											display="flex"
+											style={{
+												flexDirection: "column",
+												alignItems: "center",
+												gap: 6,
+											}}
+										>
+											<IconStarFilled
+												size={22}
+												style={{ color: reviewYellow }}
+											/>
+											<Text fz="sm">
+												{Number(
+													loaderData.userMetadataDetails.averageRating,
+												).toFixed(1)}
+												{userPreferences.general.reviewScale ===
+												UserReviewScale.OutOfFive
+													? undefined
+													: "%"}
+											</Text>
+										</Paper>
+									))
+							: null}
 					</Group>
 				) : null}
 				{loaderData.userMetadataDetails?.inProgress ? (
