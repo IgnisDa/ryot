@@ -322,13 +322,13 @@ export const MetadataDisplayItem = (props: {
 						.with(UserReviewScale.ThreePointSmiley, () =>
 							match(convertDecimalToThreePointSmiley(Number(averageRating)))
 								.with(ThreePointSmileyRating.Happy, () => (
-									<IconMoodHappy size={24} color={reviewYellow} />
+									<IconMoodHappy size={20} color={reviewYellow} />
 								))
 								.with(ThreePointSmileyRating.Neutral, () => (
-									<IconMoodEmpty size={24} color={reviewYellow} />
+									<IconMoodEmpty size={20} color={reviewYellow} />
 								))
 								.with(ThreePointSmileyRating.Sad, () => (
-									<IconMoodSad size={24} color={reviewYellow} />
+									<IconMoodSad size={20} color={reviewYellow} />
 								))
 								.exhaustive(),
 						)
@@ -358,7 +358,7 @@ export const MetadataDisplayItem = (props: {
 									entityTitle: metadataDetails.title,
 								});
 						}}
-						size={16}
+						size={18}
 						className={classes.starIcon}
 					/>
 				),
