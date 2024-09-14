@@ -284,6 +284,7 @@ export type CreateUserIntegrationInput = {
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   provider: IntegrationProvider;
   providerSpecifics?: InputMaybe<IntegrationSourceSpecificsInput>;
+  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type CreateUserNotificationPlatformInput = {
@@ -2081,6 +2082,7 @@ export type UpdateUserIntegrationInput = {
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
   minimumProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  syncToOwnedCollection?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type UpdateUserNotificationPlatformInput = {

@@ -186,6 +186,7 @@ const updateSchema = z.object({
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	isDisabled: zx.CheckboxAsString.optional(),
+	syncToOwnedCollection: zx.CheckboxAsString.optional(),
 });
 
 export default function Page() {
@@ -600,6 +601,19 @@ const UpdateIntegrationModal = (props: {
 								props.updateIntegrationData.isDisabled || undefined
 							}
 						/>
+						{YANK_INTEGRATIONS.includes(
+							props.updateIntegrationData.provider,
+						) ? (
+							<Checkbox
+								label="Sync to Owned collection"
+								name="syncToOwnedCollection"
+								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								styles={{ body: { display: "flex", alignItems: "center" } }}
+								defaultChecked={
+									props.updateIntegrationData.syncToOwnedCollection || undefined
+								}
+							/>
+						) : null}
 						<Button type="submit">Submit</Button>
 					</Stack>
 				</Form>
