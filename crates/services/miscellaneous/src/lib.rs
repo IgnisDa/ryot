@@ -904,8 +904,7 @@ impl MiscellaneousService {
 
         let review_scale = match preferences.general.review_scale {
             UserReviewScale::OutOfFive => 20,
-            UserReviewScale::OutOfHundred => 1,
-            UserReviewScale::ThreePointSmiley => 3,
+            UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
         };
         let select = Metadata::find()
             .select_only()
@@ -2587,8 +2586,7 @@ impl MiscellaneousService {
             rating: ActiveValue::Set(input.rating.map(
                 |r| match preferences.general.review_scale {
                     UserReviewScale::OutOfFive => r * dec!(20),
-                    UserReviewScale::OutOfHundred => r,
-                    UserReviewScale::ThreePointSmiley => r * dec!(3),
+                    UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => r,
                 },
             )),
             text: ActiveValue::Set(input.text),
