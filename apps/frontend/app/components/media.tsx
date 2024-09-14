@@ -231,7 +231,7 @@ export const BaseMediaDisplayItem = (props: {
 const convertDecimalToThreePointSmiley = (rating: number) =>
 	inRange(rating, 0, 33.4)
 		? ThreePointSmileyRating.Sad
-		: inRange(rating, 33.4, 66.7)
+		: inRange(rating, 33.4, 66.8)
 			? ThreePointSmileyRating.Neutral
 			: ThreePointSmileyRating.Happy;
 
@@ -319,21 +319,19 @@ export const MetadataDisplayItem = (props: {
 					props.topRight
 				) : averageRating ? (
 					match(userPreferences.general.reviewScale)
-						.with(UserReviewScale.ThreePointSmiley, () => (
-							<>
-								{match(convertDecimalToThreePointSmiley(Number(averageRating)))
-									.with(ThreePointSmileyRating.Happy, () => (
-										<IconMoodHappy size={24} color={reviewYellow} />
-									))
-									.with(ThreePointSmileyRating.Neutral, () => (
-										<IconMoodEmpty size={24} color={reviewYellow} />
-									))
-									.with(ThreePointSmileyRating.Sad, () => (
-										<IconMoodSad size={24} color={reviewYellow} />
-									))
-									.exhaustive()}
-							</>
-						))
+						.with(UserReviewScale.ThreePointSmiley, () =>
+							match(convertDecimalToThreePointSmiley(Number(averageRating)))
+								.with(ThreePointSmileyRating.Happy, () => (
+									<IconMoodHappy size={24} color={reviewYellow} />
+								))
+								.with(ThreePointSmileyRating.Neutral, () => (
+									<IconMoodEmpty size={24} color={reviewYellow} />
+								))
+								.with(ThreePointSmileyRating.Sad, () => (
+									<IconMoodSad size={24} color={reviewYellow} />
+								))
+								.exhaustive(),
+						)
 						.otherwise(() => (
 							<Group gap={4}>
 								<IconStarFilled size={12} style={{ color: reviewYellow }} />
