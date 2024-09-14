@@ -256,6 +256,7 @@ pub enum UserReviewScale {
     OutOfFive,
     #[default]
     OutOfHundred,
+    ThreePointSmiley,
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Eq, PartialEq, FromJsonQueryResult, Copy)]

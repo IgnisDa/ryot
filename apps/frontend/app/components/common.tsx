@@ -51,7 +51,7 @@ import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { dayjsLib, getSurroundingElements } from "~/lib/generals";
+import { dayjsLib, getSurroundingElements, reviewYellow } from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -374,7 +374,7 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 					{(Number(props.review.rating) || 0) > 0 ? (
 						<Flex align="center" gap={4}>
-							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
+							<IconStarFilled size={16} style={{ color: reviewYellow }} />
 							<Text className={classes.text} fw="bold">
 								{props.review.rating}
 								{reviewScale === UserReviewScale.OutOfFive ? undefined : "%"}
