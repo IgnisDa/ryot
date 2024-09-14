@@ -105,6 +105,7 @@ import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import {
 	LOGO_IMAGE_URL,
+	ThreePointSmileyRating,
 	Verb,
 	getLot,
 	getVerb,
@@ -1170,16 +1171,10 @@ const NewProgressUpdateForm = ({
 
 const convertDecimalToThreePointSmiley = (rating: number) =>
 	inRange(rating, 0, 33.4)
-		? "Sad"
+		? ThreePointSmileyRating.Sad
 		: inRange(rating, 33.4, 66.7)
-			? "Neutral"
-			: "Happy";
-
-enum ThreePointSmileyRating {
-	Happy = "Happy",
-	Neutral = "Neutral",
-	Sad = "Sad",
-}
+			? ThreePointSmileyRating.Neutral
+			: ThreePointSmileyRating.Happy;
 
 const convertThreePointSmileyToDecimal = (rating: ThreePointSmileyRating) =>
 	rating === ThreePointSmileyRating.Happy

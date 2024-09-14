@@ -86,6 +86,13 @@ export enum TimeSpan {
 	AllTime = "All Time",
 }
 
+
+export enum ThreePointSmileyRating {
+	Happy = "Happy",
+	Neutral = "Neutral",
+	Sad = "Sad",
+}
+
 export const getSetColor = (l: SetLot) =>
 	match(l)
 		.with(SetLot.WarmUp, () => "yellow")
