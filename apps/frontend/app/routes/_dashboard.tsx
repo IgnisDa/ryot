@@ -72,7 +72,6 @@ import {
 	changeCase,
 	formatDateToNaiveDate,
 	groupBy,
-	inRange,
 	isNumber,
 	snakeCase,
 } from "@ryot/ts-utils";
@@ -1168,13 +1167,6 @@ const NewProgressUpdateForm = ({
 		</Form>
 	);
 };
-
-const convertDecimalToThreePointSmiley = (rating: number) =>
-	inRange(rating, 0, 33.4)
-		? ThreePointSmileyRating.Sad
-		: inRange(rating, 33.4, 66.7)
-			? ThreePointSmileyRating.Neutral
-			: ThreePointSmileyRating.Happy;
 
 const convertThreePointSmileyToDecimal = (rating: ThreePointSmileyRating) =>
 	match(rating)

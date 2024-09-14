@@ -104,6 +104,7 @@ import {
 	getVerb,
 	queryClient,
 	queryFactory,
+	reviewYellow,
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
@@ -475,7 +476,7 @@ export default function Page() {
 									gap: 6,
 								}}
 							>
-								<IconStarFilled size={22} style={{ color: "#EBE600FF" }} />
+								<IconStarFilled size={22} style={{ color: reviewYellow }} />
 								<Text fz="sm">
 									{Number(loaderData.userMetadataDetails.averageRating).toFixed(
 										1,
