@@ -117,10 +117,7 @@ impl IntegrationService {
         }
     }
 
-    async fn process_progress(
-        &self,
-        integration_type: IntegrationType,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn process_progress(&self, integration_type: IntegrationType) -> Result<ImportResult> {
         match integration_type {
             IntegrationType::Komga(base_url, username, password, provider) => {
                 let komga =

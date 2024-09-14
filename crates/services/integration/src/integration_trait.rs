@@ -1,8 +1,8 @@
-use super::{IntegrationMediaCollection, IntegrationMediaSeen};
 use anyhow::{bail, Result};
 use async_graphql::Result as GqlResult;
 use database_models::metadata;
 use database_utils::ilike_sql;
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::CommitMediaInput;
 use sea_orm::{
@@ -13,16 +13,14 @@ use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
 use std::future::Future;
 
 pub trait YankIntegration {
-    async fn yank_progress(
-        &self,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>;
+    async fn yank_progress(&self) -> Result<ImportResult>;
 }
 
 pub trait YankIntegrationWithCommit {
     async fn yank_progress<F>(
         &self,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    ) -> Result<ImportResult>
     where
         F: Future<Output = GqlResult<metadata::Model>>;
 }
