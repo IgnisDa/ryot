@@ -72,6 +72,7 @@ import {
 	changeCase,
 	formatDateToNaiveDate,
 	groupBy,
+	inRange,
 	isNumber,
 	snakeCase,
 } from "@ryot/ts-utils";
@@ -756,6 +757,13 @@ const WATCH_TIMES = [
 	"Custom Date",
 ] as const;
 
+const refreshUserMetadataDetails = (metadataId: string) =>
+	setTimeout(() => {
+		queryClient.invalidateQueries({
+			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
+		});
+	}, 1500);
+
 const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
 }: {
@@ -783,11 +791,7 @@ const MetadataProgressUpdateForm = ({
 		submit(e);
 		const metadataId = metadataToUpdate.metadataId;
 		events.updateProgress(metadataDetails.title);
-		setTimeout(async () => {
-			await queryClient.invalidateQueries({
-				queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
-			});
-		}, 1500);
+		refreshUserMetadataDetails(metadataId);
 		closeMetadataProgressUpdateModal();
 	};
 
@@ -1164,6 +1168,26 @@ const NewProgressUpdateForm = ({
 	);
 };
 
+const convertDecimalToThreePointSmiley = (rating: number) =>
+	inRange(rating, 0, 33.4)
+		? "Sad"
+		: inRange(rating, 33.4, 66.7)
+			? "Neutral"
+			: "Happy";
+
+enum ThreePointSmileyRating {
+	Happy = "Happy",
+	Neutral = "Neutral",
+	Sad = "Sad",
+}
+
+const convertThreePointSmileyToDecimal = (rating: ThreePointSmileyRating) =>
+	rating === ThreePointSmileyRating.Happy
+		? 100
+		: rating === ThreePointSmileyRating.Neutral
+			? 66.66
+			: 33.33;
+
 const ReviewEntityForm = ({
 	closeReviewEntityModal,
 }: {
@@ -1173,6 +1197,26 @@ const ReviewEntityForm = ({
 	const events = useApplicationEvents();
 	const submit = useConfirmSubmit();
 	const [entityToReview] = useReviewEntity();
+	const [ratingInThreePointSmiley, setRatingInThreePointSmiley] = useState<
+		ThreePointSmileyRating | undefined
+	>();
+
+	const SmileySurround = (props: {
+		children: React.ReactNode;
+		smileyRating: ThreePointSmileyRating;
+	}) => (
+		<ThemeIcon
+			size="xl"
+			variant={
+				props.smileyRating === ratingInThreePointSmiley
+					? "outline"
+					: "transparent"
+			}
+			onClick={() => setRatingInThreePointSmiley(props.smileyRating)}
+		>
+			{props.children}
+		</ThemeIcon>
+	);
 
 	if (!entityToReview) return null;
 
@@ -1183,16 +1227,21 @@ const ReviewEntityForm = ({
 			action={withQuery("/actions", { intent: "performReviewAction" })}
 			onSubmit={async (e) => {
 				submit(e);
-				await queryClient.invalidateQueries({
-					queryKey: queryFactory.media.userMetadataDetails(
-						entityToReview.entityId,
-					).queryKey,
-				});
+				refreshUserMetadataDetails(entityToReview.entityId);
 				events.postReview(entityToReview.entityTitle);
 				closeReviewEntityModal();
 			}}
 		>
 			<input hidden name="entityId" value={entityToReview.entityId} readOnly />
+			{userPreferences.general.reviewScale ===
+				UserReviewScale.ThreePointSmiley && ratingInThreePointSmiley ? (
+				<input
+					hidden
+					name="rating"
+					value={convertThreePointSmileyToDecimal(ratingInThreePointSmiley)}
+					readOnly
+				/>
+			) : undefined}
 			<input
 				hidden
 				name="entityLot"
@@ -1246,9 +1295,15 @@ const ReviewEntityForm = ({
 									How did it make you feel?
 								</Text>
 								<Group justify="space-around">
-									<IconMoodHappy size={36} />
-									<IconMoodEmpty size={36} />
-									<IconMoodSad size={36} />
+									<SmileySurround smileyRating={ThreePointSmileyRating.Happy}>
+										<IconMoodHappy size={36} />
+									</SmileySurround>
+									<SmileySurround smileyRating={ThreePointSmileyRating.Neutral}>
+										<IconMoodEmpty size={36} />
+									</SmileySurround>
+									<SmileySurround smileyRating={ThreePointSmileyRating.Sad}>
+										<IconMoodSad size={36} />
+									</SmileySurround>
 								</Group>
 							</Stack>
 						))
