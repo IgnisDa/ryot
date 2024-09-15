@@ -37,7 +37,6 @@ import {
 } from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
-	DeployUpdateMetadataJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	MediaLot,
@@ -98,14 +97,7 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import {
-	Verb,
-	dayjsLib,
-	getVerb,
-	queryClient,
-	queryFactory,
-	reviewYellow,
-} from "~/lib/generals";
+import { Verb, dayjsLib, getVerb, reviewYellow } from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -165,20 +157,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Record deleted successfully",
-				}),
-			});
-		},
-		deployUpdateMetadataJob: async () => {
-			const submission = processSubmission(formData, MetadataIdSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeployUpdateMetadataJobDocument,
-				submission,
-			);
-			return Response.json({ status: "success", tt: new Date() } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Metadata update job deployed successfully",
 				}),
 			});
 		},
@@ -939,30 +917,6 @@ export default function Page() {
 											formValue={loaderData.metadataId}
 											entityLot={EntityLot.Metadata}
 										/>
-										{loaderData.metadataDetails.source !==
-										MediaSource.Custom ? (
-											<Form
-												replace
-												method="POST"
-												action={withQuery("", {
-													intent: "deployUpdateMetadataJob",
-												})}
-												onSubmit={async () => {
-													await queryClient.invalidateQueries({
-														queryKey: queryFactory.media.metadataDetails(
-															loaderData.metadataId,
-														).queryKey,
-													});
-												}}
-											>
-												<input
-													hidden
-													name="metadataId"
-													defaultValue={loaderData.metadataId}
-												/>
-												<Menu.Item type="submit">Update metadata</Menu.Item>
-											</Form>
-										) : null}
 										<Menu.Item onClick={mergeMetadataModalOpen}>
 											Merge media
 										</Menu.Item>
