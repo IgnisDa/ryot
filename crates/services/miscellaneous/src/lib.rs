@@ -4428,6 +4428,52 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn put_entities_in_partial_state(&self) -> Result<()> {
+        let metadata_to_update = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::MetadataId)
+            .filter(user_to_entity::Column::MetadataId.is_not_null())
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for chunk in metadata_to_update.chunks(100) {
+            Metadata::update_many()
+                .col_expr(metadata::Column::IsPartial, Expr::value(true))
+                .filter(metadata::Column::Id.is_in(chunk))
+                .exec(&self.db)
+                .await?;
+        }
+        let metadata_group_to_update = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::MetadataGroupId)
+            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for chunk in metadata_group_to_update.chunks(100) {
+            MetadataGroup::update_many()
+                .col_expr(metadata_group::Column::IsPartial, Expr::value(true))
+                .filter(metadata_group::Column::Id.is_in(chunk))
+                .exec(&self.db)
+                .await?;
+        }
+        let person_to_update = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::PersonId)
+            .filter(user_to_entity::Column::PersonId.is_not_null())
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for chunk in person_to_update.chunks(100) {
+            Person::update_many()
+                .col_expr(person::Column::IsPartial, Expr::value(true))
+                .filter(person::Column::Id.is_in(chunk))
+                .exec(&self.db)
+                .await?;
+        }
+        Ok(())
+    }
+
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.db).await?;
         for user_details in users {
@@ -4503,6 +4549,8 @@ impl MiscellaneousService {
         self.regenerate_user_summaries().await.trace_ok();
         ryot_log!(trace, "Removing useless data");
         self.remove_useless_data().await.trace_ok();
+        ryot_log!(trace, "Putting entities in partial state");
+        self.put_entities_in_partial_state().await.trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())
