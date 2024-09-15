@@ -61,7 +61,6 @@ import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { $path } from "remix-routes";
-import invariant from "tiny-invariant";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -118,83 +117,62 @@ export const MediaDetailsLayout = (props: {
 	const fallbackImageUrl = useFallbackImageUrl();
 	const [mutationHasRunOnce, setMutationHasRunOnce] = useState(false);
 	const [parent] = useAutoAnimate();
-	const entityDetails = useQuery({
-		queryKey: ["MediaDetailsLayout", "entityDetails", props.entityDetails.id],
+	const entityIsPartial = useQuery({
+		queryKey: ["MediaDetailsLayout", "entityIsPartial", props.entityDetails],
 		queryFn: async () => {
-			const [id, isPartial] = await match(props.entityDetails.lot)
+			const isPartial = await match(props.entityDetails.lot)
 				.with(EntityLot.Metadata, () =>
 					clientGqlService
 						.request(MetadataDetailsDocument, {
 							metadataId: props.entityDetails.id,
 						})
-						.then(
-							(data) =>
-								[
-									data.metadataDetails.id,
-									data.metadataDetails.isPartial,
-								] as const,
-						),
+						.then((data) => data.metadataDetails.isPartial),
 				)
 				.with(EntityLot.Person, () =>
 					clientGqlService
 						.request(PersonDetailsDocument, {
 							personId: props.entityDetails.id,
 						})
-						.then(
-							(data) =>
-								[
-									data.personDetails.details.id,
-									data.personDetails.details.isPartial,
-								] as const,
-						),
+						.then((data) => data.personDetails.details.isPartial),
 				)
 				.with(EntityLot.MetadataGroup, () =>
 					clientGqlService
 						.request(MetadataGroupDetailsDocument, {
 							metadataGroupId: props.entityDetails.id,
 						})
-						.then(
-							(data) =>
-								[
-									data.metadataGroupDetails.details.id,
-									data.metadataGroupDetails.details.isPartial,
-								] as const,
-						),
+						.then((data) => data.metadataGroupDetails.details.isPartial),
 				)
 				.run();
-			return { id, isPartial };
+			return isPartial;
 		},
-		refetchInterval: dayjsLib.duration(3, "second").asMilliseconds(),
+		refetchInterval: dayjsLib.duration(2, "seconds").asMilliseconds(),
 		enabled: props.entityDetails.isPartial === true,
 	});
 	const commitEntity = useMutation({
-		mutationFn: async () => {
-			invariant(entityDetails.data);
+		mutationFn: async () =>
 			match(props.entityDetails.lot)
 				.with(EntityLot.Metadata, () =>
 					clientGqlService.request(DeployUpdateMetadataJobDocument, {
-						metadataId: entityDetails.data.id,
+						metadataId: props.entityDetails.id,
 					}),
 				)
 				.with(EntityLot.MetadataGroup, () =>
 					clientGqlService.request(DeployUpdateMetadataGroupJobDocument, {
-						metadataGroupId: entityDetails.data.id,
+						metadataGroupId: props.entityDetails.id,
 					}),
 				)
 				.with(EntityLot.Person, () =>
 					clientGqlService.request(DeployUpdatePersonJobDocument, {
-						personId: entityDetails.data.id,
+						personId: props.entityDetails.id,
 					}),
 				)
-				.run();
-		},
+				.run(),
 		onSuccess: () => setMutationHasRunOnce(true),
 	});
 
 	useDidUpdate(() => {
-		if (entityDetails.data?.isPartial && !mutationHasRunOnce)
-			commitEntity.mutate();
-	}, [entityDetails]);
+		if (entityIsPartial.data && !mutationHasRunOnce) commitEntity.mutate();
+	}, [entityIsPartial]);
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -251,7 +229,7 @@ export const MediaDetailsLayout = (props: {
 					</Badge>
 				) : null}
 				<Box mt="md" ref={parent} id="partial-entity-indicator">
-					{entityDetails.data?.isPartial ? (
+					{entityIsPartial.data ? (
 						<Flex align="center" gap={4}>
 							<IconCloudDownload size={20} />
 							<Text size="xs">
@@ -261,7 +239,7 @@ export const MediaDetailsLayout = (props: {
 							</Text>
 						</Flex>
 					) : null}
-					{[false, null, undefined].includes(entityDetails.data?.isPartial) &&
+					{[false, null, undefined].includes(entityIsPartial.data) &&
 					mutationHasRunOnce ? (
 						<Flex align="center" gap={4}>
 							<IconRotateClockwise2 size={20} />
