@@ -114,20 +114,12 @@ export const MediaDetailsLayout = (props: {
 		href?: string | null;
 	};
 }) => {
-	const queryKey = match(props.entityDetails.lot)
-		.with(EntityLot.Metadata, () => ["metadata", props.entityDetails.id])
-		.with(EntityLot.Person, () => ["person", props.entityDetails.id])
-		.with(EntityLot.MetadataGroup, () => [
-			"metadataGroup",
-			props.entityDetails.id,
-		])
-		.run();
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
 	const [mutationHasRunOnce, setMutationHasRunOnce] = useState(false);
 	const [parent] = useAutoAnimate();
 	const entityDetails = useQuery({
-		queryKey,
+		queryKey: ["MediaDetailsLayout", "entityDetails", props.entityDetails.id],
 		queryFn: async () => {
 			const [id, isPartial] = await match(props.entityDetails.lot)
 				.with(EntityLot.Metadata, () =>
