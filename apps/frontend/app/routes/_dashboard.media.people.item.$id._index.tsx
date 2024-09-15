@@ -11,27 +11,19 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
+import { type MetaArgs_SingleFetch, useLoaderData } from "@remix-run/react";
 import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
-import {
-	DeployUpdatePersonJobDocument,
 	EntityLot,
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
-import { namedAction } from "remix-utils/named-action";
-import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -40,14 +32,13 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
-	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
 	defaultTab: z.string().optional().default("media"),
@@ -71,28 +62,6 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
-	const formData = await request.clone().formData();
-	return namedAction(request, {
-		deployUpdatePersonJob: async () => {
-			const submission = processSubmission(formData, personIdSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeployUpdatePersonJobDocument,
-				submission,
-			);
-			return Response.json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Metadata person job deployed successfully",
-				}),
-			});
-		},
-	});
-});
-
-const personIdSchema = z.object({ personId: z.string() });
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -103,6 +72,11 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.personDetails.details.displayImages}
+				entityDetails={{
+					id: loaderData.personId,
+					lot: EntityLot.Person,
+					isPartial: loaderData.personDetails.details.isPartial,
+				}}
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.sourceUrl,
@@ -151,9 +125,6 @@ export default function Page() {
 							/>
 						))}
 					</Group>
-				) : null}
-				{loaderData.personDetails.details.isPartial ? (
-					<MediaIsPartial mediaType="person" />
 				) : null}
 				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 					<Tabs.List mb="xs">
@@ -259,21 +230,6 @@ export default function Page() {
 											formValue={loaderData.personId}
 											entityLot={EntityLot.Person}
 										/>
-										<Form
-											replace
-											method="POST"
-											action={withQuery("", {
-												intent: "deployUpdatePersonJob",
-											})}
-										>
-											<Menu.Item
-												type="submit"
-												name="personId"
-												value={loaderData.personId}
-											>
-												Update person
-											</Menu.Item>
-										</Form>
 									</Menu.Dropdown>
 								</Menu>
 							</SimpleGrid>

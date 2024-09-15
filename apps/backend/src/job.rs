@@ -99,6 +99,10 @@ pub async fn perform_application_job(
             .update_person_and_notify_users(person_id)
             .await
             .is_ok(),
+        ApplicationJob::UpdateMetadataGroup(metadata_group_id) => misc_service
+            .update_metadata_group(&metadata_group_id)
+            .await
+            .is_ok(),
         ApplicationJob::UpdateGithubExerciseJob(exercise) => exercise_service
             .update_github_exercise(exercise)
             .await

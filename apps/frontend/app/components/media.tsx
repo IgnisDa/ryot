@@ -32,7 +32,6 @@ import { changeCase, getInitials, isString, snakeCase } from "@ryot/ts-utils";
 import {
 	IconBackpack,
 	IconBookmarks,
-	IconCloudDownload,
 	IconPlayerPlay,
 	IconRosetteDiscountCheck,
 	IconStarFilled,
@@ -459,17 +458,6 @@ export const PersonDisplayItem = (props: {
 			}}
 			imageOverlay={{ topRight: props.topRight }}
 		/>
-	);
-};
-
-export const MediaIsPartial = (props: { mediaType: string }) => {
-	return (
-		<Flex align="center" gap={4}>
-			<IconCloudDownload size={20} />
-			<Text size="xs">
-				Details of this {props.mediaType} are being downloaded
-			</Text>
-		</Flex>
 	);
 };
 

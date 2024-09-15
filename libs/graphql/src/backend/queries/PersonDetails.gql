@@ -5,6 +5,7 @@ query PersonDetails($personId: String!) {
       id
       name
       source
+      identifier
       isPartial
       description
       birthDate

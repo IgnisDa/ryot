@@ -29,6 +29,7 @@ pub enum ApplicationJob {
     UpdateMetadata(String, bool),
     UpdateGithubExerciseJob(GithubExercise),
     UpdatePerson(String),
+    UpdateMetadataGroup(String),
     RecalculateCalendarEvents,
     AssociateGroupWithMetadata(MediaLot, MediaSource, String),
     PerformExport(String),
