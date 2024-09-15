@@ -172,7 +172,7 @@ export const MediaDetailsLayout = (props: {
 				.run();
 			return { id, isPartial };
 		},
-		refetchInterval: dayjsLib.duration(1, "second").asMilliseconds(),
+		refetchInterval: dayjsLib.duration(3, "second").asMilliseconds(),
 		enabled: props.entityDetails.isPartial === true,
 	});
 	const commitEntity = useMutation({
