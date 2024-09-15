@@ -39,6 +39,9 @@ import {
 	IconEdit,
 	IconExternalLink,
 	IconFilterOff,
+	IconMoodEmpty,
+	IconMoodHappy,
+	IconMoodSad,
 	IconSearch,
 	IconStarFilled,
 	IconTrash,
@@ -51,7 +54,13 @@ import { $path } from "remix-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { dayjsLib, getSurroundingElements } from "~/lib/generals";
+import {
+	ThreePointSmileyRating,
+	convertDecimalToThreePointSmiley,
+	dayjsLib,
+	getSurroundingElements,
+	reviewYellow,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -275,6 +284,22 @@ export const CollectionsFilter = (props: {
 	);
 };
 
+export const DisplayThreePointReview = (props: {
+	rating?: string | null;
+	size?: number;
+}) =>
+	match(convertDecimalToThreePointSmiley(Number(props.rating || "")))
+		.with(ThreePointSmileyRating.Happy, () => (
+			<IconMoodHappy size={props.size || 20} color={reviewYellow} />
+		))
+		.with(ThreePointSmileyRating.Neutral, () => (
+			<IconMoodEmpty size={props.size || 20} color={reviewYellow} />
+		))
+		.with(ThreePointSmileyRating.Sad, () => (
+			<IconMoodSad size={props.size || 20} color={reviewYellow} />
+		))
+		.exhaustive();
+
 export const ReviewItemDisplay = (props: {
 	review: DeepPartial<ReviewItem>;
 	entityLot: EntityLot;
@@ -346,41 +371,54 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 				</Flex>
 				<Box ml="sm" mt="xs">
-					{isNumber(props.review.showExtraInformation?.season) ? (
-						<Text c="dimmed">
-							S{props.review.showExtraInformation.season}-E
-							{props.review.showExtraInformation.episode}
-						</Text>
-					) : null}
-					{isNumber(props.review.podcastExtraInformation?.episode) ? (
-						<Text c="dimmed">
-							EP-{props.review.podcastExtraInformation.episode}
-						</Text>
-					) : null}
-					{isNumber(props.review.animeExtraInformation?.episode) ? (
-						<Text c="dimmed">
-							EP-{props.review.animeExtraInformation.episode}
-						</Text>
-					) : null}
-					{isNumber(props.review.mangaExtraInformation?.chapter) ? (
-						<Text c="dimmed">
-							Ch-{props.review.mangaExtraInformation.chapter}
-						</Text>
-					) : null}
-					{isNumber(props.review.mangaExtraInformation?.volume) ? (
-						<Text c="dimmed">
-							VOL-{props.review.mangaExtraInformation.volume}
-						</Text>
-					) : null}
-					{(Number(props.review.rating) || 0) > 0 ? (
-						<Flex align="center" gap={4}>
-							<IconStarFilled size={16} style={{ color: "#EBE600FF" }} />
-							<Text className={classes.text} fw="bold">
-								{props.review.rating}
-								{reviewScale === UserReviewScale.OutOfFive ? undefined : "%"}
+					<Group>
+						{(Number(props.review.rating) || 0) > 0
+							? match(userPreferences.general.reviewScale)
+									.with(UserReviewScale.ThreePointSmiley, () => (
+										<DisplayThreePointReview rating={props.review.rating} />
+									))
+									.otherwise(() => (
+										<Flex align="center" gap={4}>
+											<IconStarFilled
+												size={16}
+												style={{ color: reviewYellow }}
+											/>
+											<Text className={classes.text} fw="bold">
+												{props.review.rating}
+												{reviewScale === UserReviewScale.OutOfFive
+													? undefined
+													: "%"}
+											</Text>
+										</Flex>
+									))
+							: null}
+						{isNumber(props.review.showExtraInformation?.season) ? (
+							<Text c="dimmed">
+								S{props.review.showExtraInformation.season}-E
+								{props.review.showExtraInformation.episode}
 							</Text>
-						</Flex>
-					) : null}
+						) : null}
+						{isNumber(props.review.podcastExtraInformation?.episode) ? (
+							<Text c="dimmed">
+								EP-{props.review.podcastExtraInformation.episode}
+							</Text>
+						) : null}
+						{isNumber(props.review.animeExtraInformation?.episode) ? (
+							<Text c="dimmed">
+								EP-{props.review.animeExtraInformation.episode}
+							</Text>
+						) : null}
+						{isNumber(props.review.mangaExtraInformation?.chapter) ? (
+							<Text c="dimmed">
+								Ch-{props.review.mangaExtraInformation.chapter}
+							</Text>
+						) : null}
+						{isNumber(props.review.mangaExtraInformation?.volume) ? (
+							<Text c="dimmed">
+								VOL-{props.review.mangaExtraInformation.volume}
+							</Text>
+						) : null}
+					</Group>
 					{props.review.textRendered ? (
 						!props.review.isSpoiler ? (
 							<>

@@ -431,7 +431,7 @@ impl ExerciseService {
         input: UpdateUserWorkoutInput,
     ) -> Result<bool> {
         if let Some(wkt) = Workout::find()
-            .filter(workout::Column::UserId.eq(user_id))
+            .filter(workout::Column::UserId.eq(&user_id))
             .filter(workout::Column::Id.eq(input.id))
             .one(&self.db)
             .await?
@@ -445,6 +445,10 @@ impl ExerciseService {
             }
             if new_wkt.is_changed() {
                 new_wkt.update(&self.db).await?;
+                self.perform_application_job
+                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id))
+                    .await
+                    .unwrap();
                 Ok(true)
             } else {
                 Ok(false)

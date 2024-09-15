@@ -11,7 +11,7 @@ import {
 	SetLot,
 	UserMetadataDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isString } from "@ryot/ts-utils";
+import { inRange, isString } from "@ryot/ts-utils";
 import {
 	IconBook,
 	IconBook2,
@@ -85,6 +85,21 @@ export enum TimeSpan {
 	Last365Days = "Last 365 days",
 	AllTime = "All Time",
 }
+
+export enum ThreePointSmileyRating {
+	Happy = "Happy",
+	Neutral = "Neutral",
+	Sad = "Sad",
+}
+
+export const convertDecimalToThreePointSmiley = (rating: number) =>
+	inRange(rating, 0, 33.4)
+		? ThreePointSmileyRating.Sad
+		: inRange(rating, 33.4, 66.8)
+			? ThreePointSmileyRating.Neutral
+			: ThreePointSmileyRating.Happy;
+
+export const reviewYellow = "#EBE600FF";
 
 export const getSetColor = (l: SetLot) =>
 	match(l)

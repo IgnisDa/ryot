@@ -1005,7 +1005,7 @@ pub async fn post_review(
             rating: ActiveValue::Set(input.rating.map(
                 |r| match preferences.general.review_scale {
                     UserReviewScale::OutOfFive => r * dec!(20),
-                    UserReviewScale::OutOfHundred => r,
+                    UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => r,
                 },
             )),
             text: ActiveValue::Set(input.text),
@@ -1527,7 +1527,7 @@ fn convert_review_into_input(
     }
     let rating = match preferences.general.review_scale {
         UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
-        UserReviewScale::OutOfHundred => review.rating,
+        UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => review.rating,
     };
     let text = review.review.clone().and_then(|r| r.text);
     let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));

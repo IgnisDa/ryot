@@ -8,6 +8,7 @@ import {
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";
 import groupBy from "lodash/groupBy";
+import inRange from "lodash/inRange";
 import isBoolean from "lodash/isBoolean";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
@@ -96,6 +97,7 @@ export {
 	camelCase,
 	cloneDeep,
 	groupBy,
+	inRange,
 	isBoolean,
 	isEmpty,
 	isEqual,
