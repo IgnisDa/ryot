@@ -1,5 +1,6 @@
 import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Alert,
@@ -49,6 +50,7 @@ import {
 	IconMoodEmpty,
 	IconMoodHappy,
 	IconMoodSad,
+	IconRotateClockwise2,
 	IconSearch,
 	IconStarFilled,
 	IconTrash,
@@ -69,7 +71,6 @@ import {
 	convertDecimalToThreePointSmiley,
 	dayjsLib,
 	getSurroundingElements,
-	queryFactory,
 	reviewYellow,
 } from "~/lib/generals";
 import {
@@ -103,18 +104,6 @@ export const ApplicationGrid = (props: {
 	);
 };
 
-const MediaIsPartial = (props: { mediaType: string }) => {
-	return (
-		<Flex align="center" gap={4}>
-			<IconCloudDownload size={20} />
-			<Text size="xs">
-				Details of this {changeCase(props.mediaType).toLowerCase()} are being
-				downloaded
-			</Text>
-		</Flex>
-	);
-};
-
 export const MediaDetailsLayout = (props: {
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	images: Array<string | null | undefined>;
@@ -126,24 +115,17 @@ export const MediaDetailsLayout = (props: {
 	};
 }) => {
 	const queryKey = match(props.entityDetails.lot)
-		.with(
-			EntityLot.Metadata,
-			() => queryFactory.media.metadataDetails(props.entityDetails.id).queryKey,
-		)
-		.with(
-			EntityLot.Person,
-			() => queryFactory.media.personDetails(props.entityDetails.id).queryKey,
-		)
-		.with(
-			EntityLot.MetadataGroup,
-			() =>
-				queryFactory.media.metadataGroupDetails(props.entityDetails.id)
-					.queryKey,
-		)
+		.with(EntityLot.Metadata, () => ["metadata", props.entityDetails.id])
+		.with(EntityLot.Person, () => ["person", props.entityDetails.id])
+		.with(EntityLot.MetadataGroup, () => [
+			"metadataGroup",
+			props.entityDetails.id,
+		])
 		.run();
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
 	const [mutationHasRunOnce, setMutationHasRunOnce] = useState(false);
+	const [parent] = useAutoAnimate();
 	const entityDetails = useQuery({
 		queryKey,
 		queryFn: async () => {
@@ -291,11 +273,25 @@ export const MediaDetailsLayout = (props: {
 						</Flex>
 					</Badge>
 				) : null}
-				{entityDetails.data?.isPartial ? (
-					<Box mt="md">
-						<MediaIsPartial mediaType={props.entityDetails.lot} />
-					</Box>
-				) : null}
+				<Box mt="md" ref={parent} id="partial-entity-indicator">
+					{entityDetails.data?.isPartial ? (
+						<Flex align="center" gap={4}>
+							<IconCloudDownload size={20} />
+							<Text size="xs">
+								Details of this{" "}
+								{changeCase(props.entityDetails.lot).toLowerCase()} are being
+								downloaded
+							</Text>
+						</Flex>
+					) : null}
+					{[false, null, undefined].includes(entityDetails.data?.isPartial) &&
+					mutationHasRunOnce ? (
+						<Flex align="center" gap={4}>
+							<IconRotateClockwise2 size={20} />
+							<Text size="xs">Details updated, please refresh the page.</Text>
+						</Flex>
+					) : undefined}
+				</Box>
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				{props.children}
