@@ -378,9 +378,6 @@ impl MiscellaneousService {
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
-        if model.is_partial.unwrap_or_default() {
-            self.deploy_update_metadata_job(metadata_id, true).await?;
-        }
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
         let source_url = match model.source {
@@ -3737,9 +3734,6 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        if details.is_partial.unwrap_or_default() {
-            self.deploy_update_person_job(person_id.clone()).await?;
-        }
         details.display_images =
             metadata_images_as_urls(&details.images, &self.file_storage_service).await;
         let associations = MetadataToPerson::find()
