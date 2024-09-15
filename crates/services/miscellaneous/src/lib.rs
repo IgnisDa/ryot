@@ -94,10 +94,10 @@ use rust_decimal::prelude::{One, ToPrimitive};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    prelude::DateTimeUtc, query::UpdateMany, sea_query::NullOrdering, ActiveModelTrait,
+    ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait,
+    FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
@@ -4429,48 +4429,60 @@ impl MiscellaneousService {
     }
 
     pub async fn put_entities_in_partial_state(&self) -> Result<()> {
-        let metadata_to_update = UserToEntity::find()
-            .select_only()
-            .column(user_to_entity::Column::MetadataId)
-            .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        for chunk in metadata_to_update.chunks(100) {
-            Metadata::update_many()
-                .col_expr(metadata::Column::IsPartial, Expr::value(true))
-                .filter(metadata::Column::Id.is_in(chunk))
-                .exec(&self.db)
+        async fn update_partial_states<Column1, Column2, Column3, T>(
+            filter_column: Column1,
+            updater: UpdateMany<T>,
+            id_column: Column2,
+            update_column: Column3,
+            db: &DatabaseConnection,
+        ) -> Result<()>
+        where
+            Column1: ColumnTrait,
+            Column2: ColumnTrait,
+            Column3: ColumnTrait,
+            T: EntityTrait,
+        {
+            let ids_to_update = UserToEntity::find()
+                .select_only()
+                .column(filter_column)
+                .filter(filter_column.is_not_null())
+                .into_tuple::<String>()
+                .all(db)
                 .await?;
+            for chunk in ids_to_update.chunks(100) {
+                updater
+                    .clone()
+                    .col_expr(update_column, Expr::value(true))
+                    .filter(id_column.is_in(chunk))
+                    .exec(db)
+                    .await?;
+            }
+            Ok(())
         }
-        let metadata_group_to_update = UserToEntity::find()
-            .select_only()
-            .column(user_to_entity::Column::MetadataGroupId)
-            .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        for chunk in metadata_group_to_update.chunks(100) {
-            MetadataGroup::update_many()
-                .col_expr(metadata_group::Column::IsPartial, Expr::value(true))
-                .filter(metadata_group::Column::Id.is_in(chunk))
-                .exec(&self.db)
-                .await?;
-        }
-        let person_to_update = UserToEntity::find()
-            .select_only()
-            .column(user_to_entity::Column::PersonId)
-            .filter(user_to_entity::Column::PersonId.is_not_null())
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        for chunk in person_to_update.chunks(100) {
-            Person::update_many()
-                .col_expr(person::Column::IsPartial, Expr::value(true))
-                .filter(person::Column::Id.is_in(chunk))
-                .exec(&self.db)
-                .await?;
-        }
+        update_partial_states(
+            user_to_entity::Column::MetadataId,
+            Metadata::update_many(),
+            metadata::Column::Id,
+            metadata::Column::IsPartial,
+            &self.db,
+        )
+        .await?;
+        update_partial_states(
+            user_to_entity::Column::MetadataGroupId,
+            MetadataGroup::update_many(),
+            metadata_group::Column::Id,
+            metadata_group::Column::IsPartial,
+            &self.db,
+        )
+        .await?;
+        update_partial_states(
+            user_to_entity::Column::PersonId,
+            Person::update_many(),
+            person::Column::Id,
+            person::Column::IsPartial,
+            &self.db,
+        )
+        .await?;
         Ok(())
     }
 
