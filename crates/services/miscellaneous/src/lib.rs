@@ -4430,10 +4430,10 @@ impl MiscellaneousService {
 
     pub async fn put_entities_in_partial_state(&self) -> Result<()> {
         async fn update_partial_states<Column1, Column2, Column3, T>(
-            filter_column: Column1,
+            ute_filter_column: Column1,
             updater: UpdateMany<T>,
-            id_column: Column2,
-            update_column: Column3,
+            entity_id_column: Column2,
+            entity_update_column: Column3,
             db: &DatabaseConnection,
         ) -> Result<()>
         where
@@ -4444,16 +4444,16 @@ impl MiscellaneousService {
         {
             let ids_to_update = UserToEntity::find()
                 .select_only()
-                .column(filter_column)
-                .filter(filter_column.is_not_null())
+                .column(ute_filter_column)
+                .filter(ute_filter_column.is_not_null())
                 .into_tuple::<String>()
                 .all(db)
                 .await?;
             for chunk in ids_to_update.chunks(100) {
                 updater
                     .clone()
-                    .col_expr(update_column, Expr::value(true))
-                    .filter(id_column.is_in(chunk))
+                    .col_expr(entity_update_column, Expr::value(true))
+                    .filter(entity_id_column.is_in(chunk))
                     .exec(db)
                     .await?;
             }
