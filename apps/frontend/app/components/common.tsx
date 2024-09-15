@@ -26,6 +26,9 @@ import {
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
+	CommitMetadataGroupDocument,
+	DeployUpdateMetadataJobDocument,
+	DeployUpdatePersonJobDocument,
 	EntityLot,
 	type MediaLot,
 	type MediaSource,
@@ -51,11 +54,12 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { $path } from "remix-routes";
+import invariant from "tiny-invariant";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -121,8 +125,6 @@ export const MediaDetailsLayout = (props: {
 		href?: string | null;
 	};
 }) => {
-	const [activeImageId, setActiveImageId] = useState(0);
-	const fallbackImageUrl = useFallbackImageUrl();
 	const queryKey = match(props.entityDetails.lot)
 		.with(
 			EntityLot.Metadata,
@@ -139,38 +141,102 @@ export const MediaDetailsLayout = (props: {
 					.queryKey,
 		)
 		.run();
-
-	const { data: isPartial } = useQuery({
+	const [activeImageId, setActiveImageId] = useState(0);
+	const fallbackImageUrl = useFallbackImageUrl();
+	const [mutationHasRunOnce, setMutationHasRunOnce] = useState(false);
+	const entityDetails = useQuery({
 		queryKey,
 		queryFn: async () => {
-			const data = await match(props.entityDetails.lot)
+			const [identifier, lot, source, isPartial] = await match(
+				props.entityDetails.lot,
+			)
 				.with(EntityLot.Metadata, () =>
 					clientGqlService
 						.request(MetadataDetailsDocument, {
 							metadataId: props.entityDetails.id,
 						})
-						.then((data) => data.metadataDetails.isPartial),
+						.then(
+							(data) =>
+								[
+									data.metadataDetails.id,
+									undefined,
+									undefined,
+									data.metadataDetails.isPartial,
+								] as const,
+						),
 				)
 				.with(EntityLot.Person, () =>
 					clientGqlService
 						.request(PersonDetailsDocument, {
 							personId: props.entityDetails.id,
 						})
-						.then((data) => data.personDetails.details.isPartial),
+						.then(
+							(data) =>
+								[
+									data.personDetails.details.id,
+									undefined,
+									data.personDetails.details.source,
+									data.personDetails.details.isPartial,
+								] as const,
+						),
 				)
 				.with(EntityLot.MetadataGroup, () =>
 					clientGqlService
 						.request(MetadataGroupDetailsDocument, {
 							metadataGroupId: props.entityDetails.id,
 						})
-						.then((data) => data.metadataGroupDetails.details.isPartial),
+						.then(
+							(data) =>
+								[
+									data.metadataGroupDetails.details.identifier,
+									data.metadataGroupDetails.details.lot,
+									data.metadataGroupDetails.details.source,
+									data.metadataGroupDetails.details.isPartial,
+								] as const,
+						),
 				)
 				.run();
-			return Boolean(data);
+			return { identifier, lot, source, isPartial };
 		},
 		refetchInterval: dayjsLib.duration(1, "second").asMilliseconds(),
 		enabled: props.entityDetails.isPartial === true,
 	});
+	const commitEntity = useMutation({
+		mutationFn: async () => {
+			match(props.entityDetails.lot)
+				.with(EntityLot.Metadata, () =>
+					clientGqlService.request(DeployUpdateMetadataJobDocument, {
+						metadataId: entityDetails.data?.identifier || "",
+					}),
+				)
+				.with(EntityLot.MetadataGroup, () => {
+					invariant(entityDetails.data?.lot);
+					invariant(entityDetails.data?.source);
+					return clientGqlService
+						.request(CommitMetadataGroupDocument, {
+							input: {
+								lot: entityDetails.data.lot,
+								source: entityDetails.data.source,
+								identifier: entityDetails.data.identifier,
+								forceUpdate: true,
+							},
+						})
+						.then((data) => data.commitMetadataGroup);
+				})
+				.with(EntityLot.Person, () =>
+					clientGqlService.request(DeployUpdatePersonJobDocument, {
+						personId: entityDetails.data?.identifier || "",
+					}),
+				)
+				.run();
+		},
+		onSuccess: () => setMutationHasRunOnce(true),
+	});
+
+	useDidUpdate(() => {
+		if (entityDetails.data?.isPartial && !mutationHasRunOnce)
+			commitEntity.mutate();
+	}, [entityDetails]);
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -226,7 +292,7 @@ export const MediaDetailsLayout = (props: {
 						</Flex>
 					</Badge>
 				) : null}
-				{isPartial ? (
+				{entityDetails.data?.isPartial ? (
 					<Box mt="md">
 						<MediaIsPartial mediaType={props.entityDetails.lot} />
 					</Box>
