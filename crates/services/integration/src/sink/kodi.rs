@@ -3,7 +3,7 @@ use dependent_models::ImportResult;
 use enums::MediaSource;
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 
-use super::integration_trait::YankIntegration;
+use crate::integration_trait::YankIntegration;
 
 pub(crate) struct KodiIntegration {
     payload: String,

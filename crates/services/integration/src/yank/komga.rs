@@ -21,7 +21,7 @@ use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
-use super::{integration_trait::YankIntegration, IntegrationMediaCollection, IntegrationMediaSeen};
+use crate::{integration_trait::YankIntegration, IntegrationMediaCollection, IntegrationMediaSeen};
 
 mod komga_book {
     use super::*;

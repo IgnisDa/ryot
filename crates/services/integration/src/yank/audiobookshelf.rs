@@ -13,7 +13,7 @@ use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf;
 
-use super::integration_trait::YankIntegrationWithCommit;
+use crate::integration_trait::YankIntegrationWithCommit;
 
 pub(crate) struct AudiobookshelfIntegration {
     base_url: String,

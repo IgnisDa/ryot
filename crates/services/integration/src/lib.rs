@@ -32,23 +32,23 @@ use sea_query::Expr;
 use traits::TraceOk;
 use uuid::Uuid;
 
-mod audiobookshelf;
-mod emby;
 mod integration_trait;
 mod integration_type;
-mod jellyfin;
-mod kodi;
-mod komga;
-mod plex;
-mod radarr;
-mod sonarr;
+mod push;
+mod sink;
+mod yank;
 
 use crate::{
-    audiobookshelf::AudiobookshelfIntegration, emby::EmbyIntegration,
-    integration_trait::PushIntegration, integration_trait::YankIntegration,
-    integration_trait::YankIntegrationWithCommit, integration_type::IntegrationType,
-    jellyfin::JellyfinIntegration, kodi::KodiIntegration, komga::KomgaIntegration,
-    plex::PlexIntegration, radarr::RadarrIntegration, sonarr::SonarrIntegration,
+    integration_trait::PushIntegration,
+    integration_trait::YankIntegration,
+    integration_trait::YankIntegrationWithCommit,
+    integration_type::IntegrationType,
+    push::{radarr::RadarrIntegration, sonarr::SonarrIntegration},
+    sink::{
+        emby::EmbyIntegration, jellyfin::JellyfinIntegration, kodi::KodiIntegration,
+        plex::PlexIntegration,
+    },
+    yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
 };
 
 pub struct IntegrationService {
