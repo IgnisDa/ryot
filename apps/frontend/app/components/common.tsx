@@ -95,6 +95,7 @@ export const ApplicationGrid = (props: {
 export const MediaDetailsLayout = (props: {
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	images: Array<string | null | undefined>;
+	entityDetails: { id: string; lot: EntityLot };
 	externalLink?: {
 		source: MediaSource;
 		lot?: MediaLot;

@@ -103,6 +103,7 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.personDetails.details.displayImages}
+				entityDetails={{ id: loaderData.personId, lot: EntityLot.Person }}
 				externalLink={{
 					source: loaderData.personDetails.details.source,
 					href: loaderData.personDetails.sourceUrl,

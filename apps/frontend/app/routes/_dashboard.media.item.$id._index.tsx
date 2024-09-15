@@ -311,6 +311,7 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.metadataDetails.assets.images}
+				entityDetails={{ id: loaderData.metadataId, lot: EntityLot.Metadata }}
 				externalLink={{
 					source: loaderData.metadataDetails.source,
 					lot: loaderData.metadataDetails.lot,
