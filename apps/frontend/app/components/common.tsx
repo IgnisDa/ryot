@@ -192,8 +192,7 @@ export const MediaDetailsLayout = (props: {
 					}),
 				)
 				.with(EntityLot.MetadataGroup, () => {
-					invariant(entityDetails.data?.lot);
-					invariant(entityDetails.data?.source);
+					invariant(entityDetails.data?.lot && entityDetails.data?.source);
 					return clientGqlService
 						.request(CommitMetadataGroupDocument, {
 							input: {
