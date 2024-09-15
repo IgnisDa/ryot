@@ -29,6 +29,9 @@ import {
 	EntityLot,
 	type MediaLot,
 	type MediaSource,
+	MetadataDetailsDocument,
+	MetadataGroupDetailsDocument,
+	PersonDetailsDocument,
 	type ReviewItem,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -47,6 +50,7 @@ import {
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -56,9 +60,11 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
 	ThreePointSmileyRating,
+	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	dayjsLib,
 	getSurroundingElements,
+	queryFactory,
 	reviewYellow,
 } from "~/lib/generals";
 import {
@@ -95,7 +101,7 @@ export const ApplicationGrid = (props: {
 export const MediaDetailsLayout = (props: {
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	images: Array<string | null | undefined>;
-	entityDetails: { id: string; lot: EntityLot };
+	entityDetails: { id: string; lot: EntityLot; isPartial?: boolean | null };
 	externalLink?: {
 		source: MediaSource;
 		lot?: MediaLot;
@@ -104,9 +110,58 @@ export const MediaDetailsLayout = (props: {
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
+	const queryKey = match(props.entityDetails.lot)
+		.with(
+			EntityLot.Metadata,
+			() => queryFactory.media.metadataDetails(props.entityDetails.id).queryKey,
+		)
+		.with(
+			EntityLot.Person,
+			() => queryFactory.media.personDetails(props.entityDetails.id).queryKey,
+		)
+		.with(
+			EntityLot.MetadataGroup,
+			() =>
+				queryFactory.media.metadataGroupDetails(props.entityDetails.id)
+					.queryKey,
+		)
+		.run();
+
+	const { data: isPartial } = useQuery({
+		queryKey,
+		queryFn: async () => {
+			const data = await match(props.entityDetails.lot)
+				.with(EntityLot.Metadata, () =>
+					clientGqlService
+						.request(MetadataDetailsDocument, {
+							metadataId: props.entityDetails.id,
+						})
+						.then((data) => data.metadataDetails.isPartial),
+				)
+				.with(EntityLot.Person, () =>
+					clientGqlService
+						.request(PersonDetailsDocument, {
+							personId: props.entityDetails.id,
+						})
+						.then((data) => data.personDetails.details.isPartial),
+				)
+				.with(EntityLot.MetadataGroup, () =>
+					clientGqlService
+						.request(MetadataGroupDetailsDocument, {
+							metadataGroupId: props.entityDetails.id,
+						})
+						.then((data) => data.metadataGroupDetails.details.isPartial),
+				)
+				.run();
+			return data;
+		},
+		refetchInterval: dayjsLib.duration(1, "second").asMilliseconds(),
+		enabled: props.entityDetails.isPartial === true,
+	});
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
+			{JSON.stringify({ isPartial })}
 			<Box
 				id="images-container"
 				pos="relative"
