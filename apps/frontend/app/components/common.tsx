@@ -27,7 +27,7 @@ import {
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
-	CommitMetadataGroupDocument,
+	DeployUpdateMetadataGroupJobDocument,
 	DeployUpdateMetadataJobDocument,
 	DeployUpdatePersonJobDocument,
 	EntityLot,
@@ -129,9 +129,7 @@ export const MediaDetailsLayout = (props: {
 	const entityDetails = useQuery({
 		queryKey,
 		queryFn: async () => {
-			const [identifier, lot, source, isPartial] = await match(
-				props.entityDetails.lot,
-			)
+			const [id, isPartial] = await match(props.entityDetails.lot)
 				.with(EntityLot.Metadata, () =>
 					clientGqlService
 						.request(MetadataDetailsDocument, {
@@ -141,8 +139,6 @@ export const MediaDetailsLayout = (props: {
 							(data) =>
 								[
 									data.metadataDetails.id,
-									undefined,
-									undefined,
 									data.metadataDetails.isPartial,
 								] as const,
 						),
@@ -156,8 +152,6 @@ export const MediaDetailsLayout = (props: {
 							(data) =>
 								[
 									data.personDetails.details.id,
-									undefined,
-									data.personDetails.details.source,
 									data.personDetails.details.isPartial,
 								] as const,
 						),
@@ -170,42 +164,34 @@ export const MediaDetailsLayout = (props: {
 						.then(
 							(data) =>
 								[
-									data.metadataGroupDetails.details.identifier,
-									data.metadataGroupDetails.details.lot,
-									data.metadataGroupDetails.details.source,
+									data.metadataGroupDetails.details.id,
 									data.metadataGroupDetails.details.isPartial,
 								] as const,
 						),
 				)
 				.run();
-			return { identifier, lot, source, isPartial };
+			return { id, isPartial };
 		},
 		refetchInterval: dayjsLib.duration(1, "second").asMilliseconds(),
 		enabled: props.entityDetails.isPartial === true,
 	});
 	const commitEntity = useMutation({
 		mutationFn: async () => {
+			invariant(entityDetails.data);
 			match(props.entityDetails.lot)
 				.with(EntityLot.Metadata, () =>
 					clientGqlService.request(DeployUpdateMetadataJobDocument, {
-						metadataId: entityDetails.data?.identifier || "",
+						metadataId: entityDetails.data.id,
 					}),
 				)
-				.with(EntityLot.MetadataGroup, () => {
-					invariant(entityDetails.data?.lot && entityDetails.data?.source);
-					return clientGqlService
-						.request(CommitMetadataGroupDocument, {
-							input: {
-								lot: entityDetails.data.lot,
-								source: entityDetails.data.source,
-								identifier: entityDetails.data.identifier,
-							},
-						})
-						.then((data) => data.commitMetadataGroup);
-				})
+				.with(EntityLot.MetadataGroup, () =>
+					clientGqlService.request(DeployUpdateMetadataGroupJobDocument, {
+						metadataGroupId: entityDetails.data.id,
+					}),
+				)
 				.with(EntityLot.Person, () =>
 					clientGqlService.request(DeployUpdatePersonJobDocument, {
-						personId: entityDetails.data?.identifier || "",
+						personId: entityDetails.data.id,
 					}),
 				)
 				.run();
