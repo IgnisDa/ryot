@@ -8,6 +8,7 @@ query MetadataGroupDetails($metadataGroupId: String!) {
       lot
       source
       displayImages
+      identifier
       parts
       isPartial
     }

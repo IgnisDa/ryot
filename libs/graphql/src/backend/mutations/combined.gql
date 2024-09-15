@@ -152,6 +152,10 @@ mutation DeployUpdatePersonJob($personId: String!) {
   deployUpdatePersonJob(personId: $personId)
 }
 
+mutation DeployUpdateMetadataGroupJob($metadataGroupId: String!) {
+  deployUpdateMetadataGroupJob(metadataGroupId: $metadataGroupId)
+}
+
 mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
   updateSeenItem(input: $input)
 }

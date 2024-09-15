@@ -1,5 +1,6 @@
 import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Alert,
@@ -26,9 +27,15 @@ import {
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
 import {
+	DeployUpdateMetadataGroupJobDocument,
+	DeployUpdateMetadataJobDocument,
+	DeployUpdatePersonJobDocument,
 	EntityLot,
 	type MediaLot,
 	type MediaSource,
+	MetadataDetailsDocument,
+	MetadataGroupDetailsDocument,
+	PersonDetailsDocument,
 	type ReviewItem,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -36,26 +43,31 @@ import { changeCase, getInitials, isNumber, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconCheck,
+	IconCloudDownload,
 	IconEdit,
 	IconExternalLink,
 	IconFilterOff,
 	IconMoodEmpty,
 	IconMoodHappy,
 	IconMoodSad,
+	IconRotateClockwise2,
 	IconSearch,
 	IconStarFilled,
 	IconTrash,
 	IconX,
 } from "@tabler/icons-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { $path } from "remix-routes";
+import invariant from "tiny-invariant";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
 	ThreePointSmileyRating,
+	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	dayjsLib,
 	getSurroundingElements,
@@ -95,6 +107,7 @@ export const ApplicationGrid = (props: {
 export const MediaDetailsLayout = (props: {
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	images: Array<string | null | undefined>;
+	entityDetails: { id: string; lot: EntityLot; isPartial?: boolean | null };
 	externalLink?: {
 		source: MediaSource;
 		lot?: MediaLot;
@@ -103,6 +116,85 @@ export const MediaDetailsLayout = (props: {
 }) => {
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
+	const [mutationHasRunOnce, setMutationHasRunOnce] = useState(false);
+	const [parent] = useAutoAnimate();
+	const entityDetails = useQuery({
+		queryKey: ["MediaDetailsLayout", "entityDetails", props.entityDetails.id],
+		queryFn: async () => {
+			const [id, isPartial] = await match(props.entityDetails.lot)
+				.with(EntityLot.Metadata, () =>
+					clientGqlService
+						.request(MetadataDetailsDocument, {
+							metadataId: props.entityDetails.id,
+						})
+						.then(
+							(data) =>
+								[
+									data.metadataDetails.id,
+									data.metadataDetails.isPartial,
+								] as const,
+						),
+				)
+				.with(EntityLot.Person, () =>
+					clientGqlService
+						.request(PersonDetailsDocument, {
+							personId: props.entityDetails.id,
+						})
+						.then(
+							(data) =>
+								[
+									data.personDetails.details.id,
+									data.personDetails.details.isPartial,
+								] as const,
+						),
+				)
+				.with(EntityLot.MetadataGroup, () =>
+					clientGqlService
+						.request(MetadataGroupDetailsDocument, {
+							metadataGroupId: props.entityDetails.id,
+						})
+						.then(
+							(data) =>
+								[
+									data.metadataGroupDetails.details.id,
+									data.metadataGroupDetails.details.isPartial,
+								] as const,
+						),
+				)
+				.run();
+			return { id, isPartial };
+		},
+		refetchInterval: dayjsLib.duration(3, "second").asMilliseconds(),
+		enabled: props.entityDetails.isPartial === true,
+	});
+	const commitEntity = useMutation({
+		mutationFn: async () => {
+			invariant(entityDetails.data);
+			match(props.entityDetails.lot)
+				.with(EntityLot.Metadata, () =>
+					clientGqlService.request(DeployUpdateMetadataJobDocument, {
+						metadataId: entityDetails.data.id,
+					}),
+				)
+				.with(EntityLot.MetadataGroup, () =>
+					clientGqlService.request(DeployUpdateMetadataGroupJobDocument, {
+						metadataGroupId: entityDetails.data.id,
+					}),
+				)
+				.with(EntityLot.Person, () =>
+					clientGqlService.request(DeployUpdatePersonJobDocument, {
+						personId: entityDetails.data.id,
+					}),
+				)
+				.run();
+		},
+		onSuccess: () => setMutationHasRunOnce(true),
+	});
+
+	useDidUpdate(() => {
+		if (entityDetails.data?.isPartial && !mutationHasRunOnce)
+			commitEntity.mutate();
+	}, [entityDetails]);
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
@@ -158,6 +250,25 @@ export const MediaDetailsLayout = (props: {
 						</Flex>
 					</Badge>
 				) : null}
+				<Box mt="md" ref={parent} id="partial-entity-indicator">
+					{entityDetails.data?.isPartial ? (
+						<Flex align="center" gap={4}>
+							<IconCloudDownload size={20} />
+							<Text size="xs">
+								Details of this{" "}
+								{changeCase(props.entityDetails.lot).toLowerCase()} are being
+								downloaded
+							</Text>
+						</Flex>
+					) : null}
+					{[false, null, undefined].includes(entityDetails.data?.isPartial) &&
+					mutationHasRunOnce ? (
+						<Flex align="center" gap={4}>
+							<IconRotateClockwise2 size={20} />
+							<Text size="xs">Details updated, please refresh the page.</Text>
+						</Flex>
+					) : undefined}
+				</Box>
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				{props.children}

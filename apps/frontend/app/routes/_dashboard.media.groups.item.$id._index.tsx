@@ -31,7 +31,6 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
-	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -82,6 +81,11 @@ export default function Page() {
 		<Container>
 			<MediaDetailsLayout
 				images={loaderData.metadataGroupDetails.details.displayImages}
+				entityDetails={{
+					id: loaderData.metadataGroupId,
+					lot: EntityLot.MetadataGroup,
+					isPartial: loaderData.metadataGroupDetails.details.isPartial,
+				}}
 				externalLink={{
 					source: loaderData.metadataGroupDetails.details.source,
 					lot: loaderData.metadataGroupDetails.details.lot,
@@ -108,9 +112,6 @@ export default function Page() {
 							/>
 						))}
 					</Group>
-				) : null}
-				{loaderData.metadataGroupDetails.details.isPartial ? (
-					<MediaIsPartial mediaType="group" />
 				) : null}
 				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 					<Tabs.List mb="xs">
