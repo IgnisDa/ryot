@@ -2029,6 +2029,23 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    pub async fn deploy_update_metadata_group_job(
+        &self,
+        metadata_group_id: String,
+    ) -> Result<bool> {
+        let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        self.perform_application_job
+            .clone()
+            .enqueue(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
+            .await
+            .unwrap();
+        Ok(true)
+    }
+
     pub async fn merge_metadata(
         &self,
         user_id: String,
@@ -4249,6 +4266,21 @@ impl MiscellaneousService {
                 }
             }
         }
+        Ok(())
+    }
+
+    pub async fn update_metadata_group(&self, metadata_group_id: &str) -> Result<()> {
+        let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        self.commit_metadata_group(CommitMediaInput {
+            lot: metadata_group.lot,
+            source: metadata_group.source,
+            identifier: metadata_group.identifier,
+            force_update: None,
+        })
+        .await?;
         Ok(())
     }
 
