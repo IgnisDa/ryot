@@ -40,7 +40,6 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
-	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -156,9 +155,6 @@ export default function Page() {
 							/>
 						))}
 					</Group>
-				) : null}
-				{loaderData.personDetails.details.isPartial ? (
-					<MediaIsPartial mediaType="person" />
 				) : null}
 				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
 					<Tabs.List mb="xs">

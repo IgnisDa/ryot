@@ -94,7 +94,6 @@ import {
 } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
-	MediaIsPartial,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
@@ -351,9 +350,6 @@ export default function Page() {
 							/>
 						))}
 					</Group>
-				) : null}
-				{loaderData.metadataDetails.isPartial ? (
-					<MediaIsPartial mediaType="media" />
 				) : null}
 				<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 					{[

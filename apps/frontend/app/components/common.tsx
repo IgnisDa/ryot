@@ -39,6 +39,7 @@ import { changeCase, getInitials, isNumber, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconCheck,
+	IconCloudDownload,
 	IconEdit,
 	IconExternalLink,
 	IconFilterOff,
@@ -98,6 +99,18 @@ export const ApplicationGrid = (props: {
 	);
 };
 
+const MediaIsPartial = (props: { mediaType: string }) => {
+	return (
+		<Flex align="center" gap={4}>
+			<IconCloudDownload size={20} />
+			<Text size="xs">
+				Details of this {changeCase(props.mediaType).toLowerCase()} are being
+				downloaded
+			</Text>
+		</Flex>
+	);
+};
+
 export const MediaDetailsLayout = (props: {
 	children: Array<ReactNode | (ReactNode | undefined)>;
 	images: Array<string | null | undefined>;
@@ -153,7 +166,7 @@ export const MediaDetailsLayout = (props: {
 						.then((data) => data.metadataGroupDetails.details.isPartial),
 				)
 				.run();
-			return data;
+			return Boolean(data);
 		},
 		refetchInterval: dayjsLib.duration(1, "second").asMilliseconds(),
 		enabled: props.entityDetails.isPartial === true,
@@ -161,7 +174,6 @@ export const MediaDetailsLayout = (props: {
 
 	return (
 		<Flex direction={{ base: "column", md: "row" }} gap="lg">
-			{JSON.stringify({ isPartial })}
 			<Box
 				id="images-container"
 				pos="relative"
@@ -213,6 +225,11 @@ export const MediaDetailsLayout = (props: {
 							) : null}
 						</Flex>
 					</Badge>
+				) : null}
+				{isPartial ? (
+					<Box mt="md">
+						<MediaIsPartial mediaType={props.entityDetails.lot} />
+					</Box>
 				) : null}
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
