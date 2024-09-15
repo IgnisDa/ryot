@@ -1,4 +1,5 @@
-use anyhow::bail;
+use anyhow::{bail, Result};
+use dependent_models::ImportResult;
 use enums::MediaSource;
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 
@@ -12,9 +13,7 @@ impl KodiIntegration {
         Self { payload }
     }
 
-    async fn kodi_progress(
-        &self,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn kodi_progress(&self) -> Result<ImportResult> {
         let mut payload = match serde_json::from_str::<IntegrationMediaSeen>(&self.payload) {
             Ok(val) => val,
             Err(err) => bail!(err),
@@ -26,9 +25,7 @@ impl KodiIntegration {
 }
 
 impl YankIntegration for KodiIntegration {
-    async fn yank_progress(
-        &self,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn yank_progress(&self) -> Result<ImportResult> {
         self.kodi_progress().await
     }
 }

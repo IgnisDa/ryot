@@ -1,10 +1,11 @@
 use std::future::Future;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_graphql::Result as GqlResult;
 use common_utils::ryot_log;
 use database_models::metadata;
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
 use providers::google_books::GoogleBooksService;
@@ -34,7 +35,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
     async fn yank_progress<F>(
         &self,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    ) -> Result<ImportResult>
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {

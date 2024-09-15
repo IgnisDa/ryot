@@ -1,4 +1,5 @@
-use anyhow::bail;
+use anyhow::{bail, Result};
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use rust_decimal::Decimal;
@@ -56,9 +57,7 @@ impl EmbyIntegration {
     pub const fn new(payload: String, db: DatabaseConnection) -> Self {
         Self { payload, db }
     }
-    async fn emby_progress(
-        &self,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn emby_progress(&self) -> Result<ImportResult> {
         let payload: models::EmbyWebhookPayload = serde_json::from_str(&self.payload)?;
 
         let runtime = payload
@@ -118,9 +117,7 @@ impl ShowIdentifier for EmbyIntegration {
 }
 
 impl YankIntegration for EmbyIntegration {
-    async fn yank_progress(
-        &self,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn yank_progress(&self) -> Result<ImportResult> {
         self.emby_progress().await
     }
 }

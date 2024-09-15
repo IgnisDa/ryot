@@ -8,6 +8,7 @@ use application_utils::get_base_http_client;
 use async_graphql::futures_util::StreamExt;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::Metadata};
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use reqwest::Url;
@@ -377,9 +378,7 @@ impl KomgaIntegration {
         })
     }
 
-    async fn komga_progress(
-        &self,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn komga_progress(&self) -> Result<ImportResult> {
         // DEV: This object needs global lifetime so we can continue to use the receiver If
         // we ever create more SSE Objects we may want to implement a higher level
         // Controller or make a housekeeping function to make sure the background threads
@@ -456,9 +455,7 @@ impl KomgaIntegration {
 }
 
 impl YankIntegration for KomgaIntegration {
-    async fn yank_progress(
-        &self,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn yank_progress(&self) -> Result<ImportResult> {
         self.komga_progress().await
     }
 }

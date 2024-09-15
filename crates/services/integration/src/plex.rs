@@ -1,6 +1,7 @@
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
 use async_graphql::async_trait::async_trait;
 use common_utils::ryot_log;
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use regex::Regex;
@@ -67,7 +68,7 @@ impl PlexIntegration {
         }
     }
 
-    fn parse_payload(payload: &str) -> anyhow::Result<models::PlexWebhookPayload> {
+    fn parse_payload(payload: &str) -> Result<models::PlexWebhookPayload> {
         let payload_regex = Regex::new(r"\{.*\}").unwrap();
         let json_payload = payload_regex
             .find(payload)
@@ -76,7 +77,7 @@ impl PlexIntegration {
         serde_json::from_str(json_payload).context("Error during JSON payload deserialization")
     }
 
-    fn get_tmdb_identifier(guids: &[models::PlexWebhookMetadataGuid]) -> anyhow::Result<&str> {
+    fn get_tmdb_identifier(guids: &[models::PlexWebhookMetadataGuid]) -> Result<&str> {
         guids
             .iter()
             .find(|g| g.id.starts_with("tmdb://"))
@@ -88,7 +89,7 @@ impl PlexIntegration {
         &self,
         metadata: &'a models::PlexWebhookMetadataPayload,
         identifier: &'a str,
-    ) -> anyhow::Result<(String, MediaLot)> {
+    ) -> Result<(String, MediaLot)> {
         match metadata.item_type.as_str() {
             "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
             "episode" => {
@@ -102,7 +103,7 @@ impl PlexIntegration {
         }
     }
 
-    fn calculate_progress(payload: &models::PlexWebhookPayload) -> anyhow::Result<Decimal> {
+    fn calculate_progress(payload: &models::PlexWebhookPayload) -> Result<Decimal> {
         match payload.metadata.view_offset {
             Some(offset) => Ok(offset / payload.metadata.duration * dec!(100)),
             None if payload.event_type == "media.scrobble" => Ok(dec!(100)),
@@ -110,9 +111,7 @@ impl PlexIntegration {
         }
     }
 
-    async fn plex_progress(
-        &self,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn plex_progress(&self) -> Result<ImportResult> {
         ryot_log!(debug, "Processing Plex payload {:#?}", self.payload);
 
         let payload = Self::parse_payload(&self.payload)?;
@@ -159,9 +158,7 @@ impl ShowIdentifier for PlexIntegration {
 }
 
 impl YankIntegration for PlexIntegration {
-    async fn yank_progress(
-        &self,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn yank_progress(&self) -> Result<ImportResult> {
         self.plex_progress().await
     }
 }

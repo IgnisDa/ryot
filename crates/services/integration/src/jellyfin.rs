@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
 use rust_decimal::Decimal;
@@ -56,9 +57,7 @@ impl JellyfinIntegration {
         Self { payload }
     }
 
-    async fn jellyfin_progress(
-        &self,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn jellyfin_progress(&self) -> Result<ImportResult> {
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&self.payload)?;
         let identifier = payload
             .item
@@ -108,9 +107,7 @@ impl JellyfinIntegration {
 }
 
 impl YankIntegration for JellyfinIntegration {
-    async fn yank_progress(
-        &self,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn yank_progress(&self) -> Result<ImportResult> {
         self.jellyfin_progress().await
     }
 }
