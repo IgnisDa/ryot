@@ -1762,7 +1762,12 @@ impl MiscellaneousService {
         let provider = self.get_metadata_provider(lot, source).await?;
         let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
-            Some(eg) => eg.id,
+            Some(eg) => {
+                let mut eg: metadata_group::ActiveModel = eg.into();
+                eg.is_partial = ActiveValue::Set(Some(false));
+                let eg = eg.update(&self.db).await?;
+                eg.id
+            }
             None => {
                 let mut db_group: metadata_group::ActiveModel =
                     group_details.into_model("".to_string(), None).into();
