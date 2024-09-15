@@ -218,7 +218,6 @@ export const MediaDetailsLayout = (props: {
 								lot: entityDetails.data.lot,
 								source: entityDetails.data.source,
 								identifier: entityDetails.data.identifier,
-								forceUpdate: true,
 							},
 						})
 						.then((data) => data.commitMetadataGroup);
