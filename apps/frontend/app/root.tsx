@@ -118,7 +118,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 });
 
 const DefaultHeadTags = () => {
-	const { isIOS18 } = useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof loader>();
 
 	return (
 		<>
@@ -130,7 +130,9 @@ const DefaultHeadTags = () => {
 			<link rel="manifest" href="/manifest.json" />
 			<link
 				rel="apple-touch-icon"
-				href={isIOS18 ? "/icon-192x192.png" : "/apple-touch-icon.png"}
+				href={
+					loaderData.isIOS18 ? "/icon-192x192.png" : "/apple-touch-icon.png"
+				}
 			/>
 		</>
 	);
