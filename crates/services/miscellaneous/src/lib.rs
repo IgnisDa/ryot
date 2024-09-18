@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, BTreeSet},
     fmt,
     iter::zip,
     path::PathBuf,
@@ -90,7 +90,7 @@ use providers::{
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
     vndb::VndbService,
 };
-use rust_decimal::prelude::{One, ToPrimitive};
+use rust_decimal::prelude::{One, ToPrimitive, Zero};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -3377,81 +3377,96 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    fn get_all_episodes(model: &metadata::Model) -> Vec<String> {
+        if let Some(s) = &model.show_specifics {
+            s.seasons
+                .iter()
+                .filter(|s| !SHOW_SPECIAL_SEASON_NAMES.contains(&s.name.as_str()))
+                .flat_map(|s| {
+                    s.episodes
+                        .iter()
+                        .map(move |e| format!("{}-{}", s.season_number, e.episode_number))
+                })
+                .collect()
+        } else if let Some(p) = &model.podcast_specifics {
+            p.episodes.iter().map(|e| e.number.to_string()).collect()
+        } else if let Some(e) = model.anime_specifics.as_ref().and_then(|a| a.episodes) {
+            (1..=e).map(|e| e.to_string()).collect()
+        } else if let Some(c) = model.manga_specifics.as_ref().and_then(|m| m.chapters) {
+            (1..=c.to_u32().unwrap_or(0))
+                .map(|i| Decimal::from(i).to_string())
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
+    fn process_seen_history(
+        seen_history: &[seen::Model],
+        bag: &mut HashMap<String, i32>,
+        manga_chapters: &mut BTreeSet<Decimal>,
+    ) {
+        for h in seen_history {
+            let ep = if let Some(s) = &h.show_extra_information {
+                format!("{}-{}", s.season, s.episode)
+            } else if let Some(p) = &h.podcast_extra_information {
+                p.episode.to_string()
+            } else if let Some(a) = h.anime_extra_information.as_ref().and_then(|a| a.episode) {
+                a.to_string()
+            } else if let Some(m) = h.manga_extra_information.as_ref().and_then(|m| m.chapter) {
+                manga_chapters.insert(m);
+                continue;
+            } else {
+                continue;
+            };
+
+            bag.entry(ep).and_modify(|c| *c += 1);
+        }
+    }
+
+    fn process_manga_chapters(bag: &mut HashMap<String, i32>, manga_chapters: &BTreeSet<Decimal>) {
+        let mut curr_manga_forward = Decimal::zero();
+        for &chapter in manga_chapters {
+            let ep = if chapter == chapter.floor() {
+                format!("{:.0}", chapter + curr_manga_forward)
+            } else {
+                curr_manga_forward += Decimal::one();
+                format!("{:.0}", chapter.floor() + curr_manga_forward)
+            };
+            bag.entry(ep).and_modify(|c| *c += 1);
+        }
+    }
+
     async fn is_metadata_finished_by_user(
         &self,
         user_id: &String,
         metadata: &MetadataBaseData,
     ) -> Result<(bool, Vec<seen::Model>)> {
-        let metadata = metadata.clone();
         let seen_history = self.seen_history(user_id, &metadata.model.id).await?;
-        let is_finished = if metadata.model.lot == MediaLot::Podcast
-            || metadata.model.lot == MediaLot::Show
-            || metadata.model.lot == MediaLot::Anime
-            || metadata.model.lot == MediaLot::Manga
-        {
-            // DEV: If all episodes have been seen the same number of times, the media can be
-            // considered finished.
-            let all_episodes = if let Some(s) = metadata.model.show_specifics {
-                s.seasons
-                    .into_iter()
-                    .filter(|s| !SHOW_SPECIAL_SEASON_NAMES.contains(&s.name.as_str()))
-                    .flat_map(|s| {
-                        s.episodes
-                            .into_iter()
-                            .map(move |e| format!("{}-{}", s.season_number, e.episode_number))
-                    })
-                    .collect_vec()
-            } else if let Some(p) = metadata.model.podcast_specifics {
-                p.episodes
-                    .into_iter()
-                    .map(|e| format!("{}", e.number))
-                    .collect_vec()
-            } else if let Some(e) = metadata.model.anime_specifics.and_then(|a| a.episodes) {
-                (1..e + 1).map(|e| format!("{}", e)).collect_vec()
-            } else if let Some(c) = metadata.model.manga_specifics.and_then(|m| m.chapters) {
-                let one = Decimal::one();
-                (0..c.to_u32().unwrap_or(0))
-                    .map(|i| Decimal::from(i) + one)
-                    .map(|d| d.to_string())
-                    .collect_vec()
-            } else {
-                vec![]
-            };
-            if all_episodes.is_empty() {
-                return Ok((true, seen_history));
-            }
-            let mut bag =
-                HashMap::<String, i32>::from_iter(all_episodes.iter().cloned().map(|e| (e, 0)));
-            seen_history
-                .clone()
-                .into_iter()
-                .map(|h| {
-                    if let Some(s) = h.show_extra_information {
-                        format!("{}-{}", s.season, s.episode)
-                    } else if let Some(p) = h.podcast_extra_information {
-                        format!("{}", p.episode)
-                    } else if let Some(a) = h.anime_extra_information.and_then(|a| a.episode) {
-                        format!("{}", a)
-                    } else if let Some(m) = h.manga_extra_information.and_then(|m| m.chapter) {
-                        format!("{}", m)
-                    } else {
-                        String::new()
-                    }
-                })
-                .for_each(|ep| {
-                    bag.entry(ep).and_modify(|c| *c += 1);
-                });
-            let values = bag.values().cloned().collect_vec();
+        let is_finished = match metadata.model.lot {
+            MediaLot::Podcast | MediaLot::Show | MediaLot::Anime | MediaLot::Manga => {
+                // DEV: If all episodes have been seen the same number of times, the media can be
+                // considered finished.
+                let all_episodes = Self::get_all_episodes(&metadata.model);
+                if all_episodes.is_empty() {
+                    return Ok((true, seen_history));
+                }
 
-            let min_value = values.iter().min();
-            let max_value = values.iter().max();
+                let mut bag: HashMap<String, i32> =
+                    all_episodes.into_iter().map(|e| (e, 0)).collect();
+                let mut manga_chapters: BTreeSet<Decimal> = BTreeSet::new();
 
-            match (min_value, max_value) {
-                (Some(min), Some(max)) => min == max && *min != 0,
-                _ => false,
+                Self::process_seen_history(&seen_history, &mut bag, &mut manga_chapters);
+                Self::process_manga_chapters(&mut bag, &manga_chapters);
+                let (min, max) = bag
+                    .values()
+                    .fold((i32::MAX, i32::MIN), |(min, max), &count| {
+                        (min.min(count), max.max(count))
+                    });
+
+                min == max && min != 0
             }
-        } else {
-            seen_history.iter().any(|h| h.state == SeenState::Completed)
+            _ => seen_history.iter().any(|h| h.state == SeenState::Completed),
         };
         Ok((is_finished, seen_history))
     }
