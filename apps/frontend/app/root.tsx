@@ -27,6 +27,7 @@ import {
 } from "@remix-run/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useEffect, useState } from "react";
 import "mantine-datatable/styles.layer.css";
 import { ConfirmationMountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
@@ -105,6 +106,19 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 });
 
 const DefaultHeadTags = () => {
+	const [isIOS18, setIsIOS18] = useState(false);
+
+	useEffect(() => {
+		const detectIOS18 = () => {
+			const userAgent = window.navigator.userAgent;
+			const iOS = /iPad|iPhone|iPod/.test(userAgent);
+			const version = (userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/) || [0, ""])[1];
+			setIsIOS18(iOS && Number.parseInt(version, 10) >= 18);
+		};
+
+		detectIOS18();
+	}, []);
+
 	return (
 		<>
 			<meta charSet="utf-8" />
@@ -113,7 +127,11 @@ const DefaultHeadTags = () => {
 				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
 			/>
 			<link rel="manifest" href="/manifest.json" />
-			<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+			{isIOS18 ? (
+				<link rel="apple-touch-icon" href="/icon-192x192.png" />
+			) : (
+				<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+			)}
 		</>
 	);
 };
