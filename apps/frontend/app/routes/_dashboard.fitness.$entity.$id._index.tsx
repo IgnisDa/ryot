@@ -123,6 +123,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				repeatedWorkout: repeatedWorkout,
 				template,
 				collections: workoutDetails.collections,
+				defaultRestTimer: undefined,
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
@@ -142,6 +143,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				repeatedWorkout: null,
 				template: null,
 				collections: workoutTemplateDetails.collections,
+				defaultRestTimer: workoutTemplateDetails.details.defaultRestTimer,
 			};
 		})
 		.exhaustive();
@@ -225,6 +227,7 @@ export default function Page() {
 		repeatedFromId?: string,
 		templateId?: string,
 		updateWorkoutTemplateId?: string,
+		defaultRestTimer?: number | null,
 	) => {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
@@ -233,6 +236,7 @@ export default function Page() {
 			repeatedFromId,
 			templateId,
 			updateWorkoutTemplateId,
+			defaultRestTimer,
 		);
 		startWorkout(workout, entity);
 		setIsWorkoutLoading(false);
@@ -300,6 +304,7 @@ export default function Page() {
 														undefined,
 														loaderData.entityId,
 														undefined,
+														loaderData.defaultRestTimer,
 													)
 												}
 												leftSection={<IconPlayerPlay size={14} />}
@@ -313,6 +318,7 @@ export default function Page() {
 														undefined,
 														undefined,
 														loaderData.entityId,
+														loaderData.defaultRestTimer,
 													)
 												}
 												leftSection={<IconPencil size={14} />}
@@ -466,6 +472,12 @@ export default function Page() {
 											units: ["h", "m"],
 										},
 									)}
+								/>
+							) : null}
+							{loaderData.defaultRestTimer ? (
+								<DisplayStat
+									icon={<IconZzz size={16} />}
+									data={`${loaderData.defaultRestTimer}s`}
 								/>
 							) : null}
 							{loaderData.summary.total ? (

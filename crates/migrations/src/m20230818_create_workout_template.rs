@@ -17,6 +17,7 @@ pub enum WorkoutTemplate {
     Summary,
     Visibility,
     Information,
+    DefaultRestTimer,
 }
 
 #[async_trait::async_trait]
@@ -56,6 +57,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(WorkoutTemplate::DefaultRestTimer).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("workout_template_to_user_foreign_key")

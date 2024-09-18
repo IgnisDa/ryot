@@ -66,6 +66,7 @@ export type InProgressWorkout = {
 	endTime?: string;
 	name: string;
 	comment?: string;
+	defaultRestTimer?: number | null;
 	exercises: Array<Exercise>;
 	videos: Array<string>;
 	images: Array<string>;
@@ -170,6 +171,7 @@ export const duplicateOldWorkout = async (
 	repeatedFromId?: string,
 	templateId?: string,
 	updateWorkoutTemplateId?: string,
+	defaultRestTimer?: number | null,
 ) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = name;
@@ -177,9 +179,11 @@ export const duplicateOldWorkout = async (
 	inProgress.templateId = templateId;
 	inProgress.updateWorkoutTemplateId = updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
+	inProgress.defaultRestTimer = defaultRestTimer;
 	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
+		const defaultRestTime = defaultRestTimer || ex.restTime;
 		inProgress.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: exerciseIdx === 0,
@@ -191,7 +195,9 @@ export const duplicateOldWorkout = async (
 			lot: ex.lot,
 			notes: ex.notes,
 			supersetWith: [],
-			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
+			restTimer: defaultRestTime
+				? { duration: defaultRestTime, enabled: true }
+				: null,
 			sets: sets,
 			openedDetailsTab:
 				(exerciseDetails.userDetails.history?.length || 0) > 0
@@ -275,6 +281,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			repeatedFrom: currentWorkout.repeatedFrom,
+			defaultRestTimer: currentWorkout.defaultRestTimer,
 			exercises: [],
 			assets: {
 				images: [...currentWorkout.images],

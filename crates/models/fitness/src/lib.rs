@@ -522,6 +522,7 @@ pub struct UserWorkoutInput {
     pub template_id: Option<String>,
     pub assets: Option<EntityAssets>,
     pub repeated_from: Option<String>,
+    pub default_rest_timer: Option<i32>,
     pub exercises: Vec<UserExerciseInput>,
     pub update_workout_template_id: Option<String>,
 }

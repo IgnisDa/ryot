@@ -8,6 +8,7 @@ query WorkoutTemplateDetails($workoutTemplateId: String!) {
       name
       createdOn
       visibility
+      defaultRestTimer
       summary {
         ...WorkoutSummaryPart
       }

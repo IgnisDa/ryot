@@ -35,6 +35,7 @@ mod m20240831_add_is_account_default_column_to_access_link;
 mod m20240831_add_templates_key_to_preferences;
 mod m20240903_add_changes_for_user_to_collection_removal;
 mod m20240904_create_monitored_entity;
+mod m20240918_add_default_rest_timer_to_workout_template;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -90,6 +91,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240831_add_is_account_default_column_to_access_link::Migration),
             Box::new(m20240903_add_changes_for_user_to_collection_removal::Migration),
             Box::new(m20240904_create_monitored_entity::Migration),
+            Box::new(m20240918_add_default_rest_timer_to_workout_template::Migration),
         ]
     }
 }

@@ -125,6 +125,7 @@ pub async fn import(
                 id: None,
                 template_id: None,
                 repeated_from: None,
+                default_rest_timer: None,
                 name: entry.workout_name,
                 comment: entry.workout_notes,
                 start_time: ndt,

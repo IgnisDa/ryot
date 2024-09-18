@@ -290,20 +290,39 @@ export default function Page() {
 								key={currentWorkout.exercises.toString()}
 							/>
 							<Stack ref={parent}>
-								<TextInput
-									size="sm"
-									label="Name"
-									placeholder="A name for your workout"
-									value={currentWorkout.name}
-									required
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.name = e.currentTarget.value;
-											}),
-										)
-									}
-								/>
+								<Group justify="space-between">
+									<TextInput
+										w={isCreatingTemplate ? "65%" : "100%"}
+										size="sm"
+										label="Name"
+										placeholder="A name for your workout"
+										value={currentWorkout.name}
+										required
+										onChange={(e) =>
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.name = e.currentTarget.value;
+												}),
+											)
+										}
+									/>
+									{isCreatingTemplate ? (
+										<NumberInput
+											w="30%"
+											suffix="s"
+											label="Rest timer"
+											value={currentWorkout.defaultRestTimer || undefined}
+											onChange={(v) => {
+												if (v)
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.defaultRestTimer = Number(v);
+														}),
+													);
+											}}
+										/>
+									) : undefined}
+								</Group>
 								<Textarea
 									size="sm"
 									minRows={2}
