@@ -27,7 +27,6 @@ import {
 } from "@remix-run/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useEffect, useState } from "react";
 import "mantine-datatable/styles.layer.css";
 import { ConfirmationMountPoint } from "~/components/confirmation";
 import { Toaster } from "~/components/toaster";
@@ -102,22 +101,24 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const headers = new Headers();
 	const defaultColorScheme = colorScheme || "light";
 	if (toastHeaders) extendResponseHeaders(headers, toastHeaders);
-	return unstable_data({ toast, defaultColorScheme }, { headers });
+
+	const userAgent = request.headers.get("user-agent") || "";
+	const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+	let isIOS18 = false;
+
+	if (isIOS) {
+		const match = userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+		if (match) {
+			const version = Number.parseInt(match[1], 10);
+			isIOS18 = version >= 18;
+		}
+	}
+
+	return unstable_data({ toast, defaultColorScheme, isIOS18 }, { headers });
 });
 
 const DefaultHeadTags = () => {
-	const [isIOS18, setIsIOS18] = useState(false);
-
-	useEffect(() => {
-		const detectIOS18 = () => {
-			const userAgent = window.navigator.userAgent;
-			const iOS = /iPad|iPhone|iPod/.test(userAgent);
-			const version = (userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/) || [0, ""])[1];
-			setIsIOS18(iOS && Number.parseInt(version, 10) >= 18);
-		};
-
-		detectIOS18();
-	}, []);
+	const { isIOS18 } = useLoaderData<typeof loader>();
 
 	return (
 		<>
@@ -127,8 +128,9 @@ const DefaultHeadTags = () => {
 				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
 			/>
 			<link rel="manifest" href="/manifest.json" />
-			<link rel="apple-touch-icon"
-				  href={isIOS18 ? "/icon-192x192.png" : "/apple-touch-icon.png"}
+			<link
+				rel="apple-touch-icon"
+				href={isIOS18 ? "/icon-192x192.png" : "/apple-touch-icon.png"}
 			/>
 		</>
 	);
