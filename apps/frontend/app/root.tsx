@@ -127,11 +127,9 @@ const DefaultHeadTags = () => {
 				content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover"
 			/>
 			<link rel="manifest" href="/manifest.json" />
-			{isIOS18 ? (
-				<link rel="apple-touch-icon" href="/icon-192x192.png" />
-			) : (
-				<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-			)}
+			<link rel="apple-touch-icon"
+				  href={isIOS18 ? "/icon-192x192.png" : "/apple-touch-icon.png"}
+			/>
 		</>
 	);
 };
