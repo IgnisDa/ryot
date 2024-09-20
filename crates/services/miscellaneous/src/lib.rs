@@ -3402,6 +3402,7 @@ impl MiscellaneousService {
     }
 
     fn process_seen_history(
+        &self,
         seen_history: &[seen::Model],
         bag: &mut HashMap<String, i32>,
         manga_chapters: &mut BTreeSet<Decimal>,
@@ -3424,14 +3425,18 @@ impl MiscellaneousService {
         }
     }
 
-    fn process_manga_chapters(bag: &mut HashMap<String, i32>, manga_chapters: &BTreeSet<Decimal>) {
-        let mut curr_manga_forward = Decimal::zero();
+    fn process_manga_chapters(
+        &self,
+        bag: &mut HashMap<String, i32>,
+        manga_chapters: &BTreeSet<Decimal>,
+    ) {
+        let mut current_manga_forward = Decimal::zero();
         for &chapter in manga_chapters {
             let ep = if chapter == chapter.floor() {
-                format!("{:.0}", chapter + curr_manga_forward)
+                format!("{:.0}", chapter + current_manga_forward)
             } else {
-                curr_manga_forward += Decimal::one();
-                format!("{:.0}", chapter.floor() + curr_manga_forward)
+                current_manga_forward += Decimal::one();
+                format!("{:.0}", chapter.floor() + current_manga_forward)
             };
             bag.entry(ep).and_modify(|c| *c += 1);
         }
@@ -3456,8 +3461,8 @@ impl MiscellaneousService {
                     all_episodes.into_iter().map(|e| (e, 0)).collect();
                 let mut manga_chapters: BTreeSet<Decimal> = BTreeSet::new();
 
-                Self::process_seen_history(&seen_history, &mut bag, &mut manga_chapters);
-                Self::process_manga_chapters(&mut bag, &manga_chapters);
+                self.process_seen_history(&seen_history, &mut bag, &mut manga_chapters);
+                self.process_manga_chapters(&mut bag, &manga_chapters);
                 let (min, max) = bag
                     .values()
                     .fold((i32::MAX, i32::MIN), |(min, max), &count| {
