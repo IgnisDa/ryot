@@ -3423,31 +3423,29 @@ impl MiscellaneousService {
 
             bag.entry(ep).and_modify(|c| *c += 1);
         }
-
-        manga_chapters.sort();
     }
 
     fn process_manga_chapters(
         &self,
         bag: &mut HashMap<String, i32>,
-        manga_chapters: &Vec<Decimal>,
+        manga_chapters: &mut Vec<Decimal>,
     ) {
-        let mut current_manga_forward = Decimal::zero();
-        for (i, &chapter) in manga_chapters.iter().enumerate() {
-            let ep = if chapter == chapter.floor() {
-                format!("{:.0}", chapter + current_manga_forward)
-            } else {
-                let next_chapter = if i + 1 < manga_chapters.len() {
-                    manga_chapters[i + 1]
-                } else {
-                    chapter
-                };
+        manga_chapters.sort();
 
-                if next_chapter != chapter {
+        let mut current_manga_forward = Decimal::zero();
+        let mut iter = manga_chapters.iter().peekable();
+
+        while let Some(&chapter) = iter.next() {
+            let ep = if chapter == chapter.floor() {
+                (chapter + current_manga_forward).round().to_string()
+            } else {
+                let next_chapter = iter.peek().copied().unwrap_or(&chapter);
+                if *next_chapter != chapter {
                     current_manga_forward += Decimal::one();
                 }
-                format!("{:.0}", chapter.floor() + current_manga_forward)
+                (chapter.floor() + current_manga_forward).round().to_string()
             };
+
             bag.entry(ep).and_modify(|c| *c += 1);
         }
     }
@@ -3472,7 +3470,7 @@ impl MiscellaneousService {
                 let mut manga_chapters: Vec<Decimal> = Vec::new();
 
                 self.process_seen_history(&seen_history, &mut bag, &mut manga_chapters);
-                self.process_manga_chapters(&mut bag, &manga_chapters);
+                self.process_manga_chapters(&mut bag, &mut manga_chapters);
                 let (min, max) = bag
                     .values()
                     .fold((i32::MAX, i32::MIN), |(min, max), &count| {
