@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet, BTreeSet},
+    collections::{BTreeSet, HashMap, HashSet},
     fmt,
     iter::zip,
     path::PathBuf,
