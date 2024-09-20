@@ -92,10 +92,10 @@ use providers::{
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    prelude::DateTimeUtc, sea_query::NullOrdering, ActiveModelTrait, ActiveValue, ColumnTrait,
-    ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
+    prelude::DateTimeUtc, query::UpdateMany, sea_query::NullOrdering, ActiveModelTrait,
+    ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, EntityTrait,
+    FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, TransactionTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, Cond, Condition, Expr, Func, PgFunc,
@@ -350,9 +350,6 @@ impl MiscellaneousService {
             genres,
             suggestions,
         } = self.generic_metadata(metadata_id).await?;
-        if model.is_partial.unwrap_or_default() {
-            self.deploy_update_metadata_job(metadata_id, true).await?;
-        }
         let slug = slug::slugify(&model.title);
         let identifier = &model.identifier;
         let source_url = match model.source {
@@ -1202,6 +1199,23 @@ impl MiscellaneousService {
         self.perform_application_job
             .clone()
             .enqueue(ApplicationJob::UpdatePerson(person.id))
+            .await
+            .unwrap();
+        Ok(true)
+    }
+
+    pub async fn deploy_update_metadata_group_job(
+        &self,
+        metadata_group_id: String,
+    ) -> Result<bool> {
+        let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .unwrap();
+        self.perform_application_job
+            .clone()
+            .enqueue(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
             .await
             .unwrap();
         Ok(true)
@@ -2121,9 +2135,6 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
             .unwrap();
-        if details.is_partial.unwrap_or_default() {
-            self.deploy_update_person_job(person_id.clone()).await?;
-        }
         details.display_images =
             metadata_images_as_urls(&details.images, &self.file_storage_service).await;
         let associations = MetadataToPerson::find()
@@ -2665,6 +2676,37 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn update_metadata_group(&self, metadata_group_id: &str) -> Result<()> {
+        let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
+            .one(&self.db)
+            .await?
+            .unwrap();
+        self.commit_metadata_group(CommitMediaInput {
+            lot: metadata_group.lot,
+            source: metadata_group.source,
+            identifier: metadata_group.identifier,
+            force_update: None,
+        })
+        .await?;
+        Ok(())
+    }
+
+    async fn get_entities_monitored_by(
+        &self,
+        entity_id: &String,
+        entity_lot: EntityLot,
+    ) -> Result<Vec<String>> {
+        let all_entities = MonitoredEntity::find()
+            .select_only()
+            .column(monitored_entity::Column::UserId)
+            .filter(monitored_entity::Column::EntityId.eq(entity_id))
+            .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        Ok(all_entities)
+    }
+
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
             get_entities_monitored_by(&event.obj_id, event.entity_lot, &self.db).await?;
@@ -2824,6 +2866,64 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn put_entities_in_partial_state(&self) -> Result<()> {
+        async fn update_partial_states<Column1, Column2, Column3, T>(
+            ute_filter_column: Column1,
+            updater: UpdateMany<T>,
+            entity_id_column: Column2,
+            entity_update_column: Column3,
+            db: &DatabaseConnection,
+        ) -> Result<()>
+        where
+            Column1: ColumnTrait,
+            Column2: ColumnTrait,
+            Column3: ColumnTrait,
+            T: EntityTrait,
+        {
+            let ids_to_update = UserToEntity::find()
+                .select_only()
+                .column(ute_filter_column)
+                .filter(ute_filter_column.is_not_null())
+                .into_tuple::<String>()
+                .all(db)
+                .await?;
+            for chunk in ids_to_update.chunks(100) {
+                updater
+                    .clone()
+                    .col_expr(entity_update_column, Expr::value(true))
+                    .filter(entity_id_column.is_in(chunk))
+                    .exec(db)
+                    .await?;
+            }
+            Ok(())
+        }
+        update_partial_states(
+            user_to_entity::Column::MetadataId,
+            Metadata::update_many(),
+            metadata::Column::Id,
+            metadata::Column::IsPartial,
+            &self.db,
+        )
+        .await?;
+        update_partial_states(
+            user_to_entity::Column::MetadataGroupId,
+            MetadataGroup::update_many(),
+            metadata_group::Column::Id,
+            metadata_group::Column::IsPartial,
+            &self.db,
+        )
+        .await?;
+        update_partial_states(
+            user_to_entity::Column::PersonId,
+            Person::update_many(),
+            person::Column::Id,
+            person::Column::IsPartial,
+            &self.db,
+        )
+        .await?;
+        Ok(())
+    }
+
     pub async fn send_pending_notifications(&self) -> Result<()> {
         let users = User::find().all(&self.db).await?;
         for user_details in users {
@@ -2899,6 +2999,8 @@ impl MiscellaneousService {
         self.regenerate_user_summaries().await.trace_ok();
         ryot_log!(trace, "Removing useless data");
         self.remove_useless_data().await.trace_ok();
+        ryot_log!(trace, "Putting entities in partial state");
+        self.put_entities_in_partial_state().await.trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())
