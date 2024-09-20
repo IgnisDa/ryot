@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     fmt,
     iter::zip,
     path::PathBuf,
@@ -3405,7 +3405,7 @@ impl MiscellaneousService {
         &self,
         seen_history: &[seen::Model],
         bag: &mut HashMap<String, i32>,
-        manga_chapters: &mut BTreeSet<Decimal>,
+        manga_chapters: &mut Vec<Decimal>,
     ) {
         for h in seen_history {
             let ep = if let Some(s) = &h.show_extra_information {
@@ -3415,7 +3415,7 @@ impl MiscellaneousService {
             } else if let Some(a) = h.anime_extra_information.as_ref().and_then(|a| a.episode) {
                 a.to_string()
             } else if let Some(m) = h.manga_extra_information.as_ref().and_then(|m| m.chapter) {
-                manga_chapters.insert(m);
+                manga_chapters.push(m);
                 continue;
             } else {
                 continue;
@@ -3423,19 +3423,29 @@ impl MiscellaneousService {
 
             bag.entry(ep).and_modify(|c| *c += 1);
         }
+
+        manga_chapters.sort();
     }
 
     fn process_manga_chapters(
         &self,
         bag: &mut HashMap<String, i32>,
-        manga_chapters: &BTreeSet<Decimal>,
+        manga_chapters: &Vec<Decimal>,
     ) {
         let mut current_manga_forward = Decimal::zero();
-        for &chapter in manga_chapters {
+        for (i, &chapter) in manga_chapters.iter().enumerate() {
             let ep = if chapter == chapter.floor() {
                 format!("{:.0}", chapter + current_manga_forward)
             } else {
-                current_manga_forward += Decimal::one();
+                let next_chapter = if i + 1 < manga_chapters.len() {
+                    manga_chapters[i + 1]
+                } else {
+                    chapter
+                };
+
+                if next_chapter != chapter {
+                    current_manga_forward += Decimal::one();
+                }
                 format!("{:.0}", chapter.floor() + current_manga_forward)
             };
             bag.entry(ep).and_modify(|c| *c += 1);
@@ -3459,7 +3469,7 @@ impl MiscellaneousService {
 
                 let mut bag: HashMap<String, i32> =
                     all_episodes.into_iter().map(|e| (e, 0)).collect();
-                let mut manga_chapters: BTreeSet<Decimal> = BTreeSet::new();
+                let mut manga_chapters: Vec<Decimal> = Vec::new();
 
                 self.process_seen_history(&seen_history, &mut bag, &mut manga_chapters);
                 self.process_manga_chapters(&mut bag, &manga_chapters);
