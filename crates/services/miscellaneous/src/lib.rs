@@ -2691,22 +2691,6 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    async fn get_entities_monitored_by(
-        &self,
-        entity_id: &String,
-        entity_lot: EntityLot,
-    ) -> Result<Vec<String>> {
-        let all_entities = MonitoredEntity::find()
-            .select_only()
-            .column(monitored_entity::Column::UserId)
-            .filter(monitored_entity::Column::EntityId.eq(entity_id))
-            .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
-            .into_tuple::<String>()
-            .all(&self.db)
-            .await?;
-        Ok(all_entities)
-    }
-
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
             get_entities_monitored_by(&event.obj_id, event.entity_lot, &self.db).await?;
