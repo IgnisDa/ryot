@@ -3443,7 +3443,9 @@ impl MiscellaneousService {
                 if *next_chapter != chapter {
                     current_manga_forward += dec!(1);
                 }
-                (chapter.floor() + current_manga_forward).round().to_string()
+                (chapter.floor() + current_manga_forward)
+                    .round()
+                    .to_string()
             };
 
             bag.entry(ep).and_modify(|c| *c += 1);
