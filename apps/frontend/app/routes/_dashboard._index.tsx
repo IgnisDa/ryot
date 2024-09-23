@@ -242,16 +242,6 @@ export default function Page() {
 												type: "number",
 											},
 											{
-												label: "Seasons",
-												value: latestUserSummary.showSeasonCount,
-												type: "number",
-											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.showEpisodeCount,
-												type: "number",
-											},
-											{
 												label: "Runtime",
 												value: latestUserSummary.totalShowDuration,
 												type: "duration",
@@ -336,18 +326,6 @@ export default function Page() {
 												value: latestUserSummary.mangaCount,
 												type: "number",
 											},
-											{
-												label: "Chapters",
-												value: latestUserSummary.mangaChapterCount,
-												type: "number",
-												hideIfZero: true,
-											},
-											{
-												label: "Volumes",
-												value: latestUserSummary.mangaVolumeCount,
-												type: "number",
-												hideIfZero: true,
-											},
 										]}
 									/>
 									<DisplayStatForMediaType
@@ -357,12 +335,6 @@ export default function Page() {
 												label: "Anime",
 												value: latestUserSummary.animeCount,
 												type: "number",
-											},
-											{
-												label: "Episodes",
-												value: latestUserSummary.animeEpisodeCount,
-												type: "number",
-												hideIfZero: true,
 											},
 										]}
 									/>
