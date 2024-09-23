@@ -119,14 +119,6 @@ impl StatisticsService {
                 "total_audio_book_duration",
             )
             .column_as(daily_user_activity::Column::AnimeCount.sum(), "anime_count")
-            .column_as(
-                daily_user_activity::Column::AnimeEpisodeCount.sum(),
-                "anime_episode_count",
-            )
-            .column_as(
-                daily_user_activity::Column::MangaChapterCount.sum(),
-                "manga_chapter_count",
-            )
             .column_as(daily_user_activity::Column::BookCount.sum(), "book_count")
             .column_as(
                 daily_user_activity::Column::BookPages.sum(),
@@ -141,28 +133,12 @@ impl StatisticsService {
                 "total_podcast_duration",
             )
             .column_as(daily_user_activity::Column::MangaCount.sum(), "manga_count")
-            .column_as(
-                daily_user_activity::Column::MangaVolumeCount.sum(),
-                "manga_volume_count",
-            )
-            .column_as(
-                daily_user_activity::Column::MangaChapterCount.sum(),
-                "manga_chapter_count",
-            )
             .column_as(daily_user_activity::Column::MovieCount.sum(), "movie_count")
             .column_as(
                 daily_user_activity::Column::MovieDuration.sum(),
                 "total_movie_duration",
             )
             .column_as(daily_user_activity::Column::ShowCount.sum(), "show_count")
-            .column_as(
-                daily_user_activity::Column::ShowSeasonCount.sum(),
-                "show_season_count",
-            )
-            .column_as(
-                daily_user_activity::Column::ShowEpisodeCount.sum(),
-                "show_episode_count",
-            )
             .column_as(
                 daily_user_activity::Column::ShowDuration.sum(),
                 "total_show_duration",
