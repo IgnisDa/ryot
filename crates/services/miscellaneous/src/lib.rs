@@ -90,7 +90,7 @@ use providers::{
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbService, TmdbShowService},
     vndb::VndbService,
 };
-use rust_decimal::prelude::{One, ToPrimitive, Zero};
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -3432,7 +3432,7 @@ impl MiscellaneousService {
     ) {
         manga_chapters.sort();
 
-        let mut current_manga_forward = Decimal::zero();
+        let mut current_manga_forward = dec!(0);
         let mut iter = manga_chapters.iter().peekable();
 
         while let Some(&chapter) = iter.next() {
@@ -3441,7 +3441,7 @@ impl MiscellaneousService {
             } else {
                 let next_chapter = iter.peek().copied().unwrap_or(&chapter);
                 if *next_chapter != chapter {
-                    current_manga_forward += Decimal::one();
+                    current_manga_forward += dec!(1);
                 }
                 (chapter.floor() + current_manga_forward).round().to_string()
             };
