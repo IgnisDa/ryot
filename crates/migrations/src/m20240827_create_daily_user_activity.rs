@@ -28,19 +28,14 @@ pub enum DailyUserActivity {
     AudioBookCount,
     AudioBookDuration,
     AnimeCount,
-    AnimeEpisodeCount,
     BookCount,
     BookPages,
     PodcastCount,
     PodcastDuration,
     MangaCount,
-    MangaChapterCount,
-    MangaVolumeCount,
     MovieCount,
     MovieDuration,
     ShowCount,
-    ShowSeasonCount,
-    ShowEpisodeCount,
     ShowDuration,
     VideoGameCount,
     VisualNovelCount,
@@ -84,19 +79,14 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::AudioBookCount))
                     .col(integer_not_null(DailyUserActivity::AudioBookDuration))
                     .col(integer_not_null(DailyUserActivity::AnimeCount))
-                    .col(integer_not_null(DailyUserActivity::AnimeEpisodeCount))
                     .col(integer_not_null(DailyUserActivity::BookCount))
                     .col(integer_not_null(DailyUserActivity::BookPages))
                     .col(integer_not_null(DailyUserActivity::PodcastCount))
                     .col(integer_not_null(DailyUserActivity::PodcastDuration))
                     .col(integer_not_null(DailyUserActivity::MangaCount))
-                    .col(integer_not_null(DailyUserActivity::MangaChapterCount))
-                    .col(integer_not_null(DailyUserActivity::MangaVolumeCount))
                     .col(integer_not_null(DailyUserActivity::MovieCount))
                     .col(integer_not_null(DailyUserActivity::MovieDuration))
                     .col(integer_not_null(DailyUserActivity::ShowCount))
-                    .col(integer_not_null(DailyUserActivity::ShowSeasonCount))
-                    .col(integer_not_null(DailyUserActivity::ShowEpisodeCount))
                     .col(integer_not_null(DailyUserActivity::ShowDuration))
                     .col(integer_not_null(DailyUserActivity::VideoGameCount))
                     .col(integer_not_null(DailyUserActivity::VisualNovelCount))

@@ -31,6 +31,7 @@ mod m20240828_zz_add_columns_to_daily_user_activity;
 mod m20240829_change_structure_for_exercise_extra_information;
 mod m20240903_add_changes_for_user_to_collection_removal;
 mod m20240904_create_monitored_entity;
+mod m20240923_remove_extra_columns_for_daily_user_activities;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -82,6 +83,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240829_change_structure_for_exercise_extra_information::Migration),
             Box::new(m20240903_add_changes_for_user_to_collection_removal::Migration),
             Box::new(m20240904_create_monitored_entity::Migration),
+            Box::new(m20240923_remove_extra_columns_for_daily_user_activities::Migration),
         ]
     }
 }
