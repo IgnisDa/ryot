@@ -483,8 +483,7 @@ pub async fn calculate_user_activities_and_summary(
         anime_specifics: Option<AnimeSpecifics>,
         manga_specifics: Option<MangaSpecifics>,
     }
-    type TrackerItem = daily_user_activity::Model;
-    type Tracker = HashMap<Date, TrackerItem>;
+    type Tracker = HashMap<Date, daily_user_activity::Model>;
 
     let start_from = match calculate_from_beginning {
         true => {
@@ -509,7 +508,7 @@ pub async fn calculate_user_activities_and_summary(
         activities: &'a mut Tracker,
         user_id: &'a String,
         date: Date,
-    ) -> &'a mut TrackerItem {
+    ) -> &'a mut daily_user_activity::Model {
         ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
         let existing = activities
             .entry(date)
