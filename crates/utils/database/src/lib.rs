@@ -483,7 +483,6 @@ pub async fn calculate_user_activities_and_summary(
         anime_specifics: Option<AnimeSpecifics>,
         manga_specifics: Option<MangaSpecifics>,
     }
-    type Tracker = HashMap<Date, daily_user_activity::Model>;
 
     let start_from = match calculate_from_beginning {
         true => {
@@ -501,11 +500,11 @@ pub async fn calculate_user_activities_and_summary(
             .map(|i| i.date)
             .unwrap_or_default(),
     };
-    let mut activities: Tracker = HashMap::new();
+    let mut activities = HashMap::new();
 
     fn get_activity_count<'a>(
         entity_id: String,
-        activities: &'a mut Tracker,
+        activities: &'a mut HashMap<Date, daily_user_activity::Model>,
         user_id: &'a String,
         date: Date,
     ) -> &'a mut daily_user_activity::Model {
