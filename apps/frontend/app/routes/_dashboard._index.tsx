@@ -237,7 +237,7 @@ export default function Page() {
 										lot={MediaLot.Show}
 										data={[
 											{
-												label: "Shows",
+												label: "Show episodes",
 												value: latestUserSummary.showCount,
 												type: "number",
 											},
