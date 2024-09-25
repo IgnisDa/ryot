@@ -41,7 +41,9 @@ jobs:
 
             let imageNames = [
               `name=${dockerUsername}/${repositoryName}`,
-              `name=${ghcrRegistry}/${owner}/${repositoryName}`
+              `name=${ghcrRegistry}/${owner}/${repositoryName}`,
+              `name=${dockerUsername}/${repositoryName}-pro`,
+              `name=${ghcrRegistry}/${owner}/${repositoryName}-pro`,
             ];
 
             let shouldRun = 'false';
@@ -67,6 +69,32 @@ jobs:
             core.setOutput('should-release', shouldRelease);
 
             core.setOutput('image-names', imageNames.join('\n'));
+
+  create-release:
+    needs:
+      - pre-workflow-checks
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate changelog
+        id: changelog
+        uses: metcalfc/changelog-generator@v4.3.1
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: |
+            ## What's Changed
+            ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-transactional:
     needs: pre-workflow-checks
@@ -209,3 +237,71 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
+
+  upload-kodi-plugin:
+    needs:
+      - pre-workflow-checks
+      - build-docker
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
+    runs-on: ubuntu-20.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MOON_TOOLCHAIN_FORCE_GLOBALS: true
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Moon
+        uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - name: Set up Node.js and caching
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+      - name: Build plugin
+        run: moon run kodi:build
+      - name: Upload plugin to releases
+        run: gh release upload --clobber ${{ github.ref_name }} "tmp/script.ryot.zip"
+
+  deploy-demo-instance:
+    needs:
+      - pre-workflow-checks
+      - build-docker
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        run: flyctl deploy --remote-only --detach --config ci/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-docs:
+    needs:
+      - pre-workflow-checks
+      - build-docker
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+      - name: Install dependencies
+        run: cd docs && poetry install
+      - name: Build docs
+        run: cd docs && poetry run mkdocs build
+      - name: Push to deployment branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/site
+          publish_branch: nf-docs
+          force_orphan: true
