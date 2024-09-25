@@ -1475,6 +1475,7 @@ pub struct UpdateSeenItemInput {
     pub seen_id: String,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
+    pub manual_time_spent: Option<Decimal>,
     pub provider_watched_on: Option<String>,
 }
 

@@ -154,6 +154,7 @@ pub struct MiscellaneousService {
 }
 
 impl MiscellaneousService {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         is_pro: bool,
         oidc_enabled: bool,
@@ -1980,6 +1981,9 @@ ORDER BY RANDOM() LIMIT 10;
         }
         if let Some(provider_watched_on) = input.provider_watched_on {
             seen.provider_watched_on = ActiveValue::Set(Some(provider_watched_on));
+        }
+        if let Some(manual_time_spent) = input.manual_time_spent {
+            seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
         }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;

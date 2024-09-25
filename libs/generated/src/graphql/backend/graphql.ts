@@ -2064,6 +2064,7 @@ export type UpdateCustomExerciseInput = {
 
 export type UpdateSeenItemInput = {
   finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+  manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
   startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
