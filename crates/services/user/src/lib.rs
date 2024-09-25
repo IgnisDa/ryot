@@ -233,7 +233,11 @@ impl UserService {
     pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
         let users = User::find()
             .apply_if(query, |query, value| {
-                query.filter(Expr::col(user::Column::Name).ilike(ilike_sql(&value)))
+                query.filter(
+                    Expr::col(user::Column::Name)
+                        .ilike(ilike_sql(&value))
+                        .or(Expr::col(user::Column::Id).ilike(ilike_sql(&value))),
+                )
             })
             .order_by_asc(user::Column::Name)
             .all(&self.db)
