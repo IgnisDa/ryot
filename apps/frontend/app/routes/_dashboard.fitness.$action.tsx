@@ -1120,6 +1120,14 @@ const ExerciseDisplay = (props: {
 															entityId={history.workoutId}
 															entityType={FitnessEntity.Workouts}
 															onCopyButtonClick={async () => {
+																if (!coreDetails.isPro) {
+																	notifications.show({
+																		color: "red",
+																		message:
+																			"Ryot Pro required to copy sets from other workouts",
+																	});
+																	return;
+																}
 																const workout = await getWorkoutDetails(
 																	history.workoutId,
 																);

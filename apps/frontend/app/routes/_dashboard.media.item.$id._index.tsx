@@ -31,6 +31,7 @@ import {
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -99,6 +100,7 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
+	ProRequiredAlert,
 	ReviewItemDisplay,
 } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
@@ -111,6 +113,7 @@ import { Verb, dayjsLib, getVerb, reviewYellow } from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
+	useCoreDetails,
 	useGetMantineColor,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -1245,6 +1248,7 @@ const EditHistoryRecordModal = (props: {
 	onClose: () => void;
 	seen: History;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
 	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
 		props.seen;
 	const [mtv, mts] = manualTimeSpent
@@ -1261,7 +1265,7 @@ const EditHistoryRecordModal = (props: {
 	const [manualTimeSpentScale, setManualTimeSpentScale] = useState(mts);
 	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
 	const userPreferences = useUserPreferences();
-	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 
 	return (
 		<Modal
@@ -1294,32 +1298,40 @@ const EditHistoryRecordModal = (props: {
 						label="Time spent"
 						description="How much time did you actually spend on this media? You can also adjust the scale"
 					>
-						<Group mt="xs">
-							<Slider
-								flex={1}
-								label={null}
-								value={manualTimeSpentValue}
-								onChange={setManualTimeSpentValue}
-							/>
-							<NumberInput
-								w="20%"
-								max={10}
-								size="xs"
-								value={manualTimeSpentScale}
-								onChange={(v) => setManualTimeSpentScale(Number(v))}
-							/>
-						</Group>
-						<Text c="dimmed" size="sm" ta="center" mt="xs">
-							{humanizeDuration(manualTimeSpentInMinutes * 1000)}
-						</Text>
-						{manualTimeSpentInMinutes > 0 ? (
-							<input
-								hidden
-								readOnly
-								name="manualTimeSpent"
-								value={manualTimeSpentInMinutes}
-							/>
-						) : null}
+						<Box mt="xs">
+							{coreDetails.isPro ? (
+								<>
+									<Group>
+										<Slider
+											flex={1}
+											label={null}
+											value={manualTimeSpentValue}
+											onChange={setManualTimeSpentValue}
+										/>
+										<NumberInput
+											w="20%"
+											max={10}
+											size="xs"
+											value={manualTimeSpentScale}
+											onChange={(v) => setManualTimeSpentScale(Number(v))}
+										/>
+									</Group>
+									<Text c="dimmed" size="sm" ta="center" mt="xs">
+										{humanizeDuration(manualTimeSpentInMinutes * 1000)}
+									</Text>
+									{manualTimeSpentInMinutes > 0 ? (
+										<input
+											hidden
+											readOnly
+											name="manualTimeSpent"
+											value={manualTimeSpentInMinutes}
+										/>
+									) : null}
+								</>
+							) : (
+								<ProRequiredAlert tooltipLabel="Track time spent on media" />
+							)}
+						</Box>
 					</Input.Wrapper>
 					<Select
 						data={userPreferences.general.watchProviders}
@@ -1377,6 +1389,7 @@ const HistoryItem = (props: {
 	setTab: (tab: string) => void;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
@@ -1390,6 +1403,13 @@ const HistoryItem = (props: {
 				)
 		: null;
 	const scrollToEpisode = (index?: number) => {
+		if (!coreDetails.isPro) {
+			notifications.show({
+				color: "red",
+				message: "Ryot Pro is required to jump to episodes",
+			});
+			return;
+		}
 		props.setTab("podcastEpisodes");
 		if (!isNumber(index)) return;
 		setTimeout(() => {

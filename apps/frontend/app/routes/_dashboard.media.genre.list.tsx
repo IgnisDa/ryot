@@ -23,12 +23,16 @@ import {
 	GenresListDocument,
 	type GenresListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isString, truncate } from "@ryot/ts-utils";
+import { getInitials, isString, truncate } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
-import { ApplicationGrid, DebouncedSearchInput } from "~/components/common";
+import {
+	ApplicationGrid,
+	DebouncedSearchInput,
+	ProRequiredAlert,
+} from "~/components/common";
 import {
 	clientGqlService,
 	dayjsLib,
@@ -37,7 +41,12 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import { pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useGetMantineColor } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useCoreDetails,
+	useFallbackImageUrl,
+	useGetMantineColor,
+} from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -123,7 +132,9 @@ export default function Page() {
 type Genre = GenresListQuery["genresList"]["items"][number];
 
 const DisplayGenre = (props: { genre: Genre }) => {
+	const coreDetails = useCoreDetails();
 	const getMantineColor = useGetMantineColor();
+	const fallbackImageUrl = useFallbackImageUrl(getInitials(props.genre.name));
 	const { data: genreImages } = useQuery({
 		queryKey: queryFactory.media.genreImages(props.genre.id).queryKey,
 		queryFn: async () => {
@@ -152,19 +163,33 @@ const DisplayGenre = (props: { genre: Genre }) => {
 		>
 			<Stack gap={4}>
 				<Box pos="relative">
-					<Paper radius="md" style={{ overflow: "hidden" }}>
-						<Flex h={260} w={168} wrap="wrap">
-							{genreImages?.map((image) => (
-								<Image
-									h={genreImages.length === 1 ? "auto" : 130}
-									w={genreImages.length === 1 ? "auto" : 84}
-									key={image}
-									src={image}
-									alt={props.genre.name}
-								/>
-							))}
-						</Flex>
-					</Paper>
+					{coreDetails.isPro ? (
+						<Paper radius="md" style={{ overflow: "hidden" }}>
+							<Flex h={260} w={168} wrap="wrap">
+								{genreImages?.map((image) => (
+									<Image
+										h={genreImages.length === 1 ? "auto" : 130}
+										w={genreImages.length === 1 ? "auto" : 84}
+										key={image}
+										src={image}
+										alt={props.genre.name}
+									/>
+								))}
+							</Flex>
+						</Paper>
+					) : (
+						<>
+							<Image
+								radius="md"
+								h={260}
+								alt={props.genre.name}
+								fallbackSrc={fallbackImageUrl}
+							/>
+							<Box pos="absolute" left={0} right={0} bottom={0}>
+								<ProRequiredAlert tooltipLabel="Collage image using genre contents" />
+							</Box>
+						</>
+					)}
 				</Box>
 				<Group justify="center">
 					<Box

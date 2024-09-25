@@ -55,7 +55,7 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import { ApplicationGrid } from "~/components/common";
+import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import { MetadataDisplayItem } from "~/components/media";
@@ -69,6 +69,7 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
+	useCoreDetails,
 	useDashboardLayoutData,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -166,6 +167,7 @@ const MediaColors: EntityColor = {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
@@ -216,11 +218,15 @@ export default function Page() {
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<Title>Recommendations</Title>
-								<ApplicationGrid>
-									{loaderData.userRecommendations.map((lm) => (
-										<MetadataDisplayItem key={lm} metadataId={lm} />
-									))}
-								</ApplicationGrid>
+								{coreDetails.isPro ? (
+									<ApplicationGrid>
+										{loaderData.userRecommendations.map((lm) => (
+											<MetadataDisplayItem key={lm} metadataId={lm} />
+										))}
+									</ApplicationGrid>
+								) : (
+									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+								)}
 							</Section>
 						))
 						.with([DashboardElementLot.Activity, false], ([v, _]) => (
@@ -229,11 +235,8 @@ export default function Page() {
 								<ActivitySection />
 							</Section>
 						))
-						.with([DashboardElementLot.Summary, false], () => (
-							<Section
-								key={DashboardElementLot.Summary}
-								lot={DashboardElementLot.Summary}
-							>
+						.with([DashboardElementLot.Summary, false], ([v, _]) => (
+							<Section key={v} lot={v}>
 								<Title>Summary</Title>
 								<SimpleGrid
 									cols={{ base: 1, sm: 2, md: 3 }}
