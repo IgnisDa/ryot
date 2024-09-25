@@ -76,11 +76,6 @@ impl IntegrationService {
         integration_type: IntegrationType,
     ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
         match integration_type {
-            IntegrationType::Komga(base_url, username, password, provider) => {
-                let komga =
-                    KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
-                komga.yank_progress().await
-            }
             IntegrationType::Jellyfin(payload) => {
                 let jellyfin = JellyfinIntegration::new(payload);
                 jellyfin.yank_progress().await
@@ -114,6 +109,11 @@ impl IntegrationService {
                 let audiobookshelf =
                     AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
                 audiobookshelf.yank_progress(commit_metadata).await
+            }
+            IntegrationType::Komga(base_url, username, password, provider) => {
+                let komga =
+                    KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
+                komga.yank_progress().await
             }
             _ => Err(anyhow::anyhow!("Unsupported integration type")),
         }

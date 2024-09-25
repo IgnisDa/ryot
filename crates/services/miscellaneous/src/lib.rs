@@ -3015,33 +3015,24 @@ impl MiscellaneousService {
                 ryot_log!(debug, "Integration {} is disabled", integration.id);
                 continue;
             }
-            let response = match integration.provider {
-                IntegrationProvider::Audiobookshelf => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
-                    integration_service
-                        .process_progress_commit(
-                            IntegrationType::Audiobookshelf(
-                                specifics.audiobookshelf_base_url.unwrap(),
-                                specifics.audiobookshelf_token.unwrap(),
-                                self.get_isbn_service().await.unwrap(),
-                            ),
-                            |input| self.commit_metadata(input),
-                        )
-                        .await
-                }
-                IntegrationProvider::Komga => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
-                    integration_service
-                        .process_progress(IntegrationType::Komga(
-                            specifics.komga_base_url.unwrap(),
-                            specifics.komga_username.unwrap(),
-                            specifics.komga_password.unwrap(),
-                            specifics.komga_provider.unwrap(),
-                        ))
-                        .await
-                }
+            let specifics = integration.clone().provider_specifics.unwrap();
+            let integration_input = match integration.provider {
+                IntegrationProvider::Audiobookshelf => IntegrationType::Audiobookshelf(
+                    specifics.audiobookshelf_base_url.unwrap(),
+                    specifics.audiobookshelf_token.unwrap(),
+                    self.get_isbn_service().await.unwrap(),
+                ),
+                IntegrationProvider::Komga => IntegrationType::Komga(
+                    specifics.komga_base_url.unwrap(),
+                    specifics.komga_username.unwrap(),
+                    specifics.komga_password.unwrap(),
+                    specifics.komga_provider.unwrap(),
+                ),
                 _ => continue,
             };
+            let response = integration_service
+                .process_progress_commit(integration_input, |input| self.commit_metadata(input))
+                .await;
             if let Ok((seen_progress, collection_progress)) = response {
                 collection_updates.extend(collection_progress);
                 to_update_integrations.push(integration.id.clone());
