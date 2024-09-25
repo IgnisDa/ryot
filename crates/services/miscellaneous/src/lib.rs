@@ -3112,21 +3112,26 @@ ORDER BY RANDOM() LIMIT 10;
                 ryot_log!(debug, "Integration {} is disabled", integration.id);
                 continue;
             }
-            let specifics = integration.clone().provider_specifics.unwrap();
             let integration_input = match integration.provider {
-                IntegrationProvider::Audiobookshelf => IntegrationType::Audiobookshelf(
-                    specifics.audiobookshelf_base_url.unwrap(),
-                    specifics.audiobookshelf_token.unwrap(),
-                    integration.sync_to_owned_collection,
-                    self.get_isbn_service().await.unwrap(),
-                ),
-                IntegrationProvider::Komga => IntegrationType::Komga(
-                    specifics.komga_base_url.unwrap(),
-                    specifics.komga_username.unwrap(),
-                    specifics.komga_password.unwrap(),
-                    specifics.komga_provider.unwrap(),
-                    integration.sync_to_owned_collection,
-                ),
+                IntegrationProvider::Audiobookshelf => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+                    IntegrationType::Audiobookshelf(
+                        specifics.audiobookshelf_base_url.unwrap(),
+                        specifics.audiobookshelf_token.unwrap(),
+                        integration.sync_to_owned_collection,
+                        self.get_isbn_service().await.unwrap(),
+                    )
+                }
+                IntegrationProvider::Komga => {
+                    let specifics = integration.clone().provider_specifics.unwrap();
+                    IntegrationType::Komga(
+                        specifics.komga_base_url.unwrap(),
+                        specifics.komga_username.unwrap(),
+                        specifics.komga_password.unwrap(),
+                        specifics.komga_provider.unwrap(),
+                        integration.sync_to_owned_collection,
+                    )
+                }
                 _ => continue,
             };
             let response = integration_service
