@@ -16,7 +16,7 @@ use database_models::{
     user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    add_entity_to_collection, entity_in_collections, ilike_sql, item_reviews,
+    add_entity_to_collection, entity_in_collections, ilike_sql, item_reviews, pro_instance_guard,
     user_measurements_list, workout_details, workout_template_details,
 };
 use dependent_models::{
@@ -72,6 +72,7 @@ const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
 ];
 
 pub struct ExerciseService {
+    is_pro: bool,
     db: DatabaseConnection,
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
@@ -81,6 +82,7 @@ pub struct ExerciseService {
 
 impl ExerciseService {
     pub fn new(
+        is_pro: bool,
         db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
@@ -89,6 +91,7 @@ impl ExerciseService {
     ) -> Self {
         Self {
             config,
+            is_pro,
             db: db.clone(),
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
@@ -138,6 +141,7 @@ impl ExerciseService {
         user_id: String,
         input: UserWorkoutInput,
     ) -> Result<String> {
+        pro_instance_guard(self.is_pro).await?;
         let mut summary = WorkoutSummary {
             total: None,
             exercises: vec![],
@@ -213,6 +217,7 @@ impl ExerciseService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<bool> {
+        pro_instance_guard(self.is_pro).await?;
         if let Some(wkt) = WorkoutTemplate::find_by_id(workout_template_id)
             .filter(workout_template::Column::UserId.eq(&user_id))
             .one(&self.db)

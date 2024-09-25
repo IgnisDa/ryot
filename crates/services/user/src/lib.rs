@@ -226,6 +226,7 @@ impl UserService {
     }
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
+        pro_instance_guard(self.is_pro).await?;
         revoke_access_link(&self.db, access_link_id).await
     }
 

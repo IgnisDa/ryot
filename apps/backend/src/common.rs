@@ -67,6 +67,7 @@ pub async fn create_app_services(
         config.file_storage.s3_bucket_name.clone(),
     ));
     let exercise_service = Arc::new(ExerciseService::new(
+        is_pro,
         &db,
         config.clone(),
         file_storage_service.clone(),
