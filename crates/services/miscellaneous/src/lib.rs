@@ -3004,6 +3004,7 @@ impl MiscellaneousService {
         }
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
+            .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .all(&self.db)
             .await?;
         let mut progress_updates = vec![];
@@ -3015,24 +3016,19 @@ impl MiscellaneousService {
                 ryot_log!(debug, "Integration {} is disabled", integration.id);
                 continue;
             }
+            let specifics = integration.clone().provider_specifics.unwrap();
             let integration_input = match integration.provider {
-                IntegrationProvider::Audiobookshelf => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
-                    IntegrationType::Audiobookshelf(
-                        specifics.audiobookshelf_base_url.unwrap(),
-                        specifics.audiobookshelf_token.unwrap(),
-                        self.get_isbn_service().await.unwrap(),
-                    )
-                }
-                IntegrationProvider::Komga => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
-                    IntegrationType::Komga(
-                        specifics.komga_base_url.unwrap(),
-                        specifics.komga_username.unwrap(),
-                        specifics.komga_password.unwrap(),
-                        specifics.komga_provider.unwrap(),
-                    )
-                }
+                IntegrationProvider::Audiobookshelf => IntegrationType::Audiobookshelf(
+                    specifics.audiobookshelf_base_url.unwrap(),
+                    specifics.audiobookshelf_token.unwrap(),
+                    self.get_isbn_service().await.unwrap(),
+                ),
+                IntegrationProvider::Komga => IntegrationType::Komga(
+                    specifics.komga_base_url.unwrap(),
+                    specifics.komga_username.unwrap(),
+                    specifics.komga_password.unwrap(),
+                    specifics.komga_provider.unwrap(),
+                ),
                 _ => continue,
             };
             let response = integration_service
