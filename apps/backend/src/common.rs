@@ -53,6 +53,7 @@ pub struct AppServices {
 
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
+    is_pro: bool,
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
@@ -81,6 +82,7 @@ pub async fn create_app_services(
     ));
     let miscellaneous_service = Arc::new(
         MiscellaneousService::new(
+            is_pro,
             oidc_client.is_some(),
             &db,
             timezone.clone(),

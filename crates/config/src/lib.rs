@@ -370,7 +370,6 @@ pub struct ServerConfig {
     #[setting(nested)]
     pub oidc: OidcConfig,
     /// The pro key assigned to the user.
-    #[setting(validate = not_empty)]
     pub pro_key: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]

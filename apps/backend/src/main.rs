@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
 
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
-    verify_pro_key(&config.server.pro_key, &compile_timestamp).await?;
+    let is_pro = check_if_pro_license_available(&config.server.pro_key, &compile_timestamp).await;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -121,6 +121,7 @@ async fn main() -> Result<()> {
     ryot_log!(info, "Timezone: {}", tz);
 
     let app_services = create_app_services(
+        is_pro,
         db.clone(),
         s3_client,
         config,
@@ -297,8 +298,7 @@ fn init_tracing() -> Result<()> {
 }
 
 #[tracing::instrument(skip_all)]
-async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Result<()> {
-    use anyhow::anyhow;
+async fn check_if_pro_license_available(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
     use chrono::NaiveDate;
     use serde::{Deserialize, Serialize};
     use serde_with::skip_serializing_none;
@@ -311,6 +311,10 @@ async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Resu
 
     ryot_log!(debug, "Verifying pro key for API ID: {}", API_ID);
 
+    if pro_key.is_empty() {
+        return false;
+    }
+
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Clone, Deserialize)]
     struct Meta {
@@ -319,26 +323,33 @@ async fn verify_pro_key(pro_key: &str, compilation_time: &DateTime<Utc>) -> Resu
 
     let unkey_client = Client::new("public");
     let verify_request = VerifyKeyRequest::new(pro_key, API_ID);
-    let verify_response = unkey_client
-        .verify_key(verify_request)
-        .await
-        .map_err(|e| anyhow!("Error verifying key").context(e.message))?;
-    if !verify_response.valid {
-        bail!("Pro key is no longer valid.");
-    }
-    let key_meta = verify_response
+    let validated_key = match unkey_client.verify_key(verify_request).await {
+        Ok(verify_response) => {
+            if !verify_response.valid {
+                ryot_log!(debug, "Pro key is no longer valid.");
+                return false;
+            }
+            verify_response
+        }
+        Err(verify_error) => {
+            ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
+            return false;
+        }
+    };
+    let key_meta = validated_key
         .meta
         .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
     ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
     if let Some(meta) = key_meta {
         if let Some(expiry) = meta.expiry {
             if compilation_time > &convert_naive_to_utc(expiry) {
-                bail!("Pro key has expired. Please renew your subscription or downgrade to a version released before {}.", expiry.format("%v"));
+                ryot_log!(warn, "Pro key has expired. Please renew your subscription or downgrade to a version released before {}.", expiry.format("%v"));
+                return false;
             }
         }
     }
     ryot_log!(info, "Pro key verified successfully");
-    Ok(())
+    true
 }
 
 // upgrade from v6 ONLY IF APPLICABLE

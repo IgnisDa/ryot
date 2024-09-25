@@ -142,6 +142,7 @@ impl fmt::Display for ProgressUpdateCache {
 }
 
 pub struct MiscellaneousService {
+    is_pro: bool,
     oidc_enabled: bool,
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
@@ -154,6 +155,7 @@ pub struct MiscellaneousService {
 
 impl MiscellaneousService {
     pub async fn new(
+        is_pro: bool,
         oidc_enabled: bool,
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
@@ -178,6 +180,7 @@ impl MiscellaneousService {
 
         Self {
             config,
+            is_pro,
             timezone,
             oidc_enabled,
             db: db.clone(),
@@ -291,7 +294,7 @@ ORDER BY RANDOM() LIMIT 10;
             files_enabled = false;
         }
         CoreDetails {
-            is_pro: true,
+            is_pro: self.is_pro,
             version: VERSION.to_owned(),
             file_storage_enabled: files_enabled,
             oidc_enabled: self.oidc_enabled,
