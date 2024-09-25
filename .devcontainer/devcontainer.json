@@ -1,9 +1,8 @@
 {
-	"name": "ryot-pro",
+	"name": "ryot",
 	"dockerComposeFile": "docker-compose.yml",
-	"service": "ryot-pro-app",
+	"service": "ryot-app",
 	"forwardPorts": [],
-	"workspaceFolder": "/workspaces/ryot-pro",
-	"postCreateCommand": ". ${containerWorkspaceFolder}/.devcontainer/scripts/post-create.sh",
+	"workspaceFolder": "/workspaces/ryot",
 	"remoteUser": "archlinux"
 }
