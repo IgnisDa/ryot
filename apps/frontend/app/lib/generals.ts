@@ -63,6 +63,7 @@ export const redirectToQueryParam = "redirectTo";
 export const pageQueryParam = "page";
 export const AUTH_COOKIE_NAME = "Auth";
 export const toastKey = "Toast";
+export const PRO_REQUIRED_MESSAGE = "Ryot pro is required to use this feature";
 
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },

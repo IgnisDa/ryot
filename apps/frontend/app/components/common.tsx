@@ -68,6 +68,7 @@ import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
+	PRO_REQUIRED_MESSAGE,
 	ThreePointSmileyRating,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
@@ -294,12 +295,7 @@ export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 	return !coreDetails.isPro ? (
 		<Alert>
 			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
-				<Text size="xs">
-					<Anchor href={coreDetails.websiteUrl} target="_blank">
-						Ryot Pro
-					</Anchor>{" "}
-					required to use this feature
-				</Text>
+				<Text size="xs">{PRO_REQUIRED_MESSAGE}</Text>
 			</Tooltip>
 		</Alert>
 	) : null;

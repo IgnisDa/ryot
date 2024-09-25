@@ -73,6 +73,7 @@ import { zx } from "zodix";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
+	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	dayjsLib,
 	getPartialMetadataDetailsQuery,
@@ -554,10 +555,7 @@ const CreateOrUpdateModal = (props: {
 					}
 					autosize
 				/>
-				<Tooltip
-					label="Ryot pro required to use this feature"
-					disabled={coreDetails.isPro}
-				>
+				<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
 					<MultiSelect
 						name="collaborators"
 						description="Add collaborators to this collection"
@@ -584,7 +582,7 @@ const CreateOrUpdateModal = (props: {
 									if (!coreDetails.isPro) {
 										notifications.show({
 											color: "red",
-											message: "Ryot pro is required to use this feature",
+											message: PRO_REQUIRED_MESSAGE,
 										});
 										return;
 									}
