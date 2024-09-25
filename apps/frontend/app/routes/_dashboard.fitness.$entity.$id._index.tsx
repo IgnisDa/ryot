@@ -237,6 +237,7 @@ export default function Page() {
 		const workout = await duplicateOldWorkout(
 			loaderData.information,
 			loaderData.entityName,
+			coreDetails,
 			repeatedFromId,
 			templateId,
 			updateWorkoutTemplateId,

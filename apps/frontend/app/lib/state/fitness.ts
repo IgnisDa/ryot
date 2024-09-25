@@ -30,6 +30,7 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
+import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
@@ -168,6 +169,7 @@ export const convertHistorySetToCurrentSet = (
 export const duplicateOldWorkout = async (
 	workoutInformation: WorkoutInformation,
 	name: string,
+	coreDetails: ReturnType<typeof useCoreDetails>,
 	repeatedFromId?: string,
 	templateId?: string,
 	updateWorkoutTemplateId?: string,
@@ -199,8 +201,9 @@ export const duplicateOldWorkout = async (
 				? { duration: defaultRestTime, enabled: true }
 				: null,
 			sets: sets,
-			openedDetailsTab:
-				(exerciseDetails.userDetails.history?.length || 0) > 0
+			openedDetailsTab: !coreDetails.isPro
+				? "images"
+				: (exerciseDetails.userDetails.history?.length || 0) > 0
 					? "history"
 					: "images",
 		});

@@ -1169,6 +1169,13 @@ const ExerciseDisplay = (props: {
 										pos="absolute"
 										p={2}
 										onClick={() => {
+											if (!coreDetails.isPro) {
+												notifications.show({
+													color: "red",
+													message: PRO_REQUIRED_MESSAGE,
+												});
+												return;
+											}
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
 													draft.exercises[props.exerciseIdx].openedDetailsTab =
