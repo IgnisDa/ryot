@@ -43,6 +43,7 @@ import {
 	IconPlayerPlay,
 	IconRepeat,
 	IconRun,
+	IconTemplate,
 	IconTrash,
 	IconTrophy,
 	IconWeight,
@@ -360,7 +361,7 @@ export default function Page() {
 													}
 													performDecision(FitnessEntity.Templates);
 												}}
-												leftSection={<IconRepeat size={14} />}
+												leftSection={<IconTemplate size={14} />}
 											>
 												Create template
 											</Menu.Item>
