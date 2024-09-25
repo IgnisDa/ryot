@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 )]
 #[sea_orm(table_name = "workout_template")]
 #[graphql(name = "WorkoutTemplate")]
+#[schematic(rename = "WorkoutTemplate", rename_all = "snake_case")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: String,

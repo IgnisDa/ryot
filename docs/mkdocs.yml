@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: Ryot Documentation
+site_url: https://docs.ryot.io
+site_description: Ryot Documentation
+repo_url: https://github.com/ignisda/ryot
+dev_addr: 0.0.0.0:8000
+docs_dir: content
+
+theme:
+  name: material
+  language: en
+  logo: https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png
+  favicon: https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+      primary: indigo
+      accent: indigo
+    - scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - content.code.copy
+    - search.highlight
+    - search.share
+
+plugins:
+  - awesome-pages
+  - macros:
+      include_dir: includes
+  - offline
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tilde
+
+extra:
+  file_path: https://github.com/ignisda/ryot/tree/main
+  main_website_url: https://ryot.io

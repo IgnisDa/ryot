@@ -46,6 +46,8 @@ use crate::{
 mod common;
 mod job;
 
+static BASE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+
 #[tokio::main]
 async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
@@ -142,6 +144,38 @@ async fn main() -> Result<()> {
             .enqueue(ApplicationJob::UpdateExerciseLibrary)
             .await
             .unwrap();
+    }
+
+    if cfg!(debug_assertions) {
+        use dependent_models::CompleteExport;
+        use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
+
+        // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
+        let base_dir = PathBuf::from(BASE_DIR)
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("docs")
+            .join("includes");
+
+        let mut generator = SchemaGenerator::default();
+        generator.add::<config::AppConfig>();
+        generator
+            .generate(
+                base_dir.join("backend-config-schema.yaml"),
+                YamlTemplateRenderer::default(),
+            )
+            .ok();
+
+        let mut generator = SchemaGenerator::default();
+        generator.add::<CompleteExport>();
+        generator
+            .generate(
+                base_dir.join("export-schema.ts"),
+                TypeScriptRenderer::default(),
+            )
+            .ok();
     }
 
     let port = env::var("BACKEND_PORT")
