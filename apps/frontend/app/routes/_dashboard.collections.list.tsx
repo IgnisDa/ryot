@@ -19,6 +19,7 @@ import {
 	TextInput,
 	Textarea,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import {
 	useDidUpdate,
@@ -26,6 +27,7 @@ import {
 	useHover,
 	useListState,
 } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -68,7 +70,7 @@ import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
-import { DebouncedSearchInput } from "~/components/common";
+import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	clientGqlService,
@@ -79,6 +81,7 @@ import {
 } from "~/lib/generals";
 import {
 	useConfirmSubmit,
+	useCoreDetails,
 	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,
@@ -288,6 +291,7 @@ const DisplayCollection = (props: {
 	openModal: () => void;
 }) => {
 	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
@@ -339,6 +343,10 @@ const DisplayCollection = (props: {
 			`${props.collection.collaborators.length} collaborators`,
 		);
 
+	const FallBackImage = () => (
+		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />
+	);
+
 	return (
 		<Paper
 			pr="md"
@@ -356,28 +364,31 @@ const DisplayCollection = (props: {
 					pos="relative"
 					style={{ overflow: "hidden" }}
 				>
-					{collectionImages && collectionImages.length > 0 ? (
-						collectionImages.map((image, index) => {
-							const shouldCollapse = index < currentlyHovered;
-							return (
-								<CollectionImageDisplay
-									key={image}
-									image={image}
-									index={index}
-									shouldCollapse={shouldCollapse}
-									setHoveredState={setHoveredState}
-									totalImages={collectionImages.length}
-								/>
-							);
-						})
+					{coreDetails.isPro ? (
+						collectionImages && collectionImages.length > 0 ? (
+							collectionImages.map((image, index) => {
+								const shouldCollapse = index < currentlyHovered;
+								return (
+									<CollectionImageDisplay
+										key={image}
+										image={image}
+										index={index}
+										shouldCollapse={shouldCollapse}
+										setHoveredState={setHoveredState}
+										totalImages={collectionImages.length}
+									/>
+								);
+							})
+						) : (
+							<FallBackImage />
+						)
 					) : (
-						<Image
-							src={fallbackImageUrl}
-							h="100%"
-							flex="none"
-							mx="auto"
-							radius="md"
-						/>
+						<>
+							<FallBackImage />
+							<Box pos="absolute" left={0} right={0} bottom={0}>
+								<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
+							</Box>
+						</>
 					)}
 				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
@@ -501,6 +512,7 @@ const CreateOrUpdateModal = (props: {
 	toUpdateCollection: UpdateCollectionInput | undefined;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const [informationTemplate, setInformationTemplate] =
@@ -542,19 +554,25 @@ const CreateOrUpdateModal = (props: {
 					}
 					autosize
 				/>
-				<MultiSelect
-					name="collaborators"
-					description="Add collaborators to this collection"
-					searchable
-					defaultValue={(props.toUpdateCollection?.collaborators || []).map(
-						(c) => c.id,
-					)}
-					data={loaderData.usersList.map((u) => ({
-						value: u.id,
-						label: u.name,
-						disabled: u.id === userDetails.id,
-					}))}
-				/>
+				<Tooltip
+					label="Ryot pro required to use this feature"
+					disabled={coreDetails.isPro}
+				>
+					<MultiSelect
+						name="collaborators"
+						description="Add collaborators to this collection"
+						searchable
+						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
+							(c) => c.id,
+						)}
+						data={loaderData.usersList.map((u) => ({
+							value: u.id,
+							label: u.name,
+							disabled: u.id === userDetails.id,
+						}))}
+						disabled={!coreDetails.isPro}
+					/>
+				</Tooltip>
 				<Input.Wrapper
 					labelProps={{ w: "100%" }}
 					label={
@@ -562,13 +580,20 @@ const CreateOrUpdateModal = (props: {
 							<Input.Label size="xs">Information template</Input.Label>
 							<Anchor
 								size="xs"
-								onClick={() =>
+								onClick={() => {
+									if (!coreDetails.isPro) {
+										notifications.show({
+											color: "red",
+											message: "Ryot pro is required to use this feature",
+										});
+										return;
+									}
 									setInformationTemplate.append({
 										name: "",
 										description: "",
 										lot: CollectionExtraInformationLot.String,
-									})
-								}
+									});
+								}}
 							>
 								Add field
 							</Anchor>
