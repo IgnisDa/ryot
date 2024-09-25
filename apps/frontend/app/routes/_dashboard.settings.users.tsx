@@ -237,11 +237,10 @@ export default function Page() {
 					</Form>
 				</Modal>
 				<DebouncedSearchInput
-					placeholder="Search for users"
+					placeholder="Search by name or ID"
 					initialValue={loaderData.query.query}
 					enhancedQueryParams={loaderData.cookieName}
 				/>
-
 				<VirtuosoGrid
 					components={{
 						List: forwardRef((props, ref) => (
