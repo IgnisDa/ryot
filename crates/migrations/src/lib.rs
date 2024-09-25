@@ -37,6 +37,7 @@ mod m20240903_add_changes_for_user_to_collection_removal;
 mod m20240904_create_monitored_entity;
 mod m20240918_add_default_rest_timer_to_workout_template;
 mod m20240923_remove_extra_columns_for_daily_user_activities;
+mod m20240926_add_columns_for_open_sourcing_pro_version;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -94,6 +95,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240904_create_monitored_entity::Migration),
             Box::new(m20240918_add_default_rest_timer_to_workout_template::Migration),
             Box::new(m20240923_remove_extra_columns_for_daily_user_activities::Migration),
+            Box::new(m20240926_add_columns_for_open_sourcing_pro_version::Migration),
         ]
     }
 }
