@@ -15,8 +15,8 @@ use database_models::{
 };
 use database_utils::{
     admin_account_guard, create_or_update_collection,
-    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, revoke_access_link, user_by_id,
-    user_preferences_by_id,
+    deploy_job_to_calculate_user_activities_and_summary, ilike_sql, pro_instance_guard,
+    revoke_access_link, user_by_id, user_preferences_by_id,
 };
 use dependent_models::UserDetailsResult;
 use enum_meta::Meta;
@@ -58,6 +58,7 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
 
 #[derive(Debug)]
 pub struct UserService {
+    is_pro: bool,
     db: DatabaseConnection,
     config: Arc<config::AppConfig>,
     oidc_client: Arc<Option<CoreClient>>,
@@ -66,6 +67,7 @@ pub struct UserService {
 
 impl UserService {
     pub fn new(
+        is_pro: bool,
         db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
@@ -73,6 +75,7 @@ impl UserService {
     ) -> Self {
         Self {
             config,
+            is_pro,
             oidc_client,
             db: db.clone(),
             perform_application_job: perform_application_job.clone(),
@@ -131,6 +134,7 @@ impl UserService {
         input: CreateAccessLinkInput,
         user_id: String,
     ) -> Result<StringIdObject> {
+        pro_instance_guard(self.is_pro).await?;
         let new_link = access_link::ActiveModel {
             user_id: ActiveValue::Set(user_id),
             name: ActiveValue::Set(input.name),

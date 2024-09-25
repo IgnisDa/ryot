@@ -104,6 +104,15 @@ pub async fn admin_account_guard(db: &DatabaseConnection, user_id: &String) -> R
     Ok(())
 }
 
+pub async fn pro_instance_guard(is_pro: bool) -> Result<()> {
+    if !is_pro {
+        return Err(Error::new(
+            "Only pro users are allowed to access this feature",
+        ));
+    }
+    Ok(())
+}
+
 pub async fn user_measurements_list(
     db: &DatabaseConnection,
     user_id: &String,

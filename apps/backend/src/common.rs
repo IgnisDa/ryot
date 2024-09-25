@@ -94,6 +94,7 @@ pub async fn create_app_services(
         .await,
     );
     let user_service = Arc::new(UserService::new(
+        is_pro,
         &db,
         config.clone(),
         perform_application_job,
