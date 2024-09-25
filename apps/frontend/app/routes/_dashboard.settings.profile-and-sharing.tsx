@@ -58,6 +58,7 @@ import {
 import {
 	createToastHeaders,
 	getAuthorizationCookie,
+	getCachedCoreDetails,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -70,6 +71,11 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 
 export const meta = (_args: MetaArgs_SingleFetch) => {
 	return [{ title: "Profile and Sharing | Ryot" }];
+};
+
+const proCheck = async () => {
+	const { coreDetails } = await getCachedCoreDetails();
+	if (!coreDetails.isPro) throw Response.json({ message: "Pro users only" });
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -109,6 +115,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		createAccessLink: async () => {
+			await proCheck();
 			const submission = processSubmission(
 				formData,
 				createAccessLinkFormSchema,
@@ -127,6 +134,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		createDefaultAccessLink: async () => {
+			await proCheck();
 			await serverGqlService.authenticatedRequest(
 				request,
 				CreateAccessLinkDocument,
