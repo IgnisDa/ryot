@@ -51,7 +51,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { commaDelimitedString, dayjsLib } from "~/lib/generals";
-import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
+import {
+	useConfirmSubmit,
+	useCoreDetails,
+	useUserCollections,
+} from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [
@@ -386,6 +390,7 @@ const CreateIntegrationModal = (props: {
 	createModalOpened: boolean;
 	closeIntegrationModal: () => void;
 }) => {
+	const coreDetails = useCoreDetails();
 	const [provider, setProvider] = useState<IntegrationProvider | null>(null);
 
 	return (
@@ -491,12 +496,18 @@ const CreateIntegrationModal = (props: {
 						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
 						.otherwise(() => undefined)}
 					{provider && YANK_INTEGRATIONS.includes(provider) ? (
-						<Checkbox
-							label="Sync to Owned collection"
-							name="syncToOwnedCollection"
-							description={`Checking this will also sync items in your library to the "Owned" collection`}
-							styles={{ body: { display: "flex", alignItems: "center" } }}
-						/>
+						<Tooltip
+							label="Only available for Pro users"
+							disabled={coreDetails.isPro}
+						>
+							<Checkbox
+								label="Sync to Owned collection"
+								name="syncToOwnedCollection"
+								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								styles={{ body: { display: "flex", alignItems: "center" } }}
+								disabled={!coreDetails.isPro}
+							/>
+						</Tooltip>
 					) : undefined}
 					<Button type="submit">Submit</Button>
 				</Stack>
