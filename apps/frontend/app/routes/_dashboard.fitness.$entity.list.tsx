@@ -12,6 +12,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineLoader } from "@remix-run/node";
 import {
 	Link,
@@ -43,9 +44,15 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
-import { FitnessEntity, dayjsLib, pageQueryParam } from "~/lib/generals";
+import {
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
+	dayjsLib,
+	pageQueryParam,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
+	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -128,6 +135,7 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const unitSystem = useUserUnitSystem();
@@ -141,6 +149,16 @@ export default function Page() {
 						color="green"
 						variant="outline"
 						onClick={() => {
+							if (
+								!coreDetails.isPro &&
+								loaderData.entity === FitnessEntity.Templates
+							) {
+								notifications.show({
+									color: "red",
+									message: PRO_REQUIRED_MESSAGE,
+								});
+								return;
+							}
 							startWorkout(getDefaultWorkout(), loaderData.entity);
 						}}
 					>
