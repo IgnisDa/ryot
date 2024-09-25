@@ -433,8 +433,3 @@ export const redirectToFirstPageIfOnInvalidPage = async (
 	}
 	return totalPages;
 };
-
-export const throwErrorIfNotPro = async () => {
-	const { coreDetails } = await getCachedCoreDetails();
-	if (!coreDetails.isPro) throw Response.json({ message: "Pro users only" });
-};

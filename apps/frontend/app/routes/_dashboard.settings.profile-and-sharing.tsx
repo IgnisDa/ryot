@@ -59,7 +59,6 @@ import {
 	createToastHeaders,
 	getAuthorizationCookie,
 	serverGqlService,
-	throwErrorIfNotPro,
 } from "~/lib/utilities.server";
 
 export const loader = unstable_defineLoader(async ({ request }) => {
@@ -110,7 +109,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		createAccessLink: async () => {
-			await throwErrorIfNotPro();
 			const submission = processSubmission(
 				formData,
 				createAccessLinkFormSchema,
@@ -129,7 +127,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 		createDefaultAccessLink: async () => {
-			await throwErrorIfNotPro();
 			await serverGqlService.authenticatedRequest(
 				request,
 				CreateAccessLinkDocument,
