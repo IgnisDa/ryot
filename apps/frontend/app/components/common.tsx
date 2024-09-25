@@ -2,6 +2,7 @@ import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
 import {
 	ActionIcon,
+	Alert,
 	Anchor,
 	Avatar,
 	Badge,
@@ -20,6 +21,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
 import {
@@ -76,6 +78,7 @@ import {
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
+	useCoreDetails,
 	useFallbackImageUrl,
 	useGetMantineColor,
 	useUserCollections,
@@ -283,6 +286,23 @@ export const DebouncedSearchInput = (props: {
 			}
 		/>
 	);
+};
+
+export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
+	const coreDetails = useCoreDetails();
+
+	return !coreDetails.isPro ? (
+		<Alert>
+			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
+				<Text size="xs">
+					<Anchor href={coreDetails.websiteUrl} target="_blank">
+						Ryot Pro
+					</Anchor>{" "}
+					required to use this feature
+				</Text>
+			</Tooltip>
+		</Alert>
+	) : null;
 };
 
 export const FiltersModal = (props: {
