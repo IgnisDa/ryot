@@ -16,6 +16,7 @@ import { DateTimePicker } from "@mantine/dates";
 import { $path } from "remix-routes";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
@@ -60,9 +61,10 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { FitnessEntity, dayjsLib } from "~/lib/generals";
+import { FitnessEntity, PRO_REQUIRED_MESSAGE, dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
+	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -208,6 +210,7 @@ const editWorkoutSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const unitSystem = useUserUnitSystem();
 	const [
@@ -347,7 +350,16 @@ export default function Page() {
 												Adjust time
 											</Menu.Item>
 											<Menu.Item
-												onClick={() => performDecision(FitnessEntity.Templates)}
+												onClick={() => {
+													if (!coreDetails.isPro) {
+														notifications.show({
+															color: "red",
+															message: PRO_REQUIRED_MESSAGE,
+														});
+														return;
+													}
+													performDecision(FitnessEntity.Templates);
+												}}
 												leftSection={<IconRepeat size={14} />}
 											>
 												Create template
