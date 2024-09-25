@@ -107,7 +107,7 @@ pub async fn admin_account_guard(db: &DatabaseConnection, user_id: &String) -> R
 pub async fn pro_instance_guard(is_pro: bool) -> Result<()> {
     if !is_pro {
         return Err(Error::new(
-            "Only pro users are allowed to access this feature",
+            "This feature is only available on the Pro version",
         ));
     }
     Ok(())
