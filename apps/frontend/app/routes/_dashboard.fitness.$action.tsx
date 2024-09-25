@@ -108,6 +108,7 @@ import {
 import {
 	CurrentWorkoutKey,
 	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
 	getSetColor,
 	getSurroundingElements,
@@ -1309,6 +1310,7 @@ const SetDisplay = (props: {
 	toBeDisplayedColumns: number;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
@@ -1372,6 +1374,13 @@ const SetDisplay = (props: {
 							fz="xs"
 							leftSection={<IconClipboard size={14} />}
 							onClick={() => {
+								if (!coreDetails.isPro) {
+									notifications.show({
+										color: "red",
+										message: PRO_REQUIRED_MESSAGE,
+									});
+									return;
+								}
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
 										const hasNote = !!set.note;
