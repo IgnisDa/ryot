@@ -44,3 +44,7 @@ Once you have the key, you can set it in the `docker-compose.yml` file:
     environment:
 +      - SERVER_PRO_KEY=<pro_key_issued_to_you>
 ```
+
+If the key is invalid or your subscription has expired, the server will automatically start
+with the community version. Since the two versions are compatible, you can switch between
+them by simply fixing the key and restarting the server.
