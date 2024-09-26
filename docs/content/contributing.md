@@ -18,7 +18,6 @@ Create the following environment file in the root of the repository:
 ```bash title=".env"
 DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
 UNKEY_API_ID=api_4GvvJVbWobkNjcnnvFHmBP5pXb4K
-RUST_LOG=ryot=trace,sea_orm=debug
 APP_VERSION=v5.2.1
 DEFAULT_TMDB_ACCESS_TOKEN=your-tmdb-access-token
 DEFAULT_MAL_CLIENT_ID=your-mal-client-id
