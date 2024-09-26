@@ -9,3 +9,6 @@ compile-time = "=0.2.0"
 const-str = { workspace = true }
 dotenvy_macro = { workspace = true }
 reqwest = { workspace = true }
+
+[build-dependencies]
+dotenv-build = "0.1.1"
