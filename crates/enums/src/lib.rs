@@ -104,6 +104,9 @@ pub enum UserLot {
     Enum,
     Display,
     Default,
+    PartialOrd,
+    Ord,
+    Hash,
 )]
 #[sea_orm(
     rs_type = "String",

@@ -60,6 +60,12 @@ chrono = "=0.4.38"
 chrono-tz = "=0.9.0"
 const-str = "=0.5.7"
 convert_case = "=0.6.0"
+derive_more = { version = "=1.0.0", features = [
+    "add",
+    "add_assign",
+    "display",
+    "sum",
+], default-features = false }
 enum_meta = "=0.7.0"
 itertools = "=0.13.0"
 futures = "=0.3.30"

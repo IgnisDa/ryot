@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::{self},
     iter::zip,
     path::PathBuf,
     sync::Arc,
@@ -124,7 +123,8 @@ impl MediaProviderLanguages for CustomService {
     }
 }
 
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash, derive_more::Display)]
+#[display("ProgressUpdateCache {{ {user_id}, {metadata_id} }}")]
 struct ProgressUpdateCache {
     user_id: String,
     metadata_id: String,
@@ -136,10 +136,11 @@ struct ProgressUpdateCache {
     manga_volume_number: Option<i32>,
 }
 
-impl fmt::Display for ProgressUpdateCache {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?}", self)
-    }
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash, derive_more::Display)]
+#[display("CommitCache {{ {id}, {lot} }}")]
+struct CommitCache {
+    id: String,
+    lot: EntityLot,
 }
 
 pub struct MiscellaneousService {
@@ -152,6 +153,22 @@ pub struct MiscellaneousService {
     perform_application_job: MemoryStorage<ApplicationJob>,
     seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
+    commit_cache: DiskCache<CommitCache, ()>,
+}
+
+fn create_disk_cache<T: ToString>(name: &str, hours: i64) -> DiskCache<T, ()> {
+    let path = PathBuf::new().join(TEMP_DIR);
+    DiskCache::new(name)
+        .set_lifespan(
+            ChronoDuration::try_hours(hours)
+                .unwrap()
+                .num_seconds()
+                .try_into()
+                .unwrap(),
+        )
+        .set_disk_directory(&path)
+        .build()
+        .unwrap()
 }
 
 impl MiscellaneousService {
@@ -166,25 +183,17 @@ impl MiscellaneousService {
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
-        let cache_name = "seen_progress_cache";
-        let path = PathBuf::new().join(TEMP_DIR);
-        let seen_progress_cache = DiskCache::new(cache_name)
-            .set_lifespan(
-                ChronoDuration::try_hours(config.server.progress_update_threshold)
-                    .unwrap()
-                    .num_seconds()
-                    .try_into()
-                    .unwrap(),
-            )
-            .set_disk_directory(path)
-            .build()
-            .unwrap();
-
+        let seen_progress_cache = create_disk_cache(
+            "seen_progress_cache",
+            config.server.progress_update_threshold,
+        );
+        let commit_cache = create_disk_cache("commit_cache", 1);
         Self {
             config,
             is_pro,
             timezone,
             oidc_enabled,
+            commit_cache,
             db: db.clone(),
             seen_progress_cache,
             file_storage_service,
@@ -2603,10 +2612,26 @@ ORDER BY RANDOM() LIMIT 10;
             .one(&self.db)
             .await?
         {
+            let cached_metadata = CommitCache {
+                id: m.id.clone(),
+                lot: EntityLot::Metadata,
+            };
+            if self
+                .commit_cache
+                .cache_get(&cached_metadata)
+                .unwrap()
+                .is_some()
+            {
+                return Ok(m);
+            }
+            self.commit_cache
+                .cache_set(cached_metadata.clone(), ())
+                .ok();
             if input.force_update.unwrap_or_default() {
-                ryot_log!(debug, "Forcing update of metadata with id {}", m.id);
+                ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
                 self.update_metadata_and_notify_users(&m.id, true).await?;
             }
+            self.commit_cache.cache_remove(&cached_metadata).ok();
             Ok(m)
         } else {
             let details = self

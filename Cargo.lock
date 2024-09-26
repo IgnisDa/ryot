@@ -1798,6 +1798,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.77",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -3807,6 +3808,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "derive_more 1.0.0",
  "enums",
  "env-utils",
  "file-storage-service",
@@ -6912,6 +6914,12 @@ name = "unicode-width"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0336d538f7abc86d282a4189614dfaa90810dfc2c6f6427eaf88e16311dd225d"
+
+[[package]]
+name = "unicode-xid"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "unicode_categories"
