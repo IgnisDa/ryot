@@ -4,6 +4,7 @@ use common_utils::{ryot_log, APPLICATION_JSON_HEADER};
 use convert_case::{Case, Casing};
 use dependent_models::ImportResult;
 use enums::{ImportSource, MediaLot, MediaSource};
+use env_utils::TRAKT_CLIENT_ID;
 use itertools::Itertools;
 use media_models::{
     CreateOrUpdateCollectionInput, DeployTraktImportInput, ImportOrExportItemRating,
@@ -18,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use super::{ImportFailStep, ImportFailedItem, ImportOrExportMediaItem};
 
 const API_URL: &str = "https://api.trakt.tv";
-const CLIENT_ID: &str = "b3d93fd4c53d78d61b18e0f0bf7ad5153de323788dbc0be1a3627205a36e89f5";
 const API_VERSION: &str = "2";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,7 +63,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         (CONTENT_TYPE, APPLICATION_JSON_HEADER.clone()),
         (
             HeaderName::from_static("trakt-api-key"),
-            HeaderValue::from_static(CLIENT_ID),
+            HeaderValue::from_static(TRAKT_CLIENT_ID),
         ),
         (
             HeaderName::from_static("trakt-api-version"),

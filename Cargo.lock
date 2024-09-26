@@ -3302,6 +3302,7 @@ dependencies = [
  "dependent-models",
  "enum_meta",
  "enums",
+ "env-utils",
  "fitness-models",
  "fitness-service",
  "flate2",
