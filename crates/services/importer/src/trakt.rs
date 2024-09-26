@@ -218,7 +218,10 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     show_episode_number,
                     ..Default::default()
                 });
-                if let Some(a) = media.iter_mut().find(|i| i.source_id == d.source_id) {
+                if let Some(a) = media
+                    .iter_mut()
+                    .find(|i| i.identifier == d.identifier && i.lot == d.lot)
+                {
                     a.seen_history.extend(d.seen_history);
                 } else {
                     media.push(d)
@@ -235,9 +238,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     })
 }
 
-fn process_item(
-    i: &ListItemResponse,
-) -> std::result::Result<ImportOrExportMediaItem, ImportFailedItem> {
+fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMediaItem, ImportFailedItem> {
     let (source_id, identifier, lot) = if let Some(d) = i.movie.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MediaLot::Movie)
     } else if let Some(d) = i.show.as_ref() {
@@ -251,10 +252,10 @@ fn process_item(
         });
     };
     match identifier {
-        Some(i) => Ok(ImportOrExportMediaItem {
+        Some(identifier) => Ok(ImportOrExportMediaItem {
             source_id: source_id.to_string(),
             lot,
-            identifier: i.to_string(),
+            identifier: identifier.to_string(),
             source: MediaSource::Tmdb,
             seen_history: vec![],
             reviews: vec![],

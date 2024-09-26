@@ -245,8 +245,12 @@ impl UserService {
         Ok(users)
     }
 
-    pub async fn delete_user(&self, to_delete_user_id: String) -> Result<bool> {
-        admin_account_guard(&self.db, &to_delete_user_id).await?;
+    pub async fn delete_user(
+        &self,
+        admin_user_id: String,
+        to_delete_user_id: String,
+    ) -> Result<bool> {
+        admin_account_guard(&self.db, &admin_user_id).await?;
         let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
         if let Some(u) = maybe_user {
             if self
