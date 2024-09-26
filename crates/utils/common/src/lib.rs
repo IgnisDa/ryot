@@ -4,9 +4,6 @@ use reqwest::header::HeaderValue;
 pub const PROJECT_NAME: &str = "ryot";
 pub const AUTHOR: &str = "ignisda";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
-#[cfg(debug_assertions)]
-pub const VERSION: &str = dotenvy_macro::dotenv!("APP_VERSION");
-#[cfg(not(debug_assertions))]
 pub const VERSION: &str = env!("APP_VERSION");
 pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR,
