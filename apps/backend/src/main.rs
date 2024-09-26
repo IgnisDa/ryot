@@ -304,7 +304,7 @@ async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
     use serde_with::skip_serializing_none;
     use unkey::{models::VerifyKeyRequest, Client};
 
-    if pro_key.is_empty() || UNKEY_API_ID.is_empty() {
+    if pro_key.is_empty() {
         return false;
     }
 
@@ -338,7 +338,7 @@ async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
     if let Some(meta) = key_meta {
         if let Some(expiry) = meta.expiry {
             if compilation_time > &convert_naive_to_utc(expiry) {
-                ryot_log!(warn, "Pro key has expired. Please renew your subscription or downgrade to a version released before {}.", expiry.format("%v"));
+                ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
                 return false;
             }
         }
