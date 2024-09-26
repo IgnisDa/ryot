@@ -21,7 +21,7 @@ use background::ApplicationJob;
 use chrono::{DateTime, TimeZone, Utc};
 use common_utils::{convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR};
 use database_models::prelude::Exercise;
-use env_utils::VERSION;
+use env_utils::{UNKEY_API_ID, VERSION};
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
@@ -304,12 +304,11 @@ async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
     use serde_with::skip_serializing_none;
     use unkey::{models::VerifyKeyRequest, Client};
 
-    let unkey_api_id = env::var("UNKEY_API_ID").unwrap_or_default();
-    if pro_key.is_empty() || unkey_api_id.is_empty() {
+    if pro_key.is_empty() || UNKEY_API_ID.is_empty() {
         return false;
     }
 
-    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", unkey_api_id);
+    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
 
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Clone, Deserialize)]
@@ -318,7 +317,7 @@ async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
     }
 
     let unkey_client = Client::new("public");
-    let verify_request = VerifyKeyRequest::new(pro_key, &unkey_api_id);
+    let verify_request = VerifyKeyRequest::new(pro_key, UNKEY_API_ID);
     let validated_key = match unkey_client.verify_key(verify_request).await {
         Ok(verify_response) => {
             if !verify_response.valid {
