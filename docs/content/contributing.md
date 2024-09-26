@@ -25,7 +25,7 @@ DEFAULT_MAL_CLIENT_ID=your-mal-client-id
 ```
 
 In development, both servers are started independently running on `:3000` and `:5000`
-respectively and reverse proxied at `:8000`. To get them running run `mprocs` in the
+respectively and reverse proxied at `:8000`. To get everything started, run `mprocs` in the
 project root.
 
 Your website would be available at `http://localhost:8000`.
