@@ -849,6 +849,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "dotenvy",
+ "env-utils",
  "exporter-resolver",
  "exporter-service",
  "file-storage-resolver",
@@ -1348,8 +1349,8 @@ dependencies = [
  "chrono",
  "compile-time",
  "const-str",
- "dotenv-build",
  "dotenvy_macro",
+ "env-utils",
  "reqwest 0.12.7",
 ]
 
@@ -2144,6 +2145,13 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
+]
+
+[[package]]
+name = "env-utils"
+version = "0.1.0"
+dependencies = [
+ "dotenv-build",
 ]
 
 [[package]]
@@ -3813,6 +3821,7 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "enums",
+ "env-utils",
  "file-storage-service",
  "futures",
  "integration-service",

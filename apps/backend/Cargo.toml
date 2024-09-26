@@ -23,6 +23,7 @@ config = { path = "../../crates/config" }
 database-models = { path = "../../crates/models/database" }
 dependent-models = { path = "../../crates/models/dependent" }
 dotenvy = "=0.15.7"
+env-utils = { path = "../../crates/utils/env" }
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
 exporter-service = { path = "../../crates/services/exporter" }
 file-storage-resolver = { path = "../../crates/resolvers/file-storage" }

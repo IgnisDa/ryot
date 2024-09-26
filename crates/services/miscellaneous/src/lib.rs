@@ -18,7 +18,7 @@ use common_models::{
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
-    TEMP_DIR, VERSION,
+    TEMP_DIR,
 };
 use database_models::{
     access_link, calendar_event, collection, collection_to_entity,
@@ -48,6 +48,7 @@ use enums::{
     EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
     MetadataToMetadataRelation, SeenState, UserToMediaReason, Visibility,
 };
+use env_utils::VERSION;
 use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
 use integration_service::{integration_type::IntegrationType, IntegrationService};

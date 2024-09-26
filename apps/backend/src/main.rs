@@ -19,10 +19,9 @@ use apalis::{
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
 use chrono::{DateTime, TimeZone, Utc};
-use common_utils::{
-    convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION,
-};
+use common_utils::{convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR};
 use database_models::prelude::Exercise;
+use env_utils::VERSION;
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};

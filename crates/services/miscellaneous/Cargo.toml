@@ -18,6 +18,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
+env-utils = { path = "../../utils/env" }
 file-storage-service = { path = "../../services/file-storage" }
 futures = { workspace = true }
 integration-service = { path = "../../services/integration" }
