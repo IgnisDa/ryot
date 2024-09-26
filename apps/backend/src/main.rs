@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
 
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
-    let is_pro = check_if_pro_license_available(&config.server.pro_key, &compile_timestamp).await;
+    let is_pro = get_is_pro(&config.server.pro_key, &compile_timestamp).await;
 
     ryot_log!(debug, "Is pro: {:#?}", is_pro);
 
@@ -299,8 +299,7 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-#[tracing::instrument(skip_all)]
-async fn check_if_pro_license_available(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
+async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
     use chrono::NaiveDate;
     use serde::{Deserialize, Serialize};
     use serde_with::skip_serializing_none;
