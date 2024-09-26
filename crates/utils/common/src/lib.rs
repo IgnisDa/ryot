@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
-use env_utils::VERSION;
+use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
 
 pub const PROJECT_NAME: &str = "ryot";
@@ -10,7 +10,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     "/",
     PROJECT_NAME,
     "-v",
-    VERSION,
+    APP_VERSION,
     " (",
     AUTHOR_EMAIL,
     ")"

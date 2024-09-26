@@ -21,7 +21,7 @@ use background::ApplicationJob;
 use chrono::{DateTime, TimeZone, Utc};
 use common_utils::{convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR};
 use database_models::prelude::Exercise;
-use env_utils::{UNKEY_API_ID, VERSION};
+use env_utils::{APP_VERSION, UNKEY_API_ID};
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
     }
     init_tracing()?;
 
-    ryot_log!(info, "Running version: {}", VERSION);
+    ryot_log!(info, "Running version: {}", APP_VERSION);
 
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {

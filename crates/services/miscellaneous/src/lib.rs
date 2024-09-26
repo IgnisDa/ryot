@@ -48,7 +48,7 @@ use enums::{
     EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
     MetadataToMetadataRelation, SeenState, UserToMediaReason, Visibility,
 };
-use env_utils::VERSION;
+use env_utils::APP_VERSION;
 use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
 use integration_service::{integration_type::IntegrationType, IntegrationService};
@@ -297,7 +297,7 @@ ORDER BY RANDOM() LIMIT 10;
         }
         CoreDetails {
             is_pro: self.is_pro,
-            version: VERSION.to_owned(),
+            version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
             oidc_enabled: self.oidc_enabled,
             page_limit: self.config.frontend.page_size,
