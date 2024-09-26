@@ -1,16 +1,17 @@
-use std::{env, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use common_utils::{IsFeatureEnabled, PROJECT_NAME};
+use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN};
 use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
 use serde::{Deserialize, Serialize};
 
 fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(env::var("DEFAULT_TMDB_ACCESS_TOKEN").unwrap()))
+    Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_string()))
 }
 
 fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(env::var("DEFAULT_MAL_CLIENT_ID").unwrap()))
+    Ok(Some(DEFAULT_MAL_CLIENT_ID.to_string()))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
