@@ -17,6 +17,8 @@ impl MigrationTrait for Migration {
 ALTER TABLE "metadata" ADD COLUMN IF NOT EXISTS "is_recommendation" BOOLEAN;
 ALTER TABLE "seen" ADD COLUMN IF NOT EXISTS "manual_time_spent" NUMERIC;
 ALTER TABLE "integration" ADD COLUMN IF NOT EXISTS "sync_to_owned_collection" BOOLEAN;
+
+UPDATE "user" SET "preferences" = jsonb_set("preferences", '{features_enabled,fitness,templates}', 'true');
 "#,
         )
         .await?;
