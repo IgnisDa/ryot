@@ -29,8 +29,3 @@ respectively and reverse proxied at `:8000`. To get them running run `mprocs` in
 project root.
 
 Your website would be available at `http://localhost:8000`.
-
-## Architecture
-
-The frontend is a Remix app, the backend is an Axum server. All these run behind a Caddy
-reverse proxy and are managed by `concurrently`.
