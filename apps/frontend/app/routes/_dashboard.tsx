@@ -117,6 +117,7 @@ import {
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
+	useCoreDetails,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -742,13 +743,13 @@ const LinksGroup = ({
 };
 
 const Footer = () => {
-	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
-				{!loaderData.coreDetails.isPro ? (
-					<Anchor href={loaderData.coreDetails.websiteUrl} target="_blank">
+				{!coreDetails.isPro ? (
+					<Anchor href={coreDetails.websiteUrl} target="_blank">
 						<Text c="red" fw="bold">
 							Ryot Pro
 						</Text>
@@ -760,9 +761,9 @@ const Footer = () => {
 					</Text>
 				</Anchor>
 				<Text c="grape" fw="bold" visibleFrom="md">
-					{loaderData.coreDetails.version}
+					{coreDetails.version}
 				</Text>
-				<Anchor href={loaderData.coreDetails.repositoryLink} target="_blank">
+				<Anchor href={coreDetails.repositoryLink} target="_blank">
 					<Text c="orange" fw="bold">
 						Github
 					</Text>
