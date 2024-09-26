@@ -1,26 +1,16 @@
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 use anyhow::Result;
 use common_utils::{IsFeatureEnabled, PROJECT_NAME};
 use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
 use serde::{Deserialize, Serialize};
 
-#[cfg(debug_assertions)]
-pub const DEFAULT_TMDB_ACCESS_TOKEN: &str = dotenvy_macro::dotenv!("DEFAULT_TMDB_ACCESS_TOKEN");
-#[cfg(not(debug_assertions))]
-pub const DEFAULT_TMDB_ACCESS_TOKEN: &str = env!("DEFAULT_TMDB_ACCESS_TOKEN");
-
 fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_owned()))
+    Ok(Some(env::var("DEFAULT_TMDB_ACCESS_TOKEN").unwrap()))
 }
 
-#[cfg(debug_assertions)]
-pub const DEFAULT_MAL_CLIENT_ID: &str = dotenvy_macro::dotenv!("DEFAULT_MAL_CLIENT_ID");
-#[cfg(not(debug_assertions))]
-pub const DEFAULT_MAL_CLIENT_ID: &str = env!("DEFAULT_MAL_CLIENT_ID");
-
 fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_MAL_CLIENT_ID.to_owned()))
+    Ok(Some(env::var("DEFAULT_MAL_CLIENT_ID").unwrap()))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
