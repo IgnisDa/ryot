@@ -1338,7 +1338,7 @@ const SetDisplay = (props: {
 	}, [value]);
 
 	return currentWorkout && exercise && set ? (
-		<Box>
+		<Box id={`${props.exerciseIdx}-${props.setIdx}`}>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
 					<Menu.Target>
