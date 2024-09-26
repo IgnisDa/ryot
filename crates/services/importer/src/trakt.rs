@@ -58,7 +58,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     let mut media = vec![];
     let mut failed_items = vec![];
 
-    let url = format!("{}/users/{}/", API_URL, input.username);
+    let url = format!("{}/users/{}", API_URL, input.username);
     let client = get_base_http_client(Some(vec![
         (CONTENT_TYPE, APPLICATION_JSON_HEADER.clone()),
         (
