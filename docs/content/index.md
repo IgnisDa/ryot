@@ -34,11 +34,6 @@ the features of the pro version, check the [features page]({{extra.main_website_
 
 ## Upgrading to Pro
 
-!!! info
-
-    The pro version is not backwards compatible with the community version, so be sure to
-    [backup](./guides/exporting.md#exporting-the-entire-database) your data before upgrading.
-
 To upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
 You can get a key by purchasing it from the [website]({{ extra.main_website_url }}).
 
@@ -46,8 +41,6 @@ Once you have the key, you can set it in the `docker-compose.yml` file:
 
 ```diff
   ryot:
--   image: ignisda/ryot:latest # or ghcr.io/ignisda/ryot:latest
-+   image: ignisda/ryot-pro:latest # or ghcr.io/ignisda/ryot-pro:latest
     environment:
 +      - SERVER_PRO_KEY=<pro_key_issued_to_you>
 ```
