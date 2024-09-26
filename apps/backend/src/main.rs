@@ -78,6 +78,8 @@ async fn main() -> Result<()> {
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
     let is_pro = check_if_pro_license_available(&config.server.pro_key, &compile_timestamp).await;
 
+    ryot_log!(debug, "Is pro: {:#?}", is_pro);
+
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
         .force_path_style(true);
@@ -304,16 +306,12 @@ async fn check_if_pro_license_available(pro_key: &str, compilation_time: &DateTi
     use serde_with::skip_serializing_none;
     use unkey::{models::VerifyKeyRequest, Client};
 
-    #[cfg(debug_assertions)]
-    const API_ID: &str = "api_4GvvJVbWobkNjcnnvFHmBP5pXb4K";
-    #[cfg(not(debug_assertions))]
-    const API_ID: &str = "api_LQTzbpPNHgPALgiNdxg8bMfVxeg";
-
-    ryot_log!(debug, "Verifying pro key for API ID: {}", API_ID);
-
-    if pro_key.is_empty() {
+    let unkey_api_id = env::var("UNKEY_API_ID").unwrap_or_default();
+    if pro_key.is_empty() || unkey_api_id.is_empty() {
         return false;
     }
+
+    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", unkey_api_id);
 
     #[skip_serializing_none]
     #[derive(Debug, Serialize, Clone, Deserialize)]
@@ -322,7 +320,7 @@ async fn check_if_pro_license_available(pro_key: &str, compilation_time: &DateTi
     }
 
     let unkey_client = Client::new("public");
-    let verify_request = VerifyKeyRequest::new(pro_key, API_ID);
+    let verify_request = VerifyKeyRequest::new(pro_key, &unkey_api_id);
     let validated_key = match unkey_client.verify_key(verify_request).await {
         Ok(verify_response) => {
             if !verify_response.valid {
