@@ -57,9 +57,6 @@ jobs:
               }).then(commit => commit.data.commit.message);
               if (commitMsg.includes("Run CI")) {
                 shouldRun = 'true';
-                if (context.payload.pull_request.head.repo.full_name !== context.repo.full_name) {
-                  imageNames.shift();
-                }
               }
             }
 
