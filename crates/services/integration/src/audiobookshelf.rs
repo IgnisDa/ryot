@@ -46,7 +46,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {
-        let url = format!("{}/api/", self.base_url);
+        let url = format!("{}/api", self.base_url);
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {}", self.access_token)).unwrap(),

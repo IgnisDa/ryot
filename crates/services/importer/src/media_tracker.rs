@@ -127,7 +127,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert("Access-Token", input.api_key.parse().unwrap());
-    let url = format!("{}/api/", api_url);
+    let url = format!("{}/api", api_url);
     let client = ClientBuilder::new()
         .default_headers(headers)
         .build()
