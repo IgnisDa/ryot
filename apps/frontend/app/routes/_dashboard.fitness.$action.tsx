@@ -1577,23 +1577,25 @@ const SetDisplay = (props: {
 												props.setIdx === currentExercise.sets.length - 1;
 											const nextExerciseIdx = props.exerciseIdx + 1;
 											const nextExercise = draft.exercises[nextExerciseIdx];
-											draft.highlightedSet = isLastSet
-												? {
-														exerciseIdx: nextExerciseIdx,
-														setIdx: 0,
-													}
-												: {
-														exerciseIdx: props.exerciseIdx,
-														setIdx: props.setIdx + 1,
-													};
-											if (newConfirmed && isLastSet) {
-												currentExercise.isShowDetailsOpen = false;
-												const nextExerciseHasDetailsToShow =
-													nextExercise &&
-													exerciseHasDetailsToShow(nextExercise);
-												if (nextExerciseHasDetailsToShow)
-													nextExercise.isShowDetailsOpen = true;
-												focusExerciseIdx = nextExerciseIdx;
+											if (newConfirmed) {
+												draft.highlightedSet = isLastSet
+													? {
+															exerciseIdx: nextExerciseIdx,
+															setIdx: 0,
+														}
+													: {
+															exerciseIdx: props.exerciseIdx,
+															setIdx: props.setIdx + 1,
+														};
+												if (isLastSet) {
+													currentExercise.isShowDetailsOpen = false;
+													const nextExerciseHasDetailsToShow =
+														nextExercise &&
+														exerciseHasDetailsToShow(nextExercise);
+													if (nextExerciseHasDetailsToShow)
+														nextExercise.isShowDetailsOpen = true;
+													focusExerciseIdx = nextExerciseIdx;
+												}
 											}
 										}),
 									);
