@@ -71,6 +71,7 @@ export type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	videos: Array<string>;
 	images: Array<string>;
+	highlightedSet?: { exerciseIdx: number; setIdx: number };
 };
 
 type CurrentWorkout = InProgressWorkout | null;

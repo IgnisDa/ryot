@@ -1320,6 +1320,7 @@ const SetDisplay = (props: {
 	const coreDetails = useCoreDetails();
 	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const highlightedSet = currentWorkout?.highlightedSet;
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
@@ -1338,7 +1339,15 @@ const SetDisplay = (props: {
 	}, [value]);
 
 	return currentWorkout && exercise && set ? (
-		<Box id={`${props.exerciseIdx}-${props.setIdx}`}>
+		<Box
+			id={`${props.exerciseIdx}-${props.setIdx}`}
+			style={
+				highlightedSet?.exerciseIdx === props.exerciseIdx &&
+				highlightedSet?.setIdx === props.setIdx
+					? { boxShadow: "0 0 3pt 2pt cornflowerblue", borderRadius: "0.5rem" }
+					: undefined
+			}
+		>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
 					<Menu.Target>
@@ -1572,7 +1581,18 @@ const SetDisplay = (props: {
 													exerciseHasDetailsToShow(nextExercise);
 												if (nextExerciseHasDetailsToShow)
 													nextExercise.isShowDetailsOpen = true;
+												draft.highlightedSet = {
+													exerciseIdx: nextExerciseIdx,
+													setIdx: 0,
+												};
 												focusOnExercise(nextExerciseIdx);
+												setTimeout(() => {
+													setCurrentWorkout(
+														produce(currentWorkout, (innerDraft) => {
+															innerDraft.highlightedSet = undefined;
+														}),
+													);
+												}, 2000);
 											}
 										}),
 									);
