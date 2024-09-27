@@ -1592,6 +1592,13 @@ const SetDisplay = (props: {
 									);
 									if (isNumber(focusExerciseIdx)) {
 										focusOnExercise(focusExerciseIdx);
+										setTimeout(() => {
+											setCurrentWorkout((w) =>
+												produce(w, (innerDraft) => {
+													if (innerDraft) innerDraft.highlightedSet = undefined;
+												}),
+											);
+										}, 2000);
 									}
 								}}
 								data-statistics={JSON.stringify(set.statistic)}
