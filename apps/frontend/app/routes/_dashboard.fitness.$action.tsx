@@ -1338,10 +1338,7 @@ const SetDisplay = (props: {
 	}, [value]);
 
 	return currentWorkout && exercise && set ? (
-		<Box
-			id={`${props.exerciseIdx}-${props.setIdx}`}
-			style={{ scrollMargin: 260 }}
-		>
+		<Box id={`${props.exerciseIdx}-${props.setIdx}`}>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
 					<Menu.Target>
@@ -1575,15 +1572,7 @@ const SetDisplay = (props: {
 													exerciseHasDetailsToShow(nextExercise);
 												if (nextExerciseHasDetailsToShow)
 													nextExercise.isShowDetailsOpen = true;
-												setTimeout(() => {
-													const set = document.getElementById(
-														`${nextExerciseIdx}-0`,
-													);
-													set?.scrollIntoView({
-														behavior: "smooth",
-														block: "start",
-													});
-												}, 800);
+												focusOnExercise(nextExerciseIdx);
 											}
 										}),
 									);
