@@ -1566,7 +1566,6 @@ const SetDisplay = (props: {
 											setIdx: props.setIdx,
 										});
 									}
-									let focusExerciseIdx: number | undefined;
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
 											const currentExercise =
@@ -1594,13 +1593,11 @@ const SetDisplay = (props: {
 														exerciseHasDetailsToShow(nextExercise);
 													if (nextExerciseHasDetailsToShow)
 														nextExercise.isShowDetailsOpen = true;
-													focusExerciseIdx = nextExerciseIdx;
+													focusOnExercise(nextExerciseIdx);
 												}
 											}
 										}),
 									);
-									if (isNumber(focusExerciseIdx))
-										focusOnExercise(focusExerciseIdx);
 									setTimeout(() => {
 										setCurrentWorkout((w) =>
 											produce(w, (innerDraft) => {
