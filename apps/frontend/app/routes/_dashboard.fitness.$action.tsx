@@ -1577,6 +1577,15 @@ const SetDisplay = (props: {
 												props.setIdx === currentExercise.sets.length - 1;
 											const nextExerciseIdx = props.exerciseIdx + 1;
 											const nextExercise = draft.exercises[nextExerciseIdx];
+											draft.highlightedSet = isLastSet
+												? {
+														exerciseIdx: nextExerciseIdx,
+														setIdx: 0,
+													}
+												: {
+														exerciseIdx: props.exerciseIdx,
+														setIdx: props.setIdx + 1,
+													};
 											if (newConfirmed && isLastSet) {
 												currentExercise.isShowDetailsOpen = false;
 												const nextExerciseHasDetailsToShow =
@@ -1585,23 +1594,18 @@ const SetDisplay = (props: {
 												if (nextExerciseHasDetailsToShow)
 													nextExercise.isShowDetailsOpen = true;
 												focusExerciseIdx = nextExerciseIdx;
-												draft.highlightedSet = {
-													exerciseIdx: nextExerciseIdx,
-													setIdx: 0,
-												};
 											}
 										}),
 									);
-									if (isNumber(focusExerciseIdx)) {
+									if (isNumber(focusExerciseIdx))
 										focusOnExercise(focusExerciseIdx);
-										setTimeout(() => {
-											setCurrentWorkout((w) =>
-												produce(w, (innerDraft) => {
-													if (innerDraft) innerDraft.highlightedSet = undefined;
-												}),
-											);
-										}, 2000);
-									}
+									setTimeout(() => {
+										setCurrentWorkout((w) =>
+											produce(w, (innerDraft) => {
+												if (innerDraft) innerDraft.highlightedSet = undefined;
+											}),
+										);
+									}, 2000);
 								}}
 							>
 								<IconCheck />
