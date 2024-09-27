@@ -1341,12 +1341,14 @@ const SetDisplay = (props: {
 	return currentWorkout && exercise && set ? (
 		<Box
 			id={`${props.exerciseIdx}-${props.setIdx}`}
-			style={
-				highlightedSet?.exerciseIdx === props.exerciseIdx &&
-				highlightedSet?.setIdx === props.setIdx
-					? { boxShadow: "0 0 3pt 2pt cornflowerblue", borderRadius: "0.5rem" }
-					: undefined
-			}
+			style={{
+				borderRadius: "0.5rem",
+				transition: "box-shadow 1s",
+				...(highlightedSet?.exerciseIdx === props.exerciseIdx &&
+					highlightedSet?.setIdx === props.setIdx && {
+						boxShadow: "0 0 3pt 2pt cornflowerblue",
+					}),
+			}}
 		>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
@@ -1601,7 +1603,6 @@ const SetDisplay = (props: {
 										}, 2000);
 									}
 								}}
-								data-statistics={JSON.stringify(set.statistic)}
 							>
 								<IconCheck />
 							</ActionIcon>
