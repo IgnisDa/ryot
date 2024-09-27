@@ -1564,6 +1564,7 @@ const SetDisplay = (props: {
 											setIdx: props.setIdx,
 										});
 									}
+									let focusExerciseIdx: number | undefined;
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
 											const currentExercise =
@@ -1581,21 +1582,17 @@ const SetDisplay = (props: {
 													exerciseHasDetailsToShow(nextExercise);
 												if (nextExerciseHasDetailsToShow)
 													nextExercise.isShowDetailsOpen = true;
+												focusExerciseIdx = nextExerciseIdx;
 												draft.highlightedSet = {
 													exerciseIdx: nextExerciseIdx,
 													setIdx: 0,
 												};
-												focusOnExercise(nextExerciseIdx);
-												setTimeout(() => {
-													setCurrentWorkout(
-														produce(currentWorkout, (innerDraft) => {
-															innerDraft.highlightedSet = undefined;
-														}),
-													);
-												}, 2000);
 											}
 										}),
 									);
+									if (isNumber(focusExerciseIdx)) {
+										focusOnExercise(focusExerciseIdx);
+									}
 								}}
 								data-statistics={JSON.stringify(set.statistic)}
 							>
