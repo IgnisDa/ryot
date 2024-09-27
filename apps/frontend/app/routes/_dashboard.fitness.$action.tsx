@@ -1346,7 +1346,7 @@ const SetDisplay = (props: {
 				transition: "box-shadow 1s",
 				...(highlightedSet?.exerciseIdx === props.exerciseIdx &&
 					highlightedSet?.setIdx === props.setIdx && {
-						boxShadow: "0 0 3pt 2pt cornflowerblue",
+						boxShadow: "0 0 2pt 1pt cornflowerblue",
 					}),
 			}}
 		>
