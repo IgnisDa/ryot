@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::zip,
-    path::PathBuf,
     sync::Arc,
 };
 
@@ -9,7 +8,6 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
@@ -17,7 +15,6 @@ use common_models::{
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
-    TEMP_DIR,
 };
 use database_models::{
     access_link, calendar_event, collection, collection_to_entity,
@@ -75,6 +72,7 @@ use media_models::{
 use migrations::{
     AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
 };
+use moka::future::Cache;
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
@@ -123,8 +121,7 @@ impl MediaProviderLanguages for CustomService {
     }
 }
 
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash, derive_more::Display)]
-#[display("ProgressUpdateCache {{ {user_id}, {metadata_id} }}")]
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
 struct ProgressUpdateCache {
     user_id: String,
     metadata_id: String,
@@ -136,8 +133,7 @@ struct ProgressUpdateCache {
     manga_volume_number: Option<i32>,
 }
 
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash, derive_more::Display)]
-#[display("CommitCache {{ {id}, {lot} }}")]
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
 struct CommitCache {
     id: String,
     lot: EntityLot,
@@ -151,24 +147,15 @@ pub struct MiscellaneousService {
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
+    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
-    commit_cache: DiskCache<CommitCache, ()>,
+    commit_cache: Cache<CommitCache, ()>,
 }
 
-fn create_disk_cache<T: ToString>(name: &str, hours: i64) -> DiskCache<T, ()> {
-    let path = PathBuf::new().join(TEMP_DIR);
-    DiskCache::new(name)
-        .set_lifespan(
-            ChronoDuration::try_hours(hours)
-                .unwrap()
-                .num_seconds()
-                .try_into()
-                .unwrap(),
-        )
-        .set_disk_directory(&path)
+fn create_disk_cache<T: Eq + std::hash::Hash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
+    Cache::builder()
+        .time_to_live(ChronoDuration::try_hours(hours).unwrap().to_std().unwrap())
         .build()
-        .unwrap()
 }
 
 impl MiscellaneousService {
@@ -183,11 +170,8 @@ impl MiscellaneousService {
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
-        let seen_progress_cache = create_disk_cache(
-            "seen_progress_cache",
-            config.server.progress_update_threshold,
-        );
-        let commit_cache = create_disk_cache("commit_cache", 1);
+        let seen_progress_cache = create_disk_cache(config.server.progress_update_threshold);
+        let commit_cache = create_disk_cache(1);
         Self {
             config,
             is_pro,
@@ -1154,7 +1138,7 @@ ORDER BY RANDOM() LIMIT 10;
             manga_chapter_number: input.manga_chapter_number,
             manga_volume_number: input.manga_volume_number,
         };
-        let in_cache = self.seen_progress_cache.cache_get(&cache).unwrap();
+        let in_cache = self.seen_progress_cache.get(&cache).await;
         if respect_cache && in_cache.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
@@ -1362,7 +1346,7 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(debug, "Progress update = {:?}", seen);
         let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
-            self.seen_progress_cache.cache_set(cache, ()).unwrap();
+            self.seen_progress_cache.insert(cache, ()).await;
         }
         self.after_media_seen_tasks(seen).await?;
         Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
@@ -2616,22 +2600,15 @@ ORDER BY RANDOM() LIMIT 10;
                 id: m.id.clone(),
                 lot: EntityLot::Metadata,
             };
-            if self
-                .commit_cache
-                .cache_get(&cached_metadata)
-                .unwrap()
-                .is_some()
-            {
+            if self.commit_cache.get(&cached_metadata).await.is_some() {
                 return Ok(m);
             }
-            self.commit_cache
-                .cache_set(cached_metadata.clone(), ())
-                .ok();
+            self.commit_cache.insert(cached_metadata.clone(), ()).await;
             if input.force_update.unwrap_or_default() {
                 ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
                 self.update_metadata_and_notify_users(&m.id, true).await?;
             }
-            self.commit_cache.cache_remove(&cached_metadata).ok();
+            self.commit_cache.remove(&cached_metadata).await;
             Ok(m)
         } else {
             let details = self
@@ -2870,7 +2847,7 @@ ORDER BY RANDOM() LIMIT 10;
                 manga_chapter_number: mcn,
                 manga_volume_number: mvn,
             };
-            self.seen_progress_cache.cache_remove(&cache).unwrap();
+            self.seen_progress_cache.remove(&cache).await;
             let seen_id = si.id.clone();
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {

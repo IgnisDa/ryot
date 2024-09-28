@@ -63,7 +63,6 @@ convert_case = "=0.6.0"
 derive_more = { version = "=1.0.0", features = [
     "add",
     "add_assign",
-    "display",
     "sum",
 ], default-features = false }
 enum_meta = "=0.7.0"
