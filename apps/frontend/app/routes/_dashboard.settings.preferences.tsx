@@ -8,9 +8,11 @@ import {
 	Divider,
 	Flex,
 	Group,
+	Input,
 	JsonInput,
 	NumberInput,
 	Paper,
+	SegmentedControl,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -29,6 +31,7 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	type DashboardElementLot,
+	GridPacking,
 	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	UserReviewScale,
@@ -367,6 +370,20 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
+							<Input.Wrapper label="Grid packing">
+								<SegmentedControl
+									fullWidth
+									data={Object.values(GridPacking).map((c) => ({
+										label: startCase(snakeCase(c)),
+										value: c,
+									}))}
+									defaultValue={userPreferences.general.gridPacking}
+									disabled={!!isEditDisabled}
+									onChange={(val) => {
+										if (val) appendPref("general.grid_packing", val);
+									}}
+								/>
+							</Input.Wrapper>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications">
