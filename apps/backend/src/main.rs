@@ -18,7 +18,7 @@ use apalis::{
 };
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use common_utils::{convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR};
 use database_models::prelude::Exercise;
 use env_utils::{APP_VERSION, UNKEY_API_ID};
@@ -26,6 +26,8 @@ use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
+use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use tokio::{
     join,
     net::TcpListener,
@@ -33,6 +35,7 @@ use tokio::{
 };
 use tower::buffer::BufferLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
+use unkey::{models::VerifyKeyRequest, Client};
 
 use crate::{
     common::create_app_services,
@@ -299,11 +302,6 @@ fn init_tracing() -> Result<()> {
 }
 
 async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
-    use chrono::NaiveDate;
-    use serde::{Deserialize, Serialize};
-    use serde_with::skip_serializing_none;
-    use unkey::{models::VerifyKeyRequest, Client};
-
     if pro_key.is_empty() {
         return false;
     }
