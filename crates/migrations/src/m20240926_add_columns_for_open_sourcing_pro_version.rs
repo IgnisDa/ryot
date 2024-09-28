@@ -65,6 +65,18 @@ ALTER TABLE "collection_to_entity" ADD COLUMN "entity_id" TEXT {};
         .await?;
         db.execute_unprepared(MONITORED_ENTITY_VIEW_CREATION_SQL)
             .await?;
+        if !manager
+            .has_column("daily_user_activity", "entity_ids")
+            .await?
+        {
+            db.execute_unprepared(
+                r#"
+DELETE FROM "daily_user_activity";
+ALTER TABLE "daily_user_activity" ADD COLUMN "entity_ids" TEXT[] NOT NULL DEFAULT '{}';
+        "#,
+            )
+            .await?;
+        }
         Ok(())
     }
 
