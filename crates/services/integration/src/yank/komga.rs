@@ -382,8 +382,7 @@ impl KomgaIntegration {
         // DEV: This object needs global lifetime so we can continue to use the receiver If
         // we ever create more SSE Objects we may want to implement a higher level
         // Controller or make a housekeeping function to make sure the background threads
-        // are running correctly and kill them when the app is killed (though rust should
-        // handle this).
+        // are running correctly and kill them when the app is killed.
         static SSE_LISTS: KomgaEventHandler = KomgaEventHandler::new();
 
         let mutex_receiver = SSE_LISTS.get_receiver();

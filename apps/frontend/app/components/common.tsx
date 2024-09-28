@@ -1,6 +1,5 @@
 import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Alert,
@@ -25,7 +24,13 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDebouncedValue, useDidUpdate, useDisclosure } from "@mantine/hooks";
-import { Form, Link, useFetcher, useNavigate } from "@remix-run/react";
+import {
+	Form,
+	Link,
+	useFetcher,
+	useNavigate,
+	useRevalidator,
+} from "@remix-run/react";
 import {
 	DeployUpdateMetadataGroupJobDocument,
 	DeployUpdateMetadataJobDocument,
@@ -43,14 +48,12 @@ import { changeCase, getInitials, isNumber, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
 	IconCheck,
-	IconCloudDownload,
 	IconEdit,
 	IconExternalLink,
 	IconFilterOff,
 	IconMoodEmpty,
 	IconMoodHappy,
 	IconMoodSad,
-	IconRotateClockwise2,
 	IconSearch,
 	IconStarFilled,
 	IconTrash,
@@ -113,10 +116,10 @@ export const MediaDetailsLayout = (props: {
 		href?: string | null;
 	};
 }) => {
+	const revalidator = useRevalidator();
 	const [activeImageId, setActiveImageId] = useState(0);
 	const fallbackImageUrl = useFallbackImageUrl();
 	const [mutationHasRunOnce, setMutationHasRunOnce] = useState(false);
-	const [parent] = useAutoAnimate();
 	const entityIsPartial = useQuery({
 		queryKey: ["MediaDetailsLayout", "entityIsPartial", props.entityDetails],
 		queryFn: async () => {
@@ -170,7 +173,10 @@ export const MediaDetailsLayout = (props: {
 					}),
 				)
 				.run(),
-		onSuccess: () => setMutationHasRunOnce(true),
+		onSuccess: () => {
+			setMutationHasRunOnce(true);
+			setTimeout(() => revalidator.revalidate(), 5000);
+		},
 	});
 
 	useDidUpdate(() => {
@@ -231,25 +237,6 @@ export const MediaDetailsLayout = (props: {
 						</Flex>
 					</Badge>
 				) : null}
-				<Box mt="md" ref={parent} id="partial-entity-indicator">
-					{entityIsPartial.data ? (
-						<Flex align="center" gap={4}>
-							<IconCloudDownload size={20} />
-							<Text size="xs">
-								Details of this{" "}
-								{changeCase(props.entityDetails.lot).toLowerCase()} are being
-								downloaded
-							</Text>
-						</Flex>
-					) : null}
-					{[false, null, undefined].includes(entityIsPartial.data) &&
-					mutationHasRunOnce ? (
-						<Flex align="center" gap={4}>
-							<IconRotateClockwise2 size={20} />
-							<Text size="xs">Details updated, please refresh the page.</Text>
-						</Flex>
-					) : undefined}
-				</Box>
 			</Box>
 			<Stack id="details-container" style={{ flexGrow: 1 }}>
 				{props.children}

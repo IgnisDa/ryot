@@ -119,11 +119,6 @@ impl IntegrationService {
 
     async fn process_progress(&self, integration_type: IntegrationType) -> Result<ImportResult> {
         match integration_type {
-            IntegrationType::Komga(base_url, username, password, provider) => {
-                let komga =
-                    KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
-                komga.yank_progress().await
-            }
             IntegrationType::Jellyfin(payload) => {
                 let jellyfin = JellyfinIntegration::new(payload);
                 jellyfin.yank_progress().await
@@ -157,6 +152,11 @@ impl IntegrationService {
                 let audiobookshelf =
                     AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
                 audiobookshelf.yank_progress(commit_metadata).await
+            }
+            IntegrationType::Komga(base_url, username, password, provider) => {
+                let komga =
+                    KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
+                komga.yank_progress().await
             }
             _ => bail!("Unsupported integration type"),
         }
@@ -356,6 +356,7 @@ impl IntegrationService {
         }
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
+            .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
             .all(&self.db)
             .await?;
         let mut progress_updates = vec![];
@@ -366,9 +367,9 @@ impl IntegrationService {
                 ryot_log!(debug, "Integration {} is disabled", integration.id);
                 continue;
             }
+            let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
                     self.process_progress_commit(
                         IntegrationType::Audiobookshelf(
                             specifics.audiobookshelf_base_url.unwrap(),
@@ -392,7 +393,6 @@ impl IntegrationService {
                     .await
                 }
                 IntegrationProvider::Komga => {
-                    let specifics = integration.clone().provider_specifics.unwrap();
                     self.process_progress(IntegrationType::Komga(
                         specifics.komga_base_url.unwrap(),
                         specifics.komga_username.unwrap(),
