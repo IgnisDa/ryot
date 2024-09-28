@@ -655,7 +655,6 @@ pub async fn calculate_user_activities_and_summary(
                 .get_episode(show_extra.season, show_extra.episode)
                 .and_then(|(_, e)| e.runtime)
             {
-                activity.show_count += 1;
                 activity.show_duration += runtime;
             }
         } else if let (Some(podcast_seen), Some(podcast_extra)) =
