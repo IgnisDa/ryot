@@ -36,6 +36,7 @@ import {
 	DeployUpdateMetadataJobDocument,
 	DeployUpdatePersonJobDocument,
 	EntityLot,
+	GridPacking,
 	type MediaLot,
 	type MediaSource,
 	MetadataDetailsDocument,
@@ -104,8 +105,16 @@ import {
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
 }) => {
+	const userPreferences = useUserPreferences();
+
 	return (
-		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
+		<SimpleGrid
+			cols={match(userPreferences.general.gridPacking)
+				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
+				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
+				.exhaustive()}
+			spacing="lg"
+		>
 			{props.children}
 		</SimpleGrid>
 	);

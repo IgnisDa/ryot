@@ -22,6 +22,7 @@ import { useInViewport } from "@mantine/hooks";
 import { Form, Link } from "@remix-run/react";
 import {
 	EntityLot,
+	GridPacking,
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
 	SeenState,
@@ -131,6 +132,8 @@ export const BaseMediaDisplayItem = (props: {
 	nameRight?: ReactNode;
 	innerRef?: Ref<HTMLDivElement>;
 }) => {
+	const userPreferences = useUserPreferences();
+	const gridPacking = userPreferences.general.gridPacking;
 	const SurroundingElement = (iProps: { children: ReactNode }) =>
 		isString(props.onImageClickBehavior) ? (
 			<Anchor component={Link} to={props.onImageClickBehavior}>
@@ -152,7 +155,13 @@ export const BaseMediaDisplayItem = (props: {
 						<Image
 							src={props.imageUrl}
 							radius="md"
-							style={{ cursor: "pointer", height: 260, w: 170 }}
+							style={{
+								cursor: "pointer",
+								...match(gridPacking)
+									.with(GridPacking.Normal, () => ({ height: 260, w: 170 }))
+									.with(GridPacking.Dense, () => ({ height: 200, w: 150 }))
+									.exhaustive(),
+							}}
 							alt={`Image for ${props.name}`}
 							className={classes.mediaImage}
 							styles={{
@@ -199,7 +208,14 @@ export const BaseMediaDisplayItem = (props: {
 					<Skeleton height={22} mt={8} />
 				</>
 			) : (
-				<Flex w="100%" direction="column" px={{ base: 10, md: 3 }} pt={4}>
+				<Flex
+					w="100%"
+					direction="column"
+					px={match(gridPacking)
+						.with(GridPacking.Normal, () => ({ base: 10, md: 3 }))
+						.with(GridPacking.Dense, () => ({ base: 5, md: 2 }))
+						.exhaustive()}
+				>
 					<Flex justify="space-between" direction="row" w="100%">
 						<Text c="dimmed" size="sm">
 							{props.labels?.left}
