@@ -194,7 +194,7 @@ impl MediaProvider for IgdbService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let client = get_client(&self.config).await;
+        let client = self.get_client().await;
         let req_body = format!(
             r#"
 {fields}
@@ -236,7 +236,7 @@ offset: {offset};
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        let client = get_client(&self.config).await;
+        let client = self.get_client().await;
         let req_body = format!(
             r"
 {fields}
@@ -297,7 +297,7 @@ where id = {id};
         _source_specifics: &Option<PersonSourceSpecifics>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let client = get_client(&self.config).await;
+        let client = self.get_client().await;
         let req_body = format!(
             r#"
 {fields}
@@ -343,7 +343,7 @@ offset: {offset};
         identity: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<MetadataPerson> {
-        let client = get_client(&self.config).await;
+        let client = self.get_client().await;
         let req_body = format!(
             r#"
 {fields}
@@ -422,7 +422,7 @@ where id = {id};
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
-        let client = get_client(&self.config).await;
+        let client = self.get_client().await;
         let req_body = format!(
             r#"{field} where id = {id};"#,
             field = GAME_FIELDS,
@@ -454,7 +454,7 @@ where id = {id};
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
-        let client = get_client(&self.config).await;
+        let client = self.get_client().await;
         let count_req_body =
             format!(r#"fields id; where version_parent = null; search "{query}"; limit: 500;"#);
         let rsp = client
@@ -512,6 +512,55 @@ offset: {offset};
 }
 
 impl IgdbService {
+    async fn get_access_token(&self) -> String {
+        let client = Client::new();
+        #[derive(Deserialize, Serialize, Default, Debug)]
+        struct AccessResponse {
+            access_token: String,
+            token_type: String,
+            expires_in: u128,
+        }
+        let access_res = client
+            .post(AUTH_URL)
+            .query(&json!({
+                "client_id": self.config.twitch.client_id.to_owned(),
+                "client_secret": self.config.twitch.client_secret.to_owned(),
+                "grant_type": "client_credentials".to_owned(),
+            }))
+            .send()
+            .await
+            .unwrap();
+        let access = access_res
+            .json::<AccessResponse>()
+            .await
+            .unwrap_or_default();
+        format!("{} {}", access.token_type, access.access_token)
+    }
+
+    async fn get_client(&self) -> Client {
+        let path = PathBuf::new().join(TEMP_DIR).join(FILE);
+        let settings = if !path.exists() {
+            let tok = self.get_access_token().await;
+            let settings = Settings { access_token: tok };
+            let data_to_write = serde_json::to_string(&settings).unwrap();
+            fs::write(path, data_to_write).unwrap();
+            settings
+        } else {
+            let data = fs::read_to_string(path).unwrap();
+            serde_json::from_str(&data).unwrap()
+        };
+        get_base_http_client(Some(vec![
+            (
+                HeaderName::from_static("client-id"),
+                HeaderValue::from_str(&self.config.twitch.client_id).unwrap(),
+            ),
+            (
+                AUTHORIZATION,
+                HeaderValue::from_str(&settings.access_token).unwrap(),
+            ),
+        ]))
+    }
+
     fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MediaDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| MetadataImageForMediaDetails {
             image: self.get_cover_image_url(a.image_id),
@@ -607,53 +656,4 @@ impl IgdbService {
     fn get_cover_image_url(&self, hash: String) -> String {
         format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
     }
-}
-
-async fn get_access_token(config: &config::VideoGameConfig) -> String {
-    let client = Client::new();
-    #[derive(Deserialize, Serialize, Default, Debug)]
-    struct AccessResponse {
-        access_token: String,
-        token_type: String,
-        expires_in: u128,
-    }
-    let access_res = client
-        .post(AUTH_URL)
-        .query(&json!({
-            "client_id": config.twitch.client_id.to_owned(),
-            "client_secret": config.twitch.client_secret.to_owned(),
-            "grant_type": "client_credentials".to_owned(),
-        }))
-        .send()
-        .await
-        .unwrap();
-    let access = access_res
-        .json::<AccessResponse>()
-        .await
-        .unwrap_or_default();
-    format!("{} {}", access.token_type, access.access_token)
-}
-
-async fn get_client(config: &config::VideoGameConfig) -> Client {
-    let path = PathBuf::new().join(TEMP_DIR).join(FILE);
-    let settings = if !path.exists() {
-        let tok = get_access_token(config).await;
-        let settings = Settings { access_token: tok };
-        let data_to_write = serde_json::to_string(&settings).unwrap();
-        fs::write(path, data_to_write).unwrap();
-        settings
-    } else {
-        let data = fs::read_to_string(path).unwrap();
-        serde_json::from_str(&data).unwrap()
-    };
-    get_base_http_client(Some(vec![
-        (
-            HeaderName::from_static("client-id"),
-            HeaderValue::from_str(&config.twitch.client_id).unwrap(),
-        ),
-        (
-            AUTHORIZATION,
-            HeaderValue::from_str(&settings.access_token).unwrap(),
-        ),
-    ]))
 }
