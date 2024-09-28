@@ -610,6 +610,7 @@ pub async fn calculate_user_activities_and_summary(
                 user_id: user_id.to_owned(),
                 ..Default::default()
             });
+        existing.entity_ids.push(entity_id);
         existing
     }
     let mut seen_stream = Seen::find()
