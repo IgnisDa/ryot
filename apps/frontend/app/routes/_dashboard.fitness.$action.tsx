@@ -108,6 +108,7 @@ import {
 import {
 	CurrentWorkoutKey,
 	FitnessEntity,
+	LOGO_IMAGE_URL,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
 	getSetColor,
@@ -232,6 +233,14 @@ export default function Page() {
 	const playCompleteTimerSound = () => {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
 		sound.play();
+		if (document.visibilityState === "visible") return;
+		navigator.serviceWorker.ready.then((registration) => {
+			registration.showNotification("Timer completed", {
+				body: "Let's get this done!",
+				icon: LOGO_IMAGE_URL,
+				silent: true,
+			});
+		});
 	};
 	const [
 		timerDrawerOpened,
