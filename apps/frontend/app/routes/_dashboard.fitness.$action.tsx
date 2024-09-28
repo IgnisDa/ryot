@@ -168,7 +168,9 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [
 		{
-			title: `${data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"} | Ryot`,
+			title: `${
+				data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"
+			} | Ryot`,
 		},
 	];
 };
@@ -422,7 +424,9 @@ export default function Page() {
 													if (!currentWorkout.name) {
 														notifications.show({
 															color: "red",
-															message: `Please give a name to the ${isCreatingTemplate ? "template" : "workout"}`,
+															message: `Please give a name to the ${
+																isCreatingTemplate ? "template" : "workout"
+															}`,
 														});
 														return;
 													}
@@ -475,7 +479,9 @@ export default function Page() {
 										size="compact-sm"
 										onClick={async () => {
 											const yes = await confirmWrapper({
-												confirmation: `Are you sure you want to cancel this ${isCreatingTemplate ? "template" : "workout"}?`,
+												confirmation: `Are you sure you want to cancel this ${
+													isCreatingTemplate ? "template" : "workout"
+												}?`,
 											});
 											if (yes) {
 												for (const e of currentWorkout.exercises) {
@@ -643,10 +649,7 @@ const StatInput = (props: {
 
 const fileType = "image/jpeg";
 
-const ImageDisplay = (props: {
-	imageSrc: string;
-	removeImage: () => void;
-}) => {
+const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 	return (
 		<Box pos="relative">
 			<Avatar src={props.imageSrc} size="lg" />
@@ -1324,6 +1327,9 @@ const SetDisplay = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
+	const isHighlighted =
+		highlightedSet?.exerciseIdx === props.exerciseIdx &&
+		highlightedSet?.setIdx === props.setIdx;
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
 		sound.play();
@@ -1339,16 +1345,11 @@ const SetDisplay = (props: {
 	}, [value]);
 
 	return currentWorkout && exercise && set ? (
-		<Box
+		<Paper
+			withBorder
 			id={`${props.exerciseIdx}-${props.setIdx}`}
-			style={{
-				borderRadius: "0.5rem",
-				transition: "box-shadow 1s",
-				...(highlightedSet?.exerciseIdx === props.exerciseIdx &&
-					highlightedSet?.setIdx === props.setIdx && {
-						boxShadow: "0 0 2pt 1pt cornflowerblue",
-					}),
-			}}
+			shadow={isHighlighted ? "xl" : undefined}
+			style={{ borderColor: isHighlighted ? undefined : "transparent" }}
 		>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
@@ -1622,7 +1623,7 @@ const SetDisplay = (props: {
 					onChange={(v) => setValue(v.currentTarget.value)}
 				/>
 			) : undefined}
-		</Box>
+		</Paper>
 	) : null;
 };
 
