@@ -48,7 +48,7 @@ use sea_orm::{
     ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use user_models::{
-    DashboardElementLot, NotificationPlatformSpecifics, UserGeneralDashboardElement,
+    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserGeneralDashboardElement,
     UserGeneralPreferences, UserPreferences, UserReviewScale,
 };
 
@@ -727,6 +727,10 @@ impl UserService {
                         "review_scale" => {
                             preferences.general.review_scale =
                                 UserReviewScale::from_str(&input.value).unwrap();
+                        }
+                        "grid_packing" => {
+                            preferences.general.grid_packing =
+                                GridPacking::from_str(&input.value).unwrap();
                         }
                         "display_nsfw" => {
                             preferences.general.display_nsfw = value_bool.unwrap();
