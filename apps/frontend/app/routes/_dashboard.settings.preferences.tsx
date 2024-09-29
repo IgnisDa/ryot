@@ -370,8 +370,12 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
-							<Input.Wrapper label="Grid packing">
+							<Input.Wrapper
+								label="Grid packing"
+								description="Display size for library user interface elements"
+							>
 								<SegmentedControl
+									mt="xs"
 									fullWidth
 									data={Object.values(GridPacking).map((c) => ({
 										label: startCase(snakeCase(c)),
