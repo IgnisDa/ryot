@@ -216,7 +216,12 @@ export const BaseMediaDisplayItem = (props: {
 						.with(GridPacking.Dense, () => ({ base: 5, md: 2 }))
 						.exhaustive()}
 				>
-					<Flex justify="space-between" direction="row" w="100%">
+					<Flex
+						w="100%"
+						direction="row"
+						justify="space-between"
+						mt={gridPacking === GridPacking.Dense ? 2 : undefined}
+					>
 						<Text c="dimmed" size="sm">
 							{props.labels?.left}
 						</Text>
