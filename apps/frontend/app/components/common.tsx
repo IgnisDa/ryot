@@ -68,6 +68,7 @@ import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
+	PRO_REQUIRED_MESSAGE,
 	ThreePointSmileyRating,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
@@ -89,7 +90,11 @@ import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 import { confirmWrapper } from "./confirmation";
-import { ExerciseDisplayItem, WorkoutDisplayItem } from "./fitness";
+import {
+	ExerciseDisplayItem,
+	WorkoutDisplayItem,
+	WorkoutTemplateDisplayItem,
+} from "./fitness";
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,
@@ -290,12 +295,7 @@ export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 	return !coreDetails.isPro ? (
 		<Alert>
 			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
-				<Text size="xs">
-					<Anchor href={coreDetails.websiteUrl} target="_blank">
-						Ryot Pro
-					</Anchor>{" "}
-					required to use this feature
-				</Text>
+				<Text size="xs">{PRO_REQUIRED_MESSAGE}</Text>
 			</Tooltip>
 		</Alert>
 	) : null;
@@ -706,6 +706,12 @@ export const DisplayCollectionEntity = (props: {
 				workoutId={props.entityId}
 				topRight={props.topRight}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.WorkoutTemplate, () => (
+			<WorkoutTemplateDisplayItem
+				workoutTemplateId={props.entityId}
+				topRight={props.topRight}
 			/>
 		))
 		.run();

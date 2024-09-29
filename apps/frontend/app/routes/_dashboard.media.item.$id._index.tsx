@@ -14,12 +14,15 @@ import {
 	Group,
 	Image,
 	Indicator,
+	Input,
 	Menu,
 	Modal,
+	NumberInput,
 	Paper,
 	ScrollArea,
 	Select,
 	SimpleGrid,
+	Slider,
 	Stack,
 	Tabs,
 	Text,
@@ -28,6 +31,7 @@ import {
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -76,8 +80,15 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
-import { Fragment, type ReactNode, forwardRef, useState } from "react";
-import { Virtuoso, VirtuosoGrid } from "react-virtuoso";
+import {
+	Fragment,
+	type ReactNode,
+	type RefObject,
+	forwardRef,
+	useRef,
+	useState,
+} from "react";
+import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
@@ -89,6 +100,7 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
+	ProRequiredAlert,
 	ReviewItemDisplay,
 } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
@@ -101,6 +113,7 @@ import { Verb, dayjsLib, getVerb, reviewYellow } from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
+	useCoreDetails,
 	useGetMantineColor,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -216,6 +229,7 @@ const editSeenItem = z.object({
 	seenId: z.string(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
+	manualTimeSpent: z.string().optional(),
 	providerWatchedOn: z.string().optional(),
 });
 
@@ -228,6 +242,7 @@ export default function Page() {
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
 	);
+	const podcastVirtuosoRef = useRef<VirtuosoHandle>(null);
 	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
@@ -974,9 +989,11 @@ export default function Page() {
 									data={loaderData.userMetadataDetails.history}
 									itemContent={(index, history) => (
 										<HistoryItem
-											history={history}
-											key={history.id}
 											index={index}
+											setTab={setTab}
+											key={history.id}
+											history={history}
+											podcastVirtuosoRef={podcastVirtuosoRef}
 										/>
 									)}
 								/>
@@ -1036,6 +1053,7 @@ export default function Page() {
 					{loaderData.metadataDetails.podcastSpecifics ? (
 						<Tabs.Panel value="podcastEpisodes" h={MEDIA_DETAILS_HEIGHT}>
 							<Virtuoso
+								ref={podcastVirtuosoRef}
 								data={loaderData.metadataDetails.podcastSpecifics.episodes}
 								itemContent={(podcastEpisodeIdx, podcastEpisode) => (
 									<DisplayPodcastEpisode
@@ -1223,14 +1241,31 @@ const MetadataCreator = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
+const DEFAULT_STATES = [0, 3];
+
 const EditHistoryRecordModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
 }) => {
-	const { startedOn, finishedOn, id, providerWatchedOn } = props.seen;
-	const userPreferences = useUserPreferences();
 	const loaderData = useLoaderData<typeof loader>();
+	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
+		props.seen;
+	const [mtv, mts] = manualTimeSpent
+		? //  IDK how to make this more readable. Should've paid more attention in math class.
+			(() => {
+				for (let i = 1; i <= 10; i++) {
+					const v = Number(manualTimeSpent) ** (1 / i);
+					if (v <= 100) return [v, i];
+				}
+				return DEFAULT_STATES;
+			})()
+		: DEFAULT_STATES;
+	const [manualTimeSpentValue, setManualTimeSpentValue] = useState(mtv);
+	const [manualTimeSpentScale, setManualTimeSpentScale] = useState(mts);
+	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
+	const userPreferences = useUserPreferences();
+	const coreDetails = useCoreDetails();
 
 	return (
 		<Modal
@@ -1259,6 +1294,45 @@ const EditHistoryRecordModal = (props: {
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 					/>
+					<Input.Wrapper
+						label="Time spent"
+						description="How much time did you actually spend on this media? You can also adjust the scale"
+					>
+						<Box mt="xs">
+							{coreDetails.isPro ? (
+								<>
+									<Group>
+										<Slider
+											flex={1}
+											label={null}
+											value={manualTimeSpentValue}
+											onChange={setManualTimeSpentValue}
+										/>
+										<NumberInput
+											w="20%"
+											max={10}
+											size="xs"
+											value={manualTimeSpentScale}
+											onChange={(v) => setManualTimeSpentScale(Number(v))}
+										/>
+									</Group>
+									<Text c="dimmed" size="sm" ta="center" mt="xs">
+										{humanizeDuration(manualTimeSpentInMinutes * 1000)}
+									</Text>
+									{manualTimeSpentInMinutes > 0 ? (
+										<input
+											hidden
+											readOnly
+											name="manualTimeSpent"
+											value={manualTimeSpentInMinutes}
+										/>
+									) : null}
+								</>
+							) : (
+								<ProRequiredAlert tooltipLabel="Track time spent on media" />
+							)}
+						</Box>
+					</Input.Wrapper>
 					<Select
 						data={userPreferences.general.watchProviders}
 						label={`Where did you ${getVerb(Verb.Read, loaderData.metadataDetails.lot)} it?`}
@@ -1308,8 +1382,14 @@ const MergeMetadataModal = (props: {
 	);
 };
 
-const HistoryItem = (props: { history: History; index: number }) => {
+const HistoryItem = (props: {
+	index: number;
+	history: History;
+	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
+	setTab: (tab: string) => void;
+}) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
@@ -1322,6 +1402,21 @@ const HistoryItem = (props: { history: History; index: number }) => {
 						e.episodeNumber === props.history.showExtraInformation?.episode,
 				)
 		: null;
+	const scrollToEpisode = (index?: number) => {
+		if (!coreDetails.isPro) {
+			notifications.show({
+				color: "red",
+				message: "Ryot Pro is required to jump to episodes",
+			});
+			return;
+		}
+		props.setTab("podcastEpisodes");
+		if (!isNumber(index)) return;
+		setTimeout(() => {
+			const current = props.podcastVirtuosoRef.current;
+			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
+		}, 500);
+	};
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
@@ -1330,9 +1425,20 @@ const HistoryItem = (props: { history: History; index: number }) => {
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
 			)
 		: null;
-	const displayPodcastExtraInformation = podcastExtraInformation
-		? `EP-${props.history.podcastExtraInformation?.episode}: ${podcastExtraInformation.title}`
-		: null;
+	const displayPodcastExtraInformation = podcastExtraInformation ? (
+		<Anchor
+			onClick={() =>
+				scrollToEpisode(
+					loaderData.metadataDetails.podcastSpecifics?.episodes.findIndex(
+						(e) => e.number === podcastExtraInformation.number,
+					),
+				)
+			}
+		>
+			EP-{props.history.podcastExtraInformation?.episode}:{" "}
+			{podcastExtraInformation.title}
+		</Anchor>
+	) : null;
 	const displayAnimeExtraInformation = isNumber(
 		props.history.animeExtraInformation?.episode,
 	)
@@ -1372,7 +1478,10 @@ const HistoryItem = (props: { history: History; index: number }) => {
 					.reduce((prev, curr) => [prev, " • ", curr])
 			: null;
 
-	const timeSpentInMilliseconds = 0 * 1000;
+	const timeSpentInMilliseconds =
+		(props.history.manualTimeSpent
+			? Number(props.history.manualTimeSpent)
+			: 0) * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
 	const isLessThanAnHour =
 		timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();

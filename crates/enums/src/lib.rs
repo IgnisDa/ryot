@@ -104,6 +104,9 @@ pub enum UserLot {
     Enum,
     Display,
     Default,
+    PartialOrd,
+    Ord,
+    Hash,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -118,6 +121,7 @@ pub enum EntityLot {
     Exercise,
     Collection,
     Workout,
+    WorkoutTemplate,
 }
 
 // The different possible states of a seen item.

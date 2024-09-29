@@ -41,7 +41,9 @@ jobs:
 
             let imageNames = [
               `name=${dockerUsername}/${repositoryName}`,
-              `name=${ghcrRegistry}/${owner}/${repositoryName}`
+              `name=${ghcrRegistry}/${owner}/${repositoryName}`,
+              `name=${dockerUsername}/${repositoryName}-pro`,
+              `name=${ghcrRegistry}/${owner}/${repositoryName}-pro`,
             ];
 
             let shouldRun = 'false';
@@ -55,9 +57,6 @@ jobs:
               }).then(commit => commit.data.commit.message);
               if (commitMsg.includes("Run CI")) {
                 shouldRun = 'true';
-                if (context.payload.pull_request.head.repo.full_name !== context.repo.full_name) {
-                  imageNames.shift();
-                }
               }
             }
 
@@ -175,6 +174,8 @@ jobs:
           APP_VERSION: ${{ steps.build.outputs.version }}
           DEFAULT_TMDB_ACCESS_TOKEN: ${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
+          TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
+          UNKEY_API_ID: ${{ secrets.UNKEY_API_ID }}
         run: |
           ${{ matrix.platform.command }} build --locked --target ${{ matrix.platform.target }} --release
       - name: Upload build artifact

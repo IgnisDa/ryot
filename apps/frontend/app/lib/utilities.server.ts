@@ -366,9 +366,13 @@ export const getToast = async (request: Request) => {
 	};
 };
 
-export const getCookiesForApplication = async (token: string) => {
+export const getCookiesForApplication = async (
+	token: string,
+	tokenValidForDays?: number,
+) => {
 	const [{ coreDetails }] = await Promise.all([getCachedCoreDetails()]);
-	const maxAge = coreDetails.tokenValidForDays * 24 * 60 * 60;
+	const maxAge =
+		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies CookieSerializeOptions;
 	return combineHeaders({
 		"set-cookie": serialize(AUTH_COOKIE_NAME, token, options),

@@ -11,21 +11,22 @@ use common_models::{
 };
 use common_utils::{ryot_log, IsFeatureEnabled};
 use database_models::{
-    collection, collection_to_entity, daily_user_activity,
+    access_link, collection, collection_to_entity, daily_user_activity,
     functions::associate_user_with_entity,
     metadata,
     prelude::{
-        Collection, CollectionToEntity, DailyUserActivity, Metadata, Review, Seen, User,
-        UserMeasurement, UserToEntity, Workout,
+        AccessLink, Collection, CollectionToEntity, DailyUserActivity, Metadata, Review, Seen,
+        User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout,
 };
-use dependent_models::UserWorkoutDetails;
+use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
 use enums::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
 use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
 use itertools::Itertools;
+use jwt_service::{verify, Claims};
 use markdown::to_html as markdown_to_html;
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CreateOrUpdateCollectionInput,
@@ -46,6 +47,17 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use user_models::{UserPreferences, UserReviewScale};
 use uuid::Uuid;
+
+pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String) -> Result<bool> {
+    AccessLink::update(access_link::ActiveModel {
+        id: ActiveValue::Set(access_link_id),
+        is_revoked: ActiveValue::Set(Some(true)),
+        ..Default::default()
+    })
+    .exec(db)
+    .await?;
+    Ok(true)
+}
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
@@ -92,6 +104,15 @@ pub async fn admin_account_guard(db: &DatabaseConnection, user_id: &String) -> R
     Ok(())
 }
 
+pub async fn pro_instance_guard(is_pro: bool) -> Result<()> {
+    if !is_pro {
+        return Err(Error::new(
+            "This feature is only available on the Pro version",
+        ));
+    }
+    Ok(())
+}
+
 pub async fn user_measurements_list(
     db: &DatabaseConnection,
     user_id: &String,
@@ -120,6 +141,7 @@ fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Colum
         EntityLot::MetadataGroup => CteColAlias::MetadataGroupId,
         EntityLot::Exercise => CteColAlias::ExerciseId,
         EntityLot::Workout => CteColAlias::WorkoutId,
+        EntityLot::WorkoutTemplate => CteColAlias::WorkoutTemplateId,
         EntityLot::Collection => unreachable!(),
     }
 }
@@ -185,6 +207,34 @@ pub async fn workout_details(
                 entity_in_collections(db, user_id, &workout_id, EntityLot::Workout).await?;
             let details = e.graphql_representation(file_storage_service).await?;
             Ok(UserWorkoutDetails {
+                details,
+                collections,
+            })
+        }
+    }
+}
+
+pub async fn workout_template_details(
+    db: &DatabaseConnection,
+    user_id: &String,
+    workout_template_id: String,
+) -> Result<UserWorkoutTemplateDetails> {
+    let maybe_template = WorkoutTemplate::find_by_id(workout_template_id.clone())
+        .one(db)
+        .await?;
+    match maybe_template {
+        None => Err(Error::new(
+            "Workout template with the given ID could not be found.",
+        )),
+        Some(details) => {
+            let collections = entity_in_collections(
+                db,
+                user_id,
+                &workout_template_id,
+                EntityLot::WorkoutTemplate,
+            )
+            .await?;
+            Ok(UserWorkoutTemplateDetails {
                 details,
                 collections,
             })
@@ -275,11 +325,15 @@ pub async fn add_entity_to_collection(
             }
             EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
             EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
+            EntityLot::WorkoutTemplate => {
+                created_collection.workout_template_id = ActiveValue::Set(Some(id))
+            }
             EntityLot::Collection => unreachable!(),
         }
         let created = created_collection.insert(db).await?;
         ryot_log!(debug, "Created collection to entity: {:?}", created);
-        if input.entity_lot != EntityLot::Workout {
+        if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate
+        {
             associate_user_with_entity(db, user_id, input.entity_id, input.entity_lot)
                 .await
                 .ok();
@@ -294,6 +348,43 @@ pub async fn add_entity_to_collection(
         .await
         .unwrap();
     Ok(true)
+}
+
+pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {
+    verify(token, jwt_secret).map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
+}
+
+/// If the token has an access link, then checks that:
+/// - the access link is not revoked
+/// - if the operation is a mutation, then the access link allows mutations
+///
+/// If any of the above conditions are not met, then an error is returned.
+#[inline]
+pub async fn check_token(
+    token: &str,
+    is_mutation: bool,
+    jwt_secret: &str,
+    db: &DatabaseConnection,
+) -> Result<bool> {
+    let claims = user_claims_from_token(token, jwt_secret)?;
+    if let Some(access_link) = claims.access_link {
+        let access_link = AccessLink::find_by_id(access_link.id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
+        if access_link.is_revoked.unwrap_or_default() {
+            return Err(Error::new(BackendError::SessionExpired.to_string()));
+        }
+        if is_mutation {
+            if !access_link.is_mutation_allowed.unwrap_or_default() {
+                return Err(Error::new(BackendError::MutationNotAllowed.to_string()));
+            }
+            return Ok(true);
+        }
+        Ok(true)
+    } else {
+        Ok(true)
+    }
 }
 
 pub async fn remove_entity_from_collection(
@@ -315,7 +406,7 @@ pub async fn remove_entity_from_collection(
         .filter(column.eq(input.entity_id.clone()))
         .exec(db)
         .await?;
-    if input.entity_lot != EntityLot::Workout {
+    if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
         associate_user_with_entity(db, user_id, input.entity_id, input.entity_lot).await?;
     }
     Ok(StringIdObject { id: collect.id })
@@ -333,7 +424,7 @@ pub async fn item_reviews(
         EntityLot::Person => review::Column::PersonId,
         EntityLot::Exercise => review::Column::ExerciseId,
         EntityLot::Collection => review::Column::CollectionId,
-        EntityLot::Workout => unreachable!(),
+        EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
     };
     let all_reviews = Review::find()
         .filter(review::Column::UserId.eq(user_id))
@@ -438,7 +529,10 @@ pub async fn create_or_update_collection(
                 .await
                 .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
             let id = inserted.id.unwrap();
-            let collaborators = vec![user_id.to_owned()];
+            let mut collaborators = vec![user_id.to_owned()];
+            if let Some(input_collaborators) = input.collaborators {
+                collaborators.extend(input_collaborators);
+            }
             let inserts = collaborators
                 .into_iter()
                 .map(|c| user_to_entity::ActiveModel {
@@ -516,6 +610,7 @@ pub async fn calculate_user_activities_and_summary(
                 user_id: user_id.to_owned(),
                 ..Default::default()
             });
+        existing.entity_ids.push(entity_id);
         existing
     }
     let mut seen_stream = Seen::find()
@@ -561,7 +656,6 @@ pub async fn calculate_user_activities_and_summary(
                 .get_episode(show_extra.season, show_extra.episode)
                 .and_then(|(_, e)| e.runtime)
             {
-                activity.show_count += 1;
                 activity.show_duration += runtime;
             }
         } else if let (Some(podcast_seen), Some(podcast_extra)) =

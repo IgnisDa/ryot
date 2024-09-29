@@ -34,6 +34,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::access_link::Entity")]
+    AccessLink,
     #[sea_orm(has_many = "super::collection::Entity")]
     Collection,
     #[sea_orm(has_many = "super::exercise::Entity")]
@@ -56,6 +58,14 @@ pub enum Relation {
     UserToEntity,
     #[sea_orm(has_many = "super::workout::Entity")]
     Workout,
+    #[sea_orm(has_many = "super::workout_template::Entity")]
+    WorkoutTemplate,
+}
+
+impl Related<super::access_link::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AccessLink.def()
+    }
 }
 
 impl Related<super::exercise::Entity> for Entity {
@@ -115,6 +125,12 @@ impl Related<super::user_to_entity::Entity> for Entity {
 impl Related<super::workout::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Workout.def()
+    }
+}
+
+impl Related<super::workout_template::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkoutTemplate.def()
     }
 }
 

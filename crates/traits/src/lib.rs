@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use anyhow::{bail, Result};
 use application_utils::AuthContext;
@@ -7,12 +7,13 @@ use async_trait::async_trait;
 use common_models::BackendError;
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
+use database_utils::check_token;
 use dependent_models::SearchResults;
 use media_models::{
     MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
 };
-use sea_orm::prelude::DateTimeUtc;
+use sea_orm::{prelude::DateTimeUtc, DatabaseConnection};
 
 #[async_trait]
 pub trait MediaProvider {
@@ -80,6 +81,15 @@ pub trait MediaProvider {
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         bail!("This provider does not support getting group details")
     }
+
+    /// Get recommendations for a media item.
+    async fn get_recommendations_for_metadata(
+        &self,
+        identifier: &str,
+    ) -> Result<Vec<PartialMetadataWithoutId>> {
+        let details = self.metadata_details(identifier).await?;
+        Ok(details.suggestions)
+    }
 }
 
 pub trait MediaProviderLanguages {
@@ -107,6 +117,11 @@ pub trait AuthProvider {
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
+        if let Some(auth_token) = &auth_ctx.auth_token {
+            let config = ctx.data_unchecked::<Arc<config::AppConfig>>();
+            let db = ctx.data_unchecked::<DatabaseConnection>();
+            check_token(auth_token, self.is_mutation(), &config.users.jwt_secret, db).await?;
+        }
         auth_ctx
             .user_id
             .clone()

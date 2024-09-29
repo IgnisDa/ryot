@@ -3,6 +3,7 @@ use std::future::Future;
 use anyhow::anyhow;
 use application_utils::get_base_http_client;
 use async_graphql::Result as GqlResult;
+use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::metadata;
 use enums::{MediaLot, MediaSource};
@@ -10,21 +11,28 @@ use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMedi
 use providers::google_books::GoogleBooksService;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
-use specific_models::audiobookshelf;
+use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
 
 use super::integration_trait::YankIntegrationWithCommit;
 
 pub(crate) struct AudiobookshelfIntegration {
     base_url: String,
     access_token: String,
+    sync_to_owned_collection: Option<bool>,
     isbn_service: GoogleBooksService,
 }
 
 impl AudiobookshelfIntegration {
-    pub fn new(base_url: String, access_token: String, isbn_service: GoogleBooksService) -> Self {
+    pub fn new(
+        base_url: String,
+        access_token: String,
+        sync_to_owned_collection: Option<bool>,
+        isbn_service: GoogleBooksService,
+    ) -> Self {
         Self {
             base_url,
             access_token,
+            sync_to_owned_collection,
             isbn_service,
         }
     }
@@ -38,7 +46,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {
-        let url = format!("{}/api/", self.base_url);
+        let url = format!("{}/api", self.base_url);
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {}", self.access_token)).unwrap(),
@@ -172,7 +180,52 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                 }
             };
         }
-
-        Ok((media_items, vec![]))
+        let mut collection_updates = vec![];
+        if let Some(true) = self.sync_to_owned_collection {
+            let libraries_resp = client
+                .get("libraries")
+                .send()
+                .await
+                .map_err(|e| anyhow!(e))?
+                .json::<LibrariesListResponse>()
+                .await
+                .unwrap();
+            for library in libraries_resp.libraries {
+                let items = client
+                    .get(&format!("libraries/{}/items", library.id))
+                    .send()
+                    .await
+                    .map_err(|e| anyhow!(e))?
+                    .json::<ListResponse>()
+                    .await
+                    .unwrap();
+                for item in items.results.into_iter() {
+                    let metadata = item.media.clone().unwrap().metadata;
+                    let (identifier, lot, source) =
+                        if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
+                            match &metadata.isbn {
+                                Some(isbn) => match self.isbn_service.id_from_isbn(isbn).await {
+                                    Some(id) => (id, MediaLot::Book, MediaSource::GoogleBooks),
+                                    _ => continue,
+                                },
+                                _ => continue,
+                            }
+                        } else if let Some(asin) = metadata.asin.clone() {
+                            (asin, MediaLot::AudioBook, MediaSource::Audible)
+                        } else if let Some(itunes_id) = metadata.itunes_id.clone() {
+                            (itunes_id, MediaLot::Podcast, MediaSource::Itunes)
+                        } else {
+                            continue;
+                        };
+                    collection_updates.push(IntegrationMediaCollection {
+                        identifier,
+                        lot,
+                        source,
+                        collection: DefaultCollection::Owned.to_string(),
+                    });
+                }
+            }
+        }
+        Ok((media_items, collection_updates))
     }
 }

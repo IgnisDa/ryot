@@ -2,7 +2,7 @@ use async_graphql::{InputObject, OutputType, SimpleObject, Union};
 use common_models::{BackendError, SearchDetails};
 use database_models::{
     collection, exercise, metadata, metadata_group, person, seen, user, user_measurement,
-    user_to_entity, workout,
+    user_to_entity, workout, workout_template,
 };
 use enums::UserToMediaReason;
 use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
@@ -36,6 +36,7 @@ use serde_with::skip_serializing_none;
 ))]
 #[graphql(concrete(name = "GenreListResults", params(media_models::GenreListItem)))]
 #[graphql(concrete(name = "WorkoutListResults", params(workout::Model)))]
+#[graphql(concrete(name = "WorkoutTemplateListResults", params(workout_template::Model)))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
     pub details: SearchDetails,
@@ -50,6 +51,12 @@ pub struct ImportOrExportWorkoutItem {
     /// The details of the workout.
     pub details: workout::Model,
     /// The collections this entity was added to.
+    pub collections: Vec<String>,
+}
+
+#[derive(Debug, SimpleObject, Clone, Serialize, Deserialize, Schematic)]
+pub struct ImportOrExportWorkoutTemplateItem {
+    pub details: workout_template::Model,
     pub collections: Vec<String>,
 }
 
@@ -70,6 +77,8 @@ pub struct CompleteExport {
     pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
+    /// Data about user's workout templates.
+    pub workout_templates: Option<Vec<ImportOrExportWorkoutTemplateItem>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -212,4 +221,10 @@ pub struct DailyUserActivitiesResponse {
     pub total_duration: i64,
     pub items: Vec<DailyUserActivityItem>,
     pub grouped_by: DailyUserActivitiesResponseGroupedBy,
+}
+
+#[derive(Debug, SimpleObject, Clone, Serialize, Deserialize, Schematic)]
+pub struct UserWorkoutTemplateDetails {
+    pub details: workout_template::Model,
+    pub collections: Vec<collection::Model>,
 }

@@ -519,9 +519,12 @@ pub struct UserWorkoutInput {
     pub end_time: DateTimeUtc,
     pub comment: Option<String>,
     pub start_time: DateTimeUtc,
+    pub template_id: Option<String>,
     pub assets: Option<EntityAssets>,
     pub repeated_from: Option<String>,
+    pub default_rest_timer: Option<i32>,
     pub exercises: Vec<UserExerciseInput>,
+    pub update_workout_template_id: Option<String>,
 }
 
 impl UserWorkoutSetRecord {

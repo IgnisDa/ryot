@@ -8,7 +8,6 @@ apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
-cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
@@ -17,7 +16,9 @@ config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
+derive_more = { workspace = true }
 enums = { path = "../../enums" }
+env-utils = { path = "../../utils/env" }
 file-storage-service = { path = "../../services/file-storage" }
 futures = { workspace = true }
 integration-service = { path = "../../services/integration" }
@@ -25,6 +26,7 @@ itertools = { workspace = true }
 markdown = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
+moka = { version = "=0.12.8", features = ["future"] }
 nanoid = { workspace = true }
 notification-service = { path = "../../services/notification" }
 providers = { path = "../../providers" }

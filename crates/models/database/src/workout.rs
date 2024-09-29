@@ -32,6 +32,7 @@ pub struct Model {
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,
     pub name: String,
+    pub template_id: Option<String>,
 }
 
 #[async_trait]
@@ -83,6 +84,14 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     RepeatedFrom,
+    #[sea_orm(
+        belongs_to = "super::workout_template::Entity",
+        from = "Column::TemplateId",
+        to = "super::workout_template::Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    WorkoutTemplate,
 }
 
 impl Related<super::collection_to_entity::Entity> for Entity {
@@ -94,6 +103,12 @@ impl Related<super::collection_to_entity::Entity> for Entity {
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::workout_template::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkoutTemplate.def()
     }
 }
 

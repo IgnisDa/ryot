@@ -1,0 +1,17 @@
+query UserWorkoutTemplatesList($input: SearchInput!) {
+  userWorkoutTemplatesList(input: $input) {
+    details {
+      total
+      nextPage
+    }
+    items {
+      id
+      name
+      createdOn
+      visibility
+      summary {
+        ...WorkoutSummaryPart
+      }
+    }
+  }
+}

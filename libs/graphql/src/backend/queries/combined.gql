@@ -69,6 +69,7 @@ query UserIntegrations {
     maximumProgress
     minimumProgress
     lastTriggeredOn
+    syncToOwnedCollection
   }
 }
 
@@ -89,6 +90,10 @@ query UsersList($query: String) {
     name
     isDisabled
   }
+}
+
+query UserRecommendations {
+  userRecommendations
 }
 
 query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
@@ -133,6 +138,21 @@ query PeopleList($input: PeopleListInput!) {
       nextPage
     }
     items
+  }
+}
+
+query UserAccessLinks {
+  userAccessLinks {
+    id
+    name
+    isDemo
+    createdOn
+    expiresOn
+    timesUsed
+    isRevoked
+    maximumUses
+    isAccountDefault
+    isMutationAllowed
   }
 }
 

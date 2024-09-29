@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::SearchInput;
-use database_models::{exercise, user_measurement, workout};
+use database_models::{exercise, user_measurement, workout, workout_template};
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
 };
 use fitness_models::{
     ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserWorkoutInput,
@@ -21,6 +22,30 @@ impl AuthProvider for ExerciseQuery {}
 
 #[Object]
 impl ExerciseQuery {
+    /// Get a paginated list of templates created by the user.
+    async fn user_workout_templates_list(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> Result<SearchResults<workout_template::Model>> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.user_workout_templates_list(user_id, input).await
+    }
+
+    /// Get information about a workout template.
+    async fn workout_template_details(
+        &self,
+        gql_ctx: &Context<'_>,
+        workout_template_id: String,
+    ) -> Result<UserWorkoutTemplateDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .workout_template_details(user_id, workout_template_id)
+            .await
+    }
+
     /// Get all the parameters related to exercises.
     async fn exercise_parameters(&self, gql_ctx: &Context<'_>) -> Result<ExerciseParameters> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
@@ -104,6 +129,32 @@ impl AuthProvider for ExerciseMutation {
 
 #[Object]
 impl ExerciseMutation {
+    /// Create or update a workout template.
+    async fn create_or_update_workout_template(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserWorkoutInput,
+    ) -> Result<String> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .create_or_update_workout_template(user_id, input)
+            .await
+    }
+
+    /// Delete a workout template.
+    async fn delete_workout_template(
+        &self,
+        gql_ctx: &Context<'_>,
+        workout_template_id: String,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service
+            .delete_workout_template(user_id, workout_template_id)
+            .await
+    }
+
     /// Create a user measurement.
     async fn create_user_measurement(
         &self,

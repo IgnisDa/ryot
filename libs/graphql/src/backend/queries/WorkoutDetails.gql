@@ -9,6 +9,7 @@ query WorkoutDetails($workoutId: String!) {
       endTime
       duration
       startTime
+      templateId
       repeatedFrom
       summary {
         ...WorkoutSummaryPart

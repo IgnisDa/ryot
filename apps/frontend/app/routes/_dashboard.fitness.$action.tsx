@@ -1,6 +1,8 @@
 import { Buffer } from "buffer";
+import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
+import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
 	Anchor,
@@ -49,6 +51,7 @@ import {
 } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
+	CreateOrUpdateWorkoutTemplateDocument,
 	CreateUserWorkoutDocument,
 	ExerciseLot,
 	SetLot,
@@ -68,6 +71,7 @@ import {
 	IconCameraRotate,
 	IconCheck,
 	IconClipboard,
+	IconClock,
 	IconDotsVertical,
 	IconDroplet,
 	IconDropletFilled,
@@ -79,11 +83,12 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
@@ -97,12 +102,16 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
 	DisplaySetStatistics,
+	ExerciseHistory,
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
 	CurrentWorkoutKey,
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
 	getSetColor,
+	getSurroundingElements,
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
@@ -115,8 +124,11 @@ import {
 } from "~/lib/hooks";
 import {
 	type InProgressWorkout,
+	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	exerciseHasDetailsToShow,
+	getUserExerciseDetailsQuery,
+	getWorkoutDetails,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
@@ -156,7 +168,9 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [
 		{
-			title: `${data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"} | Ryot`,
+			title: `${
+				data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"
+			} | Ryot`,
 		},
 	];
 };
@@ -177,6 +191,21 @@ export const action = unstable_defineAction(async ({ request }) => {
 					id: createUserWorkout,
 				}),
 				{ message: "Workout completed successfully", type: "success" },
+			);
+		},
+		createTemplate: async () => {
+			const { createOrUpdateWorkoutTemplate } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					CreateOrUpdateWorkoutTemplateDocument,
+					workout,
+				);
+			return redirectWithToast(
+				$path("/fitness/:entity/:id", {
+					entity: "templates",
+					id: createOrUpdateWorkoutTemplate,
+				}),
+				{ message: "Template created successfully", type: "success" },
 			);
 		},
 	});
@@ -264,20 +293,39 @@ export default function Page() {
 								key={currentWorkout.exercises.toString()}
 							/>
 							<Stack ref={parent}>
-								<TextInput
-									size="sm"
-									label="Name"
-									placeholder="A name for your workout"
-									value={currentWorkout.name}
-									required
-									onChange={(e) =>
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.name = e.currentTarget.value;
-											}),
-										)
-									}
-								/>
+								<Group justify="space-between">
+									<TextInput
+										w={isCreatingTemplate ? "65%" : "100%"}
+										size="sm"
+										label="Name"
+										placeholder="A name for your workout"
+										value={currentWorkout.name}
+										required
+										onChange={(e) =>
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.name = e.currentTarget.value;
+												}),
+											)
+										}
+									/>
+									{isCreatingTemplate ? (
+										<NumberInput
+											w="30%"
+											suffix="s"
+											label="Rest timer"
+											value={currentWorkout.defaultRestTimer || undefined}
+											onChange={(v) => {
+												if (v)
+													setCurrentWorkout(
+														produce(currentWorkout, (draft) => {
+															draft.defaultRestTimer = Number(v);
+														}),
+													);
+											}}
+										/>
+									) : undefined}
+								</Group>
 								<Textarea
 									size="sm"
 									minRows={2}
@@ -376,7 +424,9 @@ export default function Page() {
 													if (!currentWorkout.name) {
 														notifications.show({
 															color: "red",
-															message: `Please give a name to the ${isCreatingTemplate ? "template" : "workout"}`,
+															message: `Please give a name to the ${
+																isCreatingTemplate ? "template" : "workout"
+															}`,
 														});
 														return;
 													}
@@ -429,7 +479,9 @@ export default function Page() {
 										size="compact-sm"
 										onClick={async () => {
 											const yes = await confirmWrapper({
-												confirmation: `Are you sure you want to cancel this ${isCreatingTemplate ? "template" : "workout"}?`,
+												confirmation: `Are you sure you want to cancel this ${
+													isCreatingTemplate ? "template" : "workout"
+												}?`,
 											});
 											if (yes) {
 												for (const e of currentWorkout.exercises) {
@@ -597,10 +649,7 @@ const StatInput = (props: {
 
 const fileType = "image/jpeg";
 
-const ImageDisplay = (props: {
-	imageSrc: string;
-	removeImage: () => void;
-}) => {
+const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 	return (
 		<Box pos="relative">
 			<Avatar src={props.imageSrc} size="lg" />
@@ -713,6 +762,11 @@ const ExerciseDisplay = (props: {
 	const [currentTimer] = useTimerAtom();
 	const coreDetails = useCoreDetails();
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
+	const [detailsParent] = useAutoAnimate();
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(exercise.exerciseId),
+	);
+	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 
 	const playAddSetSound = () => {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
@@ -736,13 +790,13 @@ const ExerciseDisplay = (props: {
 		{ close: supersetModalClose, toggle: supersetModalToggle },
 	] = useDisclosure(false);
 
+	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])
 		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
 		.exhaustive();
-
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
@@ -905,6 +959,7 @@ const ExerciseDisplay = (props: {
 				</Stack>
 			</Modal>
 			<Paper
+				style={{ scrollMargin: 16 }}
 				id={props.exerciseIdx.toString()}
 				px={{ base: 4, md: "xs", lg: "sm" }}
 			>
@@ -1034,13 +1089,113 @@ const ExerciseDisplay = (props: {
 					</Menu>
 					<Box ref={parent}>
 						{exercise.isShowDetailsOpen ? (
-							<ScrollArea mb="md" type="scroll">
-								<Group wrap="nowrap">
-									{exercise.exerciseDetails.images.map((i) => (
-										<Image key={i} radius="md" src={i} h={200} w={350} />
-									))}
-								</Group>
-							</ScrollArea>
+							<Box mb="md" ref={detailsParent} pos="relative">
+								{match(exercise.openedDetailsTab)
+									.with("images", undefined, () => (
+										<ScrollArea type="scroll">
+											<Group wrap="nowrap">
+												{exercise.exerciseDetails.images.map((i) => (
+													<Image key={i} radius="md" src={i} h={200} w={350} />
+												))}
+											</Group>
+										</ScrollArea>
+									))
+									.with("history", () => (
+										<Carousel
+											align="start"
+											slideGap="md"
+											withControls={false}
+											style={{ userSelect: "none" }}
+											onSlideChange={setActiveHistoryIdx}
+											slideSize={{ base: "100%", md: "50%" }}
+										>
+											{exerciseHistory?.map((history, idx) => (
+												<Carousel.Slide
+													key={`${history.workoutId}-${history.idx}`}
+												>
+													{getSurroundingElements(
+														exerciseHistory,
+														activeHistoryIdx,
+													).includes(idx) ? (
+														<ExerciseHistory
+															hideExerciseDetails
+															hideExtraDetailsButton
+															exerciseIdx={history.idx}
+															entityId={history.workoutId}
+															entityType={FitnessEntity.Workouts}
+															onCopyButtonClick={async () => {
+																if (!coreDetails.isPro) {
+																	notifications.show({
+																		color: "red",
+																		message:
+																			"Ryot Pro required to copy sets from other workouts",
+																	});
+																	return;
+																}
+																const workout = await getWorkoutDetails(
+																	history.workoutId,
+																);
+																const yes = await confirmWrapper({
+																	confirmation: `Are you sure you want to copy all sets from "${workout.details.name}"?`,
+																});
+																if (yes) {
+																	const sets =
+																		workout.details.information.exercises[
+																			history.idx
+																		].sets;
+																	const converted = sets.map(
+																		convertHistorySetToCurrentSet,
+																	);
+																	setCurrentWorkout(
+																		produce(currentWorkout, (draft) => {
+																			draft.exercises[
+																				props.exerciseIdx
+																			].sets.push(...converted);
+																		}),
+																	);
+																}
+															}}
+														/>
+													) : null}
+												</Carousel.Slide>
+											))}
+										</Carousel>
+									))
+									.exhaustive()}
+								{(userExerciseDetails?.history?.length || 0) > 0 ? (
+									<ActionIcon
+										right={10}
+										bottom={10}
+										variant="filled"
+										color="red"
+										size="sm"
+										pos="absolute"
+										p={2}
+										onClick={() => {
+											if (!coreDetails.isPro) {
+												notifications.show({
+													color: "red",
+													message: PRO_REQUIRED_MESSAGE,
+												});
+												return;
+											}
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.exercises[props.exerciseIdx].openedDetailsTab =
+														exercise.openedDetailsTab === "images"
+															? "history"
+															: "images";
+												}),
+											);
+										}}
+									>
+										{match(exercise.openedDetailsTab)
+											.with("images", undefined, () => <IconPhoto />)
+											.with("history", () => <IconClock />)
+											.exhaustive()}
+									</ActionIcon>
+								) : null}
+							</Box>
 						) : null}
 						<Flex justify="space-between" align="center" mb="xs">
 							<Text size="xs" w="5%" ta="center">
@@ -1165,17 +1320,37 @@ const SetDisplay = (props: {
 	toBeDisplayedColumns: number;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const highlightedSet = currentWorkout?.highlightedSet;
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	const [value, setValue] = useDebouncedState(set?.note || "", 500);
+	const isHighlighted =
+		highlightedSet?.exerciseIdx === props.exerciseIdx &&
+		highlightedSet?.setIdx === props.setIdx;
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
 		sound.play();
 	};
 
+	useDidUpdate(() => {
+		if (currentWorkout && isString(value))
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.exercises[props.exerciseIdx].sets[props.setIdx].note = value;
+				}),
+			);
+	}, [value]);
+
 	return currentWorkout && exercise && set ? (
-		<Box>
+		<Paper
+			withBorder
+			id={`${props.exerciseIdx}-${props.setIdx}`}
+			shadow={isHighlighted ? "xl" : undefined}
+			style={{ borderColor: isHighlighted ? undefined : "transparent" }}
+		>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
 					<Menu.Target>
@@ -1214,6 +1389,33 @@ const SetDisplay = (props: {
 						))}
 						<Menu.Divider />
 						<Menu.Label>Actions</Menu.Label>
+						<Menu.Item
+							fz="xs"
+							leftSection={<IconClipboard size={14} />}
+							onClick={() => {
+								if (!coreDetails.isPro) {
+									notifications.show({
+										color: "red",
+										message: PRO_REQUIRED_MESSAGE,
+									});
+									return;
+								}
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const hasNote = !!set.note;
+										let currentSetNote =
+											draft.exercises[props.exerciseIdx].sets[props.setIdx]
+												.note;
+										if (!hasNote) currentSetNote = true;
+										else currentSetNote = undefined;
+										draft.exercises[props.exerciseIdx].sets[props.setIdx].note =
+											currentSetNote;
+									}),
+								);
+							}}
+						>
+							{!set.note ? "Add" : "Remove"} note
+						</Menu.Item>
 						<Menu.Item
 							color="red"
 							fz="xs"
@@ -1371,10 +1573,41 @@ const SetDisplay = (props: {
 												draft.exercises[props.exerciseIdx];
 											currentExercise.sets[props.setIdx].confirmedAt =
 												newConfirmed ? dayjsLib().toISOString() : null;
+											const isLastSet =
+												props.setIdx === currentExercise.sets.length - 1;
+											const nextExerciseIdx = props.exerciseIdx + 1;
+											const nextExercise = draft.exercises[nextExerciseIdx];
+											if (newConfirmed) {
+												draft.highlightedSet = isLastSet
+													? {
+															exerciseIdx: nextExerciseIdx,
+															setIdx: 0,
+														}
+													: {
+															exerciseIdx: props.exerciseIdx,
+															setIdx: props.setIdx + 1,
+														};
+												setTimeout(() => {
+													setCurrentWorkout((w) =>
+														produce(w, (innerDraft) => {
+															if (innerDraft)
+																innerDraft.highlightedSet = undefined;
+														}),
+													);
+												}, 2000);
+												if (isLastSet) {
+													currentExercise.isShowDetailsOpen = false;
+													const nextExerciseHasDetailsToShow =
+														nextExercise &&
+														exerciseHasDetailsToShow(nextExercise);
+													if (nextExerciseHasDetailsToShow)
+														nextExercise.isShowDetailsOpen = true;
+													focusOnExercise(nextExerciseIdx);
+												}
+											}
 										}),
 									);
 								}}
-								data-statistics={JSON.stringify(set.statistic)}
 							>
 								<IconCheck />
 							</ActionIcon>
@@ -1382,7 +1615,15 @@ const SetDisplay = (props: {
 					</Transition>
 				</Group>
 			</Flex>
-		</Box>
+			{set.note ? (
+				<TextInput
+					my={4}
+					size="xs"
+					defaultValue={isString(set.note) ? set.note : ""}
+					onChange={(v) => setValue(v.currentTarget.value)}
+				/>
+			) : undefined}
+		</Paper>
 	) : null;
 };
 

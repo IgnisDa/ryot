@@ -51,7 +51,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { commaDelimitedString, dayjsLib } from "~/lib/generals";
-import { useConfirmSubmit, useUserCollections } from "~/lib/hooks";
+import {
+	useConfirmSubmit,
+	useCoreDetails,
+	useUserCollections,
+} from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const YANK_INTEGRATIONS = [
@@ -153,6 +157,7 @@ const createSchema = z.object({
 	provider: z.nativeEnum(IntegrationProvider),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
+	syncToOwnedCollection: zx.CheckboxAsString.optional(),
 	providerSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
@@ -185,6 +190,7 @@ const updateSchema = z.object({
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
 	isDisabled: zx.CheckboxAsString.optional(),
+	syncToOwnedCollection: zx.CheckboxAsString.optional(),
 });
 
 export default function Page() {
@@ -323,6 +329,9 @@ const DisplayIntegration = (props: {
 								{dayjsLib(props.integration.lastTriggeredOn).fromNow()}
 							</Text>
 						) : null}
+						{props.integration.syncToOwnedCollection ? (
+							<Text size="xs">Being synced to "Owned" collection</Text>
+						) : null}
 					</Box>
 					<Group>
 						{!NO_SHOW_URL.includes(props.integration.provider) ? (
@@ -381,6 +390,7 @@ const CreateIntegrationModal = (props: {
 	createModalOpened: boolean;
 	closeIntegrationModal: () => void;
 }) => {
+	const coreDetails = useCoreDetails();
 	const [provider, setProvider] = useState<IntegrationProvider | null>(null);
 
 	return (
@@ -485,6 +495,20 @@ const CreateIntegrationModal = (props: {
 						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
 						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
 						.otherwise(() => undefined)}
+					{provider && YANK_INTEGRATIONS.includes(provider) ? (
+						<Tooltip
+							label="Only available for Pro users"
+							disabled={coreDetails.isPro}
+						>
+							<Checkbox
+								label="Sync to Owned collection"
+								name="syncToOwnedCollection"
+								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								styles={{ body: { display: "flex", alignItems: "center" } }}
+								disabled={!coreDetails.isPro}
+							/>
+						</Tooltip>
+					) : undefined}
 					<Button type="submit">Submit</Button>
 				</Stack>
 			</Form>
@@ -588,6 +612,19 @@ const UpdateIntegrationModal = (props: {
 								props.updateIntegrationData.isDisabled || undefined
 							}
 						/>
+						{YANK_INTEGRATIONS.includes(
+							props.updateIntegrationData.provider,
+						) ? (
+							<Checkbox
+								label="Sync to Owned collection"
+								name="syncToOwnedCollection"
+								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								styles={{ body: { display: "flex", alignItems: "center" } }}
+								defaultChecked={
+									props.updateIntegrationData.syncToOwnedCollection || undefined
+								}
+							/>
+						) : null}
 						<Button type="submit">Submit</Button>
 					</Stack>
 				</Form>

@@ -1,9 +1,22 @@
 {
 	"extends": "../../tsconfig.options.json",
-	"include": ["**/*"],
-	"references": [],
+	"include": [
+		"**/*"
+	],
+	"references": [
+		{
+			"path": "../ts-utils"
+		}
+	],
 	"compilerOptions": {
-		"paths": {},
+		"paths": {
+			"@ryot/ts-utils": [
+				"../ts-utils/src/index.ts"
+			],
+			"@ryot/ts-utils/*": [
+				"../ts-utils/src/*"
+			]
+		},
 		"module": "ESNext",
 		"jsx": "react-jsx",
 		"moduleResolution": "Bundler",

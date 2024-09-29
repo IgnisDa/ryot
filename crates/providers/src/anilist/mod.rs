@@ -293,6 +293,7 @@ impl MediaProvider for NonMediaAnilistService {
                                 studio_query::MediaType::Other(_) => unreachable!(),
                             },
                             image: data.cover_image.unwrap().extra_large,
+                            is_recommendation: None,
                         },
                     )
                 })
@@ -381,6 +382,7 @@ impl MediaProvider for NonMediaAnilistService {
                                 staff_query::MediaType::Other(_) => unreachable!(),
                             },
                             image: data.cover_image.unwrap().extra_large,
+                            is_recommendation: None,
                         },
                     )
                 })
@@ -413,6 +415,7 @@ impl MediaProvider for NonMediaAnilistService {
                                     staff_query::MediaType::Other(_) => unreachable!(),
                                 },
                                 image: data.cover_image.unwrap().extra_large,
+                                is_recommendation: None,
                             },
                         )
                     }),
@@ -670,6 +673,7 @@ async fn media_details(
                         media_details_query::MediaType::Other(_) => unreachable!(),
                     },
                     image: data.cover_image.unwrap().extra_large,
+                    is_recommendation: None,
                 }
             })
         })

@@ -30,6 +30,7 @@ import {
 	LatestUserSummaryDocument,
 	MediaLot,
 	type UserPreferences,
+	UserRecommendationsDocument,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -54,11 +55,8 @@ import { $path } from "remix-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
-import {
-	ApplicationGrid,
-	DisplayCollectionEntity,
-	ProRequiredAlert,
-} from "~/components/common";
+import { ApplicationGrid, ProRequiredAlert } from "~/components/common";
+import { DisplayCollectionEntity } from "~/components/common";
 import { displayWeightWithUnit } from "~/components/fitness";
 import { MetadataDisplayItem } from "~/components/media";
 import {
@@ -71,6 +69,7 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import {
+	useCoreDetails,
 	useDashboardLayoutData,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -93,6 +92,20 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const preferences = await getCachedUserPreferences(request);
 	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
+	const getRecommendations = async () => {
+		if (
+			preferences.general.dashboard.find(
+				(de) => de.section === DashboardElementLot.Recommendations,
+			)?.hidden
+		)
+			return [];
+		const { userRecommendations } = await serverGqlService.authenticatedRequest(
+			request,
+			UserRecommendationsDocument,
+			{},
+		);
+		return userRecommendations;
+	};
 	const userCollectionsList = await getCachedUserCollectionsList(request);
 	const foundInProgressCollection = userCollectionsList.find(
 		(c) => c.name === "In Progress",
@@ -100,6 +113,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	invariant(foundInProgressCollection);
 	const [
 		{ collectionContents: inProgressCollectionContents },
+		userRecommendations,
 		{ userUpcomingCalendarEvents },
 		{ latestUserSummary },
 	] = await Promise.all([
@@ -110,6 +124,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 				sort: { order: GraphqlSortOrder.Desc },
 			},
 		}),
+		getRecommendations(),
 		serverGqlService.authenticatedRequest(
 			request,
 			UserUpcomingCalendarEventsDocument,
@@ -125,6 +140,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		latestUserSummary,
 		userUpcomingCalendarEvents,
 		inProgressCollectionContents,
+		userRecommendations,
 	};
 });
 
@@ -151,6 +167,7 @@ const MediaColors: EntityColor = {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const theme = useMantineTheme();
@@ -201,7 +218,15 @@ export default function Page() {
 						.with([DashboardElementLot.Recommendations, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<Title>Recommendations</Title>
-								<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+								{coreDetails.isPro ? (
+									<ApplicationGrid>
+										{loaderData.userRecommendations.map((lm) => (
+											<MetadataDisplayItem key={lm} metadataId={lm} />
+										))}
+									</ApplicationGrid>
+								) : (
+									<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
+								)}
 							</Section>
 						))
 						.with([DashboardElementLot.Activity, false], ([v, _]) => (

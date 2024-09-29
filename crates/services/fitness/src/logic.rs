@@ -293,6 +293,7 @@ pub async fn calculate_and_commit(
             assets: input.assets,
             exercises: exercises.into_iter().map(|(_, _, ex)| ex).collect(),
         },
+        template_id: input.template_id,
         duration: 0,
     };
     let mut insert: workout::ActiveModel = model.into();

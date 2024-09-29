@@ -55,7 +55,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { queryClient, queryFactory } from "~/lib/generals";
-import { useConfirmSubmit, useUserPreferences } from "~/lib/hooks";
+import {
+	useConfirmSubmit,
+	useDashboardLayoutData,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	createToastHeaders,
 	isWorkoutActive,
@@ -129,7 +133,8 @@ export default function Page() {
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
-	const isEditDisabled = false;
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemo;
 
 	const appendPref = (property: string, value: string) => {
 		const index = toUpdatePreferences.findIndex((p) => p[0] === property);

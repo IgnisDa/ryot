@@ -42,6 +42,7 @@ pub struct Model {
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
+    pub manual_time_spent: Option<Decimal>,
     // Generated columns
     pub last_updated_on: DateTimeUtc,
     pub num_times_updated: i32,

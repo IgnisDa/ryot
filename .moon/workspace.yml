@@ -8,6 +8,7 @@ projects:
   graphql: "libs/graphql"
   transactional: "libs/transactional"
   ts-utils: "libs/ts-utils"
+  website: "apps/website"
 
 vcs:
   manager: "git"

@@ -7,6 +7,7 @@ import {
 	Group,
 	Image,
 	Pagination,
+	Paper,
 	Stack,
 	Text,
 	Title,
@@ -18,10 +19,12 @@ import {
 	useLoaderData,
 } from "@remix-run/react";
 import {
+	GenreDetailsDocument,
 	GenresListDocument,
 	type GenresListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getInitials, truncate } from "@ryot/ts-utils";
+import { getInitials, isString, truncate } from "@ryot/ts-utils";
+import { useQuery } from "@tanstack/react-query";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -30,9 +33,17 @@ import {
 	DebouncedSearchInput,
 	ProRequiredAlert,
 } from "~/components/common";
+import {
+	clientGqlService,
+	dayjsLib,
+	getPartialMetadataDetailsQuery,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import { pageQueryParam } from "~/lib/generals";
 import {
 	useAppSearchParam,
+	useCoreDetails,
 	useFallbackImageUrl,
 	useGetMantineColor,
 } from "~/lib/hooks";
@@ -121,7 +132,29 @@ export default function Page() {
 type Genre = GenresListQuery["genresList"]["items"][number];
 
 const DisplayGenre = (props: { genre: Genre }) => {
+	const coreDetails = useCoreDetails();
 	const getMantineColor = useGetMantineColor();
+	const fallbackImageUrl = useFallbackImageUrl(getInitials(props.genre.name));
+	const { data: genreImages } = useQuery({
+		queryKey: queryFactory.media.genreImages(props.genre.id).queryKey,
+		queryFn: async () => {
+			const { genreDetails } = await clientGqlService.request(
+				GenreDetailsDocument,
+				{ input: { genreId: props.genre.id } },
+			);
+			let images = [];
+			for (const content of genreDetails.contents.items) {
+				if (images.length === 4) break;
+				const { image } = await queryClient.ensureQueryData(
+					getPartialMetadataDetailsQuery(content),
+				);
+				if (isString(image)) images.push(image);
+			}
+			if (images.length < 4) images = images.splice(0, 1);
+			return images;
+		},
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
+	});
 
 	return (
 		<Anchor
@@ -130,15 +163,33 @@ const DisplayGenre = (props: { genre: Genre }) => {
 		>
 			<Stack gap={4}>
 				<Box pos="relative">
-					<Image
-						radius="md"
-						h={260}
-						alt={props.genre.name}
-						fallbackSrc={useFallbackImageUrl(getInitials(props.genre.name))}
-					/>
-					<Box pos="absolute" left={0} right={0} bottom={0}>
-						<ProRequiredAlert tooltipLabel="Collage image using genre contents" />
-					</Box>
+					{coreDetails.isPro ? (
+						<Paper radius="md" style={{ overflow: "hidden" }}>
+							<Flex h={260} w={168} wrap="wrap">
+								{genreImages?.map((image) => (
+									<Image
+										h={genreImages.length === 1 ? "auto" : 130}
+										w={genreImages.length === 1 ? "auto" : 84}
+										key={image}
+										src={image}
+										alt={props.genre.name}
+									/>
+								))}
+							</Flex>
+						</Paper>
+					) : (
+						<>
+							<Image
+								radius="md"
+								h={260}
+								alt={props.genre.name}
+								fallbackSrc={fallbackImageUrl}
+							/>
+							<Box pos="absolute" left={0} right={0} bottom={0}>
+								<ProRequiredAlert tooltipLabel="Collage image using genre contents" />
+							</Box>
+						</>
+					)}
 				</Box>
 				<Group justify="center">
 					<Box

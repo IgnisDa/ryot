@@ -12,6 +12,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineLoader } from "@remix-run/node";
 import {
 	Link,
@@ -19,6 +20,7 @@ import {
 	useLoaderData,
 } from "@remix-run/react";
 import {
+	UserWorkoutTemplatesListDocument,
 	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -26,6 +28,7 @@ import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
 	IconClock,
 	IconLink,
+	IconLock,
 	IconPlus,
 	IconTrophy,
 	IconWeight,
@@ -41,9 +44,15 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
-import { dayjsLib, pageQueryParam } from "~/lib/generals";
+import {
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
+	dayjsLib,
+	pageQueryParam,
+} from "~/lib/generals";
 import {
 	useAppSearchParam,
+	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -62,17 +71,15 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-enum Entity {
-	Workouts = "workouts",
-}
-
 export const loader = unstable_defineLoader(async ({ params, request }) => {
-	const { entity } = zx.parseParams(params, { entity: z.nativeEnum(Entity) });
+	const { entity } = zx.parseParams(params, {
+		entity: z.nativeEnum(FitnessEntity),
+	});
 	const cookieName = await getEnhancedCookieName(`${entity}.list`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const itemList = await match(entity)
-		.with(Entity.Workouts, async () => {
+		.with(FitnessEntity.Workouts, async () => {
 			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
 				request,
 				UserWorkoutsListDocument,
@@ -95,6 +102,24 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 				})),
 			};
 		})
+		.with(FitnessEntity.Templates, async () => {
+			const { userWorkoutTemplatesList } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					UserWorkoutTemplatesListDocument,
+					{ input: { page: query.page, query: query.query } },
+				);
+			return {
+				details: userWorkoutTemplatesList.details,
+				items: userWorkoutTemplatesList.items.map((w) => ({
+					id: w.id,
+					name: w.name,
+					timestamp: w.createdOn,
+					detail: changeCase(w.visibility),
+					summary: w.summary,
+				})),
+			};
+		})
 		.exhaustive();
 	const totalPages = await redirectToFirstPageIfOnInvalidPage(
 		request,
@@ -110,6 +135,7 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const unitSystem = useUserUnitSystem();
@@ -123,6 +149,16 @@ export default function Page() {
 						color="green"
 						variant="outline"
 						onClick={() => {
+							if (
+								!coreDetails.isPro &&
+								loaderData.entity === FitnessEntity.Templates
+							) {
+								notifications.show({
+									color: "red",
+									message: PRO_REQUIRED_MESSAGE,
+								});
+								return;
+							}
 							startWorkout(getDefaultWorkout(), loaderData.entity);
 						}}
 					>
@@ -157,8 +193,11 @@ export default function Page() {
 												{workout.detail ? (
 													<DisplayStat
 														icon={match(loaderData.entity)
-															.with(Entity.Workouts, () => (
+															.with(FitnessEntity.Workouts, () => (
 																<IconClock size={16} />
+															))
+															.with(FitnessEntity.Templates, () => (
+																<IconLock size={16} />
 															))
 															.exhaustive()}
 														data={workout.detail}
@@ -204,7 +243,7 @@ export default function Page() {
 									<Accordion.Panel>
 										<Group justify="space-between">
 											<Text fw="bold">Exercise</Text>
-											{loaderData.entity === Entity.Workouts ? (
+											{loaderData.entity === FitnessEntity.Workouts ? (
 												<Text fw="bold">Best set</Text>
 											) : null}
 										</Group>

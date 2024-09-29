@@ -18,19 +18,19 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio_storage:/data
+      - ryot_minio_storage:/data
     command: server --console-address ":9001" /data
 
   ryot-postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     volumes:
-      - postgres_storage:/var/lib/postgresql/data
+      - ryot_postgres_storage:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
 
 volumes:
-  minio_storage:
-  postgres_storage:
+  ryot_minio_storage:
+  ryot_postgres_storage:

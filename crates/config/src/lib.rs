@@ -2,25 +2,16 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use common_utils::{IsFeatureEnabled, PROJECT_NAME};
+use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN};
 use schematic::{derive_enum, validate::not_empty, Config, ConfigEnum, ConfigLoader, HandlerError};
 use serde::{Deserialize, Serialize};
 
-#[cfg(debug_assertions)]
-pub const DEFAULT_TMDB_ACCESS_TOKEN: &str = dotenvy_macro::dotenv!("DEFAULT_TMDB_ACCESS_TOKEN");
-#[cfg(not(debug_assertions))]
-pub const DEFAULT_TMDB_ACCESS_TOKEN: &str = env!("DEFAULT_TMDB_ACCESS_TOKEN");
-
 fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_owned()))
+    Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_string()))
 }
 
-#[cfg(debug_assertions)]
-pub const DEFAULT_MAL_CLIENT_ID: &str = dotenvy_macro::dotenv!("DEFAULT_MAL_CLIENT_ID");
-#[cfg(not(debug_assertions))]
-pub const DEFAULT_MAL_CLIENT_ID: &str = env!("DEFAULT_MAL_CLIENT_ID");
-
 fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_MAL_CLIENT_ID.to_owned()))
+    Ok(Some(DEFAULT_MAL_CLIENT_ID.to_string()))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -369,6 +360,8 @@ pub struct ServerConfig {
     /// The OIDC related settings.
     #[setting(nested)]
     pub oidc: OidcConfig,
+    /// The pro key assigned to the user.
+    pub pro_key: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
@@ -497,6 +490,7 @@ impl AppConfig {
         cl.server.oidc.client_id = gt();
         cl.server.oidc.client_secret = gt();
         cl.server.oidc.issuer_url = gt();
+        cl.server.pro_key = gt();
         cl.server.admin_access_token = gt();
         cl
     }

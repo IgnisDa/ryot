@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod access_link;
 pub mod calendar_event;
 pub mod collection;
 pub mod collection_to_entity;
@@ -27,3 +28,4 @@ pub mod user;
 pub mod user_measurement;
 pub mod user_to_entity;
 pub mod workout;
+pub mod workout_template;

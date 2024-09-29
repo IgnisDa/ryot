@@ -21,6 +21,7 @@ pub struct Model {
     pub exercise_id: Option<String>,
     pub workout_id: Option<String>,
     pub information: Option<serde_json::Value>,
+    pub workout_template_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -73,6 +74,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Workout,
+    #[sea_orm(
+        belongs_to = "super::workout_template::Entity",
+        from = "Column::WorkoutTemplateId",
+        to = "super::workout_template::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    WorkoutTemplate,
 }
 
 impl Related<super::collection::Entity> for Entity {
@@ -108,6 +117,12 @@ impl Related<super::person::Entity> for Entity {
 impl Related<super::workout::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Workout.def()
+    }
+}
+
+impl Related<super::workout_template::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkoutTemplate.def()
     }
 }
 

@@ -123,13 +123,16 @@ pub async fn import(
             };
             workouts.push(UserWorkoutInput {
                 id: None,
+                template_id: None,
                 repeated_from: None,
+                default_rest_timer: None,
                 name: entry.workout_name,
                 comment: entry.workout_notes,
                 start_time: ndt,
                 end_time: ndt + workout_duration,
                 exercises,
                 assets: None,
+                update_workout_template_id: None,
             });
             exercises = vec![];
         }

@@ -27,6 +27,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, startCase } from "@ryot/ts-utils";
 import {
+	IconArrowLeftToArc,
 	IconClock,
 	IconInfoCircle,
 	IconRotateClockwise,
@@ -40,12 +41,13 @@ import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
-import { dayjsLib, getSetColor } from "~/lib/generals";
+import { FitnessEntity, dayjsLib, getSetColor } from "~/lib/generals";
 import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
+	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
 import { BaseMediaDisplayItem } from "./media";
 
@@ -212,13 +214,23 @@ export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
 	hideExerciseDetails?: boolean;
+	entityType: FitnessEntity;
+	onCopyButtonClick?: () => Promise<void>;
 	hideExtraDetailsButton?: boolean;
 }) => {
 	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
 	const { data: workoutDetails } = useQuery(
-		getWorkoutDetailsQuery(props.entityId),
+		// @ts-ignore: Too complicated to fix and it just works this way
+		match(props.entityType)
+			.with(FitnessEntity.Workouts, () =>
+				getWorkoutDetailsQuery(props.entityId),
+			)
+			.with(FitnessEntity.Templates, () =>
+				getWorkoutTemplateDetailsQuery(props.entityId),
+			)
+			.exhaustive(),
 	);
 	const exercise =
 		workoutDetails?.details.information.exercises[props.exerciseIdx];
@@ -283,6 +295,11 @@ export const ExerciseHistory = (props: {
 								{!props.hideExtraDetailsButton ? (
 									<ActionIcon onClick={toggle} variant="transparent">
 										<IconInfoCircle size={18} />
+									</ActionIcon>
+								) : null}
+								{props.onCopyButtonClick ? (
+									<ActionIcon onClick={props.onCopyButtonClick} size="sm">
+										<IconArrowLeftToArc size={16} />
 									</ActionIcon>
 								) : null}
 							</Group>
@@ -448,6 +465,32 @@ export const WorkoutDisplayItem = (props: {
 			labels={{
 				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
 				right: props.rightLabel,
+			}}
+			imageOverlay={{ topRight: props.topRight }}
+		/>
+	);
+};
+
+export const WorkoutTemplateDisplayItem = (props: {
+	workoutTemplateId: string;
+	topRight?: ReactNode;
+}) => {
+	const {
+		data: workoutTemplateDetails,
+		isLoading: isWorkoutTemplateDetailsLoading,
+	} = useQuery(getWorkoutTemplateDetailsQuery(props.workoutTemplateId));
+
+	return (
+		<BaseMediaDisplayItem
+			name={workoutTemplateDetails?.details.name}
+			isLoading={isWorkoutTemplateDetailsLoading}
+			onImageClickBehavior={$path("/fitness/:entity/:id", {
+				id: props.workoutTemplateId,
+				entity: FitnessEntity.Templates,
+			})}
+			labels={{
+				left: dayjsLib(workoutTemplateDetails?.details.createdOn).format("l"),
+				right: "Template",
 			}}
 			imageOverlay={{ topRight: props.topRight }}
 		/>

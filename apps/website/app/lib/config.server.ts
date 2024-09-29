@@ -1,0 +1,141 @@
+import { Environment, Paddle } from "@paddle/paddle-node-sdk";
+import { render } from "@react-email/render";
+import { createCookie } from "@remix-run/node";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { GraphQLClient } from "graphql-request";
+import { createTransport } from "nodemailer";
+import { Issuer } from "openid-client";
+import postgres from "postgres";
+import { Honeypot } from "remix-utils/honeypot/server";
+import { z } from "zod";
+import { zx } from "zodix";
+import * as schema from "~/drizzle/schema.server";
+import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
+
+// The number of days after a subscription expires that we allow access
+export const GRACE_PERIOD = 7;
+
+export const serverVariablesSchema = z.object({
+	FRONTEND_URL: z.string(),
+	UNKEY_API_ID: z.string(),
+	DATABASE_URL: z.string(),
+	RYOT_BASE_URL: z.string(),
+	UNKEY_ROOT_KEY: z.string(),
+	PADDLE_PRICE_IDS: z.string(),
+	SERVER_SMTP_USER: z.string(),
+	SERVER_SMTP_SERVER: z.string(),
+	PADDLE_CLIENT_TOKEN: z.string(),
+	PADDLE_SERVER_TOKEN: z.string(),
+	SERVER_SMTP_MAILBOX: z.string(),
+	NODE_ENV: z.string().optional(),
+	SERVER_SMTP_PASSWORD: z.string(),
+	SERVER_OIDC_CLIENT_ID: z.string(),
+	SERVER_OIDC_ISSUER_URL: z.string(),
+	SERVER_OIDC_CLIENT_SECRET: z.string(),
+	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
+	PADDLE_SANDBOX: zx.BoolAsString.optional(),
+});
+
+export const serverVariables = serverVariablesSchema.parse(process.env);
+
+export const OAUTH_CALLBACK_URL = `${serverVariables.FRONTEND_URL}/callback`;
+
+export const pricesSchema = z.array(
+	z.object({
+		type: z.string(),
+		prices: z.array(
+			z.object({
+				name: z.string(),
+				linkToGithub: z.boolean().optional(),
+				priceId: z.string().optional(),
+				amount: z.number().optional(),
+				trial: z.number().optional(),
+			}),
+		),
+	}),
+);
+
+export type TPrices = z.infer<typeof pricesSchema>;
+
+export const prices = pricesSchema.parse(
+	JSON.parse(serverVariables.PADDLE_PRICE_IDS),
+);
+
+export const getProductAndPlanTypeByPriceId = (priceId: string) => {
+	for (const product of prices) {
+		for (const price of product.prices) {
+			if (price.priceId === priceId) {
+				return {
+					productType: ProductTypes.parse(product.type),
+					planType: PlanTypes.parse(price.name),
+				};
+			}
+		}
+	}
+	throw new Error("Price ID not found");
+};
+
+export const db = drizzle(postgres(serverVariables.DATABASE_URL), {
+	schema,
+	logger: serverVariables.NODE_ENV === "development",
+});
+
+export const oauthClient = async () => {
+	const issuer = await Issuer.discover(serverVariables.SERVER_OIDC_ISSUER_URL);
+	const client = new issuer.Client({
+		client_id: serverVariables.SERVER_OIDC_CLIENT_ID,
+		client_secret: serverVariables.SERVER_OIDC_CLIENT_SECRET,
+		redirect_uris: [OAUTH_CALLBACK_URL],
+	});
+	return client;
+};
+
+export const getPaddleServerClient = () =>
+	new Paddle(serverVariables.PADDLE_SERVER_TOKEN, {
+		environment: serverVariables.PADDLE_SANDBOX
+			? Environment.sandbox
+			: undefined,
+	});
+
+export const sendEmail = async (
+	recipient: string,
+	subject: string,
+	element: JSX.Element,
+) => {
+	const client = createTransport({
+		host: serverVariables.SERVER_SMTP_SERVER,
+		auth: {
+			user: serverVariables.SERVER_SMTP_USER,
+			pass: serverVariables.SERVER_SMTP_PASSWORD,
+		},
+		secure: true,
+	});
+	const html = render(element, { pretty: true });
+	const text = render(element, { plainText: true });
+	const resp = await client.sendMail({
+		from: '"Ryot" <no-reply@ryot.io>',
+		to: recipient,
+		subject,
+		text,
+		html,
+	});
+	return resp.messageId;
+};
+
+export const authCookie = createCookie("WebsiteAuth", {
+	maxAge: 60 * 60 * 24 * 365,
+	path: "/",
+});
+
+export const getUserIdFromCookie = async (request: Request) => {
+	const cookie = await authCookie.parse(request.headers.get("cookie"));
+	if (!cookie) return null;
+	return z.string().parse(cookie);
+};
+
+export const serverGqlService = new GraphQLClient(
+	`${serverVariables.RYOT_BASE_URL}/graphql`,
+	{ headers: { Connection: "keep-alive" } },
+);
+
+export const honeypot = new Honeypot();

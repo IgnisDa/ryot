@@ -1,0 +1,1 @@
+ALTER TABLE "customer" ADD COLUMN "has_cancelled" boolean;

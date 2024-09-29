@@ -97,6 +97,7 @@ pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
     pub workouts: bool,
+    pub templates: bool,
 }
 
 impl Default for UserFitnessFeaturesEnabledPreferences {
@@ -105,6 +106,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
             enabled: true,
             measurements: true,
             workouts: true,
+            templates: true,
         }
     }
 }
@@ -277,7 +279,7 @@ pub enum DashboardElementLot {
 pub struct UserGeneralDashboardElement {
     pub section: DashboardElementLot,
     pub hidden: bool,
-    pub num_elements: Option<i32>,
+    pub num_elements: Option<u64>,
 }
 
 #[derive(

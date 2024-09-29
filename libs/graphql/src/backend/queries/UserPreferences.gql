@@ -64,6 +64,7 @@ query UserPreferences {
       fitness {
         enabled
         workouts
+        templates
         measurements
       }
       media {

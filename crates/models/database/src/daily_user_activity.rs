@@ -10,6 +10,7 @@ pub struct Model {
     pub user_id: String,
     #[sea_orm(primary_key, auto_increment = false)]
     pub date: Date,
+    pub entity_ids: Vec<String>,
     pub metadata_review_count: i32,
     pub collection_review_count: i32,
     pub metadata_group_review_count: i32,

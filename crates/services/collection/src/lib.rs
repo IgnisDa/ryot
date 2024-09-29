@@ -239,6 +239,9 @@ impl CollectionService {
                             collection_to_entity::Column::ExerciseId.is_not_null()
                         }
                         EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
+                        EntityLot::WorkoutTemplate => {
+                            collection_to_entity::Column::WorkoutTemplateId.is_not_null()
+                        }
                         EntityLot::Collection => unreachable!(),
                     };
                     query.filter(f)

@@ -1,8 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt,
     iter::zip,
-    path::PathBuf,
     sync::Arc,
 };
 
@@ -10,7 +8,6 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use cached::{DiskCache, IOCached};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
@@ -18,19 +15,18 @@ use common_models::{
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
-    TEMP_DIR, VERSION,
 };
 use database_models::{
-    calendar_event, collection, collection_to_entity,
+    access_link, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
     notification_platform, person,
     prelude::{
-        CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Integration, Metadata,
-        MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, QueuedNotification,
-        Review, Seen, User, UserToEntity,
+        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport,
+        Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
+        QueuedNotification, Review, Seen, User, UserToEntity,
     },
     queued_notification, review, seen, user, user_to_entity,
 };
@@ -38,7 +34,7 @@ use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
     calculate_user_activities_and_summary, entity_in_collections,
     entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
-    remove_entity_from_collection, user_by_id, user_preferences_by_id,
+    remove_entity_from_collection, revoke_access_link, user_by_id, user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -48,6 +44,7 @@ use enums::{
     EntityLot, IntegrationLot, IntegrationProvider, MediaLot, MediaSource,
     MetadataToMetadataRelation, SeenState, UserToMediaReason, Visibility,
 };
+use env_utils::APP_VERSION;
 use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
 use integration_service::{integration_type::IntegrationType, IntegrationService};
@@ -75,6 +72,7 @@ use media_models::{
 use migrations::{
     AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
 };
+use moka::future::Cache;
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
@@ -135,25 +133,35 @@ struct ProgressUpdateCache {
     manga_volume_number: Option<i32>,
 }
 
-impl fmt::Display for ProgressUpdateCache {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?}", self)
-    }
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
+struct CommitCache {
+    id: String,
+    lot: EntityLot,
 }
 
 pub struct MiscellaneousService {
+    is_pro: bool,
     oidc_enabled: bool,
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: DiskCache<ProgressUpdateCache, ()>,
+    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
+    commit_cache: Cache<CommitCache, ()>,
+}
+
+fn create_disk_cache<T: Eq + std::hash::Hash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
+    Cache::builder()
+        .time_to_live(ChronoDuration::try_hours(hours).unwrap().to_std().unwrap())
+        .build()
 }
 
 impl MiscellaneousService {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
+        is_pro: bool,
         oidc_enabled: bool,
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
@@ -162,24 +170,14 @@ impl MiscellaneousService {
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
-        let cache_name = "seen_progress_cache";
-        let path = PathBuf::new().join(TEMP_DIR);
-        let seen_progress_cache = DiskCache::new(cache_name)
-            .set_lifespan(
-                ChronoDuration::try_hours(config.server.progress_update_threshold)
-                    .unwrap()
-                    .num_seconds()
-                    .try_into()
-                    .unwrap(),
-            )
-            .set_disk_directory(path)
-            .build()
-            .unwrap();
-
+        let seen_progress_cache = create_disk_cache(config.server.progress_update_threshold);
+        let commit_cache = create_disk_cache(1);
         Self {
             config,
+            is_pro,
             timezone,
             oidc_enabled,
+            commit_cache,
             db: db.clone(),
             seen_progress_cache,
             file_storage_service,
@@ -190,14 +188,109 @@ impl MiscellaneousService {
 }
 
 impl MiscellaneousService {
+    pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
+        ryot_log!(
+            debug,
+            "Updating old recommendations to not be recommendations anymore"
+        );
+        let mut metadata_stream = Metadata::find()
+            .select_only()
+            .column(metadata::Column::Id)
+            .filter(metadata::Column::IsRecommendation.eq(true))
+            .into_tuple::<String>()
+            .stream(&self.db)
+            .await?;
+        let mut recommendations_to_update = vec![];
+        while let Some(meta) = metadata_stream.try_next().await? {
+            let num_ute = UserToEntity::find()
+                .filter(user_to_entity::Column::MetadataId.eq(&meta))
+                .count(&self.db)
+                .await?;
+            if num_ute > 0 {
+                recommendations_to_update.push(meta);
+            }
+        }
+        Metadata::update_many()
+            .filter(metadata::Column::Id.is_in(recommendations_to_update))
+            .set(metadata::ActiveModel {
+                is_recommendation: ActiveValue::Set(None),
+                ..Default::default()
+            })
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Downloading new recommendations for users");
+        #[derive(Debug, FromQueryResult)]
+        struct CustomQueryResponse {
+            lot: MediaLot,
+            source: MediaSource,
+            identifier: String,
+        }
+        let media_items = CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            r#"
+SELECT "m"."lot", "m"."identifier", "m"."source"
+FROM (
+    SELECT "user_id", "metadata_id" FROM "user_to_entity"
+    WHERE "user_id" IN (SELECT "id" from "user") AND "metadata_id" IS NOT NULL
+) "sub"
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($1, $2, $3)
+ORDER BY RANDOM() LIMIT 10;
+        "#,
+            [
+                MediaSource::GoogleBooks.into(),
+                MediaSource::Itunes.into(),
+                MediaSource::Vndb.into(),
+            ],
+        ))
+        .all(&self.db)
+        .await?;
+        let mut media_item_ids = vec![];
+        for media in media_items.into_iter() {
+            let provider = self.get_metadata_provider(media.lot, media.source).await?;
+            if let Ok(recommendations) = provider
+                .get_recommendations_for_metadata(&media.identifier)
+                .await
+            {
+                for mut rec in recommendations {
+                    rec.is_recommendation = Some(true);
+                    if let Ok(meta) = self.create_partial_metadata(rec).await {
+                        media_item_ids.push(meta.id);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn revoke_invalid_access_tokens(&self) -> Result<()> {
+        let access_links = AccessLink::find()
+            .select_only()
+            .column(access_link::Column::Id)
+            .filter(
+                Condition::any()
+                    .add(
+                        Expr::col(access_link::Column::TimesUsed)
+                            .gte(Expr::col(access_link::Column::MaximumUses)),
+                    )
+                    .add(access_link::Column::ExpiresOn.lte(Utc::now())),
+            )
+            .into_tuple::<String>()
+            .all(&self.db)
+            .await?;
+        for access_link in access_links {
+            revoke_access_link(&self.db, access_link).await?;
+        }
+        Ok(())
+    }
+
     pub async fn core_details(&self) -> CoreDetails {
         let mut files_enabled = self.config.file_storage.is_enabled();
         if files_enabled && !self.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
         CoreDetails {
-            is_pro: false,
-            version: VERSION.to_owned(),
+            is_pro: self.is_pro,
+            version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
             oidc_enabled: self.oidc_enabled,
             page_limit: self.config.frontend.page_size,
@@ -1045,7 +1138,7 @@ impl MiscellaneousService {
             manga_chapter_number: input.manga_chapter_number,
             manga_volume_number: input.manga_volume_number,
         };
-        let in_cache = self.seen_progress_cache.cache_get(&cache).unwrap();
+        let in_cache = self.seen_progress_cache.get(&cache).await;
         if respect_cache && in_cache.is_some() {
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
@@ -1253,7 +1346,7 @@ impl MiscellaneousService {
         ryot_log!(debug, "Progress update = {:?}", seen);
         let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
-            self.seen_progress_cache.cache_set(cache, ()).unwrap();
+            self.seen_progress_cache.insert(cache, ()).await;
         }
         self.after_media_seen_tasks(seen).await?;
         Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
@@ -1821,6 +1914,7 @@ impl MiscellaneousService {
                 source: ActiveValue::Set(data.source),
                 images: ActiveValue::Set(image),
                 is_partial: ActiveValue::Set(Some(true)),
+                is_recommendation: ActiveValue::Set(data.is_recommendation),
                 ..Default::default()
             };
             c.insert(&self.db).await?
@@ -1832,6 +1926,7 @@ impl MiscellaneousService {
             lot: mode.lot,
             source: mode.source,
             image: data.image,
+            is_recommendation: mode.is_recommendation,
         };
         Ok(model)
     }
@@ -1880,6 +1975,9 @@ impl MiscellaneousService {
         }
         if let Some(provider_watched_on) = input.provider_watched_on {
             seen.provider_watched_on = ActiveValue::Set(Some(provider_watched_on));
+        }
+        if let Some(manual_time_spent) = input.manual_time_spent {
+            seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
         }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
@@ -2498,10 +2596,19 @@ impl MiscellaneousService {
             .one(&self.db)
             .await?
         {
+            let cached_metadata = CommitCache {
+                id: m.id.clone(),
+                lot: EntityLot::Metadata,
+            };
+            if self.commit_cache.get(&cached_metadata).await.is_some() {
+                return Ok(m);
+            }
+            self.commit_cache.insert(cached_metadata.clone(), ()).await;
             if input.force_update.unwrap_or_default() {
-                ryot_log!(debug, "Forcing update of metadata with id {}", m.id);
+                ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
                 self.update_metadata_and_notify_users(&m.id, true).await?;
             }
+            self.commit_cache.remove(&cached_metadata).await;
             Ok(m)
         } else {
             let details = self
@@ -2626,7 +2733,7 @@ impl MiscellaneousService {
             }
             EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
             EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
-            EntityLot::Workout => unreachable!(),
+            EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
         };
         if let Some(s) = input.is_spoiler {
             review_obj.is_spoiler = ActiveValue::Set(s);
@@ -2665,7 +2772,7 @@ impl MiscellaneousService {
                         .name
                 }
                 EntityLot::Exercise => id.clone(),
-                EntityLot::Workout => unreachable!(),
+                EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
             };
             let user = user_by_id(&self.db, &insert.user_id.unwrap()).await?;
             // DEV: Do not send notification if updating a review
@@ -2740,7 +2847,7 @@ impl MiscellaneousService {
                 manga_chapter_number: mcn,
                 manga_volume_number: mvn,
             };
-            self.seen_progress_cache.cache_remove(&cache).unwrap();
+            self.seen_progress_cache.remove(&cache).await;
             let seen_id = si.id.clone();
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {
@@ -3021,6 +3128,7 @@ impl MiscellaneousService {
                 IntegrationProvider::Audiobookshelf => IntegrationType::Audiobookshelf(
                     specifics.audiobookshelf_base_url.unwrap(),
                     specifics.audiobookshelf_token.unwrap(),
+                    integration.sync_to_owned_collection,
                     self.get_isbn_service().await.unwrap(),
                 ),
                 IntegrationProvider::Komga => IntegrationType::Komga(
@@ -3028,6 +3136,7 @@ impl MiscellaneousService {
                     specifics.komga_username.unwrap(),
                     specifics.komga_password.unwrap(),
                     specifics.komga_provider.unwrap(),
+                    integration.sync_to_owned_collection,
                 ),
                 _ => continue,
             };
@@ -4338,6 +4447,7 @@ impl MiscellaneousService {
             EntityLot::Workout => format!("fitness/workouts/{}", id),
             EntityLot::Exercise => format!("fitness/exercises/{}", id),
             EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
+            EntityLot::WorkoutTemplate => format!("fitness/templates/{}", id),
         };
         url = format!("{}/{}", self.config.frontend.url, url);
         if let Some(tab) = default_tab {
@@ -4448,6 +4558,11 @@ impl MiscellaneousService {
         }
         ryot_log!(debug, "Deleting all queued notifications");
         QueuedNotification::delete_many().exec(&self.db).await?;
+        ryot_log!(debug, "Deleting revoked access tokens");
+        AccessLink::delete_many()
+            .filter(access_link::Column::IsRevoked.eq(true))
+            .exec(&self.db)
+            .await?;
         Ok(())
     }
 
@@ -4586,6 +4701,16 @@ impl MiscellaneousService {
         self.remove_useless_data().await.trace_ok();
         ryot_log!(trace, "Putting entities in partial state");
         self.put_entities_in_partial_state().await.trace_ok();
+        // DEV: This is called after removing useless data so that recommendations are not
+        // delete right after they are downloaded.
+        ryot_log!(trace, "Downloading recommendations for users");
+        self.update_claimed_recommendations_and_download_new_ones()
+            .await
+            .trace_ok();
+        // DEV: Invalid access tokens are revoked before being deleted, so we call this
+        // function after removing useless data.
+        ryot_log!(trace, "Revoking invalid access tokens");
+        self.revoke_invalid_access_tokens().await.trace_ok();
 
         ryot_log!(debug, "Completed background jobs...");
         Ok(())
