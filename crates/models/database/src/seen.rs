@@ -17,9 +17,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::functions::associate_user_with_entity;
 
-// When updating a media item's progress, here are the things that should happen:
-// - remove from watchlist if it was in there
-// - add to in progress
 #[derive(Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Educe)]
 #[graphql(name = "Seen")]
 #[sea_orm(table_name = "seen")]
@@ -33,6 +30,7 @@ pub struct Model {
     pub user_id: String,
     pub metadata_id: String,
     pub state: SeenState,
+    pub name: Option<String>,
     pub provider_watched_on: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
