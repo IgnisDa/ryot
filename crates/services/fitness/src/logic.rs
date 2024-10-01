@@ -54,6 +54,7 @@ fn get_index_of_highest_pb(
 }
 
 /// Create a workout in the database and also update user and exercise associations.
+// TODO: Update using the `update_workout_id` field
 pub async fn calculate_and_commit(
     input: UserWorkoutInput,
     user_id: &String,
