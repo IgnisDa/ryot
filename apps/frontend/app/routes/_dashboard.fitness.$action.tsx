@@ -51,7 +51,7 @@ import {
 } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
-	CreateOrUpdateWorkoutTemplateDocument,
+	CreateOrUpdateUserWorkoutTemplateDocument,
 	CreateUserWorkoutDocument,
 	ExerciseLot,
 	SetLot,
@@ -195,16 +195,16 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 		createTemplate: async () => {
-			const { createOrUpdateWorkoutTemplate } =
+			const { createOrUpdateUserWorkoutTemplate } =
 				await serverGqlService.authenticatedRequest(
 					request,
-					CreateOrUpdateWorkoutTemplateDocument,
+					CreateOrUpdateUserWorkoutTemplateDocument,
 					workout,
 				);
 			return redirectWithToast(
 				$path("/fitness/:entity/:id", {
 					entity: "templates",
-					id: createOrUpdateWorkoutTemplate,
+					id: createOrUpdateUserWorkoutTemplate,
 				}),
 				{ message: "Template created successfully", type: "success" },
 			);

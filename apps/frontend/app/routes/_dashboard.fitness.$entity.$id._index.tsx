@@ -22,11 +22,11 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
-	DeleteWorkoutTemplateDocument,
+	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
 	UpdateUserWorkoutDocument,
+	UserWorkoutTemplateDetailsDocument,
 	WorkoutDetailsDocument,
-	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -105,15 +105,15 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			}
 			let template = null;
 			if (workoutDetails.details.templateId) {
-				const { workoutTemplateDetails } =
+				const { userWorkoutTemplateDetails } =
 					await serverGqlService.authenticatedRequest(
 						request,
-						WorkoutTemplateDetailsDocument,
+						UserWorkoutTemplateDetailsDocument,
 						{ workoutTemplateId: workoutDetails.details.templateId },
 					);
 				template = {
 					id: workoutDetails.details.templateId,
-					name: workoutTemplateDetails.details.name,
+					name: userWorkoutTemplateDetails.details.name,
 				};
 			}
 			return {
@@ -130,23 +130,23 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
-			const [{ workoutTemplateDetails }] = await Promise.all([
+			const [{ userWorkoutTemplateDetails }] = await Promise.all([
 				serverGqlService.authenticatedRequest(
 					request,
-					WorkoutTemplateDetailsDocument,
+					UserWorkoutTemplateDetailsDocument,
 					{ workoutTemplateId: entityId },
 				),
 			]);
 			return {
-				entityName: workoutTemplateDetails.details.name,
-				startTime: workoutTemplateDetails.details.createdOn,
+				entityName: userWorkoutTemplateDetails.details.name,
+				startTime: userWorkoutTemplateDetails.details.createdOn,
 				endTime: null,
-				information: workoutTemplateDetails.details.information,
-				summary: workoutTemplateDetails.details.summary,
+				information: userWorkoutTemplateDetails.details.information,
+				summary: userWorkoutTemplateDetails.details.summary,
 				repeatedWorkout: null,
 				template: null,
-				collections: workoutTemplateDetails.collections,
-				defaultRestTimer: workoutTemplateDetails.details.defaultRestTimer,
+				collections: userWorkoutTemplateDetails.collections,
+				defaultRestTimer: userWorkoutTemplateDetails.details.defaultRestTimer,
 			};
 		})
 		.exhaustive();
@@ -185,7 +185,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			else if (submission.templateId)
 				await serverGqlService.authenticatedRequest(
 					request,
-					DeleteWorkoutTemplateDocument,
+					DeleteUserWorkoutTemplateDocument,
 					{ workoutTemplateId: submission.templateId },
 				);
 			const { entity } = submission;

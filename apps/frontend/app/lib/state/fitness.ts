@@ -6,11 +6,11 @@ import {
 	SetLot,
 	UserExerciseDetailsDocument,
 	type UserWorkoutSetRecord,
+	UserWorkoutTemplateDetailsDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
-	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
@@ -149,8 +149,8 @@ export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
 			queryFactory.fitness.workoutTemplateDetails(workoutTemplateId).queryKey,
 		queryFn: () =>
 			clientGqlService
-				.request(WorkoutTemplateDetailsDocument, { workoutTemplateId })
-				.then((data) => data.workoutTemplateDetails),
+				.request(UserWorkoutTemplateDetailsDocument, { workoutTemplateId })
+				.then((data) => data.userWorkoutTemplateDetails),
 	});
 
 type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
