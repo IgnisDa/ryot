@@ -524,6 +524,7 @@ pub struct UserWorkoutInput {
     #[graphql(skip_input)]
     pub create_workout_id: Option<String>,
     pub exercises: Vec<UserExerciseInput>,
+    pub update_workout_id: Option<String>,
     pub update_workout_template_id: Option<String>,
 }
 

@@ -698,6 +698,7 @@ impl ExerciseService {
         UserWorkoutInput {
             name: user_workout.name,
             create_workout_id: Some(user_workout.id),
+            update_workout_id: None,
             default_rest_timer: None,
             end_time: user_workout.end_time,
             update_workout_template_id: None,

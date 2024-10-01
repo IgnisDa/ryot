@@ -132,6 +132,7 @@ pub async fn import(
                 end_time: ndt + workout_duration,
                 exercises,
                 assets: None,
+                update_workout_id: None,
                 update_workout_template_id: None,
             });
             exercises = vec![];

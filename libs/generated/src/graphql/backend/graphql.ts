@@ -2487,6 +2487,7 @@ export type UserWorkoutInput = {
   repeatedFrom?: InputMaybe<Scalars['String']['input']>;
   startTime: Scalars['DateTime']['input'];
   templateId?: InputMaybe<Scalars['String']['input']>;
+  updateWorkoutId?: InputMaybe<Scalars['String']['input']>;
   updateWorkoutTemplateId?: InputMaybe<Scalars['String']['input']>;
 };
 
