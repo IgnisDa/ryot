@@ -86,8 +86,8 @@ mutation CreateUserIntegration($input: CreateUserIntegrationInput!) {
   }
 }
 
-mutation CreateUserWorkout($input: UserWorkoutInput!) {
-  createUserWorkout(input: $input)
+mutation CreateOrUpdateUserWorkout($input: UserWorkoutInput!) {
+  createOrUpdateUserWorkout(input: $input)
 }
 
 mutation CreateOrUpdateUserWorkoutTemplate($input: UserWorkoutInput!) {

@@ -178,14 +178,14 @@ impl ExerciseMutation {
     }
 
     /// Take a user workout, process it and commit it to database.
-    async fn create_user_workout(
+    async fn create_or_update_user_workout(
         &self,
         gql_ctx: &Context<'_>,
         input: UserWorkoutInput,
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_workout(&user_id, input).await
+        service.create_or_update_user_workout(&user_id, input).await
     }
 
     /// Change the details about a user's workout.

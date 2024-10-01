@@ -572,7 +572,7 @@ impl ExerciseService {
         }
     }
 
-    pub async fn create_user_workout(
+    pub async fn create_or_update_user_workout(
         &self,
         user_id: &String,
         input: UserWorkoutInput,
@@ -687,7 +687,8 @@ impl ExerciseService {
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
             let workout_input = self.db_workout_to_workout_input(workout);
-            self.create_user_workout(&user_id, workout_input).await?;
+            self.create_or_update_user_workout(&user_id, workout_input)
+                .await?;
             ryot_log!(debug, "Re-evaluated workout: {}/{}", idx + 1, total);
         }
         Ok(())
