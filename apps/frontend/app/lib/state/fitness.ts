@@ -161,11 +161,12 @@ export const convertHistorySetToCurrentSet = (
 		TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number],
 		"statistic" | "lot"
 	>,
+	confirmedAt?: string | null,
 ) =>
 	({
 		lot: s.lot,
-		confirmedAt: null,
 		statistic: s.statistic,
+		confirmedAt: confirmedAt ?? null,
 	}) satisfies ExerciseSet;
 
 export const duplicateOldWorkout = async (
@@ -189,7 +190,12 @@ export const duplicateOldWorkout = async (
 	inProgress.comment = workoutInformation.comment || undefined;
 	inProgress.defaultRestTimer = params.defaultRestTimer;
 	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
-		const sets = ex.sets.map(convertHistorySetToCurrentSet);
+		const sets = ex.sets.map((v) =>
+			convertHistorySetToCurrentSet(
+				v,
+				params.updateWorkoutId ? v.confirmedAt : undefined,
+			),
+		);
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		const defaultRestTime = params.defaultRestTimer || ex.restTime;
 		inProgress.exercises.push({
