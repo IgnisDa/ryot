@@ -34,7 +34,7 @@ impl ExerciseQuery {
     }
 
     /// Get information about a workout template.
-    async fn workout_template_details(
+    async fn user_workout_template_details(
         &self,
         gql_ctx: &Context<'_>,
         workout_template_id: String,
@@ -42,7 +42,7 @@ impl ExerciseQuery {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
-            .workout_template_details(user_id, workout_template_id)
+            .user_workout_template_details(user_id, workout_template_id)
             .await
     }
 
@@ -130,7 +130,7 @@ impl AuthProvider for ExerciseMutation {
 #[Object]
 impl ExerciseMutation {
     /// Create or update a workout template.
-    async fn create_or_update_workout_template(
+    async fn create_or_update_user_workout_template(
         &self,
         gql_ctx: &Context<'_>,
         input: UserWorkoutInput,
@@ -138,12 +138,12 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
-            .create_or_update_workout_template(user_id, input)
+            .create_or_update_user_workout_template(user_id, input)
             .await
     }
 
     /// Delete a workout template.
-    async fn delete_workout_template(
+    async fn delete_user_workout_template(
         &self,
         gql_ctx: &Context<'_>,
         workout_template_id: String,
@@ -151,7 +151,7 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service
-            .delete_workout_template(user_id, workout_template_id)
+            .delete_user_workout_template(user_id, workout_template_id)
             .await
     }
 

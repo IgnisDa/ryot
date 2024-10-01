@@ -1,5 +1,5 @@
-query WorkoutTemplateDetails($workoutTemplateId: String!) {
-  workoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
+query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
+  userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
     collections {
       ...CollectionPart
     }

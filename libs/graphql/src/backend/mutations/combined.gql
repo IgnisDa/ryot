@@ -90,8 +90,8 @@ mutation CreateUserWorkout($input: UserWorkoutInput!) {
   createUserWorkout(input: $input)
 }
 
-mutation CreateOrUpdateWorkoutTemplate($input: UserWorkoutInput!) {
-  createOrUpdateWorkoutTemplate(input: $input)
+mutation CreateOrUpdateUserWorkoutTemplate($input: UserWorkoutInput!) {
+  createOrUpdateUserWorkoutTemplate(input: $input)
 }
 
 mutation DeleteCollection($collectionName: String!) {
@@ -132,8 +132,8 @@ mutation DeleteUserWorkout($workoutId: String!) {
   deleteUserWorkout(workoutId: $workoutId)
 }
 
-mutation DeleteWorkoutTemplate($workoutTemplateId: String!) {
-  deleteWorkoutTemplate(workoutTemplateId: $workoutTemplateId)
+mutation DeleteUserWorkoutTemplate($workoutTemplateId: String!) {
+  deleteUserWorkoutTemplate(workoutTemplateId: $workoutTemplateId)
 }
 
 mutation DeployBackgroundJob($jobName: BackgroundJob!) {

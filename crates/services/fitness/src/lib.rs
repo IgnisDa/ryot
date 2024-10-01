@@ -128,7 +128,7 @@ impl ExerciseService {
         })
     }
 
-    pub async fn workout_template_details(
+    pub async fn user_workout_template_details(
         &self,
         user_id: String,
         workout_template_id: String,
@@ -136,7 +136,7 @@ impl ExerciseService {
         workout_template_details(&self.db, &user_id, workout_template_id).await
     }
 
-    pub async fn create_or_update_workout_template(
+    pub async fn create_or_update_user_workout_template(
         &self,
         user_id: String,
         input: UserWorkoutInput,
@@ -212,7 +212,7 @@ impl ExerciseService {
         Ok(template.id)
     }
 
-    pub async fn delete_workout_template(
+    pub async fn delete_user_workout_template(
         &self,
         user_id: String,
         workout_template_id: String,
