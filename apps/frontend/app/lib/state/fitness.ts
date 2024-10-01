@@ -172,24 +172,26 @@ export const duplicateOldWorkout = async (
 	workoutInformation: WorkoutInformation,
 	name: string,
 	coreDetails: ReturnType<typeof useCoreDetails>,
-	repeatedFromId?: string,
-	templateId?: string,
-	updateWorkoutId?: string,
-	updateWorkoutTemplateId?: string,
-	defaultRestTimer?: number | null,
+	params: {
+		repeatedFromId?: string;
+		templateId?: string;
+		updateWorkoutId?: string;
+		updateWorkoutTemplateId?: string;
+		defaultRestTimer?: number | null;
+	},
 ) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = name;
-	inProgress.repeatedFrom = repeatedFromId;
-	inProgress.templateId = templateId;
-	inProgress.updateWorkoutId = updateWorkoutId;
-	inProgress.updateWorkoutTemplateId = updateWorkoutTemplateId;
+	inProgress.repeatedFrom = params.repeatedFromId;
+	inProgress.templateId = params.templateId;
+	inProgress.updateWorkoutId = params.updateWorkoutId;
+	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
-	inProgress.defaultRestTimer = defaultRestTimer;
+	inProgress.defaultRestTimer = params.defaultRestTimer;
 	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
-		const defaultRestTime = defaultRestTimer || ex.restTime;
+		const defaultRestTime = params.defaultRestTimer || ex.restTime;
 		inProgress.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: exerciseIdx === 0,

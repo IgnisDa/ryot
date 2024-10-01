@@ -226,26 +226,22 @@ export default function Page() {
 		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
 
-	const performDecision = async (
-		entity: FitnessEntity,
-		repeatedFromId?: string,
-		templateId?: string,
-		updateWorkoutId?: string,
-		updateWorkoutTemplateId?: string,
-		defaultRestTimer?: number | null,
-	) => {
+	const performDecision = async (params: {
+		entity: FitnessEntity;
+		repeatedFromId?: string;
+		templateId?: string;
+		updateWorkoutId?: string;
+		updateWorkoutTemplateId?: string;
+		defaultRestTimer?: number | null;
+	}) => {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
 			loaderData.information,
 			loaderData.entityName,
 			coreDetails,
-			repeatedFromId,
-			templateId,
-			updateWorkoutId,
-			updateWorkoutTemplateId,
-			defaultRestTimer,
+			params,
 		);
-		startWorkout(workout, entity);
+		startWorkout(workout, params.entity);
 		setIsWorkoutLoading(false);
 	};
 
@@ -306,14 +302,11 @@ export default function Page() {
 										<>
 											<Menu.Item
 												onClick={() =>
-													performDecision(
-														FitnessEntity.Workouts,
-														undefined,
-														loaderData.entityId,
-														undefined,
-														undefined,
-														loaderData.defaultRestTimer,
-													)
+													performDecision({
+														entity: FitnessEntity.Workouts,
+														templateId: loaderData.entityId,
+														defaultRestTimer: loaderData.defaultRestTimer,
+													})
 												}
 												leftSection={<IconPlayerPlay size={14} />}
 											>
@@ -321,14 +314,11 @@ export default function Page() {
 											</Menu.Item>
 											<Menu.Item
 												onClick={() =>
-													performDecision(
-														FitnessEntity.Templates,
-														undefined,
-														undefined,
-														undefined,
-														loaderData.entityId,
-														loaderData.defaultRestTimer,
-													)
+													performDecision({
+														entity: FitnessEntity.Templates,
+														updateWorkoutTemplateId: loaderData.entityId,
+														defaultRestTimer: loaderData.defaultRestTimer,
+													})
 												}
 												leftSection={<IconPencil size={14} />}
 											>
@@ -340,25 +330,22 @@ export default function Page() {
 										<>
 											<Menu.Item
 												onClick={() =>
-													performDecision(
-														FitnessEntity.Workouts,
-														loaderData.entityId,
-													)
+													performDecision({
+														entity: FitnessEntity.Workouts,
+														repeatedFromId: loaderData.entityId,
+													})
 												}
 												leftSection={<IconRepeat size={14} />}
 											>
 												Duplicate
 											</Menu.Item>
-												<Menu.Item
+											<Menu.Item
 												onClick={() =>
-													performDecision(
-														FitnessEntity.Templates,
-														undefined,
-														undefined,
-														loaderData.entityId,
-														undefined,
-														loaderData.defaultRestTimer,
-													)
+													performDecision({
+														entity: FitnessEntity.Templates,
+														updateWorkoutId: loaderData.entityId,
+														defaultRestTimer: loaderData.defaultRestTimer,
+													})
 												}
 												leftSection={<IconPencil size={14} />}
 											>
@@ -379,7 +366,9 @@ export default function Page() {
 														});
 														return;
 													}
-													performDecision(FitnessEntity.Templates);
+													performDecision({
+														entity: FitnessEntity.Templates,
+													});
 												}}
 												leftSection={<IconTemplate size={14} />}
 											>
