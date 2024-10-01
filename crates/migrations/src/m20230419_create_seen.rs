@@ -15,6 +15,7 @@ pub enum Seen {
     StartedOn,
     FinishedOn,
     State,
+    Name,
     UserId,
     MetadataId,
     LastUpdatedOn,
@@ -49,7 +50,8 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null()
                             .default(SeenState::InProgress),
-                        )
+                    )
+                    .col(ColumnDef::new(Seen::Name).text())
                     .col(
                         ColumnDef::new(Seen::UpdatedAt)
                             .array(ColumnType::TimestampWithTimeZone)

@@ -39,6 +39,7 @@ mod m20240918_add_default_rest_timer_to_workout_template;
 mod m20240923_remove_extra_columns_for_daily_user_activities;
 mod m20240926_add_columns_for_open_sourcing_pro_version;
 mod m20240928_add_grid_packing_to_general_preferences;
+mod m20241002_add_columns_for_associating_seen_with_reviews;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -98,6 +99,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240923_remove_extra_columns_for_daily_user_activities::Migration),
             Box::new(m20240926_add_columns_for_open_sourcing_pro_version::Migration),
             Box::new(m20240928_add_grid_packing_to_general_preferences::Migration),
+            Box::new(m20241002_add_columns_for_associating_seen_with_reviews::Migration),
         ]
     }
 }
