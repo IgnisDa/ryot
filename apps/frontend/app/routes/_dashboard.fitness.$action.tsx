@@ -1359,7 +1359,10 @@ const SetDisplay = (props: {
 			withBorder
 			id={`${props.exerciseIdx}-${props.setIdx}`}
 			shadow={isHighlighted ? "xl" : undefined}
-			style={{ borderColor: isHighlighted ? undefined : "transparent" }}
+			style={{
+				transition: "border-color 0.2s ease-in-out",
+				borderColor: isHighlighted ? undefined : "transparent",
+			}}
 		>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
