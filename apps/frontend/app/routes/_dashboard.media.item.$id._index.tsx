@@ -1266,6 +1266,7 @@ const EditHistoryRecordModal = (props: {
 	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
+	const isNotCompleted = props.seen.state !== SeenState.Completed;
 
 	return (
 		<Modal
@@ -1288,11 +1289,13 @@ const EditHistoryRecordModal = (props: {
 						label="Start time"
 						name="startedOn"
 						defaultValue={startedOn ? new Date(startedOn) : undefined}
+						disabled={isNotCompleted}
 					/>
 					<DateInput
 						label="End time"
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
+						disabled={isNotCompleted}
 					/>
 					<Input.Wrapper
 						label="Time spent"
@@ -1520,11 +1523,9 @@ const HistoryItem = (props: {
 							<IconX size={20} />
 						</ActionIcon>
 					</Form>
-					{props.history.state === SeenState.Completed ? (
-						<ActionIcon color="blue" onClick={open}>
-							<IconEdit size={20} />
-						</ActionIcon>
-					) : null}
+					<ActionIcon color="blue" onClick={open}>
+						<IconEdit size={20} />
+					</ActionIcon>
 				</Flex>
 				<Stack gap={4}>
 					<Flex gap="lg" align="center">
