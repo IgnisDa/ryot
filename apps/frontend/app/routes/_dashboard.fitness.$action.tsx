@@ -1604,6 +1604,8 @@ const SetDisplay = (props: {
 													if (nextExerciseHasDetailsToShow)
 														nextExercise.isShowDetailsOpen = true;
 													focusOnExercise(nextExerciseIdx);
+												} else {
+													focusOnExercise(props.exerciseIdx);
 												}
 											}
 										}),
