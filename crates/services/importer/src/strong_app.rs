@@ -122,7 +122,7 @@ pub async fn import(
                 Duration::try_seconds(0).unwrap()
             };
             workouts.push(UserWorkoutInput {
-                id: None,
+                create_workout_id: None,
                 template_id: None,
                 repeated_from: None,
                 default_rest_timer: None,

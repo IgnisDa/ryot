@@ -697,7 +697,7 @@ impl ExerciseService {
     pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
         UserWorkoutInput {
             name: user_workout.name,
-            id: Some(user_workout.id),
+            create_workout_id: Some(user_workout.id),
             default_rest_timer: None,
             end_time: user_workout.end_time,
             update_workout_template_id: None,

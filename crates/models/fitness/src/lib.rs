@@ -513,9 +513,6 @@ pub struct UserExerciseInput {
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserWorkoutInput {
     pub name: String,
-    // If specified, the workout will be created with this ID.
-    #[graphql(skip_input)]
-    pub id: Option<String>,
     pub end_time: DateTimeUtc,
     pub comment: Option<String>,
     pub start_time: DateTimeUtc,
@@ -523,6 +520,9 @@ pub struct UserWorkoutInput {
     pub assets: Option<EntityAssets>,
     pub repeated_from: Option<String>,
     pub default_rest_timer: Option<i32>,
+    // If specified, the workout will be created with this ID.
+    #[graphql(skip_input)]
+    pub create_workout_id: Option<String>,
     pub exercises: Vec<UserExerciseInput>,
     pub update_workout_template_id: Option<String>,
 }
