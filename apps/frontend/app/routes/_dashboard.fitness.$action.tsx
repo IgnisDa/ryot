@@ -51,8 +51,8 @@ import {
 } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
+	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
-	CreateUserWorkoutDocument,
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
@@ -181,15 +181,16 @@ export const action = unstable_defineAction(async ({ request }) => {
 	const workout = JSON.parse(formData.get("workout") as string);
 	return namedAction(request, {
 		createWorkout: async () => {
-			const { createUserWorkout } = await serverGqlService.authenticatedRequest(
-				request,
-				CreateUserWorkoutDocument,
-				workout,
-			);
+			const { createOrUpdateUserWorkout } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					CreateOrUpdateUserWorkoutDocument,
+					workout,
+				);
 			return redirectWithToast(
 				$path("/fitness/:entity/:id", {
 					entity: "workouts",
-					id: createUserWorkout,
+					id: createOrUpdateUserWorkout,
 				}),
 				{ message: "Workout completed successfully", type: "success" },
 			);

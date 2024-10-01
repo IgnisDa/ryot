@@ -1,6 +1,6 @@
 import type { NavigateFunction } from "@remix-run/react";
 import {
-	type CreateUserWorkoutMutationVariables,
+	type CreateOrUpdateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
 	type ExerciseLot,
 	SetLot,
@@ -276,7 +276,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
 	isCreatingTemplate: boolean,
 ) => {
-	const input: CreateUserWorkoutMutationVariables = {
+	const input: CreateOrUpdateUserWorkoutMutationVariables = {
 		input: {
 			endTime: new Date().toISOString(),
 			templateId: currentWorkout.templateId,
