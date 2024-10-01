@@ -342,7 +342,7 @@ export default function Page() {
 											<Menu.Item
 												onClick={() =>
 													performDecision({
-														entity: FitnessEntity.Templates,
+														entity: FitnessEntity.Workouts,
 														updateWorkoutId: loaderData.entityId,
 														defaultRestTimer: loaderData.defaultRestTimer,
 													})
