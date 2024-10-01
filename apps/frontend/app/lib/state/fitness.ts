@@ -60,6 +60,7 @@ export type Exercise = {
 };
 
 export type InProgressWorkout = {
+	updateWorkoutId?: string;
 	updateWorkoutTemplateId?: string;
 	repeatedFrom?: string;
 	templateId?: string;
@@ -173,6 +174,7 @@ export const duplicateOldWorkout = async (
 	coreDetails: ReturnType<typeof useCoreDetails>,
 	repeatedFromId?: string,
 	templateId?: string,
+	updateWorkoutId?: string,
 	updateWorkoutTemplateId?: string,
 	defaultRestTimer?: number | null,
 ) => {
@@ -180,6 +182,7 @@ export const duplicateOldWorkout = async (
 	inProgress.name = name;
 	inProgress.repeatedFrom = repeatedFromId;
 	inProgress.templateId = templateId;
+	inProgress.updateWorkoutId = updateWorkoutId;
 	inProgress.updateWorkoutTemplateId = updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
 	inProgress.defaultRestTimer = defaultRestTimer;
@@ -280,6 +283,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 		input: {
 			endTime: new Date().toISOString(),
 			templateId: currentWorkout.templateId,
+			updateWorkoutId: currentWorkout.updateWorkoutId,
 			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			name: currentWorkout.name,

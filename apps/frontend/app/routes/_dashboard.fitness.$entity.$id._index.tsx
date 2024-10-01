@@ -230,6 +230,7 @@ export default function Page() {
 		entity: FitnessEntity,
 		repeatedFromId?: string,
 		templateId?: string,
+		updateWorkoutId?: string,
 		updateWorkoutTemplateId?: string,
 		defaultRestTimer?: number | null,
 	) => {
@@ -240,6 +241,7 @@ export default function Page() {
 			coreDetails,
 			repeatedFromId,
 			templateId,
+			updateWorkoutId,
 			updateWorkoutTemplateId,
 			defaultRestTimer,
 		);
@@ -309,6 +311,7 @@ export default function Page() {
 														undefined,
 														loaderData.entityId,
 														undefined,
+														undefined,
 														loaderData.defaultRestTimer,
 													)
 												}
@@ -320,6 +323,7 @@ export default function Page() {
 												onClick={() =>
 													performDecision(
 														FitnessEntity.Templates,
+														undefined,
 														undefined,
 														undefined,
 														loaderData.entityId,
@@ -344,6 +348,21 @@ export default function Page() {
 												leftSection={<IconRepeat size={14} />}
 											>
 												Duplicate
+											</Menu.Item>
+												<Menu.Item
+												onClick={() =>
+													performDecision(
+														FitnessEntity.Templates,
+														undefined,
+														undefined,
+														loaderData.entityId,
+														undefined,
+														loaderData.defaultRestTimer,
+													)
+												}
+												leftSection={<IconPencil size={14} />}
+											>
+												Edit workout
 											</Menu.Item>
 											<Menu.Item
 												onClick={adjustTimeModalOpen}
