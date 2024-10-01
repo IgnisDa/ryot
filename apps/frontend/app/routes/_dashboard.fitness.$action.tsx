@@ -1596,14 +1596,6 @@ const SetDisplay = (props: {
 															exerciseIdx: props.exerciseIdx,
 															setIdx: props.setIdx + 1,
 														};
-												setTimeout(() => {
-													setCurrentWorkout((w) =>
-														produce(w, (innerDraft) => {
-															if (innerDraft)
-																innerDraft.highlightedSet = undefined;
-														}),
-													);
-												}, 2000);
 												if (isLastSet) {
 													currentExercise.isShowDetailsOpen = false;
 													const nextExerciseHasDetailsToShow =
