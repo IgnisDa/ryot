@@ -4,6 +4,9 @@
 		"@graphql-typed-document-node/core": "3.2.0",
 		"graphql": "16.9.0"
 	},
+	"scripts": {
+		"dev": "graphql-codegen --config src/graphql/backend/codegen.ts"
+	},
 	"devDependencies": {
 		"@graphql-codegen/cli": "5.0.2",
 		"@graphql-codegen/client-preset": "4.3.3"
