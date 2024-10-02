@@ -1314,6 +1314,38 @@ const EditHistoryItemModal = (props: {
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 						disabled={isNotCompleted}
 					/>
+					<Select
+						data={userPreferences.general.watchProviders}
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							loaderData.metadataDetails.lot,
+						)} it?`}
+						name="providerWatchedOn"
+						defaultValue={providerWatchedOn}
+					/>
+					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+						<Select
+							clearable
+							searchable
+							limit={5}
+							name="reviewId"
+							disabled={!coreDetails.isPro}
+							label="Associate with a review"
+							defaultValue={props.seen.reviewId}
+							data={reviewsByThisCurrentUser.map((r) => ({
+								label: [
+									r.textOriginal
+										? `${r.textOriginal.slice(0, 20)}...`
+										: undefined,
+									r.rating,
+									`(${r.id})`,
+								]
+									.filter(Boolean)
+									.join(" • "),
+								value: r.id,
+							}))}
+						/>
+					</Tooltip>
 					<Input.Wrapper
 						label="Time spent"
 						description="How much time did you actually spend on this media? You can also adjust the scale"
@@ -1355,38 +1387,6 @@ const EditHistoryItemModal = (props: {
 							</Tooltip>
 						</Box>
 					</Input.Wrapper>
-					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
-						<Select
-							clearable
-							searchable
-							limit={5}
-							name="reviewId"
-							disabled={!coreDetails.isPro}
-							label="Associate with a review"
-							defaultValue={props.seen.reviewId}
-							data={reviewsByThisCurrentUser.map((r) => ({
-								label: [
-									r.textOriginal
-										? `${r.textOriginal.slice(0, 20)}...`
-										: undefined,
-									r.rating,
-									`(${r.id})`,
-								]
-									.filter(Boolean)
-									.join(" • "),
-								value: r.id,
-							}))}
-						/>
-					</Tooltip>
-					<Select
-						data={userPreferences.general.watchProviders}
-						label={`Where did you ${getVerb(
-							Verb.Read,
-							loaderData.metadataDetails.lot,
-						)} it?`}
-						name="providerWatchedOn"
-						defaultValue={providerWatchedOn}
-					/>
 					<Button variant="outline" type="submit">
 						Submit
 					</Button>
