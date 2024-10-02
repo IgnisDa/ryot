@@ -462,7 +462,13 @@ export const ReviewItemDisplay = (props: {
 						) : null}
 					</Flex>
 					{seenItemsAssociatedWith > 0 ? (
-						<Text size="xs" c="dimmed">
+						<Text
+							size="xs"
+							c="dimmed"
+							data-seen-items-associated-with={JSON.stringify(
+								props.review.seenItemsAssociatedWith,
+							)}
+						>
 							Associated with {seenItemsAssociatedWith} seen item
 							{seenItemsAssociatedWith > 1 ? "s" : ""}
 						</Text>
