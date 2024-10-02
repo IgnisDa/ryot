@@ -111,8 +111,7 @@ import {
 	convertDecimalToThreePointSmiley,
 	getLot,
 	getVerb,
-	queryClient,
-	queryFactory,
+	refreshUserMetadataDetails,
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
@@ -778,13 +777,6 @@ const WATCH_TIMES = [
 	"I don't remember",
 	"Custom Date",
 ] as const;
-
-const refreshUserMetadataDetails = (metadataId: string) =>
-	setTimeout(() => {
-		queryClient.invalidateQueries({
-			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
-		});
-	}, 1500);
 
 const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
