@@ -12,8 +12,8 @@ use enums::{EntityLot, ImportSource};
 use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, DeployImportJobInput,
-    ImportOrExportItemRating, ImportOrExportMediaItem, CreateOrUpdateReviewInput, ProgressUpdateInput,
+    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
+    DeployImportJobInput, ImportOrExportItemRating, ImportOrExportMediaItem, ProgressUpdateInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use rust_decimal_macros::dec;
@@ -202,17 +202,17 @@ impl ImporterService {
                     .media_service
                     .progress_update(
                         ProgressUpdateInput {
-                            metadata_id: metadata.id.clone(),
                             progress,
+                            change_state: None,
                             date: seen.ended_on,
+                            metadata_id: metadata.id.clone(),
                             show_season_number: seen.show_season_number,
+                            manga_volume_number: seen.manga_volume_number,
                             show_episode_number: seen.show_episode_number,
-                            podcast_episode_number: seen.podcast_episode_number,
                             anime_episode_number: seen.anime_episode_number,
                             manga_chapter_number: seen.manga_chapter_number,
-                            manga_volume_number: seen.manga_volume_number,
+                            podcast_episode_number: seen.podcast_episode_number,
                             provider_watched_on: seen.provider_watched_on.clone(),
-                            change_state: None,
                         },
                         &user_id,
                         false,

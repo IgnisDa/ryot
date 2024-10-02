@@ -1179,7 +1179,7 @@ export type MutationRoot = {
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Update a custom exercise. */
   updateCustomExercise: Scalars['Boolean']['output'];
-  /** Update the start/end date of a seen item. */
+  /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
   updateUser: StringIdObject;
