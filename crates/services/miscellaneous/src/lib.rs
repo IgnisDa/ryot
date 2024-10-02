@@ -1968,9 +1968,6 @@ ORDER BY RANDOM() LIMIT 10;
             return Err(Error::new("No seen found for this user and metadata"));
         }
         let mut seen: seen::ActiveModel = seen.into();
-        if let Some(name) = input.name {
-            seen.name = ActiveValue::Set(Some(name));
-        }
         if let Some(started_on) = input.started_on {
             seen.started_on = ActiveValue::Set(Some(started_on));
         }

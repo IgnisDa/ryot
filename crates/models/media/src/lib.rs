@@ -1472,7 +1472,6 @@ pub struct UserMediaNextEntry {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct UpdateSeenItemInput {
     pub seen_id: String,
-    pub name: Option<String>,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
     pub manual_time_spent: Option<Decimal>,

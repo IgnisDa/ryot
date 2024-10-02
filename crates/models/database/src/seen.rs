@@ -30,7 +30,6 @@ pub struct Model {
     pub user_id: String,
     pub metadata_id: String,
     pub state: SeenState,
-    pub name: Option<String>,
     pub provider_watched_on: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
