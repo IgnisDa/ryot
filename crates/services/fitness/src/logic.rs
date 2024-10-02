@@ -1,9 +1,12 @@
 use anyhow::{bail, Result};
+use apalis::prelude::MemoryStorage;
+use background::ApplicationJob;
 use common_utils::ryot_log;
 use database_models::{
     prelude::{Exercise, UserToEntity, Workout},
     user_to_entity, workout,
 };
+use database_utils::deploy_job_to_re_evaluate_user_workouts;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
     UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
@@ -59,6 +62,7 @@ pub async fn calculate_and_commit(
     input: UserWorkoutInput,
     user_id: &String,
     db: &DatabaseConnection,
+    perform_application_job: &MemoryStorage<ApplicationJob>,
 ) -> Result<String> {
     let end_time = input.end_time;
     let mut input = input;
@@ -311,6 +315,9 @@ pub async fn calculate_and_commit(
     let mut insert: workout::ActiveModel = model.into();
     insert.duration = ActiveValue::NotSet;
     let data = insert.insert(db).await?;
+    if is_update {
+        deploy_job_to_re_evaluate_user_workouts(perform_application_job, user_id).await;
+    }
     Ok(data.id)
 }
 

@@ -578,7 +578,8 @@ impl ExerciseService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let identifier = calculate_and_commit(input, user_id, &self.db).await?;
+        let identifier =
+            calculate_and_commit(input, user_id, &self.db, &self.perform_application_job).await?;
         Ok(identifier)
     }
 
