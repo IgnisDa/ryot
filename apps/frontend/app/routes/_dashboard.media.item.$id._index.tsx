@@ -110,7 +110,13 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { Verb, dayjsLib, getVerb, reviewYellow } from "~/lib/generals";
+import {
+	PRO_REQUIRED_MESSAGE,
+	Verb,
+	dayjsLib,
+	getVerb,
+	reviewYellow,
+} from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
@@ -1445,22 +1451,19 @@ const HistoryItem = (props: {
 		tab: string,
 		index?: number,
 	) => {
+		if (!coreDetails.isPro) {
+			notifications.show({
+				color: "red",
+				message: PRO_REQUIRED_MESSAGE,
+			});
+			return;
+		}
 		props.setTab(tab);
 		if (!isNumber(index)) return;
 		setTimeout(() => {
 			const current = ref.current;
 			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
 		}, 500);
-	};
-	const scrollToEpisode = (index?: number) => {
-		if (!coreDetails.isPro) {
-			notifications.show({
-				color: "red",
-				message: "Ryot Pro is required to jump to episodes",
-			});
-			return;
-		}
-		scrollToVirtuosoElement(props.podcastVirtuosoRef, "podcastEpisodes", index);
 	};
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
@@ -1473,7 +1476,9 @@ const HistoryItem = (props: {
 	const displayPodcastExtraInformation = podcastExtraInformation ? (
 		<Anchor
 			onClick={() =>
-				scrollToEpisode(
+				scrollToVirtuosoElement(
+					props.podcastVirtuosoRef,
+					"podcastEpisodes",
 					loaderData.metadataDetails.podcastSpecifics?.episodes.findIndex(
 						(e) => e.number === podcastExtraInformation.number,
 					),
@@ -1578,7 +1583,19 @@ const HistoryItem = (props: {
 								: null}
 						</Text>
 						{props.history.reviewId ? (
-							<ActionIcon size="xs" color="blue">
+							<ActionIcon
+								size="xs"
+								color="blue"
+								onClick={() => {
+									scrollToVirtuosoElement(
+										props.reviewsVirtuosoRef,
+										"reviews",
+										loaderData.userMetadataDetails.reviews.findIndex(
+											(r) => r.id === props.history.reviewId,
+										),
+									);
+								}}
+							>
 								<IconBubble />
 							</ActionIcon>
 						) : null}
