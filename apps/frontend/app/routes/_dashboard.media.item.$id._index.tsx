@@ -1088,8 +1088,8 @@ export default function Page() {
 									data={loaderData.userMetadataDetails.reviews}
 									itemContent={(_review, r) => (
 										<ReviewItemDisplay
-											review={r}
 											key={r.id}
+											review={r}
 											entityLot={EntityLot.Metadata}
 											entityId={loaderData.metadataId}
 											lot={loaderData.metadataDetails.lot}
