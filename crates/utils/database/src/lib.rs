@@ -460,14 +460,22 @@ pub async fn item_reviews(
             }
             false => review.rating,
         };
+        let seen_items_associated_with = Seen::find()
+            .select_only()
+            .column(seen::Column::Id)
+            .filter(seen::Column::ReviewId.eq(&review.id))
+            .into_tuple::<String>()
+            .all(db)
+            .await?;
         let to_push = ReviewItem {
             rating,
             id: review.id,
+            seen_items_associated_with,
             posted_on: review.posted_on,
             is_spoiler: review.is_spoiler,
+            visibility: review.visibility,
             text_original: review.text.clone(),
             text_rendered: review.text.map(|t| markdown_to_html(&t)),
-            visibility: review.visibility,
             show_extra_information: review.show_extra_information,
             podcast_extra_information: review.podcast_extra_information,
             anime_extra_information: review.anime_extra_information,

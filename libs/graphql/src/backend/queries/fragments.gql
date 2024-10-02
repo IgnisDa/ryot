@@ -122,11 +122,12 @@ fragment CollectionPart on Collection {
 fragment ReviewItemPart on ReviewItem {
   id
   rating
-  textOriginal
-  textRendered
+  postedOn
   isSpoiler
   visibility
-  postedOn
+  textOriginal
+  textRendered
+  seenItemsAssociatedWith
   postedBy {
     id
     name

@@ -952,6 +952,7 @@ pub struct ReviewItem {
     pub posted_by: IdAndNamedObject,
     pub text_original: Option<String>,
     pub text_rendered: Option<String>,
+    pub seen_items_associated_with: Vec<String>,
     pub comments: Vec<ImportOrExportItemReviewComment>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
