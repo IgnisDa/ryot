@@ -2799,6 +2799,39 @@ ORDER BY RANDOM() LIMIT 10;
         })
     }
 
+    pub async fn associate_review_with_seen_item(
+        &self,
+        user_id: String,
+        review_id: String,
+        seen_id: String,
+    ) -> Result<bool> {
+        let review = match review_id.is_empty() {
+            false => Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
+            true => None,
+        };
+        let err = || Error::new("You cannot associate a review with a seen item that is not yours");
+        let seen = Seen::find_by_id(&seen_id)
+            .one(&self.db)
+            .await
+            .unwrap()
+            .ok_or_else(|| Error::new("Could not find seen with this id"))?;
+        if seen.user_id != user_id {
+            return Err(err());
+        }
+        if let Some(review_item) = review {
+            if review_item.user_id != user_id {
+                return Err(err());
+            }
+        }
+        let mut seen: seen::ActiveModel = seen.into();
+        seen.review_id = ActiveValue::Set(match review_id.is_empty() {
+            false => None,
+            true => Some(review_id),
+        });
+        seen.update(&self.db).await.unwrap();
+        Ok(true)
+    }
+
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
         let review = Review::find()
             .filter(review::Column::Id.eq(review_id))

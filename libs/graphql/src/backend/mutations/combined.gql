@@ -245,3 +245,7 @@ mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
 mutation revokeAccessLink($accessLinkId: String!) {
   revokeAccessLink(accessLinkId: $accessLinkId)
 }
+
+mutation associateReviewWithSeenItem($reviewId: String!, $seenId: String!) {
+  associateReviewWithSeenItem(reviewId: $reviewId, seenId: $seenId)
+}
