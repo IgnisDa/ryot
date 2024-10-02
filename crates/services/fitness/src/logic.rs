@@ -57,7 +57,6 @@ fn get_index_of_highest_pb(
 }
 
 /// Create a workout in the database and also update user and exercise associations.
-// TODO: Update using the `update_workout_id` field
 pub async fn calculate_and_commit(
     input: UserWorkoutInput,
     user_id: &String,
@@ -66,13 +65,13 @@ pub async fn calculate_and_commit(
 ) -> Result<String> {
     let end_time = input.end_time;
     let mut input = input;
-    let (new_workout_id, is_update) = match &input.update_workout_id {
-        Some(id) => (id.to_owned(), true),
+    let (new_workout_id, to_update_workout) = match &input.update_workout_id {
+        Some(id) => (id.to_owned(), Workout::find_by_id(id).one(db).await?),
         None => (
             input
                 .create_workout_id
                 .unwrap_or_else(|| format!("wor_{}", nanoid!(12))),
-            false,
+            None,
         ),
     };
     ryot_log!(debug, "Creating new workout with id = {}", new_workout_id);
@@ -309,13 +308,16 @@ pub async fn calculate_and_commit(
         template_id: input.template_id,
         duration: 0,
     };
-    if is_update {
-        Workout::delete_by_id(new_workout_id).exec(db).await?;
-    }
     let mut insert: workout::ActiveModel = model.into();
     insert.duration = ActiveValue::NotSet;
+    if let Some(old_workout) = to_update_workout.clone() {
+        insert.end_time = ActiveValue::Set(old_workout.end_time);
+        insert.start_time = ActiveValue::Set(old_workout.start_time);
+        insert.repeated_from = ActiveValue::Set(old_workout.repeated_from.clone());
+        old_workout.delete(db).await?;
+    }
     let data = insert.insert(db).await?;
-    if is_update {
+    if to_update_workout.is_some() {
         deploy_job_to_re_evaluate_user_workouts(perform_application_job, user_id).await;
     }
     Ok(data.id)
