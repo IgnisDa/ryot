@@ -6,6 +6,9 @@
 	"installConfig": {
 		"hoistingLimits": "workspaces"
 	},
+	"scripts": {
+		"dev": "remix vite:dev --port 3000 --host 127.0.0.1"
+	},
 	"dependencies": {
 		"@conform-to/react": "1.1.5",
 		"@conform-to/zod": "1.1.5",
