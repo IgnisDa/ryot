@@ -115,6 +115,7 @@ import {
 	Verb,
 	dayjsLib,
 	getVerb,
+	refreshUserMetadataDetails,
 	reviewYellow,
 } from "~/lib/generals";
 import {
@@ -263,6 +264,12 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 
+	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+		submit(e);
+		events.updateProgress(loaderData.metadataDetails.title);
+		refreshUserMetadataDetails(loaderData.metadataId);
+	};
+
 	const PutOnHoldBtn = () => {
 		return (
 			<Form
@@ -271,10 +278,7 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={(e) => {
-					submit(e);
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
+				onSubmit={(e) => onSubmitProgressUpdate(e)}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
@@ -290,10 +294,7 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={(e) => {
-					submit(e);
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
+				onSubmit={(e) => onSubmitProgressUpdate(e)}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
@@ -798,17 +799,12 @@ export default function Page() {
 													<StateChangeButtons />
 												) : null}
 												<Form
+													replace
+													method="POST"
+													onSubmit={(e) => onSubmitProgressUpdate(e)}
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="POST"
-													replace
-													onSubmit={(e) => {
-														submit(e);
-														events.updateProgress(
-															loaderData.metadataDetails.title,
-														);
-													}}
 												>
 													<input hidden name="progress" defaultValue={100} />
 													<input
@@ -829,17 +825,12 @@ export default function Page() {
 											<>
 												<Menu.Label>Not in progress</Menu.Label>
 												<Form
+													replace
+													method="POST"
+													onSubmit={(e) => onSubmitProgressUpdate(e)}
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="POST"
-													replace
-													onSubmit={(e) => {
-														submit(e);
-														events.updateProgress(
-															loaderData.metadataDetails.title,
-														);
-													}}
 												>
 													<input hidden name="progress" defaultValue={0} />
 													<input
