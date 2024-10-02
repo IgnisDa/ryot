@@ -393,7 +393,7 @@ impl MiscellaneousMutation {
         service.create_review_comment(user_id, input).await
     }
 
-    /// Update the attributes of a seen item.
+    /// Update the start/end date of a seen item.
     async fn update_seen_item(
         &self,
         gql_ctx: &Context<'_>,
