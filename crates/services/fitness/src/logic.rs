@@ -68,6 +68,7 @@ pub async fn calculate_and_commit(
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
         Some(id) => (
             id.to_owned(),
+            // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
             Some(Workout::find_by_id(id).one(db).await?.unwrap()),
         ),
         None => (
