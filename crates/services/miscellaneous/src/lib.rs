@@ -1983,9 +1983,12 @@ ORDER BY RANDOM() LIMIT 10;
             seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
         }
         if let Some(review_id) = input.review_id {
-            let review = match review_id.is_empty() {
-                false => Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
-                true => None,
+            let (review, to_update_review_id) = match review_id.is_empty() {
+                false => (
+                    Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
+                    Some(review_id),
+                ),
+                true => (None, None),
             };
             if let Some(review_item) = review {
                 if review_item.user_id != user_id {
@@ -1994,10 +1997,7 @@ ORDER BY RANDOM() LIMIT 10;
                     ));
                 }
             }
-            seen.review_id = ActiveValue::Set(match review_id.is_empty() {
-                false => Some(review_id),
-                true => None,
-            });
+            seen.review_id = ActiveValue::Set(to_update_review_id);
         }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
