@@ -387,7 +387,7 @@ pub struct PeopleSearchItem {
 }
 
 #[derive(Debug, InputObject, Default)]
-pub struct PostReviewInput {
+pub struct CreateOrUpdateReviewInput {
     pub rating: Option<Decimal>,
     pub text: Option<String>,
     pub visibility: Option<Visibility>,

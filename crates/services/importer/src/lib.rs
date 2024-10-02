@@ -13,7 +13,7 @@ use fitness_service::ExerciseService;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
     CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, DeployImportJobInput,
-    ImportOrExportItemRating, ImportOrExportMediaItem, PostReviewInput, ProgressUpdateInput,
+    ImportOrExportItemRating, ImportOrExportMediaItem, CreateOrUpdateReviewInput, ProgressUpdateInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use rust_decimal_macros::dec;
@@ -234,7 +234,11 @@ impl ImporterService {
                     metadata.id.clone(),
                     EntityLot::Metadata,
                 ) {
-                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
+                    if let Err(e) = self
+                        .media_service
+                        .create_or_update_review(&user_id, input)
+                        .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -311,7 +315,11 @@ impl ImporterService {
                     metadata_group_id.clone(),
                     EntityLot::MetadataGroup,
                 ) {
-                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
+                    if let Err(e) = self
+                        .media_service
+                        .create_or_update_review(&user_id, input)
+                        .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: Some(item.lot),
                             step: ImportFailStep::ReviewConversion,
@@ -373,7 +381,11 @@ impl ImporterService {
                     person.id.clone(),
                     EntityLot::Person,
                 ) {
-                    if let Err(e) = self.media_service.post_review(&user_id, input).await {
+                    if let Err(e) = self
+                        .media_service
+                        .create_or_update_review(&user_id, input)
+                        .await
+                    {
                         import.failed_items.push(ImportFailedItem {
                             lot: None,
                             step: ImportFailStep::ReviewConversion,
@@ -500,7 +512,7 @@ fn convert_review_into_input(
     preferences: &UserPreferences,
     entity_id: String,
     entity_lot: EntityLot,
-) -> Option<PostReviewInput> {
+) -> Option<CreateOrUpdateReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
         ryot_log!(debug, "Skipping review since it has no content");
         return None;
@@ -512,7 +524,7 @@ fn convert_review_into_input(
     let text = review.review.clone().and_then(|r| r.text);
     let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
     let date = review.review.clone().map(|r| r.date);
-    Some(PostReviewInput {
+    Some(CreateOrUpdateReviewInput {
         rating,
         text,
         is_spoiler,

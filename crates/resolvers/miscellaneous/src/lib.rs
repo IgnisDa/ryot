@@ -7,12 +7,12 @@ use dependent_models::{
     UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateReviewCommentInput,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails,
-    GroupedCalendarEvent, MetadataGroupSearchInput, MetadataGroupSearchItem,
-    MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails, MetadataSearchInput,
-    MetadataSearchItemResponse, PeopleListInput, PeopleSearchInput, PeopleSearchItem,
-    PostReviewInput, ProgressUpdateInput, ProviderLanguageInformation, UpdateSeenItemInput,
+    CommitMediaInput, CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
+    GraphqlMetadataDetails, GroupedCalendarEvent, MetadataGroupSearchInput,
+    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataListInput, MetadataPartialDetails,
+    MetadataSearchInput, MetadataSearchItemResponse, PeopleListInput, PeopleSearchInput,
+    PeopleSearchItem, ProgressUpdateInput, ProviderLanguageInformation, UpdateSeenItemInput,
     UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
@@ -236,14 +236,14 @@ impl AuthProvider for MiscellaneousMutation {
 #[Object]
 impl MiscellaneousMutation {
     /// Create or update a review.
-    async fn post_review(
+    async fn create_or_update_review(
         &self,
         gql_ctx: &Context<'_>,
-        input: PostReviewInput,
+        input: CreateOrUpdateReviewInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.post_review(&user_id, input).await
+        service.create_or_update_review(&user_id, input).await
     }
 
     /// Delete a review if it belongs to the currently logged in user.

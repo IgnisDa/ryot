@@ -270,6 +270,24 @@ export type CreateOrUpdateCollectionInput = {
   updateId?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateOrUpdateReviewInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  date?: InputMaybe<Scalars['DateTime']['input']>;
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
+  isSpoiler?: InputMaybe<Scalars['Boolean']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  rating?: InputMaybe<Scalars['Decimal']['input']>;
+  /** ID of the review if this is an update to an existing review */
+  reviewId?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  text?: InputMaybe<Scalars['String']['input']>;
+  visibility?: InputMaybe<Visibility>;
+};
+
 export type CreateReviewCommentInput = {
   commentId?: InputMaybe<Scalars['String']['input']>;
   decrementLikes?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1074,6 +1092,8 @@ export type MutationRoot = {
   createCustomMetadata: StringIdObject;
   /** Create a new collection for the logged in user or edit details of an existing one. */
   createOrUpdateCollection: StringIdObject;
+  /** Create or update a review. */
+  createOrUpdateReview: StringIdObject;
   /** Create or update a workout template. */
   createOrUpdateWorkoutTemplate: Scalars['String']['output'];
   /** Create, like or delete a comment on a review. */
@@ -1142,8 +1162,6 @@ export type MutationRoot = {
    * and `review` associations with to the metadata.
    */
   mergeMetadata: Scalars['Boolean']['output'];
-  /** Create or update a review. */
-  postReview: StringIdObject;
   /** Get a presigned URL (valid for 10 minutes) for a given file name. */
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
@@ -1213,6 +1231,11 @@ export type MutationRootCreateCustomMetadataArgs = {
 
 export type MutationRootCreateOrUpdateCollectionArgs = {
   input: CreateOrUpdateCollectionInput;
+};
+
+
+export type MutationRootCreateOrUpdateReviewArgs = {
+  input: CreateOrUpdateReviewInput;
 };
 
 
@@ -1339,11 +1362,6 @@ export type MutationRootLoginUserArgs = {
 export type MutationRootMergeMetadataArgs = {
   mergeFrom: Scalars['String']['input'];
   mergeInto: Scalars['String']['input'];
-};
-
-
-export type MutationRootPostReviewArgs = {
-  input: PostReviewInput;
 };
 
 
@@ -1544,24 +1562,6 @@ export type PodcastSpecifics = {
 export type PodcastSpecificsInput = {
   episodes: Array<PodcastEpisodeInput>;
   totalEpisodes: Scalars['Int']['input'];
-};
-
-export type PostReviewInput = {
-  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  date?: InputMaybe<Scalars['DateTime']['input']>;
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
-  isSpoiler?: InputMaybe<Scalars['Boolean']['input']>;
-  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
-  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
-  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  rating?: InputMaybe<Scalars['Decimal']['input']>;
-  /** ID of the review if this is an update to an existing review */
-  reviewId?: InputMaybe<Scalars['String']['input']>;
-  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
-  text?: InputMaybe<Scalars['String']['input']>;
-  visibility?: InputMaybe<Visibility>;
 };
 
 export type PresignedPutUrlInput = {
@@ -1940,6 +1940,7 @@ export type Seen = {
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   progress: Scalars['Decimal']['output'];
   providerWatchedOn?: Maybe<Scalars['String']['output']>;
+  reviewId?: Maybe<Scalars['String']['output']>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
   startedOn?: Maybe<Scalars['NaiveDate']['output']>;
   state: SeenState;
@@ -2909,12 +2910,12 @@ export type DisassociateMetadataMutationVariables = Exact<{
 
 export type DisassociateMetadataMutation = { disassociateMetadata: boolean };
 
-export type PostReviewMutationVariables = Exact<{
-  input: PostReviewInput;
+export type CreateOrUpdateReviewMutationVariables = Exact<{
+  input: CreateOrUpdateReviewInput;
 }>;
 
 
-export type PostReviewMutation = { postReview: { id: string } };
+export type CreateOrUpdateReviewMutation = { createOrUpdateReview: { id: string } };
 
 export type PresignedPutS3UrlMutationVariables = Exact<{
   input: PresignedPutUrlInput;
@@ -3344,7 +3345,7 @@ export const UpdateUserWorkoutDocument = {"kind":"Document","definitions":[{"kin
 export const GenerateAuthTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"GenerateAuthToken"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"generateAuthToken"}}]}}]} as unknown as DocumentNode<GenerateAuthTokenMutation, GenerateAuthTokenMutationVariables>;
 export const MergeMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"MergeMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mergeFrom"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"mergeInto"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"mergeMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"mergeFrom"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mergeFrom"}}},{"kind":"Argument","name":{"kind":"Name","value":"mergeInto"},"value":{"kind":"Variable","name":{"kind":"Name","value":"mergeInto"}}}]}]}}]} as unknown as DocumentNode<MergeMetadataMutation, MergeMetadataMutationVariables>;
 export const DisassociateMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DisassociateMetadata"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"disassociateMetadata"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"metadataId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metadataId"}}}]}]}}]} as unknown as DocumentNode<DisassociateMetadataMutation, DisassociateMetadataMutationVariables>;
-export const PostReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PostReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PostReviewInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"postReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<PostReviewMutation, PostReviewMutationVariables>;
+export const CreateOrUpdateReviewDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateOrUpdateReview"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateOrUpdateReviewInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createOrUpdateReview"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<CreateOrUpdateReviewMutation, CreateOrUpdateReviewMutationVariables>;
 export const PresignedPutS3UrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"PresignedPutS3Url"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"PresignedPutUrlInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"presignedPutS3Url"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"uploadUrl"}}]}}]}}]} as unknown as DocumentNode<PresignedPutS3UrlMutation, PresignedPutS3UrlMutationVariables>;
 export const RemoveEntityFromCollectionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemoveEntityFromCollection"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ChangeCollectionToEntityInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeEntityFromCollection"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<RemoveEntityFromCollectionMutation, RemoveEntityFromCollectionMutationVariables>;
 export const TestUserNotificationPlatformsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TestUserNotificationPlatforms"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"testUserNotificationPlatforms"}}]}}]} as unknown as DocumentNode<TestUserNotificationPlatformsMutation, TestUserNotificationPlatformsMutationVariables>;

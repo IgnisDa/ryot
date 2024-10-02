@@ -52,21 +52,22 @@ use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
     first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
-    GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
-    GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment, IntegrationMediaSeen,
-    MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter, MediaSortBy,
-    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
-    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
-    MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
-    MetadataVideo, MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleListInput, PeopleSearchInput, PeopleSearchItem,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics,
-    PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ProviderLanguageInformation, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
+    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
+    ImportOrExportItemReviewComment, IntegrationMediaSeen, MediaAssociatedPersonStateChanges,
+    MediaDetails, MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
+    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
+    MetadataVideoSource, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -2670,10 +2671,10 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(StringIdObject { id: group_id })
     }
 
-    pub async fn post_review(
+    pub async fn create_or_update_review(
         &self,
         user_id: &String,
-        input: PostReviewInput,
+        input: CreateOrUpdateReviewInput,
     ) -> Result<StringIdObject> {
         let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         if preferences.general.disable_reviews {

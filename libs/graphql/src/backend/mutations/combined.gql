@@ -188,8 +188,8 @@ mutation DisassociateMetadata($metadataId: String!) {
   disassociateMetadata(metadataId: $metadataId)
 }
 
-mutation PostReview($input: PostReviewInput!) {
-  postReview(input: $input) {
+mutation CreateOrUpdateReview($input: CreateOrUpdateReviewInput!) {
+  createOrUpdateReview(input: $input) {
     id
   }
 }
