@@ -1982,6 +1982,23 @@ ORDER BY RANDOM() LIMIT 10;
         if let Some(manual_time_spent) = input.manual_time_spent {
             seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
         }
+        if let Some(review_id) = input.review_id {
+            let review = match review_id.is_empty() {
+                false => Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
+                true => None,
+            };
+            if let Some(review_item) = review {
+                if review_item.user_id != user_id {
+                    return Err(Error::new(
+                        "You cannot associate a review with a seen item that is not yours",
+                    ));
+                }
+            }
+            seen.review_id = ActiveValue::Set(match review_id.is_empty() {
+                false => Some(review_id),
+                true => None,
+            });
+        }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
         Ok(true)
@@ -2796,39 +2813,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(StringIdObject {
             id: insert.id.unwrap(),
         })
-    }
-
-    pub async fn associate_seen_item_with_review(
-        &self,
-        user_id: String,
-        review_id: String,
-        seen_id: String,
-    ) -> Result<bool> {
-        let review = match review_id.is_empty() {
-            false => Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
-            true => None,
-        };
-        let err = || Error::new("You cannot associate a review with a seen item that is not yours");
-        let seen = Seen::find_by_id(&seen_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .ok_or_else(|| Error::new("Could not find seen with this id"))?;
-        if seen.user_id != user_id {
-            return Err(err());
-        }
-        if let Some(review_item) = review {
-            if review_item.user_id != user_id {
-                return Err(err());
-            }
-        }
-        let mut seen: seen::ActiveModel = seen.into();
-        seen.review_id = ActiveValue::Set(match review_id.is_empty() {
-            false => Some(review_id),
-            true => None,
-        });
-        seen.update(&self.db).await.unwrap();
-        Ok(true)
     }
 
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {

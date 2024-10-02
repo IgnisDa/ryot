@@ -264,20 +264,6 @@ impl MiscellaneousMutation {
         service.delete_seen_item(&user_id, seen_id).await
     }
 
-    /// Associate a seen item with a review.
-    async fn associate_seen_item_with_review(
-        &self,
-        gql_ctx: &Context<'_>,
-        seen_id: String,
-        review_id: String,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
-            .associate_seen_item_with_review(user_id, review_id, seen_id)
-            .await
-    }
-
     /// Create a custom media item.
     async fn create_custom_metadata(
         &self,
