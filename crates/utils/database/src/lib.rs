@@ -417,7 +417,7 @@ pub async fn item_reviews(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
-    // Whether to get all public reviews or not
+    // DEV: Setting this to true will return ALL user's reviews + public reviews by others
     get_public: bool,
 ) -> Result<Vec<ReviewItem>> {
     let column = match entity_lot {
