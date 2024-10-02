@@ -227,6 +227,7 @@ const dateString = z
 
 const editSeenItem = z.object({
 	seenId: z.string(),
+	name: z.string().optional(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 	manualTimeSpent: z.string().optional(),
@@ -1285,6 +1286,11 @@ const EditHistoryRecordModal = (props: {
 				<input hidden name="seenId" defaultValue={id} />
 				<Stack>
 					<Title order={3}>Edit history record</Title>
+					<TextInput
+						name="name"
+						defaultValue={props.seen.name || undefined}
+						description="Name this entry to make it easier to find it later"
+					/>
 					<DateInput
 						label="Start time"
 						name="startedOn"
@@ -1338,10 +1344,7 @@ const EditHistoryRecordModal = (props: {
 					</Input.Wrapper>
 					<Select
 						data={userPreferences.general.watchProviders}
-						label={`Where did you ${getVerb(
-							Verb.Read,
-							loaderData.metadataDetails.lot,
-						)} it?`}
+						label={`Where did you ${getVerb(Verb.Read, loaderData.metadataDetails.lot)} it?`}
 						name="providerWatchedOn"
 						defaultValue={providerWatchedOn}
 					/>
@@ -1471,6 +1474,7 @@ const HistoryItem = (props: {
 	const watchedOnInformation = props.history.providerWatchedOn;
 
 	const filteredDisplayInformation = [
+		props.history.name,
 		watchedOnInformation,
 		displayShowExtraInformation,
 		displayPodcastExtraInformation,
