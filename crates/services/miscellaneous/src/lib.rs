@@ -582,7 +582,8 @@ ORDER BY RANDOM() LIMIT 10;
         let media_details = self.generic_metadata(&metadata_id).await?;
         let collections =
             entity_in_collections(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-        let reviews = item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
+        let reviews =
+            item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata, true).await?;
         let (_, history) = self
             .is_metadata_finished_by_user(&user_id, &media_details)
             .await?;
@@ -768,7 +769,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person).await?;
+        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person, true).await?;
         let collections =
             entity_in_collections(&self.db, &user_id, &person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
@@ -794,6 +795,7 @@ ORDER BY RANDOM() LIMIT 10;
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
+            true,
         )
         .await?;
         Ok(UserMetadataGroupDetails {

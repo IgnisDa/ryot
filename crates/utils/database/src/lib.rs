@@ -417,6 +417,8 @@ pub async fn item_reviews(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
+    // Whether to get all public reviews or not
+    get_public: bool,
 ) -> Result<Vec<ReviewItem>> {
     let column = match entity_lot {
         EntityLot::Metadata => review::Column::MetadataId,
@@ -427,7 +429,12 @@ pub async fn item_reviews(
         EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
     };
     let all_reviews = Review::find()
-        .filter(review::Column::UserId.eq(user_id))
+        .filter(match get_public {
+            false => review::Column::UserId.eq(user_id),
+            true => review::Column::UserId
+                .eq(user_id)
+                .or(review::Column::Visibility.eq(Visibility::Public)),
+        })
         .find_also_related(User)
         .order_by_desc(review::Column::PostedOn)
         .filter(column.eq(entity_id))

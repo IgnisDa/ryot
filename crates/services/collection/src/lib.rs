@@ -301,6 +301,7 @@ impl CollectionService {
             &collection.user_id,
             &input.collection_id,
             EntityLot::Collection,
+            true,
         )
         .await?;
         Ok(CollectionContents {
