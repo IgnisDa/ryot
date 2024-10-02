@@ -407,7 +407,7 @@ export const ReviewItemDisplay = (props: {
 
 	return (
 		<>
-			<Box key={props.review.id} data-review-id={props.review.id}>
+			<Box key={props.review.id} data-review-id={props.review.id} mb="md">
 				<Flex align="center" gap="sm">
 					<Avatar color="cyan" radius="xl">
 						{getInitials(props.review.postedBy?.name || "")}{" "}
@@ -670,7 +670,7 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 				</Box>
 			</Box>
-			<Divider />
+			<Divider mb="md" />
 		</>
 	);
 };

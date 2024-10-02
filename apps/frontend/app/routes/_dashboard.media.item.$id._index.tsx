@@ -247,6 +247,7 @@ export default function Page() {
 		loaderData.query.defaultTab || "overview",
 	);
 	const podcastVirtuosoRef = useRef<VirtuosoHandle>(null);
+	const reviewsVirtuosoRef = useRef<VirtuosoHandle>(null);
 	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
@@ -1073,22 +1074,22 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					{!userPreferences.general.disableReviews ? (
-						<Tabs.Panel value="reviews">
+						<Tabs.Panel value="reviews" h={MEDIA_DETAILS_HEIGHT}>
 							{loaderData.userMetadataDetails.reviews.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										{loaderData.userMetadataDetails.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												entityLot={EntityLot.Metadata}
-												entityId={loaderData.metadataId}
-												lot={loaderData.metadataDetails.lot}
-												title={loaderData.metadataDetails.title}
-											/>
-										))}
-									</Stack>
-								</MediaScrollArea>
+								<Virtuoso
+									ref={reviewsVirtuosoRef}
+									data={loaderData.userMetadataDetails.reviews}
+									itemContent={(_review, r) => (
+										<ReviewItemDisplay
+											review={r}
+											key={r.id}
+											entityLot={EntityLot.Metadata}
+											entityId={loaderData.metadataId}
+											lot={loaderData.metadataDetails.lot}
+											title={loaderData.metadataDetails.title}
+										/>
+									)}
+								/>
 							) : (
 								<Text>No reviews</Text>
 							)}
