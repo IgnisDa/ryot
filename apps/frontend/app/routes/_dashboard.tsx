@@ -950,6 +950,7 @@ const MetadataInProgressUpdateForm = ({
 };
 
 const NewProgressUpdateForm = ({
+	history,
 	onSubmit,
 	metadataDetails,
 	metadataToUpdate,
@@ -959,13 +960,14 @@ const NewProgressUpdateForm = ({
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 	history: History;
 }) => {
+	const userPreferences = useUserPreferences();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);
 	const [watchTime, setWatchTime] =
 		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
+	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
 	return (
 		<Form
@@ -1155,6 +1157,12 @@ const NewProgressUpdateForm = ({
 						label="Enter exact date"
 					/>
 				) : null}
+				<Select
+					name="providerWatchedOn"
+					defaultValue={lastProviderWatchedOn}
+					data={userPreferences.general.watchProviders}
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+				/>
 				{selectedDate ? (
 					<input
 						hidden
