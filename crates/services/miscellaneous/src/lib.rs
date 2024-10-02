@@ -1126,7 +1126,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         input: ProgressUpdateInput,
         user_id: &String,
-        // update only if media has not been consumed for this user in the last `n` duration
+        // DEV: update only if media has not been consumed for this user in the last `n` duration
         respect_cache: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
@@ -1141,6 +1141,7 @@ ORDER BY RANDOM() LIMIT 10;
         };
         let in_cache = self.seen_progress_cache.get(&cache).await;
         if respect_cache && in_cache.is_some() {
+            ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
