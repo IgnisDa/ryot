@@ -67,6 +67,7 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
+	IconBubble,
 	IconBulb,
 	IconEdit,
 	IconInfoCircle,
@@ -1566,6 +1567,11 @@ const HistoryItem = (props: {
 								? `(${Number(props.history.progress).toFixed(2)}%)`
 								: null}
 						</Text>
+						{props.history.reviewId ? (
+							<ActionIcon size="xs" color="blue">
+								<IconBubble />
+							</ActionIcon>
+						) : null}
 						{displayAllInformation ? (
 							<Text c="dimmed" size="sm" lineClamp={1}>
 								{displayAllInformation}
