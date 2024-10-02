@@ -15,6 +15,7 @@ pub enum Seen {
     StartedOn,
     FinishedOn,
     State,
+    Name,
     UserId,
     MetadataId,
     // DEV: This column is created in the `create_review` migration
@@ -52,6 +53,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(SeenState::InProgress),
                     )
+                    .col(ColumnDef::new(Seen::Name).text())
                     .col(
                         ColumnDef::new(Seen::UpdatedAt)
                             .array(ColumnType::TimestampWithTimeZone)
