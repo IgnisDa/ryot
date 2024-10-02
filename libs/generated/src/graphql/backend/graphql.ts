@@ -1179,7 +1179,7 @@ export type MutationRoot = {
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Update a custom exercise. */
   updateCustomExercise: Scalars['Boolean']['output'];
-  /** Update the start/end date of a seen item. */
+  /** Update the attributes of a seen item. */
   updateSeenItem: Scalars['Boolean']['output'];
   /** Update a user's profile details. */
   updateUser: StringIdObject;
@@ -1620,7 +1620,6 @@ export type ProgressUpdateInput = {
   metadataId: Scalars['String']['input'];
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   progress?: InputMaybe<Scalars['Decimal']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };

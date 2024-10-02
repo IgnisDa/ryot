@@ -408,16 +408,15 @@ pub struct CreateOrUpdateReviewInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdateInput {
     pub metadata_id: String,
-    pub progress: Option<Decimal>,
     pub date: Option<NaiveDate>,
+    pub progress: Option<Decimal>,
     pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<Decimal>,
     pub manga_volume_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
     pub change_state: Option<SeenState>,
-    pub provider_watched_on: Option<String>,
+    pub anime_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]

@@ -1204,8 +1204,7 @@ ORDER BY RANDOM() LIMIT 10;
             ProgressUpdateAction::Update => {
                 let prev_seen = all_prev_seen[0].clone();
                 let progress = input.progress.unwrap();
-                let watched_on = prev_seen.provider_watched_on.clone();
-                if prev_seen.progress == progress && watched_on == input.provider_watched_on {
+                if prev_seen.progress == progress {
                     return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                         error: ProgressUpdateErrorVariant::UpdateWithoutProgressUpdate,
                     }));
@@ -1219,8 +1218,6 @@ ORDER BY RANDOM() LIMIT 10;
                 last_seen.state = ActiveValue::Set(SeenState::InProgress);
                 last_seen.progress = ActiveValue::Set(progress);
                 last_seen.updated_at = ActiveValue::Set(updated_at);
-                last_seen.provider_watched_on =
-                    ActiveValue::Set(input.provider_watched_on.or(watched_on));
                 if progress == dec!(100) {
                     last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
                 }
@@ -1248,15 +1245,12 @@ ORDER BY RANDOM() LIMIT 10;
                     .unwrap();
                 match last_seen {
                     Some(ls) => {
-                        let watched_on = ls.provider_watched_on.clone();
                         let mut updated_at = ls.updated_at.clone();
                         let now = Utc::now();
                         updated_at.push(now);
                         let mut last_seen: seen::ActiveModel = ls.into();
                         last_seen.state = ActiveValue::Set(new_state);
                         last_seen.updated_at = ActiveValue::Set(updated_at);
-                        last_seen.provider_watched_on =
-                            ActiveValue::Set(input.provider_watched_on.or(watched_on));
                         last_seen.update(&self.db).await.unwrap()
                     }
                     None => {
@@ -1336,7 +1330,6 @@ ORDER BY RANDOM() LIMIT 10;
                     started_on: ActiveValue::Set(started_on),
                     finished_on: ActiveValue::Set(finished_on),
                     state: ActiveValue::Set(SeenState::InProgress),
-                    provider_watched_on: ActiveValue::Set(input.provider_watched_on),
                     show_extra_information: ActiveValue::Set(show_ei),
                     podcast_extra_information: ActiveValue::Set(podcast_ei),
                     anime_extra_information: ActiveValue::Set(anime_ei),
@@ -3400,16 +3393,15 @@ ORDER BY RANDOM() LIMIT 10;
             .progress_update(
                 ProgressUpdateInput {
                     metadata_id: id,
+                    change_state: None,
                     progress: Some(progress),
-                    date: Some(get_current_date(&self.timezone)),
                     show_season_number: pu.show_season_number,
                     show_episode_number: pu.show_episode_number,
-                    podcast_episode_number: pu.podcast_episode_number,
-                    anime_episode_number: pu.anime_episode_number,
-                    manga_chapter_number: pu.manga_chapter_number,
                     manga_volume_number: pu.manga_volume_number,
-                    provider_watched_on: pu.provider_watched_on,
-                    change_state: None,
+                    date: Some(get_current_date(&self.timezone)),
+                    manga_chapter_number: pu.manga_chapter_number,
+                    anime_episode_number: pu.anime_episode_number,
+                    podcast_episode_number: pu.podcast_episode_number,
                 },
                 user_id,
                 true,
