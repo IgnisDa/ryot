@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    hash::Hash as StdHash,
     iter::zip,
     sync::Arc,
 };
@@ -153,7 +154,7 @@ pub struct MiscellaneousService {
     commit_cache: Cache<CommitCache, ()>,
 }
 
-fn create_disk_cache<T: Eq + std::hash::Hash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
+fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
     Cache::builder()
         .time_to_live(ChronoDuration::try_hours(hours).unwrap().to_std().unwrap())
         .build()
