@@ -147,11 +147,11 @@ pub struct MiscellaneousService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
-    file_storage_service: Arc<FileStorageService>,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     commit_cache: Cache<CommitCache, ()>,
+    file_storage_service: Arc<FileStorageService>,
+    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
+    perform_application_job: MemoryStorage<ApplicationJob>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
 fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
