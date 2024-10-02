@@ -2799,7 +2799,7 @@ ORDER BY RANDOM() LIMIT 10;
         })
     }
 
-    pub async fn associate_review_with_seen_item(
+    pub async fn associate_seen_item_with_review(
         &self,
         user_id: String,
         review_id: String,
