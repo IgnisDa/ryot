@@ -81,6 +81,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Person,
+    #[sea_orm(has_many = "super::seen::Entity")]
+    Seen,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -118,6 +120,12 @@ impl Related<super::metadata_group::Entity> for Entity {
 impl Related<super::person::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Person.def()
+    }
+}
+
+impl Related<super::seen::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Seen.def()
     }
 }
 
