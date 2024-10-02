@@ -342,7 +342,7 @@ impl UserService {
             &user.id,
             false,
         )
-        .await?;
+        .await;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
     }
 

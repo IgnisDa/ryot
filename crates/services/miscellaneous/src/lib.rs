@@ -32,9 +32,10 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
-    calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
-    remove_entity_from_collection, revoke_access_link, user_by_id, user_preferences_by_id,
+    calculate_user_activities_and_summary, deploy_job_to_re_evaluate_user_workouts,
+    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
+    item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
+    user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -1440,10 +1441,7 @@ ORDER BY RANDOM() LIMIT 10;
                     .unwrap();
             }
             BackgroundJob::ReEvaluateUserWorkouts => {
-                storage
-                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
-                    .await
-                    .unwrap();
+                deploy_job_to_re_evaluate_user_workouts(storage, user_id).await;
             }
         };
         Ok(true)

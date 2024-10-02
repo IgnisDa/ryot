@@ -62,10 +62,16 @@ pub async fn calculate_and_commit(
 ) -> Result<String> {
     let end_time = input.end_time;
     let mut input = input;
-    let id = input
-        .create_workout_id
-        .unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
-    ryot_log!(debug, "Creating new workout with id = {}", id);
+    let (new_workout_id, is_update) = match &input.update_workout_id {
+        Some(id) => (id.to_owned(), true),
+        None => (
+            input
+                .create_workout_id
+                .unwrap_or_else(|| format!("wor_{}", nanoid!(12))),
+            false,
+        ),
+    };
+    ryot_log!(debug, "Creating new workout with id = {}", new_workout_id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
@@ -102,7 +108,7 @@ pub async fn calculate_and_commit(
         let history_item = UserToExerciseHistoryExtraInformation {
             best_set: None,
             idx: exercise_idx,
-            workout_id: id.clone(),
+            workout_id: new_workout_id.clone(),
             workout_end_on: end_time,
         };
         let association = match association {
@@ -226,7 +232,7 @@ pub async fn calculate_and_commit(
             if let Some(set_personal_bests) = &set.personal_bests {
                 for best in set_personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
-                        workout_id: id.clone(),
+                        workout_id: new_workout_id.clone(),
                         exercise_idx,
                         set_idx,
                     };
@@ -272,12 +278,12 @@ pub async fn calculate_and_commit(
     }
     let summary_total = workout_totals.into_iter().sum();
     let model = workout::Model {
-        id,
         end_time,
+        name: input.name,
+        user_id: user_id.clone(),
+        id: new_workout_id.clone(),
         start_time: input.start_time,
         repeated_from: input.repeated_from,
-        user_id: user_id.clone(),
-        name: input.name,
         summary: WorkoutSummary {
             total: Some(summary_total),
             exercises: exercises
@@ -299,6 +305,9 @@ pub async fn calculate_and_commit(
         template_id: input.template_id,
         duration: 0,
     };
+    if is_update {
+        Workout::delete_by_id(new_workout_id).exec(db).await?;
+    }
     let mut insert: workout::ActiveModel = model.into();
     insert.duration = ActiveValue::NotSet;
     let data = insert.insert(db).await?;

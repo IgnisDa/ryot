@@ -16,8 +16,9 @@ use database_models::{
     user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    add_entity_to_collection, entity_in_collections, ilike_sql, item_reviews, pro_instance_guard,
-    user_measurements_list, workout_details, workout_template_details,
+    add_entity_to_collection, deploy_job_to_re_evaluate_user_workouts, entity_in_collections,
+    ilike_sql, item_reviews, pro_instance_guard, user_measurements_list, workout_details,
+    workout_template_details,
 };
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
@@ -601,10 +602,8 @@ impl ExerciseService {
             }
             if new_wkt.is_changed() {
                 new_wkt.update(&self.db).await?;
-                self.perform_application_job
-                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id))
-                    .await
-                    .unwrap();
+                deploy_job_to_re_evaluate_user_workouts(&self.perform_application_job, &user_id)
+                    .await;
                 Ok(true)
             } else {
                 Ok(false)
