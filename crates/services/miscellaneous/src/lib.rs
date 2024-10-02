@@ -1204,6 +1204,7 @@ ORDER BY RANDOM() LIMIT 10;
                 let progress = input.progress.unwrap();
                 let watched_on = prev_seen.provider_watched_on.clone();
                 if prev_seen.progress == progress && watched_on == input.provider_watched_on {
+                    ryot_log!(debug, "No progress update required");
                     return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                         error: ProgressUpdateErrorVariant::UpdateWithoutProgressUpdate,
                     }));
