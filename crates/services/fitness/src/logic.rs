@@ -56,8 +56,8 @@ fn get_index_of_highest_pb(
     record.and_then(|r| records.iter().position(|l| l == r))
 }
 
-/// Create a workout in the database and also update user and exercise associations.
-pub async fn calculate_and_commit(
+/// Create or update a workout in the database and also update user and exercise associations.
+pub async fn create_or_update_workout(
     input: UserWorkoutInput,
     user_id: &String,
     db: &DatabaseConnection,

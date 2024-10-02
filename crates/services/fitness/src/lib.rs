@@ -47,7 +47,7 @@ use sea_orm::{
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict};
 use slug::slugify;
 
-use logic::{calculate_and_commit, delete_existing_workout};
+use logic::{create_or_update_workout, delete_existing_workout};
 
 mod logic;
 
@@ -579,7 +579,8 @@ impl ExerciseService {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let identifier =
-            calculate_and_commit(input, user_id, &self.db, &self.perform_application_job).await?;
+            create_or_update_workout(input, user_id, &self.db, &self.perform_application_job)
+                .await?;
         Ok(identifier)
     }
 
