@@ -257,6 +257,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
+	const isEditingWorkout = Boolean(currentWorkout?.updateWorkoutId);
 
 	useInterval(() => {
 		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
@@ -351,7 +352,7 @@ export default function Page() {
 									}
 								/>
 								<Group>
-									<DurationTimer />
+									<DurationTimer isEditingWorkout={isEditingWorkout} />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -478,7 +479,9 @@ export default function Page() {
 													}
 												}}
 											>
-												{isCreatingTemplate ? "Save" : "Finish"}
+												{isCreatingTemplate || isEditingWorkout
+													? "Save"
+													: "Finish"}
 											</Button>
 										</>
 									) : null}
@@ -583,7 +586,7 @@ const RestTimer = () => {
 		: "Timer";
 };
 
-const DurationTimer = () => {
+const DurationTimer = (props: { isEditingWorkout: boolean }) => {
 	forceUpdateEverySecond();
 	const [currentWorkout] = useCurrentWorkout();
 	const seconds = offsetDate(currentWorkout?.startTime);
@@ -596,7 +599,7 @@ const DurationTimer = () => {
 		<StatDisplay
 			name="Duration"
 			value={dayjsLib.duration(seconds * 1000).format(format)}
-			isHidden={isCreatingTemplate}
+			isHidden={isCreatingTemplate || props.isEditingWorkout}
 		/>
 	);
 };
@@ -1153,8 +1156,8 @@ const ExerciseDisplay = (props: {
 																		workout.details.information.exercises[
 																			history.idx
 																		].sets;
-																	const converted = sets.map(
-																		convertHistorySetToCurrentSet,
+																	const converted = sets.map((s) =>
+																		convertHistorySetToCurrentSet(s),
 																	);
 																	setCurrentWorkout(
 																		produce(currentWorkout, (draft) => {
