@@ -211,14 +211,18 @@ export const BaseMediaDisplayItem = (props: {
 				<Flex
 					w="100%"
 					direction="column"
-					mt={gridPacking === GridPacking.Dense ? 2 : undefined}
+					mt={2}
 					px={match(gridPacking)
-						.with(GridPacking.Normal, () => ({ base: 10, md: 3 }))
-						.with(GridPacking.Dense, () => ({ base: 5, md: 2 }))
+						.with(GridPacking.Normal, () => ({ base: 6, md: 3 }))
+						.with(GridPacking.Dense, () => ({ md: 2 }))
 						.exhaustive()}
 				>
 					<Flex w="100%" direction="row" justify="space-between">
-						<Text c="dimmed" size="sm">
+						<Text
+							size="sm"
+							c="dimmed"
+							visibleFrom={gridPacking === GridPacking.Dense ? "md" : undefined}
+						>
 							{props.labels?.left}
 						</Text>
 						<Text c="dimmed" size="sm">
