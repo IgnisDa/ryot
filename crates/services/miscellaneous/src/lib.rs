@@ -2825,8 +2825,8 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let mut seen: seen::ActiveModel = seen.into();
         seen.review_id = ActiveValue::Set(match review_id.is_empty() {
-            false => None,
-            true => Some(review_id),
+            false => Some(review_id),
+            true => None,
         });
         seen.update(&self.db).await.unwrap();
         Ok(true)
