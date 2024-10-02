@@ -28,6 +28,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
@@ -101,7 +102,6 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
-	ProRequiredAlert,
 	ReviewItemDisplay,
 } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
@@ -1255,7 +1255,7 @@ type History =
 
 const DEFAULT_STATES = [0, 3];
 
-const EditHistoryRecordModal = (props: {
+const EditHistoryItemModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
@@ -1319,12 +1319,16 @@ const EditHistoryRecordModal = (props: {
 						description="How much time did you actually spend on this media? You can also adjust the scale"
 					>
 						<Box mt="xs">
-							{coreDetails.isPro ? (
-								<>
+							<Tooltip
+								label={PRO_REQUIRED_MESSAGE}
+								disabled={coreDetails.isPro}
+							>
+								<Box>
 									<Group>
 										<Slider
 											flex={1}
 											label={null}
+											disabled={!coreDetails.isPro}
 											value={manualTimeSpentValue}
 											onChange={setManualTimeSpentValue}
 										/>
@@ -1347,32 +1351,33 @@ const EditHistoryRecordModal = (props: {
 											value={manualTimeSpentInMinutes}
 										/>
 									) : null}
-								</>
-							) : (
-								<ProRequiredAlert tooltipLabel="Track time spent on media" />
-							)}
+								</Box>
+							</Tooltip>
 						</Box>
 					</Input.Wrapper>
-					<Select
-						clearable
-						searchable
-						limit={5}
-						name="reviewId"
-						label="Associate with a review"
-						defaultValue={props.seen.reviewId}
-						data={reviewsByThisCurrentUser.map((r) => ({
-							label: [
-								r.textOriginal
-									? `${r.textOriginal.slice(0, 20)}...`
-									: undefined,
-								r.rating,
-								`(${r.id})`,
-							]
-								.filter(Boolean)
-								.join(" • "),
-							value: r.id,
-						}))}
-					/>
+					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+						<Select
+							clearable
+							searchable
+							limit={5}
+							name="reviewId"
+							disabled={!coreDetails.isPro}
+							label="Associate with a review"
+							defaultValue={props.seen.reviewId}
+							data={reviewsByThisCurrentUser.map((r) => ({
+								label: [
+									r.textOriginal
+										? `${r.textOriginal.slice(0, 20)}...`
+										: undefined,
+									r.rating,
+									`(${r.id})`,
+								]
+									.filter(Boolean)
+									.join(" • "),
+								value: r.id,
+							}))}
+						/>
+					</Tooltip>
 					<Select
 						data={userPreferences.general.watchProviders}
 						label={`Where did you ${getVerb(
@@ -1646,7 +1651,7 @@ const HistoryItem = (props: {
 					</SimpleGrid>
 				</Stack>
 			</Flex>
-			<EditHistoryRecordModal
+			<EditHistoryItemModal
 				opened={opened}
 				onClose={close}
 				seen={props.history}
