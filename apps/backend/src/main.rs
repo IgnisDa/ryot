@@ -183,11 +183,12 @@ async fn main() -> Result<()> {
             .ok();
     }
 
+    let host = env::var("BACKEND_HOST").unwrap_or_else(|_| "0.0.0.0".to_owned());
     let port = env::var("BACKEND_PORT")
         .unwrap_or_else(|_| "5000".to_owned())
         .parse::<usize>()
         .unwrap();
-    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
+    let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
     let importer_service_1 = app_services.importer_service.clone();
