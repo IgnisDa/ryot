@@ -998,6 +998,7 @@ export default function Page() {
 											setTab={setTab}
 											key={history.id}
 											history={history}
+											reviewsVirtuosoRef={reviewsVirtuosoRef}
 											podcastVirtuosoRef={podcastVirtuosoRef}
 										/>
 									)}
@@ -1421,8 +1422,9 @@ const MergeMetadataModal = (props: {
 const HistoryItem = (props: {
 	index: number;
 	history: History;
-	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
 	setTab: (tab: string) => void;
+	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
+	reviewsVirtuosoRef: RefObject<VirtuosoHandle>;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
@@ -1438,6 +1440,18 @@ const HistoryItem = (props: {
 						e.episodeNumber === props.history.showExtraInformation?.episode,
 				)
 		: null;
+	const scrollToVirtuosoElement = (
+		ref: RefObject<VirtuosoHandle>,
+		tab: string,
+		index?: number,
+	) => {
+		props.setTab(tab);
+		if (!isNumber(index)) return;
+		setTimeout(() => {
+			const current = ref.current;
+			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
+		}, 500);
+	};
 	const scrollToEpisode = (index?: number) => {
 		if (!coreDetails.isPro) {
 			notifications.show({
@@ -1446,12 +1460,7 @@ const HistoryItem = (props: {
 			});
 			return;
 		}
-		props.setTab("podcastEpisodes");
-		if (!isNumber(index)) return;
-		setTimeout(() => {
-			const current = props.podcastVirtuosoRef.current;
-			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
-		}, 500);
+		scrollToVirtuosoElement(props.podcastVirtuosoRef, "podcastEpisodes", index);
 	};
 	const displayShowExtraInformation = showExtraInformation
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
