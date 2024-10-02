@@ -115,6 +115,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetMantineColor,
+	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
@@ -187,6 +188,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
+			submission.reviewId = submission.reviewId || "";
 			await serverGqlService.authenticatedRequest(
 				request,
 				UpdateSeenItemDocument,
@@ -227,6 +229,7 @@ const dateString = z
 
 const editSeenItem = z.object({
 	seenId: z.string(),
+	reviewId: z.string().optional(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 	manualTimeSpent: z.string().optional(),
@@ -1249,6 +1252,11 @@ const EditHistoryRecordModal = (props: {
 	seen: History;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
+	const reviewsByThisCurrentUser =
+		loaderData.userMetadataDetails.reviews.filter(
+			(r) => r.postedBy.id === userDetails.id,
+		);
 	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
 		props.seen;
 	const [mtv, mts] = manualTimeSpent
@@ -1336,6 +1344,26 @@ const EditHistoryRecordModal = (props: {
 							)}
 						</Box>
 					</Input.Wrapper>
+					<Select
+						clearable
+						searchable
+						limit={5}
+						name="reviewId"
+						label="Associate with a review"
+						defaultValue={props.seen.reviewId}
+						data={reviewsByThisCurrentUser.map((r) => ({
+							label: [
+								r.textOriginal
+									? `${r.textOriginal.slice(0, 20)}...`
+									: undefined,
+								r.rating,
+								`(${r.id})`,
+							]
+								.filter(Boolean)
+								.join(" • "),
+							value: r.id,
+						}))}
+					/>
 					<Select
 						data={userPreferences.general.watchProviders}
 						label={`Where did you ${getVerb(
