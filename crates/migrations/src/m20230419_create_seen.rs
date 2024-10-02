@@ -18,6 +18,8 @@ pub enum Seen {
     Name,
     UserId,
     MetadataId,
+    // DEV: This column is created in the `create_review` migration
+    ReviewId,
     LastUpdatedOn,
     UpdatedAt,
     NumTimesUpdated,
