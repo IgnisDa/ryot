@@ -66,7 +66,10 @@ pub async fn calculate_and_commit(
     let end_time = input.end_time;
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
-        Some(id) => (id.to_owned(), Workout::find_by_id(id).one(db).await?),
+        Some(id) => (
+            id.to_owned(),
+            Some(Workout::find_by_id(id).one(db).await?.unwrap()),
+        ),
         None => (
             input
                 .create_workout_id
