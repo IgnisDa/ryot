@@ -945,18 +945,18 @@ pub struct IntegrationProviderSpecifics {
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct ReviewItem {
     pub id: String,
+    pub is_spoiler: bool,
     pub posted_on: DateTimeUtc,
+    pub visibility: Visibility,
     pub rating: Option<Decimal>,
+    pub posted_by: IdAndNamedObject,
     pub text_original: Option<String>,
     pub text_rendered: Option<String>,
-    pub visibility: Visibility,
-    pub is_spoiler: bool,
-    pub posted_by: IdAndNamedObject,
+    pub comments: Vec<ImportOrExportItemReviewComment>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
-    pub comments: Vec<ImportOrExportItemReviewComment>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
