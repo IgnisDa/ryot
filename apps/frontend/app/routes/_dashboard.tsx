@@ -848,7 +848,6 @@ const MetadataInProgressUpdateForm = ({
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }) => {
-	const userPreferences = useUserPreferences();
 	const total =
 		metadataDetails.audioBookSpecifics?.runtime ||
 		metadataDetails.bookSpecifics?.pages ||
@@ -926,27 +925,22 @@ const MetadataInProgressUpdateForm = ({
 						</Text>
 						<Flex align="center" gap="xs">
 							<NumberInput
+								min={0}
+								step={1}
+								flex={1}
+								hideControls
+								max={Number(total)}
+								leftSection={updateIcon}
 								defaultValue={((Number(total) || 1) * (value || 1)) / 100}
 								onChange={(v) => {
 									const value = (Number(v) / (Number(total) || 1)) * 100;
 									setValue(value);
 								}}
-								max={Number(total)}
-								min={0}
-								step={1}
-								hideControls
-								leftSection={updateIcon}
 							/>
 							<Text>{text}</Text>
 						</Flex>
 					</>
 				) : null}
-				<Select
-					name="providerWatchedOn"
-					defaultValue={inProgress.providerWatchedOn}
-					data={userPreferences.general.watchProviders}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-				/>
 				<Button variant="outline" type="submit">
 					Update
 				</Button>
@@ -959,14 +953,12 @@ const NewProgressUpdateForm = ({
 	onSubmit,
 	metadataDetails,
 	metadataToUpdate,
-	history,
 }: {
 	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 	history: History;
 }) => {
-	const userPreferences = useUserPreferences();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
@@ -974,7 +966,6 @@ const NewProgressUpdateForm = ({
 	);
 	const [watchTime, setWatchTime] =
 		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
-	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
 	return (
 		<Form
@@ -1164,12 +1155,6 @@ const NewProgressUpdateForm = ({
 						label="Enter exact date"
 					/>
 				) : null}
-				<Select
-					name="providerWatchedOn"
-					defaultValue={lastProviderWatchedOn}
-					data={userPreferences.general.watchProviders}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-				/>
 				{selectedDate ? (
 					<input
 						hidden

@@ -249,7 +249,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 				animeEpisodeNumber: submission.animeEpisodeNumber,
 				mangaChapterNumber: submission.mangaChapterNumber,
 				mangaVolumeNumber: submission.mangaVolumeNumber,
-				providerWatchedOn: submission.providerWatchedOn,
 			};
 			const updates = [];
 			const showSpecifics = metadataDetails.showSpecifics?.seasons || [];
@@ -502,7 +501,6 @@ const progressUpdateSchema = z
 		podcastAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		animeAllEpisodesBefore: zx.CheckboxAsString.optional(),
 		mangaAllChaptersOrVolumesBefore: zx.CheckboxAsString.optional(),
-		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataIdSchema)
 	.merge(MetadataSpecificsSchema);
@@ -512,7 +510,6 @@ const bulkUpdateSchema = z
 		progress: z.string().optional(),
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
-		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
