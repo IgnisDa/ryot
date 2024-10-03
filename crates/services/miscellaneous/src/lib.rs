@@ -1128,10 +1128,10 @@ ORDER BY RANDOM() LIMIT 10;
             metadata_id: input.metadata_id.clone(),
             show_season_number: input.show_season_number,
             show_episode_number: input.show_episode_number,
-            podcast_episode_number: input.podcast_episode_number,
-            anime_episode_number: input.anime_episode_number,
-            manga_chapter_number: input.manga_chapter_number,
             manga_volume_number: input.manga_volume_number,
+            manga_chapter_number: input.manga_chapter_number,
+            anime_episode_number: input.anime_episode_number,
+            podcast_episode_number: input.podcast_episode_number,
         };
         let in_cache = self.cache_service.get(cache.clone()).await?;
         if respect_cache && in_cache.is_some() {
@@ -2851,14 +2851,14 @@ ORDER BY RANDOM() LIMIT 10;
             let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
             let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
             let cache = ApplicationCacheKey::ProgressUpdateCache {
-                user_id: user_id.to_owned(),
-                metadata_id: si.metadata_id.clone(),
                 show_season_number: ssn,
+                manga_volume_number: mvn,
                 show_episode_number: sen,
-                podcast_episode_number: pen,
                 anime_episode_number: aen,
                 manga_chapter_number: mcn,
-                manga_volume_number: mvn,
+                podcast_episode_number: pen,
+                user_id: user_id.to_owned(),
+                metadata_id: si.metadata_id.clone(),
             };
             self.cache_service.delete(cache).await?;
             let seen_id = si.id.clone();
