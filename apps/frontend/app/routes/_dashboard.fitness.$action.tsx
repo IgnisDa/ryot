@@ -59,6 +59,7 @@ import {
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	changeCase,
 	isEqual,
 	isNumber,
 	isString,
@@ -169,15 +170,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [
-		{
-			title: `${
-				data?.action === FitnessAction.LogWorkout
-					? "Log Workout"
-					: "Create Template"
-			} | Ryot`,
-		},
-	];
+	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
