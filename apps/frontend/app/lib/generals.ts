@@ -104,6 +104,10 @@ export enum FitnessAction {
 	CreateTemplate = "create-template",
 }
 
+export type AppServiceWorkerMessageData = {
+	event: "timer-completed";
+};
+
 export const convertDecimalToThreePointSmiley = (rating: number) =>
 	inRange(rating, 0, 33.4)
 		? ThreePointSmileyRating.Sad

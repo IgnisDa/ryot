@@ -107,6 +107,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
+	type AppServiceWorkerMessageData,
 	CurrentWorkoutKey,
 	FitnessAction,
 	FitnessEntity,
@@ -241,6 +242,17 @@ export default function Page() {
 			});
 		});
 	};
+	useInterval(() => {
+		if (
+			navigator.serviceWorker.controller &&
+			document.visibilityState === "visible"
+		) {
+			const message = {
+				event: "timer-completed",
+			} as AppServiceWorkerMessageData;
+			navigator.serviceWorker.controller.postMessage(message);
+		}
+	}, 1000);
 	const [
 		timerDrawerOpened,
 		{
