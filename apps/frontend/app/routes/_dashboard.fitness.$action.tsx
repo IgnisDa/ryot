@@ -1646,8 +1646,8 @@ const SetDisplay = (props: {
 												props.exerciseIdx,
 												props.setIdx,
 											);
-											focusOnExercise(nextSet.exerciseIdx);
 											if (newConfirmed) {
+												focusOnExercise(nextSet.exerciseIdx);
 												draft.highlightedSet = nextSet;
 												if (nextSet.wasLastSet) {
 													currentExercise.isShowDetailsOpen = false;
