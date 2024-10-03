@@ -107,6 +107,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
+	type AppServiceWorkerNotificationTag,
 	type AppServiceWorkerMessageData,
 	CurrentWorkoutKey,
 	FitnessAction,
@@ -236,6 +237,7 @@ export default function Page() {
 		if (document.visibilityState === "visible") return;
 		navigator.serviceWorker.ready.then((registration) => {
 			registration.showNotification("Timer completed", {
+				tag: "timer-completed" as AppServiceWorkerNotificationTag,
 				body: "Let's get this done!",
 				icon: LOGO_IMAGE_URL,
 				silent: true,
@@ -252,7 +254,7 @@ export default function Page() {
 			} as AppServiceWorkerMessageData;
 			navigator.serviceWorker.controller.postMessage(message);
 		}
-	}, 1000);
+	}, 5000);
 	const [
 		timerDrawerOpened,
 		{

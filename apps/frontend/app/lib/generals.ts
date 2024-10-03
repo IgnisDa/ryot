@@ -104,6 +104,8 @@ export enum FitnessAction {
 	CreateTemplate = "create-template",
 }
 
+export type AppServiceWorkerNotificationTag = "timer-completed";
+
 export type AppServiceWorkerMessageData = {
 	event: "remove-timer-completed-notification";
 };
