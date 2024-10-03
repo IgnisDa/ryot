@@ -105,7 +105,7 @@ export enum FitnessAction {
 }
 
 export type AppServiceWorkerMessageData = {
-	event: "timer-completed";
+	event: "remove-timer-completed-notification";
 };
 
 export const convertDecimalToThreePointSmiley = (rating: number) =>

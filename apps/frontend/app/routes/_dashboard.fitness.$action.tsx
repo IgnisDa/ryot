@@ -248,7 +248,7 @@ export default function Page() {
 			document.visibilityState === "visible"
 		) {
 			const message = {
-				event: "timer-completed",
+				event: "remove-timer-completed-notification",
 			} as AppServiceWorkerMessageData;
 			navigator.serviceWorker.controller.postMessage(message);
 		}
