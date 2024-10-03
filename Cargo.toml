@@ -23,6 +23,7 @@ members = [
     "crates/resolvers/statistics",
     "crates/resolvers/router",
     "crates/resolvers/user",
+    "crates/services/cache",
     "crates/services/collection",
     "crates/services/exporter",
     "crates/services/file-storage",
