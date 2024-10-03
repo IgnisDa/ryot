@@ -2,7 +2,7 @@ use async_graphql::Result;
 use chrono::{Duration, Utc};
 use common_models::ApplicationCacheKey;
 use database_models::{application_cache, prelude::ApplicationCache};
-use sea_orm::{ActiveValue, DatabaseConnection, EntityTrait};
+use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use uuid::Uuid;
 
@@ -20,11 +20,11 @@ impl CacheService {
     pub async fn set_with_expiry(
         &self,
         key: ApplicationCacheKey,
-        expiry_seconds: i64,
+        expiry_hours: i64,
     ) -> Result<Uuid> {
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
-            expires_at: ActiveValue::Set(Some(Utc::now() + Duration::seconds(expiry_seconds))),
+            expires_at: ActiveValue::Set(Some(Utc::now() + Duration::hours(expiry_hours))),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
@@ -39,5 +39,27 @@ impl CacheService {
             .exec(&self.db)
             .await?;
         Ok(inserted.last_insert_id)
+    }
+
+    pub async fn get(&self, key: ApplicationCacheKey) -> Result<Option<()>> {
+        let cache = ApplicationCache::find()
+            .filter(application_cache::Column::Key.eq(key))
+            .one(&self.db)
+            .await?;
+        Ok(cache
+            .filter(|cache| {
+                cache
+                    .expires_at
+                    .map_or(false, |expires_at| expires_at > Utc::now())
+            })
+            .map(|_| ()))
+    }
+
+    pub async fn delete(&self, key: ApplicationCacheKey) -> Result<bool> {
+        let deleted = ApplicationCache::delete_many()
+            .filter(application_cache::Column::Key.eq(key))
+            .exec(&self.db)
+            .await?;
+        Ok(deleted.rows_affected > 0)
     }
 }
