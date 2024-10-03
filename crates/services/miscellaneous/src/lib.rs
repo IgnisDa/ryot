@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    hash::Hash as StdHash,
     iter::zip,
     sync::Arc,
 };
@@ -32,9 +33,10 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, apply_collection_filter,
-    calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
-    remove_entity_from_collection, revoke_access_link, user_by_id, user_preferences_by_id,
+    calculate_user_activities_and_summary, deploy_job_to_re_evaluate_user_workouts,
+    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
+    item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
+    user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -146,14 +148,14 @@ pub struct MiscellaneousService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
-    file_storage_service: Arc<FileStorageService>,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
     commit_cache: Cache<CommitCache, ()>,
+    file_storage_service: Arc<FileStorageService>,
+    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
+    perform_application_job: MemoryStorage<ApplicationJob>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
-fn create_disk_cache<T: Eq + std::hash::Hash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
+fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
     Cache::builder()
         .time_to_live(ChronoDuration::try_hours(hours).unwrap().to_std().unwrap())
         .build()
@@ -1128,7 +1130,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         input: ProgressUpdateInput,
         user_id: &String,
-        // update only if media has not been consumed for this user in the last `n` duration
+        // DEV: update only if media has not been consumed for this user in the last `n` duration
         respect_cache: bool,
     ) -> Result<ProgressUpdateResultUnion> {
         let cache = ProgressUpdateCache {
@@ -1143,6 +1145,7 @@ ORDER BY RANDOM() LIMIT 10;
         };
         let in_cache = self.seen_progress_cache.get(&cache).await;
         if respect_cache && in_cache.is_some() {
+            ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                 error: ProgressUpdateErrorVariant::AlreadySeen,
             }));
@@ -1206,6 +1209,7 @@ ORDER BY RANDOM() LIMIT 10;
                 let progress = input.progress.unwrap();
                 let watched_on = prev_seen.provider_watched_on.clone();
                 if prev_seen.progress == progress && watched_on == input.provider_watched_on {
+                    ryot_log!(debug, "No progress update required");
                     return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                         error: ProgressUpdateErrorVariant::UpdateWithoutProgressUpdate,
                     }));
@@ -1443,10 +1447,7 @@ ORDER BY RANDOM() LIMIT 10;
                     .unwrap();
             }
             BackgroundJob::ReEvaluateUserWorkouts => {
-                storage
-                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
-                    .await
-                    .unwrap();
+                deploy_job_to_re_evaluate_user_workouts(storage, user_id).await;
             }
         };
         Ok(true)

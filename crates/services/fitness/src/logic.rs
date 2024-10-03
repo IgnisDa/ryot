@@ -1,9 +1,12 @@
 use anyhow::{bail, Result};
+use apalis::prelude::MemoryStorage;
+use background::ApplicationJob;
 use common_utils::ryot_log;
 use database_models::{
     prelude::{Exercise, UserToEntity, Workout},
     user_to_entity, workout,
 };
+use database_utils::deploy_job_to_re_evaluate_user_workouts;
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserToExerciseBestSetExtraInformation,
     UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
@@ -53,16 +56,29 @@ fn get_index_of_highest_pb(
     record.and_then(|r| records.iter().position(|l| l == r))
 }
 
-/// Create a workout in the database and also update user and exercise associations.
-pub async fn calculate_and_commit(
+/// Create or update a workout in the database and also update user and exercise associations.
+pub async fn create_or_update_workout(
     input: UserWorkoutInput,
     user_id: &String,
     db: &DatabaseConnection,
+    perform_application_job: &MemoryStorage<ApplicationJob>,
 ) -> Result<String> {
     let end_time = input.end_time;
     let mut input = input;
-    let id = input.id.unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
-    ryot_log!(debug, "Creating new workout with id = {}", id);
+    let (new_workout_id, to_update_workout) = match &input.update_workout_id {
+        Some(id) => (
+            id.to_owned(),
+            // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
+            Some(Workout::find_by_id(id).one(db).await?.unwrap()),
+        ),
+        None => (
+            input
+                .create_workout_id
+                .unwrap_or_else(|| format!("wor_{}", nanoid!(12))),
+            None,
+        ),
+    };
+    ryot_log!(debug, "Creating new workout with id = {}", new_workout_id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
@@ -99,7 +115,7 @@ pub async fn calculate_and_commit(
         let history_item = UserToExerciseHistoryExtraInformation {
             best_set: None,
             idx: exercise_idx,
-            workout_id: id.clone(),
+            workout_id: new_workout_id.clone(),
             workout_end_on: end_time,
         };
         let association = match association {
@@ -223,7 +239,7 @@ pub async fn calculate_and_commit(
             if let Some(set_personal_bests) = &set.personal_bests {
                 for best in set_personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
-                        workout_id: id.clone(),
+                        workout_id: new_workout_id.clone(),
                         exercise_idx,
                         set_idx,
                     };
@@ -269,12 +285,12 @@ pub async fn calculate_and_commit(
     }
     let summary_total = workout_totals.into_iter().sum();
     let model = workout::Model {
-        id,
         end_time,
+        name: input.name,
+        user_id: user_id.clone(),
+        id: new_workout_id.clone(),
         start_time: input.start_time,
         repeated_from: input.repeated_from,
-        user_id: user_id.clone(),
-        name: input.name,
         summary: WorkoutSummary {
             total: Some(summary_total),
             exercises: exercises
@@ -298,7 +314,16 @@ pub async fn calculate_and_commit(
     };
     let mut insert: workout::ActiveModel = model.into();
     insert.duration = ActiveValue::NotSet;
+    if let Some(old_workout) = to_update_workout.clone() {
+        insert.end_time = ActiveValue::Set(old_workout.end_time);
+        insert.start_time = ActiveValue::Set(old_workout.start_time);
+        insert.repeated_from = ActiveValue::Set(old_workout.repeated_from.clone());
+        old_workout.delete(db).await?;
+    }
     let data = insert.insert(db).await?;
+    if to_update_workout.is_some() {
+        deploy_job_to_re_evaluate_user_workouts(perform_application_job, user_id).await;
+    }
     Ok(data.id)
 }
 

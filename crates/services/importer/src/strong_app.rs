@@ -122,7 +122,7 @@ pub async fn import(
                 Duration::try_seconds(0).unwrap()
             };
             workouts.push(UserWorkoutInput {
-                id: None,
+                create_workout_id: None,
                 template_id: None,
                 repeated_from: None,
                 default_rest_timer: None,
@@ -132,6 +132,7 @@ pub async fn import(
                 end_time: ndt + workout_duration,
                 exercises,
                 assets: None,
+                update_workout_id: None,
                 update_workout_template_id: None,
             });
             exercises = vec![];

@@ -55,8 +55,13 @@ async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
+    match env::var("RUST_LOG").ok() {
+        Some(v) => {
+            if !v.contains("sea_orm") {
+                env::set_var("RUST_LOG", format!("{},sea_orm=info", v));
+            }
+        }
+        None => env::set_var("RUST_LOG", "ryot=info,sea_orm=info"),
     }
     init_tracing()?;
 
