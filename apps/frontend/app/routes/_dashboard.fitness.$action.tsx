@@ -107,13 +107,9 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
-	type AppServiceWorkerMessageData,
-	type AppServiceWorkerNotificationData,
-	type AppServiceWorkerNotificationTag,
 	CurrentWorkoutKey,
 	FitnessAction,
 	FitnessEntity,
-	LOGO_IMAGE_URL,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
 	getSetColor,
