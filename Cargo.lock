@@ -851,6 +851,7 @@ dependencies = [
  "aws-sdk-s3",
  "axum",
  "background",
+ "cache-service",
  "chrono",
  "chrono-tz",
  "collection-resolver",
@@ -1125,6 +1126,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cache-service"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "chrono",
+ "common-models",
+ "database-models",
+ "sea-orm",
+ "sea-query",
+ "uuid",
+]
+
+[[package]]
 name = "castaway"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1309,10 +1323,12 @@ dependencies = [
  "async-graphql",
  "enum_meta",
  "enums",
+ "rust_decimal",
  "schematic",
  "sea-orm",
  "serde",
  "serde_json",
+ "serde_with 3.9.0",
  "strum",
 ]
 
@@ -3784,6 +3800,7 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "background",
+ "cache-service",
  "chrono",
  "chrono-tz",
  "common-models",
@@ -3792,7 +3809,6 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
- "derive_more 1.0.0",
  "enums",
  "env-utils",
  "file-storage-service",

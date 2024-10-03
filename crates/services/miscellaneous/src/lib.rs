@@ -9,23 +9,25 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
+use cache_service::CacheService;
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
-    BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
+    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
+    DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl,
+    StringIdObject,
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
-    access_link, calendar_event, collection, collection_to_entity,
+    access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
     notification_platform, person,
     prelude::{
-        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport,
-        Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
+        ImportReport, Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
         QueuedNotification, Review, Seen, User, UserToEntity,
     },
@@ -125,18 +127,6 @@ impl MediaProviderLanguages for CustomService {
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
-struct ProgressUpdateCache {
-    user_id: String,
-    metadata_id: String,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
-    anime_episode_number: Option<i32>,
-    manga_chapter_number: Option<Decimal>,
-    manga_volume_number: Option<i32>,
-}
-
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
 struct CommitCache {
     id: String,
     lot: EntityLot,
@@ -148,9 +138,9 @@ pub struct MiscellaneousService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
+    cache_service: Arc<CacheService>,
     commit_cache: Cache<CommitCache, ()>,
     file_storage_service: Arc<FileStorageService>,
-    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
     perform_application_job: MemoryStorage<ApplicationJob>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
@@ -169,11 +159,11 @@ impl MiscellaneousService {
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
+        cache_service: Arc<CacheService>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
-        let seen_progress_cache = create_disk_cache(config.server.progress_update_threshold);
         let commit_cache = create_disk_cache(1);
         Self {
             config,
@@ -181,8 +171,8 @@ impl MiscellaneousService {
             timezone,
             oidc_enabled,
             commit_cache,
+            cache_service,
             db: db.clone(),
-            seen_progress_cache,
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
@@ -1133,17 +1123,17 @@ ORDER BY RANDOM() LIMIT 10;
         // DEV: update only if media has not been consumed for this user in the last `n` duration
         respect_cache: bool,
     ) -> Result<ProgressUpdateResultUnion> {
-        let cache = ProgressUpdateCache {
+        let cache = ApplicationCacheKey::ProgressUpdateCache {
             user_id: user_id.to_owned(),
             metadata_id: input.metadata_id.clone(),
             show_season_number: input.show_season_number,
             show_episode_number: input.show_episode_number,
-            podcast_episode_number: input.podcast_episode_number,
-            anime_episode_number: input.anime_episode_number,
-            manga_chapter_number: input.manga_chapter_number,
             manga_volume_number: input.manga_volume_number,
+            manga_chapter_number: input.manga_chapter_number,
+            anime_episode_number: input.anime_episode_number,
+            podcast_episode_number: input.podcast_episode_number,
         };
-        let in_cache = self.seen_progress_cache.get(&cache).await;
+        let in_cache = self.cache_service.get(cache.clone()).await?;
         if respect_cache && in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -1353,7 +1343,9 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(debug, "Progress update = {:?}", seen);
         let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
-            self.seen_progress_cache.insert(cache, ()).await;
+            self.cache_service
+                .set_with_expiry(cache, self.config.server.progress_update_threshold)
+                .await?;
         }
         self.after_media_seen_tasks(seen).await?;
         Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
@@ -2858,17 +2850,17 @@ ORDER BY RANDOM() LIMIT 10;
             let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
             let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
             let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-            let cache = ProgressUpdateCache {
-                user_id: user_id.to_owned(),
-                metadata_id: si.metadata_id.clone(),
+            let cache = ApplicationCacheKey::ProgressUpdateCache {
                 show_season_number: ssn,
+                manga_volume_number: mvn,
                 show_episode_number: sen,
-                podcast_episode_number: pen,
                 anime_episode_number: aen,
                 manga_chapter_number: mcn,
-                manga_volume_number: mvn,
+                podcast_episode_number: pen,
+                user_id: user_id.to_owned(),
+                metadata_id: si.metadata_id.clone(),
             };
-            self.seen_progress_cache.remove(&cache).await;
+            self.cache_service.delete(cache).await?;
             let seen_id = si.id.clone();
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {
@@ -4582,6 +4574,11 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Deleting expired application caches");
+        ApplicationCache::delete_many()
+            .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
             .exec(&self.db)
             .await?;
         Ok(())

@@ -8,6 +8,7 @@ apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
+cache-service = { path = "../cache" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
@@ -16,7 +17,6 @@ config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-derive_more = { workspace = true }
 enums = { path = "../../enums" }
 env-utils = { path = "../../utils/env" }
 file-storage-service = { path = "../../services/file-storage" }

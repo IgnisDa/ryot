@@ -1,0 +1,13 @@
+[package]
+name = "cache-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { workspace = true }
+chrono = { workspace = true }
+common-models = { path = "../../models/common" }
+database-models = { path = "../../models/database" }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+uuid = { workspace = true }
