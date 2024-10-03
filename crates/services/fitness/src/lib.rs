@@ -32,7 +32,8 @@ use file_storage_service::FileStorageService;
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
-    GithubExerciseAttributes, UpdateUserWorkoutInput, UserMeasurementsListInput, UserWorkoutInput,
+    GithubExerciseAttributes, ProcessedExercise, UpdateUserWorkoutInput, UserMeasurementsListInput,
+    UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
     LOT_MAPPINGS,
 };
 use itertools::Itertools;

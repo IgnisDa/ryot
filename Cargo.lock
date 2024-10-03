@@ -246,6 +246,7 @@ dependencies = [
  "config",
  "file-storage-service",
  "jwt-service",
+ "moka",
  "reqwest 0.12.7",
 ]
 

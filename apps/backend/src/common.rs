@@ -11,7 +11,6 @@ use axum::{
     Extension,
 };
 use background::{ApplicationJob, CoreApplicationJob};
-use cached::DiskCache;
 use chrono::Duration;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
@@ -66,19 +65,6 @@ pub async fn create_app_services(
     timezone: chrono_tz::Tz,
 ) -> AppServices {
     let path = PathBuf::new().join(TEMP_DIR);
-    let seen_progress_cache = Arc::new(
-        DiskCache::new("seen_progress_cache")
-            .set_lifespan(
-                Duration::try_hours(config.server.progress_update_threshold)
-                    .unwrap()
-                    .num_seconds()
-                    .try_into()
-                    .unwrap(),
-            )
-            .set_disk_directory(path)
-            .build()
-            .unwrap(),
-    );
     let timezone = Arc::new(timezone);
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
@@ -99,6 +85,7 @@ pub async fn create_app_services(
         config.clone(),
         perform_core_application_job,
     ));
+    let seen_progress_cache = create_disk_cache(config.server.progress_update_threshold);
     let integration_service = Arc::new(IntegrationService::new(
         &db,
         timezone.clone(),
@@ -115,8 +102,8 @@ pub async fn create_app_services(
             timezone.clone(),
             config.clone(),
             file_storage_service.clone(),
+            seen_progress_cache,
             perform_application_job,
-            seen_progress_cache.clone(),
             perform_core_application_job,
         )
         .await,

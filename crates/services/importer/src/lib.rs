@@ -3,7 +3,6 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
-use cached::DiskCache;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
 use common_utils::ryot_log;
@@ -15,6 +14,7 @@ use dependent_utils::{
 use enums::ImportSource;
 use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{DeployImportJobInput, ImportOrExportMediaItem, ProgressUpdateCache};
+use moka::future::Cache;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder,
@@ -40,7 +40,7 @@ pub struct ImporterService {
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
     perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
+    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
@@ -50,7 +50,7 @@ impl ImporterService {
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
-        seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
+        seen_progress_cache: Cache<ProgressUpdateCache, ()>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {

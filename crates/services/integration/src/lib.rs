@@ -5,7 +5,6 @@ use apalis::prelude::MemoryStorage;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result as GqlResult};
 use background::{ApplicationJob, CoreApplicationJob};
-use cached::DiskCache;
 use chrono::Utc;
 use common_models::ChangeCollectionToEntityInput;
 use common_utils::ryot_log;
@@ -22,6 +21,7 @@ use media_models::{
     CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen, ProgressUpdateCache,
     ProgressUpdateInput,
 };
+use moka::future::Cache;
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
 use sea_orm::{
@@ -56,7 +56,7 @@ pub struct IntegrationService {
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
     perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
+    seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
@@ -66,7 +66,7 @@ impl IntegrationService {
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
-        seen_progress_cache: Arc<DiskCache<ProgressUpdateCache, ()>>,
+        seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {

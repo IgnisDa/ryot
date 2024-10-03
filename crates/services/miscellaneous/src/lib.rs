@@ -1,11 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
-    iter::zip,
     sync::Arc,
 };
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use application_utils::get_current_date;
+use application_utils::{create_disk_cache, get_current_date};
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
@@ -23,18 +22,18 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
     person,
     prelude::{
-        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport,
-        Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
-        QueuedNotification, Review, Seen, User, UserToEntity,
+        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Metadata,
+        MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
+        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, QueuedNotification,
+        Review, Seen, User, UserToEntity,
     },
     queued_notification, review, seen, user, user_to_entity,
 };
 use database_utils::{
-    add_entity_to_collection, admin_account_guard, apply_collection_filter,
-    calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, ilike_sql, item_reviews,
-    remove_entity_from_collection, revoke_access_link, user_by_id, user_preferences_by_id,
+    add_entity_to_collection, apply_collection_filter, calculate_user_activities_and_summary,
+    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, ilike_sql,
+    item_reviews, remove_entity_from_collection, revoke_access_link, user_by_id,
+    user_preferences_by_id,
 };
 use dependent_models::{
     CoreDetails, GenreDetails, MetadataBaseData, MetadataGroupDetails, PersonDetails,
@@ -65,12 +64,13 @@ use media_models::{
     MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
     MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
     MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
-    MetadataVideo, MetadataVideoSource, PeopleListInput, PeopleSearchInput, PeopleSearchItem,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics,
-    PostReviewInput, ProgressUpdateCache, ProgressUpdateInput, ProviderLanguageInformation,
-    ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    MetadataVideo, MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,
+    PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, PostReviewInput,
+    ProgressUpdateCache, ProgressUpdateInput, ProviderLanguageInformation, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -125,18 +125,6 @@ impl MediaProviderLanguages for CustomService {
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
-struct ProgressUpdateCache {
-    user_id: String,
-    metadata_id: String,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
-    anime_episode_number: Option<i32>,
-    manga_chapter_number: Option<Decimal>,
-    manga_volume_number: Option<i32>,
-}
-
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
 struct CommitCache {
     id: String,
     lot: EntityLot,
@@ -148,17 +136,11 @@ pub struct MiscellaneousService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
-    commit_cache: Cache<CommitCache, ()>,
+    commit_cache: Arc<Cache<CommitCache, ()>>,
     file_storage_service: Arc<FileStorageService>,
-    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
     perform_application_job: MemoryStorage<ApplicationJob>,
+    seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
-}
-
-fn create_disk_cache<T: Eq + std::hash::Hash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
-    Cache::builder()
-        .time_to_live(ChronoDuration::try_hours(hours).unwrap().to_std().unwrap())
-        .build()
 }
 
 impl MiscellaneousService {
@@ -171,9 +153,9 @@ impl MiscellaneousService {
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
+        seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
-        let seen_progress_cache = create_disk_cache(config.server.progress_update_threshold);
         let commit_cache = create_disk_cache(1);
         Self {
             config,
@@ -249,7 +231,9 @@ ORDER BY RANDOM() LIMIT 10;
         .await?;
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
-            let provider = self.get_metadata_provider(media.lot, media.source).await?;
+            let provider =
+                get_metadata_provider(media.lot, media.source, &self.config, &self.timezone)
+                    .await?;
             if let Ok(recommendations) = provider
                 .get_recommendations_for_metadata(&media.identifier)
                 .await
@@ -1291,264 +1275,6 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(())
     }
 
-    async fn update_media(
-        &self,
-        metadata_id: &String,
-        input: MediaDetails,
-    ) -> Result<Vec<(String, MediaStateChanged)>> {
-        let mut notifications = vec![];
-
-        let meta = Metadata::find_by_id(metadata_id)
-            .one(&self.db)
-            .await
-            .unwrap()
-            .unwrap();
-
-        if let (Some(p1), Some(p2)) = (&meta.production_status, &input.production_status) {
-            if p1 != p2 {
-                notifications.push((
-                    format!("Status changed from {:#?} to {:#?}", p1, p2),
-                    MediaStateChanged::MetadataStatusChanged,
-                ));
-            }
-        }
-        if let (Some(p1), Some(p2)) = (meta.publish_year, input.publish_year) {
-            if p1 != p2 {
-                notifications.push((
-                    format!("Publish year from {:#?} to {:#?}", p1, p2),
-                    MediaStateChanged::MetadataReleaseDateChanged,
-                ));
-            }
-        }
-        if let (Some(s1), Some(s2)) = (&meta.show_specifics, &input.show_specifics) {
-            if s1.seasons.len() != s2.seasons.len() {
-                notifications.push((
-                    format!(
-                        "Number of seasons changed from {:#?} to {:#?}",
-                        s1.seasons.len(),
-                        s2.seasons.len()
-                    ),
-                    MediaStateChanged::MetadataNumberOfSeasonsChanged,
-                ));
-            } else {
-                for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
-                    if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
-                        && SHOW_SPECIAL_SEASON_NAMES.contains(&s2.name.as_str())
-                    {
-                        continue;
-                    }
-                    if s1.episodes.len() != s2.episodes.len() {
-                        notifications.push((
-                            format!(
-                                "Number of episodes changed from {:#?} to {:#?} (Season {})",
-                                s1.episodes.len(),
-                                s2.episodes.len(),
-                                s1.season_number
-                            ),
-                            MediaStateChanged::MetadataEpisodeReleased,
-                        ));
-                    } else {
-                        for (before_episode, after_episode) in
-                            zip(s1.episodes.iter(), s2.episodes.iter())
-                        {
-                            if before_episode.name != after_episode.name {
-                                notifications.push((
-                                    format!(
-                                        "Episode name changed from {:#?} to {:#?} (S{}E{})",
-                                        before_episode.name,
-                                        after_episode.name,
-                                        s1.season_number,
-                                        before_episode.episode_number
-                                    ),
-                                    MediaStateChanged::MetadataEpisodeNameChanged,
-                                ));
-                            }
-                            if before_episode.poster_images != after_episode.poster_images {
-                                notifications.push((
-                                    format!(
-                                        "Episode image changed for S{}E{}",
-                                        s1.season_number, before_episode.episode_number
-                                    ),
-                                    MediaStateChanged::MetadataEpisodeImagesChanged,
-                                ));
-                            }
-                            if let (Some(pd1), Some(pd2)) =
-                                (before_episode.publish_date, after_episode.publish_date)
-                            {
-                                if pd1 != pd2 {
-                                    notifications.push((
-                                            format!(
-                                                "Episode release date changed from {:?} to {:?} (S{}E{})",
-                                                pd1,
-                                                pd2,
-                                                s1.season_number,
-                                                before_episode.episode_number
-                                            ),
-                                            MediaStateChanged::MetadataReleaseDateChanged,
-                                        ));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &input.anime_specifics) {
-            if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
-                if e1 != e2 {
-                    notifications.push((
-                        format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
-                        MediaStateChanged::MetadataChaptersOrEpisodesChanged,
-                    ));
-                }
-            }
-        };
-        if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &input.manga_specifics) {
-            if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
-                if c1 != c2 {
-                    notifications.push((
-                        format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
-                        MediaStateChanged::MetadataChaptersOrEpisodesChanged,
-                    ));
-                }
-            }
-        };
-        if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &input.podcast_specifics) {
-            if p1.episodes.len() != p2.episodes.len() {
-                notifications.push((
-                    format!(
-                        "Number of episodes changed from {:#?} to {:#?}",
-                        p1.episodes.len(),
-                        p2.episodes.len()
-                    ),
-                    MediaStateChanged::MetadataEpisodeReleased,
-                ));
-            } else {
-                for (before_episode, after_episode) in zip(p1.episodes.iter(), p2.episodes.iter()) {
-                    if before_episode.title != after_episode.title {
-                        notifications.push((
-                            format!(
-                                "Episode name changed from {:#?} to {:#?} (EP{})",
-                                before_episode.title, after_episode.title, before_episode.number
-                            ),
-                            MediaStateChanged::MetadataEpisodeNameChanged,
-                        ));
-                    }
-                    if before_episode.thumbnail != after_episode.thumbnail {
-                        notifications.push((
-                            format!("Episode image changed for EP{}", before_episode.number),
-                            MediaStateChanged::MetadataEpisodeImagesChanged,
-                        ));
-                    }
-                }
-            }
-        };
-
-        let notifications = notifications
-            .into_iter()
-            .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
-            .collect_vec();
-
-        let mut images = vec![];
-        images.extend(input.url_images.into_iter().map(|i| MetadataImage {
-            url: StoredUrl::Url(i.image),
-        }));
-        images.extend(input.s3_images.into_iter().map(|i| MetadataImage {
-            url: StoredUrl::S3(i.image),
-        }));
-        let free_creators = if input.creators.is_empty() {
-            None
-        } else {
-            Some(input.creators)
-        };
-        let watch_providers = if input.watch_providers.is_empty() {
-            None
-        } else {
-            Some(input.watch_providers)
-        };
-
-        let mut meta: metadata::ActiveModel = meta.into();
-        meta.last_updated_on = ActiveValue::Set(Utc::now());
-        meta.title = ActiveValue::Set(input.title);
-        meta.is_nsfw = ActiveValue::Set(input.is_nsfw);
-        meta.is_partial = ActiveValue::Set(Some(false));
-        meta.provider_rating = ActiveValue::Set(input.provider_rating);
-        meta.description = ActiveValue::Set(input.description);
-        meta.images = ActiveValue::Set(Some(images));
-        meta.videos = ActiveValue::Set(Some(input.videos));
-        meta.production_status = ActiveValue::Set(input.production_status);
-        meta.original_language = ActiveValue::Set(input.original_language);
-        meta.publish_year = ActiveValue::Set(input.publish_year);
-        meta.publish_date = ActiveValue::Set(input.publish_date);
-        meta.free_creators = ActiveValue::Set(free_creators);
-        meta.watch_providers = ActiveValue::Set(watch_providers);
-        meta.anime_specifics = ActiveValue::Set(input.anime_specifics);
-        meta.audio_book_specifics = ActiveValue::Set(input.audio_book_specifics);
-        meta.manga_specifics = ActiveValue::Set(input.manga_specifics);
-        meta.movie_specifics = ActiveValue::Set(input.movie_specifics);
-        meta.podcast_specifics = ActiveValue::Set(input.podcast_specifics);
-        meta.show_specifics = ActiveValue::Set(input.show_specifics);
-        meta.book_specifics = ActiveValue::Set(input.book_specifics);
-        meta.video_game_specifics = ActiveValue::Set(input.video_game_specifics);
-        meta.visual_novel_specifics = ActiveValue::Set(input.visual_novel_specifics);
-        meta.external_identifiers = ActiveValue::Set(input.external_identifiers);
-        let metadata = meta.update(&self.db).await.unwrap();
-
-        self.change_metadata_associations(
-            &metadata.id,
-            metadata.lot,
-            metadata.source,
-            input.genres,
-            input.suggestions,
-            input.group_identifiers,
-            input.people,
-        )
-        .await?;
-        Ok(notifications)
-    }
-
-    async fn associate_person_with_metadata(
-        &self,
-        metadata_id: &str,
-        person: PartialMetadataPerson,
-        index: usize,
-    ) -> Result<()> {
-        let role = person.role.clone();
-        let db_person = self
-            .commit_person(CommitPersonInput {
-                identifier: person.identifier.clone(),
-                source: person.source,
-                source_specifics: person.source_specifics,
-                name: person.name,
-            })
-            .await?;
-        let intermediate = metadata_to_person::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            person_id: ActiveValue::Set(db_person.id),
-            role: ActiveValue::Set(role),
-            index: ActiveValue::Set(Some(index.try_into().unwrap())),
-            character: ActiveValue::Set(person.character),
-        };
-        intermediate.insert(&self.db).await.ok();
-        Ok(())
-    }
-
-    async fn deploy_associate_group_with_metadata_job(
-        &self,
-        lot: MediaLot,
-        source: MediaSource,
-        identifier: String,
-    ) -> Result<()> {
-        self.perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::AssociateGroupWithMetadata(
-                lot, source, identifier,
-            ))
-            .await
-            .unwrap();
-        Ok(())
-    }
-
     pub async fn commit_metadata_group_internal(
         &self,
         identifier: &String,
@@ -1561,7 +1287,7 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.db)
             .await?;
-        let provider = self.get_metadata_provider(lot, source).await?;
+        let provider = get_metadata_provider(lot, source, &self.config, &self.timezone).await?;
         let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
             Some(eg) => {
@@ -1581,86 +1307,11 @@ ORDER BY RANDOM() LIMIT 10;
         Ok((group_id, associated_items))
     }
 
-    async fn associate_suggestion_with_metadata(
-        &self,
-        data: PartialMetadataWithoutId,
-        metadata_id: &str,
-    ) -> Result<()> {
-        let db_partial_metadata = self.create_partial_metadata(data).await?;
-        let intermediate = metadata_to_metadata::ActiveModel {
-            from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            to_metadata_id: ActiveValue::Set(db_partial_metadata.id),
-            relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
-            ..Default::default()
-        };
-        intermediate.insert(&self.db).await.ok();
-        Ok(())
-    }
-
     async fn create_partial_metadata(
         &self,
         data: PartialMetadataWithoutId,
     ) -> Result<PartialMetadata> {
-        let mode = if let Some(c) = Metadata::find()
-            .filter(metadata::Column::Identifier.eq(&data.identifier))
-            .filter(metadata::Column::Lot.eq(data.lot))
-            .filter(metadata::Column::Source.eq(data.source))
-            .one(&self.db)
-            .await
-            .unwrap()
-        {
-            c
-        } else {
-            let image = data.image.clone().map(|i| {
-                vec![MetadataImage {
-                    url: StoredUrl::Url(i),
-                }]
-            });
-            let c = metadata::ActiveModel {
-                title: ActiveValue::Set(data.title),
-                identifier: ActiveValue::Set(data.identifier),
-                lot: ActiveValue::Set(data.lot),
-                source: ActiveValue::Set(data.source),
-                images: ActiveValue::Set(image),
-                is_partial: ActiveValue::Set(Some(true)),
-                is_recommendation: ActiveValue::Set(data.is_recommendation),
-                ..Default::default()
-            };
-            c.insert(&self.db).await?
-        };
-        let model = PartialMetadata {
-            id: mode.id,
-            title: mode.title,
-            identifier: mode.identifier,
-            lot: mode.lot,
-            source: mode.source,
-            image: data.image,
-            is_recommendation: mode.is_recommendation,
-        };
-        Ok(model)
-    }
-
-    async fn associate_genre_with_metadata(&self, name: String, metadata_id: &str) -> Result<()> {
-        let db_genre = if let Some(c) = Genre::find()
-            .filter(genre::Column::Name.eq(&name))
-            .one(&self.db)
-            .await
-            .unwrap()
-        {
-            c
-        } else {
-            let c = genre::ActiveModel {
-                name: ActiveValue::Set(name),
-                ..Default::default()
-            };
-            c.insert(&self.db).await.unwrap()
-        };
-        let intermediate = metadata_to_genre::ActiveModel {
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            genre_id: ActiveValue::Set(db_genre.id),
-        };
-        intermediate.insert(&self.db).await.ok();
-        Ok(())
+        create_partial_metadata(data, &self.db).await
     }
 
     pub async fn update_seen_item(

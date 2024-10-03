@@ -5,7 +5,6 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use cached::{DiskCache, IOCached};
 use chrono::Utc;
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, MediaStateChanged, StoredUrl,
@@ -43,6 +42,7 @@ use media_models::{
     ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
+use moka::future::Cache;
 use nanoid::nanoid;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
@@ -1289,7 +1289,7 @@ pub async fn progress_update(
     // update only if media has not been consumed for this user in the last `n` duration
     respect_cache: bool,
     db: &DatabaseConnection,
-    seen_progress_cache: &DiskCache<ProgressUpdateCache, ()>,
+    seen_progress_cache: &Cache<ProgressUpdateCache, ()>,
     timezone: &Arc<chrono_tz::Tz>,
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
 ) -> Result<ProgressUpdateResultUnion> {
@@ -1303,7 +1303,7 @@ pub async fn progress_update(
         manga_chapter_number: input.manga_chapter_number,
         manga_volume_number: input.manga_volume_number,
     };
-    let in_cache = seen_progress_cache.cache_get(&cache).unwrap();
+    let in_cache = seen_progress_cache.get(&cache).await;
     if respect_cache && in_cache.is_some() {
         return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
             error: ProgressUpdateErrorVariant::AlreadySeen,
@@ -1510,7 +1510,7 @@ pub async fn progress_update(
     ryot_log!(debug, "Progress update = {:?}", seen);
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
-        seen_progress_cache.cache_set(cache, ()).unwrap();
+        seen_progress_cache.insert(cache, ()).await;
     }
     after_media_seen_tasks(seen, db, perform_core_application_job).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
@@ -1851,7 +1851,7 @@ pub async fn process_import(
     config: &Arc<config::AppConfig>,
     timezone: &Arc<chrono_tz::Tz>,
     perform_application_job: &MemoryStorage<ApplicationJob>,
-    seen_progress_cache: &DiskCache<ProgressUpdateCache, ()>,
+    seen_progress_cache: &Cache<ProgressUpdateCache, ()>,
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
 ) -> Result<ImportResultResponse> {
     let mut import = import;
