@@ -272,12 +272,10 @@ export const addExerciseToWorkout = async (
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
 	const currentEntity = Cookies.get(CurrentWorkoutKey);
+	if (!currentEntity) return;
 	navigate(
 		withFragment(
-			$path("/fitness/:action", {
-				action:
-					currentEntity === "workouts" ? "log-workout" : "create-template",
-			}),
+			$path("/fitness/:action", { action: currentEntity }),
 			idxOfNextExercise.toString(),
 		),
 	);

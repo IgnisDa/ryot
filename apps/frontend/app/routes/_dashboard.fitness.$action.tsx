@@ -151,7 +151,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		action: z.nativeEnum(FitnessAction),
 	});
 	await match(action)
-		.with(FitnessAction.LogWorkout, async () => {
+		.with(FitnessAction.LogWorkout, FitnessAction.UpdateWorkout, async () => {
 			const inProgress = isWorkoutActive(request);
 			if (!inProgress)
 				throw await redirectWithToast($path("/"), {
@@ -163,6 +163,7 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		.exhaustive();
 	return {
 		action,
+		isUpdatingWorkout: action === FitnessAction.UpdateWorkout,
 		isCreatingTemplate: action === FitnessAction.CreateTemplate,
 	};
 });
@@ -226,7 +227,8 @@ const deleteUploadedAsset = (key: string) => {
 };
 
 export default function Page() {
-	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+	const { isCreatingTemplate, isUpdatingWorkout } =
+		useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const events = useApplicationEvents();
@@ -260,7 +262,6 @@ export default function Page() {
 	] = useDisclosure(false);
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
-	const isEditingWorkout = Boolean(currentWorkout?.updateWorkoutId);
 
 	useInterval(() => {
 		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
@@ -355,7 +356,7 @@ export default function Page() {
 									}
 								/>
 								<Group>
-									<DurationTimer isEditingWorkout={isEditingWorkout} />
+									<DurationTimer />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -482,7 +483,7 @@ export default function Page() {
 													}
 												}}
 											>
-												{isCreatingTemplate || isEditingWorkout
+												{isCreatingTemplate || isUpdatingWorkout
 													? "Save"
 													: "Finish"}
 											</Button>
@@ -589,11 +590,13 @@ const RestTimer = () => {
 		: "Timer";
 };
 
-const DurationTimer = (props: { isEditingWorkout: boolean }) => {
-	forceUpdateEverySecond();
+const DurationTimer = () => {
+	const { isCreatingTemplate, isUpdatingWorkout } =
+		useLoaderData<typeof loader>();
 	const [currentWorkout] = useCurrentWorkout();
 	const seconds = offsetDate(currentWorkout?.startTime);
-	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+
+	forceUpdateEverySecond();
 
 	let format = "mm:ss";
 	if (seconds > 3600) format = `H:${format}`;
@@ -602,7 +605,7 @@ const DurationTimer = (props: { isEditingWorkout: boolean }) => {
 		<StatDisplay
 			name="Duration"
 			value={dayjsLib.duration(seconds * 1000).format(format)}
-			isHidden={isCreatingTemplate || props.isEditingWorkout}
+			isHidden={isCreatingTemplate || isUpdatingWorkout}
 		/>
 	);
 };

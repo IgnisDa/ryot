@@ -100,6 +100,7 @@ export enum ThreePointSmileyRating {
 
 export enum FitnessAction {
 	LogWorkout = "log-workout",
+	UpdateWorkout = "update-workout",
 	CreateTemplate = "create-template",
 }
 

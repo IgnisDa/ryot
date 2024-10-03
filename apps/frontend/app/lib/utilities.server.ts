@@ -34,6 +34,7 @@ import {
 	AUTH_COOKIE_NAME,
 	CurrentWorkoutKey,
 	dayjsLib,
+	FitnessAction,
 	pageQueryParam,
 	queryClient,
 	queryFactory,
@@ -398,7 +399,9 @@ export const getWorkoutCookieValue = (request: Request) => {
 };
 
 export const isWorkoutActive = (request: Request) => {
-	const inProgress = getWorkoutCookieValue(request) === "workouts";
+	const inProgress = [FitnessAction.LogWorkout, FitnessAction.UpdateWorkout]
+		.map(String)
+		.includes(getWorkoutCookieValue(request));
 	return inProgress;
 };
 
