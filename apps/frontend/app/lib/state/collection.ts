@@ -26,19 +26,17 @@ export const useBulkEditCollection = () => {
 	};
 
 	const addEntity = (entity: BulkEditingCollectionEntity) => {
-		if (!bulkEditingCollection) return;
-		setBulkEditingCollection(
-			produce(bulkEditingCollection, (draft) => {
-				draft.entities.add(entity);
+		setBulkEditingCollection((c) =>
+			produce(c, (draft) => {
+				draft?.entities.add(entity);
 			}),
 		);
 	};
 
 	const removeEntity = (entity: BulkEditingCollectionEntity) => {
-		if (!bulkEditingCollection) return;
-		setBulkEditingCollection(
-			produce(bulkEditingCollection, (draft) => {
-				draft.entities.delete(entity);
+		setBulkEditingCollection((c) =>
+			produce(c, (draft) => {
+				draft?.entities.delete(entity);
 			}),
 		);
 	};
