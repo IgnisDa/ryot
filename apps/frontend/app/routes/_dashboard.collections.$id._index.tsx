@@ -218,6 +218,14 @@ export default function Page() {
 								</Text>
 								<Group wrap="nowrap">
 									<Button
+										size="xs"
+										color="gray"
+										onClick={() => bulkEditingCollection.stop()}
+									>
+										Cancel
+									</Button>
+									<Button
+										size="xs"
 										color="blue"
 										loading={isSelectAllLoading}
 										onClick={async () => {
@@ -240,16 +248,14 @@ export default function Page() {
 														),
 												});
 											for (const lm of collectionContents.results.items)
-												bulkEditingCollection.removeEntity({
-													entityId: lm.entityId,
-													entityLot: lm.entityLot,
-												});
+												bulkEditingCollection.addEntity(lm);
 											setIsSelectAllLoading(false);
 										}}
 									>
 										Select all items
 									</Button>
 									<Button
+										size="xs"
 										color="red"
 										type="submit"
 										disabled={bulkEditingCollection.entities.length === 0}
