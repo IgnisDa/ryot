@@ -33,8 +33,8 @@ import { z } from "zod";
 import {
 	AUTH_COOKIE_NAME,
 	CurrentWorkoutKey,
-	dayjsLib,
 	FitnessAction,
+	dayjsLib,
 	pageQueryParam,
 	queryClient,
 	queryFactory,

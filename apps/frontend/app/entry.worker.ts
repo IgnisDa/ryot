@@ -3,9 +3,9 @@
 import { logger } from "@remix-pwa/sw";
 import { match } from "ts-pattern";
 import type {
-	AppServiceWorkerNotificationTag,
 	AppServiceWorkerMessageData,
 	AppServiceWorkerNotificationData,
+	AppServiceWorkerNotificationTag,
 } from "~/lib/generals";
 
 declare let self: ServiceWorkerGlobalScope;
