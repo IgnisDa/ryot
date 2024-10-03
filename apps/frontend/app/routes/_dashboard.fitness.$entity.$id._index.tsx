@@ -62,7 +62,12 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { FitnessEntity, PRO_REQUIRED_MESSAGE, dayjsLib } from "~/lib/generals";
+import {
+	FitnessAction,
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
+	dayjsLib,
+} from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -227,7 +232,7 @@ export default function Page() {
 		.exhaustive();
 
 	const performDecision = async (params: {
-		entity: FitnessEntity;
+		action: FitnessAction;
 		repeatedFromId?: string;
 		templateId?: string;
 		updateWorkoutId?: string;
@@ -241,7 +246,7 @@ export default function Page() {
 			coreDetails,
 			params,
 		);
-		startWorkout(workout, params.entity);
+		startWorkout(workout, params.action);
 		setIsWorkoutLoading(false);
 	};
 
@@ -303,7 +308,7 @@ export default function Page() {
 											<Menu.Item
 												onClick={() =>
 													performDecision({
-														entity: FitnessEntity.Workouts,
+														action: FitnessAction.LogWorkout,
 														templateId: loaderData.entityId,
 														defaultRestTimer: loaderData.defaultRestTimer,
 													})
@@ -315,7 +320,7 @@ export default function Page() {
 											<Menu.Item
 												onClick={() =>
 													performDecision({
-														entity: FitnessEntity.Templates,
+														action: FitnessAction.CreateTemplate,
 														updateWorkoutTemplateId: loaderData.entityId,
 														defaultRestTimer: loaderData.defaultRestTimer,
 													})
@@ -331,7 +336,7 @@ export default function Page() {
 											<Menu.Item
 												onClick={() =>
 													performDecision({
-														entity: FitnessEntity.Workouts,
+														action: FitnessAction.LogWorkout,
 														repeatedFromId: loaderData.entityId,
 													})
 												}
@@ -342,7 +347,7 @@ export default function Page() {
 											<Menu.Item
 												onClick={() =>
 													performDecision({
-														entity: FitnessEntity.Workouts,
+														action: FitnessAction.LogWorkout,
 														updateWorkoutId: loaderData.entityId,
 														defaultRestTimer: loaderData.defaultRestTimer,
 													})
@@ -367,7 +372,7 @@ export default function Page() {
 														return;
 													}
 													performDecision({
-														entity: FitnessEntity.Templates,
+														action: FitnessAction.CreateTemplate,
 													});
 												}}
 												leftSection={<IconTemplate size={14} />}
