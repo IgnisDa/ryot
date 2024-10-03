@@ -5478,6 +5478,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@remix-pwa/sw@npm:3.0.10":
+  version: 3.0.10
+  resolution: "@remix-pwa/sw@npm:3.0.10"
+  dependencies:
+    "@remix-run/server-runtime": "npm:^2.10.3"
+    idb: "npm:^8.0.0"
+    pako: "npm:^2.1.0"
+    tiny-invariant: "npm:^1.3.3"
+  peerDependencies:
+    "@remix-run/dev": ^2.5.1
+    "@remix-run/react": ^2.5.1
+    react: ^18.2.0
+    react-dom: ^18.2.0
+  checksum: 10/212b9a9e40459b536ba7e8a2d087f243e1e595db50c40f7a0b5e2267da84c83bdd2462001b166f978361bf1c3ad52c7c8951ea9ab0a227a05acce8313cf3fe64
+  languageName: node
+  linkType: hard
+
 "@remix-pwa/worker-runtime@npm:2.1.4":
   version: 2.1.4
   resolution: "@remix-pwa/worker-runtime@npm:2.1.4"
@@ -5772,7 +5789,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@remix-run/router@npm:^1.18.0":
+"@remix-run/router@npm:1.19.2, @remix-run/router@npm:^1.18.0":
   version: 1.19.2
   resolution: "@remix-run/router@npm:1.19.2"
   checksum: 10/31b62b66ea68bd62018189047de7b262700113438f62407df019f81a9856a08a705b2b77454be9293518e2f5f3bbf3f8b858ac19f48cb7d89f8ab56b7b630c19
@@ -5852,6 +5869,26 @@ __metadata:
     typescript:
       optional: true
   checksum: 10/50399f76369ff6f5e3eaa5e4ce5fc6fff2187212caacc5d60ff8af475a2c60815017e66a68c40d0e1f0bde42a122d90021ec1e415e6a1759e1ee0f425a4f6826
+  languageName: node
+  linkType: hard
+
+"@remix-run/server-runtime@npm:^2.10.3":
+  version: 2.12.1
+  resolution: "@remix-run/server-runtime@npm:2.12.1"
+  dependencies:
+    "@remix-run/router": "npm:1.19.2"
+    "@types/cookie": "npm:^0.6.0"
+    "@web3-storage/multipart-parser": "npm:^1.0.0"
+    cookie: "npm:^0.6.0"
+    set-cookie-parser: "npm:^2.4.8"
+    source-map: "npm:^0.7.3"
+    turbo-stream: "npm:2.4.0"
+  peerDependencies:
+    typescript: ^5.1.0
+  peerDependenciesMeta:
+    typescript:
+      optional: true
+  checksum: 10/fb8921bb16eff244e6320a3ac4390318388abc85c14c9c310bc1e713d9b941b66455d38b7e2864753b925fd162a736d594759e8d52f2c9ebcf4ea75e735b14a1
   languageName: node
   linkType: hard
 
@@ -6210,6 +6247,7 @@ __metadata:
     "@mantine/hooks": "npm:7.12.1"
     "@mantine/notifications": "npm:7.12.1"
     "@remix-pwa/dev": "npm:3.1.0"
+    "@remix-pwa/sw": "npm:3.0.10"
     "@remix-pwa/worker-runtime": "npm:2.1.4"
     "@remix-run/dev": "npm:2.11.2"
     "@remix-run/node": "npm:2.11.2"
@@ -11524,6 +11562,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"idb@npm:^8.0.0":
+  version: 8.0.0
+  resolution: "idb@npm:8.0.0"
+  checksum: 10/6ff47b46ead4bf02ac3a9145bb2f48bac707b950cf33282a72eec8efcda610ffb0a09aab6eea58450f6c87373060bf50998d307085830a302e9e231eee6cd37d
+  languageName: node
+  linkType: hard
+
 "ieee754@npm:^1.1.13, ieee754@npm:^1.2.1":
   version: 1.2.1
   resolution: "ieee754@npm:1.2.1"
@@ -14119,6 +14164,13 @@ __metadata:
   version: 1.0.0
   resolution: "package-json-from-dist@npm:1.0.0"
   checksum: 10/ac706ec856a5a03f5261e4e48fa974f24feb044d51f84f8332e2af0af04fbdbdd5bbbfb9cbbe354190409bc8307c83a9e38c6672c3c8855f709afb0006a009ea
+  languageName: node
+  linkType: hard
+
+"pako@npm:^2.1.0":
+  version: 2.1.0
+  resolution: "pako@npm:2.1.0"
+  checksum: 10/38a04991d0ec4f4b92794a68b8c92bf7340692c5d980255c92148da96eb3e550df7a86a7128b5ac0c65ecddfe5ef3bbe9c6dab13e1bc315086e759b18f7c1401
   languageName: node
   linkType: hard
 
@@ -17019,7 +17071,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tiny-invariant@npm:1.3.3":
+"tiny-invariant@npm:1.3.3, tiny-invariant@npm:^1.3.3":
   version: 1.3.3
   resolution: "tiny-invariant@npm:1.3.3"
   checksum: 10/5e185c8cc2266967984ce3b352a4e57cb89dad5a8abb0dea21468a6ecaa67cd5bb47a3b7a85d08041008644af4f667fb8b6575ba38ba5fb00b3b5068306e59fe
@@ -17227,6 +17279,13 @@ __metadata:
   version: 2.3.0
   resolution: "turbo-stream@npm:2.3.0"
   checksum: 10/68fd6d4b39a865a82e484563f4134c061b25c784ef80f4d8a8f909074a37162bd9b4466b5bd6b929ea9261fca09b7481d1a50b282383458d928c8bdbf5be7d18
+  languageName: node
+  linkType: hard
+
+"turbo-stream@npm:2.4.0":
+  version: 2.4.0
+  resolution: "turbo-stream@npm:2.4.0"
+  checksum: 10/7079bbc82b58340f783144cd669cc7e598288523103a8d68bb8a4c6bb28c64eccb71d389b33aab07788d3a9030638b795709e15cb8486f722b1cdac59cb58afc
   languageName: node
   linkType: hard
 

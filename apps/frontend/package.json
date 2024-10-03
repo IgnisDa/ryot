@@ -19,6 +19,7 @@
 		"@mantine/form": "7.12.1",
 		"@mantine/hooks": "7.12.1",
 		"@mantine/notifications": "7.12.1",
+		"@remix-pwa/sw": "3.0.10",
 		"@remix-pwa/worker-runtime": "2.1.4",
 		"@remix-run/node": "2.11.2",
 		"@remix-run/react": "2.11.2",
