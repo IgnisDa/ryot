@@ -98,6 +98,47 @@ export enum ThreePointSmileyRating {
 	Sad = "Sad",
 }
 
+export enum FitnessAction {
+	LogWorkout = "log-workout",
+	UpdateWorkout = "update-workout",
+	CreateTemplate = "create-template",
+}
+
+export type AppServiceWorkerNotificationTag = "timer-completed";
+
+export type AppServiceWorkerNotificationData = {
+	event: "open-link";
+	link?: string;
+};
+
+export const sendNotificationToServiceWorker = (
+	title: string,
+	body: string,
+	tag?: AppServiceWorkerNotificationTag,
+	data?: AppServiceWorkerNotificationData,
+) => {
+	navigator.serviceWorker.ready.then((registration) => {
+		registration.showNotification(title, {
+			tag,
+			body,
+			data,
+			silent: true,
+			icon: LOGO_IMAGE_URL,
+		});
+	});
+};
+
+export type AppServiceWorkerMessageData = {
+	event: "remove-timer-completed-notification";
+};
+
+export const postMessageToServiceWorker = (
+	message: AppServiceWorkerMessageData,
+) => {
+	if (navigator.serviceWorker.controller)
+		navigator.serviceWorker.controller.postMessage(message);
+};
+
 export const convertDecimalToThreePointSmiley = (rating: number) =>
 	inRange(rating, 0, 33.4)
 		? ThreePointSmileyRating.Sad

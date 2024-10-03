@@ -51,14 +51,15 @@ import {
 } from "@remix-run/react";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
-	CreateOrUpdateWorkoutTemplateDocument,
-	CreateUserWorkoutDocument,
+	CreateOrUpdateUserWorkoutDocument,
+	CreateOrUpdateUserWorkoutTemplateDocument,
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	changeCase,
 	isEqual,
 	isNumber,
 	isString,
@@ -107,14 +108,16 @@ import {
 } from "~/components/fitness";
 import {
 	CurrentWorkoutKey,
+	FitnessAction,
 	FitnessEntity,
-	LOGO_IMAGE_URL,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
 	getSetColor,
 	getSurroundingElements,
+	postMessageToServiceWorker,
 	queryClient,
 	queryFactory,
+	sendNotificationToServiceWorker,
 } from "~/lib/generals";
 import {
 	forceUpdateEverySecond,
@@ -145,15 +148,12 @@ import {
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
-enum Action {
-	LogWorkout = "log-workout",
-	CreateTemplate = "create-template",
-}
-
 export const loader = unstable_defineLoader(async ({ params, request }) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	const { action } = zx.parseParams(params, {
+		action: z.nativeEnum(FitnessAction),
+	});
 	await match(action)
-		.with(Action.LogWorkout, async () => {
+		.with(FitnessAction.LogWorkout, FitnessAction.UpdateWorkout, async () => {
 			const inProgress = isWorkoutActive(request);
 			if (!inProgress)
 				throw await redirectWithToast($path("/"), {
@@ -161,19 +161,17 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 					message: "No workout in progress",
 				});
 		})
-		.with(Action.CreateTemplate, async () => {})
+		.with(FitnessAction.CreateTemplate, async () => {})
 		.exhaustive();
-	return { action, isCreatingTemplate: action === Action.CreateTemplate };
+	return {
+		action,
+		isUpdatingWorkout: action === FitnessAction.UpdateWorkout,
+		isCreatingTemplate: action === FitnessAction.CreateTemplate,
+	};
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
-	return [
-		{
-			title: `${
-				data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"
-			} | Ryot`,
-		},
-	];
+	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
 };
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -181,30 +179,31 @@ export const action = unstable_defineAction(async ({ request }) => {
 	const workout = JSON.parse(formData.get("workout") as string);
 	return namedAction(request, {
 		createWorkout: async () => {
-			const { createUserWorkout } = await serverGqlService.authenticatedRequest(
-				request,
-				CreateUserWorkoutDocument,
-				workout,
-			);
+			const { createOrUpdateUserWorkout } =
+				await serverGqlService.authenticatedRequest(
+					request,
+					CreateOrUpdateUserWorkoutDocument,
+					workout,
+				);
 			return redirectWithToast(
 				$path("/fitness/:entity/:id", {
 					entity: "workouts",
-					id: createUserWorkout,
+					id: createOrUpdateUserWorkout,
 				}),
 				{ message: "Workout completed successfully", type: "success" },
 			);
 		},
 		createTemplate: async () => {
-			const { createOrUpdateWorkoutTemplate } =
+			const { createOrUpdateUserWorkoutTemplate } =
 				await serverGqlService.authenticatedRequest(
 					request,
-					CreateOrUpdateWorkoutTemplateDocument,
+					CreateOrUpdateUserWorkoutTemplateDocument,
 					workout,
 				);
 			return redirectWithToast(
 				$path("/fitness/:entity/:id", {
 					entity: "templates",
-					id: createOrUpdateWorkoutTemplate,
+					id: createOrUpdateUserWorkoutTemplate,
 				}),
 				{ message: "Template created successfully", type: "success" },
 			);
@@ -222,7 +221,7 @@ const deleteUploadedAsset = (key: string) => {
 };
 
 export default function Page() {
-	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const events = useApplicationEvents();
@@ -234,14 +233,23 @@ export default function Page() {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
 		sound.play();
 		if (document.visibilityState === "visible") return;
-		navigator.serviceWorker.ready.then((registration) => {
-			registration.showNotification("Timer completed", {
-				body: "Let's get this done!",
-				icon: LOGO_IMAGE_URL,
-				silent: true,
-			});
-		});
+		sendNotificationToServiceWorker(
+			"Timer completed",
+			"Let's get this done!",
+			"timer-completed",
+			{ event: "open-link", link: window.location.href },
+		);
 	};
+	useInterval(() => {
+		if (
+			loaderData.action === FitnessAction.LogWorkout &&
+			navigator.serviceWorker.controller &&
+			document.visibilityState === "visible"
+		)
+			postMessageToServiceWorker({
+				event: "remove-timer-completed-notification",
+			});
+	}, 5000);
 	const [
 		timerDrawerOpened,
 		{
@@ -304,7 +312,7 @@ export default function Page() {
 							<Stack ref={parent}>
 								<Group justify="space-between">
 									<TextInput
-										w={isCreatingTemplate ? "65%" : "100%"}
+										w={loaderData.isCreatingTemplate ? "65%" : "100%"}
 										size="sm"
 										label="Name"
 										placeholder="A name for your workout"
@@ -318,7 +326,7 @@ export default function Page() {
 											)
 										}
 									/>
-									{isCreatingTemplate ? (
+									{loaderData.isCreatingTemplate ? (
 										<NumberInput
 											w="30%"
 											suffix="s"
@@ -354,7 +362,7 @@ export default function Page() {
 									<StatDisplay
 										name="Exercises"
 										value={
-											isCreatingTemplate
+											loaderData.isCreatingTemplate
 												? currentWorkout.exercises.length.toString()
 												: `${
 														currentWorkout.exercises
@@ -371,7 +379,7 @@ export default function Page() {
 												currentWorkout.exercises
 													.flatMap((e) => e.sets)
 													.flatMap((s) =>
-														isCreatingTemplate || s.confirmedAt
+														loaderData.isCreatingTemplate || s.confirmedAt
 															? Number(s.statistic.reps || 0) *
 																Number(s.statistic.weight || 0)
 															: 0,
@@ -385,7 +393,9 @@ export default function Page() {
 											currentWorkout.exercises
 												.flatMap((e) => e.sets)
 												.flatMap((s) =>
-													isCreatingTemplate || s.confirmedAt ? 1 : 0,
+													loaderData.isCreatingTemplate || s.confirmedAt
+														? 1
+														: 0,
 												),
 										).toString()}
 									/>
@@ -394,7 +404,10 @@ export default function Page() {
 								<SimpleGrid
 									cols={
 										2 +
-										(isCreatingTemplate ? -1 : 0) +
+										(loaderData.isCreatingTemplate ||
+										loaderData.isUpdatingWorkout
+											? -1
+											: 0) +
 										Number(currentWorkout.exercises.length > 0) +
 										Number(currentWorkout.exercises.length > 1)
 									}
@@ -405,7 +418,12 @@ export default function Page() {
 										variant="subtle"
 										size="compact-sm"
 										onClick={timerDrawerToggle}
-										style={isCreatingTemplate ? { display: "none" } : undefined}
+										style={
+											loaderData.isCreatingTemplate ||
+											loaderData.isUpdatingWorkout
+												? { display: "none" }
+												: undefined
+										}
 									>
 										<RestTimer />
 									</Button>
@@ -434,20 +452,22 @@ export default function Page() {
 														notifications.show({
 															color: "red",
 															message: `Please give a name to the ${
-																isCreatingTemplate ? "template" : "workout"
+																loaderData.isCreatingTemplate
+																	? "template"
+																	: "workout"
 															}`,
 														});
 														return;
 													}
 													const yes = await confirmWrapper({
-														confirmation: isCreatingTemplate
+														confirmation: loaderData.isCreatingTemplate
 															? "Only sets that have data will added. Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,
-															isCreatingTemplate,
+															loaderData.isCreatingTemplate,
 														);
 														for (const exercise of currentWorkout.exercises) {
 															queryClient.removeQueries({
@@ -458,7 +478,7 @@ export default function Page() {
 															});
 														}
 														stopTimer();
-														if (!isCreatingTemplate) {
+														if (!loaderData.isCreatingTemplate) {
 															events.createWorkout();
 															Cookies.remove(workoutCookieName);
 														}
@@ -467,7 +487,7 @@ export default function Page() {
 															{
 																method: "post",
 																action: withQuery(".", {
-																	intent: isCreatingTemplate
+																	intent: loaderData.isCreatingTemplate
 																		? "createTemplate"
 																		: "createWorkout",
 																}),
@@ -477,7 +497,10 @@ export default function Page() {
 													}
 												}}
 											>
-												{isCreatingTemplate ? "Save" : "Finish"}
+												{loaderData.isCreatingTemplate ||
+												loaderData.isUpdatingWorkout
+													? "Save"
+													: "Finish"}
 											</Button>
 										</>
 									) : null}
@@ -489,7 +512,7 @@ export default function Page() {
 										onClick={async () => {
 											const yes = await confirmWrapper({
 												confirmation: `Are you sure you want to cancel this ${
-													isCreatingTemplate ? "template" : "workout"
+													loaderData.isCreatingTemplate ? "template" : "workout"
 												}?`,
 											});
 											if (yes) {
@@ -526,7 +549,9 @@ export default function Page() {
 											variant="subtle"
 											onClick={() => setMeasurementsDrawerOpen(true)}
 											style={
-												isCreatingTemplate ? { display: "none" } : undefined
+												loaderData.isCreatingTemplate
+													? { display: "none" }
+													: undefined
 											}
 										>
 											Add measurement
@@ -545,7 +570,9 @@ export default function Page() {
 					)}
 				</ClientOnly>
 			) : (
-				<Text>Loading {isCreatingTemplate ? "template" : "workout"}...</Text>
+				<Text>
+					Loading {loaderData.isCreatingTemplate ? "template" : "workout"}...
+				</Text>
 			)}
 		</Container>
 	);
@@ -583,10 +610,12 @@ const RestTimer = () => {
 };
 
 const DurationTimer = () => {
-	forceUpdateEverySecond();
+	const { isCreatingTemplate, isUpdatingWorkout } =
+		useLoaderData<typeof loader>();
 	const [currentWorkout] = useCurrentWorkout();
 	const seconds = offsetDate(currentWorkout?.startTime);
-	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+
+	forceUpdateEverySecond();
 
 	let format = "mm:ss";
 	if (seconds > 3600) format = `H:${format}`;
@@ -595,7 +624,7 @@ const DurationTimer = () => {
 		<StatDisplay
 			name="Duration"
 			value={dayjsLib.duration(seconds * 1000).format(format)}
-			isHidden={isCreatingTemplate}
+			isHidden={isCreatingTemplate || isUpdatingWorkout}
 		/>
 	);
 };
@@ -1152,8 +1181,8 @@ const ExerciseDisplay = (props: {
 																		workout.details.information.exercises[
 																			history.idx
 																		].sets;
-																	const converted = sets.map(
-																		convertHistorySetToCurrentSet,
+																	const converted = sets.map((s) =>
+																		convertHistorySetToCurrentSet(s),
 																	);
 																	setCurrentWorkout(
 																		produce(currentWorkout, (draft) => {
@@ -1317,6 +1346,33 @@ const RestTimerProgress = (props: { onClick: () => void }) => {
 	);
 };
 
+const getNextSetInWorkout = (
+	currentWorkout: InProgressWorkout,
+	currentExerciseIdx: number,
+	currentSetIdx: number,
+) => {
+	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
+	if (currentExercise.supersetWith.length === 0) {
+		const isLastSet = currentSetIdx === currentExercise.sets.length - 1;
+		if (isLastSet)
+			return {
+				exerciseIdx: currentExerciseIdx + 1,
+				setIdx: 0,
+				wasLastSet: true,
+			};
+		return {
+			exerciseIdx: currentExerciseIdx,
+			setIdx: currentSetIdx + 1,
+			wasLastSet: false,
+		};
+	}
+	return {
+		exerciseIdx: currentExerciseIdx,
+		setIdx: currentSetIdx,
+		wasLastSet: false,
+	};
+};
+
 const SetDisplay = (props: {
 	setIdx: number;
 	repsCol: boolean;
@@ -1358,7 +1414,10 @@ const SetDisplay = (props: {
 			withBorder
 			id={`${props.exerciseIdx}-${props.setIdx}`}
 			shadow={isHighlighted ? "xl" : undefined}
-			style={{ borderColor: isHighlighted ? undefined : "transparent" }}
+			style={{
+				transition: "border-color 0.2s ease-in-out",
+				borderColor: isHighlighted ? undefined : "transparent",
+			}}
 		>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
@@ -1582,36 +1641,23 @@ const SetDisplay = (props: {
 												draft.exercises[props.exerciseIdx];
 											currentExercise.sets[props.setIdx].confirmedAt =
 												newConfirmed ? dayjsLib().toISOString() : null;
-											const isLastSet =
-												props.setIdx === currentExercise.sets.length - 1;
-											const nextExerciseIdx = props.exerciseIdx + 1;
-											const nextExercise = draft.exercises[nextExerciseIdx];
+											const nextSet = getNextSetInWorkout(
+												currentWorkout,
+												props.exerciseIdx,
+												props.setIdx,
+											);
 											if (newConfirmed) {
-												draft.highlightedSet = isLastSet
-													? {
-															exerciseIdx: nextExerciseIdx,
-															setIdx: 0,
-														}
-													: {
-															exerciseIdx: props.exerciseIdx,
-															setIdx: props.setIdx + 1,
-														};
-												setTimeout(() => {
-													setCurrentWorkout((w) =>
-														produce(w, (innerDraft) => {
-															if (innerDraft)
-																innerDraft.highlightedSet = undefined;
-														}),
-													);
-												}, 2000);
-												if (isLastSet) {
+												focusOnExercise(nextSet.exerciseIdx);
+												draft.highlightedSet = nextSet;
+												if (nextSet.wasLastSet) {
 													currentExercise.isShowDetailsOpen = false;
+													const nextExercise =
+														draft.exercises[nextSet.exerciseIdx];
 													const nextExerciseHasDetailsToShow =
 														nextExercise &&
 														exerciseHasDetailsToShow(nextExercise);
 													if (nextExerciseHasDetailsToShow)
 														nextExercise.isShowDetailsOpen = true;
-													focusOnExercise(nextExerciseIdx);
 												}
 											}
 										}),

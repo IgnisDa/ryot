@@ -419,7 +419,7 @@ impl ImporterService {
         for workout in import.workouts.clone() {
             if let Err(err) = self
                 .exercise_service
-                .create_user_workout(&user_id, workout)
+                .create_or_update_user_workout(&user_id, workout)
                 .await
             {
                 import.failed_items.push(ImportFailedItem {

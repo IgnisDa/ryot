@@ -16,8 +16,9 @@ use database_models::{
     user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    add_entity_to_collection, entity_in_collections, ilike_sql, item_reviews, pro_instance_guard,
-    user_measurements_list, workout_details, workout_template_details,
+    add_entity_to_collection, deploy_job_to_re_evaluate_user_workouts, entity_in_collections,
+    ilike_sql, item_reviews, pro_instance_guard, user_measurements_list, workout_details,
+    workout_template_details,
 };
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
@@ -46,7 +47,7 @@ use sea_orm::{
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict};
 use slug::slugify;
 
-use logic::{calculate_and_commit, delete_existing_workout};
+use logic::{create_or_update_workout, delete_existing_workout};
 
 mod logic;
 
@@ -128,7 +129,7 @@ impl ExerciseService {
         })
     }
 
-    pub async fn workout_template_details(
+    pub async fn user_workout_template_details(
         &self,
         user_id: String,
         workout_template_id: String,
@@ -136,7 +137,7 @@ impl ExerciseService {
         workout_template_details(&self.db, &user_id, workout_template_id).await
     }
 
-    pub async fn create_or_update_workout_template(
+    pub async fn create_or_update_user_workout_template(
         &self,
         user_id: String,
         input: UserWorkoutInput,
@@ -212,7 +213,7 @@ impl ExerciseService {
         Ok(template.id)
     }
 
-    pub async fn delete_workout_template(
+    pub async fn delete_user_workout_template(
         &self,
         user_id: String,
         workout_template_id: String,
@@ -572,12 +573,14 @@ impl ExerciseService {
         }
     }
 
-    pub async fn create_user_workout(
+    pub async fn create_or_update_user_workout(
         &self,
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let identifier = calculate_and_commit(input, user_id, &self.db).await?;
+        let identifier =
+            create_or_update_workout(input, user_id, &self.db, &self.perform_application_job)
+                .await?;
         Ok(identifier)
     }
 
@@ -601,10 +604,8 @@ impl ExerciseService {
             }
             if new_wkt.is_changed() {
                 new_wkt.update(&self.db).await?;
-                self.perform_application_job
-                    .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id))
-                    .await
-                    .unwrap();
+                deploy_job_to_re_evaluate_user_workouts(&self.perform_application_job, &user_id)
+                    .await;
                 Ok(true)
             } else {
                 Ok(false)
@@ -687,7 +688,8 @@ impl ExerciseService {
         for (idx, workout) in workouts.into_iter().enumerate() {
             workout.clone().delete(&self.db).await?;
             let workout_input = self.db_workout_to_workout_input(workout);
-            self.create_user_workout(&user_id, workout_input).await?;
+            self.create_or_update_user_workout(&user_id, workout_input)
+                .await?;
             ryot_log!(debug, "Re-evaluated workout: {}/{}", idx + 1, total);
         }
         Ok(())
@@ -696,7 +698,8 @@ impl ExerciseService {
     pub fn db_workout_to_workout_input(&self, user_workout: workout::Model) -> UserWorkoutInput {
         UserWorkoutInput {
             name: user_workout.name,
-            id: Some(user_workout.id),
+            create_workout_id: Some(user_workout.id),
+            update_workout_id: None,
             default_rest_timer: None,
             end_time: user_workout.end_time,
             update_workout_template_id: None,

@@ -105,6 +105,7 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import {
+	FitnessAction,
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
@@ -393,8 +394,9 @@ export default function Layout() {
 	return (
 		<>
 			{loaderData.workoutInProgress &&
-			location.pathname !==
-				$path("/fitness/:action", { action: "log-workout" }) ? (
+			Object.values(FitnessAction)
+				.map((action) => $path("/fitness/:action", { action }))
+				.includes(location.pathname) ? (
 				<Tooltip label="You have an active workout" position="left">
 					<Affix
 						position={{
@@ -414,7 +416,11 @@ export default function Layout() {
 							radius="xl"
 							size="xl"
 							onClick={() =>
-								navigate($path("/fitness/:action", { action: "log-workout" }))
+								navigate(
+									$path("/fitness/:action", {
+										action: FitnessAction.LogWorkout,
+									}),
+								)
 							}
 						>
 							<IconStretching size={32} />

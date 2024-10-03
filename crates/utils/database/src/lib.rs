@@ -791,7 +791,7 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
     perform_application_job: &MemoryStorage<ApplicationJob>,
     user_id: &String,
     calculate_from_beginning: bool,
-) -> Result<()> {
+) {
     perform_application_job
         .clone()
         .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
@@ -800,5 +800,15 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
         ))
         .await
         .unwrap();
-    Ok(())
+}
+
+pub async fn deploy_job_to_re_evaluate_user_workouts(
+    perform_application_job: &MemoryStorage<ApplicationJob>,
+    user_id: &String,
+) {
+    perform_application_job
+        .clone()
+        .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+        .await
+        .unwrap();
 }

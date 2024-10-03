@@ -22,11 +22,11 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
-	DeleteWorkoutTemplateDocument,
+	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
 	UpdateUserWorkoutDocument,
+	UserWorkoutTemplateDetailsDocument,
 	WorkoutDetailsDocument,
-	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -62,7 +62,12 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { FitnessEntity, PRO_REQUIRED_MESSAGE, dayjsLib } from "~/lib/generals";
+import {
+	FitnessAction,
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
+	dayjsLib,
+} from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -105,15 +110,15 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			}
 			let template = null;
 			if (workoutDetails.details.templateId) {
-				const { workoutTemplateDetails } =
+				const { userWorkoutTemplateDetails } =
 					await serverGqlService.authenticatedRequest(
 						request,
-						WorkoutTemplateDetailsDocument,
+						UserWorkoutTemplateDetailsDocument,
 						{ workoutTemplateId: workoutDetails.details.templateId },
 					);
 				template = {
 					id: workoutDetails.details.templateId,
-					name: workoutTemplateDetails.details.name,
+					name: userWorkoutTemplateDetails.details.name,
 				};
 			}
 			return {
@@ -130,23 +135,23 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
-			const [{ workoutTemplateDetails }] = await Promise.all([
+			const [{ userWorkoutTemplateDetails }] = await Promise.all([
 				serverGqlService.authenticatedRequest(
 					request,
-					WorkoutTemplateDetailsDocument,
+					UserWorkoutTemplateDetailsDocument,
 					{ workoutTemplateId: entityId },
 				),
 			]);
 			return {
-				entityName: workoutTemplateDetails.details.name,
-				startTime: workoutTemplateDetails.details.createdOn,
+				entityName: userWorkoutTemplateDetails.details.name,
+				startTime: userWorkoutTemplateDetails.details.createdOn,
 				endTime: null,
-				information: workoutTemplateDetails.details.information,
-				summary: workoutTemplateDetails.details.summary,
+				information: userWorkoutTemplateDetails.details.information,
+				summary: userWorkoutTemplateDetails.details.summary,
 				repeatedWorkout: null,
 				template: null,
-				collections: workoutTemplateDetails.collections,
-				defaultRestTimer: workoutTemplateDetails.details.defaultRestTimer,
+				collections: userWorkoutTemplateDetails.collections,
+				defaultRestTimer: userWorkoutTemplateDetails.details.defaultRestTimer,
 			};
 		})
 		.exhaustive();
@@ -185,7 +190,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			else if (submission.templateId)
 				await serverGqlService.authenticatedRequest(
 					request,
-					DeleteWorkoutTemplateDocument,
+					DeleteUserWorkoutTemplateDocument,
 					{ workoutTemplateId: submission.templateId },
 				);
 			const { entity } = submission;
@@ -226,24 +231,22 @@ export default function Page() {
 		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
 
-	const performDecision = async (
-		entity: FitnessEntity,
-		repeatedFromId?: string,
-		templateId?: string,
-		updateWorkoutTemplateId?: string,
-		defaultRestTimer?: number | null,
-	) => {
+	const performDecision = async (params: {
+		action: FitnessAction;
+		repeatedFromId?: string;
+		templateId?: string;
+		updateWorkoutId?: string;
+		updateWorkoutTemplateId?: string;
+		defaultRestTimer?: number | null;
+	}) => {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
 			loaderData.information,
 			loaderData.entityName,
 			coreDetails,
-			repeatedFromId,
-			templateId,
-			updateWorkoutTemplateId,
-			defaultRestTimer,
+			params,
 		);
-		startWorkout(workout, entity);
+		startWorkout(workout, params.action);
 		setIsWorkoutLoading(false);
 	};
 
@@ -304,13 +307,11 @@ export default function Page() {
 										<>
 											<Menu.Item
 												onClick={() =>
-													performDecision(
-														FitnessEntity.Workouts,
-														undefined,
-														loaderData.entityId,
-														undefined,
-														loaderData.defaultRestTimer,
-													)
+													performDecision({
+														action: FitnessAction.LogWorkout,
+														templateId: loaderData.entityId,
+														defaultRestTimer: loaderData.defaultRestTimer,
+													})
 												}
 												leftSection={<IconPlayerPlay size={14} />}
 											>
@@ -318,13 +319,11 @@ export default function Page() {
 											</Menu.Item>
 											<Menu.Item
 												onClick={() =>
-													performDecision(
-														FitnessEntity.Templates,
-														undefined,
-														undefined,
-														loaderData.entityId,
-														loaderData.defaultRestTimer,
-													)
+													performDecision({
+														action: FitnessAction.CreateTemplate,
+														updateWorkoutTemplateId: loaderData.entityId,
+														defaultRestTimer: loaderData.defaultRestTimer,
+													})
 												}
 												leftSection={<IconPencil size={14} />}
 											>
@@ -336,14 +335,26 @@ export default function Page() {
 										<>
 											<Menu.Item
 												onClick={() =>
-													performDecision(
-														FitnessEntity.Workouts,
-														loaderData.entityId,
-													)
+													performDecision({
+														action: FitnessAction.LogWorkout,
+														repeatedFromId: loaderData.entityId,
+													})
 												}
 												leftSection={<IconRepeat size={14} />}
 											>
 												Duplicate
+											</Menu.Item>
+											<Menu.Item
+												onClick={() =>
+													performDecision({
+														action: FitnessAction.UpdateWorkout,
+														updateWorkoutId: loaderData.entityId,
+														defaultRestTimer: loaderData.defaultRestTimer,
+													})
+												}
+												leftSection={<IconPencil size={14} />}
+											>
+												Edit workout
 											</Menu.Item>
 											<Menu.Item
 												onClick={adjustTimeModalOpen}
@@ -360,7 +371,9 @@ export default function Page() {
 														});
 														return;
 													}
-													performDecision(FitnessEntity.Templates);
+													performDecision({
+														action: FitnessAction.CreateTemplate,
+													});
 												}}
 												leftSection={<IconTemplate size={14} />}
 											>
