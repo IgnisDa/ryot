@@ -17,7 +17,7 @@ import {
 	Title,
 	rem,
 } from "@mantine/core";
-import { useDisclosure, useListState } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -62,6 +62,7 @@ import {
 	queryFactory,
 } from "~/lib/generals";
 import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
@@ -166,27 +167,18 @@ export default function Page() {
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
-	const [isBulkRemoving, setIsBulkRemoving] = useState(false);
 	const [isSelectAllLoading, setIsSelectAllLoading] = useState(false);
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
+	const bulkEditingCollection = useBulkEditCollection();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<{
-		entityId: string;
-		entityLot: EntityLot;
-	}>([]);
-
-	const addBulkRemoveItem = (entityId: string, entityLot: EntityLot) => {
-		if (!bulkRemoveItems.includes({ entityId, entityLot }))
-			bulkRemoveItemsHandler.append({ entityId, entityLot });
-	};
 
 	return (
 		<Container>
-			{isBulkRemoving ? (
+			{bulkEditingCollection.isActive ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
@@ -203,7 +195,7 @@ export default function Page() {
 							name="creatorUserId"
 							defaultValue={loaderData.collectionContents.user.id}
 						/>
-						{bulkRemoveItems.map((item, index) => (
+						{bulkEditingCollection.entities.map((item, index) => (
 							<Fragment key={item.entityId}>
 								<input
 									type="hidden"
@@ -221,7 +213,9 @@ export default function Page() {
 						))}
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
-								<Text>{bulkRemoveItems.length} items selected</Text>
+								<Text>
+									{bulkEditingCollection.entities.length} items selected
+								</Text>
 								<Group wrap="nowrap">
 									<Button
 										color="blue"
@@ -246,7 +240,10 @@ export default function Page() {
 														),
 												});
 											for (const lm of collectionContents.results.items)
-												addBulkRemoveItem(lm.entityId, lm.entityLot);
+												bulkEditingCollection.removeEntity({
+													entityId: lm.entityId,
+													entityLot: lm.entityLot,
+												});
 											setIsSelectAllLoading(false);
 										}}
 									>
@@ -255,7 +252,7 @@ export default function Page() {
 									<Button
 										color="red"
 										type="submit"
-										disabled={bulkRemoveItems.length === 0}
+										disabled={bulkEditingCollection.entities.length === 0}
 									>
 										Remove
 									</Button>
@@ -329,26 +326,22 @@ export default function Page() {
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
-										const atIndex = bulkRemoveItems.findIndex(
-											(i) => i.entityId === lm.entityId,
-										);
+										const isAdded = bulkEditingCollection.entities.includes(lm);
 										return (
 											<DisplayCollectionEntity
 												key={lm.entityId}
 												entityId={lm.entityId}
 												entityLot={lm.entityLot}
 												topRight={
-													isBulkRemoving ? (
+													bulkEditingCollection.isActive ? (
 														<ActionIcon
-															variant={
-																atIndex !== -1 ? "filled" : "transparent"
-															}
+															variant={isAdded ? "filled" : "transparent"}
 															color="red"
 															onClick={(e) => {
 																e.preventDefault();
-																if (atIndex === -1)
-																	addBulkRemoveItem(lm.entityId, lm.entityLot);
-																else bulkRemoveItemsHandler.remove(atIndex);
+																if (isAdded)
+																	bulkEditingCollection.removeEntity(lm);
+																else bulkEditingCollection.addEntity(lm);
 															}}
 														>
 															<IconTrashFilled size={18} />
@@ -393,7 +386,7 @@ export default function Page() {
 								variant="outline"
 								w="100%"
 								onClick={() => {
-									setIsBulkRemoving(true);
+									bulkEditingCollection.start(loaderData.collectionId);
 									setTab("contents");
 								}}
 							>
