@@ -1,6 +1,8 @@
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
-import { produce } from "immer";
+import { enableMapSet, produce } from "immer";
 import { atom, useAtom } from "jotai";
+
+enableMapSet();
 
 type BulkEditingCollectionEntity = {
 	entityId: string;
@@ -9,7 +11,7 @@ type BulkEditingCollectionEntity = {
 
 export type BulkEditingCollectionData = {
 	collectionId: string;
-	entities: Array<BulkEditingCollectionEntity>;
+	entities: Set<BulkEditingCollectionEntity>;
 };
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
@@ -20,27 +22,23 @@ export const useBulkEditCollection = () => {
 	);
 
 	const start = (collectionId: string) => {
-		setBulkEditingCollection({
-			collectionId,
-			entities: [],
-		});
+		setBulkEditingCollection({ collectionId, entities: new Set() });
 	};
 
 	const addEntity = (entity: BulkEditingCollectionEntity) => {
 		if (!bulkEditingCollection) return;
-		if (!bulkEditingCollection.entities.includes(entity))
-			setBulkEditingCollection(
-				produce(bulkEditingCollection, (draft) => {
-					draft.entities.push(entity);
-				}),
-			);
+		setBulkEditingCollection(
+			produce(bulkEditingCollection, (draft) => {
+				draft.entities.add(entity);
+			}),
+		);
 	};
 
 	const removeEntity = (entity: BulkEditingCollectionEntity) => {
 		if (!bulkEditingCollection) return;
 		setBulkEditingCollection(
 			produce(bulkEditingCollection, (draft) => {
-				draft.entities.splice(draft.entities.indexOf(entity), 1);
+				draft.entities.delete(entity);
 			}),
 		);
 	};
@@ -55,6 +53,6 @@ export const useBulkEditCollection = () => {
 		isActive,
 		addEntity,
 		removeEntity,
-		entities: bulkEditingCollection?.entities || [],
+		entities: bulkEditingCollection ? [...bulkEditingCollection.entities] : [],
 	};
 };

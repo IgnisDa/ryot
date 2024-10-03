@@ -196,18 +196,18 @@ export default function Page() {
 							defaultValue={loaderData.collectionContents.user.id}
 						/>
 						{bulkEditingCollection.entities.map((item, index) => (
-							<Fragment key={item.entityId}>
+							<Fragment key={JSON.stringify(item)}>
 								<input
-									type="hidden"
 									readOnly
-									name={`items[${index}].entityId`}
+									type="hidden"
 									value={item.entityId}
+									name={`items[${index}].entityId`}
 								/>
 								<input
-									type="hidden"
 									readOnly
-									name={`items[${index}].entityLot`}
+									type="hidden"
 									value={item.entityLot}
+									name={`items[${index}].entityLot`}
 								/>
 							</Fragment>
 						))}
