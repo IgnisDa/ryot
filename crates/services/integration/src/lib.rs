@@ -143,7 +143,7 @@ impl IntegrationService {
         &self,
         integration_type: IntegrationType,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    ) -> Result<ImportResult>
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {
@@ -202,7 +202,6 @@ impl IntegrationService {
         if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
-        // FIXME: Return `ImportResult` from these functions
         let maybe_progress_update = match integration.provider {
             IntegrationProvider::Kodi => {
                 self.process_progress(IntegrationType::Kodi(payload.clone()))
@@ -226,6 +225,7 @@ impl IntegrationService {
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
+        // FIXME: Return `ImportResult` from these functions
         match maybe_progress_update {
             Ok(pu) => {
                 let media_vec = pu.0;
@@ -395,6 +395,7 @@ impl IntegrationService {
                         IntegrationType::Audiobookshelf(
                             specifics.audiobookshelf_base_url.unwrap(),
                             specifics.audiobookshelf_token.unwrap(),
+                            integration.sync_to_owned_collection,
                             GoogleBooksService::new(
                                 &self.config.books.google_books,
                                 self.config.frontend.page_size,
@@ -419,11 +420,13 @@ impl IntegrationService {
                         specifics.komga_username.unwrap(),
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
+                        integration.sync_to_owned_collection,
                     ))
                     .await
                 }
                 _ => continue,
             };
+            // FIXME: Return `ImportResult` from these functions
             if let Ok((seen_progress, collection_progress)) = response {
                 collection_updates.extend(collection_progress);
                 to_update_integrations.push(integration.id.clone());
