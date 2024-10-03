@@ -1,6 +1,7 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use enum_meta::{meta, Meta};
 use enums::EntityLot;
+use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
@@ -194,4 +195,18 @@ pub struct ExportJob {
     pub url: String,
     pub ended_at: DateTimeUtc,
     pub started_at: DateTimeUtc,
+}
+
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+pub enum ApplicationCacheKey {
+    ProgressUpdateCache {
+        user_id: String,
+        metadata_id: String,
+        show_season_number: Option<i32>,
+        show_episode_number: Option<i32>,
+        podcast_episode_number: Option<i32>,
+        anime_episode_number: Option<i32>,
+        manga_chapter_number: Option<Decimal>,
+        manga_volume_number: Option<i32>,
+    },
 }
