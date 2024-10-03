@@ -158,8 +158,8 @@ export const BaseMediaDisplayItem = (props: {
 							style={{
 								cursor: "pointer",
 								...match(gridPacking)
-									.with(GridPacking.Normal, () => ({ height: 260, w: 170 }))
-									.with(GridPacking.Dense, () => ({ height: 200, w: 150 }))
+									.with(GridPacking.Normal, () => ({ height: 260 }))
+									.with(GridPacking.Dense, () => ({ height: 180 }))
 									.exhaustive(),
 							}}
 							alt={`Image for ${props.name}`}
