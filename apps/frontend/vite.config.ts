@@ -6,6 +6,12 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+	server: {
+		port: process.env.FRONTEND_PORT
+			? Number.parseInt(process.env.FRONTEND_PORT)
+			: undefined,
+		host: process.env.FRONTEND_HOST,
+	},
 	plugins: [
 		remixDevTools(),
 		remix({
