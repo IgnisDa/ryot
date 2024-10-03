@@ -16,14 +16,17 @@ import { DateTimePicker } from "@mantine/dates";
 import { $path } from "remix-routes";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
+	DeleteWorkoutTemplateDocument,
 	EntityLot,
 	UpdateUserWorkoutDocument,
 	WorkoutDetailsDocument,
+	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -36,8 +39,11 @@ import {
 	IconClock,
 	IconClockEdit,
 	IconDotsVertical,
+	IconPencil,
+	IconPlayerPlay,
 	IconRepeat,
 	IconRun,
+	IconTemplate,
 	IconTrash,
 	IconTrophy,
 	IconWeight,
@@ -56,9 +62,10 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { dayjsLib } from "~/lib/generals";
+import { FitnessEntity, PRO_REQUIRED_MESSAGE, dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
+	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -70,17 +77,13 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-enum Entity {
-	Workouts = "workouts",
-}
-
 export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const { id: entityId, entity } = zx.parseParams(params, {
 		id: z.string(),
-		entity: z.nativeEnum(Entity),
+		entity: z.nativeEnum(FitnessEntity),
 	});
 	const resp = await match(entity)
-		.with(Entity.Workouts, async () => {
+		.with(FitnessEntity.Workouts, async () => {
 			const [{ workoutDetails }] = await Promise.all([
 				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
 					workoutId: entityId,
@@ -100,6 +103,19 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 					doneOn: repeatedWorkoutData.details.startTime,
 				};
 			}
+			let template = null;
+			if (workoutDetails.details.templateId) {
+				const { workoutTemplateDetails } =
+					await serverGqlService.authenticatedRequest(
+						request,
+						WorkoutTemplateDetailsDocument,
+						{ workoutTemplateId: workoutDetails.details.templateId },
+					);
+				template = {
+					id: workoutDetails.details.templateId,
+					name: workoutTemplateDetails.details.name,
+				};
+			}
 			return {
 				entityName: workoutDetails.details.name,
 				startTime: workoutDetails.details.startTime,
@@ -108,8 +124,29 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				information: workoutDetails.details.information,
 				summary: workoutDetails.details.summary,
 				repeatedWorkout: repeatedWorkout,
-				template: null,
+				template,
 				collections: workoutDetails.collections,
+				defaultRestTimer: undefined,
+			};
+		})
+		.with(FitnessEntity.Templates, async () => {
+			const [{ workoutTemplateDetails }] = await Promise.all([
+				serverGqlService.authenticatedRequest(
+					request,
+					WorkoutTemplateDetailsDocument,
+					{ workoutTemplateId: entityId },
+				),
+			]);
+			return {
+				entityName: workoutTemplateDetails.details.name,
+				startTime: workoutTemplateDetails.details.createdOn,
+				endTime: null,
+				information: workoutTemplateDetails.details.information,
+				summary: workoutTemplateDetails.details.summary,
+				repeatedWorkout: null,
+				template: null,
+				collections: workoutTemplateDetails.collections,
+				defaultRestTimer: workoutTemplateDetails.details.defaultRestTimer,
 			};
 		})
 		.exhaustive();
@@ -139,11 +176,18 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		delete: async () => {
 			const submission = processSubmission(formData, deleteSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeleteUserWorkoutDocument,
-				{ workoutId: submission.workoutId },
-			);
+			if (submission.workoutId)
+				await serverGqlService.authenticatedRequest(
+					request,
+					DeleteUserWorkoutDocument,
+					{ workoutId: submission.workoutId },
+				);
+			else if (submission.templateId)
+				await serverGqlService.authenticatedRequest(
+					request,
+					DeleteWorkoutTemplateDocument,
+					{ workoutTemplateId: submission.templateId },
+				);
 			const { entity } = submission;
 			return redirectWithToast($path("/fitness/:entity/list", { entity }), {
 				type: "success",
@@ -154,8 +198,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 });
 
 const deleteSchema = z.object({
-	workoutId: z.string(),
-	entity: z.nativeEnum(Entity),
+	workoutId: z.string().optional(),
+	templateId: z.string().optional(),
+	entity: z.nativeEnum(FitnessEntity),
 });
 
 const editWorkoutSchema = z.object({
@@ -166,6 +211,7 @@ const editWorkoutSchema = z.object({
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const unitSystem = useUserUnitSystem();
 	const [
@@ -176,20 +222,26 @@ export default function Page() {
 	const startWorkout = useGetWorkoutStarter();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const entityLot = match(loaderData.entity)
-		.with(Entity.Workouts, () => EntityLot.Workout)
+		.with(FitnessEntity.Workouts, () => EntityLot.Workout)
+		.with(FitnessEntity.Templates, () => EntityLot.WorkoutTemplate)
 		.exhaustive();
 
 	const performDecision = async (
-		entity: Entity,
+		entity: FitnessEntity,
 		repeatedFromId?: string,
-		_templateId?: string,
-		_updateWorkoutTemplateId?: string,
+		templateId?: string,
+		updateWorkoutTemplateId?: string,
+		defaultRestTimer?: number | null,
 	) => {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
 			loaderData.information,
 			loaderData.entityName,
+			coreDetails,
 			repeatedFromId,
+			templateId,
+			updateWorkoutTemplateId,
+			defaultRestTimer,
 		);
 		startWorkout(workout, entity);
 		setIsWorkoutLoading(false);
@@ -247,20 +299,76 @@ export default function Page() {
 								</ActionIcon>
 							</Menu.Target>
 							<Menu.Dropdown>
-								<Menu.Item
-									onClick={() =>
-										performDecision(Entity.Workouts, loaderData.entityId)
-									}
-									leftSection={<IconRepeat size={14} />}
-								>
-									Duplicate
-								</Menu.Item>
-								<Menu.Item
-									onClick={adjustTimeModalOpen}
-									leftSection={<IconClockEdit size={14} />}
-								>
-									Adjust time
-								</Menu.Item>
+								{match(loaderData.entity)
+									.with(FitnessEntity.Templates, () => (
+										<>
+											<Menu.Item
+												onClick={() =>
+													performDecision(
+														FitnessEntity.Workouts,
+														undefined,
+														loaderData.entityId,
+														undefined,
+														loaderData.defaultRestTimer,
+													)
+												}
+												leftSection={<IconPlayerPlay size={14} />}
+											>
+												Start workout
+											</Menu.Item>
+											<Menu.Item
+												onClick={() =>
+													performDecision(
+														FitnessEntity.Templates,
+														undefined,
+														undefined,
+														loaderData.entityId,
+														loaderData.defaultRestTimer,
+													)
+												}
+												leftSection={<IconPencil size={14} />}
+											>
+												Edit template
+											</Menu.Item>
+										</>
+									))
+									.with(FitnessEntity.Workouts, () => (
+										<>
+											<Menu.Item
+												onClick={() =>
+													performDecision(
+														FitnessEntity.Workouts,
+														loaderData.entityId,
+													)
+												}
+												leftSection={<IconRepeat size={14} />}
+											>
+												Duplicate
+											</Menu.Item>
+											<Menu.Item
+												onClick={adjustTimeModalOpen}
+												leftSection={<IconClockEdit size={14} />}
+											>
+												Adjust time
+											</Menu.Item>
+											<Menu.Item
+												onClick={() => {
+													if (!coreDetails.isPro) {
+														notifications.show({
+															color: "red",
+															message: PRO_REQUIRED_MESSAGE,
+														});
+														return;
+													}
+													performDecision(FitnessEntity.Templates);
+												}}
+												leftSection={<IconTemplate size={14} />}
+											>
+												Create template
+											</Menu.Item>
+										</>
+									))
+									.exhaustive()}
 								<Menu.Item
 									onClick={() =>
 										setAddEntityToCollectionData({
@@ -281,13 +389,16 @@ export default function Page() {
 								>
 									<input
 										type="hidden"
-										name="entity"
-										defaultValue={loaderData.entity}
+										name={match(loaderData.entity)
+											.with(FitnessEntity.Workouts, () => "workoutId")
+											.with(FitnessEntity.Templates, () => "templateId")
+											.exhaustive()}
+										value={loaderData.entityId}
 									/>
 									<input
 										type="hidden"
-										name="workoutId"
-										defaultValue={loaderData.entityId}
+										name="entity"
+										value={loaderData.entity}
 									/>
 									<Menu.Item
 										onClick={async (e) => {
@@ -341,6 +452,22 @@ export default function Page() {
 							</Text>
 						</Box>
 					) : null}
+					{loaderData.template ? (
+						<Box>
+							<Text c="dimmed" span>
+								Template used:
+							</Text>{" "}
+							<Anchor
+								component={Link}
+								to={$path("/fitness/:entity/:id", {
+									entity: "templates",
+									id: loaderData.template.id,
+								})}
+							>
+								{loaderData.template.name}
+							</Anchor>
+						</Box>
+					) : null}
 					<Box>
 						<Text c="dimmed" span>
 							Done on{" "}
@@ -359,6 +486,12 @@ export default function Page() {
 											units: ["h", "m"],
 										},
 									)}
+								/>
+							) : null}
+							{loaderData.defaultRestTimer ? (
+								<DisplayStat
+									icon={<IconZzz size={16} />}
+									data={`${loaderData.defaultRestTimer}s`}
 								/>
 							) : null}
 							{loaderData.summary.total ? (
@@ -418,6 +551,7 @@ export default function Page() {
 							exerciseIdx={idx}
 							entityId={loaderData.entityId}
 							key={`${exercise.name}-${idx}`}
+							entityType={loaderData.entity}
 						/>
 					))}
 				</Stack>

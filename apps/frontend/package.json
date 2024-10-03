@@ -19,6 +19,7 @@
 		"@mantine/form": "7.12.1",
 		"@mantine/hooks": "7.12.1",
 		"@mantine/notifications": "7.12.1",
+		"@remix-pwa/worker-runtime": "2.1.4",
 		"@remix-run/node": "2.11.2",
 		"@remix-run/react": "2.11.2",
 		"@remix-run/serve": "2.11.2",
@@ -43,6 +44,7 @@
 		"isbot": "5.1.17",
 		"jotai": "2.9.3",
 		"js-cookie": "3.0.5",
+		"jwt-decode": "4.0.0",
 		"mantine-datatable": "7.11.3",
 		"react": "18.3.1",
 		"react-confirm": "0.3.0-7",
@@ -62,6 +64,7 @@
 	},
 	"devDependencies": {
 		"@bitprojects/umami-logger-typescript": "1.0.10",
+		"@remix-pwa/dev": "3.1.0",
 		"@remix-run/dev": "2.11.2",
 		"@types/cookie": "0.6.0",
 		"@types/crypto-js": "4.2.2",

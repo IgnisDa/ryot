@@ -97,6 +97,7 @@ pub struct UserFitnessFeaturesEnabledPreferences {
     pub enabled: bool,
     pub measurements: bool,
     pub workouts: bool,
+    pub templates: bool,
 }
 
 impl Default for UserFitnessFeaturesEnabledPreferences {
@@ -105,6 +106,7 @@ impl Default for UserFitnessFeaturesEnabledPreferences {
             enabled: true,
             measurements: true,
             workouts: true,
+            templates: true,
         }
     }
 }
@@ -252,6 +254,26 @@ pub struct UserFitnessPreferences {
     EnumString,
 )]
 #[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum GridPacking {
+    #[default]
+    Normal,
+    Dense,
+}
+
+#[derive(
+    Debug,
+    Serialize,
+    Default,
+    Deserialize,
+    Enum,
+    Clone,
+    Eq,
+    PartialEq,
+    FromJsonQueryResult,
+    Copy,
+    EnumString,
+)]
+#[strum(ascii_case_insensitive, serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum UserReviewScale {
     OutOfFive,
     #[default]
@@ -277,7 +299,7 @@ pub enum DashboardElementLot {
 pub struct UserGeneralDashboardElement {
     pub section: DashboardElementLot,
     pub hidden: bool,
-    pub num_elements: Option<i32>,
+    pub num_elements: Option<u64>,
 }
 
 #[derive(
@@ -289,6 +311,7 @@ pub struct UserGeneralPreferences {
     pub disable_reviews: bool,
     pub persist_queries: bool,
     pub watch_providers: Vec<String>,
+    pub grid_packing: GridPacking,
     pub review_scale: UserReviewScale,
     pub disable_watch_providers: bool,
     pub disable_integrations: bool,
@@ -299,8 +322,9 @@ pub struct UserGeneralPreferences {
 impl Default for UserGeneralPreferences {
     fn default() -> Self {
         Self {
-            review_scale: UserReviewScale::default(),
             display_nsfw: true,
+            review_scale: UserReviewScale::default(),
+            grid_packing: GridPacking::default(),
             dashboard: vec![
                 UserGeneralDashboardElement {
                     section: DashboardElementLot::Upcoming,

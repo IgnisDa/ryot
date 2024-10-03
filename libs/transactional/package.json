@@ -3,6 +3,7 @@
 	"private": true,
 	"dependencies": {
 		"@react-email/components": "0.0.22",
+		"@ryot/ts-utils": "workspace:*",
 		"react-dom": "18.3.1",
 		"react-email": "2.1.6"
 	}

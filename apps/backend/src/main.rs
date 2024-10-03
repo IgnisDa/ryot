@@ -18,14 +18,16 @@ use apalis::{
 };
 use aws_sdk_s3::config::Region;
 use background::ApplicationJob;
-use chrono::{TimeZone, Utc};
-use common_utils::{ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR, VERSION};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use common_utils::{convert_naive_to_utc, ryot_log, COMPILATION_TIMESTAMP, PROJECT_NAME, TEMP_DIR};
 use database_models::prelude::Exercise;
-use dependent_models::CompleteExport;
+use env_utils::{APP_VERSION, UNKEY_API_ID};
 use logs_wheel::LogFileInitializer;
 use migrations::Migrator;
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection, EntityTrait, PaginatorTrait};
 use sea_orm_migration::MigratorTrait;
+use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use tokio::{
     join,
     net::TcpListener,
@@ -33,6 +35,7 @@ use tokio::{
 };
 use tower::buffer::BufferLayer;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
+use unkey::{models::VerifyKeyRequest, Client};
 
 use crate::{
     common::create_app_services,
@@ -57,7 +60,7 @@ async fn main() -> Result<()> {
     }
     init_tracing()?;
 
-    ryot_log!(info, "Running version: {}", VERSION);
+    ryot_log!(info, "Running version: {}", APP_VERSION);
 
     let config = Arc::new(config::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
@@ -75,6 +78,9 @@ async fn main() -> Result<()> {
 
     let config_dump_path = PathBuf::new().join(TEMP_DIR).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
+    let is_pro = get_is_pro(&config.server.pro_key, &compile_timestamp).await;
+
+    ryot_log!(debug, "Is pro: {:#?}", is_pro);
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
@@ -119,6 +125,7 @@ async fn main() -> Result<()> {
     ryot_log!(info, "Timezone: {}", tz);
 
     let app_services = create_app_services(
+        is_pro,
         db.clone(),
         s3_client,
         config,
@@ -145,6 +152,7 @@ async fn main() -> Result<()> {
     }
 
     if cfg!(debug_assertions) {
+        use dependent_models::CompleteExport;
         use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 
         // TODO: Once https://github.com/rust-lang/cargo/issues/3946 is resolved
@@ -297,6 +305,50 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
+async fn get_is_pro(pro_key: &str, compilation_time: &DateTime<Utc>) -> bool {
+    if pro_key.is_empty() {
+        return false;
+    }
+
+    ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
+
+    #[skip_serializing_none]
+    #[derive(Debug, Serialize, Clone, Deserialize)]
+    struct Meta {
+        expiry: Option<NaiveDate>,
+    }
+
+    let unkey_client = Client::new("public");
+    let verify_request = VerifyKeyRequest::new(pro_key, UNKEY_API_ID);
+    let validated_key = match unkey_client.verify_key(verify_request).await {
+        Ok(verify_response) => {
+            if !verify_response.valid {
+                ryot_log!(debug, "Pro key is no longer valid.");
+                return false;
+            }
+            verify_response
+        }
+        Err(verify_error) => {
+            ryot_log!(debug, "Pro key verification error: {:?}", verify_error);
+            return false;
+        }
+    };
+    let key_meta = validated_key
+        .meta
+        .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
+    ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
+    if let Some(meta) = key_meta {
+        if let Some(expiry) = meta.expiry {
+            if compilation_time > &convert_naive_to_utc(expiry) {
+                ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
+                return false;
+            }
+        }
+    }
+    ryot_log!(info, "Pro key verified successfully");
+    true
+}
+
 // upgrade from v6 ONLY IF APPLICABLE
 async fn migrate_from_v6(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
@@ -330,6 +382,7 @@ BEGIN
                 ('m20230504_create_collection', 1684693316),
                 ('m20230822_create_exercise', 1684693316),
                 ('m20230819_create_workout', 1684693316),
+                ('m20230818_create_workout_template', 1684693316),
                 ('m20230505_create_review', 1684693316),
                 ('m20230509_create_import_report', 1684693316),
                 ('m20230820_create_user_measurement', 1684693316),
@@ -341,7 +394,8 @@ BEGIN
                 ('m20240531_create_queued_notification', 1717207621),
                 ('m20240607_create_integration', 1723854703),
                 ('m20240712_create_notification_platform', 1723854703),
-                ('m20240713_create_user_summary', 1723854703);
+                ('m20240713_create_user_summary', 1723854703),
+                ('m20240714_create_access_link', 1723854703);
         END IF;
     END IF;
 END $$;

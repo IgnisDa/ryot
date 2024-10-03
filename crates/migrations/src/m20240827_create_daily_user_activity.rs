@@ -16,6 +16,7 @@ pub enum DailyUserActivity {
     Table,
     UserId,
     Date,
+    EntityIds,
     MetadataReviewCount,
     CollectionReviewCount,
     MetadataGroupReviewCount,
@@ -60,6 +61,12 @@ impl MigrationTrait for Migration {
                     .table(DailyUserActivity::Table)
                     .col(ColumnDef::new(DailyUserActivity::Date).date().not_null())
                     .col(ColumnDef::new(DailyUserActivity::UserId).text().not_null())
+                    .col(
+                        ColumnDef::new(DailyUserActivity::EntityIds)
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default(Expr::cust("'{}'")),
+                    )
                     .primary_key(
                         Index::create()
                             .name(DAILY_USER_ACTIVITY_PRIMARY_KEY)

@@ -148,14 +148,35 @@ impl IntegrationService {
         F: Future<Output = GqlResult<metadata::Model>>,
     {
         match integration_type {
-            IntegrationType::Audiobookshelf(base_url, access_token, isbn_service) => {
-                let audiobookshelf =
-                    AudiobookshelfIntegration::new(base_url, access_token, isbn_service);
+            IntegrationType::Audiobookshelf(
+                base_url,
+                access_token,
+                sync_to_owned_collection,
+                isbn_service,
+            ) => {
+                let audiobookshelf = AudiobookshelfIntegration::new(
+                    base_url,
+                    access_token,
+                    sync_to_owned_collection,
+                    isbn_service,
+                );
                 audiobookshelf.yank_progress(commit_metadata).await
             }
-            IntegrationType::Komga(base_url, username, password, provider) => {
-                let komga =
-                    KomgaIntegration::new(base_url, username, password, provider, self.db.clone());
+            IntegrationType::Komga(
+                base_url,
+                username,
+                password,
+                provider,
+                sync_to_owned_collection,
+            ) => {
+                let komga = KomgaIntegration::new(
+                    base_url,
+                    username,
+                    password,
+                    provider,
+                    self.db.clone(),
+                    sync_to_owned_collection,
+                );
                 komga.yank_progress().await
             }
             _ => bail!("Unsupported integration type"),

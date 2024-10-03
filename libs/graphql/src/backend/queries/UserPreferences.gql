@@ -2,6 +2,7 @@ query UserPreferences {
   userPreferences {
     general {
       reviewScale
+      gridPacking
       displayNsfw
       disableVideos
       persistQueries
@@ -64,6 +65,7 @@ query UserPreferences {
       fitness {
         enabled
         workouts
+        templates
         measurements
       }
       media {

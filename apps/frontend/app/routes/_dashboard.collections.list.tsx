@@ -1,22 +1,33 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Anchor,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Flex,
 	Group,
 	Image,
 	Input,
 	Modal,
+	MultiSelect,
 	Paper,
+	Select,
 	Stack,
 	Text,
 	TextInput,
 	Textarea,
 	Title,
+	Tooltip,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import {
+	useDidUpdate,
+	useDisclosure,
+	useHover,
+	useListState,
+} from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
@@ -27,12 +38,30 @@ import {
 	useSearchParams,
 } from "@remix-run/react";
 import {
+	CollectionContentsDocument,
+	CollectionContentsSortBy,
+	type CollectionExtraInformation,
+	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
+	EntityLot,
+	GraphqlSortOrder,
 	type UserCollectionsListQuery,
+	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission, truncate } from "@ryot/ts-utils";
-import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
+import {
+	changeCase,
+	isString,
+	processSubmission,
+	truncate,
+} from "@ryot/ts-utils";
+import {
+	IconEdit,
+	IconPlus,
+	IconTrash,
+	IconTrashFilled,
+} from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
@@ -40,10 +69,20 @@ import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { zx } from "zodix";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
 import {
+	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
+	dayjsLib,
+	getPartialMetadataDetailsQuery,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
+import {
 	useConfirmSubmit,
+	useCoreDetails,
 	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,
@@ -59,7 +98,10 @@ import {
 export const loader = unstable_defineLoader(async ({ request }) => {
 	const cookieName = await getEnhancedCookieName("collections.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	return { cookieName };
+	const [{ usersList }] = await Promise.all([
+		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
+	]);
+	return { usersList, cookieName };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -96,7 +138,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 					if (err) message = err;
 				}
 				return Response.json(
-					{},
+					{ error: JSON.stringify(e) },
 					{
 						status: 400,
 						headers: await createToastHeaders({ type: "error", message }),
@@ -138,13 +180,30 @@ const createOrUpdateSchema = z.object({
 	name: z.string(),
 	description: z.string().optional(),
 	updateId: z.string().optional(),
+	collaborators: z
+		.string()
+		.optional()
+		.transform((v) => (v ? v.split(",") : undefined)),
+	informationTemplate: z
+		.array(
+			z.object({
+				name: z.string(),
+				description: z.string(),
+				lot: z.nativeEnum(CollectionExtraInformationLot),
+				defaultValue: z.string().optional(),
+				required: zx.CheckboxAsString.optional(),
+			}),
+		)
+		.optional(),
 });
 
 type UpdateCollectionInput = {
 	name: string;
 	id: string;
 	isDefault: boolean;
+	collaborators: Collection["collaborators"];
 	description?: string | null;
+	informationTemplate?: CollectionExtraInformation[] | null;
 };
 
 export default function Page() {
@@ -232,9 +291,48 @@ const DisplayCollection = (props: {
 	openModal: () => void;
 }) => {
 	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
+
+	const { data: collectionImages } = useQuery({
+		queryKey: queryFactory.collections.images(props.collection.id).queryKey,
+		queryFn: async () => {
+			const { collectionContents } = await clientGqlService.request(
+				CollectionContentsDocument,
+				{
+					input: {
+						collectionId: props.collection.id,
+						take: 10,
+						sort: {
+							by: CollectionContentsSortBy.LastUpdatedOn,
+							order: GraphqlSortOrder.Desc,
+						},
+					},
+				},
+			);
+			const images = [];
+			for (const content of collectionContents.results.items) {
+				if (images.length === 5) break;
+				if (content.entityLot !== EntityLot.Metadata) continue;
+				const { image } = await queryClient.ensureQueryData(
+					getPartialMetadataDetailsQuery(content.entityId),
+				);
+				if (isString(image)) images.push(image);
+			}
+			return images;
+		},
+		staleTime: dayjsLib.duration(1, "hour").asMilliseconds(),
+	});
+
+	const [hoveredStates, setHoveredStates] = useListState<boolean>([]);
+
+	const setHoveredState = (index: number, state: boolean) => {
+		setHoveredStates.setItem(index, state);
+	};
+
+	const currentlyHovered = hoveredStates.findIndex((h) => h);
 
 	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
@@ -244,6 +342,10 @@ const DisplayCollection = (props: {
 		additionalDisplay.push(
 			`${props.collection.collaborators.length} collaborators`,
 		);
+
+	const FallBackImage = () => (
+		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />
+	);
 
 	return (
 		<Paper
@@ -262,16 +364,32 @@ const DisplayCollection = (props: {
 					pos="relative"
 					style={{ overflow: "hidden" }}
 				>
-					<Image
-						src={fallbackImageUrl}
-						h="100%"
-						flex="none"
-						mx="auto"
-						radius="md"
-					/>
-					<Box pos="absolute" left={0} right={0} bottom={0}>
-						<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
-					</Box>
+					{coreDetails.isPro ? (
+						collectionImages && collectionImages.length > 0 ? (
+							collectionImages.map((image, index) => {
+								const shouldCollapse = index < currentlyHovered;
+								return (
+									<CollectionImageDisplay
+										key={image}
+										image={image}
+										index={index}
+										shouldCollapse={shouldCollapse}
+										setHoveredState={setHoveredState}
+										totalImages={collectionImages.length}
+									/>
+								);
+							})
+						) : (
+							<FallBackImage />
+						)
+					) : (
+						<>
+							<FallBackImage />
+							<Box pos="absolute" left={0} right={0} bottom={0}>
+								<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
+							</Box>
+						</>
+					)}
 				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">
@@ -298,7 +416,9 @@ const DisplayCollection = (props: {
 											name: props.collection.name,
 											id: props.collection.id,
 											description: props.collection.description,
+											collaborators: props.collection.collaborators,
 											isDefault: props.collection.isDefault,
+											informationTemplate: props.collection.informationTemplate,
 										});
 										props.openModal();
 									}}
@@ -352,9 +472,54 @@ const DisplayCollection = (props: {
 	);
 };
 
+const CollectionImageDisplay = (props: {
+	image: string;
+	index: number;
+	totalImages: number;
+	shouldCollapse: boolean;
+	setHoveredState: (index: number, state: boolean) => void;
+}) => {
+	const { ref, hovered } = useHover();
+	const offset = IMAGES_CONTAINER_WIDTH / props.totalImages - 20;
+
+	useDidUpdate(() => {
+		props.setHoveredState(props.index, hovered);
+	}, [hovered]);
+
+	return (
+		<Box
+			h="100%"
+			w="120px"
+			ref={ref}
+			top={{ md: 0 }}
+			pos={{ md: "absolute" }}
+			left={{
+				md: props.index * offset - (props.shouldCollapse ? offset * 2 : 0),
+			}}
+			style={{
+				zIndex: props.totalImages - props.index,
+				transitionProperty: "left",
+				transitionDuration: "0.2s",
+				transitionTimingFunction: "ease-in-out",
+			}}
+		>
+			<Image src={props.image} h="100%" />
+		</Box>
+	);
+};
+
 const CreateOrUpdateModal = (props: {
 	toUpdateCollection: UpdateCollectionInput | undefined;
 }) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
+	const userDetails = useUserDetails();
+	const [parent] = useAutoAnimate();
+	const [informationTemplate, setInformationTemplate] =
+		useListState<CollectionExtraInformation>(
+			props.toUpdateCollection?.informationTemplate || [],
+		);
+
 	return (
 		<Box
 			method="POST"
@@ -389,14 +554,108 @@ const CreateOrUpdateModal = (props: {
 					}
 					autosize
 				/>
+				<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+					<MultiSelect
+						name="collaborators"
+						description="Add collaborators to this collection"
+						searchable
+						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
+							(c) => c.id,
+						)}
+						data={loaderData.usersList.map((u) => ({
+							value: u.id,
+							label: u.name,
+							disabled: u.id === userDetails.id,
+						}))}
+						disabled={!coreDetails.isPro}
+					/>
+				</Tooltip>
 				<Input.Wrapper
-					label="Collaborators"
-					description={<ProRequiredAlert />}
-				/>
-				<Input.Wrapper
-					label="Information template"
-					description={<ProRequiredAlert />}
-				/>
+					labelProps={{ w: "100%" }}
+					label={
+						<Group wrap="nowrap" justify="space-between">
+							<Input.Label size="xs">Information template</Input.Label>
+							<Anchor
+								size="xs"
+								onClick={() => {
+									if (!coreDetails.isPro) {
+										notifications.show({
+											color: "red",
+											message: PRO_REQUIRED_MESSAGE,
+										});
+										return;
+									}
+									setInformationTemplate.append({
+										name: "",
+										description: "",
+										lot: CollectionExtraInformationLot.String,
+									});
+								}}
+							>
+								Add field
+							</Anchor>
+						</Group>
+					}
+					description="Associate extra information when adding an entity to this collection"
+				>
+					<Stack gap="xs" mt="xs" ref={parent}>
+						{informationTemplate.map((field, index) => (
+							<Paper withBorder key={index.toString()} p="xs">
+								<TextInput
+									label="Name"
+									required
+									name={`informationTemplate[${index}].name`}
+									size="xs"
+									defaultValue={field.name}
+								/>
+								<Textarea
+									label="Description"
+									required
+									name={`informationTemplate[${index}].description`}
+									size="xs"
+									defaultValue={field.description}
+								/>
+								<Group wrap="nowrap">
+									<Select
+										label="Input type"
+										required
+										flex={1}
+										name={`informationTemplate[${index}].lot`}
+										data={Object.values(CollectionExtraInformationLot).map(
+											(lot) => ({ value: lot, label: changeCase(lot) }),
+										)}
+										size="xs"
+										defaultValue={field.lot}
+									/>
+									<TextInput
+										label="Default value"
+										flex={1}
+										name={`informationTemplate[${index}].defaultValue`}
+										size="xs"
+										defaultValue={field.defaultValue || undefined}
+									/>
+								</Group>
+								<Group mt="xs" justify="space-around">
+									<Checkbox
+										label="Required"
+										name={`informationTemplate[${index}].required`}
+										size="sm"
+										defaultChecked={field.required || undefined}
+									/>
+									<Button
+										size="xs"
+										variant="subtle"
+										color="red"
+										leftSection={<IconTrash />}
+										onClick={() => setInformationTemplate.remove(index)}
+									>
+										Remove field
+									</Button>
+								</Group>
+							</Paper>
+						))}
+					</Stack>
+				</Input.Wrapper>
 				<Button
 					variant="outline"
 					type="submit"

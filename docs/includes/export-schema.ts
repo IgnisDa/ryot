@@ -305,6 +305,25 @@ export interface WorkoutSummary {
 	total: WorkoutOrExerciseTotals | null;
 }
 
+export interface WorkoutTemplate {
+	created_on: string;
+	default_rest_timer: number | null;
+	id: string;
+	information: WorkoutInformation;
+	name: string;
+	summary: WorkoutSummary;
+	/**
+	 * @default 'public'
+	 * @type {'public' | 'private'}
+	 */
+	visibility: Visibility;
+}
+
+export interface ImportOrExportWorkoutTemplateItem {
+	collections: string[];
+	details: WorkoutTemplate;
+}
+
 /** A workout that was completed by the user. */
 export interface Workout {
 	duration: number;
@@ -314,6 +333,7 @@ export interface Workout {
 	name: string;
 	start_time: string;
 	summary: WorkoutSummary;
+	template_id: string | null;
 }
 
 /** Details about a specific exercise item that needs to be exported. */
@@ -336,6 +356,8 @@ export interface CompleteExport {
 	media_group: ImportOrExportMediaGroupItem[] | null;
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[] | null;
+	/** Data about user's workout templates. */
+	workout_templates: ImportOrExportWorkoutTemplateItem[] | null;
 	/** Data about user's workouts. */
 	workouts: ImportOrExportWorkoutItem[] | null;
 }

@@ -1,0 +1,128 @@
+{
+	"id": "8eff47f3-d2ea-49ee-a85e-2e4689c410f1",
+	"prevId": "00000000-0000-0000-0000-000000000000",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.customer": {
+			"name": "customer",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_on": {
+					"name": "created_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"oidc_issuer_id": {
+					"name": "oidc_issuer_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"paddle_customer_id": {
+					"name": "paddle_customer_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"paddle_first_transaction_id": {
+					"name": "paddle_first_transaction_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"product_type": {
+					"name": "product_type",
+					"type": "product_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"plan_type": {
+					"name": "plan_type",
+					"type": "plan_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"renew_on": {
+					"name": "renew_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"unkey_key_id": {
+					"name": "unkey_key_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ryot_user_id": {
+					"name": "ryot_user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"customer_email_unique": {
+					"name": "customer_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				},
+				"customer_oidc_issuer_id_unique": {
+					"name": "customer_oidc_issuer_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["oidc_issuer_id"]
+				},
+				"customer_paddle_customer_id_unique": {
+					"name": "customer_paddle_customer_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["paddle_customer_id"]
+				},
+				"customer_paddle_first_transaction_id_unique": {
+					"name": "customer_paddle_first_transaction_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["paddle_first_transaction_id"]
+				}
+			}
+		}
+	},
+	"enums": {
+		"public.plan_type": {
+			"name": "plan_type",
+			"schema": "public",
+			"values": ["monthly", "yearly", "lifetime"]
+		},
+		"public.product_type": {
+			"name": "product_type",
+			"schema": "public",
+			"values": ["cloud", "self_hosted"]
+		}
+	},
+	"schemas": {},
+	"sequences": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
+}

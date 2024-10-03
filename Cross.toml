@@ -3,6 +3,8 @@ passthrough = [
     "APP_VERSION",
     "DEFAULT_TMDB_ACCESS_TOKEN",
     "DEFAULT_MAL_CLIENT_ID",
+    "TRAKT_CLIENT_ID",
+    "UNKEY_API_ID",
 ]
 
 [build]

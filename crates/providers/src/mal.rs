@@ -238,6 +238,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             image: Some(rel.node.main_picture.large),
             source: MediaSource::Mal,
             lot: MediaLot::Anime,
+            is_recommendation: None,
         });
     }
     for rel in details.related_manga.unwrap_or_default().into_iter() {
@@ -247,6 +248,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             image: Some(rel.node.main_picture.large),
             source: MediaSource::Mal,
             lot: MediaLot::Manga,
+            is_recommendation: None,
         });
     }
     for rel in details.recommendations.unwrap_or_default().into_iter() {
@@ -256,6 +258,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
             image: Some(rel.node.main_picture.large),
             source: MediaSource::Mal,
             lot,
+            is_recommendation: None,
         });
     }
     suggestions.shuffle(&mut thread_rng());

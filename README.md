@@ -1,7 +1,5 @@
 <h1 align="center">Ryot</h1>
 
-<img alt="Project logo" align="left" src="docs/logo.png" width="150">
-
 <h3 align="center">
   A self hosted platform for tracking various facets of your life - media, fitness etc.
 </h3>

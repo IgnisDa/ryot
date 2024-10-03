@@ -8,9 +8,11 @@ import {
 	Divider,
 	Flex,
 	Group,
+	Input,
 	JsonInput,
 	NumberInput,
 	Paper,
+	SegmentedControl,
 	Select,
 	SimpleGrid,
 	Stack,
@@ -29,6 +31,7 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	type DashboardElementLot,
+	GridPacking,
 	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	UserReviewScale,
@@ -55,7 +58,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { queryClient, queryFactory } from "~/lib/generals";
-import { useConfirmSubmit, useUserPreferences } from "~/lib/hooks";
+import {
+	useConfirmSubmit,
+	useDashboardLayoutData,
+	useUserPreferences,
+} from "~/lib/hooks";
 import {
 	createToastHeaders,
 	isWorkoutActive,
@@ -129,7 +136,8 @@ export default function Page() {
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
-	const isEditDisabled = false;
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemo;
 
 	const appendPref = (property: string, value: string) => {
 		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
@@ -362,6 +370,24 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
+							<Input.Wrapper
+								label="Grid packing"
+								description="Display size for library user interface elements"
+							>
+								<SegmentedControl
+									mt="xs"
+									fullWidth
+									data={Object.values(GridPacking).map((c) => ({
+										label: startCase(snakeCase(c)),
+										value: c,
+									}))}
+									defaultValue={userPreferences.general.gridPacking}
+									disabled={!!isEditDisabled}
+									onChange={(val) => {
+										if (val) appendPref("general.grid_packing", val);
+									}}
+								/>
+							</Input.Wrapper>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications">

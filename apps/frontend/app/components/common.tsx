@@ -36,6 +36,7 @@ import {
 	DeployUpdateMetadataJobDocument,
 	DeployUpdatePersonJobDocument,
 	EntityLot,
+	GridPacking,
 	type MediaLot,
 	type MediaSource,
 	MetadataDetailsDocument,
@@ -68,6 +69,7 @@ import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
+	PRO_REQUIRED_MESSAGE,
 	ThreePointSmileyRating,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
@@ -89,7 +91,11 @@ import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 import { confirmWrapper } from "./confirmation";
-import { ExerciseDisplayItem, WorkoutDisplayItem } from "./fitness";
+import {
+	ExerciseDisplayItem,
+	WorkoutDisplayItem,
+	WorkoutTemplateDisplayItem,
+} from "./fitness";
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,
@@ -99,8 +105,16 @@ import {
 export const ApplicationGrid = (props: {
 	children: ReactNode | Array<ReactNode>;
 }) => {
+	const userPreferences = useUserPreferences();
+
 	return (
-		<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="lg">
+		<SimpleGrid
+			cols={match(userPreferences.general.gridPacking)
+				.with(GridPacking.Normal, () => ({ base: 2, sm: 3, md: 4, lg: 5 }))
+				.with(GridPacking.Dense, () => ({ base: 3, sm: 4, md: 5, lg: 6 }))
+				.exhaustive()}
+			spacing="lg"
+		>
 			{props.children}
 		</SimpleGrid>
 	);
@@ -290,12 +304,7 @@ export const ProRequiredAlert = (props: { tooltipLabel?: string }) => {
 	return !coreDetails.isPro ? (
 		<Alert>
 			<Tooltip label={props.tooltipLabel} disabled={!props.tooltipLabel}>
-				<Text size="xs">
-					<Anchor href={coreDetails.websiteUrl} target="_blank">
-						Ryot Pro
-					</Anchor>{" "}
-					required to use this feature
-				</Text>
+				<Text size="xs">{PRO_REQUIRED_MESSAGE}</Text>
 			</Tooltip>
 		</Alert>
 	) : null;
@@ -706,6 +715,12 @@ export const DisplayCollectionEntity = (props: {
 				workoutId={props.entityId}
 				topRight={props.topRight}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
+			/>
+		))
+		.with(EntityLot.WorkoutTemplate, () => (
+			<WorkoutTemplateDisplayItem
+				workoutTemplateId={props.entityId}
+				topRight={props.topRight}
 			/>
 		))
 		.run();

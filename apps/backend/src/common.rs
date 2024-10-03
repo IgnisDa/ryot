@@ -57,6 +57,7 @@ pub struct AppServices {
 
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
+    is_pro: bool,
     db: DatabaseConnection,
     s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
@@ -84,6 +85,7 @@ pub async fn create_app_services(
         config.file_storage.s3_bucket_name.clone(),
     ));
     let exercise_service = Arc::new(ExerciseService::new(
+        is_pro,
         &db,
         config.clone(),
         file_storage_service.clone(),
@@ -107,6 +109,7 @@ pub async fn create_app_services(
     ));
     let miscellaneous_service = Arc::new(
         MiscellaneousService::new(
+            is_pro,
             oidc_client.is_some(),
             &db,
             timezone.clone(),
@@ -119,6 +122,7 @@ pub async fn create_app_services(
         .await,
     );
     let user_service = Arc::new(UserService::new(
+        is_pro,
         &db,
         config.clone(),
         perform_application_job,
@@ -153,6 +157,8 @@ pub async fn create_app_services(
     .data(statistics_service.clone())
     .data(collection_service.clone())
     .data(user_service.clone())
+    .data(config.clone())
+    .data(db.clone())
     .finish();
 
     let cors_origins = config

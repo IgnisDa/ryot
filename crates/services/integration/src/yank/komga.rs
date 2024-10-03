@@ -5,7 +5,8 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use application_utils::get_base_http_client;
-use async_graphql::futures_util::StreamExt;
+use async_graphql::futures_util::{stream, StreamExt};
+use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::ImportResult;
@@ -189,6 +190,7 @@ pub(crate) struct KomgaIntegration {
     password: String,
     provider: MediaSource,
     db: DatabaseConnection,
+    sync_to_owned_collection: Option<bool>,
 }
 
 impl KomgaIntegration {
@@ -198,6 +200,7 @@ impl KomgaIntegration {
         password: String,
         provider: MediaSource,
         db: DatabaseConnection,
+        sync_to_owned_collection: Option<bool>,
     ) -> Self {
         Self {
             base_url,
@@ -205,6 +208,7 @@ impl KomgaIntegration {
             password,
             provider,
             db,
+            sync_to_owned_collection,
         }
     }
 
@@ -259,11 +263,11 @@ impl KomgaIntegration {
                         }
                     }
                 } else {
-                    ryot_log!(debug, event_type = ?event.event, "Received unhandled event type");
+                    ryot_log!(trace, event_type = ?event.event, "Received unhandled event type");
                 }
             }
 
-            ryot_log!(debug, "SSE listener finished");
+            ryot_log!(trace, "SSE listener finished");
             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
         }
     }
@@ -378,8 +382,55 @@ impl KomgaIntegration {
         })
     }
 
+    async fn sync_manga_collection(&self) -> Result<Vec<IntegrationMediaCollection>> {
+        if self.sync_to_owned_collection != Some(true) {
+            return Ok(Vec::new());
+        }
+
+        let url = &format!("{}/api/v1", self.base_url);
+        let client = get_base_http_client(None);
+
+        let series: komga_series::Response = client
+            .get(format!("{}/{}", url, "series?unpaged=true"))
+            .basic_auth(&self.username, Some(&self.password))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+
+        // Hashmap for If you have the same manga in multiple languages it will appear
+        // multiple times this prevents us from double committing an identifier
+        let unique_collection_updates: HashMap<String, IntegrationMediaCollection> =
+            stream::iter(series.content)
+                .filter_map(|book| async move {
+                    match self.find_provider_and_id(&book).await {
+                        Ok((source, Some(id))) => Some((
+                            id.clone(),
+                            IntegrationMediaCollection {
+                                identifier: id,
+                                lot: MediaLot::Manga,
+                                source,
+                                collection: DefaultCollection::Owned.to_string(),
+                            },
+                        )),
+                        _ => {
+                            tracing::debug!(
+                                "No URL or database entry found for manga: {}",
+                                book.name
+                            );
+                            None
+                        }
+                    }
+                })
+                .collect()
+                .await;
+
+        Ok(unique_collection_updates.into_values().collect())
+    }
+
     async fn komga_progress(&self) -> Result<ImportResult> {
-        // DEV: This object needs global lifetime so we can continue to use the receiver If
+        // DEV: This object needs global lifetime so we can continue to use the receiver if
         // we ever create more SSE Objects we may want to implement a higher level
         // Controller or make a housekeeping function to make sure the background threads
         // are running correctly and kill them when the app is killed.
@@ -449,7 +500,9 @@ impl KomgaIntegration {
         media_items.sort_by(|a, b| a.manga_chapter_number.cmp(&b.manga_chapter_number));
         ryot_log!(debug, "Media Items: {:?}", media_items);
 
-        Ok((media_items, vec![]))
+        let collection_updates = self.sync_manga_collection().await?;
+
+        Ok((media_items, collection_updates))
     }
 }
 

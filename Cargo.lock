@@ -428,6 +428,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-lock"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff6e472cdea888a4bd64f342f09b3f50e1886d32afe8df3d663c01140b811b18"
+dependencies = [
+ "event-listener 5.3.1",
+ "event-listener-strategy",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-oneshot"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -851,6 +862,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "dotenvy",
+ "env-utils",
  "exporter-resolver",
  "exporter-service",
  "file-storage-resolver",
@@ -873,7 +885,9 @@ dependencies = [
  "schematic",
  "sea-orm",
  "sea-orm-migration",
+ "serde",
  "serde_json",
+ "serde_with 3.9.0",
  "statistics-resolver",
  "statistics-service",
  "tokio",
@@ -881,6 +895,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "unkey",
  "user-resolver",
  "user-service",
 ]
@@ -1351,7 +1366,7 @@ dependencies = [
  "chrono",
  "compile-time",
  "const-str",
- "dotenvy_macro",
+ "env-utils",
  "reqwest 0.12.7",
 ]
 
@@ -1383,12 +1398,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "concurrent-queue"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "common-utils",
- "dotenvy_macro",
+ "env-utils",
  "schematic",
  "serde",
 ]
@@ -1481,6 +1505,15 @@ dependencies = [
  "chrono",
  "nom",
  "once_cell",
+]
+
+[[package]]
+name = "crossbeam-channel"
+version = "0.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33480d6946193aa8033910124896ca395333cae7e2d1113d1fef6c3272217df2"
+dependencies = [
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -1710,6 +1743,7 @@ dependencies = [
  "fitness-models",
  "futures",
  "itertools 0.13.0",
+ "jwt-service",
  "markdown",
  "media-models",
  "migrations",
@@ -1927,22 +1961,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenv-build"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4547f16c17f6051a12cdb8c62b803f94bee6807c74aa7c530b30b737df981fc"
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
-
-[[package]]
-name = "dotenvy_macro"
-version = "0.15.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb0235d912a8c749f4e0c9f18ca253b4c28cfefc1d2518096016d6e3230b6424"
-dependencies = [
- "dotenvy",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "dtoa"
@@ -2176,6 +2204,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "env-utils"
+version = "0.1.0"
+dependencies = [
+ "dotenv-build",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2207,6 +2242,27 @@ name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
+
+[[package]]
+name = "event-listener"
+version = "5.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6032be9bd27023a771701cc49f9f053c751055f71efb2e0ae5c15809093675ba"
+dependencies = [
+ "concurrent-queue",
+ "parking",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f214dc438f977e6d4e3500aaa277f5ad94ca83fbbd9b1a15713ce2344ccc5a1"
+dependencies = [
+ "event-listener 5.3.1",
+ "pin-project-lite",
+]
 
 [[package]]
 name = "eventsource-stream"
@@ -3341,6 +3397,7 @@ dependencies = [
  "dependent-utils",
  "enum_meta",
  "enums",
+ "env-utils",
  "fitness-models",
  "flate2",
  "importer-models",
@@ -3844,7 +3901,6 @@ dependencies = [
  "application-utils",
  "async-graphql",
  "background",
- "cached",
  "chrono",
  "chrono-tz",
  "common-models",
@@ -3854,13 +3910,16 @@ dependencies = [
  "database-utils",
  "dependent-models",
  "dependent-utils",
+ "derive_more 1.0.0",
  "enums",
+ "env-utils",
  "file-storage-service",
  "futures",
  "itertools 0.13.0",
  "markdown",
  "media-models",
  "migrations",
+ "moka",
  "nanoid",
  "notification-service",
  "providers",
@@ -3875,6 +3934,30 @@ dependencies = [
  "tracing",
  "traits",
  "user-models",
+ "uuid",
+]
+
+[[package]]
+name = "moka"
+version = "0.12.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32cf62eb4dd975d2dde76432fb1075c49e3ee2331cf36f1f8fd4b66550d32b6f"
+dependencies = [
+ "async-lock",
+ "async-trait",
+ "crossbeam-channel",
+ "crossbeam-epoch",
+ "crossbeam-utils",
+ "event-listener 5.3.1",
+ "futures-util",
+ "once_cell",
+ "parking_lot 0.12.3",
+ "quanta",
+ "rustc_version",
+ "smallvec",
+ "tagptr",
+ "thiserror",
+ "triomphe",
  "uuid",
 ]
 
@@ -4688,6 +4771,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "quanta"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e5167a477619228a0b284fac2674e3c388cba90631d7b7de620e6f1fcd08da5"
+dependencies = [
+ "crossbeam-utils",
+ "libc",
+ "once_cell",
+ "raw-cpuid",
+ "wasi",
+ "web-sys",
+ "winapi",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4782,6 +4880,15 @@ checksum = "f4e93f5a5e3c528cda9acb0928c31b2ba868c551cc46e67b778075e34aab9906"
 dependencies = [
  "getrandom",
  "zerocopy",
+]
+
+[[package]]
+name = "raw-cpuid"
+version = "11.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ab240315c661615f2ee9f0f2cd32d5a7343a84d5ebcccb99d46e6637565e7b0"
+dependencies = [
+ "bitflags 2.6.0",
 ]
 
 [[package]]
@@ -6004,7 +6111,7 @@ dependencies = [
  "crc",
  "crossbeam-queue",
  "either",
- "event-listener",
+ "event-listener 2.5.3",
  "futures-channel",
  "futures-core",
  "futures-intrusive",
@@ -6447,6 +6554,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "tagptr"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
+
+[[package]]
 name = "tap"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6857,12 +6970,20 @@ dependencies = [
  "async-trait",
  "common-models",
  "common-utils",
+ "config",
  "database-models",
+ "database-utils",
  "dependent-models",
  "media-models",
  "sea-orm",
  "tracing",
 ]
+
+[[package]]
+name = "triomphe"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "859eb650cfee7434994602c3a68b25d77ad9e68c8a6cd491616ef86661382eb3"
 
 [[package]]
 name = "try-lock"
@@ -6971,6 +7092,18 @@ name = "unicode_categories"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
+
+[[package]]
+name = "unkey"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0e8f3f2f069033aa3fa93650025c02296e830dda5f5f0631004005fef436d49"
+dependencies = [
+ "lazy_static",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "unreachable"

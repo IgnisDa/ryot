@@ -85,6 +85,7 @@ import {
 	IconClock,
 	IconDeviceSpeaker,
 	IconDeviceTv,
+	IconEyeglass,
 	IconHome2,
 	IconLogout,
 	IconMoodEmpty,
@@ -97,6 +98,7 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
+import { jwtDecode } from "jwt-decode";
 import { type FormEvent, useState } from "react";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "remix-routes";
@@ -115,6 +117,7 @@ import {
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
+	useCoreDetails,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -130,6 +133,7 @@ import {
 } from "~/lib/state/media";
 import {
 	serverVariables as envData,
+	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCachedUserCollectionsList,
 	getCachedUserPreferences,
@@ -238,14 +242,22 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		request.headers.get("cookie") || "",
 	);
 
+	const decodedCookie = jwtDecode<{
+		access_link?: { id: string; is_demo?: boolean };
+	}>(getAuthorizationCookie(request));
+	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
+	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
+
 	const shouldHaveUmami =
 		envData.FRONTEND_UMAMI_SCRIPT_URL &&
 		envData.FRONTEND_UMAMI_WEBSITE_ID &&
-		!envData.DISABLE_TELEMETRY;
+		!envData.DISABLE_TELEMETRY &&
+		!isDemo;
 
 	const workoutInProgress = isWorkoutActive(request);
 
 	return {
+		isDemo,
 		envData,
 		mediaLinks,
 		userDetails,
@@ -257,6 +269,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		userCollections,
 		workoutInProgress,
 		currentColorScheme,
+		isAccessLinkSession,
 	};
 });
 
@@ -339,6 +352,7 @@ export function ErrorBoundary() {
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
 	const submit = useConfirmSubmit();
 	const [openedLinkGroups, setOpenedLinkGroups] = useLocalStorage<
@@ -540,6 +554,13 @@ export default function Layout() {
 						/>
 					</Box>
 					<Flex direction="column" justify="center" gap="md">
+						{loaderData.isAccessLinkSession ? (
+							<Tooltip label={`You are viewing ${userDetails.name}'s data.`}>
+								<Button leftSection={<IconEyeglass />} disabled>
+									Visitor
+								</Button>
+							</Tooltip>
+						) : null}
 						<Form
 							method="POST"
 							action={withQuery("/actions", { intent: "toggleColorScheme" })}
@@ -722,13 +743,13 @@ const LinksGroup = ({
 };
 
 const Footer = () => {
-	const loaderData = useLoaderData<typeof loader>();
+	const coreDetails = useCoreDetails();
 
 	return (
 		<Stack>
 			<Flex gap={80} justify="center">
-				{!loaderData.coreDetails.isPro ? (
-					<Anchor href={loaderData.coreDetails.websiteUrl} target="_blank">
+				{!coreDetails.isPro ? (
+					<Anchor href={coreDetails.websiteUrl} target="_blank">
 						<Text c="red" fw="bold">
 							Ryot Pro
 						</Text>
@@ -740,9 +761,9 @@ const Footer = () => {
 					</Text>
 				</Anchor>
 				<Text c="grape" fw="bold" visibleFrom="md">
-					{loaderData.coreDetails.version}
+					{coreDetails.version}
 				</Text>
-				<Anchor href={loaderData.coreDetails.repositoryLink} target="_blank">
+				<Anchor href={coreDetails.repositoryLink} target="_blank">
 					<Text c="orange" fw="bold">
 						Github
 					</Text>

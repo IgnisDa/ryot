@@ -1,3 +1,4 @@
+import { remixPWA } from "@remix-pwa/dev";
 import { vitePlugin as remix } from "@remix-run/dev";
 import { remixDevTools } from "remix-development-tools";
 import { remixRoutes } from "remix-routes/vite";
@@ -12,5 +13,6 @@ export default defineConfig({
 		}),
 		remixRoutes(),
 		tsconfigPaths(),
+		remixPWA(),
 	],
 });

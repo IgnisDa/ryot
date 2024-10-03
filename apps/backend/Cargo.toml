@@ -24,6 +24,7 @@ config = { path = "../../crates/config" }
 database-models = { path = "../../crates/models/database" }
 dependent-models = { path = "../../crates/models/dependent" }
 dotenvy = "=0.15.7"
+env-utils = { path = "../../crates/utils/env" }
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
 exporter-service = { path = "../../crates/services/exporter" }
 file-storage-resolver = { path = "../../crates/resolvers/file-storage" }
@@ -43,16 +44,19 @@ miscellaneous-service = { path = "../../crates/services/miscellaneous" }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
 router-resolver = { path = "../../crates/resolvers/router" }
+sea-orm = { workspace = true }
+sea-orm-migration = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
 schematic = { workspace = true }
 statistics-resolver = { path = "../../crates/resolvers/statistics" }
 statistics-service = { path = "../../crates/services/statistics" }
-sea-orm = { workspace = true }
-sea-orm-migration = { workspace = true }
-serde_json = { workspace = true }
 tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }
 tracing = { workspace = true }
 tracing-subscriber = "=0.3.18"
+unkey = "=0.4.0"
 user-resolver = { path = "../../crates/resolvers/user" }
 user-service = { path = "../../crates/services/user" }

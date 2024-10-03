@@ -26,6 +26,7 @@ tmp
 /config/ryot.json
 .venv
 **/public/workbox-*.js
+**/public/*.worker.js
 **/public/workbox-*.js.map
 **/public/sw.js
 **/public/sw.js.map

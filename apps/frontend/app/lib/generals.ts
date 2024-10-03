@@ -63,6 +63,7 @@ export const redirectToQueryParam = "redirectTo";
 export const pageQueryParam = "page";
 export const AUTH_COOKIE_NAME = "Auth";
 export const toastKey = "Toast";
+export const PRO_REQUIRED_MESSAGE = "Ryot pro is required to use this feature";
 
 export const queryClient = new QueryClient({
 	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
@@ -77,6 +78,11 @@ export const getDateFromTimeSpan = (timeSpan: TimeSpan) => {
 		.with(TimeSpan.AllTime, () => null)
 		.exhaustive();
 };
+
+export enum FitnessEntity {
+	Workouts = "workouts",
+	Templates = "templates",
+}
 
 export enum TimeSpan {
 	Last7Days = "Last 7 days",
@@ -308,6 +314,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	personDetails: (personId: string) => ({
 		queryKey: ["personDetails", personId],
 	}),
+	genreImages: (genreId: string) => ({
+		queryKey: ["genreDetails", "images", genreId],
+	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
@@ -316,6 +325,9 @@ const collectionQueryKeys = createQueryKeys("collections", {
 	}),
 	details: (collectionId: string, take?: number) => ({
 		queryKey: ["collectionDetails", collectionId, take],
+	}),
+	images: (collectionId: string) => ({
+		queryKey: ["collectionDetails", "images", collectionId],
 	}),
 });
 
@@ -331,6 +343,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 	exerciseParameters: () => ({
 		queryKey: ["exerciseParameters"],
+	}),
+	workoutTemplateDetails: (workoutTemplateId: string) => ({
+		queryKey: ["workoutTemplateDetails", workoutTemplateId],
 	}),
 });
 

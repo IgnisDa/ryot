@@ -26,6 +26,7 @@ pub struct Model {
     pub source: MediaSource,
     pub is_nsfw: Option<bool>,
     pub is_partial: Option<bool>,
+    pub is_recommendation: Option<bool>,
     pub description: Option<String>,
     pub original_language: Option<String>,
     pub publish_year: Option<i32>,

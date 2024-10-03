@@ -40,7 +40,7 @@ pub struct CreateOrUpdateCollectionInput {
     pub name: String,
     pub description: Option<String>,
     pub update_id: Option<String>,
-    #[graphql(skip_input)]
+    pub collaborators: Option<Vec<String>>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,
 }
 
@@ -838,6 +838,7 @@ pub struct PartialMetadata {
     pub image: Option<String>,
     pub lot: MediaLot,
     pub source: MediaSource,
+    pub is_recommendation: Option<bool>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize, SimpleObject, FromQueryResult)]
@@ -885,7 +886,6 @@ pub struct CommitMediaInput {
     pub lot: MediaLot,
     pub source: MediaSource,
     pub identifier: String,
-    #[graphql(skip_input)]
     pub force_update: Option<bool>,
 }
 
@@ -1095,6 +1095,7 @@ pub struct CreateUserIntegrationInput {
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
     pub minimum_progress: Option<Decimal>,
     pub maximum_progress: Option<Decimal>,
+    pub sync_to_owned_collection: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1103,6 +1104,7 @@ pub struct UpdateUserIntegrationInput {
     pub is_disabled: Option<bool>,
     pub minimum_progress: Option<Decimal>,
     pub maximum_progress: Option<Decimal>,
+    pub sync_to_owned_collection: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1472,6 +1474,7 @@ pub struct UpdateSeenItemInput {
     pub seen_id: String,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
+    pub manual_time_spent: Option<Decimal>,
     pub provider_watched_on: Option<String>,
 }
 
@@ -1557,6 +1560,48 @@ pub struct MetadataSearchInput {
 pub struct GroupedCalendarEvent {
     pub events: Vec<GraphqlCalendarEvent>,
     pub date: NaiveDate,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct CreateAccessLinkInput {
+    pub name: String,
+    pub maximum_uses: Option<i32>,
+    pub expires_on: Option<DateTimeUtc>,
+    pub redirect_to: Option<String>,
+    pub is_mutation_allowed: Option<bool>,
+    pub is_account_default: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum ProcessAccessLinkInput {
+    Id(String),
+    Username(String),
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum ProcessAccessLinkErrorVariant {
+    Expired,
+    Revoked,
+    NotFound,
+    MaximumUsesReached,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct ProcessAccessLinkError {
+    pub error: ProcessAccessLinkErrorVariant,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct ProcessAccessLinkResponse {
+    pub api_key: String,
+    pub token_valid_for_days: i32,
+    pub redirect_to: Option<String>,
+}
+
+#[derive(Union)]
+pub enum ProcessAccessLinkResult {
+    Ok(ProcessAccessLinkResponse),
+    Error(ProcessAccessLinkError),
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Display)]

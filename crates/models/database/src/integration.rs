@@ -20,6 +20,7 @@ pub struct Model {
     pub user_id: String,
     pub lot: IntegrationLot,
     pub provider: IntegrationProvider,
+    pub sync_to_owned_collection: Option<bool>,
     pub is_disabled: Option<bool>,
     #[graphql(skip_input)]
     pub created_on: DateTimeUtc,

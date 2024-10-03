@@ -90,6 +90,10 @@ mutation CreateUserWorkout($input: UserWorkoutInput!) {
   createUserWorkout(input: $input)
 }
 
+mutation CreateOrUpdateWorkoutTemplate($input: UserWorkoutInput!) {
+  createOrUpdateWorkoutTemplate(input: $input)
+}
+
 mutation DeleteCollection($collectionName: String!) {
   deleteCollection(collectionName: $collectionName)
 }
@@ -126,6 +130,10 @@ mutation DeleteUserNotificationPlatform($notificationId: String!) {
 
 mutation DeleteUserWorkout($workoutId: String!) {
   deleteUserWorkout(workoutId: $workoutId)
+}
+
+mutation DeleteWorkoutTemplate($workoutTemplateId: String!) {
+  deleteWorkoutTemplate(workoutTemplateId: $workoutTemplateId)
 }
 
 mutation DeployBackgroundJob($jobName: BackgroundJob!) {
@@ -213,3 +221,27 @@ mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {
   updateUserPreference(input: $input)
 }
 
+
+mutation CreateAccessLink($input: CreateAccessLinkInput!) {
+  createAccessLink(input: $input) {
+    id
+  }
+}
+
+mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
+  processAccessLink(input: $input) {
+    __typename
+    ... on ProcessAccessLinkError {
+      error
+    }
+    ... on ProcessAccessLinkResponse {
+      apiKey
+      redirectTo
+      tokenValidForDays
+    }
+  }
+}
+
+mutation revokeAccessLink($accessLinkId: String!) {
+  revokeAccessLink(accessLinkId: $accessLinkId)
+}

@@ -268,6 +268,7 @@ impl MediaProvider for OpenlibraryService {
                         title,
                         lot: MediaLot::Book,
                         source: MediaSource::Openlibrary,
+                        is_recommendation: None,
                         image,
                     },
                 ))
@@ -442,6 +443,7 @@ impl MediaProvider for OpenlibraryService {
                     identifier,
                     lot: MediaLot::Book,
                     source: MediaSource::Openlibrary,
+                    is_recommendation: None,
                 });
             }
         }

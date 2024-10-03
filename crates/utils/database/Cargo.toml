@@ -19,6 +19,7 @@ file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 futures = { workspace = true }
 itertools = { workspace = true }
+jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 markdown = { workspace = true }

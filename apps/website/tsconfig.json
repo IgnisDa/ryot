@@ -1,0 +1,48 @@
+{
+	"include": ["env.d.ts", "**/*.ts", "**/*.tsx"],
+	"compilerOptions": {
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"jsx": "react-jsx",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"resolveJsonModule": true,
+		"noUnusedLocals": true,
+		"target": "es2022",
+		"strict": true,
+		"allowJs": true,
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": ".",
+		"paths": {
+			"@ryot/generated/*": ["../../libs/generated/src/*"],
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
+			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
+			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
+			"~/*": ["./app/*"],
+			"@ryot/transactional/*": ["../../libs/transactional/*"]
+		},
+		"skipLibCheck": true,
+		"noEmit": true,
+		"outDir": "../../.moon/cache/types/apps/website",
+		"plugins": [
+			{
+				"name": "typescript-remix-routes-plugin"
+			}
+		]
+	},
+	"references": [
+		{
+			"path": "../../libs/generated"
+		},
+		{
+			"path": "../../libs/graphql"
+		},
+		{
+			"path": "../../libs/transactional"
+		},
+		{
+			"path": "../../libs/ts-utils"
+		}
+	]
+}

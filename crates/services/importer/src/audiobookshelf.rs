@@ -32,7 +32,7 @@ where
 {
     let mut media = vec![];
     let mut failed_items = vec![];
-    let url = format!("{}/api/", input.api_url);
+    let url = format!("{}/api", input.api_url);
     let client = get_base_http_client(Some(vec![(
         AUTHORIZATION,
         HeaderValue::from_str(&format!("Bearer {}", input.api_key)).unwrap(),

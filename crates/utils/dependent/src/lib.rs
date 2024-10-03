@@ -305,11 +305,12 @@ pub async fn create_partial_metadata(
     };
     let model = PartialMetadata {
         id: mode.id,
-        title: mode.title,
-        identifier: mode.identifier,
         lot: mode.lot,
-        source: mode.source,
         image: data.image,
+        title: mode.title,
+        source: mode.source,
+        identifier: mode.identifier,
+        is_recommendation: mode.is_recommendation,
     };
     Ok(model)
 }
@@ -1026,7 +1027,7 @@ pub async fn post_review(
         }
         EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
         EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Workout => unreachable!(),
+        EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
     };
     if let Some(s) = input.is_spoiler {
         review_obj.is_spoiler = ActiveValue::Set(s);
@@ -1049,7 +1050,7 @@ pub async fn post_review(
             EntityLot::Person => Person::find_by_id(&id).one(db).await?.unwrap().name,
             EntityLot::Collection => Collection::find_by_id(&id).one(db).await?.unwrap().name,
             EntityLot::Exercise => id.clone(),
-            EntityLot::Workout => unreachable!(),
+            EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
         };
         let user = user_by_id(db, &insert.user_id.unwrap()).await?;
         // DEV: Do not send notification if updating a review
@@ -1833,6 +1834,7 @@ pub async fn calculate_and_commit(
             assets: input.assets,
             exercises: exercises.into_iter().map(|(_, _, ex)| ex).collect(),
         },
+        template_id: input.template_id,
         duration: 0,
     };
     let mut insert: workout::ActiveModel = model.into();
@@ -2177,12 +2179,15 @@ pub async fn process_import(
 pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutInput {
     UserWorkoutInput {
         name: user_workout.name,
+        default_rest_timer: None,
         id: Some(user_workout.id),
         end_time: user_workout.end_time,
+        update_workout_template_id: None,
         start_time: user_workout.start_time,
+        template_id: user_workout.template_id,
         assets: user_workout.information.assets,
-        repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
+        repeated_from: user_workout.repeated_from,
         exercises: user_workout
             .information
             .exercises

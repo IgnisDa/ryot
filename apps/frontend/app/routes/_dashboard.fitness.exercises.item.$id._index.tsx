@@ -61,7 +61,12 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { MediaScrollArea } from "~/components/media";
-import { TimeSpan, dayjsLib, getDateFromTimeSpan } from "~/lib/generals";
+import {
+	FitnessEntity,
+	TimeSpan,
+	dayjsLib,
+	getDateFromTimeSpan,
+} from "~/lib/generals";
 import {
 	useUserDetails,
 	useUserPreferences,
@@ -308,6 +313,7 @@ export default function Page() {
 											key={history.workoutId}
 											exerciseIdx={history.idx}
 											entityId={history.workoutId}
+											entityType={FitnessEntity.Workouts}
 										/>
 									</Box>
 								)}

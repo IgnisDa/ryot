@@ -187,6 +187,10 @@ server:
     # @envvar SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
+  # The pro key assigned to the user.
+  # @envvar SERVER_PRO_KEY
+  pro_key: ""
+
   # The hours in which a media can be marked as seen again for a user. This
   # is used so that the same media can not be used marked as started when
   # it has been already marked as seen in the last `n` hours.

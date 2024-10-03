@@ -15,6 +15,7 @@ pub enum Integration {
     LastTriggeredOn,
     ProviderSpecifics,
     UserId,
+    SyncToOwnedCollection,
     MinimumProgress,
     MaximumProgress,
     IsDisabled,
@@ -46,6 +47,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Integration::UserId).text().not_null())
                     .col(ColumnDef::new(Integration::MinimumProgress).decimal())
                     .col(ColumnDef::new(Integration::MaximumProgress).decimal())
+                    .col(ColumnDef::new(Integration::SyncToOwnedCollection).boolean())
                     .col(ColumnDef::new(Integration::IsDisabled).boolean())
                     .foreign_key(
                         ForeignKey::create()

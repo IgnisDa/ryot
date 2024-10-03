@@ -10,7 +10,9 @@ import {
 	type WorkoutDetailsQuery,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
+	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { isString } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
@@ -28,11 +30,13 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
+import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
 	statistic: WorkoutSetStatistic;
 	lot: SetLot;
 	confirmedAt: string | null;
+	note?: boolean | string | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -52,17 +56,22 @@ export type Exercise = {
 	images: Array<Media>;
 	supersetWith: Array<string>;
 	isShowDetailsOpen: boolean;
+	openedDetailsTab?: "images" | "history";
 };
 
 export type InProgressWorkout = {
+	updateWorkoutTemplateId?: string;
 	repeatedFrom?: string;
+	templateId?: string;
 	startTime: string;
 	endTime?: string;
 	name: string;
 	comment?: string;
+	defaultRestTimer?: number | null;
 	exercises: Array<Exercise>;
 	videos: Array<string>;
 	images: Array<string>;
+	highlightedSet?: { exerciseIdx: number; setIdx: number };
 };
 
 type CurrentWorkout = InProgressWorkout | null;
@@ -134,6 +143,16 @@ export const getWorkoutDetailsQuery = (workoutId: string) =>
 export const getWorkoutDetails = async (workoutId: string) =>
 	queryClient.ensureQueryData(getWorkoutDetailsQuery(workoutId));
 
+export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
+	queryOptions({
+		queryKey:
+			queryFactory.fitness.workoutTemplateDetails(workoutTemplateId).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(WorkoutTemplateDetailsDocument, { workoutTemplateId })
+				.then((data) => data.workoutTemplateDetails),
+	});
+
 type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
 
 export const convertHistorySetToCurrentSet = (
@@ -151,18 +170,26 @@ export const convertHistorySetToCurrentSet = (
 export const duplicateOldWorkout = async (
 	workoutInformation: WorkoutInformation,
 	name: string,
+	coreDetails: ReturnType<typeof useCoreDetails>,
 	repeatedFromId?: string,
+	templateId?: string,
+	updateWorkoutTemplateId?: string,
+	defaultRestTimer?: number | null,
 ) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = name;
 	inProgress.repeatedFrom = repeatedFromId;
+	inProgress.templateId = templateId;
+	inProgress.updateWorkoutTemplateId = updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
-	for (const [_exerciseIdx, ex] of workoutInformation.exercises.entries()) {
+	inProgress.defaultRestTimer = defaultRestTimer;
+	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map(convertHistorySetToCurrentSet);
 		const exerciseDetails = await getExerciseDetails(ex.name);
+		const defaultRestTime = defaultRestTimer || ex.restTime;
 		inProgress.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
+			isShowDetailsOpen: exerciseIdx === 0,
 			exerciseDetails: { images: exerciseDetails.details.attributes.images },
 			images: [],
 			videos: [],
@@ -171,8 +198,15 @@ export const duplicateOldWorkout = async (
 			lot: ex.lot,
 			notes: ex.notes,
 			supersetWith: [],
-			restTimer: ex.restTime ? { duration: ex.restTime, enabled: true } : null,
+			restTimer: defaultRestTime
+				? { duration: defaultRestTime, enabled: true }
+				: null,
 			sets: sets,
+			openedDetailsTab: !coreDetails.isPro
+				? "images"
+				: (exerciseDetails.userDetails.history?.length || 0) > 0
+					? "history"
+					: "images",
 		});
 	}
 	for (const [idx, exercise] of workoutInformation.exercises.entries()) {
@@ -205,7 +239,7 @@ export const addExerciseToWorkout = async (
 		}
 		draft.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: false,
+			isShowDetailsOpen: true,
 			exerciseId: ex.name,
 			exerciseDetails: {
 				images: exerciseDetails.details.attributes.images,
@@ -218,6 +252,10 @@ export const addExerciseToWorkout = async (
 			notes: [],
 			images: [],
 			videos: [],
+			openedDetailsTab:
+				(exerciseDetails.userDetails.history?.length || 0) > 0
+					? "history"
+					: "images",
 		});
 	}
 	const finishedDraft = finishDraft(draft);
@@ -241,10 +279,13 @@ export const currentWorkoutToCreateWorkoutInput = (
 	const input: CreateUserWorkoutMutationVariables = {
 		input: {
 			endTime: new Date().toISOString(),
+			templateId: currentWorkout.templateId,
+			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			repeatedFrom: currentWorkout.repeatedFrom,
+			defaultRestTimer: currentWorkout.defaultRestTimer,
 			exercises: [],
 			assets: {
 				images: [...currentWorkout.images],
@@ -256,8 +297,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
 			if (isCreatingTemplate || set.confirmedAt) {
+				const note = isString(set.note) ? set.note : undefined;
 				if (Object.keys(set.statistic).length === 0) continue;
 				sets.push({
+					note,
 					lot: set.lot,
 					confirmedAt: set.confirmedAt
 						? new Date(set.confirmedAt).toISOString()
