@@ -1,13 +1,13 @@
 use sea_orm::DatabaseConnection;
 
-pub struct CollectionService {
+pub struct CacheService {
     db: DatabaseConnection,
 }
 
-impl CollectionService {
+impl CacheService {
     pub fn new(db: &DatabaseConnection) -> Self {
         Self { db: db.clone() }
     }
 }
 
-impl CollectionService {}
+impl CacheService {}

@@ -9,6 +9,7 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
+use cache_service::CacheService;
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
     BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
@@ -148,6 +149,7 @@ pub struct MiscellaneousService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
+    cache_service: Arc<CacheService>,
     commit_cache: Cache<CommitCache, ()>,
     file_storage_service: Arc<FileStorageService>,
     seen_progress_cache: Cache<ProgressUpdateCache, ()>,
@@ -169,6 +171,7 @@ impl MiscellaneousService {
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
+        cache_service: Arc<CacheService>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
@@ -181,6 +184,7 @@ impl MiscellaneousService {
             timezone,
             oidc_enabled,
             commit_cache,
+            cache_service,
             db: db.clone(),
             seen_progress_cache,
             file_storage_service,
