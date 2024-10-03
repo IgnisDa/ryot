@@ -118,8 +118,10 @@ import {
 	dayjsLib,
 	getSetColor,
 	getSurroundingElements,
+	postMessageToServiceWorker,
 	queryClient,
 	queryFactory,
+	sendNotificationToServiceWorker,
 } from "~/lib/generals";
 import {
 	forceUpdateEverySecond,
@@ -235,30 +237,22 @@ export default function Page() {
 		const sound = new Howl({ src: ["/timer-completed.mp3"] });
 		sound.play();
 		if (document.visibilityState === "visible") return;
-		navigator.serviceWorker.ready.then((registration) => {
-			registration.showNotification("Timer completed", {
-				tag: "timer-completed" as AppServiceWorkerNotificationTag,
-				body: "Let's get this done!",
-				icon: LOGO_IMAGE_URL,
-				silent: true,
-				data: {
-					event: "open-link",
-					link: window.location.href,
-				} as AppServiceWorkerNotificationData,
-			});
-		});
+		sendNotificationToServiceWorker(
+			"Timer completed",
+			"Let's get this done!",
+			"timer-completed",
+			{ event: "open-link", link: window.location.href },
+		);
 	};
 	useInterval(() => {
 		if (
 			loaderData.action === FitnessAction.LogWorkout &&
 			navigator.serviceWorker.controller &&
 			document.visibilityState === "visible"
-		) {
-			const message = {
+		)
+			postMessageToServiceWorker({
 				event: "remove-timer-completed-notification",
-			} as AppServiceWorkerMessageData;
-			navigator.serviceWorker.controller.postMessage(message);
-		}
+			});
 	}, 5000);
 	const [
 		timerDrawerOpened,
