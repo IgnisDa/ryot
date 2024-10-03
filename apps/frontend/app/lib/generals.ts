@@ -98,6 +98,11 @@ export enum ThreePointSmileyRating {
 	Sad = "Sad",
 }
 
+export enum FitnessAction {
+	LogWorkout = "log-workout",
+	CreateTemplate = "create-template",
+}
+
 export const convertDecimalToThreePointSmiley = (rating: number) =>
 	inRange(rating, 0, 33.4)
 		? ThreePointSmileyRating.Sad

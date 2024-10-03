@@ -107,6 +107,7 @@ import {
 } from "~/components/fitness";
 import {
 	CurrentWorkoutKey,
+	FitnessAction,
 	FitnessEntity,
 	LOGO_IMAGE_URL,
 	PRO_REQUIRED_MESSAGE,
@@ -145,15 +146,12 @@ import {
 const workoutCookieName = CurrentWorkoutKey;
 const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
-enum Action {
-	LogWorkout = "log-workout",
-	CreateTemplate = "create-template",
-}
-
 export const loader = unstable_defineLoader(async ({ params, request }) => {
-	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
+	const { action } = zx.parseParams(params, {
+		action: z.nativeEnum(FitnessAction),
+	});
 	await match(action)
-		.with(Action.LogWorkout, async () => {
+		.with(FitnessAction.LogWorkout, async () => {
 			const inProgress = isWorkoutActive(request);
 			if (!inProgress)
 				throw await redirectWithToast($path("/"), {
@@ -161,16 +159,21 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 					message: "No workout in progress",
 				});
 		})
-		.with(Action.CreateTemplate, async () => {})
+		.with(FitnessAction.CreateTemplate, async () => {})
 		.exhaustive();
-	return { action, isCreatingTemplate: action === Action.CreateTemplate };
+	return {
+		action,
+		isCreatingTemplate: action === FitnessAction.CreateTemplate,
+	};
 });
 
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [
 		{
 			title: `${
-				data?.action === Action.LogWorkout ? "Log Workout" : "Create Template"
+				data?.action === FitnessAction.LogWorkout
+					? "Log Workout"
+					: "Create Template"
 			} | Ryot`,
 		},
 	];
