@@ -250,6 +250,7 @@ export default function Page() {
 	};
 	useInterval(() => {
 		if (
+			loaderData.action === FitnessAction.LogWorkout &&
 			navigator.serviceWorker.controller &&
 			document.visibilityState === "visible"
 		) {
