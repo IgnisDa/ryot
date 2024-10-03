@@ -400,7 +400,7 @@ export default function Page() {
 								<SimpleGrid
 									cols={
 										2 +
-										(isCreatingTemplate ? -1 : 0) +
+										(isCreatingTemplate || isUpdatingWorkout ? -1 : 0) +
 										Number(currentWorkout.exercises.length > 0) +
 										Number(currentWorkout.exercises.length > 1)
 									}
@@ -411,7 +411,11 @@ export default function Page() {
 										variant="subtle"
 										size="compact-sm"
 										onClick={timerDrawerToggle}
-										style={isCreatingTemplate ? { display: "none" } : undefined}
+										style={
+											isCreatingTemplate || isUpdatingWorkout
+												? { display: "none" }
+												: undefined
+										}
 									>
 										<RestTimer />
 									</Button>

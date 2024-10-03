@@ -347,7 +347,7 @@ export default function Page() {
 											<Menu.Item
 												onClick={() =>
 													performDecision({
-														action: FitnessAction.LogWorkout,
+														action: FitnessAction.UpdateWorkout,
 														updateWorkoutId: loaderData.entityId,
 														defaultRestTimer: loaderData.defaultRestTimer,
 													})
