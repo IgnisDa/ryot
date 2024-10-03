@@ -223,8 +223,7 @@ const deleteUploadedAsset = (key: string) => {
 };
 
 export default function Page() {
-	const { isCreatingTemplate, isUpdatingWorkout } =
-		useLoaderData<typeof loader>();
+	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const events = useApplicationEvents();
@@ -322,7 +321,7 @@ export default function Page() {
 							<Stack ref={parent}>
 								<Group justify="space-between">
 									<TextInput
-										w={isCreatingTemplate ? "65%" : "100%"}
+										w={loaderData.isCreatingTemplate ? "65%" : "100%"}
 										size="sm"
 										label="Name"
 										placeholder="A name for your workout"
@@ -336,7 +335,7 @@ export default function Page() {
 											)
 										}
 									/>
-									{isCreatingTemplate ? (
+									{loaderData.isCreatingTemplate ? (
 										<NumberInput
 											w="30%"
 											suffix="s"
@@ -372,7 +371,7 @@ export default function Page() {
 									<StatDisplay
 										name="Exercises"
 										value={
-											isCreatingTemplate
+											loaderData.isCreatingTemplate
 												? currentWorkout.exercises.length.toString()
 												: `${
 														currentWorkout.exercises
@@ -389,7 +388,7 @@ export default function Page() {
 												currentWorkout.exercises
 													.flatMap((e) => e.sets)
 													.flatMap((s) =>
-														isCreatingTemplate || s.confirmedAt
+														loaderData.isCreatingTemplate || s.confirmedAt
 															? Number(s.statistic.reps || 0) *
 																Number(s.statistic.weight || 0)
 															: 0,
@@ -403,7 +402,9 @@ export default function Page() {
 											currentWorkout.exercises
 												.flatMap((e) => e.sets)
 												.flatMap((s) =>
-													isCreatingTemplate || s.confirmedAt ? 1 : 0,
+													loaderData.isCreatingTemplate || s.confirmedAt
+														? 1
+														: 0,
 												),
 										).toString()}
 									/>
@@ -412,7 +413,10 @@ export default function Page() {
 								<SimpleGrid
 									cols={
 										2 +
-										(isCreatingTemplate || isUpdatingWorkout ? -1 : 0) +
+										(loaderData.isCreatingTemplate ||
+										loaderData.isUpdatingWorkout
+											? -1
+											: 0) +
 										Number(currentWorkout.exercises.length > 0) +
 										Number(currentWorkout.exercises.length > 1)
 									}
@@ -424,7 +428,8 @@ export default function Page() {
 										size="compact-sm"
 										onClick={timerDrawerToggle}
 										style={
-											isCreatingTemplate || isUpdatingWorkout
+											loaderData.isCreatingTemplate ||
+											loaderData.isUpdatingWorkout
 												? { display: "none" }
 												: undefined
 										}
@@ -456,20 +461,22 @@ export default function Page() {
 														notifications.show({
 															color: "red",
 															message: `Please give a name to the ${
-																isCreatingTemplate ? "template" : "workout"
+																loaderData.isCreatingTemplate
+																	? "template"
+																	: "workout"
 															}`,
 														});
 														return;
 													}
 													const yes = await confirmWrapper({
-														confirmation: isCreatingTemplate
+														confirmation: loaderData.isCreatingTemplate
 															? "Only sets that have data will added. Are you sure you want to save this template?"
 															: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 													});
 													if (yes) {
 														const input = currentWorkoutToCreateWorkoutInput(
 															currentWorkout,
-															isCreatingTemplate,
+															loaderData.isCreatingTemplate,
 														);
 														for (const exercise of currentWorkout.exercises) {
 															queryClient.removeQueries({
@@ -480,7 +487,7 @@ export default function Page() {
 															});
 														}
 														stopTimer();
-														if (!isCreatingTemplate) {
+														if (!loaderData.isCreatingTemplate) {
 															events.createWorkout();
 															Cookies.remove(workoutCookieName);
 														}
@@ -489,7 +496,7 @@ export default function Page() {
 															{
 																method: "post",
 																action: withQuery(".", {
-																	intent: isCreatingTemplate
+																	intent: loaderData.isCreatingTemplate
 																		? "createTemplate"
 																		: "createWorkout",
 																}),
@@ -499,7 +506,8 @@ export default function Page() {
 													}
 												}}
 											>
-												{isCreatingTemplate || isUpdatingWorkout
+												{loaderData.isCreatingTemplate ||
+												loaderData.isUpdatingWorkout
 													? "Save"
 													: "Finish"}
 											</Button>
@@ -513,7 +521,7 @@ export default function Page() {
 										onClick={async () => {
 											const yes = await confirmWrapper({
 												confirmation: `Are you sure you want to cancel this ${
-													isCreatingTemplate ? "template" : "workout"
+													loaderData.isCreatingTemplate ? "template" : "workout"
 												}?`,
 											});
 											if (yes) {
@@ -550,7 +558,9 @@ export default function Page() {
 											variant="subtle"
 											onClick={() => setMeasurementsDrawerOpen(true)}
 											style={
-												isCreatingTemplate ? { display: "none" } : undefined
+												loaderData.isCreatingTemplate
+													? { display: "none" }
+													: undefined
 											}
 										>
 											Add measurement
@@ -569,7 +579,9 @@ export default function Page() {
 					)}
 				</ClientOnly>
 			) : (
-				<Text>Loading {isCreatingTemplate ? "template" : "workout"}...</Text>
+				<Text>
+					Loading {loaderData.isCreatingTemplate ? "template" : "workout"}...
+				</Text>
 			)}
 		</Container>
 	);
