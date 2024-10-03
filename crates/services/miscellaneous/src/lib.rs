@@ -20,14 +20,14 @@ use common_utils::{
     get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
-    access_link, calendar_event, collection, collection_to_entity,
+    access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, integration, metadata, metadata_group, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
     notification_platform, person,
     prelude::{
-        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport,
-        Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
+        ImportReport, Integration, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
         MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
         QueuedNotification, Review, Seen, User, UserToEntity,
     },
@@ -4574,6 +4574,11 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Deleting expired application caches");
+        ApplicationCache::delete_many()
+            .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
             .exec(&self.db)
             .await?;
         Ok(())
