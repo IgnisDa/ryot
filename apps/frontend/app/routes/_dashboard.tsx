@@ -394,8 +394,9 @@ export default function Layout() {
 	return (
 		<>
 			{loaderData.workoutInProgress &&
-			location.pathname !==
-				$path("/fitness/:action", { action: FitnessAction.LogWorkout }) ? (
+			Object.values(FitnessAction)
+				.map((action) => $path("/fitness/:action", { action }))
+				.includes(location.pathname) ? (
 				<Tooltip label="You have an active workout" position="left">
 					<Affix
 						position={{
