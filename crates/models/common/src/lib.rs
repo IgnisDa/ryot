@@ -198,8 +198,8 @@ pub struct ExportJob {
     pub started_at: DateTimeUtc,
 }
 
-#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 #[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
 pub enum ApplicationCacheKey {
     ProgressUpdateCache {
         user_id: String,
