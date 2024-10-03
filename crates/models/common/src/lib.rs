@@ -5,6 +5,7 @@ use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use strum::{Display, EnumIter};
 
 #[derive(Debug, SimpleObject, Serialize, Deserialize, Clone)]
@@ -198,6 +199,7 @@ pub struct ExportJob {
 }
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Eq, Serialize, Deserialize)]
+#[skip_serializing_none]
 pub enum ApplicationCacheKey {
     ProgressUpdateCache {
         user_id: String,

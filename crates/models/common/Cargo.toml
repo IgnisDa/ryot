@@ -12,4 +12,5 @@ schematic = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_with = { workspace = true }
 strum = { workspace = true }
