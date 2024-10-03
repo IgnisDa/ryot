@@ -14,7 +14,6 @@ async-graphql-axum = "=7.0.9"
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
-cached = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 collection-resolver = { path = "../../crates/resolvers/collection" }

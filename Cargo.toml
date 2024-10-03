@@ -57,7 +57,6 @@ async-trait = "=0.1.81"
 aws-sdk-s3 = { version = "=1.42.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.7.5", features = ["macros", "multipart"] }
 boilermates = "=0.3.0"
-cached = { version = "=0.53.1", features = ["disk_store"] }
 chrono = "=0.4.38"
 chrono-tz = "=0.9.0"
 const-str = "=0.5.7"
@@ -72,6 +71,7 @@ itertools = "=0.13.0"
 futures = "=0.3.30"
 hashbag = "=0.1.12"
 markdown = "=1.0.0-alpha.18"
+moka = { version = "=0.12.8", features = ["future"] }
 nanoid = "=0.4.0"
 openidconnect = "=3.5.0"
 regex = "=1.10.5"

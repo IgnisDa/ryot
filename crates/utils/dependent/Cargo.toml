@@ -9,7 +9,6 @@ apalis = { workspace = true }
 application-utils = { path = "../application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
-cached = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
@@ -23,6 +22,7 @@ fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
+moka = { workspace = true }
 nanoid = { workspace = true }
 providers = { path = "../../providers" }
 rust_decimal = { workspace = true }

@@ -9,7 +9,6 @@ apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
-cached = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 config = { path = "../../config" }
@@ -29,6 +28,7 @@ flate2 = "=1.0.33"
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
+moka = { workspace = true }
 providers = { path = "../../providers" }
 regex = { workspace = true }
 reqwest = { workspace = true }
