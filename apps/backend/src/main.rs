@@ -58,8 +58,7 @@ async fn main() -> Result<()> {
     match env::var("RUST_LOG").ok() {
         Some(v) => {
             if !v.contains("sea_orm") {
-                let new_env_var = format!("{},sea_orm=info", v);
-                env::set_var("RUST_LOG", new_env_var);
+                env::set_var("RUST_LOG", format!("{},sea_orm=info", v));
             }
         }
         None => env::set_var("RUST_LOG", "ryot=info,sea_orm=info"),
