@@ -141,7 +141,7 @@ where
                 } else {
                     ryot_log!(
                         debug,
-                        "No ASIN, ISBN or iTunes ID found for item {:#?}",
+                        "No ASIN, ISBN or iTunes ID found for item {:?}",
                         item
                     );
                     continue;
