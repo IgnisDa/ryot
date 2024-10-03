@@ -12,8 +12,9 @@ use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
-    BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
+    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
+    DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl,
+    StringIdObject,
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
@@ -126,18 +127,6 @@ impl MediaProviderLanguages for CustomService {
 }
 
 #[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
-struct ProgressUpdateCache {
-    user_id: String,
-    metadata_id: String,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-    podcast_episode_number: Option<i32>,
-    anime_episode_number: Option<i32>,
-    manga_chapter_number: Option<Decimal>,
-    manga_volume_number: Option<i32>,
-}
-
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
 struct CommitCache {
     id: String,
     lot: EntityLot,
@@ -152,7 +141,6 @@ pub struct MiscellaneousService {
     cache_service: Arc<CacheService>,
     commit_cache: Cache<CommitCache, ()>,
     file_storage_service: Arc<FileStorageService>,
-    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
     perform_application_job: MemoryStorage<ApplicationJob>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
@@ -176,7 +164,6 @@ impl MiscellaneousService {
         perform_application_job: &MemoryStorage<ApplicationJob>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
-        let seen_progress_cache = create_disk_cache(config.server.progress_update_threshold);
         let commit_cache = create_disk_cache(1);
         Self {
             config,
@@ -186,7 +173,6 @@ impl MiscellaneousService {
             commit_cache,
             cache_service,
             db: db.clone(),
-            seen_progress_cache,
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
@@ -1137,7 +1123,7 @@ ORDER BY RANDOM() LIMIT 10;
         // DEV: update only if media has not been consumed for this user in the last `n` duration
         respect_cache: bool,
     ) -> Result<ProgressUpdateResultUnion> {
-        let cache = ProgressUpdateCache {
+        let cache = ApplicationCacheKey::ProgressUpdateCache {
             user_id: user_id.to_owned(),
             metadata_id: input.metadata_id.clone(),
             show_season_number: input.show_season_number,
@@ -1147,7 +1133,7 @@ ORDER BY RANDOM() LIMIT 10;
             manga_chapter_number: input.manga_chapter_number,
             manga_volume_number: input.manga_volume_number,
         };
-        let in_cache = self.seen_progress_cache.get(&cache).await;
+        let in_cache = self.cache_service.get(cache.clone()).await?;
         if respect_cache && in_cache.is_some() {
             ryot_log!(debug, "Seen is already in cache");
             return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -1357,7 +1343,9 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(debug, "Progress update = {:?}", seen);
         let id = seen.id.clone();
         if seen.state == SeenState::Completed && respect_cache {
-            self.seen_progress_cache.insert(cache, ()).await;
+            self.cache_service
+                .set_with_expiry(cache, self.config.server.progress_update_threshold)
+                .await?;
         }
         self.after_media_seen_tasks(seen).await?;
         Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
@@ -2862,7 +2850,7 @@ ORDER BY RANDOM() LIMIT 10;
             let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
             let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
             let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-            let cache = ProgressUpdateCache {
+            let cache = ApplicationCacheKey::ProgressUpdateCache {
                 user_id: user_id.to_owned(),
                 metadata_id: si.metadata_id.clone(),
                 show_season_number: ssn,
@@ -2872,7 +2860,7 @@ ORDER BY RANDOM() LIMIT 10;
                 manga_chapter_number: mcn,
                 manga_volume_number: mvn,
             };
-            self.seen_progress_cache.remove(&cache).await;
+            self.cache_service.delete(cache).await?;
             let seen_id = si.id.clone();
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {
