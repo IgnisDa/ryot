@@ -1346,6 +1346,33 @@ const RestTimerProgress = (props: { onClick: () => void }) => {
 	);
 };
 
+const getNextSetInWorkout = (
+	currentWorkout: InProgressWorkout,
+	currentExerciseIdx: number,
+	currentSetIdx: number,
+) => {
+	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
+	if (currentExercise.supersetWith.length === 0) {
+		const isLastSet = currentSetIdx === currentExercise.sets.length - 1;
+		if (isLastSet)
+			return {
+				exerciseIdx: currentExerciseIdx + 1,
+				setIdx: 0,
+				wasLastSet: true,
+			};
+		return {
+			exerciseIdx: currentExerciseIdx,
+			setIdx: currentSetIdx + 1,
+			wasLastSet: false,
+		};
+	}
+	return {
+		exerciseIdx: currentExerciseIdx,
+		setIdx: currentSetIdx,
+		wasLastSet: false,
+	};
+};
+
 const SetDisplay = (props: {
 	setIdx: number;
 	repsCol: boolean;
@@ -1614,30 +1641,23 @@ const SetDisplay = (props: {
 												draft.exercises[props.exerciseIdx];
 											currentExercise.sets[props.setIdx].confirmedAt =
 												newConfirmed ? dayjsLib().toISOString() : null;
-											const isLastSet =
-												props.setIdx === currentExercise.sets.length - 1;
-											const nextExerciseIdx = props.exerciseIdx + 1;
-											const nextExercise = draft.exercises[nextExerciseIdx];
+											const nextSet = getNextSetInWorkout(
+												currentWorkout,
+												props.exerciseIdx,
+												props.setIdx,
+											);
+											focusOnExercise(nextSet.exerciseIdx);
 											if (newConfirmed) {
-												draft.highlightedSet = isLastSet
-													? {
-															exerciseIdx: nextExerciseIdx,
-															setIdx: 0,
-														}
-													: {
-															exerciseIdx: props.exerciseIdx,
-															setIdx: props.setIdx + 1,
-														};
-												if (isLastSet) {
+												draft.highlightedSet = nextSet;
+												if (nextSet.wasLastSet) {
 													currentExercise.isShowDetailsOpen = false;
+													const nextExercise =
+														draft.exercises[nextSet.exerciseIdx];
 													const nextExerciseHasDetailsToShow =
 														nextExercise &&
 														exerciseHasDetailsToShow(nextExercise);
 													if (nextExerciseHasDetailsToShow)
 														nextExercise.isShowDetailsOpen = true;
-													focusOnExercise(nextExerciseIdx);
-												} else {
-													focusOnExercise(props.exerciseIdx);
 												}
 											}
 										}),
