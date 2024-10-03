@@ -51,6 +51,6 @@ export const useBulkEditCollection = () => {
 		isActive,
 		addEntity,
 		removeEntity,
-		entities: bulkEditingCollection ? [...bulkEditingCollection.entities] : [],
+		entities: bulkEditingCollection?.entities ?? new Set(),
 	};
 };

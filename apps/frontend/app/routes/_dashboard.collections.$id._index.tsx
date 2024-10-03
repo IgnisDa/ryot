@@ -195,7 +195,7 @@ export default function Page() {
 							name="creatorUserId"
 							defaultValue={loaderData.collectionContents.user.id}
 						/>
-						{bulkEditingCollection.entities.map((item, index) => (
+						{[...bulkEditingCollection.entities].map((item, index) => (
 							<Fragment key={JSON.stringify(item)}>
 								<input
 									readOnly
@@ -214,7 +214,7 @@ export default function Page() {
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
 								<Text>
-									{bulkEditingCollection.entities.length} items selected
+									{bulkEditingCollection.entities.size} items selected
 								</Text>
 								<Group wrap="nowrap">
 									<Button
@@ -258,7 +258,7 @@ export default function Page() {
 										size="xs"
 										color="red"
 										type="submit"
-										disabled={bulkEditingCollection.entities.length === 0}
+										disabled={bulkEditingCollection.entities.size === 0}
 									>
 										Remove
 									</Button>
@@ -332,7 +332,7 @@ export default function Page() {
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
-										const isAdded = bulkEditingCollection.entities.includes(lm);
+										const isAdded = bulkEditingCollection.entities.has(lm);
 										return (
 											<DisplayCollectionEntity
 												key={lm.entityId}
