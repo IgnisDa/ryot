@@ -54,21 +54,22 @@ use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
     first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
-    GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
-    GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment, IntegrationMediaSeen,
-    MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter, MediaSortBy,
-    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
-    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
-    MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
-    MetadataVideo, MetadataVideoSource, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleListInput, PeopleSearchInput, PeopleSearchItem,
-    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics,
-    PostReviewInput, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ProviderLanguageInformation, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
-    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
+    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
+    ImportOrExportItemReviewComment, IntegrationMediaSeen, MediaAssociatedPersonStateChanges,
+    MediaDetails, MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
+    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
+    MetadataVideoSource, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -583,7 +584,8 @@ ORDER BY RANDOM() LIMIT 10;
         let media_details = self.generic_metadata(&metadata_id).await?;
         let collections =
             entity_in_collections(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-        let reviews = item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
+        let reviews =
+            item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata, true).await?;
         let (_, history) = self
             .is_metadata_finished_by_user(&user_id, &media_details)
             .await?;
@@ -769,7 +771,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person).await?;
+        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person, true).await?;
         let collections =
             entity_in_collections(&self.db, &user_id, &person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
@@ -795,6 +797,7 @@ ORDER BY RANDOM() LIMIT 10;
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
+            true,
         )
         .await?;
         Ok(UserMetadataGroupDetails {
@@ -1980,6 +1983,23 @@ ORDER BY RANDOM() LIMIT 10;
         if let Some(manual_time_spent) = input.manual_time_spent {
             seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
         }
+        if let Some(review_id) = input.review_id {
+            let (review, to_update_review_id) = match review_id.is_empty() {
+                false => (
+                    Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
+                    Some(review_id),
+                ),
+                true => (None, None),
+            };
+            if let Some(review_item) = review {
+                if review_item.user_id != user_id {
+                    return Err(Error::new(
+                        "You cannot associate a review with a seen item that is not yours",
+                    ));
+                }
+            }
+            seen.review_id = ActiveValue::Set(to_update_review_id);
+        }
         let seen = seen.update(&self.db).await.unwrap();
         self.after_media_seen_tasks(seen).await?;
         Ok(true)
@@ -2668,10 +2688,10 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(StringIdObject { id: group_id })
     }
 
-    pub async fn post_review(
+    pub async fn create_or_update_review(
         &self,
         user_id: &String,
-        input: PostReviewInput,
+        input: CreateOrUpdateReviewInput,
     ) -> Result<StringIdObject> {
         let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         if preferences.general.disable_reviews {

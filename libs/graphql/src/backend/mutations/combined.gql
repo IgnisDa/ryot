@@ -188,8 +188,8 @@ mutation DisassociateMetadata($metadataId: String!) {
   disassociateMetadata(metadataId: $metadataId)
 }
 
-mutation PostReview($input: PostReviewInput!) {
-  postReview(input: $input) {
+mutation CreateOrUpdateReview($input: CreateOrUpdateReviewInput!) {
+  createOrUpdateReview(input: $input) {
     id
   }
 }
@@ -242,6 +242,6 @@ mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
   }
 }
 
-mutation revokeAccessLink($accessLinkId: String!) {
+mutation RevokeAccessLink($accessLinkId: String!) {
   revokeAccessLink(accessLinkId: $accessLinkId)
 }

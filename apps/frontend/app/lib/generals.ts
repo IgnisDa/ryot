@@ -445,3 +445,10 @@ export const getTimeOfDay = (hours: number) => {
 	if (hours >= 17 && hours < 21) return "Evening";
 	return "Night";
 };
+
+export const refreshUserMetadataDetails = (metadataId: string) =>
+	setTimeout(() => {
+		queryClient.invalidateQueries({
+			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
+		});
+	}, 1500);

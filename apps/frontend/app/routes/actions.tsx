@@ -8,6 +8,7 @@ import {
 	CommitMetadataDocument,
 	CommitMetadataGroupDocument,
 	CommitPersonDocument,
+	CreateOrUpdateReviewDocument,
 	CreateReviewCommentDocument,
 	CreateUserMeasurementDocument,
 	DeleteReviewDocument,
@@ -17,7 +18,6 @@ import {
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
-	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	SeenState,
 	UserMetadataDetailsDocument,
@@ -213,7 +213,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				invariant(entityId && entityLot);
 				await serverGqlService.authenticatedRequest(
 					request,
-					PostReviewDocument,
+					CreateOrUpdateReviewDocument,
 					{ input: { ...submission, entityId, entityLot } },
 				);
 				extendResponseHeaders(
@@ -512,7 +512,6 @@ const bulkUpdateSchema = z
 		progress: z.string().optional(),
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
-		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);

@@ -28,6 +28,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
@@ -67,6 +68,7 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
+	IconBubble,
 	IconBulb,
 	IconEdit,
 	IconInfoCircle,
@@ -100,7 +102,6 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
-	ProRequiredAlert,
 	ReviewItemDisplay,
 } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
@@ -109,12 +110,20 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { Verb, dayjsLib, getVerb, reviewYellow } from "~/lib/generals";
+import {
+	PRO_REQUIRED_MESSAGE,
+	Verb,
+	dayjsLib,
+	getVerb,
+	refreshUserMetadataDetails,
+	reviewYellow,
+} from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetMantineColor,
+	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
@@ -187,6 +196,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
+			submission.reviewId = submission.reviewId || "";
 			await serverGqlService.authenticatedRequest(
 				request,
 				UpdateSeenItemDocument,
@@ -227,6 +237,7 @@ const dateString = z
 
 const editSeenItem = z.object({
 	seenId: z.string(),
+	reviewId: z.string().optional(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 	manualTimeSpent: z.string().optional(),
@@ -243,6 +254,7 @@ export default function Page() {
 		loaderData.query.defaultTab || "overview",
 	);
 	const podcastVirtuosoRef = useRef<VirtuosoHandle>(null);
+	const reviewsVirtuosoRef = useRef<VirtuosoHandle>(null);
 	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
@@ -252,6 +264,12 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 
+	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+		submit(e);
+		events.updateProgress(loaderData.metadataDetails.title);
+		refreshUserMetadataDetails(loaderData.metadataId);
+	};
+
 	const PutOnHoldBtn = () => {
 		return (
 			<Form
@@ -260,10 +278,7 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={(e) => {
-					submit(e);
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
+				onSubmit={(e) => onSubmitProgressUpdate(e)}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
@@ -279,10 +294,7 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={(e) => {
-					submit(e);
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
+				onSubmit={(e) => onSubmitProgressUpdate(e)}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
@@ -787,17 +799,12 @@ export default function Page() {
 													<StateChangeButtons />
 												) : null}
 												<Form
+													replace
+													method="POST"
+													onSubmit={(e) => onSubmitProgressUpdate(e)}
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="POST"
-													replace
-													onSubmit={(e) => {
-														submit(e);
-														events.updateProgress(
-															loaderData.metadataDetails.title,
-														);
-													}}
 												>
 													<input hidden name="progress" defaultValue={100} />
 													<input
@@ -818,17 +825,12 @@ export default function Page() {
 											<>
 												<Menu.Label>Not in progress</Menu.Label>
 												<Form
+													replace
+													method="POST"
+													onSubmit={(e) => onSubmitProgressUpdate(e)}
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="POST"
-													replace
-													onSubmit={(e) => {
-														submit(e);
-														events.updateProgress(
-															loaderData.metadataDetails.title,
-														);
-													}}
 												>
 													<input hidden name="progress" defaultValue={0} />
 													<input
@@ -993,6 +995,7 @@ export default function Page() {
 											setTab={setTab}
 											key={history.id}
 											history={history}
+											reviewsVirtuosoRef={reviewsVirtuosoRef}
 											podcastVirtuosoRef={podcastVirtuosoRef}
 										/>
 									)}
@@ -1069,22 +1072,22 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					{!userPreferences.general.disableReviews ? (
-						<Tabs.Panel value="reviews">
+						<Tabs.Panel value="reviews" h={MEDIA_DETAILS_HEIGHT}>
 							{loaderData.userMetadataDetails.reviews.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										{loaderData.userMetadataDetails.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												entityLot={EntityLot.Metadata}
-												entityId={loaderData.metadataId}
-												lot={loaderData.metadataDetails.lot}
-												title={loaderData.metadataDetails.title}
-											/>
-										))}
-									</Stack>
-								</MediaScrollArea>
+								<Virtuoso
+									ref={reviewsVirtuosoRef}
+									data={loaderData.userMetadataDetails.reviews}
+									itemContent={(_review, r) => (
+										<ReviewItemDisplay
+											key={r.id}
+											review={r}
+											entityLot={EntityLot.Metadata}
+											entityId={loaderData.metadataId}
+											lot={loaderData.metadataDetails.lot}
+											title={loaderData.metadataDetails.title}
+										/>
+									)}
+								/>
 							) : (
 								<Text>No reviews</Text>
 							)}
@@ -1243,12 +1246,17 @@ type History =
 
 const DEFAULT_STATES = [0, 3];
 
-const EditHistoryRecordModal = (props: {
+const EditHistoryItemModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
+	const reviewsByThisCurrentUser =
+		loaderData.userMetadataDetails.reviews.filter(
+			(r) => r.postedBy.id === userDetails.id,
+		);
 	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
 		props.seen;
 	const [mtv, mts] = manualTimeSpent
@@ -1266,6 +1274,7 @@ const EditHistoryRecordModal = (props: {
 	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
+	const isNotCompleted = props.seen.state !== SeenState.Completed;
 
 	return (
 		<Modal
@@ -1288,23 +1297,61 @@ const EditHistoryRecordModal = (props: {
 						label="Start time"
 						name="startedOn"
 						defaultValue={startedOn ? new Date(startedOn) : undefined}
+						disabled={isNotCompleted}
 					/>
 					<DateInput
 						label="End time"
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
+						disabled={isNotCompleted}
 					/>
+					<Select
+						data={userPreferences.general.watchProviders}
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							loaderData.metadataDetails.lot,
+						)} it?`}
+						name="providerWatchedOn"
+						defaultValue={providerWatchedOn}
+					/>
+					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+						<Select
+							clearable
+							searchable
+							limit={5}
+							name="reviewId"
+							disabled={!coreDetails.isPro}
+							label="Associate with a review"
+							defaultValue={props.seen.reviewId}
+							data={reviewsByThisCurrentUser.map((r) => ({
+								label: [
+									r.textOriginal
+										? `${r.textOriginal.slice(0, 20)}...`
+										: undefined,
+									r.rating,
+									`(${r.id})`,
+								]
+									.filter(Boolean)
+									.join(" • "),
+								value: r.id,
+							}))}
+						/>
+					</Tooltip>
 					<Input.Wrapper
 						label="Time spent"
 						description="How much time did you actually spend on this media? You can also adjust the scale"
 					>
 						<Box mt="xs">
-							{coreDetails.isPro ? (
-								<>
+							<Tooltip
+								label={PRO_REQUIRED_MESSAGE}
+								disabled={coreDetails.isPro}
+							>
+								<Box>
 									<Group>
 										<Slider
 											flex={1}
 											label={null}
+											disabled={!coreDetails.isPro}
 											value={manualTimeSpentValue}
 											onChange={setManualTimeSpentValue}
 										/>
@@ -1327,18 +1374,10 @@ const EditHistoryRecordModal = (props: {
 											value={manualTimeSpentInMinutes}
 										/>
 									) : null}
-								</>
-							) : (
-								<ProRequiredAlert tooltipLabel="Track time spent on media" />
-							)}
+								</Box>
+							</Tooltip>
 						</Box>
 					</Input.Wrapper>
-					<Select
-						data={userPreferences.general.watchProviders}
-						label={`Where did you ${getVerb(Verb.Read, loaderData.metadataDetails.lot)} it?`}
-						name="providerWatchedOn"
-						defaultValue={providerWatchedOn}
-					/>
 					<Button variant="outline" type="submit">
 						Submit
 					</Button>
@@ -1385,8 +1424,9 @@ const MergeMetadataModal = (props: {
 const HistoryItem = (props: {
 	index: number;
 	history: History;
-	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
 	setTab: (tab: string) => void;
+	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
+	reviewsVirtuosoRef: RefObject<VirtuosoHandle>;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
@@ -1402,18 +1442,22 @@ const HistoryItem = (props: {
 						e.episodeNumber === props.history.showExtraInformation?.episode,
 				)
 		: null;
-	const scrollToEpisode = (index?: number) => {
+	const scrollToVirtuosoElement = (
+		ref: RefObject<VirtuosoHandle>,
+		tab: string,
+		index?: number,
+	) => {
 		if (!coreDetails.isPro) {
 			notifications.show({
 				color: "red",
-				message: "Ryot Pro is required to jump to episodes",
+				message: PRO_REQUIRED_MESSAGE,
 			});
 			return;
 		}
-		props.setTab("podcastEpisodes");
+		props.setTab(tab);
 		if (!isNumber(index)) return;
 		setTimeout(() => {
-			const current = props.podcastVirtuosoRef.current;
+			const current = ref.current;
 			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
 		}, 500);
 	};
@@ -1428,7 +1472,9 @@ const HistoryItem = (props: {
 	const displayPodcastExtraInformation = podcastExtraInformation ? (
 		<Anchor
 			onClick={() =>
-				scrollToEpisode(
+				scrollToVirtuosoElement(
+					props.podcastVirtuosoRef,
+					"podcastEpisodes",
 					loaderData.metadataDetails.podcastSpecifics?.episodes.findIndex(
 						(e) => e.number === podcastExtraInformation.number,
 					),
@@ -1520,11 +1566,9 @@ const HistoryItem = (props: {
 							<IconX size={20} />
 						</ActionIcon>
 					</Form>
-					{props.history.state === SeenState.Completed ? (
-						<ActionIcon color="blue" onClick={open}>
-							<IconEdit size={20} />
-						</ActionIcon>
-					) : null}
+					<ActionIcon color="blue" onClick={open}>
+						<IconEdit size={20} />
+					</ActionIcon>
 				</Flex>
 				<Stack gap={4}>
 					<Flex gap="lg" align="center">
@@ -1534,6 +1578,23 @@ const HistoryItem = (props: {
 								? `(${Number(props.history.progress).toFixed(2)}%)`
 								: null}
 						</Text>
+						{props.history.reviewId ? (
+							<ActionIcon
+								size="xs"
+								color="blue"
+								onClick={() => {
+									scrollToVirtuosoElement(
+										props.reviewsVirtuosoRef,
+										"reviews",
+										loaderData.userMetadataDetails.reviews.findIndex(
+											(r) => r.id === props.history.reviewId,
+										),
+									);
+								}}
+							>
+								<IconBubble />
+							</ActionIcon>
+						) : null}
 						{displayAllInformation ? (
 							<Text c="dimmed" size="sm" lineClamp={1}>
 								{displayAllInformation}
@@ -1581,7 +1642,7 @@ const HistoryItem = (props: {
 					</SimpleGrid>
 				</Stack>
 			</Flex>
-			<EditHistoryRecordModal
+			<EditHistoryItemModal
 				opened={opened}
 				onClose={close}
 				seen={props.history}

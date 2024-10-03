@@ -112,8 +112,7 @@ import {
 	convertDecimalToThreePointSmiley,
 	getLot,
 	getVerb,
-	queryClient,
-	queryFactory,
+	refreshUserMetadataDetails,
 } from "~/lib/generals";
 import {
 	useApplicationEvents,
@@ -785,13 +784,6 @@ const WATCH_TIMES = [
 	"Custom Date",
 ] as const;
 
-const refreshUserMetadataDetails = (metadataId: string) =>
-	setTimeout(() => {
-		queryClient.invalidateQueries({
-			queryKey: queryFactory.media.userMetadataDetails(metadataId).queryKey,
-		});
-	}, 1500);
-
 const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
 }: {
@@ -854,7 +846,6 @@ const MetadataInProgressUpdateForm = ({
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }) => {
-	const userPreferences = useUserPreferences();
 	const total =
 		metadataDetails.audioBookSpecifics?.runtime ||
 		metadataDetails.bookSpecifics?.pages ||
@@ -932,27 +923,22 @@ const MetadataInProgressUpdateForm = ({
 						</Text>
 						<Flex align="center" gap="xs">
 							<NumberInput
+								min={0}
+								step={1}
+								flex={1}
+								hideControls
+								max={Number(total)}
+								leftSection={updateIcon}
 								defaultValue={((Number(total) || 1) * (value || 1)) / 100}
 								onChange={(v) => {
 									const value = (Number(v) / (Number(total) || 1)) * 100;
 									setValue(value);
 								}}
-								max={Number(total)}
-								min={0}
-								step={1}
-								hideControls
-								leftSection={updateIcon}
 							/>
 							<Text>{text}</Text>
 						</Flex>
 					</>
 				) : null}
-				<Select
-					name="providerWatchedOn"
-					defaultValue={inProgress.providerWatchedOn}
-					data={userPreferences.general.watchProviders}
-					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-				/>
 				<Button variant="outline" type="submit">
 					Update
 				</Button>
@@ -962,10 +948,10 @@ const MetadataInProgressUpdateForm = ({
 };
 
 const NewProgressUpdateForm = ({
+	history,
 	onSubmit,
 	metadataDetails,
 	metadataToUpdate,
-	history,
 }: {
 	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	metadataToUpdate: UpdateProgressData;
@@ -974,7 +960,6 @@ const NewProgressUpdateForm = ({
 }) => {
 	const userPreferences = useUserPreferences();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
 	);

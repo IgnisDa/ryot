@@ -233,7 +233,7 @@ impl ExporterService {
                     }
                 })
                 .collect();
-            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::Metadata)
+            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::Metadata, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
@@ -275,7 +275,7 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::MetadataGroup)
+            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::MetadataGroup, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
@@ -317,7 +317,7 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, &p.id, EntityLot::Person)
+            let reviews = item_reviews(&self.db, user_id, &p.id, EntityLot::Person, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
@@ -403,7 +403,7 @@ impl ExporterService {
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, &e.id, EntityLot::Exercise)
+            let reviews = item_reviews(&self.db, user_id, &e.id, EntityLot::Exercise, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))

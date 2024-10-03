@@ -417,6 +417,8 @@ pub async fn item_reviews(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
+    // DEV: Setting this to true will return ALL user's reviews + public reviews by others
+    get_public: bool,
 ) -> Result<Vec<ReviewItem>> {
     let column = match entity_lot {
         EntityLot::Metadata => review::Column::MetadataId,
@@ -427,7 +429,12 @@ pub async fn item_reviews(
         EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
     };
     let all_reviews = Review::find()
-        .filter(review::Column::UserId.eq(user_id))
+        .filter(match get_public {
+            false => review::Column::UserId.eq(user_id),
+            true => review::Column::UserId
+                .eq(user_id)
+                .or(review::Column::Visibility.eq(Visibility::Public)),
+        })
         .find_also_related(User)
         .order_by_desc(review::Column::PostedOn)
         .filter(column.eq(entity_id))
@@ -453,14 +460,22 @@ pub async fn item_reviews(
             }
             false => review.rating,
         };
+        let seen_items_associated_with = Seen::find()
+            .select_only()
+            .column(seen::Column::Id)
+            .filter(seen::Column::ReviewId.eq(&review.id))
+            .into_tuple::<String>()
+            .all(db)
+            .await?;
         let to_push = ReviewItem {
             rating,
             id: review.id,
+            seen_items_associated_with,
             posted_on: review.posted_on,
             is_spoiler: review.is_spoiler,
+            visibility: review.visibility,
             text_original: review.text.clone(),
             text_rendered: review.text.map(|t| markdown_to_html(&t)),
-            visibility: review.visibility,
             show_extra_information: review.show_extra_information,
             podcast_extra_information: review.podcast_extra_information,
             anime_extra_information: review.anime_extra_information,

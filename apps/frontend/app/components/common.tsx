@@ -404,60 +404,76 @@ export const ReviewItemDisplay = (props: {
 		useDisclosure(false);
 	const deleteReviewFetcher = useFetcher<typeof action>();
 	const [_, setEntityToReview] = useReviewEntity();
+	const seenItemsAssociatedWith =
+		props.review.seenItemsAssociatedWith?.length || 0;
 
 	return (
 		<>
-			<Box key={props.review.id} data-review-id={props.review.id}>
-				<Flex align="center" gap="sm">
-					<Avatar color="cyan" radius="xl">
-						{getInitials(props.review.postedBy?.name || "")}{" "}
-					</Avatar>
-					<Box>
-						<Text>{props.review.postedBy?.name}</Text>
-						<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
-					</Box>
-					{userDetails.id === props.review.postedBy?.id ? (
-						<>
-							<ActionIcon
-								onClick={() => {
-									setEntityToReview({
-										entityLot: props.entityLot,
-										entityId: props.entityId,
-										entityTitle: props.title,
-										metadataLot: props.lot,
-										existingReview: props.review,
-									});
-								}}
-							>
-								<IconEdit size={16} />
-							</ActionIcon>
-							<ActionIcon
-								onClick={async () => {
-									const conf = await confirmWrapper({
-										confirmation:
-											"Are you sure you want to delete this review? This action cannot be undone.",
-									});
-									if (conf)
-										deleteReviewFetcher.submit(
-											{
-												shouldDelete: "true",
-												reviewId: props.review.id || null,
-											},
-											{
-												method: "post",
-												action: $path("/actions", {
-													intent: "performReviewAction",
-												}),
-											},
-										);
-								}}
-								color="red"
-							>
-								<IconTrash size={16} />
-							</ActionIcon>
-						</>
+			<Box key={props.review.id} data-review-id={props.review.id} mb="md">
+				<Group justify="space-between">
+					<Flex align="center" gap="sm">
+						<Avatar color="cyan" radius="xl">
+							{getInitials(props.review.postedBy?.name || "")}{" "}
+						</Avatar>
+						<Box>
+							<Text>{props.review.postedBy?.name}</Text>
+							<Text>{dayjsLib(props.review.postedOn).format("L")}</Text>
+						</Box>
+						{userDetails.id === props.review.postedBy?.id ? (
+							<>
+								<ActionIcon
+									onClick={() => {
+										setEntityToReview({
+											entityLot: props.entityLot,
+											entityId: props.entityId,
+											entityTitle: props.title,
+											metadataLot: props.lot,
+											existingReview: props.review,
+										});
+									}}
+								>
+									<IconEdit size={16} />
+								</ActionIcon>
+								<ActionIcon
+									onClick={async () => {
+										const conf = await confirmWrapper({
+											confirmation:
+												"Are you sure you want to delete this review? This action cannot be undone.",
+										});
+										if (conf)
+											deleteReviewFetcher.submit(
+												{
+													shouldDelete: "true",
+													reviewId: props.review.id || null,
+												},
+												{
+													method: "post",
+													action: $path("/actions", {
+														intent: "performReviewAction",
+													}),
+												},
+											);
+									}}
+									color="red"
+								>
+									<IconTrash size={16} />
+								</ActionIcon>
+							</>
+						) : null}
+					</Flex>
+					{seenItemsAssociatedWith > 0 ? (
+						<Text
+							size="xs"
+							c="dimmed"
+							data-seen-items-associated-with={JSON.stringify(
+								props.review.seenItemsAssociatedWith,
+							)}
+						>
+							Associated with {seenItemsAssociatedWith} seen item
+							{seenItemsAssociatedWith > 1 ? "s" : ""}
+						</Text>
 					) : null}
-				</Flex>
+				</Group>
 				<Box ml="sm" mt="xs">
 					<Group>
 						{(Number(props.review.rating) || 0) > 0
@@ -670,7 +686,7 @@ export const ReviewItemDisplay = (props: {
 					) : null}
 				</Box>
 			</Box>
-			<Divider />
+			<Divider mb="md" />
 		</>
 	);
 };

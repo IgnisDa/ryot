@@ -16,8 +16,8 @@ import invariant from "tiny-invariant";
 import { useInterval } from "usehooks-ts";
 import {
 	CurrentWorkoutKey,
-	dayjsLib,
 	type FitnessAction,
+	dayjsLib,
 	getMetadataDetailsQuery,
 	getStringAsciiValue,
 	getUserMetadataDetailsQuery,

@@ -387,7 +387,7 @@ pub struct PeopleSearchItem {
 }
 
 #[derive(Debug, InputObject, Default)]
-pub struct PostReviewInput {
+pub struct CreateOrUpdateReviewInput {
     pub rating: Option<Decimal>,
     pub text: Option<String>,
     pub visibility: Option<Visibility>,
@@ -408,15 +408,15 @@ pub struct PostReviewInput {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdateInput {
     pub metadata_id: String,
-    pub progress: Option<Decimal>,
     pub date: Option<NaiveDate>,
+    pub progress: Option<Decimal>,
+    pub change_state: Option<SeenState>,
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<Decimal>,
     pub manga_volume_number: Option<i32>,
-    pub change_state: Option<SeenState>,
+    pub anime_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub manga_chapter_number: Option<Decimal>,
     pub provider_watched_on: Option<String>,
 }
 
@@ -945,18 +945,19 @@ pub struct IntegrationProviderSpecifics {
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
 pub struct ReviewItem {
     pub id: String,
+    pub is_spoiler: bool,
     pub posted_on: DateTimeUtc,
+    pub visibility: Visibility,
     pub rating: Option<Decimal>,
+    pub posted_by: IdAndNamedObject,
     pub text_original: Option<String>,
     pub text_rendered: Option<String>,
-    pub visibility: Visibility,
-    pub is_spoiler: bool,
-    pub posted_by: IdAndNamedObject,
+    pub seen_items_associated_with: Vec<String>,
+    pub comments: Vec<ImportOrExportItemReviewComment>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
     pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
-    pub comments: Vec<ImportOrExportItemReviewComment>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -1472,6 +1473,7 @@ pub struct UserMediaNextEntry {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct UpdateSeenItemInput {
     pub seen_id: String,
+    pub review_id: Option<String>,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
     pub manual_time_spent: Option<Decimal>,
