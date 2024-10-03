@@ -9,6 +9,7 @@ pub mod collection;
 pub mod collection_to_entity;
 pub mod daily_user_activity;
 pub mod exercise;
+pub mod functions;
 pub mod genre;
 pub mod import_report;
 pub mod integration;
