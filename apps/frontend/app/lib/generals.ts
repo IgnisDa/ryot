@@ -106,6 +106,11 @@ export enum FitnessAction {
 
 export type AppServiceWorkerNotificationTag = "timer-completed";
 
+export type AppServiceWorkerNotificationData = {
+	event: "open-link";
+	link?: string;
+};
+
 export type AppServiceWorkerMessageData = {
 	event: "remove-timer-completed-notification";
 };

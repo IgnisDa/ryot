@@ -107,8 +107,9 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
-	type AppServiceWorkerNotificationTag,
 	type AppServiceWorkerMessageData,
+	type AppServiceWorkerNotificationData,
+	type AppServiceWorkerNotificationTag,
 	CurrentWorkoutKey,
 	FitnessAction,
 	FitnessEntity,
@@ -241,6 +242,10 @@ export default function Page() {
 				body: "Let's get this done!",
 				icon: LOGO_IMAGE_URL,
 				silent: true,
+				data: {
+					event: "open-link",
+					link: window.location.href,
+				} as AppServiceWorkerNotificationData,
 			});
 		});
 	};
