@@ -22,9 +22,11 @@ impl CacheService {
         key: ApplicationCacheKey,
         expiry_hours: i64,
     ) -> Result<Uuid> {
+        let now = Utc::now();
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key),
-            expires_at: ActiveValue::Set(Some(Utc::now() + Duration::hours(expiry_hours))),
+            expires_at: ActiveValue::Set(Some(now + Duration::hours(expiry_hours))),
+            created_at: ActiveValue::Set(now),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
