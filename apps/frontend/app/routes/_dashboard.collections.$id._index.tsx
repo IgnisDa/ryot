@@ -246,8 +246,11 @@ export default function Page() {
 								Post a review
 							</Button>
 							<Button
-								variant="outline"
 								w="100%"
+								variant="outline"
+								disabled={
+									loaderData.collectionContents.results.details.total === 0
+								}
 								onClick={() => {
 									bulkEditingCollection.start({
 										id: loaderData.collectionId,
