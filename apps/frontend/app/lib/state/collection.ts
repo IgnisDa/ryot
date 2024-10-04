@@ -3,10 +3,7 @@ import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 
-type BulkEditingCollectionEntity = {
-	entityId: string;
-	entityLot: EntityLot;
-};
+type BulkEditingCollectionEntity = { entityId: string; entityLot: EntityLot };
 
 export type BulkEditingCollectionData = {
 	collectionId: string;
@@ -46,9 +43,10 @@ export const useBulkEditCollection = () => {
 	};
 
 	const remove = (entity: BulkEditingCollectionEntity) => {
-		setBulkEditingCollection((c) =>
-			produce(c, (draft) => {
-				draft?.entities.splice(findIndex(entity), 1);
+		if (!bulkEditingCollection) return;
+		setBulkEditingCollection(
+			produce(bulkEditingCollection, (draft) => {
+				draft.entities.splice(findIndex(entity), 1);
 			}),
 		);
 	};
