@@ -1,4 +1,5 @@
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 
@@ -19,14 +20,9 @@ export const useBulkEditCollection = () => {
 		bulkEditingCollectionAtom,
 	);
 
-	const isSameEntity = (
-		a: BulkEditingCollectionEntity,
-		b: BulkEditingCollectionEntity,
-	) => a.entityId === b.entityId && a.entityLot === b.entityLot;
-
 	const findIndex = (entity: BulkEditingCollectionEntity) =>
 		(bulkEditingCollection?.entities || []).findIndex((f) =>
-			isSameEntity(f, entity),
+			isEqual(f, entity),
 		);
 
 	const start = (collectionId: string) => {
