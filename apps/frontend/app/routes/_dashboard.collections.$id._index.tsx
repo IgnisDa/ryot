@@ -179,7 +179,6 @@ export default function Page() {
 
 	return (
 		<Container>
-			{JSON.stringify(bulkEditingCollection.state, null, 2)}
 			{state ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
@@ -333,8 +332,9 @@ export default function Page() {
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
-										// biome-ignore lint/complexity/useOptionalChain: required here
-										const isAdded = state && state.entities.includes(lm);
+										console.log(state.entities?.findIndex((f) => f === lm));
+										const isAdded =
+											state && state.entities.findIndex((f) => f === lm) !== -1;
 										return (
 											<DisplayCollectionEntity
 												key={lm.entityId}
@@ -422,6 +422,7 @@ export default function Page() {
 					) : null}
 				</Tabs>
 			</Stack>
+			{JSON.stringify(bulkEditingCollection.state, null, 2)}
 		</Container>
 	);
 }

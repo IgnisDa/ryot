@@ -31,7 +31,8 @@ export const useBulkEditCollection = () => {
 			setBulkEditingCollection({ ...bulkEditingCollection, entities: entity });
 			return;
 		}
-		if (bulkEditingCollection.entities.indexOf(entity) !== -1) return;
+		if (bulkEditingCollection.entities.findIndex((f) => f === entity) !== -1)
+			return;
 		setBulkEditingCollection(
 			produce(bulkEditingCollection, (draft) => {
 				draft.entities.push(entity);
@@ -42,7 +43,10 @@ export const useBulkEditCollection = () => {
 	const removeEntity = (entity: BulkEditingCollectionEntity) => {
 		setBulkEditingCollection((c) =>
 			produce(c, (draft) => {
-				draft?.entities.splice(draft.entities.indexOf(entity), 1);
+				draft?.entities.splice(
+					draft.entities.findIndex((f) => f === entity),
+					1,
+				);
 			}),
 		);
 	};
