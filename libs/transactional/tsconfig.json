@@ -1,8 +1,6 @@
 {
 	"extends": "../../tsconfig.options.json",
-	"include": [
-		"**/*"
-	],
+	"include": ["**/*"],
 	"references": [
 		{
 			"path": "../ts-utils"
@@ -10,12 +8,8 @@
 	],
 	"compilerOptions": {
 		"paths": {
-			"@ryot/ts-utils": [
-				"../ts-utils/src/index.ts"
-			],
-			"@ryot/ts-utils/*": [
-				"../ts-utils/src/*"
-			]
+			"@ryot/ts-utils": ["../ts-utils/src/index.ts"],
+			"@ryot/ts-utils/*": ["../ts-utils/src/*"]
 		},
 		"module": "ESNext",
 		"jsx": "react-jsx",
