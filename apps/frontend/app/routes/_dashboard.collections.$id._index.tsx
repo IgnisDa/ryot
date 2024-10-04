@@ -270,7 +270,7 @@ export default function Page() {
 			) : null}
 			<Stack>
 				<Box>
-					<Title>{loaderData.collectionContents.details.name}</Title>{" "}
+					<Title>{loaderData.collectionContents.details.name}</Title>
 					<Text size="sm">
 						{loaderData.collectionContents.results.details.total} items, created
 						by {loaderData.collectionContents.user.name}{" "}
@@ -332,9 +332,8 @@ export default function Page() {
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
-										console.log(state.entities?.findIndex((f) => f === lm));
-										const isAdded =
-											state && state.entities.findIndex((f) => f === lm) !== -1;
+										// biome-ignore lint/complexity/useOptionalChain: required here
+										const isAdded = state && state.isAdded(lm);
 										return (
 											<DisplayCollectionEntity
 												key={lm.entityId}

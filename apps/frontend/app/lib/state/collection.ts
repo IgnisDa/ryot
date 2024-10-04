@@ -62,6 +62,8 @@ export const useBulkEditCollection = () => {
 			? {
 					size: bulkEditingCollection.entities.length,
 					entities: bulkEditingCollection.entities,
+					isAdded: (entity: BulkEditingCollectionEntity) =>
+						bulkEditingCollection.entities.includes(entity),
 				}
 			: (false as const),
 	};
