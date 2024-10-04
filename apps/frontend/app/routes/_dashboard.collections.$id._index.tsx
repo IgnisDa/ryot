@@ -168,7 +168,6 @@ export default function Page() {
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
-	const [isSelectAllLoading, setIsSelectAllLoading] = useState(false);
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const bulkEditingCollection = useBulkEditCollection();
@@ -228,9 +227,9 @@ export default function Page() {
 									<Button
 										size="xs"
 										color="blue"
-										loading={isSelectAllLoading}
+										loading={state.isLoading}
 										onClick={async () => {
-											setIsSelectAllLoading(true);
+											state.startLoading();
 											const { collectionContents } =
 												await queryClient.ensureQueryData({
 													queryKey: queryFactory.collections.details(
@@ -251,7 +250,7 @@ export default function Page() {
 											bulkEditingCollection.add(
 												collectionContents.results.items,
 											);
-											setIsSelectAllLoading(false);
+											state.stopLoading();
 										}}
 									>
 										Select all items

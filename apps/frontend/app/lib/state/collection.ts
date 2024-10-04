@@ -8,6 +8,7 @@ type BulkEditingCollectionEntity = { entityId: string; entityLot: EntityLot };
 export type BulkEditingCollectionData = {
 	collectionId: string;
 	entities: Array<BulkEditingCollectionEntity>;
+	isLoading: boolean;
 };
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
@@ -23,7 +24,7 @@ export const useBulkEditCollection = () => {
 		);
 
 	const start = (collectionId: string) => {
-		setBulkEditingCollection({ collectionId, entities: [] });
+		setBulkEditingCollection({ collectionId, entities: [], isLoading: false });
 	};
 
 	const add = (
@@ -62,8 +63,19 @@ export const useBulkEditCollection = () => {
 			? {
 					size: bulkEditingCollection.entities.length,
 					entities: bulkEditingCollection.entities,
+					isLoading: bulkEditingCollection.isLoading,
 					isAdded: (entity: BulkEditingCollectionEntity) =>
 						findIndex(entity) !== -1,
+					startLoading: () =>
+						setBulkEditingCollection({
+							...bulkEditingCollection,
+							isLoading: true,
+						}),
+					stopLoading: () =>
+						setBulkEditingCollection({
+							...bulkEditingCollection,
+							isLoading: false,
+						}),
 				}
 			: (false as const),
 	};
