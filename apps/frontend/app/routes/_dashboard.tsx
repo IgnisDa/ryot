@@ -441,7 +441,7 @@ export default function Layout() {
 						method="POST"
 						onSubmit={(e) => {
 							submit(e);
-							bulkEditingCollection.stop();
+							bulkEditingCollectionState.stop();
 							notifications.show({
 								title: "Success",
 								message: "Items will be removed from the collection",
@@ -489,7 +489,7 @@ export default function Layout() {
 								<Group wrap="nowrap">
 									<ActionIcon
 										size="md"
-										onClick={() => bulkEditingCollection.stop()}
+										onClick={() => bulkEditingCollectionState.stop()}
 									>
 										<IconCancel />
 									</ActionIcon>
@@ -510,7 +510,7 @@ export default function Layout() {
 														},
 													},
 												);
-											bulkEditingCollection.add(
+											bulkEditingCollectionState.add(
 												collectionContents.results.items,
 											);
 										}}

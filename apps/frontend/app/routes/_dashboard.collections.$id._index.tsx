@@ -214,8 +214,8 @@ export default function Page() {
 															variant={isAdded ? "filled" : "transparent"}
 															color="red"
 															onClick={() => {
-																if (isAdded) bulkEditingCollection.remove(lm);
-																else bulkEditingCollection.add(lm);
+																if (isAdded) state.remove(lm);
+																else state.add(lm);
 															}}
 														>
 															<IconTrashFilled size={18} />

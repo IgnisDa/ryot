@@ -60,12 +60,12 @@ export const useBulkEditCollection = () => {
 	const stop = () => setBec(null);
 
 	return {
-		add,
-		stop,
 		start,
-		remove,
 		state: bec
 			? {
+					add,
+					stop,
+					remove,
 					data: bec,
 					isAdded: (entity: BulkEditingCollectionEntity) =>
 						findIndex(entity) !== -1,
