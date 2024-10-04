@@ -159,12 +159,13 @@ type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
 export const convertHistorySetToCurrentSet = (
 	s: Pick<
 		TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number],
-		"statistic" | "lot"
+		"statistic" | "lot" | "note"
 	>,
 	confirmedAt?: string | null,
 ) =>
 	({
 		lot: s.lot,
+		note: s.note,
 		statistic: s.statistic,
 		confirmedAt: confirmedAt ?? null,
 	}) satisfies ExerciseSet;
