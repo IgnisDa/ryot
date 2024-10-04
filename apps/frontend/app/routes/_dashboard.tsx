@@ -21,6 +21,7 @@ import {
 	Loader,
 	Modal,
 	NumberInput,
+	Paper,
 	Rating,
 	ScrollArea,
 	SegmentedControl,
@@ -59,6 +60,7 @@ import {
 	useRouteError,
 } from "@remix-run/react";
 import {
+	CollectionContentsDocument,
 	CollectionExtraInformationLot,
 	MediaLot,
 	type MetadataDetailsQuery,
@@ -80,6 +82,7 @@ import {
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
+	IconCancel,
 	IconChevronLeft,
 	IconChevronRight,
 	IconClock,
@@ -109,9 +112,12 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
+	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	getLot,
 	getVerb,
+	queryClient,
+	queryFactory,
 	refreshUserMetadataDetails,
 } from "~/lib/generals";
 import {
@@ -142,6 +148,7 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
@@ -389,6 +396,8 @@ export default function Layout() {
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
+	const bulkEditingCollection = useBulkEditCollection();
+	const state = bulkEditingCollection.state;
 
 	return (
 		<>
@@ -426,6 +435,99 @@ export default function Layout() {
 						</ActionIcon>
 					</Affix>
 				</Tooltip>
+			) : null}
+			{state ? (
+				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
+					<Form
+						method="POST"
+						onClick={(e) => {
+							submit(e);
+							bulkEditingCollection.stop();
+						}}
+						action={$path("/actions", { intent: "bulkRemoveFromCollection" })}
+					>
+						<input
+							type="hidden"
+							name="collectionName"
+							defaultValue={state.collection.name}
+						/>
+						<input
+							type="hidden"
+							name="creatorUserId"
+							defaultValue={state.collection.creatorUserId}
+						/>
+						{state.entities.map((item, index) => (
+							<Fragment key={JSON.stringify(item)}>
+								<input
+									readOnly
+									type="hidden"
+									value={item.entityId}
+									name={`items[${index}].entityId`}
+								/>
+								<input
+									readOnly
+									type="hidden"
+									value={item.entityLot}
+									name={`items[${index}].entityLot`}
+								/>
+							</Fragment>
+						))}
+						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+							<Group wrap="nowrap" justify="space-between">
+								<Text fz={{ base: "xs", md: "md" }}>
+									{state.size} items selected
+								</Text>
+								<Group wrap="nowrap">
+									<ActionIcon
+										size="md"
+										onClick={() => bulkEditingCollection.stop()}
+									>
+										<IconCancel />
+									</ActionIcon>
+									<Button
+										size="xs"
+										color="blue"
+										loading={state.isLoading}
+										onClick={async () => {
+											state.startLoading();
+											const { collectionContents } =
+												await queryClient.ensureQueryData({
+													queryKey: queryFactory.collections.details(
+														state.collection.id,
+														Number.MAX_SAFE_INTEGER,
+													).queryKey,
+													queryFn: () =>
+														clientGqlService.request(
+															CollectionContentsDocument,
+															{
+																input: {
+																	collectionId: state.collection.id,
+																	take: Number.MAX_SAFE_INTEGER,
+																},
+															},
+														),
+												});
+											bulkEditingCollection.add(
+												collectionContents.results.items,
+											);
+											state.stopLoading();
+										}}
+									>
+										Select all items
+									</Button>
+									<Button
+										size="xs"
+										color="red"
+										type="submit"
+										disabled={state.size === 0}
+									>
+										Remove
+									</Button>
+								</Group>
+							</Group>
+						</Paper>
+					</Form>
+				</Affix>
 			) : null}
 			<Modal
 				onClose={closeMetadataProgressUpdateModal}

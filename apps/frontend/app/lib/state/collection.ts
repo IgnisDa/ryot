@@ -5,8 +5,14 @@ import { atom, useAtom } from "jotai";
 
 type BulkEditingCollectionEntity = { entityId: string; entityLot: EntityLot };
 
+type BulkEditingCollectionDetails = {
+	id: string;
+	name: string;
+	creatorUserId: string;
+};
+
 export type BulkEditingCollectionData = {
-	collectionId: string;
+	collection: BulkEditingCollectionDetails;
 	entities: Array<BulkEditingCollectionEntity>;
 	isLoading: boolean;
 };
@@ -23,8 +29,8 @@ export const useBulkEditCollection = () => {
 			isEqual(f, entity),
 		);
 
-	const start = (collectionId: string) => {
-		setBulkEditingCollection({ collectionId, entities: [], isLoading: false });
+	const start = (collection: BulkEditingCollectionDetails) => {
+		setBulkEditingCollection({ collection, entities: [], isLoading: false });
 	};
 
 	const add = (
@@ -61,6 +67,7 @@ export const useBulkEditCollection = () => {
 		remove,
 		state: bulkEditingCollection
 			? {
+					collection: bulkEditingCollection.collection,
 					size: bulkEditingCollection.entities.length,
 					entities: bulkEditingCollection.entities,
 					isLoading: bulkEditingCollection.isLoading,

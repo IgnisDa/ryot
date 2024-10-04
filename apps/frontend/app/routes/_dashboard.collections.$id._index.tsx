@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Affix,
 	Box,
 	Button,
 	Center,
@@ -8,22 +7,16 @@ import {
 	Flex,
 	Group,
 	Pagination,
-	Paper,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
 	Title,
-	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import { type MetaArgs_SingleFetch, useLoaderData } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -34,7 +27,6 @@ import {
 import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
-	IconCancel,
 	IconFilter,
 	IconMessageCircle2,
 	IconSortAscending,
@@ -42,8 +34,7 @@ import {
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
-import { Fragment, useState } from "react";
-import { $path } from "remix-routes";
+import { useState } from "react";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -53,18 +44,8 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
-import {
-	clientGqlService,
-	dayjsLib,
-	pageQueryParam,
-	queryClient,
-	queryFactory,
-} from "~/lib/generals";
-import {
-	useAppSearchParam,
-	useConfirmSubmit,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { dayjsLib, pageQueryParam } from "~/lib/generals";
+import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {
@@ -135,7 +116,6 @@ export default function Page() {
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
-	const submit = useConfirmSubmit();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const bulkEditingCollection = useBulkEditCollection();
 	const [
@@ -146,99 +126,6 @@ export default function Page() {
 
 	return (
 		<Container>
-			{state ? (
-				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-					<Form
-						method="POST"
-						onClick={(e) => {
-							submit(e);
-							bulkEditingCollection.stop();
-						}}
-						action={$path("/actions", { intent: "bulkRemoveFromCollection" })}
-					>
-						<input
-							type="hidden"
-							name="collectionName"
-							defaultValue={loaderData.collectionContents.details.name}
-						/>
-						<input
-							type="hidden"
-							name="creatorUserId"
-							defaultValue={loaderData.collectionContents.user.id}
-						/>
-						{state.entities.map((item, index) => (
-							<Fragment key={JSON.stringify(item)}>
-								<input
-									readOnly
-									type="hidden"
-									value={item.entityId}
-									name={`items[${index}].entityId`}
-								/>
-								<input
-									readOnly
-									type="hidden"
-									value={item.entityLot}
-									name={`items[${index}].entityLot`}
-								/>
-							</Fragment>
-						))}
-						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-							<Group wrap="nowrap" justify="space-between">
-								<Text fz={{ base: "xs", md: "md" }}>
-									{state.size} items selected
-								</Text>
-								<Group wrap="nowrap">
-									<ActionIcon
-										size="md"
-										onClick={() => bulkEditingCollection.stop()}
-									>
-										<IconCancel />
-									</ActionIcon>
-									<Button
-										size="xs"
-										color="blue"
-										loading={state.isLoading}
-										onClick={async () => {
-											state.startLoading();
-											const { collectionContents } =
-												await queryClient.ensureQueryData({
-													queryKey: queryFactory.collections.details(
-														loaderData.collectionId,
-														Number.MAX_SAFE_INTEGER,
-													).queryKey,
-													queryFn: () =>
-														clientGqlService.request(
-															CollectionContentsDocument,
-															{
-																input: {
-																	collectionId: loaderData.collectionId,
-																	take: Number.MAX_SAFE_INTEGER,
-																},
-															},
-														),
-												});
-											bulkEditingCollection.add(
-												collectionContents.results.items,
-											);
-											state.stopLoading();
-										}}
-									>
-										Select all items
-									</Button>
-									<Button
-										size="xs"
-										color="red"
-										type="submit"
-										disabled={state.size === 0}
-									>
-										Remove
-									</Button>
-								</Group>
-							</Group>
-						</Paper>
-					</Form>
-				</Affix>
-			) : null}
 			<Stack>
 				<Box>
 					<Title>{loaderData.collectionContents.details.name}</Title>
@@ -362,7 +249,11 @@ export default function Page() {
 								variant="outline"
 								w="100%"
 								onClick={() => {
-									bulkEditingCollection.start(loaderData.collectionId);
+									bulkEditingCollection.start({
+										id: loaderData.collectionId,
+										name: loaderData.collectionContents.details.name,
+										creatorUserId: loaderData.collectionContents.user.id,
+									});
 									setTab("contents");
 								}}
 							>
