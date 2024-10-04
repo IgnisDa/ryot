@@ -20,69 +20,57 @@ export type BulkEditingCollectionData = {
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
 
 export const useBulkEditCollection = () => {
-	const [bulkEditingCollection, setBulkEditingCollection] = useAtom(
-		bulkEditingCollectionAtom,
-	);
+	const [bec, setBec] = useAtom(bulkEditingCollectionAtom);
 
 	const findIndex = (entity: BulkEditingCollectionEntity) =>
-		(bulkEditingCollection?.entities || []).findIndex((f) =>
-			isEqual(f, entity),
-		);
+		(bec?.entities || []).findIndex((f) => isEqual(f, entity));
 
 	const start = (collection: BulkEditingCollectionDetails) => {
-		setBulkEditingCollection({ collection, entities: [], isLoading: false });
+		setBec({ collection, entities: [], isLoading: false });
 	};
 
 	const add = (
 		entity: BulkEditingCollectionEntity | Array<BulkEditingCollectionEntity>,
 	) => {
-		if (!bulkEditingCollection) return;
+		if (!bec) return;
 		if (Array.isArray(entity)) {
-			setBulkEditingCollection({ ...bulkEditingCollection, entities: entity });
+			setBec({ ...bec, entities: entity });
 			return;
 		}
 		if (findIndex(entity) !== -1) return;
-		setBulkEditingCollection(
-			produce(bulkEditingCollection, (draft) => {
+		setBec(
+			produce(bec, (draft) => {
 				draft.entities.push(entity);
 			}),
 		);
 	};
 
 	const remove = (entity: BulkEditingCollectionEntity) => {
-		if (!bulkEditingCollection) return;
-		setBulkEditingCollection(
-			produce(bulkEditingCollection, (draft) => {
+		if (!bec) return;
+		setBec(
+			produce(bec, (draft) => {
 				draft.entities.splice(findIndex(entity), 1);
 			}),
 		);
 	};
 
-	const stop = () => setBulkEditingCollection(null);
+	const stop = () => setBec(null);
 
 	return {
 		add,
 		stop,
 		start,
 		remove,
-		state: bulkEditingCollection
+		state: bec
 			? {
-					collection: bulkEditingCollection.collection,
-					size: bulkEditingCollection.entities.length,
-					entities: bulkEditingCollection.entities,
-					isLoading: bulkEditingCollection.isLoading,
+					collection: bec.collection,
+					size: bec.entities.length,
+					entities: bec.entities,
+					isLoading: bec.isLoading,
 					isAdded: (entity: BulkEditingCollectionEntity) =>
 						findIndex(entity) !== -1,
-					startLoading: () =>
-						setBulkEditingCollection({
-							...bulkEditingCollection,
-							isLoading: true,
-						}),
-					stopLoading: () =>
-						setBulkEditingCollection({
-							...bulkEditingCollection,
-							isLoading: false,
-						}),
+					startLoading: () => setBec({ ...bec, isLoading: true }),
+					stopLoading: () => setBec({ ...bec, isLoading: false }),
 				}
 			: (false as const),
 	};
