@@ -215,7 +215,9 @@ export default function Page() {
 						))}
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
-								<Text>{state.size} items selected</Text>
+								<Text fz={{ base: "xs", md: "md" }}>
+									{state.size} items selected
+								</Text>
 								<Group wrap="nowrap">
 									<ActionIcon
 										size="md"
