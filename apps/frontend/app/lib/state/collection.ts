@@ -34,22 +34,22 @@ export const useBulkEditCollection = () => {
 			? {
 					data: bec,
 					stop: () => setBec(null),
-					add: (entity: Entity | Array<Entity>) => {
-						if (Array.isArray(entity)) {
-							setBec({ ...bec, isLoading: false, entities: entity });
+					add: (toAdd: Entity | Array<Entity>) => {
+						if (Array.isArray(toAdd)) {
+							setBec({ ...bec, isLoading: false, entities: toAdd });
 							return;
 						}
-						if (findIndex(entity) !== -1) return;
+						if (findIndex(toAdd) !== -1) return;
 						setBec(
 							produce(bec, (draft) => {
-								draft.entities.push(entity);
+								draft.entities.push(toAdd);
 							}),
 						);
 					},
-					remove: (entity: Entity) => {
+					remove: (toRemove: Entity) => {
 						setBec(
 							produce(bec, (draft) => {
-								draft.entities.splice(findIndex(entity), 1);
+								draft.entities.splice(findIndex(toRemove), 1);
 							}),
 						);
 					},
