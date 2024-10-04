@@ -1,8 +1,6 @@
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
-import { enableMapSet, produce } from "immer";
+import { produce } from "immer";
 import { atom, useAtom } from "jotai";
-
-enableMapSet();
 
 type BulkEditingCollectionEntity = {
 	entityId: string;
@@ -11,7 +9,7 @@ type BulkEditingCollectionEntity = {
 
 export type BulkEditingCollectionData = {
 	collectionId: string;
-	entities: Set<BulkEditingCollectionEntity>;
+	entities: Array<BulkEditingCollectionEntity>;
 };
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
@@ -22,13 +20,21 @@ export const useBulkEditCollection = () => {
 	);
 
 	const start = (collectionId: string) => {
-		setBulkEditingCollection({ collectionId, entities: new Set() });
+		setBulkEditingCollection({ collectionId, entities: [] });
 	};
 
-	const addEntity = (entity: BulkEditingCollectionEntity) => {
-		setBulkEditingCollection((c) =>
-			produce(c, (draft) => {
-				draft?.entities.add(entity);
+	const addEntity = (
+		entity: BulkEditingCollectionEntity | Array<BulkEditingCollectionEntity>,
+	) => {
+		if (!bulkEditingCollection) return;
+		if (Array.isArray(entity)) {
+			setBulkEditingCollection({ ...bulkEditingCollection, entities: entity });
+			return;
+		}
+		if (bulkEditingCollection.entities.includes(entity)) return;
+		setBulkEditingCollection(
+			produce(bulkEditingCollection, (draft) => {
+				draft.entities.push(entity);
 			}),
 		);
 	};
@@ -36,21 +42,26 @@ export const useBulkEditCollection = () => {
 	const removeEntity = (entity: BulkEditingCollectionEntity) => {
 		setBulkEditingCollection((c) =>
 			produce(c, (draft) => {
-				draft?.entities.delete(entity);
+				draft?.entities.splice(
+					draft.entities.findIndex((f) => f === entity),
+					1,
+				);
 			}),
 		);
 	};
 
 	const stop = () => setBulkEditingCollection(null);
 
-	const isActive = Boolean(bulkEditingCollection);
-
 	return {
 		stop,
 		start,
-		isActive,
 		addEntity,
 		removeEntity,
-		entities: bulkEditingCollection?.entities ?? new Set(),
+		state: bulkEditingCollection
+			? {
+					size: bulkEditingCollection.entities.length,
+					entities: bulkEditingCollection.entities,
+				}
+			: (false as const),
 	};
 };

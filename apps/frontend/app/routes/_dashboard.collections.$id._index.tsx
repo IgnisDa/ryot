@@ -175,10 +175,12 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const state = bulkEditingCollection.state;
 
 	return (
 		<Container>
-			{bulkEditingCollection.isActive ? (
+			{JSON.stringify(bulkEditingCollection.state, null, 2)}
+			{state ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
@@ -195,7 +197,7 @@ export default function Page() {
 							name="creatorUserId"
 							defaultValue={loaderData.collectionContents.user.id}
 						/>
-						{[...bulkEditingCollection.entities].map((item, index) => (
+						{state.entities.map((item, index) => (
 							<Fragment key={JSON.stringify(item)}>
 								<input
 									readOnly
@@ -213,9 +215,7 @@ export default function Page() {
 						))}
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
-								<Text>
-									{bulkEditingCollection.entities.size} items selected
-								</Text>
+								<Text>{state.size} items selected</Text>
 								<Group wrap="nowrap">
 									<Button
 										size="xs"
@@ -247,8 +247,9 @@ export default function Page() {
 															},
 														),
 												});
-											for (const lm of collectionContents.results.items)
-												bulkEditingCollection.addEntity(lm);
+											bulkEditingCollection.addEntity(
+												collectionContents.results.items,
+											);
 											setIsSelectAllLoading(false);
 										}}
 									>
@@ -258,7 +259,7 @@ export default function Page() {
 										size="xs"
 										color="red"
 										type="submit"
-										disabled={bulkEditingCollection.entities.size === 0}
+										disabled={state.size === 0}
 									>
 										Remove
 									</Button>
@@ -332,19 +333,19 @@ export default function Page() {
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
-										const isAdded = bulkEditingCollection.entities.has(lm);
+										// biome-ignore lint/complexity/useOptionalChain: required here
+										const isAdded = state && state.entities.includes(lm);
 										return (
 											<DisplayCollectionEntity
 												key={lm.entityId}
 												entityId={lm.entityId}
 												entityLot={lm.entityLot}
 												topRight={
-													bulkEditingCollection.isActive ? (
+													state ? (
 														<ActionIcon
 															variant={isAdded ? "filled" : "transparent"}
 															color="red"
-															onClick={(e) => {
-																e.preventDefault();
+															onClick={() => {
 																if (isAdded)
 																	bulkEditingCollection.removeEntity(lm);
 																else bulkEditingCollection.addEntity(lm);
