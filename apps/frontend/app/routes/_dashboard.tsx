@@ -116,8 +116,6 @@ import {
 	convertDecimalToThreePointSmiley,
 	getLot,
 	getVerb,
-	queryClient,
-	queryFactory,
 	refreshUserMetadataDetails,
 } from "~/lib/generals";
 import {
@@ -440,7 +438,7 @@ export default function Layout() {
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
-						onClick={(e) => {
+						onSubmit={(e) => {
 							submit(e);
 							bulkEditingCollection.stop();
 						}}
