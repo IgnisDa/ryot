@@ -502,7 +502,6 @@ export default function Layout() {
 											bulkEditingCollection.add(
 												collectionContents.results.items,
 											);
-											bulkEditingCollectionState.stopLoading();
 										}}
 									>
 										Select all items

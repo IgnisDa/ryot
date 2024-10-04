@@ -34,7 +34,7 @@ export const useBulkEditCollection = () => {
 	) => {
 		if (!bec) return;
 		if (Array.isArray(entity)) {
-			setBec({ ...bec, entities: entity });
+			setBec({ ...bec, isLoading: false, entities: entity });
 			return;
 		}
 		if (findIndex(entity) !== -1) return;
