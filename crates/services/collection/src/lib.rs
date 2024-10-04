@@ -226,7 +226,7 @@ impl CollectionService {
                             .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
                     )
                 })
-                .apply_if(filter.entity_type, |query, v| {
+                .apply_if(filter.entity_lot, |query, v| {
                     let f = match v {
                         EntityLot::Metadata => {
                             collection_to_entity::Column::MetadataId.is_not_null()

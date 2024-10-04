@@ -1252,7 +1252,7 @@ pub enum CollectionContentsSortBy {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct CollectionContentsFilter {
-    pub entity_type: Option<EntityLot>,
+    pub entity_lot: Option<EntityLot>,
     pub metadata_lot: Option<MediaLot>,
 }
 

@@ -144,7 +144,7 @@ export type CollectionContents = {
 };
 
 export type CollectionContentsFilter = {
-  entityType?: InputMaybe<EntityLot>;
+  entityLot?: InputMaybe<EntityLot>;
   metadataLot?: InputMaybe<MediaLot>;
 };
 
