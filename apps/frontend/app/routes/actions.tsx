@@ -438,7 +438,6 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		})
 		.with("bulkRemoveFromCollection", async () => {
-			console.log(formData);
 			const submission = processSubmission(
 				formData,
 				bulkRemoveFromCollectionSchema,
@@ -457,6 +456,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 				);
 			}
 			await removeCachedUserCollectionsList(request);
+			extendResponseHeaders(
+				headers,
+				await createToastHeaders({
+					type: "success",
+					message: "Items removed successfully",
+				}),
+			);
 		})
 		.run();
 	if (redirectTo) {
