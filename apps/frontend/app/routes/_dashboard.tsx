@@ -393,7 +393,7 @@ export default function Layout() {
 	return (
 		<>
 			{loaderData.workoutInProgress &&
-			Object.values(FitnessAction)
+			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
 				.includes(location.pathname) ? (
 				<Tooltip label="You have an active workout" position="left">
