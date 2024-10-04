@@ -397,7 +397,7 @@ export default function Layout() {
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
-	const state = bulkEditingCollection.state;
+	const bulkEditingCollectionState = bulkEditingCollection.state;
 
 	return (
 		<>
@@ -436,7 +436,7 @@ export default function Layout() {
 					</Affix>
 				</Tooltip>
 			) : null}
-			{state ? (
+			{bulkEditingCollectionState ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
@@ -449,14 +449,14 @@ export default function Layout() {
 						<input
 							type="hidden"
 							name="collectionName"
-							defaultValue={state.collection.name}
+							defaultValue={bulkEditingCollectionState.collection.name}
 						/>
 						<input
 							type="hidden"
 							name="creatorUserId"
-							defaultValue={state.collection.creatorUserId}
+							defaultValue={bulkEditingCollectionState.collection.creatorUserId}
 						/>
-						{state.entities.map((item, index) => (
+						{bulkEditingCollectionState.entities.map((item, index) => (
 							<Fragment key={JSON.stringify(item)}>
 								<input
 									readOnly
@@ -475,7 +475,7 @@ export default function Layout() {
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
 								<Text fz={{ base: "xs", md: "md" }}>
-									{state.size} items selected
+									{bulkEditingCollectionState.size} items selected
 								</Text>
 								<Group wrap="nowrap">
 									<ActionIcon
@@ -487,30 +487,24 @@ export default function Layout() {
 									<Button
 										size="xs"
 										color="blue"
-										loading={state.isLoading}
+										loading={bulkEditingCollectionState.isLoading}
 										onClick={async () => {
-											state.startLoading();
+											bulkEditingCollectionState.startLoading();
 											const { collectionContents } =
-												await queryClient.ensureQueryData({
-													queryKey: queryFactory.collections.details(
-														state.collection.id,
-														Number.MAX_SAFE_INTEGER,
-													).queryKey,
-													queryFn: () =>
-														clientGqlService.request(
-															CollectionContentsDocument,
-															{
-																input: {
-																	collectionId: state.collection.id,
-																	take: Number.MAX_SAFE_INTEGER,
-																},
-															},
-														),
-												});
+												await clientGqlService.request(
+													CollectionContentsDocument,
+													{
+														input: {
+															collectionId:
+																bulkEditingCollectionState.collection.id,
+															take: Number.MAX_SAFE_INTEGER,
+														},
+													},
+												);
 											bulkEditingCollection.add(
 												collectionContents.results.items,
 											);
-											state.stopLoading();
+											bulkEditingCollectionState.stopLoading();
 										}}
 									>
 										Select all items
@@ -519,7 +513,7 @@ export default function Layout() {
 										size="xs"
 										color="red"
 										type="submit"
-										disabled={state.size === 0}
+										disabled={bulkEditingCollectionState.size === 0}
 									>
 										Remove
 									</Button>
