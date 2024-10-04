@@ -422,7 +422,6 @@ export default function Page() {
 					) : null}
 				</Tabs>
 			</Stack>
-			{JSON.stringify(bulkEditingCollection.state, null, 2)}
 		</Container>
 	);
 }
