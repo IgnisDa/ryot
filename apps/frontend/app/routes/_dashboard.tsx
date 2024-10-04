@@ -146,9 +146,9 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
+import { notifications } from "@mantine/notifications";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
-import { notifications } from "@mantine/notifications";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 
@@ -448,19 +448,23 @@ export default function Layout() {
 								color: "green",
 							});
 						}}
-						action={$path("/actions", { intent: "bulkRemoveFromCollection" })}
+						action={$path("/actions", {
+							intent: bulkEditingCollectionState.data.action,
+						})}
 					>
 						<input
 							type="hidden"
 							name="collectionName"
-							defaultValue={bulkEditingCollectionState.collection.name}
+							defaultValue={bulkEditingCollectionState.data.collection.name}
 						/>
 						<input
 							type="hidden"
 							name="creatorUserId"
-							defaultValue={bulkEditingCollectionState.collection.creatorUserId}
+							defaultValue={
+								bulkEditingCollectionState.data.collection.creatorUserId
+							}
 						/>
-						{bulkEditingCollectionState.entities.map((item, index) => (
+						{bulkEditingCollectionState.data.entities.map((item, index) => (
 							<Fragment key={JSON.stringify(item)}>
 								<input
 									readOnly
@@ -479,7 +483,8 @@ export default function Layout() {
 						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 							<Group wrap="nowrap" justify="space-between">
 								<Text fz={{ base: "xs", md: "md" }}>
-									{bulkEditingCollectionState.size} items selected
+									{bulkEditingCollectionState.data.entities.length} items
+									selected
 								</Text>
 								<Group wrap="nowrap">
 									<ActionIcon
@@ -491,7 +496,7 @@ export default function Layout() {
 									<Button
 										size="xs"
 										color="blue"
-										loading={bulkEditingCollectionState.isLoading}
+										loading={bulkEditingCollectionState.data.isLoading}
 										onClick={async () => {
 											bulkEditingCollectionState.startLoading();
 											const { collectionContents } =
@@ -500,7 +505,7 @@ export default function Layout() {
 													{
 														input: {
 															collectionId:
-																bulkEditingCollectionState.collection.id,
+																bulkEditingCollectionState.data.collection.id,
 															take: Number.MAX_SAFE_INTEGER,
 														},
 													},
@@ -516,7 +521,9 @@ export default function Layout() {
 										size="xs"
 										color="red"
 										type="submit"
-										disabled={bulkEditingCollectionState.size === 0}
+										disabled={
+											bulkEditingCollectionState.data.entities.length === 0
+										}
 									>
 										Remove
 									</Button>

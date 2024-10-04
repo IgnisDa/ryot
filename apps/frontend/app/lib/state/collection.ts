@@ -11,7 +11,10 @@ type BulkEditingCollectionDetails = {
 	creatorUserId: string;
 };
 
+type Action = "bulkRemoveFromCollection" | "bulkAddToCollection";
+
 export type BulkEditingCollectionData = {
+	action: Action;
 	collection: BulkEditingCollectionDetails;
 	entities: Array<BulkEditingCollectionEntity>;
 	isLoading: boolean;
@@ -25,8 +28,8 @@ export const useBulkEditCollection = () => {
 	const findIndex = (entity: BulkEditingCollectionEntity) =>
 		(bec?.entities || []).findIndex((f) => isEqual(f, entity));
 
-	const start = (collection: BulkEditingCollectionDetails) => {
-		setBec({ collection, entities: [], isLoading: false });
+	const start = (collection: BulkEditingCollectionDetails, action: Action) => {
+		setBec({ action, collection, entities: [], isLoading: false });
 	};
 
 	const add = (
@@ -63,10 +66,7 @@ export const useBulkEditCollection = () => {
 		remove,
 		state: bec
 			? {
-					collection: bec.collection,
-					size: bec.entities.length,
-					entities: bec.entities,
-					isLoading: bec.isLoading,
+					data: bec,
 					isAdded: (entity: BulkEditingCollectionEntity) =>
 						findIndex(entity) !== -1,
 					startLoading: () => setBec({ ...bec, isLoading: true }),

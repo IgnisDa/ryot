@@ -252,11 +252,14 @@ export default function Page() {
 									loaderData.collectionContents.results.details.total === 0
 								}
 								onClick={() => {
-									bulkEditingCollection.start({
-										id: loaderData.collectionId,
-										name: loaderData.collectionContents.details.name,
-										creatorUserId: loaderData.collectionContents.user.id,
-									});
+									bulkEditingCollection.start(
+										{
+											id: loaderData.collectionId,
+											name: loaderData.collectionContents.details.name,
+											creatorUserId: loaderData.collectionContents.user.id,
+										},
+										"bulkRemoveFromCollection",
+									);
 									setTab("contents");
 								}}
 							>
