@@ -434,6 +434,27 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			);
 		})
+		.with("bulkRemoveFromCollection", async () => {
+			console.log(formData);
+			const submission = processSubmission(
+				formData,
+				bulkRemoveFromCollectionSchema,
+			);
+			for (const item of submission.items) {
+				await serverGqlService.authenticatedRequest(
+					request,
+					RemoveEntityFromCollectionDocument,
+					{
+						input: {
+							...item,
+							collectionName: submission.collectionName,
+							creatorUserId: submission.creatorUserId,
+						},
+					},
+				);
+			}
+			await removeCachedUserCollectionsList(request);
+		})
 		.run();
 	if (redirectTo) {
 		headers.append("Location", redirectTo.toString());
@@ -518,3 +539,14 @@ const bulkUpdateSchema = z
 
 const sleepForHalfSecond = async (request: Request) =>
 	await wait(500, { signal: request.signal });
+
+const bulkRemoveFromCollectionSchema = z.object({
+	collectionName: z.string(),
+	creatorUserId: z.string(),
+	items: z.array(
+		z.object({
+			entityId: z.string(),
+			entityLot: z.nativeEnum(EntityLot),
+		}),
+	),
+});

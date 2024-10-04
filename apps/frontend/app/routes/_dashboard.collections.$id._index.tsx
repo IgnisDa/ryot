@@ -18,7 +18,7 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	type MetaArgs_SingleFetch,
@@ -30,9 +30,8 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
-	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconCancel,
@@ -44,8 +43,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { Fragment, useState } from "react";
-import { namedAction } from "remix-utils/named-action";
-import { withQuery } from "ufo";
+import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -62,14 +60,17 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/generals";
-import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useConfirmSubmit,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
-	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -127,41 +128,6 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
-	const formData = await request.clone().formData();
-	return namedAction(request, {
-		bulkRemove: async () => {
-			const submission = processSubmission(formData, bulkRemoveSchema);
-			for (const item of submission.items) {
-				await serverGqlService.authenticatedRequest(
-					request,
-					RemoveEntityFromCollectionDocument,
-					{
-						input: {
-							...item,
-							collectionName: submission.collectionName,
-							creatorUserId: submission.creatorUserId,
-						},
-					},
-				);
-			}
-			await removeCachedUserCollectionsList(request);
-			return Response.json({});
-		},
-	});
-});
-
-const bulkRemoveSchema = z.object({
-	collectionName: z.string(),
-	creatorUserId: z.string(),
-	items: z.array(
-		z.object({
-			entityId: z.string(),
-			entityLot: z.nativeEnum(EntityLot),
-		}),
-	),
-});
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -169,6 +135,7 @@ export default function Page() {
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const submit = useConfirmSubmit();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const bulkEditingCollection = useBulkEditCollection();
 	const [
@@ -183,8 +150,11 @@ export default function Page() {
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
-						reloadDocument
-						action={withQuery(".", { intent: "bulkRemove" })}
+						onClick={(e) => {
+							submit(e);
+							bulkEditingCollection.stop();
+						}}
+						action={$path("/actions", { intent: "bulkRemoveFromCollection" })}
 					>
 						<input
 							type="hidden"
