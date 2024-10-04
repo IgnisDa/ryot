@@ -122,6 +122,11 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const collectionDetailsForBulkEditing = {
+		id: loaderData.collectionId,
+		name: loaderData.collectionContents.details.name,
+		creatorUserId: loaderData.collectionContents.user.id,
+	};
 	const state = bulkEditingCollection.state;
 
 	return (
@@ -253,11 +258,7 @@ export default function Page() {
 								}
 								onClick={() => {
 									bulkEditingCollection.start(
-										{
-											id: loaderData.collectionId,
-											name: loaderData.collectionContents.details.name,
-											creatorUserId: loaderData.collectionContents.user.id,
-										},
+										collectionDetailsForBulkEditing,
 										"bulkRemoveFromCollection",
 									);
 									setTab("contents");
