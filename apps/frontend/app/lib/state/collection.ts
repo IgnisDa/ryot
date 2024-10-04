@@ -32,41 +32,35 @@ export const useBulkEditCollection = () => {
 		setBec({ action, collection, entities: [], isLoading: false });
 	};
 
-	const add = (
-		entity: BulkEditingCollectionEntity | Array<BulkEditingCollectionEntity>,
-	) => {
-		if (!bec) return;
-		if (Array.isArray(entity)) {
-			setBec({ ...bec, isLoading: false, entities: entity });
-			return;
-		}
-		if (findIndex(entity) !== -1) return;
-		setBec(
-			produce(bec, (draft) => {
-				draft.entities.push(entity);
-			}),
-		);
-	};
-
-	const remove = (entity: BulkEditingCollectionEntity) => {
-		if (!bec) return;
-		setBec(
-			produce(bec, (draft) => {
-				draft.entities.splice(findIndex(entity), 1);
-			}),
-		);
-	};
-
-	const stop = () => setBec(null);
-
 	return {
 		start,
 		state: bec
 			? {
-					add,
-					stop,
-					remove,
 					data: bec,
+					stop: () => setBec(null),
+					add: (
+						entity:
+							| BulkEditingCollectionEntity
+							| Array<BulkEditingCollectionEntity>,
+					) => {
+						if (Array.isArray(entity)) {
+							setBec({ ...bec, isLoading: false, entities: entity });
+							return;
+						}
+						if (findIndex(entity) !== -1) return;
+						setBec(
+							produce(bec, (draft) => {
+								draft.entities.push(entity);
+							}),
+						);
+					},
+					remove: (entity: BulkEditingCollectionEntity) => {
+						setBec(
+							produce(bec, (draft) => {
+								draft.entities.splice(findIndex(entity), 1);
+							}),
+						);
+					},
 					isAdded: (entity: BulkEditingCollectionEntity) =>
 						findIndex(entity) !== -1,
 					startLoading: () => setBec({ ...bec, isLoading: true }),
