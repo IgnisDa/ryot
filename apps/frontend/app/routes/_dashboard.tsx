@@ -519,13 +519,17 @@ export default function Layout() {
 									</Button>
 									<Button
 										size="xs"
-										color="red"
+										color={
+											bulkEditingCollectionState.data.action === "remove"
+												? "red"
+												: "green"
+										}
 										type="submit"
 										disabled={
 											bulkEditingCollectionState.data.entities.length === 0
 										}
 									>
-										Remove
+										{changeCase(bulkEditingCollectionState.data.action)}
 									</Button>
 								</Group>
 							</Group>

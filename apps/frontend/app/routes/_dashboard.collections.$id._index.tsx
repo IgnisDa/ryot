@@ -16,7 +16,11 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { unstable_defineLoader } from "@remix-run/node";
-import { type MetaArgs_SingleFetch, useLoaderData } from "@remix-run/react";
+import {
+	type MetaArgs_SingleFetch,
+	useLoaderData,
+	useNavigate,
+} from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -35,6 +39,7 @@ import {
 	IconUser,
 } from "@tabler/icons-react";
 import { useState } from "react";
+import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -89,7 +94,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			input: {
 				collectionId,
 				filter: {
-					entityType: query.entityLot,
+					entityLot: query.entityLot,
 					metadataLot: query.metadataLot,
 				},
 				sort: { by: query.sortBy, order: query.orderBy },
@@ -112,6 +117,7 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
+	const navigate = useNavigate();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
@@ -122,7 +128,7 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const collectionDetailsForBulkEditing = {
+	const colDetails = {
 		id: loaderData.collectionId,
 		name: loaderData.collectionContents.details.name,
 		creatorUserId: loaderData.collectionContents.user.id,
@@ -257,10 +263,25 @@ export default function Page() {
 									loaderData.collectionContents.results.details.total === 0
 								}
 								onClick={() => {
-									bulkEditingCollection.start(
-										collectionDetailsForBulkEditing,
-										"bulkRemoveFromCollection",
+									bulkEditingCollection.start(colDetails, "add");
+									navigate(
+										$path("/media/:action/:lot", {
+											action: "list",
+											lot: MediaLot.Movie,
+										}),
 									);
+								}}
+							>
+								Bulk add
+							</Button>
+							<Button
+								w="100%"
+								variant="outline"
+								disabled={
+									loaderData.collectionContents.results.details.total === 0
+								}
+								onClick={() => {
+									bulkEditingCollection.start(colDetails, "remove");
 									setTab("contents");
 								}}
 							>

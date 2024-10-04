@@ -11,7 +11,7 @@ type BulkEditingCollectionDetails = {
 	creatorUserId: string;
 };
 
-type Action = "bulkRemoveFromCollection" | "bulkAddToCollection";
+type Action = "remove" | "add";
 
 export type BulkEditingCollectionData = {
 	action: Action;
