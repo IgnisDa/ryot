@@ -19,11 +19,21 @@ export const useBulkEditCollection = () => {
 		bulkEditingCollectionAtom,
 	);
 
+	const isSameEntity = (
+		a: BulkEditingCollectionEntity,
+		b: BulkEditingCollectionEntity,
+	) => a.entityId === b.entityId && a.entityLot === b.entityLot;
+
+	const findIndex = (entity: BulkEditingCollectionEntity) =>
+		(bulkEditingCollection?.entities || []).findIndex((f) =>
+			isSameEntity(f, entity),
+		);
+
 	const start = (collectionId: string) => {
 		setBulkEditingCollection({ collectionId, entities: [] });
 	};
 
-	const addEntity = (
+	const add = (
 		entity: BulkEditingCollectionEntity | Array<BulkEditingCollectionEntity>,
 	) => {
 		if (!bulkEditingCollection) return;
@@ -31,8 +41,7 @@ export const useBulkEditCollection = () => {
 			setBulkEditingCollection({ ...bulkEditingCollection, entities: entity });
 			return;
 		}
-		if (bulkEditingCollection.entities.findIndex((f) => f === entity) !== -1)
-			return;
+		if (findIndex(entity) !== -1) return;
 		setBulkEditingCollection(
 			produce(bulkEditingCollection, (draft) => {
 				draft.entities.push(entity);
@@ -40,13 +49,10 @@ export const useBulkEditCollection = () => {
 		);
 	};
 
-	const removeEntity = (entity: BulkEditingCollectionEntity) => {
+	const remove = (entity: BulkEditingCollectionEntity) => {
 		setBulkEditingCollection((c) =>
 			produce(c, (draft) => {
-				draft?.entities.splice(
-					draft.entities.findIndex((f) => f === entity),
-					1,
-				);
+				draft?.entities.splice(findIndex(entity), 1);
 			}),
 		);
 	};
@@ -54,16 +60,16 @@ export const useBulkEditCollection = () => {
 	const stop = () => setBulkEditingCollection(null);
 
 	return {
+		add,
 		stop,
 		start,
-		addEntity,
-		removeEntity,
+		remove,
 		state: bulkEditingCollection
 			? {
 					size: bulkEditingCollection.entities.length,
 					entities: bulkEditingCollection.entities,
 					isAdded: (entity: BulkEditingCollectionEntity) =>
-						bulkEditingCollection.entities.includes(entity),
+						findIndex(entity) !== -1,
 				}
 			: (false as const),
 	};

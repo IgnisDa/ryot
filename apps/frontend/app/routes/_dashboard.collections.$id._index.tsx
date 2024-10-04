@@ -248,7 +248,7 @@ export default function Page() {
 															},
 														),
 												});
-											bulkEditingCollection.addEntity(
+											bulkEditingCollection.add(
 												collectionContents.results.items,
 											);
 											setIsSelectAllLoading(false);
@@ -347,9 +347,8 @@ export default function Page() {
 															variant={isAdded ? "filled" : "transparent"}
 															color="red"
 															onClick={() => {
-																if (isAdded)
-																	bulkEditingCollection.removeEntity(lm);
-																else bulkEditingCollection.addEntity(lm);
+																if (isAdded) bulkEditingCollection.remove(lm);
+																else bulkEditingCollection.add(lm);
 															}}
 														>
 															<IconTrashFilled size={18} />
