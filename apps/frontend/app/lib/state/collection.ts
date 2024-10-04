@@ -3,20 +3,16 @@ import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 
-type BulkEditingCollectionEntity = { entityId: string; entityLot: EntityLot };
+type Entity = { entityId: string; entityLot: EntityLot };
 
-type BulkEditingCollectionDetails = {
-	id: string;
-	name: string;
-	creatorUserId: string;
-};
+type Collection = { id: string; name: string; creatorUserId: string };
 
 type Action = "remove" | "add";
 
-export type BulkEditingCollectionData = {
+type BulkEditingCollectionData = {
 	action: Action;
-	collection: BulkEditingCollectionDetails;
-	entities: Array<BulkEditingCollectionEntity>;
+	collection: Collection;
+	entities: Array<Entity>;
 	isLoading: boolean;
 };
 
@@ -25,10 +21,10 @@ const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
 export const useBulkEditCollection = () => {
 	const [bec, setBec] = useAtom(bulkEditingCollectionAtom);
 
-	const findIndex = (entity: BulkEditingCollectionEntity) =>
+	const findIndex = (entity: Entity) =>
 		(bec?.entities || []).findIndex((f) => isEqual(f, entity));
 
-	const start = (collection: BulkEditingCollectionDetails, action: Action) => {
+	const start = (collection: Collection, action: Action) => {
 		setBec({ action, collection, entities: [], isLoading: false });
 	};
 
@@ -38,11 +34,7 @@ export const useBulkEditCollection = () => {
 			? {
 					data: bec,
 					stop: () => setBec(null),
-					add: (
-						entity:
-							| BulkEditingCollectionEntity
-							| Array<BulkEditingCollectionEntity>,
-					) => {
+					add: (entity: Entity | Array<Entity>) => {
 						if (Array.isArray(entity)) {
 							setBec({ ...bec, isLoading: false, entities: entity });
 							return;
@@ -54,15 +46,14 @@ export const useBulkEditCollection = () => {
 							}),
 						);
 					},
-					remove: (entity: BulkEditingCollectionEntity) => {
+					remove: (entity: Entity) => {
 						setBec(
 							produce(bec, (draft) => {
 								draft.entities.splice(findIndex(entity), 1);
 							}),
 						);
 					},
-					isAdded: (entity: BulkEditingCollectionEntity) =>
-						findIndex(entity) !== -1,
+					isAdded: (entity: Entity) => findIndex(entity) !== -1,
 					startLoading: () => setBec({ ...bec, isLoading: true }),
 					stopLoading: () => setBec({ ...bec, isLoading: false }),
 				}
