@@ -35,6 +35,7 @@ import {
 import { processSubmission, startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
+	IconCancel,
 	IconFilter,
 	IconMessageCircle2,
 	IconSortAscending,
@@ -216,13 +217,12 @@ export default function Page() {
 							<Group wrap="nowrap" justify="space-between">
 								<Text>{state.size} items selected</Text>
 								<Group wrap="nowrap">
-									<Button
-										size="xs"
-										color="gray"
+									<ActionIcon
+										size="md"
 										onClick={() => bulkEditingCollection.stop()}
 									>
-										Cancel
-									</Button>
+										<IconCancel />
+									</ActionIcon>
 									<Button
 										size="xs"
 										color="blue"
