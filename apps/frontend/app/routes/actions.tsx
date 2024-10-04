@@ -49,6 +49,9 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
+const sleepForHalfSecond = async (request: Request) =>
+	await wait(500, { signal: request.signal });
+
 export const loader = async () => redirect($path("/"));
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -536,9 +539,6 @@ const bulkUpdateSchema = z
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
-
-const sleepForHalfSecond = async (request: Request) =>
-	await wait(500, { signal: request.signal });
 
 const bulkRemoveFromCollectionSchema = z.object({
 	collectionName: z.string(),
