@@ -148,6 +148,7 @@ import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
+import { notifications } from "@mantine/notifications";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 
@@ -441,6 +442,11 @@ export default function Layout() {
 						onSubmit={(e) => {
 							submit(e);
 							bulkEditingCollection.stop();
+							notifications.show({
+								title: "Success",
+								message: "Items will be removed from the collection",
+								color: "green",
+							});
 						}}
 						action={$path("/actions", { intent: "bulkRemoveFromCollection" })}
 					>
