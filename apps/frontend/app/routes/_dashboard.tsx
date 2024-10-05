@@ -111,7 +111,6 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
-	allMediaListRoutes,
 	convertDecimalToThreePointSmiley,
 	getLot,
 	getVerb,
@@ -399,7 +398,11 @@ export default function Layout() {
 				$path("/collections/:id", {
 					id: bulkEditingCollectionState.data.collection.id,
 				})
-			: allMediaListRoutes.includes(location.pathname));
+			: Object.values(MediaLot)
+					.map((ml) =>
+						$path("/media/:action/:lot", { action: "list", lot: ml }),
+					)
+					.includes(location.pathname));
 
 	return (
 		<>

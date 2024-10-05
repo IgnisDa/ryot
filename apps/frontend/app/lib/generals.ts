@@ -32,7 +32,6 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import { GraphQLClient } from "graphql-request";
 import Cookies from "js-cookie";
-import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
 
@@ -309,10 +308,6 @@ export const getMetadataIcon = (lot: MediaLot) => {
 };
 
 const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-
-export const allMediaListRoutes = Object.values(MediaLot).map((ml) =>
-	$path("/media/:action/:lot", { action: "list", lot: ml }),
-);
 
 export const clientGqlService = new GraphQLClient(
 	`${baseUrl}/backend/graphql`,
