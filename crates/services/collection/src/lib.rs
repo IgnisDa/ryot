@@ -33,8 +33,7 @@ use sea_orm::{
     ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Condition, Expr, Func, Iden, PgFunc, Query, SimpleExpr,
-    Write,
+    extension::postgres::PgExpr, Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr,
 };
 
 pub struct CollectionService {
@@ -63,13 +62,6 @@ impl CollectionService {
         user_id: &String,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
-        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/787 is merged
-        struct JsonAgg;
-        impl Iden for JsonAgg {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "JSON_AGG").unwrap();
-            }
-        }
         let user_jsonb_build_object = PgFunc::json_build_object(vec![
             (
                 Expr::val("id"),
@@ -82,7 +74,7 @@ impl CollectionService {
         ]);
         let collaborators_subquery = Query::select()
             .from(UserToEntity)
-            .expr(Func::cust(JsonAgg).arg(user_jsonb_build_object.clone()))
+            .expr(PgFunc::json_agg(user_jsonb_build_object.clone()))
             .join(
                 JoinType::InnerJoin,
                 AliasedUser::Table,
