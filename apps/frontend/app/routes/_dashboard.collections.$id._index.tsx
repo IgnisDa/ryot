@@ -209,7 +209,7 @@ export default function Page() {
 												entityId={lm.entityId}
 												entityLot={lm.entityLot}
 												topRight={
-													state ? (
+													state && state.data.action === "remove" ? (
 														<ActionIcon
 															variant={isAdded ? "filled" : "transparent"}
 															color="red"
