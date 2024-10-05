@@ -63,10 +63,6 @@ export const useBulkEditCollection = () => {
 						navigate(bec.locationStartedFrom);
 					},
 					add: (toAdd: Entity) => {
-						if (Array.isArray(toAdd)) {
-							setBec({ ...bec, isLoading: false, entities: toAdd });
-							return;
-						}
 						if (findIndex(toAdd) !== -1) return;
 						setBec(
 							produce(bec, (draft) => {
@@ -90,11 +86,7 @@ export const useBulkEditCollection = () => {
 							// TODO: Handle add to collection
 							.with("add", () => [])
 							.exhaustive();
-						setBec({
-							...bec,
-							isLoading: false,
-							entities,
-						});
+						setBec({ ...bec, isLoading: false, entities });
 					},
 					remove: (toRemove: Entity) => {
 						setBec(
