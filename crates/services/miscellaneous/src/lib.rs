@@ -3769,11 +3769,14 @@ ORDER BY RANDOM() LIMIT 10;
                 },
             )
             .order_by(order_by, sort_order);
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
         let paginator = query
             .column(metadata_group::Column::Id)
             .clone()
             .into_tuple::<String>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,

@@ -1018,6 +1018,7 @@ export type MetadataGroupsListInput = {
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataListInput = {
