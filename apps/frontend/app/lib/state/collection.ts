@@ -4,6 +4,7 @@ import {
 	CollectionContentsDocument,
 	EntityLot,
 	MediaLot,
+	MetadataGroupsListDocument,
 	MetadataListDocument,
 	PeopleListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -110,6 +111,19 @@ export const useBulkEditCollection = () => {
 											r.peopleList.items.map((p) => ({
 												entityId: p,
 												entityLot: EntityLot.Person,
+											})),
+										);
+								if (
+									$path("/media/groups/:action", { action: "list" }).includes(
+										location.pathname,
+									)
+								)
+									return clientGqlService
+										.request(MetadataGroupsListDocument, { input: { take } })
+										.then((r) =>
+											r.metadataGroupsList.items.map((p) => ({
+												entityId: p,
+												entityLot: EntityLot.MetadataGroup,
 											})),
 										);
 								return [];

@@ -403,6 +403,7 @@ export default function Layout() {
 						$path("/media/:action/:lot", { action: "list", lot: ml }),
 					),
 					$path("/media/people/:action", { action: "list" }),
+					$path("/media/groups/:action", { action: "list" }),
 				].includes(location.pathname));
 
 	return (
