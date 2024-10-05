@@ -1024,7 +1024,7 @@ export type MetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<MediaLot>;
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
   take?: InputMaybe<Scalars['Int']['input']>;
 };

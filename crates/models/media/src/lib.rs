@@ -1421,9 +1421,9 @@ pub struct MediaFilter {
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct MetadataListInput {
     pub take: Option<i32>,
-    pub search: SearchInput,
     pub lot: Option<MediaLot>,
     pub filter: Option<MediaFilter>,
+    pub search: Option<SearchInput>,
     pub sort: Option<SortInput<MediaSortBy>>,
     pub invert_collection: Option<bool>,
 }

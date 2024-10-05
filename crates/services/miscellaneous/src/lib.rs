@@ -1030,7 +1030,7 @@ ORDER BY RANDOM() LIMIT 10;
                         )
                     }),
             )
-            .apply_if(input.search.query.clone(), |query, v| {
+            .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                 query.filter(
                     Cond::any()
                         .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
@@ -1095,10 +1095,11 @@ ORDER BY RANDOM() LIMIT 10;
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
 
         let limit = input.take.unwrap_or(self.config.frontend.page_size);
+        let page = input.search.and_then(|s| s.page).unwrap_or(1);
 
         let items = select
             .limit(limit as u64)
-            .offset(((input.search.page.unwrap() - 1) * limit) as u64)
+            .offset(((page - 1) * limit) as u64)
             .into_model::<InnerMediaSearchItem>()
             .all(&self.db)
             .await?
@@ -1106,12 +1107,11 @@ ORDER BY RANDOM() LIMIT 10;
             .map(|m| m.id)
             .collect_vec();
 
-        let next_page =
-            if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
-                Some(input.search.page.unwrap() + 1)
-            } else {
-                None
-            };
+        let next_page = if total - (page * self.config.frontend.page_size) > 0 {
+            Some(page + 1)
+        } else {
+            None
+        };
         Ok(SearchResults {
             details: SearchDetails { next_page, total },
             items,
