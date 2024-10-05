@@ -8,6 +8,7 @@ import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { clientGqlService } from "../generals";
+import { match } from "ts-pattern";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
@@ -75,19 +76,24 @@ export const useBulkEditCollection = () => {
 					},
 					bulkAdd: async () => {
 						setBec({ ...bec, isLoading: true });
-						const { collectionContents } = await clientGqlService.request(
-							CollectionContentsDocument,
-							{
-								input: {
-									collectionId: bec.collection.id,
-									take: Number.MAX_SAFE_INTEGER,
-								},
-							},
-						);
+						const entities = await match(bec.action)
+							.with("remove", () =>
+								clientGqlService
+									.request(CollectionContentsDocument, {
+										input: {
+											collectionId: bec.collection.id,
+											take: Number.MAX_SAFE_INTEGER,
+										},
+									})
+									.then((r) => r.collectionContents.results.items),
+							)
+							// TODO: Handle add to collection
+							.with("add", () => [])
+							.exhaustive();
 						setBec({
 							...bec,
 							isLoading: false,
-							entities: collectionContents.results.items,
+							entities,
 						});
 					},
 					remove: (toRemove: Entity) => {
