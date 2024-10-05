@@ -22,6 +22,7 @@ import {
 	useNavigate,
 } from "@remix-run/react";
 import {
+	EntityLot,
 	GraphqlSortOrder,
 	MediaSource,
 	PeopleListDocument,
@@ -31,6 +32,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconCheck,
 	IconFilter,
 	IconListCheck,
 	IconSearch,
@@ -51,6 +53,7 @@ import {
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -171,6 +174,8 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState = bulkEditingCollection.state;
 
 	return (
 		<Container>
@@ -274,9 +279,34 @@ export default function Page() {
 						</Box>
 						{loaderData.peopleList.list.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.peopleList.list.items.map((person) => (
-									<PersonDisplayItem key={person} personId={person} />
-								))}
+								{loaderData.peopleList.list.items.map((person) => {
+									const becItem = {
+										entityId: person,
+										entityLot: EntityLot.Person,
+									};
+									const isAdded = bulkEditingCollection.isAdded(becItem);
+									return (
+										<PersonDisplayItem
+											key={person}
+											personId={person}
+											topRight={
+												bulkEditingState &&
+												bulkEditingState.data.action === "add" ? (
+													<ActionIcon
+														variant={isAdded ? "filled" : "transparent"}
+														color="green"
+														onClick={() => {
+															if (isAdded) bulkEditingState.remove(becItem);
+															else bulkEditingState.add(becItem);
+														}}
+													>
+														<IconCheck size={18} />
+													</ActionIcon>
+												) : undefined
+											}
+										/>
+									);
+								})}
 							</ApplicationGrid>
 						) : (
 							<Text>No information to display</Text>
