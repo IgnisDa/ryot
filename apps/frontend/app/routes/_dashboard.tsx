@@ -448,10 +448,13 @@ export default function Layout() {
 								color: "green",
 							});
 						}}
-						action={$path("/actions", {
-							intent: bulkEditingCollectionState.data.action,
-						})}
+						action={$path("/actions", { intent: "bulkCollectionAction" })}
 					>
+						<input
+							type="hidden"
+							name="action"
+							defaultValue={bulkEditingCollectionState.data.action}
+						/>
 						<input
 							type="hidden"
 							name="collectionName"

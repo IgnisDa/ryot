@@ -437,23 +437,22 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			);
 		})
-		.with("bulkRemoveFromCollection", async () => {
-			const submission = processSubmission(
-				formData,
-				bulkRemoveFromCollectionSchema,
-			);
-			for (const item of submission.items) {
-				await serverGqlService.authenticatedRequest(
-					request,
-					RemoveEntityFromCollectionDocument,
-					{
-						input: {
-							...item,
-							collectionName: submission.collectionName,
-							creatorUserId: submission.creatorUserId,
+		.with("bulkCollectionAction", async () => {
+			const submission = processSubmission(formData, bulkCollectionAction);
+			if (submission.action === "remove") {
+				for (const item of submission.items) {
+					await serverGqlService.authenticatedRequest(
+						request,
+						RemoveEntityFromCollectionDocument,
+						{
+							input: {
+								...item,
+								collectionName: submission.collectionName,
+								creatorUserId: submission.creatorUserId,
+							},
 						},
-					},
-				);
+					);
+				}
 			}
 			await removeCachedUserCollectionsList(request);
 		})
@@ -539,7 +538,8 @@ const bulkUpdateSchema = z
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
 
-const bulkRemoveFromCollectionSchema = z.object({
+const bulkCollectionAction = z.object({
+	action: z.enum(["remove", "add"]),
 	collectionName: z.string(),
 	creatorUserId: z.string(),
 	items: z.array(
