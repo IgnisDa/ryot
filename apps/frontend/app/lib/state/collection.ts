@@ -1,9 +1,13 @@
 import { notifications } from "@mantine/notifications";
 import { useLocation, useNavigate } from "@remix-run/react";
-import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	CollectionContentsDocument,
+	type EntityLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
+import { clientGqlService } from "../generals";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
@@ -57,7 +61,7 @@ export const useBulkEditCollection = () => {
 						setBec(null);
 						navigate(bec.locationStartedFrom);
 					},
-					add: (toAdd: Entity | Array<Entity>) => {
+					add: (toAdd: Entity) => {
 						if (Array.isArray(toAdd)) {
 							setBec({ ...bec, isLoading: false, entities: toAdd });
 							return;
@@ -69,6 +73,23 @@ export const useBulkEditCollection = () => {
 							}),
 						);
 					},
+					bulkAdd: async () => {
+						setBec({ ...bec, isLoading: true });
+						const { collectionContents } = await clientGqlService.request(
+							CollectionContentsDocument,
+							{
+								input: {
+									collectionId: bec.collection.id,
+									take: Number.MAX_SAFE_INTEGER,
+								},
+							},
+						);
+						setBec({
+							...bec,
+							isLoading: false,
+							entities: collectionContents.results.items,
+						});
+					},
 					remove: (toRemove: Entity) => {
 						setBec(
 							produce(bec, (draft) => {
@@ -76,7 +97,6 @@ export const useBulkEditCollection = () => {
 							}),
 						);
 					},
-					startLoading: () => setBec({ ...bec, isLoading: true }),
 					stopLoading: () => setBec({ ...bec, isLoading: false }),
 				}
 			: (false as const),

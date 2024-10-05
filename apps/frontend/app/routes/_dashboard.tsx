@@ -60,7 +60,6 @@ import {
 	useRouteError,
 } from "@remix-run/react";
 import {
-	CollectionContentsDocument,
 	CollectionExtraInformationLot,
 	MediaLot,
 	type MetadataDetailsQuery,
@@ -112,7 +111,6 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
-	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	getLot,
 	getVerb,
@@ -506,23 +504,7 @@ export default function Layout() {
 										size="xs"
 										color="blue"
 										loading={bulkEditingCollectionState.data.isLoading}
-										onClick={async () => {
-											bulkEditingCollectionState.startLoading();
-											const { collectionContents } =
-												await clientGqlService.request(
-													CollectionContentsDocument,
-													{
-														input: {
-															collectionId:
-																bulkEditingCollectionState.data.collection.id,
-															take: Number.MAX_SAFE_INTEGER,
-														},
-													},
-												);
-											bulkEditingCollectionState.add(
-												collectionContents.results.items,
-											);
-										}}
+										onClick={() => bulkEditingCollectionState.bulkAdd()}
 									>
 										Select all items
 									</Button>
