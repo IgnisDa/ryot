@@ -30,6 +30,7 @@ export const useBulkEditCollection = () => {
 
 	return {
 		start,
+		isAdded: (entity: Entity) => findIndex(entity) !== -1,
 		state: bec
 			? {
 					data: bec,
@@ -53,7 +54,6 @@ export const useBulkEditCollection = () => {
 							}),
 						);
 					},
-					isAdded: (entity: Entity) => findIndex(entity) !== -1,
 					startLoading: () => setBec({ ...bec, isLoading: true }),
 					stopLoading: () => setBec({ ...bec, isLoading: false }),
 				}

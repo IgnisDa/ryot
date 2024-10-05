@@ -201,8 +201,7 @@ export default function Page() {
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
-										// biome-ignore lint/complexity/useOptionalChain: required here
-										const isAdded = state && state.isAdded(lm);
+										const isAdded = bulkEditingCollection.isAdded(lm);
 										return (
 											<DisplayCollectionEntity
 												key={lm.entityId}
@@ -259,9 +258,6 @@ export default function Page() {
 							<Button
 								w="100%"
 								variant="outline"
-								disabled={
-									loaderData.collectionContents.results.details.total === 0
-								}
 								onClick={() => {
 									bulkEditingCollection.start(colDetails, "add");
 									navigate(
