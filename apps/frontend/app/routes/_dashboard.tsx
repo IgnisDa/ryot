@@ -398,11 +398,12 @@ export default function Layout() {
 				$path("/collections/:id", {
 					id: bulkEditingCollectionState.data.collection.id,
 				})
-			: Object.values(MediaLot)
-					.map((ml) =>
+			: [
+					...Object.values(MediaLot).map((ml) =>
 						$path("/media/:action/:lot", { action: "list", lot: ml }),
-					)
-					.includes(location.pathname));
+					),
+					$path("/media/people/:action", { action: "list" }),
+				].includes(location.pathname));
 
 	return (
 		<>
@@ -447,7 +448,7 @@ export default function Layout() {
 						method="POST"
 						onSubmit={(e) => {
 							submit(e);
-							bulkEditingCollectionState.stop();
+							bulkEditingCollectionState.stop(true);
 						}}
 						action={$path("/actions", { intent: "bulkCollectionAction" })}
 					>
