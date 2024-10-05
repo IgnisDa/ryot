@@ -27,8 +27,8 @@ import {
 	MediaSource,
 	PeopleListDocument,
 	PeopleSearchDocument,
+	PersonAndMetadataGroupsSortBy,
 	type PeopleSearchQuery,
-	PersonSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
@@ -66,7 +66,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	sortBy: PersonSortBy.MediaItems,
+	sortBy: PersonAndMetadataGroupsSortBy.MediaItems,
 	orderBy: GraphqlSortOrder.Desc,
 };
 
@@ -96,7 +96,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const [totalResults, peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
-				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
+				sortBy: z
+					.nativeEnum(PersonAndMetadataGroupsSortBy)
+					.default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				collections: commaDelimitedString,
 				invertCollection: zx.BoolAsString.optional(),
@@ -420,7 +422,7 @@ const FiltersModalForm = () => {
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
-					data={Object.values(PersonSortBy).map((o) => ({
+					data={Object.values(PersonAndMetadataGroupsSortBy).map((o) => ({
 						value: o.toString(),
 						label: startCase(o.toLowerCase()),
 					}))}
