@@ -1385,7 +1385,7 @@ pub enum MediaSortBy {
 }
 
 #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-pub enum PersonSortBy {
+pub enum PersonAndMetadataGroupsSortBy {
     #[default]
     Name,
     MediaItems,
@@ -1393,7 +1393,7 @@ pub enum PersonSortBy {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
-#[graphql(concrete(name = "PersonSortInput", params(PersonSortBy)))]
+#[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
 #[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 pub struct SortInput<T: InputType + Default> {
     #[graphql(default)]
@@ -1434,15 +1434,15 @@ pub struct PeopleListInput {
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub invert_collection: Option<bool>,
-    pub sort: Option<SortInput<PersonSortBy>>,
+    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct MetadataGroupsListInput {
-    pub search: SearchInput,
-    pub sort: Option<SortInput<PersonSortBy>>,
+    pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

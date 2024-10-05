@@ -1016,7 +1016,7 @@ export type MetadataGroupSearchResults = {
 export type MetadataGroupsListInput = {
   filter?: InputMaybe<MediaFilter>;
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
 };
 
@@ -1503,6 +1503,11 @@ export type Person = {
   website?: Maybe<Scalars['String']['output']>;
 };
 
+export enum PersonAndMetadataGroupsSortBy {
+  MediaItems = 'MEDIA_ITEMS',
+  Name = 'NAME'
+}
+
 export type PersonDetails = {
   contents: Array<PersonDetailsGroupedByRole>;
   details: Person;
@@ -1521,13 +1526,8 @@ export type PersonDetailsItemWithCharacter = {
   mediaId: Scalars['String']['output'];
 };
 
-export enum PersonSortBy {
-  MediaItems = 'MEDIA_ITEMS',
-  Name = 'NAME'
-}
-
 export type PersonSortInput = {
-  by?: PersonSortBy;
+  by?: PersonAndMetadataGroupsSortBy;
   order?: GraphqlSortOrder;
 };
 

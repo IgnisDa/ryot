@@ -65,13 +65,13 @@ use media_models::{
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
     MetadataVideoSource, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PersonAndMetadataGroupsSortBy,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ProviderLanguageInformation, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -3724,15 +3724,21 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|f| f.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
         let alias = "parts";
         let media_items_col = Expr::col(Alias::new(alias));
         let (order_by, sort_order) = match input.sort {
             None => (media_items_col, Order::Desc),
             Some(ord) => (
                 match ord.by {
-                    PersonSortBy::Name => Expr::col(metadata_group::Column::Title),
-                    PersonSortBy::MediaItems => media_items_col,
+                    PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
+                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
                 ord.order.into(),
             ),
@@ -3744,7 +3750,7 @@ ORDER BY RANDOM() LIMIT 10;
             .inner_join(UserToEntity)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(metadata_group::Column::Id.is_not_null())
-            .apply_if(input.search.query, |query, v| {
+            .apply_if(input.search.and_then(|f| f.query), |query, v| {
                 query.filter(
                     Condition::all()
                         .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
@@ -3811,8 +3817,8 @@ ORDER BY RANDOM() LIMIT 10;
             None => (media_items_col, Order::Desc),
             Some(ord) => (
                 match ord.by {
-                    PersonSortBy::Name => Expr::col(person::Column::Name),
-                    PersonSortBy::MediaItems => media_items_col,
+                    PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
                 ord.order.into(),
             ),
