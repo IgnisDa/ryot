@@ -439,20 +439,20 @@ export const action = unstable_defineAction(async ({ request }) => {
 		})
 		.with("bulkCollectionAction", async () => {
 			const submission = processSubmission(formData, bulkCollectionAction);
-			if (submission.action === "remove") {
-				for (const item of submission.items) {
-					await serverGqlService.authenticatedRequest(
-						request,
-						RemoveEntityFromCollectionDocument,
-						{
-							input: {
-								...item,
-								collectionName: submission.collectionName,
-								creatorUserId: submission.creatorUserId,
-							},
+			for (const item of submission.items) {
+				await serverGqlService.authenticatedRequest(
+					request,
+					submission.action === "remove"
+						? RemoveEntityFromCollectionDocument
+						: AddEntityToCollectionDocument,
+					{
+						input: {
+							...item,
+							collectionName: submission.collectionName,
+							creatorUserId: submission.creatorUserId,
 						},
-					);
-				}
+					},
+				);
 			}
 			await removeCachedUserCollectionsList(request);
 		})
