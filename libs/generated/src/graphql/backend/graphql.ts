@@ -1026,6 +1026,7 @@ export type MetadataListInput = {
   lot?: InputMaybe<MediaLot>;
   search: SearchInput;
   sort?: InputMaybe<MediaSortInput>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataPartialDetails = {

@@ -1094,9 +1094,11 @@ ORDER BY RANDOM() LIMIT 10;
             });
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
 
+        let limit = input.take.unwrap_or(self.config.frontend.page_size);
+
         let items = select
-            .limit(self.config.frontend.page_size as u64)
-            .offset(((input.search.page.unwrap() - 1) * self.config.frontend.page_size) as u64)
+            .limit(limit as u64)
+            .offset(((input.search.page.unwrap() - 1) * limit) as u64)
             .into_model::<InnerMediaSearchItem>()
             .all(&self.db)
             .await?
