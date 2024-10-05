@@ -3848,10 +3848,13 @@ ORDER BY RANDOM() LIMIT 10;
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
             .order_by(order_by, sort_order);
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
         let creators_paginator = query
             .clone()
             .into_model::<PartialCreator>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,

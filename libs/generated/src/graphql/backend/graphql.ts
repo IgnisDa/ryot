@@ -1465,6 +1465,7 @@ export type PeopleListInput = {
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type PeopleSearchInput = {

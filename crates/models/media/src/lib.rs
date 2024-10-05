@@ -1430,6 +1430,7 @@ pub struct MetadataListInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct PeopleListInput {
+    pub take: Option<u64>,
     pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub invert_collection: Option<bool>,
