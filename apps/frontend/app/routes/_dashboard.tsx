@@ -394,6 +394,21 @@ export default function Layout() {
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const bulkEditingCollection = useBulkEditCollection();
 	const bulkEditingCollectionState = bulkEditingCollection.state;
+	const shouldShowBulkEditingAffix =
+		bulkEditingCollectionState &&
+		(bulkEditingCollectionState.data.action === "remove"
+			? location.pathname ===
+				$path("/collections/:id", {
+					id: bulkEditingCollectionState.data.collection.id,
+				})
+			: Object.values(MediaLot)
+					.map((ml) =>
+						$path("/media/:action/:lot", {
+							action: "list",
+							lot: ml,
+						}).toLowerCase(),
+					)
+					.includes(location.pathname.toLowerCase()));
 
 	return (
 		<>
@@ -432,7 +447,7 @@ export default function Layout() {
 					</Affix>
 				</Tooltip>
 			) : null}
-			{bulkEditingCollectionState ? (
+			{shouldShowBulkEditingAffix ? (
 				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
 					<Form
 						method="POST"
