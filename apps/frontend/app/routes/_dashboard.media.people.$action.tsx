@@ -27,8 +27,8 @@ import {
 	MediaSource,
 	PeopleListDocument,
 	PeopleSearchDocument,
-	PersonAndMetadataGroupsSortBy,
 	type PeopleSearchQuery,
+	PersonAndMetadataGroupsSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {

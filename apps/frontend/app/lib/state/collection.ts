@@ -11,9 +11,9 @@ import {
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
-import { clientGqlService } from "../generals";
-import { match } from "ts-pattern";
 import { $path } from "remix-routes";
+import { match } from "ts-pattern";
+import { clientGqlService } from "../generals";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
