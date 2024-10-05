@@ -1430,10 +1430,10 @@ pub struct MetadataListInput {
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
 pub struct PeopleListInput {
-    pub search: SearchInput,
-    pub sort: Option<SortInput<PersonSortBy>>,
+    pub search: Option<SearchInput>,
     pub filter: Option<MediaFilter>,
     pub invert_collection: Option<bool>,
+    pub sort: Option<SortInput<PersonSortBy>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

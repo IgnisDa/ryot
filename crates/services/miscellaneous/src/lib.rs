@@ -3798,7 +3798,13 @@ ORDER BY RANDOM() LIMIT 10;
         struct PartialCreator {
             id: String,
         }
-        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|f| f.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
         let alias = "media_count";
         let media_items_col = Expr::col(Alias::new(alias));
         let (order_by, sort_order) = match input.sort {
@@ -3812,7 +3818,7 @@ ORDER BY RANDOM() LIMIT 10;
             ),
         };
         let query = Person::find()
-            .apply_if(input.search.query, |query, v| {
+            .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                 query.filter(
                     Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
                 )
