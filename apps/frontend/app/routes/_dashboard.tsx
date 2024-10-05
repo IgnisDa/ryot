@@ -172,10 +172,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			})
 			?.filter((f) => f.enabled)
 			.map((f) => {
-				return {
-					label: changeCase(f.name.toString()),
-					href: undefined,
-				};
+				return { label: f.name, href: undefined };
 			}) || []),
 		userPreferences.featuresEnabled.media.groups
 			? {
@@ -199,12 +196,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		.map((link, _index) =>
 			link
 				? {
-						label: link.label,
+						label: changeCase(link.label),
 						link: link.href
 							? link.href
 							: $path("/media/:action/:lot", {
 									action: "list",
-									lot: link.label.toLowerCase(),
+									lot: link.label,
 								}),
 					}
 				: undefined,
