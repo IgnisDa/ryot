@@ -1094,12 +1094,12 @@ ORDER BY RANDOM() LIMIT 10;
             });
         let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
 
-        let limit = input.take.unwrap_or(self.config.frontend.page_size);
+        let limit = input.take.unwrap_or(self.config.frontend.page_size as u64);
         let page = input.search.and_then(|s| s.page).unwrap_or(1);
 
         let items = select
-            .limit(limit as u64)
-            .offset(((page - 1) * limit) as u64)
+            .limit(limit)
+            .offset((page - 1) as u64 * limit)
             .into_model::<InnerMediaSearchItem>()
             .all(&self.db)
             .await?
@@ -1107,7 +1107,7 @@ ORDER BY RANDOM() LIMIT 10;
             .map(|m| m.id)
             .collect_vec();
 
-        let next_page = if total - (page * self.config.frontend.page_size) > 0 {
+        let next_page = if total as u64 - (page as u64 * limit) > 0 {
             Some(page + 1)
         } else {
             None
