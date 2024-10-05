@@ -233,7 +233,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const bulkEditingCollection = useBulkEditCollection();
-	const state = bulkEditingCollection.state;
+	const bulkEditingState = bulkEditingCollection.state;
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -329,13 +329,14 @@ export default function Page() {
 												metadataId={item}
 												rightLabelHistory
 												topRight={
-													state && state.data.action === "add" ? (
+													bulkEditingState &&
+													bulkEditingState.data.action === "add" ? (
 														<ActionIcon
 															variant={isAdded ? "filled" : "transparent"}
 															color="green"
 															onClick={() => {
-																if (isAdded) state.remove(becItem);
-																else state.add(becItem);
+																if (isAdded) bulkEditingState.remove(becItem);
+																else bulkEditingState.add(becItem);
 															}}
 														>
 															<IconCheck size={18} />
