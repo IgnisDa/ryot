@@ -146,7 +146,6 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
-import { notifications } from "@mantine/notifications";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
 
@@ -454,11 +453,6 @@ export default function Layout() {
 						onSubmit={(e) => {
 							submit(e);
 							bulkEditingCollectionState.stop();
-							notifications.show({
-								title: "Success",
-								message: "Items will be removed from the collection",
-								color: "green",
-							});
 						}}
 						action={$path("/actions", { intent: "bulkCollectionAction" })}
 					>
