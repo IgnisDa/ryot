@@ -72,14 +72,12 @@ export const useBulkEditCollection = () => {
 					},
 					bulkAdd: async () => {
 						setBec({ ...bec, isLoading: true });
+						const take = Number.MAX_SAFE_INTEGER;
 						const entities = await match(bec.action)
 							.with("remove", () =>
 								clientGqlService
 									.request(CollectionContentsDocument, {
-										input: {
-											collectionId: bec.collection.id,
-											take: Number.MAX_SAFE_INTEGER,
-										},
+										input: { take, collectionId: bec.collection.id },
 									})
 									.then((r) => r.collectionContents.results.items),
 							)
