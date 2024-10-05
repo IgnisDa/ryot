@@ -1107,7 +1107,7 @@ ORDER BY RANDOM() LIMIT 10;
             .map(|m| m.id)
             .collect_vec();
 
-        let next_page = if total as u64 - (page as u64 * limit) > 0 {
+        let next_page = if total as i64 - (page as i64 * limit as i64) > 0 {
             Some(page + 1)
         } else {
             None
