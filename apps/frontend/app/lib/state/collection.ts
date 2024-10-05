@@ -26,8 +26,8 @@ export const useBulkEditCollection = () => {
 	const location = useLocation();
 	const navigate = useNavigate();
 
-	const findIndex = (entity: Entity) =>
-		(bec?.entities || []).findIndex((f) => isEqual(f, entity));
+	const findIndex = (toFind: Entity) =>
+		(bec?.entities || []).findIndex((inHere) => isEqual(inHere, toFind));
 
 	const start = (collection: Collection, action: Action) => {
 		setBec({
