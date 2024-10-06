@@ -22,7 +22,6 @@ import {
 	ScrollArea,
 	Select,
 	SimpleGrid,
-	Slider,
 	Stack,
 	Tabs,
 	Text,
@@ -1244,7 +1243,40 @@ const MetadataCreator = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
-const DEFAULT_STATES = [0, 3];
+const POSSIBLE_DURATION_UNITS = ["mo", "d", "h", "min"] as const;
+const SECONDS_IN_MONTH = 2629800;
+
+const convertSecondsToDuration = (totalSeconds?: string | null) => {
+	if (!totalSeconds) return {};
+	const seconds = Number(totalSeconds);
+	const mo = Math.floor(seconds / SECONDS_IN_MONTH);
+	const remainingSeconds = seconds - mo * SECONDS_IN_MONTH;
+	const remainingDuration = dayjsLib.duration(remainingSeconds, "seconds");
+	const d = Math.floor(remainingDuration.asDays());
+	const h = Math.floor(remainingDuration.subtract(d, "day").asHours());
+	const min = Math.floor(
+		remainingDuration.subtract(d, "day").subtract(h, "hour").asMinutes(),
+	);
+	return {
+		mo: mo || undefined,
+		d: d || undefined,
+		h: h || undefined,
+		min: min || undefined,
+	};
+};
+
+const convertDurationToSeconds = (
+	duration: {
+		[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
+	},
+) => {
+	let total = 0;
+	total += (duration.mo || 0) * SECONDS_IN_MONTH;
+	total += dayjsLib.duration(duration.d || 0, "days").asSeconds();
+	total += dayjsLib.duration(duration.h || 0, "hours").asSeconds();
+	total += dayjsLib.duration(duration.min || 0, "minutes").asSeconds();
+	return total;
+};
 
 const EditHistoryItemModal = (props: {
 	opened: boolean;
@@ -1259,19 +1291,6 @@ const EditHistoryItemModal = (props: {
 		);
 	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
 		props.seen;
-	const [mtv, mts] = manualTimeSpent
-		? //  IDK how to make this more readable. Should've paid more attention in math class.
-			(() => {
-				for (let i = 1; i <= 10; i++) {
-					const v = Number(manualTimeSpent) ** (1 / i);
-					if (v <= 100) return [v, i];
-				}
-				return DEFAULT_STATES;
-			})()
-		: DEFAULT_STATES;
-	const [manualTimeSpentValue, setManualTimeSpentValue] = useState(mtv);
-	const [manualTimeSpentScale, setManualTimeSpentScale] = useState(mts);
-	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const isNotCompleted = props.seen.state !== SeenState.Completed;
@@ -1279,6 +1298,11 @@ const EditHistoryItemModal = (props: {
 		userPreferences.general.watchProviders.find(
 			(l) => l.lot === loaderData.metadataDetails.lot,
 		)?.values || [];
+	const [manualTimeSpentValue, setManualTimeSpentValue] = useState<{
+		[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
+	}>(convertSecondsToDuration(manualTimeSpent));
+	const manualTimeSpentInSeconds =
+		convertDurationToSeconds(manualTimeSpentValue);
 
 	return (
 		<Modal
@@ -1344,38 +1368,34 @@ const EditHistoryItemModal = (props: {
 					</Tooltip>
 					<Input.Wrapper
 						label="Time spent"
-						description="How much time did you actually spend on this media? You can also adjust the scale"
+						description="How much time did you actually spend on this media?"
 					>
 						<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
-							<Box mt="xs">
-								<Group>
-									<Slider
-										flex={1}
-										label={null}
-										disabled={!coreDetails.isPro}
-										value={manualTimeSpentValue}
-										onChange={setManualTimeSpentValue}
-									/>
+							<Group wrap="nowrap" mt="xs">
+								{POSSIBLE_DURATION_UNITS.map((input) => (
 									<NumberInput
-										w="20%"
-										max={10}
-										size="xs"
-										value={manualTimeSpentScale}
-										onChange={(v) => setManualTimeSpentScale(Number(v))}
+										key={input}
+										rightSectionWidth={36}
+										disabled={!coreDetails.isPro}
+										defaultValue={manualTimeSpentValue[input]}
+										rightSection={<Text size="xs">{input}</Text>}
+										onChange={(v) => {
+											setManualTimeSpentValue((prev) => ({
+												...prev,
+												[input]: v,
+											}));
+										}}
 									/>
-								</Group>
-								<Text c="dimmed" size="sm" ta="center" mt="xs">
-									{humanizeDuration(manualTimeSpentInMinutes * 1000)}
-								</Text>
-								{manualTimeSpentInMinutes > 0 ? (
+								))}
+								{manualTimeSpentInSeconds > 0 ? (
 									<input
 										hidden
 										readOnly
 										name="manualTimeSpent"
-										value={manualTimeSpentInMinutes}
+										value={manualTimeSpentInSeconds}
 									/>
 								) : null}
-							</Box>
+							</Group>
 						</Tooltip>
 					</Input.Wrapper>
 					<Button variant="outline" type="submit">
