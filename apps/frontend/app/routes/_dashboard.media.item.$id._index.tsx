@@ -1244,6 +1244,8 @@ type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
 const POSSIBLE_DURATION_UNITS = ["mo", "d", "h", "min"] as const;
+// DEV: This needs to be done because dayjs calculates the second duration of month based
+// on the current calendar month, which messes up the value calculated by humanize-duration-ts.
 const SECONDS_IN_MONTH = 2629800;
 
 const convertSecondsToDuration = (totalSeconds?: string | null) => {
