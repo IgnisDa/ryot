@@ -388,45 +388,42 @@ export default function Page() {
 							</Input.Wrapper>
 							<Stack>
 								<Title order={3}>Watch providers</Title>
-								{Object.values(MediaLot).map((lot) => {
-									const existingValues =
-										watchProviders.find(
-											(wp) => snakeCase(wp.lot) === snakeCase(lot),
-										)?.values || [];
-									return (
-										<Stack key={lot} gap={4}>
-											<Text>{changeCase(lot)}</Text>
-											<TagsInput
-												placeholder="Enter more providers"
-												value={existingValues}
-												disabled={!!isEditDisabled}
-												onChange={(val) => {
-													if (val) {
-														const newWatchProviders =
-															Array.from(watchProviders);
-														let existingMediaLot = newWatchProviders.find(
-															(wp) => wp.lot === snakeCase(lot),
-														);
-														if (!existingMediaLot) {
-															existingMediaLot = {
-																lot: snakeCase(lot),
-																values: val,
-															};
-															newWatchProviders.push(existingMediaLot);
-														} else {
-															existingMediaLot.values = val;
+								{Object.values(MediaLot)
+									.map(snakeCase)
+									.map((lot) => {
+										const existingValues =
+											watchProviders.find((wp) => wp.lot === lot)?.values || [];
+										return (
+											<Stack key={lot} gap={4}>
+												<Text>{changeCase(lot)}</Text>
+												<TagsInput
+													placeholder="Enter more providers"
+													value={existingValues}
+													disabled={!!isEditDisabled}
+													onChange={(val) => {
+														if (val) {
+															const newWatchProviders =
+																Array.from(watchProviders);
+															let existingMediaLot = newWatchProviders.find(
+																(wp) => wp.lot === lot,
+															);
+															if (!existingMediaLot) {
+																existingMediaLot = { lot, values: val };
+																newWatchProviders.push(existingMediaLot);
+															} else {
+																existingMediaLot.values = val;
+															}
+															setWatchProviders(newWatchProviders);
+															appendPref(
+																"general.watch_providers",
+																JSON.stringify(newWatchProviders),
+															);
 														}
-														setWatchProviders(newWatchProviders);
-														appendPref(
-															"general.watch_providers",
-															JSON.stringify(newWatchProviders),
-														);
-													}
-												}}
-											/>
-										</Stack>
-									);
-								})}
+													}}
+												/>
+											</Stack>
+										);
+									})}
 							</Stack>
 						</Stack>
 					</Tabs.Panel>
