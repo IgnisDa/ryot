@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 const config = defineConfig({
-  server: { port: 3005, strictPort: true, allowedHosts: true },
+  server: { host: true, port: 3005, strictPort: true, allowedHosts: true },
   plugins: [
     devtools(),
     tsconfigPaths({ projects: ["./tsconfig.json"] }),
