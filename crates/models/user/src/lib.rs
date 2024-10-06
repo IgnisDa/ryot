@@ -1,12 +1,13 @@
 use async_graphql::{Enum, SimpleObject};
 use common_models::MediaStateChanged;
+use enums::MediaLot;
 use fitness_models::UserUnitSystem;
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
 
-const WATCH_PROVIDERS: [&str; 8] = [
+const MOVIE_WATCH_PROVIDERS: [&str; 8] = [
     "Netflix",
     "Amazon Prime",
     "Disney+",
@@ -302,6 +303,16 @@ pub struct UserGeneralDashboardElement {
     pub num_elements: Option<u64>,
 }
 
+#[skip_serializing_none]
+#[derive(
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct UserGeneralWatchProvider {
+    pub lot: MediaLot,
+    pub values: Vec<String>,
+}
+
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
 )]
@@ -310,7 +321,7 @@ pub struct UserGeneralPreferences {
     pub disable_videos: bool,
     pub disable_reviews: bool,
     pub persist_queries: bool,
-    pub watch_providers: Vec<String>,
+    pub watch_providers: Vec<UserGeneralWatchProvider>,
     pub grid_packing: GridPacking,
     pub review_scale: UserReviewScale,
     pub disable_watch_providers: bool,
@@ -321,7 +332,25 @@ pub struct UserGeneralPreferences {
 
 impl Default for UserGeneralPreferences {
     fn default() -> Self {
+        let mut watch_providers = vec![];
+        for lot in MediaLot::iter() {
+            if lot == MediaLot::Movie {
+                watch_providers.push(UserGeneralWatchProvider {
+                    lot,
+                    values: MOVIE_WATCH_PROVIDERS
+                        .into_iter()
+                        .map(|s| s.to_owned())
+                        .collect(),
+                });
+                continue;
+            }
+            watch_providers.push(UserGeneralWatchProvider {
+                lot,
+                values: vec![],
+            });
+        }
         Self {
+            watch_providers,
             display_nsfw: true,
             review_scale: UserReviewScale::default(),
             grid_packing: GridPacking::default(),
@@ -357,7 +386,6 @@ impl Default for UserGeneralPreferences {
             disable_navigation_animation: false,
             disable_videos: false,
             disable_watch_providers: false,
-            watch_providers: WATCH_PROVIDERS.into_iter().map(|s| s.to_owned()).collect(),
             disable_reviews: false,
         }
     }
