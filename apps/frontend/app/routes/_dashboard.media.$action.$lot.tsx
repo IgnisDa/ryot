@@ -39,6 +39,7 @@ import {
 import { changeCase, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconBoxMultiple,
+	IconCheck,
 	IconDotsVertical,
 	IconFilter,
 	IconListCheck,
@@ -73,6 +74,7 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	useAddEntityToCollection,
 	useMetadataProgressUpdate,
@@ -230,6 +232,8 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState = bulkEditingCollection.state;
 
 	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
@@ -313,13 +317,35 @@ export default function Page() {
 									items found
 								</Box>
 								<ApplicationGrid>
-									{loaderData.mediaList.list.items.map((item) => (
-										<MetadataDisplayItem
-											key={item}
-											metadataId={item}
-											rightLabelHistory
-										/>
-									))}
+									{loaderData.mediaList.list.items.map((item) => {
+										const becItem = {
+											entityId: item,
+											entityLot: EntityLot.Metadata,
+										};
+										const isAdded = bulkEditingCollection.isAdded(becItem);
+										return (
+											<MetadataDisplayItem
+												key={item}
+												metadataId={item}
+												rightLabelHistory
+												topRight={
+													bulkEditingState &&
+													bulkEditingState.data.action === "add" ? (
+														<ActionIcon
+															variant={isAdded ? "filled" : "transparent"}
+															color="green"
+															onClick={() => {
+																if (isAdded) bulkEditingState.remove(becItem);
+																else bulkEditingState.add(becItem);
+															}}
+														>
+															<IconCheck size={18} />
+														</ActionIcon>
+													) : undefined
+												}
+											/>
+										);
+									})}
 								</ApplicationGrid>
 							</>
 						) : (

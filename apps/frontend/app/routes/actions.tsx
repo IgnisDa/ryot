@@ -49,6 +49,9 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
+const sleepForHalfSecond = async (request: Request) =>
+	await wait(500, { signal: request.signal });
+
 export const loader = async () => redirect($path("/"));
 
 export const action = unstable_defineAction(async ({ request }) => {
@@ -434,6 +437,25 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			);
 		})
+		.with("bulkCollectionAction", async () => {
+			const submission = processSubmission(formData, bulkCollectionAction);
+			for (const item of submission.items) {
+				await serverGqlService.authenticatedRequest(
+					request,
+					submission.action === "remove"
+						? RemoveEntityFromCollectionDocument
+						: AddEntityToCollectionDocument,
+					{
+						input: {
+							...item,
+							collectionName: submission.collectionName,
+							creatorUserId: submission.creatorUserId,
+						},
+					},
+				);
+			}
+			await removeCachedUserCollectionsList(request);
+		})
 		.run();
 	if (redirectTo) {
 		headers.append("Location", redirectTo.toString());
@@ -516,5 +538,14 @@ const bulkUpdateSchema = z
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
 
-const sleepForHalfSecond = async (request: Request) =>
-	await wait(500, { signal: request.signal });
+const bulkCollectionAction = z.object({
+	action: z.enum(["remove", "add"]),
+	collectionName: z.string(),
+	creatorUserId: z.string(),
+	items: z.array(
+		z.object({
+			entityId: z.string(),
+			entityLot: z.nativeEnum(EntityLot),
+		}),
+	),
+});

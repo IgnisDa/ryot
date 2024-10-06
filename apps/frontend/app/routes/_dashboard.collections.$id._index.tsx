@@ -1,6 +1,5 @@
 import {
 	ActionIcon,
-	Affix,
 	Box,
 	Button,
 	Center,
@@ -8,21 +7,19 @@ import {
 	Flex,
 	Group,
 	Pagination,
-	Paper,
 	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
 	Title,
-	rem,
 } from "@mantine/core";
-import { useDisclosure, useListState } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import { useDisclosure } from "@mantine/hooks";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
-	Form,
 	type MetaArgs_SingleFetch,
 	useLoaderData,
+	useNavigate,
 } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
@@ -30,9 +27,8 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
-	RemoveEntityFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission, startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
 	IconFilter,
@@ -42,9 +38,8 @@ import {
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
-import { Fragment, useState } from "react";
-import { namedAction } from "remix-utils/named-action";
-import { withQuery } from "ufo";
+import { useState } from "react";
+import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -54,20 +49,14 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
-import {
-	clientGqlService,
-	dayjsLib,
-	pageQueryParam,
-	queryClient,
-	queryFactory,
-} from "~/lib/generals";
+import { dayjsLib, pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
-	removeCachedUserCollectionsList,
 	serverGqlService,
 } from "~/lib/utilities.server";
 
@@ -105,7 +94,7 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			input: {
 				collectionId,
 				filter: {
-					entityType: query.entityLot,
+					entityLot: query.entityLot,
 					metadataLot: query.metadataLot,
 				},
 				sort: { by: query.sortBy, order: query.orderBy },
@@ -125,149 +114,32 @@ export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
-	const formData = await request.clone().formData();
-	return namedAction(request, {
-		bulkRemove: async () => {
-			const submission = processSubmission(formData, bulkRemoveSchema);
-			for (const item of submission.items) {
-				await serverGqlService.authenticatedRequest(
-					request,
-					RemoveEntityFromCollectionDocument,
-					{
-						input: {
-							...item,
-							collectionName: submission.collectionName,
-							creatorUserId: submission.creatorUserId,
-						},
-					},
-				);
-			}
-			await removeCachedUserCollectionsList(request);
-			return Response.json({});
-		},
-	});
-});
-
-const bulkRemoveSchema = z.object({
-	collectionName: z.string(),
-	creatorUserId: z.string(),
-	items: z.array(
-		z.object({
-			entityId: z.string(),
-			entityLot: z.nativeEnum(EntityLot),
-		}),
-	),
-});
-
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
+	const navigate = useNavigate();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
-	const [isBulkRemoving, setIsBulkRemoving] = useState(false);
-	const [isSelectAllLoading, setIsSelectAllLoading] = useState(false);
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
+	const bulkEditingCollection = useBulkEditCollection();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const [bulkRemoveItems, bulkRemoveItemsHandler] = useListState<{
-		entityId: string;
-		entityLot: EntityLot;
-	}>([]);
-
-	const addBulkRemoveItem = (entityId: string, entityLot: EntityLot) => {
-		if (!bulkRemoveItems.includes({ entityId, entityLot }))
-			bulkRemoveItemsHandler.append({ entityId, entityLot });
+	const colDetails = {
+		id: loaderData.collectionId,
+		name: loaderData.collectionContents.details.name,
+		creatorUserId: loaderData.collectionContents.user.id,
 	};
+	const state = bulkEditingCollection.state;
 
 	return (
 		<Container>
-			{isBulkRemoving ? (
-				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-					<Form
-						method="POST"
-						reloadDocument
-						action={withQuery(".", { intent: "bulkRemove" })}
-					>
-						<input
-							type="hidden"
-							name="collectionName"
-							defaultValue={loaderData.collectionContents.details.name}
-						/>
-						<input
-							type="hidden"
-							name="creatorUserId"
-							defaultValue={loaderData.collectionContents.user.id}
-						/>
-						{bulkRemoveItems.map((item, index) => (
-							<Fragment key={item.entityId}>
-								<input
-									type="hidden"
-									readOnly
-									name={`items[${index}].entityId`}
-									value={item.entityId}
-								/>
-								<input
-									type="hidden"
-									readOnly
-									name={`items[${index}].entityLot`}
-									value={item.entityLot}
-								/>
-							</Fragment>
-						))}
-						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-							<Group wrap="nowrap" justify="space-between">
-								<Text>{bulkRemoveItems.length} items selected</Text>
-								<Group wrap="nowrap">
-									<Button
-										color="blue"
-										loading={isSelectAllLoading}
-										onClick={async () => {
-											setIsSelectAllLoading(true);
-											const { collectionContents } =
-												await queryClient.ensureQueryData({
-													queryKey: queryFactory.collections.details(
-														loaderData.collectionId,
-														Number.MAX_SAFE_INTEGER,
-													).queryKey,
-													queryFn: () =>
-														clientGqlService.request(
-															CollectionContentsDocument,
-															{
-																input: {
-																	collectionId: loaderData.collectionId,
-																	take: Number.MAX_SAFE_INTEGER,
-																},
-															},
-														),
-												});
-											for (const lm of collectionContents.results.items)
-												addBulkRemoveItem(lm.entityId, lm.entityLot);
-											setIsSelectAllLoading(false);
-										}}
-									>
-										Select all items
-									</Button>
-									<Button
-										color="red"
-										type="submit"
-										disabled={bulkRemoveItems.length === 0}
-									>
-										Remove
-									</Button>
-								</Group>
-							</Group>
-						</Paper>
-					</Form>
-				</Affix>
-			) : null}
 			<Stack>
 				<Box>
-					<Title>{loaderData.collectionContents.details.name}</Title>{" "}
+					<Title>{loaderData.collectionContents.details.name}</Title>
 					<Text size="sm">
 						{loaderData.collectionContents.results.details.total} items, created
 						by {loaderData.collectionContents.user.name}{" "}
@@ -329,26 +201,20 @@ export default function Page() {
 							{loaderData.collectionContents.results.items.length > 0 ? (
 								<ApplicationGrid>
 									{loaderData.collectionContents.results.items.map((lm) => {
-										const atIndex = bulkRemoveItems.findIndex(
-											(i) => i.entityId === lm.entityId,
-										);
+										const isAdded = bulkEditingCollection.isAdded(lm);
 										return (
 											<DisplayCollectionEntity
 												key={lm.entityId}
 												entityId={lm.entityId}
 												entityLot={lm.entityLot}
 												topRight={
-													isBulkRemoving ? (
+													state && state.data.action === "remove" ? (
 														<ActionIcon
-															variant={
-																atIndex !== -1 ? "filled" : "transparent"
-															}
+															variant={isAdded ? "filled" : "transparent"}
 															color="red"
-															onClick={(e) => {
-																e.preventDefault();
-																if (atIndex === -1)
-																	addBulkRemoveItem(lm.entityId, lm.entityLot);
-																else bulkRemoveItemsHandler.remove(atIndex);
+															onClick={() => {
+																if (isAdded) state.remove(lm);
+																else state.add(lm);
 															}}
 														>
 															<IconTrashFilled size={18} />
@@ -390,10 +256,28 @@ export default function Page() {
 								Post a review
 							</Button>
 							<Button
-								variant="outline"
 								w="100%"
+								variant="outline"
 								onClick={() => {
-									setIsBulkRemoving(true);
+									bulkEditingCollection.start(colDetails, "add");
+									navigate(
+										$path("/media/:action/:lot", {
+											action: "list",
+											lot: MediaLot.Movie,
+										}),
+									);
+								}}
+							>
+								Bulk add
+							</Button>
+							<Button
+								w="100%"
+								variant="outline"
+								disabled={
+									loaderData.collectionContents.results.details.total === 0
+								}
+								onClick={() => {
+									bulkEditingCollection.start(colDetails, "remove");
 									setTab("contents");
 								}}
 							>

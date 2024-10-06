@@ -144,7 +144,7 @@ export type CollectionContents = {
 };
 
 export type CollectionContentsFilter = {
-  entityType?: InputMaybe<EntityLot>;
+  entityLot?: InputMaybe<EntityLot>;
   metadataLot?: InputMaybe<MediaLot>;
 };
 
@@ -1016,16 +1016,18 @@ export type MetadataGroupSearchResults = {
 export type MetadataGroupsListInput = {
   filter?: InputMaybe<MediaFilter>;
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataListInput = {
   filter?: InputMaybe<MediaFilter>;
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<MediaLot>;
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<MediaSortInput>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type MetadataPartialDetails = {
@@ -1462,8 +1464,9 @@ export type PasswordUserInput = {
 export type PeopleListInput = {
   filter?: InputMaybe<MediaFilter>;
   invertCollection?: InputMaybe<Scalars['Boolean']['input']>;
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<PersonSortInput>;
+  take?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type PeopleSearchInput = {
@@ -1501,6 +1504,11 @@ export type Person = {
   website?: Maybe<Scalars['String']['output']>;
 };
 
+export enum PersonAndMetadataGroupsSortBy {
+  MediaItems = 'MEDIA_ITEMS',
+  Name = 'NAME'
+}
+
 export type PersonDetails = {
   contents: Array<PersonDetailsGroupedByRole>;
   details: Person;
@@ -1519,13 +1527,8 @@ export type PersonDetailsItemWithCharacter = {
   mediaId: Scalars['String']['output'];
 };
 
-export enum PersonSortBy {
-  MediaItems = 'MEDIA_ITEMS',
-  Name = 'NAME'
-}
-
 export type PersonSortInput = {
-  by?: PersonSortBy;
+  by?: PersonAndMetadataGroupsSortBy;
   order?: GraphqlSortOrder;
 };
 

@@ -21,6 +21,7 @@ import {
 	Loader,
 	Modal,
 	NumberInput,
+	Paper,
 	Rating,
 	ScrollArea,
 	SegmentedControl,
@@ -80,6 +81,7 @@ import {
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
+	IconCancel,
 	IconChevronLeft,
 	IconChevronRight,
 	IconClock,
@@ -142,6 +144,7 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
@@ -166,10 +169,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 			})
 			?.filter((f) => f.enabled)
 			.map((f) => {
-				return {
-					label: changeCase(f.name.toString()),
-					href: undefined,
-				};
+				return { label: f.name, href: undefined };
 			}) || []),
 		userPreferences.featuresEnabled.media.groups
 			? {
@@ -193,12 +193,12 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		.map((link, _index) =>
 			link
 				? {
-						label: link.label,
+						label: changeCase(link.label),
 						link: link.href
 							? link.href
 							: $path("/media/:action/:lot", {
 									action: "list",
-									lot: link.label.toLowerCase(),
+									lot: link.label,
 								}),
 					}
 				: undefined,
@@ -389,11 +389,27 @@ export default function Layout() {
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingCollectionState = bulkEditingCollection.state;
+	const shouldShowBulkEditingAffix =
+		bulkEditingCollectionState &&
+		(bulkEditingCollectionState.data.action === "remove"
+			? location.pathname ===
+				$path("/collections/:id", {
+					id: bulkEditingCollectionState.data.collection.id,
+				})
+			: [
+					...Object.values(MediaLot).map((ml) =>
+						$path("/media/:action/:lot", { action: "list", lot: ml }),
+					),
+					$path("/media/people/:action", { action: "list" }),
+					$path("/media/groups/:action", { action: "list" }),
+				].includes(location.pathname));
 
 	return (
 		<>
 			{loaderData.workoutInProgress &&
-			Object.values(FitnessAction)
+			!Object.values(FitnessAction)
 				.map((action) => $path("/fitness/:action", { action }))
 				.includes(location.pathname) ? (
 				<Tooltip label="You have an active workout" position="left">
@@ -426,6 +442,90 @@ export default function Layout() {
 						</ActionIcon>
 					</Affix>
 				</Tooltip>
+			) : null}
+			{shouldShowBulkEditingAffix ? (
+				<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
+					<Form
+						method="POST"
+						onSubmit={(e) => {
+							submit(e);
+							bulkEditingCollectionState.stop(true);
+						}}
+						action={$path("/actions", { intent: "bulkCollectionAction" })}
+					>
+						<input
+							type="hidden"
+							name="action"
+							defaultValue={bulkEditingCollectionState.data.action}
+						/>
+						<input
+							type="hidden"
+							name="collectionName"
+							defaultValue={bulkEditingCollectionState.data.collection.name}
+						/>
+						<input
+							type="hidden"
+							name="creatorUserId"
+							defaultValue={
+								bulkEditingCollectionState.data.collection.creatorUserId
+							}
+						/>
+						{bulkEditingCollectionState.data.entities.map((item, index) => (
+							<Fragment key={JSON.stringify(item)}>
+								<input
+									readOnly
+									type="hidden"
+									value={item.entityId}
+									name={`items[${index}].entityId`}
+								/>
+								<input
+									readOnly
+									type="hidden"
+									value={item.entityLot}
+									name={`items[${index}].entityLot`}
+								/>
+							</Fragment>
+						))}
+						<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+							<Group wrap="nowrap" justify="space-between">
+								<Text fz={{ base: "xs", md: "md" }}>
+									{bulkEditingCollectionState.data.entities.length} items
+									selected
+								</Text>
+								<Group wrap="nowrap">
+									<ActionIcon
+										size="md"
+										onClick={() => bulkEditingCollectionState.stop()}
+									>
+										<IconCancel />
+									</ActionIcon>
+									<Button
+										size="xs"
+										color="blue"
+										loading={bulkEditingCollectionState.data.isLoading}
+										onClick={() => bulkEditingCollectionState.bulkAdd()}
+									>
+										Select all items
+									</Button>
+									<Button
+										size="xs"
+										color={
+											bulkEditingCollectionState.data.action === "remove"
+												? "red"
+												: "green"
+										}
+										type="submit"
+										disabled={
+											bulkEditingCollectionState.data.entities.length === 0
+										}
+									>
+										{changeCase(bulkEditingCollectionState.data.action)}
+									</Button>
+								</Group>
+							</Group>
+						</Paper>
+					</Form>
+				</Affix>
 			) : null}
 			<Modal
 				onClose={closeMetadataProgressUpdateModal}

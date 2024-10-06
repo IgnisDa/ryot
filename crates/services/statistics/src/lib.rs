@@ -29,6 +29,7 @@ impl StatisticsService {
         user_id: &String,
         input: DailyUserActivitiesInput,
     ) -> Result<DailyUserActivitiesResponse> {
+        // TODO: https://github.com/SeaQL/sea-query/pull/825 when merged
         struct DateTrunc;
         impl Iden for DateTrunc {
             fn unquoted(&self, s: &mut dyn Write) {

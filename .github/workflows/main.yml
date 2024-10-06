@@ -108,8 +108,8 @@ jobs:
       - name: Set up Node.js and caching
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'yarn'
+          node-version: "20"
+          cache: "yarn"
       - name: Build emails
         run: moon run transactional:build
       - name: Upload templates artifact
@@ -256,28 +256,12 @@ jobs:
       - name: Set up Node.js and caching
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'yarn'
+          node-version: "20"
+          cache: "yarn"
       - name: Build plugin
         run: moon run kodi:build
       - name: Upload plugin to releases
         run: gh release upload --clobber ${{ github.ref_name }} "tmp/script.ryot.zip"
-
-  deploy-demo-instance:
-    needs:
-      - pre-workflow-checks
-      - build-docker
-    if: needs.pre-workflow-checks.outputs.should-release == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up CLI
-        uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy
-        run: flyctl deploy --remote-only --detach --config ci/fly.toml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   deploy-docs:
     needs:

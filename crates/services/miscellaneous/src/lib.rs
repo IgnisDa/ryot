@@ -65,13 +65,13 @@ use media_models::{
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
     MetadataVideoSource, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    PeopleListInput, PeopleSearchInput, PeopleSearchItem, PersonAndMetadataGroupsSortBy,
+    PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter, PodcastSpecifics,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ProviderLanguageInformation, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput,
+    UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
     UserUpcomingCalendarEventInput,
 };
 use migrations::{
@@ -976,22 +976,25 @@ ORDER BY RANDOM() LIMIT 10;
         let avg_rating_col = "user_average_rating";
         let cloned_user_id_1 = user_id.clone();
         let cloned_user_id_2 = user_id.clone();
-        #[derive(Debug, FromQueryResult)]
-        struct InnerMediaSearchItem {
-            id: String,
-        }
 
         let order_by = input
             .sort
             .clone()
             .map(|a| Order::from(a.order))
             .unwrap_or(Order::Asc);
-
         let review_scale = match preferences.general.review_scale {
             UserReviewScale::OutOfFive => 20,
             UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
         };
-        let select = Metadata::find()
+        let take = input.take.unwrap_or(self.config.frontend.page_size as u64);
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|s| s.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
+        let paginator = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .expr_as(
@@ -1030,7 +1033,7 @@ ORDER BY RANDOM() LIMIT 10;
                         )
                     }),
             )
-            .apply_if(input.search.query.clone(), |query, v| {
+            .apply_if(input.search.and_then(|s| s.query), |query, v| {
                 query.filter(
                     Cond::any()
                         .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
@@ -1091,27 +1094,26 @@ ORDER BY RANDOM() LIMIT 10;
                     order_by,
                     NullOrdering::Last,
                 ),
-            });
-        let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
-
-        let items = select
-            .limit(self.config.frontend.page_size as u64)
-            .offset(((input.search.page.unwrap() - 1) * self.config.frontend.page_size) as u64)
-            .into_model::<InnerMediaSearchItem>()
-            .all(&self.db)
-            .await?
-            .into_iter()
-            .map(|m| m.id)
-            .collect_vec();
-
-        let next_page =
-            if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
-                Some(input.search.page.unwrap() + 1)
-            } else {
-                None
-            };
+            })
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let mut items = vec![];
+        for c in paginator.fetch_page(page - 1).await? {
+            items.push(c);
+        }
         Ok(SearchResults {
-            details: SearchDetails { next_page, total },
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
             items,
         })
     }
@@ -3722,27 +3724,36 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|f| f.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
         let alias = "parts";
         let media_items_col = Expr::col(Alias::new(alias));
         let (order_by, sort_order) = match input.sort {
             None => (media_items_col, Order::Desc),
             Some(ord) => (
                 match ord.by {
-                    PersonSortBy::Name => Expr::col(metadata_group::Column::Title),
-                    PersonSortBy::MediaItems => media_items_col,
+                    PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
+                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
                 ord.order.into(),
             ),
         };
-        let query = MetadataGroup::find()
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+        let paginator = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
             .group_by(metadata_group::Column::Id)
             .inner_join(UserToEntity)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(metadata_group::Column::Id.is_not_null())
-            .apply_if(input.search.query, |query, v| {
+            .apply_if(input.search.and_then(|f| f.query), |query, v| {
                 query.filter(
                     Condition::all()
                         .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
@@ -3760,12 +3771,9 @@ ORDER BY RANDOM() LIMIT 10;
                     )
                 },
             )
-            .order_by(order_by, sort_order);
-        let paginator = query
-            .column(metadata_group::Column::Id)
-            .clone()
+            .order_by(order_by, sort_order)
             .into_tuple::<String>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -3792,25 +3800,30 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: PeopleListInput,
     ) -> Result<SearchResults<String>> {
-        #[derive(Debug, FromQueryResult)]
-        struct PartialCreator {
-            id: String,
-        }
-        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|f| f.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
         let alias = "media_count";
         let media_items_col = Expr::col(Alias::new(alias));
         let (order_by, sort_order) = match input.sort {
             None => (media_items_col, Order::Desc),
             Some(ord) => (
                 match ord.by {
-                    PersonSortBy::Name => Expr::col(person::Column::Name),
-                    PersonSortBy::MediaItems => media_items_col,
+                    PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
                 ord.order.into(),
             ),
         };
-        let query = Person::find()
-            .apply_if(input.search.query, |query, v| {
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+        let creators_paginator = Person::find()
+            .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                 query.filter(
                     Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
                 )
@@ -3839,18 +3852,16 @@ ORDER BY RANDOM() LIMIT 10;
             .inner_join(UserToEntity)
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
-            .order_by(order_by, sort_order);
-        let creators_paginator = query
-            .clone()
-            .into_model::<PartialCreator>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+            .order_by(order_by, sort_order)
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
         } = creators_paginator.num_items_and_pages().await?;
         let mut creators = vec![];
         for cr in creators_paginator.fetch_page(page - 1).await? {
-            creators.push(cr.id);
+            creators.push(cr);
         }
         Ok(SearchResults {
             details: SearchDetails {

@@ -90,7 +90,7 @@ schematic = { version = "=0.17.4", features = [
     "validate",
     "yaml",
 ], default-features = false }
-sea-orm = { version = "=1.0.0", features = [
+sea-orm = { version = "=1.0.1", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -101,8 +101,8 @@ sea-orm = { version = "=1.0.0", features = [
     "with-rust_decimal",
     "with-uuid",
 ], default-features = false }
-sea-orm-migration = "=1.0.0"
-sea-query = "=0.31.0"
+sea-orm-migration = "=1.0.1"
+sea-query = "=0.31.1"
 serde = { version = "=1.0.209", features = ["derive"] }
 serde_json = "=1.0.127"
 serde_with = { version = "=3.9.0", features = ["chrono_0_4"] }

@@ -22,15 +22,17 @@ import {
 	useNavigate,
 } from "@remix-run/react";
 import {
+	EntityLot,
 	GraphqlSortOrder,
 	MediaSource,
 	PeopleListDocument,
 	PeopleSearchDocument,
 	type PeopleSearchQuery,
-	PersonSortBy,
+	PersonAndMetadataGroupsSortBy,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, startCase } from "@ryot/ts-utils";
 import {
+	IconCheck,
 	IconFilter,
 	IconListCheck,
 	IconSearch,
@@ -51,6 +53,7 @@ import {
 import { BaseMediaDisplayItem, PersonDisplayItem } from "~/components/media";
 import { commaDelimitedString, pageQueryParam } from "~/lib/generals";
 import { useAppSearchParam } from "~/lib/hooks";
+import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	getEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
@@ -63,7 +66,7 @@ export type SearchParams = {
 };
 
 const defaultFilters = {
-	sortBy: PersonSortBy.MediaItems,
+	sortBy: PersonAndMetadataGroupsSortBy.MediaItems,
 	orderBy: GraphqlSortOrder.Desc,
 };
 
@@ -93,7 +96,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	const [totalResults, peopleList, peopleSearch] = await match(action)
 		.with(Action.List, async () => {
 			const urlParse = zx.parseQuery(request, {
-				sortBy: z.nativeEnum(PersonSortBy).default(defaultFilters.sortBy),
+				sortBy: z
+					.nativeEnum(PersonAndMetadataGroupsSortBy)
+					.default(defaultFilters.sortBy),
 				orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
 				collections: commaDelimitedString,
 				invertCollection: zx.BoolAsString.optional(),
@@ -171,6 +176,8 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState = bulkEditingCollection.state;
 
 	return (
 		<Container>
@@ -274,9 +281,34 @@ export default function Page() {
 						</Box>
 						{loaderData.peopleList.list.details.total > 0 ? (
 							<ApplicationGrid>
-								{loaderData.peopleList.list.items.map((person) => (
-									<PersonDisplayItem key={person} personId={person} />
-								))}
+								{loaderData.peopleList.list.items.map((person) => {
+									const becItem = {
+										entityId: person,
+										entityLot: EntityLot.Person,
+									};
+									const isAdded = bulkEditingCollection.isAdded(becItem);
+									return (
+										<PersonDisplayItem
+											key={person}
+											personId={person}
+											topRight={
+												bulkEditingState &&
+												bulkEditingState.data.action === "add" ? (
+													<ActionIcon
+														variant={isAdded ? "filled" : "transparent"}
+														color="green"
+														onClick={() => {
+															if (isAdded) bulkEditingState.remove(becItem);
+															else bulkEditingState.add(becItem);
+														}}
+													>
+														<IconCheck size={18} />
+													</ActionIcon>
+												) : undefined
+											}
+										/>
+									);
+								})}
 							</ApplicationGrid>
 						) : (
 							<Text>No information to display</Text>
@@ -390,7 +422,7 @@ const FiltersModalForm = () => {
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
-					data={Object.values(PersonSortBy).map((o) => ({
+					data={Object.values(PersonAndMetadataGroupsSortBy).map((o) => ({
 						value: o.toString(),
 						label: startCase(o.toLowerCase()),
 					}))}
