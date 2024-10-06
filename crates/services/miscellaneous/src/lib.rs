@@ -986,7 +986,15 @@ ORDER BY RANDOM() LIMIT 10;
             UserReviewScale::OutOfFive => 20,
             UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
         };
-        let query = Metadata::find()
+        let take = input.take.unwrap_or(self.config.frontend.page_size as u64);
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|s| s.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
+        let paginator = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .expr_as(
@@ -1025,7 +1033,7 @@ ORDER BY RANDOM() LIMIT 10;
                         )
                     }),
             )
-            .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
+            .apply_if(input.search.and_then(|s| s.query), |query, v| {
                 query.filter(
                     Cond::any()
                         .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
@@ -1086,16 +1094,9 @@ ORDER BY RANDOM() LIMIT 10;
                     order_by,
                     NullOrdering::Last,
                 ),
-            });
-        let take = input.take.unwrap_or(self.config.frontend.page_size as u64);
-        let page: u64 = input
-            .search
-            .and_then(|s| s.page)
-            .unwrap_or(1)
-            .try_into()
-            .unwrap();
-
-        let paginator = query.into_tuple::<String>().paginate(&self.db, take);
+            })
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -3742,7 +3743,10 @@ ORDER BY RANDOM() LIMIT 10;
                 ord.order.into(),
             ),
         };
-        let query = MetadataGroup::find()
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+        let paginator = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
             .group_by(metadata_group::Column::Id)
@@ -3767,11 +3771,9 @@ ORDER BY RANDOM() LIMIT 10;
                     )
                 },
             )
-            .order_by(order_by, sort_order);
-        let take = input
-            .take
-            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
-        let paginator = query.into_tuple::<String>().paginate(&self.db, take);
+            .order_by(order_by, sort_order)
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -3817,7 +3819,10 @@ ORDER BY RANDOM() LIMIT 10;
                 ord.order.into(),
             ),
         };
-        let query = Person::find()
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+        let creators_paginator = Person::find()
             .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                 query.filter(
                     Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
@@ -3847,11 +3852,9 @@ ORDER BY RANDOM() LIMIT 10;
             .inner_join(UserToEntity)
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
-            .order_by(order_by, sort_order);
-        let take = input
-            .take
-            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
-        let creators_paginator = query.into_tuple::<String>().paginate(&self.db, take);
+            .order_by(order_by, sort_order)
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
