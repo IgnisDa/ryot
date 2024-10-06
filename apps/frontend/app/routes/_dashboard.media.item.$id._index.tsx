@@ -1346,42 +1346,37 @@ const EditHistoryItemModal = (props: {
 						label="Time spent"
 						description="How much time did you actually spend on this media? You can also adjust the scale"
 					>
-						<Box mt="xs">
-							<Tooltip
-								label={PRO_REQUIRED_MESSAGE}
-								disabled={coreDetails.isPro}
-							>
-								<Box>
-									<Group>
-										<Slider
-											flex={1}
-											label={null}
-											disabled={!coreDetails.isPro}
-											value={manualTimeSpentValue}
-											onChange={setManualTimeSpentValue}
-										/>
-										<NumberInput
-											w="20%"
-											max={10}
-											size="xs"
-											value={manualTimeSpentScale}
-											onChange={(v) => setManualTimeSpentScale(Number(v))}
-										/>
-									</Group>
-									<Text c="dimmed" size="sm" ta="center" mt="xs">
-										{humanizeDuration(manualTimeSpentInMinutes * 1000)}
-									</Text>
-									{manualTimeSpentInMinutes > 0 ? (
-										<input
-											hidden
-											readOnly
-											name="manualTimeSpent"
-											value={manualTimeSpentInMinutes}
-										/>
-									) : null}
-								</Box>
-							</Tooltip>
-						</Box>
+						<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+							<Box mt="xs">
+								<Group>
+									<Slider
+										flex={1}
+										label={null}
+										disabled={!coreDetails.isPro}
+										value={manualTimeSpentValue}
+										onChange={setManualTimeSpentValue}
+									/>
+									<NumberInput
+										w="20%"
+										max={10}
+										size="xs"
+										value={manualTimeSpentScale}
+										onChange={(v) => setManualTimeSpentScale(Number(v))}
+									/>
+								</Group>
+								<Text c="dimmed" size="sm" ta="center" mt="xs">
+									{humanizeDuration(manualTimeSpentInMinutes * 1000)}
+								</Text>
+								{manualTimeSpentInMinutes > 0 ? (
+									<input
+										hidden
+										readOnly
+										name="manualTimeSpent"
+										value={manualTimeSpentInMinutes}
+									/>
+								) : null}
+							</Box>
+						</Tooltip>
 					</Input.Wrapper>
 					<Button variant="outline" type="submit">
 						Submit
