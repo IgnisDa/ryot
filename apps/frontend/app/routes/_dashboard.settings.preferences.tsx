@@ -32,6 +32,7 @@ import { Form, useLoaderData } from "@remix-run/react";
 import {
 	type DashboardElementLot,
 	GridPacking,
+	MediaLot,
 	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	UserReviewScale,
@@ -127,6 +128,9 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
+	const [watchProviders, setWatchProviders] = useState(
+		userPreferences.general.watchProviders,
+	);
 	const [dashboardElements, setDashboardElements] = useState(
 		userPreferences.general.dashboard,
 	);
@@ -298,15 +302,6 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="general">
 						<Stack gap="xl">
-							<TagsInput
-								label="Watch providers"
-								placeholder="Enter more providers"
-								defaultValue={userPreferences.general.watchProviders}
-								disabled={!!isEditDisabled}
-								onChange={(val) => {
-									appendPref("general.watch_providers", JSON.stringify(val));
-								}}
-							/>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
 								{(
 									[
@@ -388,6 +383,46 @@ export default function Page() {
 									}}
 								/>
 							</Input.Wrapper>
+							<Stack>
+								<Title order={3}>Watch providers</Title>
+								{Object.values(MediaLot).map((lot) => (
+									<Stack key={lot} gap={4}>
+										<Text>{changeCase(snakeCase(lot))}</Text>
+										<TagsInput
+											placeholder="Enter more providers"
+											value={
+												watchProviders.find(
+													(wp) => snakeCase(wp.lot) === snakeCase(lot),
+												)?.values || []
+											}
+											disabled={!!isEditDisabled}
+											onChange={(val) => {
+												if (val) {
+													const newWatchProviders = Array.from(watchProviders);
+													let existingMediaLot = newWatchProviders.find(
+														(wp) => snakeCase(wp.lot) === snakeCase(lot),
+													);
+													if (!existingMediaLot) {
+														existingMediaLot = { lot, values: val };
+														newWatchProviders.push(existingMediaLot);
+													} else {
+														existingMediaLot.values = val;
+													}
+													setWatchProviders(newWatchProviders);
+													newWatchProviders.forEach((l, _i) => {
+														l.lot = snakeCase(l.lot) as unknown as MediaLot;
+													});
+													console.log(newWatchProviders);
+													appendPref(
+														"general.watch_providers",
+														JSON.stringify(newWatchProviders),
+													);
+												}
+											}}
+										/>
+									</Stack>
+								))}
+							</Stack>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications">
