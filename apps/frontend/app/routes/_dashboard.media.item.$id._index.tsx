@@ -1243,10 +1243,10 @@ const MetadataCreator = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
-const POSSIBLE_DURATION_UNITS = ["mo", "d", "h", "min"] as const;
-// DEV: This needs to be done because dayjs calculates the second duration of month based
-// on the current calendar month, which messes up the value calculated by humanize-duration-ts.
+// DEV: Needs to be done because dayjs calculates the second duration of month based on the
+// current calendar month, which messes up the value calculated by humanize-duration-ts.
 const SECONDS_IN_MONTH = 2629800;
+const POSSIBLE_DURATION_UNITS = ["mo", "d", "h", "min"] as const;
 
 const convertSecondsToDuration = (totalSeconds?: string | null) => {
 	if (!totalSeconds) return {};
@@ -1267,11 +1267,11 @@ const convertSecondsToDuration = (totalSeconds?: string | null) => {
 	};
 };
 
-const convertDurationToSeconds = (
-	duration: {
-		[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
-	},
-) => {
+type DurationInput = {
+	[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
+};
+
+const convertDurationToSeconds = (duration: DurationInput) => {
 	let total = 0;
 	total += (duration.mo || 0) * SECONDS_IN_MONTH;
 	total += dayjsLib.duration(duration.d || 0, "days").asSeconds();
@@ -1300,9 +1300,8 @@ const EditHistoryItemModal = (props: {
 		userPreferences.general.watchProviders.find(
 			(l) => l.lot === loaderData.metadataDetails.lot,
 		)?.values || [];
-	const [manualTimeSpentValue, setManualTimeSpentValue] = useState<{
-		[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
-	}>(convertSecondsToDuration(manualTimeSpent));
+	const [manualTimeSpentValue, setManualTimeSpentValue] =
+		useState<DurationInput>(convertSecondsToDuration(manualTimeSpent));
 	const manualTimeSpentInSeconds =
 		convertDurationToSeconds(manualTimeSpentValue);
 
