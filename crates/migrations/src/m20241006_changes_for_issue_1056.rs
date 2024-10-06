@@ -37,10 +37,7 @@ SET preferences = jsonb_set(
     preferences,
     '{{general,watch_providers}}',
     preferences -> 'general' -> 'watch_providers' || jsonb_build_array(
-        jsonb_build_object(
-            'lot', '{lot}',
-            'values', '[]'
-        )
+        jsonb_build_object('lot', '{lot}','values', '[]')
     )
 );
 "#,
