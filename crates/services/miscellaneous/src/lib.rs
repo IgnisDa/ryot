@@ -1095,11 +1095,7 @@ ORDER BY RANDOM() LIMIT 10;
             .try_into()
             .unwrap();
 
-        let paginator = query
-            .column(metadata::Column::Id)
-            .clone()
-            .into_tuple::<String>()
-            .paginate(&self.db, take);
+        let paginator = query.into_tuple::<String>().paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -3775,11 +3771,7 @@ ORDER BY RANDOM() LIMIT 10;
         let take = input
             .take
             .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
-        let paginator = query
-            .column(metadata_group::Column::Id)
-            .clone()
-            .into_tuple::<String>()
-            .paginate(&self.db, take);
+        let paginator = query.into_tuple::<String>().paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -3806,10 +3798,6 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: PeopleListInput,
     ) -> Result<SearchResults<String>> {
-        #[derive(Debug, FromQueryResult)]
-        struct PartialCreator {
-            id: String,
-        }
         let page: u64 = input
             .search
             .clone()
@@ -3863,17 +3851,14 @@ ORDER BY RANDOM() LIMIT 10;
         let take = input
             .take
             .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
-        let creators_paginator = query
-            .clone()
-            .into_model::<PartialCreator>()
-            .paginate(&self.db, take);
+        let creators_paginator = query.into_tuple::<String>().paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
         } = creators_paginator.num_items_and_pages().await?;
         let mut creators = vec![];
         for cr in creators_paginator.fetch_page(page - 1).await? {
-            creators.push(cr.id);
+            creators.push(cr);
         }
         Ok(SearchResults {
             details: SearchDetails {
