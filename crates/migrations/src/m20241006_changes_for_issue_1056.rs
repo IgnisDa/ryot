@@ -9,21 +9,22 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(
+        db.execute_unprepared(&format!(
             r#"
 UPDATE "user"
 SET preferences = jsonb_set(
     preferences,
-    '{general,watch_providers}',
+    '{{general,watch_providers}}',
     jsonb_build_array(
         jsonb_build_object(
-            'lot', 'movie',
+            'lot', '{}',
             'values', preferences -> 'general' -> 'watch_providers'
         )
     )
 );
 "#,
-        )
+            MediaLot::Movie
+        ))
         .await?;
         for lot in MediaLot::iter() {
             if lot == MediaLot::Movie {
