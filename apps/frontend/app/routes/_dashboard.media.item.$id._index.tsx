@@ -1317,7 +1317,7 @@ const EditHistoryItemModal = (props: {
 						)} it?`}
 						name="providerWatchedOn"
 						defaultValue={providerWatchedOn}
-						nothingFoundMessage="No watch providers found, please add one in the general preferences"
+						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 					/>
 					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
 						<Select
