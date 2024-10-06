@@ -332,25 +332,14 @@ pub struct UserGeneralPreferences {
 
 impl Default for UserGeneralPreferences {
     fn default() -> Self {
-        let mut watch_providers = vec![];
-        for lot in MediaLot::iter() {
-            if lot == MediaLot::Movie {
-                watch_providers.push(UserGeneralWatchProvider {
-                    lot,
-                    values: MOVIE_WATCH_PROVIDERS
-                        .into_iter()
-                        .map(|s| s.to_owned())
-                        .collect(),
-                });
-                continue;
-            }
-            watch_providers.push(UserGeneralWatchProvider {
-                lot,
-                values: vec![],
-            });
-        }
         Self {
-            watch_providers,
+            watch_providers: vec![UserGeneralWatchProvider {
+                lot: MediaLot::Movie,
+                values: MOVIE_WATCH_PROVIDERS
+                    .into_iter()
+                    .map(|s| s.to_owned())
+                    .collect(),
+            }],
             display_nsfw: true,
             review_scale: UserReviewScale::default(),
             grid_packing: GridPacking::default(),
