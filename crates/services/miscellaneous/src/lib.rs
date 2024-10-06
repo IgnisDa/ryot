@@ -976,22 +976,17 @@ ORDER BY RANDOM() LIMIT 10;
         let avg_rating_col = "user_average_rating";
         let cloned_user_id_1 = user_id.clone();
         let cloned_user_id_2 = user_id.clone();
-        #[derive(Debug, FromQueryResult)]
-        struct InnerMediaSearchItem {
-            id: String,
-        }
 
         let order_by = input
             .sort
             .clone()
             .map(|a| Order::from(a.order))
             .unwrap_or(Order::Asc);
-
         let review_scale = match preferences.general.review_scale {
             UserReviewScale::OutOfFive => 20,
             UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
         };
-        let select = Metadata::find()
+        let query = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .expr_as(
@@ -1092,28 +1087,36 @@ ORDER BY RANDOM() LIMIT 10;
                     NullOrdering::Last,
                 ),
             });
-        let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
+        let take = input.take.unwrap_or(self.config.frontend.page_size as u64);
+        let page: u64 = input
+            .search
+            .and_then(|s| s.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
 
-        let limit = input.take.unwrap_or(self.config.frontend.page_size as u64);
-        let page = input.search.and_then(|s| s.page).unwrap_or(1);
-
-        let items = select
-            .limit(limit)
-            .offset((page - 1) as u64 * limit)
-            .into_model::<InnerMediaSearchItem>()
-            .all(&self.db)
-            .await?
-            .into_iter()
-            .map(|m| m.id)
-            .collect_vec();
-
-        let next_page = if total as i64 - (page as i64 * limit as i64) > 0 {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let paginator = query
+            .column(metadata::Column::Id)
+            .clone()
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let mut items = vec![];
+        for c in paginator.fetch_page(page - 1).await? {
+            items.push(c);
+        }
         Ok(SearchResults {
-            details: SearchDetails { next_page, total },
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
             items,
         })
     }
