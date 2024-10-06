@@ -1275,6 +1275,10 @@ const EditHistoryItemModal = (props: {
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const isNotCompleted = props.seen.state !== SeenState.Completed;
+	const watchProviders =
+		userPreferences.general.watchProviders.find(
+			(l) => l.lot === loaderData.metadataDetails.lot,
+		)?.values || [];
 
 	return (
 		<Modal
@@ -1306,13 +1310,14 @@ const EditHistoryItemModal = (props: {
 						disabled={isNotCompleted}
 					/>
 					<Select
-						data={userPreferences.general.watchProviders}
+						data={watchProviders}
 						label={`Where did you ${getVerb(
 							Verb.Read,
 							loaderData.metadataDetails.lot,
 						)} it?`}
 						name="providerWatchedOn"
 						defaultValue={providerWatchedOn}
+						nothingFoundMessage="No watch providers found, please add one in the general preferences"
 					/>
 					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
 						<Select
