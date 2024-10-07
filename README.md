@@ -30,11 +30,6 @@
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", aims to be the only self
 hosted tracker you will ever need!
 
-## IMPORTANT NOTE FOR `v6.*` USERS
-
-If you were using `v6.*` of Ryot, please read the
-[migration guide](https://docs.ryot.io/migration.html#from-v6-to-v7) for instructions.
-
 ## Pro version
 
 Ryot is available in two versions - community and pro. The pro version has additional

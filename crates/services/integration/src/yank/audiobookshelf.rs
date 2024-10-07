@@ -132,14 +132,14 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                             }
                         }
                         _ => {
-                            ryot_log!(debug, "No recent episode found for item {:#?}", item);
+                            ryot_log!(debug, "No recent episode found for item {:?}", item);
                             continue;
                         }
                     }
                 } else {
                     ryot_log!(
                         debug,
-                        "No ASIN, ISBN or iTunes ID found for item {:#?}",
+                        "No ASIN, ISBN or iTunes ID found for item {:?}",
                         item
                     );
                     continue;

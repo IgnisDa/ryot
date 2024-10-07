@@ -22,7 +22,8 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, admin_account_guard, create_or_update_collection,
-    remove_entity_from_collection, user_by_id, user_preferences_by_id,
+    deploy_job_to_re_evaluate_user_workouts, remove_entity_from_collection, user_by_id,
+    user_preferences_by_id,
 };
 use dependent_models::ImportResult;
 use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, Visibility};
@@ -36,9 +37,9 @@ use fitness_models::{
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, ImportOrExportItemRating,
-    MediaDetails, MetadataImage, PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId,
-    PostReviewInput, ProgressUpdateCache, ProgressUpdateError, ProgressUpdateErrorVariant,
+    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
+    ImportOrExportItemRating, MediaDetails, MetadataImage, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, ProgressUpdateCache, ProgressUpdateError, ProgressUpdateErrorVariant,
     ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
@@ -64,8 +65,8 @@ use rust_decimal::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{DateTimeUtc, Expr},
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
 use traits::{MediaProvider, TraceOk};
@@ -961,7 +962,7 @@ pub async fn deploy_background_job(
 
 pub async fn post_review(
     user_id: &String,
-    input: PostReviewInput,
+    input: CreateOrUpdateReviewInput,
     db: &DatabaseConnection,
     config: &Arc<config::AppConfig>,
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
@@ -1521,7 +1522,7 @@ fn convert_review_into_input(
     preferences: &UserPreferences,
     entity_id: String,
     entity_lot: EntityLot,
-) -> Option<PostReviewInput> {
+) -> Option<CreateOrUpdateReviewInput> {
     if review.review.is_none() && review.rating.is_none() {
         ryot_log!(debug, "Skipping review since it has no content");
         return None;
@@ -1533,7 +1534,7 @@ fn convert_review_into_input(
     let text = review.review.clone().and_then(|r| r.text);
     let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
     let date = review.review.clone().map(|r| r.date);
-    Some(PostReviewInput {
+    Some(CreateOrUpdateReviewInput {
         rating,
         text,
         is_spoiler,
@@ -1595,15 +1596,28 @@ fn get_index_of_highest_pb(
 }
 
 /// Create a workout in the database and also update user and exercise associations.
-pub async fn calculate_and_commit(
+pub async fn create_or_update_workout(
     input: UserWorkoutInput,
     user_id: &String,
     db: &DatabaseConnection,
+    perform_application_job: &MemoryStorage<ApplicationJob>,
 ) -> AnyhowResult<String> {
     let end_time = input.end_time;
     let mut input = input;
-    let id = input.id.unwrap_or_else(|| format!("wor_{}", nanoid!(12)));
-    ryot_log!(debug, "Creating new workout with id = {}", id);
+    let (new_workout_id, to_update_workout) = match &input.update_workout_id {
+        Some(id) => (
+            id.to_owned(),
+            // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
+            Some(Workout::find_by_id(id).one(db).await?.unwrap()),
+        ),
+        None => (
+            input
+                .create_workout_id
+                .unwrap_or_else(|| format!("wor_{}", nanoid!(12))),
+            None,
+        ),
+    };
+    ryot_log!(debug, "Creating new workout with id = {}", new_workout_id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
@@ -1640,7 +1654,7 @@ pub async fn calculate_and_commit(
         let history_item = UserToExerciseHistoryExtraInformation {
             best_set: None,
             idx: exercise_idx,
-            workout_id: id.clone(),
+            workout_id: new_workout_id.clone(),
             workout_end_on: end_time,
         };
         let association = match association {
@@ -1764,7 +1778,7 @@ pub async fn calculate_and_commit(
             if let Some(set_personal_bests) = &set.personal_bests {
                 for best in set_personal_bests.iter() {
                     let to_insert_record = ExerciseBestSetRecord {
-                        workout_id: id.clone(),
+                        workout_id: new_workout_id.clone(),
                         exercise_idx,
                         set_idx,
                     };
@@ -1810,12 +1824,12 @@ pub async fn calculate_and_commit(
     }
     let summary_total = workout_totals.into_iter().sum();
     let model = workout::Model {
-        id,
         end_time,
+        name: input.name,
+        user_id: user_id.clone(),
+        id: new_workout_id.clone(),
         start_time: input.start_time,
         repeated_from: input.repeated_from,
-        user_id: user_id.clone(),
-        name: input.name,
         summary: WorkoutSummary {
             total: Some(summary_total),
             exercises: exercises
@@ -1839,7 +1853,16 @@ pub async fn calculate_and_commit(
     };
     let mut insert: workout::ActiveModel = model.into();
     insert.duration = ActiveValue::NotSet;
+    if let Some(old_workout) = to_update_workout.clone() {
+        insert.end_time = ActiveValue::Set(old_workout.end_time);
+        insert.start_time = ActiveValue::Set(old_workout.start_time);
+        insert.repeated_from = ActiveValue::Set(old_workout.repeated_from.clone());
+        old_workout.delete(db).await?;
+    }
     let data = insert.insert(db).await?;
+    if to_update_workout.is_some() {
+        deploy_job_to_re_evaluate_user_workouts(perform_application_job, user_id).await;
+    }
     Ok(data.id)
 }
 
@@ -2139,7 +2162,9 @@ pub async fn process_import(
         );
     }
     for workout in import.workouts.clone() {
-        if let Err(err) = calculate_and_commit(workout, user_id, db).await {
+        if let Err(err) =
+            create_or_update_workout(workout, user_id, db, perform_application_job).await
+        {
             import.failed_items.push(ImportFailedItem {
                 lot: None,
                 step: ImportFailStep::InputTransformation,
@@ -2179,15 +2204,16 @@ pub async fn process_import(
 pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutInput {
     UserWorkoutInput {
         name: user_workout.name,
+        create_workout_id: Some(user_workout.id),
+        update_workout_id: None,
         default_rest_timer: None,
-        id: Some(user_workout.id),
         end_time: user_workout.end_time,
         update_workout_template_id: None,
         start_time: user_workout.start_time,
         template_id: user_workout.template_id,
         assets: user_workout.information.assets,
-        comment: user_workout.information.comment,
         repeated_from: user_workout.repeated_from,
+        comment: user_workout.information.comment,
         exercises: user_workout
             .information
             .exercises

@@ -7,16 +7,18 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::{create_disk_cache, get_current_date};
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
+use cache_service::CacheService;
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
-    BackendError, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
-    IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl, StringIdObject,
+    ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
+    DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl,
+    StringIdObject,
 };
 use common_utils::{
     get_first_and_last_day_of_month, ryot_log, IsFeatureEnabled, SHOW_SPECIAL_SEASON_NAMES,
 };
 use database_models::{
-    access_link, calendar_event, collection, collection_to_entity,
+    access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::{associate_user_with_entity, get_user_to_entity_association},
     genre, import_report, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
     metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
@@ -136,10 +138,10 @@ pub struct MiscellaneousService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
-    commit_cache: Arc<Cache<CommitCache, ()>>,
+    cache_service: Arc<CacheService>,
+    commit_cache: Cache<CommitCache, ()>,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
@@ -151,6 +153,7 @@ impl MiscellaneousService {
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
+        cache_service: Arc<CacheService>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
         seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
@@ -163,8 +166,8 @@ impl MiscellaneousService {
             timezone,
             oidc_enabled,
             commit_cache,
+            cache_service,
             db: db.clone(),
-            seen_progress_cache,
             file_storage_service,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
@@ -572,8 +575,11 @@ ORDER BY RANDOM() LIMIT 10;
         let media_details = self.generic_metadata(&metadata_id).await?;
         let collections =
             entity_in_collections(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-        let reviews = item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-        let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &self.db).await?;
+        let reviews =
+            item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata, true).await?;
+        let (_, history) = self
+            .is_metadata_finished_by_user(&user_id, &media_details)
+            .await?;
         let in_progress = history
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -756,7 +762,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person).await?;
+        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person, true).await?;
         let collections =
             entity_in_collections(&self.db, &user_id, &person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
@@ -782,6 +788,7 @@ ORDER BY RANDOM() LIMIT 10;
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
+            true,
         )
         .await?;
         Ok(UserMetadataGroupDetails {
@@ -955,22 +962,25 @@ ORDER BY RANDOM() LIMIT 10;
         let avg_rating_col = "user_average_rating";
         let cloned_user_id_1 = user_id.clone();
         let cloned_user_id_2 = user_id.clone();
-        #[derive(Debug, FromQueryResult)]
-        struct InnerMediaSearchItem {
-            id: String,
-        }
 
         let order_by = input
             .sort
             .clone()
             .map(|a| Order::from(a.order))
             .unwrap_or(Order::Asc);
-
         let review_scale = match preferences.general.review_scale {
             UserReviewScale::OutOfFive => 20,
             UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
         };
-        let select = Metadata::find()
+        let take = input.take.unwrap_or(self.config.frontend.page_size as u64);
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|s| s.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
+        let paginator = Metadata::find()
             .select_only()
             .column(metadata::Column::Id)
             .expr_as(
@@ -1009,7 +1019,7 @@ ORDER BY RANDOM() LIMIT 10;
                         )
                     }),
             )
-            .apply_if(input.search.query.clone(), |query, v| {
+            .apply_if(input.search.and_then(|s| s.query), |query, v| {
                 query.filter(
                     Cond::any()
                         .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
@@ -1070,27 +1080,26 @@ ORDER BY RANDOM() LIMIT 10;
                     order_by,
                     NullOrdering::Last,
                 ),
-            });
-        let total: i32 = select.clone().count(&self.db).await?.try_into().unwrap();
-
-        let items = select
-            .limit(self.config.frontend.page_size as u64)
-            .offset(((input.search.page.unwrap() - 1) * self.config.frontend.page_size) as u64)
-            .into_model::<InnerMediaSearchItem>()
-            .all(&self.db)
-            .await?
-            .into_iter()
-            .map(|m| m.id)
-            .collect_vec();
-
-        let next_page =
-            if total - ((input.search.page.unwrap()) * self.config.frontend.page_size) > 0 {
-                Some(input.search.page.unwrap() + 1)
-            } else {
-                None
-            };
+            })
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
+        let ItemsAndPagesNumber {
+            number_of_items,
+            number_of_pages,
+        } = paginator.num_items_and_pages().await?;
+        let mut items = vec![];
+        for c in paginator.fetch_page(page - 1).await? {
+            items.push(c);
+        }
         Ok(SearchResults {
-            details: SearchDetails { next_page, total },
+            details: SearchDetails {
+                total: number_of_items.try_into().unwrap(),
+                next_page: if page < number_of_pages {
+                    Some((page + 1).try_into().unwrap())
+                } else {
+                    None
+                },
+            },
             items,
         })
     }
@@ -1338,6 +1347,23 @@ ORDER BY RANDOM() LIMIT 10;
         }
         if let Some(manual_time_spent) = input.manual_time_spent {
             seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
+        }
+        if let Some(review_id) = input.review_id {
+            let (review, to_update_review_id) = match review_id.is_empty() {
+                false => (
+                    Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
+                    Some(review_id),
+                ),
+                true => (None, None),
+            };
+            if let Some(review_item) = review {
+                if review_item.user_id != user_id {
+                    return Err(Error::new(
+                        "You cannot associate a review with a seen item that is not yours",
+                    ));
+                }
+            }
+            seen.review_id = ActiveValue::Set(to_update_review_id);
         }
         let seen = seen.update(&self.db).await.unwrap();
         after_media_seen_tasks(seen, &self.db, &self.perform_core_application_job).await?;
@@ -1744,10 +1770,10 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(StringIdObject { id: group_id })
     }
 
-    pub async fn post_review(
+    pub async fn create_or_update_review(
         &self,
         user_id: &String,
-        input: PostReviewInput,
+        input: CreateOrUpdateReviewInput,
     ) -> Result<StringIdObject> {
         post_review(
             user_id,
@@ -1801,17 +1827,17 @@ ORDER BY RANDOM() LIMIT 10;
             let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
             let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
             let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-            let cache = ProgressUpdateCache {
-                user_id: user_id.to_owned(),
-                metadata_id: si.metadata_id.clone(),
+            let cache = ApplicationCacheKey::ProgressUpdateCache {
                 show_season_number: ssn,
+                manga_volume_number: mvn,
                 show_episode_number: sen,
-                podcast_episode_number: pen,
                 anime_episode_number: aen,
                 manga_chapter_number: mcn,
-                manga_volume_number: mvn,
+                podcast_episode_number: pen,
+                user_id: user_id.to_owned(),
+                metadata_id: si.metadata_id.clone(),
             };
-            self.seen_progress_cache.remove(&cache).await;
+            self.cache_service.delete(cache).await?;
             let seen_id = si.id.clone();
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {
@@ -2141,27 +2167,36 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataGroupsListInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|f| f.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
         let alias = "parts";
         let media_items_col = Expr::col(Alias::new(alias));
         let (order_by, sort_order) = match input.sort {
             None => (media_items_col, Order::Desc),
             Some(ord) => (
                 match ord.by {
-                    PersonSortBy::Name => Expr::col(metadata_group::Column::Title),
-                    PersonSortBy::MediaItems => media_items_col,
+                    PersonAndMetadataGroupsSortBy::Name => Expr::col(metadata_group::Column::Title),
+                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
                 ord.order.into(),
             ),
         };
-        let query = MetadataGroup::find()
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+        let paginator = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
             .group_by(metadata_group::Column::Id)
             .inner_join(UserToEntity)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(metadata_group::Column::Id.is_not_null())
-            .apply_if(input.search.query, |query, v| {
+            .apply_if(input.search.and_then(|f| f.query), |query, v| {
                 query.filter(
                     Condition::all()
                         .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
@@ -2179,12 +2214,9 @@ ORDER BY RANDOM() LIMIT 10;
                     )
                 },
             )
-            .order_by(order_by, sort_order);
-        let paginator = query
-            .column(metadata_group::Column::Id)
-            .clone()
+            .order_by(order_by, sort_order)
             .into_tuple::<String>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -2211,25 +2243,30 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: PeopleListInput,
     ) -> Result<SearchResults<String>> {
-        #[derive(Debug, FromQueryResult)]
-        struct PartialCreator {
-            id: String,
-        }
-        let page: u64 = input.search.page.unwrap_or(1).try_into().unwrap();
+        let page: u64 = input
+            .search
+            .clone()
+            .and_then(|f| f.page)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap();
         let alias = "media_count";
         let media_items_col = Expr::col(Alias::new(alias));
         let (order_by, sort_order) = match input.sort {
             None => (media_items_col, Order::Desc),
             Some(ord) => (
                 match ord.by {
-                    PersonSortBy::Name => Expr::col(person::Column::Name),
-                    PersonSortBy::MediaItems => media_items_col,
+                    PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                    PersonAndMetadataGroupsSortBy::MediaItems => media_items_col,
                 },
                 ord.order.into(),
             ),
         };
-        let query = Person::find()
-            .apply_if(input.search.query, |query, v| {
+        let take = input
+            .take
+            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+        let creators_paginator = Person::find()
+            .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                 query.filter(
                     Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
                 )
@@ -2258,18 +2295,16 @@ ORDER BY RANDOM() LIMIT 10;
             .inner_join(UserToEntity)
             .group_by(person::Column::Id)
             .group_by(person::Column::Name)
-            .order_by(order_by, sort_order);
-        let creators_paginator = query
-            .clone()
-            .into_model::<PartialCreator>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+            .order_by(order_by, sort_order)
+            .into_tuple::<String>()
+            .paginate(&self.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
         } = creators_paginator.num_items_and_pages().await?;
         let mut creators = vec![];
         for cr in creators_paginator.fetch_page(page - 1).await? {
-            creators.push(cr.id);
+            creators.push(cr);
         }
         Ok(SearchResults {
             details: SearchDetails {
@@ -3005,6 +3040,11 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
+            .exec(&self.db)
+            .await?;
+        ryot_log!(debug, "Deleting expired application caches");
+        ApplicationCache::delete_many()
+            .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
             .exec(&self.db)
             .await?;
         Ok(())

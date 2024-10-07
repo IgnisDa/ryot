@@ -8,6 +8,7 @@ import {
 	CommitMetadataDocument,
 	CommitMetadataGroupDocument,
 	CommitPersonDocument,
+	CreateOrUpdateReviewDocument,
 	CreateReviewCommentDocument,
 	CreateUserMeasurementDocument,
 	DeleteReviewDocument,
@@ -17,7 +18,6 @@ import {
 	MediaLot,
 	MediaSource,
 	MetadataDetailsDocument,
-	PostReviewDocument,
 	RemoveEntityFromCollectionDocument,
 	SeenState,
 	UserMetadataDetailsDocument,
@@ -48,6 +48,9 @@ import {
 	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
+
+const sleepForHalfSecond = async (request: Request) =>
+	await wait(500, { signal: request.signal });
 
 export const loader = async () => redirect($path("/"));
 
@@ -213,7 +216,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				invariant(entityId && entityLot);
 				await serverGqlService.authenticatedRequest(
 					request,
-					PostReviewDocument,
+					CreateOrUpdateReviewDocument,
 					{ input: { ...submission, entityId, entityLot } },
 				);
 				extendResponseHeaders(
@@ -434,6 +437,25 @@ export const action = unstable_defineAction(async ({ request }) => {
 				}),
 			);
 		})
+		.with("bulkCollectionAction", async () => {
+			const submission = processSubmission(formData, bulkCollectionAction);
+			for (const item of submission.items) {
+				await serverGqlService.authenticatedRequest(
+					request,
+					submission.action === "remove"
+						? RemoveEntityFromCollectionDocument
+						: AddEntityToCollectionDocument,
+					{
+						input: {
+							...item,
+							collectionName: submission.collectionName,
+							creatorUserId: submission.creatorUserId,
+						},
+					},
+				);
+			}
+			await removeCachedUserCollectionsList(request);
+		})
 		.run();
 	if (redirectTo) {
 		headers.append("Location", redirectTo.toString());
@@ -512,10 +534,18 @@ const bulkUpdateSchema = z
 		progress: z.string().optional(),
 		date: z.string().optional(),
 		changeState: z.nativeEnum(SeenState).optional(),
-		providerWatchedOn: z.string().optional(),
 	})
 	.merge(MetadataSpecificsSchema)
 	.merge(MetadataIdSchema);
 
-const sleepForHalfSecond = async (request: Request) =>
-	await wait(500, { signal: request.signal });
+const bulkCollectionAction = z.object({
+	action: z.enum(["remove", "add"]),
+	collectionName: z.string(),
+	creatorUserId: z.string(),
+	items: z.array(
+		z.object({
+			entityId: z.string(),
+			entityLot: z.nativeEnum(EntityLot),
+		}),
+	),
+});

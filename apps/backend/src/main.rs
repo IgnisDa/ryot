@@ -55,8 +55,13 @@ async fn main() -> Result<()> {
     #[cfg(debug_assertions)]
     dotenvy::dotenv().ok();
 
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "ryot=info,sea_orm=info");
+    match env::var("RUST_LOG").ok() {
+        Some(v) => {
+            if !v.contains("sea_orm") {
+                env::set_var("RUST_LOG", format!("{},sea_orm=info", v));
+            }
+        }
+        None => env::set_var("RUST_LOG", "ryot=info,sea_orm=info"),
     }
     init_tracing()?;
 
@@ -183,11 +188,12 @@ async fn main() -> Result<()> {
             .ok();
     }
 
+    let host = env::var("BACKEND_HOST").unwrap_or_else(|_| "0.0.0.0".to_owned());
     let port = env::var("BACKEND_PORT")
         .unwrap_or_else(|_| "5000".to_owned())
         .parse::<usize>()
         .unwrap();
-    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
+    let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
     let importer_service_1 = app_services.importer_service.clone();

@@ -11,6 +11,7 @@ use axum::{
     Extension,
 };
 use background::{ApplicationJob, CoreApplicationJob};
+use cache_service::CacheService;
 use chrono::Duration;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
@@ -80,6 +81,7 @@ pub async fn create_app_services(
     ));
     let oidc_client = Arc::new(create_oidc_client(&config).await);
 
+    let cache_service = Arc::new(CacheService::new(&db));
     let collection_service = Arc::new(CollectionService::new(
         &db,
         config.clone(),
@@ -101,6 +103,7 @@ pub async fn create_app_services(
             &db,
             timezone.clone(),
             config.clone(),
+            cache_service.clone(),
             file_storage_service.clone(),
             seen_progress_cache,
             perform_application_job,

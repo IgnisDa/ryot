@@ -16,6 +16,7 @@ import invariant from "tiny-invariant";
 import { useInterval } from "usehooks-ts";
 import {
 	CurrentWorkoutKey,
+	type FitnessAction,
 	dayjsLib,
 	getMetadataDetailsQuery,
 	getStringAsciiValue,
@@ -96,17 +97,13 @@ export const useGetWorkoutStarter = () => {
 	const revalidator = useRevalidator();
 	const [_, setCurrentWorkout] = useCurrentWorkout();
 
-	const fn = (wkt: InProgressWorkout, value: "workouts" | "templates") => {
+	const fn = (wkt: InProgressWorkout, action: FitnessAction) => {
 		setCurrentWorkout(wkt);
-		Cookies.set(CurrentWorkoutKey, value, {
+		Cookies.set(CurrentWorkoutKey, action, {
 			expires: 2,
 			sameSite: "Strict",
 		});
-		navigate(
-			$path("/fitness/:action", {
-				action: value === "workouts" ? "log-workout" : "create-template",
-			}),
-		);
+		navigate($path("/fitness/:action", { action }));
 		revalidator.revalidate();
 	};
 	return fn;

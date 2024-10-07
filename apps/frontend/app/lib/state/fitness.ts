@@ -1,16 +1,16 @@
 import type { NavigateFunction } from "@remix-run/react";
 import {
-	type CreateUserWorkoutMutationVariables,
+	type CreateOrUpdateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
 	type ExerciseLot,
 	SetLot,
 	UserExerciseDetailsDocument,
 	type UserWorkoutSetRecord,
+	UserWorkoutTemplateDetailsDocument,
 	WorkoutDetailsDocument,
 	type WorkoutDetailsQuery,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
-	WorkoutTemplateDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
@@ -60,6 +60,7 @@ export type Exercise = {
 };
 
 export type InProgressWorkout = {
+	updateWorkoutId?: string;
 	updateWorkoutTemplateId?: string;
 	repeatedFrom?: string;
 	templateId?: string;
@@ -149,8 +150,8 @@ export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
 			queryFactory.fitness.workoutTemplateDetails(workoutTemplateId).queryKey,
 		queryFn: () =>
 			clientGqlService
-				.request(WorkoutTemplateDetailsDocument, { workoutTemplateId })
-				.then((data) => data.workoutTemplateDetails),
+				.request(UserWorkoutTemplateDetailsDocument, { workoutTemplateId })
+				.then((data) => data.userWorkoutTemplateDetails),
 	});
 
 type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
@@ -158,35 +159,46 @@ type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
 export const convertHistorySetToCurrentSet = (
 	s: Pick<
 		TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number],
-		"statistic" | "lot"
+		"statistic" | "lot" | "note"
 	>,
+	confirmedAt?: string | null,
 ) =>
 	({
 		lot: s.lot,
-		confirmedAt: null,
+		note: s.note,
 		statistic: s.statistic,
+		confirmedAt: confirmedAt ?? null,
 	}) satisfies ExerciseSet;
 
 export const duplicateOldWorkout = async (
 	workoutInformation: WorkoutInformation,
 	name: string,
 	coreDetails: ReturnType<typeof useCoreDetails>,
-	repeatedFromId?: string,
-	templateId?: string,
-	updateWorkoutTemplateId?: string,
-	defaultRestTimer?: number | null,
+	params: {
+		repeatedFromId?: string;
+		templateId?: string;
+		updateWorkoutId?: string;
+		updateWorkoutTemplateId?: string;
+		defaultRestTimer?: number | null;
+	},
 ) => {
 	const inProgress = getDefaultWorkout();
 	inProgress.name = name;
-	inProgress.repeatedFrom = repeatedFromId;
-	inProgress.templateId = templateId;
-	inProgress.updateWorkoutTemplateId = updateWorkoutTemplateId;
+	inProgress.repeatedFrom = params.repeatedFromId;
+	inProgress.templateId = params.templateId;
+	inProgress.updateWorkoutId = params.updateWorkoutId;
+	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
-	inProgress.defaultRestTimer = defaultRestTimer;
+	inProgress.defaultRestTimer = params.defaultRestTimer;
 	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
-		const sets = ex.sets.map(convertHistorySetToCurrentSet);
+		const sets = ex.sets.map((v) =>
+			convertHistorySetToCurrentSet(
+				v,
+				params.updateWorkoutId ? v.confirmedAt : undefined,
+			),
+		);
 		const exerciseDetails = await getExerciseDetails(ex.name);
-		const defaultRestTime = defaultRestTimer || ex.restTime;
+		const defaultRestTime = params.defaultRestTimer || ex.restTime;
 		inProgress.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: exerciseIdx === 0,
@@ -261,12 +273,10 @@ export const addExerciseToWorkout = async (
 	const finishedDraft = finishDraft(draft);
 	setCurrentWorkout(finishedDraft);
 	const currentEntity = Cookies.get(CurrentWorkoutKey);
+	if (!currentEntity) return;
 	navigate(
 		withFragment(
-			$path("/fitness/:action", {
-				action:
-					currentEntity === "workouts" ? "log-workout" : "create-template",
-			}),
+			$path("/fitness/:action", { action: currentEntity }),
 			idxOfNextExercise.toString(),
 		),
 	);
@@ -276,10 +286,11 @@ export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
 	isCreatingTemplate: boolean,
 ) => {
-	const input: CreateUserWorkoutMutationVariables = {
+	const input: CreateOrUpdateUserWorkoutMutationVariables = {
 		input: {
 			endTime: new Date().toISOString(),
 			templateId: currentWorkout.templateId,
+			updateWorkoutId: currentWorkout.updateWorkoutId,
 			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
 			name: currentWorkout.name,

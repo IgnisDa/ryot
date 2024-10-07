@@ -45,6 +45,7 @@ import {
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
 import {
+	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
@@ -159,7 +160,16 @@ export default function Page() {
 								});
 								return;
 							}
-							startWorkout(getDefaultWorkout(), loaderData.entity);
+							startWorkout(
+								getDefaultWorkout(),
+								match(loaderData.entity)
+									.with(FitnessEntity.Workouts, () => FitnessAction.LogWorkout)
+									.with(
+										FitnessEntity.Templates,
+										() => FitnessAction.CreateTemplate,
+									)
+									.exhaustive(),
+							);
 						}}
 					>
 						<IconPlus size={16} />

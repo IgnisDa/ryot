@@ -33,7 +33,7 @@ use sea_orm::{
     ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Condition, Expr, Func, Iden, Query, SimpleExpr, Write,
+    extension::postgres::PgExpr, Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr,
 };
 
 pub struct CollectionService {
@@ -62,30 +62,19 @@ impl CollectionService {
         user_id: &String,
         name: Option<String>,
     ) -> Result<Vec<CollectionItem>> {
-        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/787 is merged
-        struct JsonBuildObject;
-        impl Iden for JsonBuildObject {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "JSON_BUILD_OBJECT").unwrap();
-            }
-        }
-        struct JsonAgg;
-        impl Iden for JsonAgg {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "JSON_AGG").unwrap();
-            }
-        }
+        let user_jsonb_build_object = PgFunc::json_build_object(vec![
+            (
+                Expr::val("id"),
+                Expr::col((AliasedUser::Table, AliasedUser::Id)),
+            ),
+            (
+                Expr::val("name"),
+                Expr::col((AliasedUser::Table, AliasedUser::Name)),
+            ),
+        ]);
         let collaborators_subquery = Query::select()
             .from(UserToEntity)
-            .expr(
-                Func::cust(JsonAgg).arg(
-                    Func::cust(JsonBuildObject)
-                        .arg(Expr::val("id"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
-                        .arg(Expr::val("name"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
-                ),
-            )
+            .expr(PgFunc::json_agg(user_jsonb_build_object.clone()))
             .join(
                 JoinType::InnerJoin,
                 AliasedUser::Table,
@@ -147,16 +136,7 @@ impl CollectionService {
                 "collaborators",
             )
             .column(collection::Column::Description)
-            .column_as(
-                Expr::expr(
-                    Func::cust(JsonBuildObject)
-                        .arg(Expr::val("id"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Id)))
-                        .arg(Expr::val("name"))
-                        .arg(Expr::col((AliasedUser::Table, AliasedUser::Name))),
-                ),
-                "creator",
-            )
+            .column_as(Expr::expr(user_jsonb_build_object), "creator")
             .order_by_desc(collection::Column::LastUpdatedOn)
             .left_join(User)
             .left_join(UserToEntity)
@@ -226,7 +206,7 @@ impl CollectionService {
                             .add(Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)).eq(v)),
                     )
                 })
-                .apply_if(filter.entity_type, |query, v| {
+                .apply_if(filter.entity_lot, |query, v| {
                     let f = match v {
                         EntityLot::Metadata => {
                             collection_to_entity::Column::MetadataId.is_not_null()
@@ -301,6 +281,7 @@ impl CollectionService {
             &collection.user_id,
             &input.collection_id,
             EntityLot::Collection,
+            true,
         )
         .await?;
         Ok(CollectionContents {

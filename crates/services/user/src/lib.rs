@@ -1,4 +1,4 @@
-use std::{fmt::Write, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::user_id_from_token;
@@ -44,7 +44,7 @@ use openidconnect::{
 use sea_orm::{
     prelude::Expr,
     sea_query::{extension::postgres::PgExpr, Func},
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iden, Iterable,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
     ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use user_models::{
@@ -83,13 +83,6 @@ impl UserService {
     }
 
     pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
-        // TODO: Replace when https://github.com/SeaQL/sea-query/pull/786 is merged
-        struct Md5;
-        impl Iden for Md5 {
-            fn unquoted(&self, s: &mut dyn Write) {
-                write!(s, "MD5").unwrap();
-            }
-        }
         let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
         let limit = preferences
             .general
@@ -102,13 +95,11 @@ impl UserService {
         let recs = Metadata::find()
             .filter(metadata::Column::IsRecommendation.eq(true))
             .order_by(
-                Expr::expr(
-                    Func::cust(Md5).arg(
-                        Expr::col(metadata::Column::Title)
-                            .concat(Expr::val(user_id))
-                            .concat(Expr::val(current_hour)),
-                    ),
-                ),
+                Expr::expr(Func::md5(
+                    Expr::col(metadata::Column::Title)
+                        .concat(Expr::val(user_id))
+                        .concat(Expr::val(current_hour)),
+                )),
                 Order::Desc,
             )
             .limit(limit)
@@ -342,7 +333,7 @@ impl UserService {
             &user.id,
             false,
         )
-        .await?;
+        .await;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
     }
 

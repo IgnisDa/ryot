@@ -32,6 +32,7 @@ import { Form, useLoaderData } from "@remix-run/react";
 import {
 	type DashboardElementLot,
 	GridPacking,
+	MediaLot,
 	MediaStateChanged,
 	UpdateUserPreferenceDocument,
 	UserReviewScale,
@@ -127,6 +128,12 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
+	const [watchProviders, setWatchProviders] = useState(
+		userPreferences.general.watchProviders.map((wp) => ({
+			...wp,
+			lot: snakeCase(wp.lot),
+		})),
+	);
 	const [dashboardElements, setDashboardElements] = useState(
 		userPreferences.general.dashboard,
 	);
@@ -298,15 +305,6 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="general">
 						<Stack gap="xl">
-							<TagsInput
-								label="Watch providers"
-								placeholder="Enter more providers"
-								defaultValue={userPreferences.general.watchProviders}
-								disabled={!!isEditDisabled}
-								onChange={(val) => {
-									appendPref("general.watch_providers", JSON.stringify(val));
-								}}
-							/>
 							<SimpleGrid cols={2} style={{ alignItems: "center" }}>
 								{(
 									[
@@ -388,6 +386,45 @@ export default function Page() {
 									}}
 								/>
 							</Input.Wrapper>
+							<Stack>
+								<Title order={3}>Watch providers</Title>
+								{Object.values(MediaLot)
+									.map(snakeCase)
+									.map((lot) => {
+										const existingValues =
+											watchProviders.find((wp) => wp.lot === lot)?.values || [];
+										return (
+											<Stack key={lot} gap={4}>
+												<Text>{changeCase(lot)}</Text>
+												<TagsInput
+													placeholder="Enter more providers"
+													value={existingValues}
+													disabled={!!isEditDisabled}
+													onChange={(val) => {
+														if (val) {
+															const newWatchProviders =
+																Array.from(watchProviders);
+															let existingMediaLot = newWatchProviders.find(
+																(wp) => wp.lot === lot,
+															);
+															if (!existingMediaLot) {
+																existingMediaLot = { lot, values: val };
+																newWatchProviders.push(existingMediaLot);
+															} else {
+																existingMediaLot.values = val;
+															}
+															setWatchProviders(newWatchProviders);
+															appendPref(
+																"general.watch_providers",
+																JSON.stringify(newWatchProviders),
+															);
+														}
+													}}
+												/>
+											</Stack>
+										);
+									})}
+							</Stack>
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="notifications">

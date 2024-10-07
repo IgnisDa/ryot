@@ -17,9 +17,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::functions::associate_user_with_entity;
 
-// When updating a media item's progress, here are the things that should happen:
-// - remove from watchlist if it was in there
-// - add to in progress
 #[derive(Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Educe)]
 #[graphql(name = "Seen")]
 #[sea_orm(table_name = "seen")]
@@ -46,6 +43,7 @@ pub struct Model {
     // Generated columns
     pub last_updated_on: DateTimeUtc,
     pub num_times_updated: i32,
+    pub review_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -59,6 +57,14 @@ pub enum Relation {
     )]
     Metadata,
     #[sea_orm(
+        belongs_to = "super::review::Entity",
+        from = "Column::ReviewId",
+        to = "super::review::Column::Id",
+        on_update = "Cascade",
+        on_delete = "SetNull"
+    )]
+    Review,
+    #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
         to = "super::user::Column::Id",
@@ -71,6 +77,12 @@ pub enum Relation {
 impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Metadata.def()
+    }
+}
+
+impl Related<super::review::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Review.def()
     }
 }
 

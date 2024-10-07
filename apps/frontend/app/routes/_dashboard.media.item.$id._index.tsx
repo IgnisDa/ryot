@@ -22,12 +22,12 @@ import {
 	ScrollArea,
 	Select,
 	SimpleGrid,
-	Slider,
 	Stack,
 	Tabs,
 	Text,
 	TextInput,
 	Title,
+	Tooltip,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
@@ -67,6 +67,7 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
+	IconBubble,
 	IconBulb,
 	IconEdit,
 	IconInfoCircle,
@@ -100,7 +101,6 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
-	ProRequiredAlert,
 	ReviewItemDisplay,
 } from "~/components/common";
 import { confirmWrapper } from "~/components/confirmation";
@@ -109,12 +109,20 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { Verb, dayjsLib, getVerb, reviewYellow } from "~/lib/generals";
+import {
+	PRO_REQUIRED_MESSAGE,
+	Verb,
+	dayjsLib,
+	getVerb,
+	refreshUserMetadataDetails,
+	reviewYellow,
+} from "~/lib/generals";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetMantineColor,
+	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
 import {
@@ -187,6 +195,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		},
 		editSeenItem: async () => {
 			const submission = processSubmission(formData, editSeenItem);
+			submission.reviewId = submission.reviewId || "";
 			await serverGqlService.authenticatedRequest(
 				request,
 				UpdateSeenItemDocument,
@@ -227,6 +236,7 @@ const dateString = z
 
 const editSeenItem = z.object({
 	seenId: z.string(),
+	reviewId: z.string().optional(),
 	startedOn: dateString.optional(),
 	finishedOn: dateString.optional(),
 	manualTimeSpent: z.string().optional(),
@@ -243,6 +253,7 @@ export default function Page() {
 		loaderData.query.defaultTab || "overview",
 	);
 	const podcastVirtuosoRef = useRef<VirtuosoHandle>(null);
+	const reviewsVirtuosoRef = useRef<VirtuosoHandle>(null);
 	const [
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
@@ -252,6 +263,12 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 
+	const onSubmitProgressUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+		submit(e);
+		events.updateProgress(loaderData.metadataDetails.title);
+		refreshUserMetadataDetails(loaderData.metadataId);
+	};
+
 	const PutOnHoldBtn = () => {
 		return (
 			<Form
@@ -260,10 +277,7 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={(e) => {
-					submit(e);
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
+				onSubmit={(e) => onSubmitProgressUpdate(e)}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
@@ -279,10 +293,7 @@ export default function Page() {
 				})}
 				method="POST"
 				replace
-				onSubmit={(e) => {
-					submit(e);
-					events.updateProgress(loaderData.metadataDetails.title);
-				}}
+				onSubmit={(e) => onSubmitProgressUpdate(e)}
 			>
 				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
@@ -787,17 +798,12 @@ export default function Page() {
 													<StateChangeButtons />
 												) : null}
 												<Form
+													replace
+													method="POST"
+													onSubmit={(e) => onSubmitProgressUpdate(e)}
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="POST"
-													replace
-													onSubmit={(e) => {
-														submit(e);
-														events.updateProgress(
-															loaderData.metadataDetails.title,
-														);
-													}}
 												>
 													<input hidden name="progress" defaultValue={100} />
 													<input
@@ -818,17 +824,12 @@ export default function Page() {
 											<>
 												<Menu.Label>Not in progress</Menu.Label>
 												<Form
+													replace
+													method="POST"
+													onSubmit={(e) => onSubmitProgressUpdate(e)}
 													action={withQuery($path("/actions"), {
 														intent: "individualProgressUpdate",
 													})}
-													method="POST"
-													replace
-													onSubmit={(e) => {
-														submit(e);
-														events.updateProgress(
-															loaderData.metadataDetails.title,
-														);
-													}}
 												>
 													<input hidden name="progress" defaultValue={0} />
 													<input
@@ -993,6 +994,7 @@ export default function Page() {
 											setTab={setTab}
 											key={history.id}
 											history={history}
+											reviewsVirtuosoRef={reviewsVirtuosoRef}
 											podcastVirtuosoRef={podcastVirtuosoRef}
 										/>
 									)}
@@ -1069,22 +1071,22 @@ export default function Page() {
 						</Tabs.Panel>
 					) : null}
 					{!userPreferences.general.disableReviews ? (
-						<Tabs.Panel value="reviews">
+						<Tabs.Panel value="reviews" h={MEDIA_DETAILS_HEIGHT}>
 							{loaderData.userMetadataDetails.reviews.length > 0 ? (
-								<MediaScrollArea>
-									<Stack>
-										{loaderData.userMetadataDetails.reviews.map((r) => (
-											<ReviewItemDisplay
-												review={r}
-												key={r.id}
-												entityLot={EntityLot.Metadata}
-												entityId={loaderData.metadataId}
-												lot={loaderData.metadataDetails.lot}
-												title={loaderData.metadataDetails.title}
-											/>
-										))}
-									</Stack>
-								</MediaScrollArea>
+								<Virtuoso
+									ref={reviewsVirtuosoRef}
+									data={loaderData.userMetadataDetails.reviews}
+									itemContent={(_review, r) => (
+										<ReviewItemDisplay
+											key={r.id}
+											review={r}
+											entityLot={EntityLot.Metadata}
+											entityId={loaderData.metadataId}
+											lot={loaderData.metadataDetails.lot}
+											title={loaderData.metadataDetails.title}
+										/>
+									)}
+								/>
 							) : (
 								<Text>No reviews</Text>
 							)}
@@ -1241,31 +1243,67 @@ const MetadataCreator = (props: {
 type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
 
-const DEFAULT_STATES = [0, 3];
+// DEV: Needs to be done because dayjs calculates the second duration of month based on the
+// current calendar month, which messes up the value calculated by humanize-duration-ts.
+const SECONDS_IN_MONTH = 2629800;
+const POSSIBLE_DURATION_UNITS = ["mo", "d", "h", "min"] as const;
 
-const EditHistoryRecordModal = (props: {
+const convertSecondsToDuration = (totalSeconds?: string | null) => {
+	if (!totalSeconds) return {};
+	const seconds = Number(totalSeconds);
+	const mo = Math.floor(seconds / SECONDS_IN_MONTH);
+	const remainingSeconds = seconds - mo * SECONDS_IN_MONTH;
+	const remainingDuration = dayjsLib.duration(remainingSeconds, "seconds");
+	const d = Math.floor(remainingDuration.asDays());
+	const h = Math.floor(remainingDuration.subtract(d, "day").asHours());
+	const min = Math.floor(
+		remainingDuration.subtract(d, "day").subtract(h, "hour").asMinutes(),
+	);
+	return {
+		mo: mo || undefined,
+		d: d || undefined,
+		h: h || undefined,
+		min: min || undefined,
+	};
+};
+
+type DurationInput = {
+	[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
+};
+
+const convertDurationToSeconds = (duration: DurationInput) => {
+	let total = 0;
+	total += (duration.mo || 0) * SECONDS_IN_MONTH;
+	total += dayjsLib.duration(duration.d || 0, "days").asSeconds();
+	total += dayjsLib.duration(duration.h || 0, "hours").asSeconds();
+	total += dayjsLib.duration(duration.min || 0, "minutes").asSeconds();
+	return total;
+};
+
+const EditHistoryItemModal = (props: {
 	opened: boolean;
 	onClose: () => void;
 	seen: History;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
+	const userDetails = useUserDetails();
+	const reviewsByThisCurrentUser =
+		loaderData.userMetadataDetails.reviews.filter(
+			(r) => r.postedBy.id === userDetails.id,
+		);
 	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
 		props.seen;
-	const [mtv, mts] = manualTimeSpent
-		? //  IDK how to make this more readable. Should've paid more attention in math class.
-			(() => {
-				for (let i = 1; i <= 10; i++) {
-					const v = Number(manualTimeSpent) ** (1 / i);
-					if (v <= 100) return [v, i];
-				}
-				return DEFAULT_STATES;
-			})()
-		: DEFAULT_STATES;
-	const [manualTimeSpentValue, setManualTimeSpentValue] = useState(mtv);
-	const [manualTimeSpentScale, setManualTimeSpentScale] = useState(mts);
-	const manualTimeSpentInMinutes = manualTimeSpentValue ** manualTimeSpentScale;
 	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
+	const isNotCompleted = props.seen.state !== SeenState.Completed;
+	const watchProviders =
+		userPreferences.general.watchProviders.find(
+			(l) => l.lot === loaderData.metadataDetails.lot,
+		)?.values || [];
+	const [manualTimeSpentValue, setManualTimeSpentValue] =
+		useState<DurationInput>(convertSecondsToDuration(manualTimeSpent));
+	const manualTimeSpentInSeconds =
+		convertDurationToSeconds(manualTimeSpentValue);
 
 	return (
 		<Modal
@@ -1288,57 +1326,79 @@ const EditHistoryRecordModal = (props: {
 						label="Start time"
 						name="startedOn"
 						defaultValue={startedOn ? new Date(startedOn) : undefined}
+						disabled={isNotCompleted}
 					/>
 					<DateInput
 						label="End time"
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
+						disabled={isNotCompleted}
 					/>
-					<Input.Wrapper
-						label="Time spent"
-						description="How much time did you actually spend on this media? You can also adjust the scale"
-					>
-						<Box mt="xs">
-							{coreDetails.isPro ? (
-								<>
-									<Group>
-										<Slider
-											flex={1}
-											label={null}
-											value={manualTimeSpentValue}
-											onChange={setManualTimeSpentValue}
-										/>
-										<NumberInput
-											w="20%"
-											max={10}
-											size="xs"
-											value={manualTimeSpentScale}
-											onChange={(v) => setManualTimeSpentScale(Number(v))}
-										/>
-									</Group>
-									<Text c="dimmed" size="sm" ta="center" mt="xs">
-										{humanizeDuration(manualTimeSpentInMinutes * 1000)}
-									</Text>
-									{manualTimeSpentInMinutes > 0 ? (
-										<input
-											hidden
-											readOnly
-											name="manualTimeSpent"
-											value={manualTimeSpentInMinutes}
-										/>
-									) : null}
-								</>
-							) : (
-								<ProRequiredAlert tooltipLabel="Track time spent on media" />
-							)}
-						</Box>
-					</Input.Wrapper>
 					<Select
-						data={userPreferences.general.watchProviders}
-						label={`Where did you ${getVerb(Verb.Read, loaderData.metadataDetails.lot)} it?`}
+						data={watchProviders}
+						label={`Where did you ${getVerb(
+							Verb.Read,
+							loaderData.metadataDetails.lot,
+						)} it?`}
 						name="providerWatchedOn"
 						defaultValue={providerWatchedOn}
+						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 					/>
+					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+						<Select
+							clearable
+							searchable
+							limit={5}
+							name="reviewId"
+							disabled={!coreDetails.isPro}
+							label="Associate with a review"
+							defaultValue={props.seen.reviewId}
+							data={reviewsByThisCurrentUser.map((r) => ({
+								label: [
+									r.textOriginal
+										? `${r.textOriginal.slice(0, 20)}...`
+										: undefined,
+									r.rating,
+									`(${r.id})`,
+								]
+									.filter(Boolean)
+									.join(" • "),
+								value: r.id,
+							}))}
+						/>
+					</Tooltip>
+					<Input.Wrapper
+						label="Time spent"
+						description="How much time did you actually spend on this media?"
+					>
+						<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
+							<Group wrap="nowrap" mt="xs">
+								{POSSIBLE_DURATION_UNITS.map((input) => (
+									<NumberInput
+										key={input}
+										rightSectionWidth={36}
+										disabled={!coreDetails.isPro}
+										defaultValue={manualTimeSpentValue[input]}
+										rightSection={<Text size="xs">{input}</Text>}
+										onChange={(v) => {
+											setManualTimeSpentValue((prev) => ({
+												...prev,
+												[input]: v,
+											}));
+										}}
+									/>
+								))}
+								{manualTimeSpentInSeconds > 0 ? (
+									<input
+										hidden
+										readOnly
+										name="manualTimeSpent"
+										value={manualTimeSpentInSeconds}
+									/>
+								) : null}
+							</Group>
+						</Tooltip>
+					</Input.Wrapper>
 					<Button variant="outline" type="submit">
 						Submit
 					</Button>
@@ -1385,8 +1445,9 @@ const MergeMetadataModal = (props: {
 const HistoryItem = (props: {
 	index: number;
 	history: History;
-	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
 	setTab: (tab: string) => void;
+	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
+	reviewsVirtuosoRef: RefObject<VirtuosoHandle>;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
@@ -1402,18 +1463,22 @@ const HistoryItem = (props: {
 						e.episodeNumber === props.history.showExtraInformation?.episode,
 				)
 		: null;
-	const scrollToEpisode = (index?: number) => {
+	const scrollToVirtuosoElement = (
+		ref: RefObject<VirtuosoHandle>,
+		tab: string,
+		index?: number,
+	) => {
 		if (!coreDetails.isPro) {
 			notifications.show({
 				color: "red",
-				message: "Ryot Pro is required to jump to episodes",
+				message: PRO_REQUIRED_MESSAGE,
 			});
 			return;
 		}
-		props.setTab("podcastEpisodes");
+		props.setTab(tab);
 		if (!isNumber(index)) return;
 		setTimeout(() => {
-			const current = props.podcastVirtuosoRef.current;
+			const current = ref.current;
 			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
 		}, 500);
 	};
@@ -1428,7 +1493,9 @@ const HistoryItem = (props: {
 	const displayPodcastExtraInformation = podcastExtraInformation ? (
 		<Anchor
 			onClick={() =>
-				scrollToEpisode(
+				scrollToVirtuosoElement(
+					props.podcastVirtuosoRef,
+					"podcastEpisodes",
 					loaderData.metadataDetails.podcastSpecifics?.episodes.findIndex(
 						(e) => e.number === podcastExtraInformation.number,
 					),
@@ -1520,11 +1587,9 @@ const HistoryItem = (props: {
 							<IconX size={20} />
 						</ActionIcon>
 					</Form>
-					{props.history.state === SeenState.Completed ? (
-						<ActionIcon color="blue" onClick={open}>
-							<IconEdit size={20} />
-						</ActionIcon>
-					) : null}
+					<ActionIcon color="blue" onClick={open}>
+						<IconEdit size={20} />
+					</ActionIcon>
 				</Flex>
 				<Stack gap={4}>
 					<Flex gap="lg" align="center">
@@ -1534,6 +1599,23 @@ const HistoryItem = (props: {
 								? `(${Number(props.history.progress).toFixed(2)}%)`
 								: null}
 						</Text>
+						{props.history.reviewId ? (
+							<ActionIcon
+								size="xs"
+								color="blue"
+								onClick={() => {
+									scrollToVirtuosoElement(
+										props.reviewsVirtuosoRef,
+										"reviews",
+										loaderData.userMetadataDetails.reviews.findIndex(
+											(r) => r.id === props.history.reviewId,
+										),
+									);
+								}}
+							>
+								<IconBubble />
+							</ActionIcon>
+						) : null}
 						{displayAllInformation ? (
 							<Text c="dimmed" size="sm" lineClamp={1}>
 								{displayAllInformation}
@@ -1581,7 +1663,7 @@ const HistoryItem = (props: {
 					</SimpleGrid>
 				</Stack>
 			</Flex>
-			<EditHistoryRecordModal
+			<EditHistoryItemModal
 				opened={opened}
 				onClose={close}
 				seen={props.history}
