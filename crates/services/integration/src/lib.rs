@@ -5,6 +5,7 @@ use apalis::prelude::MemoryStorage;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result as GqlResult};
 use background::{ApplicationJob, CoreApplicationJob};
+use cache_service::CacheService;
 use chrono::Utc;
 use common_models::ChangeCollectionToEntityInput;
 use common_utils::ryot_log;
@@ -18,7 +19,7 @@ use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import, progress_update};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{
-    CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen, ProgressUpdateCache,
+    CommitCache, CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen,
     ProgressUpdateInput,
 };
 use moka::future::Cache;
@@ -55,8 +56,9 @@ pub struct IntegrationService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
+    cache_service: Arc<CacheService>,
+    commit_cache: Arc<Cache<CommitCache, ()>>,
     perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
@@ -65,15 +67,17 @@ impl IntegrationService {
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
+        cache_service: Arc<CacheService>,
+        commit_cache: Arc<Cache<CommitCache, ()>>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
-        seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {
             config,
             timezone,
+            commit_cache,
+            cache_service,
             db: db.clone(),
-            seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
         }
@@ -337,8 +341,9 @@ impl IntegrationService {
                 force_update: None,
             },
             &self.db,
-            &self.config,
             &self.timezone,
+            &self.config,
+            &self.commit_cache,
             &self.perform_application_job,
         )
         .await?;
@@ -359,8 +364,9 @@ impl IntegrationService {
             user_id,
             true,
             &self.db,
-            &self.seen_progress_cache,
             &self.timezone,
+            &self.config,
+            &self.cache_service,
             &self.perform_core_application_job,
         )
         .await
@@ -406,8 +412,9 @@ impl IntegrationService {
                             commit_metadata(
                                 input,
                                 &self.db,
-                                &self.config,
                                 &self.timezone,
+                                &self.config,
+                                &self.commit_cache,
                                 &self.perform_application_job,
                             )
                         },
@@ -449,8 +456,9 @@ impl IntegrationService {
                     force_update: None,
                 },
                 &self.db,
-                &self.config,
                 &self.timezone,
+                &self.config,
+                &self.commit_cache,
                 &self.perform_application_job,
             )
             .await;
