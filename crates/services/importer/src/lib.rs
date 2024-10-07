@@ -3,6 +3,7 @@ use std::sync::Arc;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
+use cache_service::CacheService;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
 use common_utils::ryot_log;
@@ -13,7 +14,7 @@ use dependent_utils::{
 };
 use enums::ImportSource;
 use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
-use media_models::{DeployImportJobInput, ImportOrExportMediaItem, ProgressUpdateCache};
+use media_models::{CommitCache, DeployImportJobInput, ImportOrExportMediaItem};
 use moka::future::Cache;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
@@ -39,8 +40,9 @@ pub struct ImporterService {
     db: DatabaseConnection,
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
+    cache_service: Arc<CacheService>,
+    commit_cache: Arc<Cache<CommitCache, ()>>,
     perform_application_job: MemoryStorage<ApplicationJob>,
-    seen_progress_cache: Cache<ProgressUpdateCache, ()>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
@@ -49,15 +51,17 @@ impl ImporterService {
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
+        cache_service: Arc<CacheService>,
+        commit_cache: Arc<Cache<CommitCache, ()>>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
-        seen_progress_cache: Cache<ProgressUpdateCache, ()>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
         Self {
             config,
             timezone,
+            commit_cache,
+            cache_service,
             db: db.clone(),
-            seen_progress_cache,
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
         }
@@ -125,8 +129,9 @@ impl ImporterService {
                     commit_metadata(
                         input,
                         &self.db,
-                        &self.config,
                         &self.timezone,
+                        &self.config,
+                        &self.commit_cache,
                         &self.perform_application_job,
                     )
                 },
@@ -156,10 +161,11 @@ impl ImporterService {
             &user_id,
             import,
             &self.db,
-            &self.config,
             &self.timezone,
+            &self.config,
+            &self.cache_service,
+            &self.commit_cache,
             &self.perform_application_job,
-            &self.seen_progress_cache,
             &self.perform_core_application_job,
         )
         .await?;

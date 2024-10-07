@@ -9,6 +9,7 @@ apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
+cache-service = { path = "../../services/cache" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 config = { path = "../../config" }
