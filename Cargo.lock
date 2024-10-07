@@ -6967,6 +6967,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "enums",
  "fitness-models",
  "sea-orm",
  "serde",
