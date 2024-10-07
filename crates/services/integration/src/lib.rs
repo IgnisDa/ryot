@@ -326,6 +326,11 @@ impl IntegrationService {
         user_id: &String,
     ) -> GqlResult<()> {
         if pu.progress < integration.minimum_progress.unwrap() {
+            ryot_log!(
+                debug,
+                "Progress update for integration {} is below minimum threshold",
+                integration.id
+            );
             return Ok(());
         }
         let progress = if pu.progress > integration.maximum_progress.unwrap() {
