@@ -83,9 +83,8 @@ pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
     Utc::now().with_timezone(timezone).date_naive()
 }
 
-pub fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Arc<Cache<T, ()>> {
-    let cache = Cache::builder()
+pub fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
+    Cache::builder()
         .time_to_live(Duration::try_hours(hours).unwrap().to_std().unwrap())
-        .build();
-    Arc::new(cache)
+        .build()
 }

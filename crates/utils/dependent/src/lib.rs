@@ -5,10 +5,11 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
+use cache_service::CacheService;
 use chrono::Utc;
 use common_models::{
-    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, MediaStateChanged, StoredUrl,
-    StringIdObject,
+    ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
+    MediaStateChanged, StoredUrl, StringIdObject,
 };
 use common_utils::{ryot_log, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
@@ -37,11 +38,12 @@ use fitness_models::{
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
 use media_models::{
-    CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput,
-    ImportOrExportItemRating, MediaDetails, MetadataImage, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, ProgressUpdateCache, ProgressUpdateError, ProgressUpdateErrorVariant,
-    ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    CommitCache, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
+    CreateOrUpdateReviewInput, ImportOrExportItemRating, MediaDetails, MetadataImage,
+    PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation,
 };
 use moka::future::Cache;
 use nanoid::nanoid;
@@ -836,8 +838,9 @@ pub async fn commit_metadata_internal(
 pub async fn commit_metadata(
     input: CommitMediaInput,
     db: &DatabaseConnection,
-    config: &Arc<config::AppConfig>,
     timezone: &Arc<chrono_tz::Tz>,
+    config: &Arc<config::AppConfig>,
+    commit_cache: &Arc<Cache<CommitCache, ()>>,
     perform_application_job: &MemoryStorage<ApplicationJob>,
 ) -> Result<metadata::Model> {
     if let Some(m) = Metadata::find()
@@ -847,8 +850,16 @@ pub async fn commit_metadata(
         .one(db)
         .await?
     {
+        let cached_metadata = CommitCache {
+            id: m.id.clone(),
+            lot: EntityLot::Metadata,
+        };
+        if commit_cache.get(&cached_metadata).await.is_some() {
+            return Ok(m);
+        }
+        commit_cache.insert(cached_metadata.clone(), ()).await;
         if input.force_update.unwrap_or_default() {
-            ryot_log!(debug, "Forcing update of metadata with id {}", m.id);
+            ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
             update_metadata_and_notify_users(
                 &m.id,
                 true,
@@ -859,6 +870,7 @@ pub async fn commit_metadata(
             )
             .await?;
         }
+        commit_cache.remove(&cached_metadata).await;
         Ok(m)
     } else {
         let details =
@@ -1284,28 +1296,31 @@ pub async fn after_media_seen_tasks(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn progress_update(
     input: ProgressUpdateInput,
     user_id: &String,
     // update only if media has not been consumed for this user in the last `n` duration
     respect_cache: bool,
     db: &DatabaseConnection,
-    seen_progress_cache: &Cache<ProgressUpdateCache, ()>,
     timezone: &Arc<chrono_tz::Tz>,
+    config: &Arc<config::AppConfig>,
+    cache_service: &Arc<CacheService>,
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
 ) -> Result<ProgressUpdateResultUnion> {
-    let cache = ProgressUpdateCache {
+    let cache = ApplicationCacheKey::ProgressUpdateCache {
         user_id: user_id.to_owned(),
         metadata_id: input.metadata_id.clone(),
         show_season_number: input.show_season_number,
         show_episode_number: input.show_episode_number,
-        podcast_episode_number: input.podcast_episode_number,
-        anime_episode_number: input.anime_episode_number,
-        manga_chapter_number: input.manga_chapter_number,
         manga_volume_number: input.manga_volume_number,
+        manga_chapter_number: input.manga_chapter_number,
+        anime_episode_number: input.anime_episode_number,
+        podcast_episode_number: input.podcast_episode_number,
     };
-    let in_cache = seen_progress_cache.get(&cache).await;
+    let in_cache = cache_service.get(cache.clone()).await?;
     if respect_cache && in_cache.is_some() {
+        ryot_log!(debug, "Seen is already in cache");
         return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
             error: ProgressUpdateErrorVariant::AlreadySeen,
         }));
@@ -1369,6 +1384,7 @@ pub async fn progress_update(
             let progress = input.progress.unwrap();
             let watched_on = prev_seen.provider_watched_on.clone();
             if prev_seen.progress == progress && watched_on == input.provider_watched_on {
+                ryot_log!(debug, "No progress update required");
                 return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
                     error: ProgressUpdateErrorVariant::UpdateWithoutProgressUpdate,
                 }));
@@ -1511,7 +1527,9 @@ pub async fn progress_update(
     ryot_log!(debug, "Progress update = {:?}", seen);
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
-        seen_progress_cache.insert(cache, ()).await;
+        cache_service
+            .set_with_expiry(cache, config.server.progress_update_threshold)
+            .await?;
     }
     after_media_seen_tasks(seen, db, perform_core_application_job).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
@@ -1871,10 +1889,11 @@ pub async fn process_import(
     user_id: &String,
     import: ImportResult,
     db: &DatabaseConnection,
-    config: &Arc<config::AppConfig>,
     timezone: &Arc<chrono_tz::Tz>,
+    config: &Arc<config::AppConfig>,
+    cache_service: &Arc<CacheService>,
+    commit_cache: &Arc<Cache<CommitCache, ()>>,
     perform_application_job: &MemoryStorage<ApplicationJob>,
-    seen_progress_cache: &Cache<ProgressUpdateCache, ()>,
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
 ) -> Result<ImportResultResponse> {
     let mut import = import;
@@ -1905,8 +1924,9 @@ pub async fn process_import(
                 force_update: Some(true),
             },
             db,
-            config,
             timezone,
+            config,
+            commit_cache,
             perform_application_job,
         )
         .await;
@@ -1946,8 +1966,9 @@ pub async fn process_import(
                 user_id,
                 false,
                 db,
-                seen_progress_cache,
                 timezone,
+                config,
+                cache_service,
                 perform_core_application_job,
             )
             .await

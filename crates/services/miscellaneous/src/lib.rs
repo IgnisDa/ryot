@@ -4,7 +4,7 @@ use std::{
 };
 
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use application_utils::{create_disk_cache, get_current_date};
+use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
@@ -24,10 +24,10 @@ use database_models::{
     metadata_to_metadata_group, metadata_to_person, monitored_entity, notification_platform,
     person,
     prelude::{
-        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, ImportReport, Metadata,
-        MetadataGroup, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, QueuedNotification,
-        Review, Seen, User, UserToEntity,
+        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
+        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
+        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
+        QueuedNotification, Review, Seen, User, UserToEntity,
     },
     queued_notification, review, seen, user, user_to_entity,
 };
@@ -58,22 +58,22 @@ use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
-    CreateCustomMetadataInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
-    GraphqlCalendarEvent, GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup,
-    GraphqlVideoAsset, GroupedCalendarEvent, ImportOrExportItemReviewComment,
-    MediaAssociatedPersonStateChanges, MediaDetails, MediaGeneralFilter, MediaSortBy,
-    MetadataCreator, MetadataCreatorGroupedByRole, MetadataFreeCreator, MetadataGroupSearchInput,
-    MetadataGroupSearchItem, MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails,
-    MetadataListInput, MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse,
-    MetadataVideo, MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,
-    PeopleSearchInput, PeopleSearchItem, PersonDetailsGroupedByRole,
-    PersonDetailsItemWithCharacter, PersonSortBy, PodcastSpecifics, PostReviewInput,
-    ProgressUpdateCache, ProgressUpdateInput, ProviderLanguageInformation, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    first_metadata_image_as_url, metadata_images_as_urls, CommitCache, CommitMediaInput,
+    CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
+    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
+    GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
+    GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
+    MediaDetails, MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
+    MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
+    MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
+    MetadataVideoSource, PartialMetadata, PartialMetadataWithoutId, PeopleListInput,
+    PeopleSearchInput, PeopleSearchItem, PersonAndMetadataGroupsSortBy, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput,
+    ProviderLanguageInformation, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
@@ -126,12 +126,6 @@ impl MediaProviderLanguages for CustomService {
     }
 }
 
-#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
-struct CommitCache {
-    id: String,
-    lot: EntityLot,
-}
-
 pub struct MiscellaneousService {
     is_pro: bool,
     oidc_enabled: bool,
@@ -139,7 +133,7 @@ pub struct MiscellaneousService {
     timezone: Arc<chrono_tz::Tz>,
     config: Arc<config::AppConfig>,
     cache_service: Arc<CacheService>,
-    commit_cache: Cache<CommitCache, ()>,
+    commit_cache: Arc<Cache<CommitCache, ()>>,
     file_storage_service: Arc<FileStorageService>,
     perform_application_job: MemoryStorage<ApplicationJob>,
     perform_core_application_job: MemoryStorage<CoreApplicationJob>,
@@ -154,12 +148,11 @@ impl MiscellaneousService {
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
         cache_service: Arc<CacheService>,
+        commit_cache: Arc<Cache<CommitCache, ()>>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
-        seen_progress_cache: Arc<Cache<ProgressUpdateCache, ()>>,
         perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     ) -> Self {
-        let commit_cache = create_disk_cache(1);
         Self {
             config,
             is_pro,
@@ -577,9 +570,7 @@ ORDER BY RANDOM() LIMIT 10;
             entity_in_collections(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
         let reviews =
             item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata, true).await?;
-        let (_, history) = self
-            .is_metadata_finished_by_user(&user_id, &media_details)
-            .await?;
+        let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &self.db).await?;
         let in_progress = history
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -1128,8 +1119,9 @@ ORDER BY RANDOM() LIMIT 10;
                 &user_id,
                 false,
                 &self.db,
-                &self.seen_progress_cache,
                 &self.timezone,
+                &self.config,
+                &self.cache_service,
                 &self.perform_core_application_job,
             )
             .await
@@ -1504,8 +1496,9 @@ ORDER BY RANDOM() LIMIT 10;
         commit_metadata(
             input,
             &self.db,
-            &self.config,
             &self.timezone,
+            &self.config,
+            &self.commit_cache,
             &self.perform_application_job,
         )
         .await
