@@ -8,10 +8,7 @@ use common_utils::ryot_log;
 use database_models::metadata;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{
-    CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
-    IntegrationMediaCollection, IntegrationMediaSeen,
-};
+use media_models::{CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use providers::google_books::GoogleBooksService;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
@@ -187,7 +184,6 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                 }
             };
         }
-        let mut collection_updates = vec![];
         if let Some(true) = self.sync_to_owned_collection {
             let libraries_resp = client
                 .get("libraries")
@@ -224,15 +220,16 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                         } else {
                             continue;
                         };
-                    collection_updates.push(IntegrationMediaCollection {
+                    result.media.push(ImportOrExportMediaItem {
                         identifier,
                         lot,
                         source,
-                        collection: DefaultCollection::Owned.to_string(),
+                        collections: vec![DefaultCollection::Owned.to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
-        Ok((media_items, collection_updates))
+        Ok(result)
     }
 }
