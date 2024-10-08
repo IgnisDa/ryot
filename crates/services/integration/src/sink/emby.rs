@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::async_trait::async_trait;
@@ -57,6 +57,7 @@ impl EmbyIntegration {
     pub const fn new(payload: String, db: DatabaseConnection) -> Self {
         Self { payload, db }
     }
+
     async fn emby_progress(&self) -> Result<ImportResult> {
         let payload: models::EmbyWebhookPayload = serde_json::from_str(&self.payload)?;
 
@@ -93,19 +94,24 @@ impl EmbyIntegration {
                 _ => bail!("Only movies and shows supported"),
             };
 
-        Ok((
-            vec![IntegrationMediaSeen {
-                identifier,
+        Ok(ImportResult {
+            media: vec![ImportOrExportMediaItem {
                 lot,
+                identifier,
                 source: MediaSource::Tmdb,
-                progress: position / runtime * dec!(100),
-                show_season_number: payload.item.season_number,
-                show_episode_number: payload.item.episode_number,
-                provider_watched_on: Some("Emby".to_string()),
-                ..Default::default()
+                source_id: "".to_string(),
+                seen_history: vec![ImportOrExportMediaItemSeen {
+                    progress: Some(position / runtime * dec!(100)),
+                    show_season_number: payload.item.season_number,
+                    show_episode_number: payload.item.episode_number,
+                    provider_watched_on: Some("Emby".to_string()),
+                    ..Default::default()
+                }],
+                reviews: vec![],
+                collections: vec![],
             }],
-            vec![],
-        ))
+            ..Default::default()
+        })
     }
 }
 
