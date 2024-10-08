@@ -1,4 +1,4 @@
-use std::{hash::Hash as StdHash, sync::Arc};
+use std::sync::Arc;
 
 use apalis::prelude::MemoryStorage;
 use application_utils::AuthContext;
@@ -56,13 +56,6 @@ pub struct AppServices {
     pub app_router: Router,
 }
 
-fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Arc<Cache<T, ()>> {
-    let cache = Cache::builder()
-        .time_to_live(Duration::try_hours(hours).unwrap().to_std().unwrap())
-        .build();
-    Arc::new(cache)
-}
-
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     is_pro: bool,
@@ -94,7 +87,11 @@ pub async fn create_app_services(
         config.clone(),
         perform_core_application_job,
     ));
-    let commit_cache = create_disk_cache(1);
+    let commit_cache = Arc::new(
+        Cache::builder()
+            .time_to_live(Duration::try_hours(1).unwrap().to_std().unwrap())
+            .build(),
+    );
     let integration_service = Arc::new(IntegrationService::new(
         &db,
         timezone.clone(),
