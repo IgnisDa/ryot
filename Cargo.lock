@@ -3440,6 +3440,7 @@ dependencies = [
  "dependent-utils",
  "enums",
  "eventsource-stream",
+ "itertools 0.13.0",
  "media-models",
  "moka",
  "providers",

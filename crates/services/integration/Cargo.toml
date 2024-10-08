@@ -21,6 +21,7 @@ dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enums = { path = "../../enums" }
 eventsource-stream = "=0.2.3"
+itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 moka = { workspace = true }
 providers = { path = "../../providers" }

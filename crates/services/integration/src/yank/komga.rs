@@ -12,6 +12,8 @@ use database_models::{metadata, prelude::Metadata};
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
+use itertools::Itertools;
+use media_models::{CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use reqwest::Url;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -20,7 +22,7 @@ use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
-use crate::{integration_trait::YankIntegration, IntegrationMediaCollection, IntegrationMediaSeen};
+use crate::integration_trait::YankIntegration;
 
 mod komga_book {
     use super::*;
@@ -81,15 +83,15 @@ mod komga_series {
     }
 
     impl Metadata {
-        /// Provided with a url this will extract the ID number from it. For example the url
-        /// https://myanimelist.net/manga/116778 will extract 116778
+        /// Provided with a url this will extract the ID number from it. For example the
+        /// url https://myanimelist.net/manga/116778 will extract 116778
         ///
-        /// Currently only works for myanimelist and anilist as mangaupdates doesn't store the ID
+        /// Currently only works for MAL and anilist as MangaUpdates doesn't store the ID
         /// in the url
         ///
         /// # Arguments
         ///
-        /// * `url`: The url to extact from
+        /// * `url`: The url to extract from
         ///
         /// returns: The ID number if the extraction is successful
         fn extract_id(&self, url: String) -> Option<String> {
@@ -105,11 +107,11 @@ mod komga_series {
 
         /// Extracts the list of providers with a MediaSource,ID Tuple
         ///
-        /// Currently only works for myanimelist and anilist as mangaupdates doesn't store
-        /// the ID in the url
+        /// Currently only works for MAL and Anilist as MangaUpdates doesn't store the ID
+        /// in the url
         ///
-        /// Requires that the metadata is stored with the label anilist or myanimelist
-        /// other spellings wont work
+        /// Requires that the metadata is stored with the label Anilist or MAL other
+        /// spellings wont work
         ///
         /// returns: list of providers with a MediaSource, ID Tuple
         pub fn find_providers(&self) -> Vec<(MediaSource, Option<String>)> {
@@ -190,6 +192,8 @@ pub(crate) struct KomgaIntegration {
     db: DatabaseConnection,
     sync_to_owned_collection: Option<bool>,
 }
+
+type ProcessEventReturn = (CommitMediaInput, ImportOrExportMediaItemSeen);
 
 impl KomgaIntegration {
     pub fn new(
@@ -275,7 +279,7 @@ impl KomgaIntegration {
     ///
     /// # Arguments
     ///
-    /// * `client`: Prepopulated client please use `get_base_http_client` to construct this
+    /// * `client`: Pre-populated client. Use `get_base_http_client` to construct this
     /// * `cookie`: The komga cookie with the remember-me included
     /// * `api_endpoint`: Endpoint which comes after the base_url doesn't require a
     ///   prepended `/`
@@ -335,56 +339,56 @@ impl KomgaIntegration {
         }
     }
 
-    fn calculate_percentage(curr_page: i32, total_page: i32) -> Decimal {
+    fn calculate_percentage(current_page: i32, total_page: i32) -> Decimal {
         if total_page == 0 {
             return dec!(0);
         }
-
-        let percentage = (curr_page as f64 / total_page as f64) * 100.0;
-
-        Decimal::from_f64(percentage).unwrap_or(dec!())
+        let percentage = (current_page as f64 / total_page as f64) * 100.0;
+        Decimal::from_f64(percentage).unwrap_or(dec!(0))
     }
 
-    async fn process_events(&self, data: komga_events::Data) -> Option<IntegrationMediaSeen> {
+    async fn process_events(&self, data: komga_events::Data) -> Result<ProcessEventReturn> {
         let url = format!("{}/api/v1", self.base_url);
         let client = get_base_http_client(None);
 
         let book: komga_book::Item = self
             .fetch_api(&client, &format!("{}/books", &url), &data.book_id)
-            .await
-            .ok()?;
+            .await?;
         let series: komga_series::Item = self
             .fetch_api(&client, &format!("{}/series", &url), &book.series_id)
-            .await
-            .ok()?;
+            .await?;
 
-        let (source, id) = self.find_provider_and_id(&series).await.ok()?;
+        let (source, id) = self.find_provider_and_id(&series).await?;
 
         let Some(id) = id else {
-            ryot_log!(
-                debug,
+            let msg = format!(
                 "No MAL URL or database entry found for manga: {}",
                 series.name
             );
-            return None;
+            ryot_log!(debug, msg);
+            bail!(msg)
         };
 
-        Some(IntegrationMediaSeen {
-            identifier: id,
-            lot: MediaLot::Manga,
-            source,
-            manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
-            progress: Self::calculate_percentage(book.read_progress.page, book.media.pages_count),
-            provider_watched_on: Some("Komga".to_string()),
-            ..Default::default()
-        })
+        Ok((
+            CommitMediaInput {
+                source,
+                identifier: id,
+                lot: MediaLot::Manga,
+                force_update: None,
+            },
+            ImportOrExportMediaItemSeen {
+                manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
+                progress: Some(Self::calculate_percentage(
+                    book.read_progress.page,
+                    book.media.pages_count,
+                )),
+                provider_watched_on: Some("Komga".to_string()),
+                ..Default::default()
+            },
+        ))
     }
 
-    async fn sync_manga_collection(&self) -> Result<Vec<IntegrationMediaCollection>> {
-        if self.sync_to_owned_collection != Some(true) {
-            return Ok(Vec::new());
-        }
-
+    async fn sync_manga_collection(&self, result: &mut ImportResult) -> Result<()> {
         let url = &format!("{}/api/v1", self.base_url);
         let client = get_base_http_client(None);
 
@@ -397,37 +401,35 @@ impl KomgaIntegration {
             .json()
             .await?;
 
-        // Hashmap for If you have the same manga in multiple languages it will appear
+        // Hashmap for if you have the same manga in multiple languages it will appear
         // multiple times this prevents us from double committing an identifier
-        let unique_collection_updates: HashMap<String, IntegrationMediaCollection> =
-            stream::iter(series.content)
-                .filter_map(|book| async move {
-                    match self.find_provider_and_id(&book).await {
-                        Ok((source, Some(id))) => Some((
-                            id.clone(),
-                            IntegrationMediaCollection {
-                                identifier: id,
-                                lot: MediaLot::Manga,
-                                source,
-                                collection: DefaultCollection::Owned.to_string(),
-                            },
-                        )),
-                        _ => {
-                            tracing::debug!(
-                                "No URL or database entry found for manga: {}",
-                                book.name
-                            );
-                            None
-                        }
+        let unique_collection_updates: HashMap<String, _> = stream::iter(series.content)
+            .filter_map(|book| async move {
+                match self.find_provider_and_id(&book).await {
+                    Ok((source, Some(id))) => Some((
+                        id.clone(),
+                        ImportOrExportMediaItem {
+                            identifier: id,
+                            lot: MediaLot::Manga,
+                            source,
+                            collections: vec![DefaultCollection::Owned.to_string()],
+                            ..Default::default()
+                        },
+                    )),
+                    _ => {
+                        tracing::debug!("No URL or database entry found for manga: {}", book.name);
+                        None
                     }
-                })
-                .collect()
-                .await;
-
-        Ok(unique_collection_updates.into_values().collect())
+                }
+            })
+            .collect()
+            .await;
+        result.media.extend(unique_collection_updates.into_values());
+        Ok(())
     }
 
     async fn komga_progress(&self) -> Result<ImportResult> {
+        let mut result = ImportResult::default();
         // DEV: This object needs global lifetime so we can continue to use the receiver if
         // we ever create more SSE Objects we may want to implement a higher level
         // Controller or make a housekeeping function to make sure the background threads
@@ -461,7 +463,7 @@ impl KomgaIntegration {
         }
 
         // Use hashmap here so we don't dupe pulls for a single book
-        let mut unique_media_items: HashMap<String, IntegrationMediaSeen> = HashMap::new();
+        let mut unique_media_items: HashMap<String, ProcessEventReturn> = HashMap::new();
 
         if let Some(mut recv) = receiver {
             loop {
@@ -470,7 +472,7 @@ impl KomgaIntegration {
                         ryot_log!(debug, "Received event {:?}", event);
                         match unique_media_items.entry(event.book_id.clone()) {
                             Entry::Vacant(entry) => {
-                                if let Some(processed_event) =
+                                if let Ok(processed_event) =
                                     self.process_events(event.clone()).await
                                 {
                                     entry.insert(processed_event);
@@ -494,13 +496,23 @@ impl KomgaIntegration {
             mutex_receiver.lock().unwrap().replace(recv);
         }
 
-        let mut media_items: Vec<IntegrationMediaSeen> = unique_media_items.into_values().collect();
-        media_items.sort_by(|a, b| a.manga_chapter_number.cmp(&b.manga_chapter_number));
+        let media_items = unique_media_items.into_values().collect_vec();
         ryot_log!(debug, "Media Items: {:?}", media_items);
+        media_items.into_iter().for_each(|(commit, hist)| {
+            result.media.push(ImportOrExportMediaItem {
+                lot: commit.lot,
+                source: commit.source,
+                identifier: commit.identifier,
+                seen_history: vec![hist],
+                ..Default::default()
+            });
+        });
 
-        let collection_updates = self.sync_manga_collection().await?;
+        if let Some(true) = self.sync_to_owned_collection {
+            self.sync_manga_collection(&mut result).await?;
+        }
 
-        Ok((media_items, collection_updates))
+        Ok(result)
     }
 }
 
