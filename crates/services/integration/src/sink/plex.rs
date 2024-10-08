@@ -3,7 +3,7 @@ use async_graphql::async_trait::async_trait;
 use common_utils::ryot_log;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -60,7 +60,7 @@ pub(crate) struct PlexIntegration {
 }
 
 impl PlexIntegration {
-    pub const fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
+    pub fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
         Self {
             payload,
             plex_user,
@@ -134,19 +134,24 @@ impl PlexIntegration {
         let (identifier, lot) = self.get_media_info(&payload.metadata, identifier).await?;
         let progress = Self::calculate_progress(&payload)?;
 
-        Ok((
-            vec![IntegrationMediaSeen {
-                identifier,
+        Ok(ImportResult {
+            media: vec![ImportOrExportMediaItem {
                 lot,
+                identifier,
                 source: MediaSource::Tmdb,
-                progress,
-                provider_watched_on: Some("Plex".to_string()),
-                show_season_number: payload.metadata.season_number,
-                show_episode_number: payload.metadata.episode_number,
-                ..Default::default()
+                source_id: "".to_string(),
+                seen_history: vec![ImportOrExportMediaItemSeen {
+                    progress: Some(progress),
+                    provider_watched_on: Some("Plex".to_string()),
+                    show_season_number: payload.metadata.season_number,
+                    show_episode_number: payload.metadata.episode_number,
+                    ..Default::default()
+                }],
+                reviews: vec![],
+                collections: vec![],
             }],
-            vec![],
-        ))
+            ..Default::default()
+        })
     }
 }
 
