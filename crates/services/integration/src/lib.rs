@@ -7,21 +7,17 @@ use async_graphql::{Error, Result as GqlResult};
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
 use chrono::Utc;
-use common_models::ChangeCollectionToEntityInput;
 use common_utils::ryot_log;
 use database_models::{integration, prelude::Integration};
 use database_models::{
     metadata,
     prelude::{CollectionToEntity, Metadata},
 };
-use database_utils::{add_entity_to_collection, user_preferences_by_id};
+use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import, progress_update};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::{
-    CommitCache, CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen,
-    ProgressUpdateInput,
-};
+use media_models::{CommitCache, CommitMediaInput, ProgressUpdateInput};
 use moka::future::Cache;
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
@@ -29,7 +25,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QuerySelect,
 };
-use sea_query::Expr;
 use traits::TraceOk;
 use uuid::Uuid;
 
@@ -231,11 +226,9 @@ impl IntegrationService {
         };
         match maybe_progress_update {
             Ok(pu) => {
-                self.integration_progress_update(&integration, pu, &integration.user_id)
-                    .await?;
-                let mut to_update: integration::ActiveModel = integration.into();
-                to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
-                to_update.update(&self.db).await?;
+                self.integration_progress_update(integration, pu)
+                    .await
+                    .trace_ok();
                 Ok("Progress updated successfully".to_owned())
             }
             Err(e) => Err(Error::new(e.to_string())),
@@ -313,9 +306,8 @@ impl IntegrationService {
 
     async fn integration_progress_update(
         &self,
-        integration: &integration::Model,
+        integration: integration::Model,
         pu: ImportResult,
-        user_id: &String,
     ) -> GqlResult<()> {
         if pu.progress < integration.minimum_progress.unwrap() {
             ryot_log!(
@@ -358,7 +350,7 @@ impl IntegrationService {
                 provider_watched_on: pu.provider_watched_on,
                 change_state: None,
             },
-            user_id,
+            &integration.user_id,
             true,
             &self.db,
             &self.timezone,
@@ -369,7 +361,11 @@ impl IntegrationService {
         .await
         {
             ryot_log!(debug, "Error updating progress: {:?}", err);
-        };
+        } else {
+            let mut to_update: integration::ActiveModel = integration.into();
+            to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+            to_update.update(&self.db).await?;
+        }
         Ok(())
     }
 
@@ -384,7 +380,6 @@ impl IntegrationService {
             .all(&self.db)
             .await?;
         let mut progress_updates = vec![];
-        let mut collection_updates = vec![];
         let mut to_update_integrations = vec![];
         for integration in integrations.into_iter() {
             if integration.is_disabled.unwrap_or_default() {
@@ -430,60 +425,16 @@ impl IntegrationService {
                 }
                 _ => continue,
             };
-            // FIXME: Return `ImportResult` from these functions
-            if let Ok((seen_progress, collection_progress)) = response {
-                collection_updates.extend(collection_progress);
+            if let Ok(update) = response {
                 to_update_integrations.push(integration.id.clone());
-                progress_updates.push((integration, seen_progress));
+                progress_updates.push((integration, update));
             }
         }
         for (integration, progress_updates) in progress_updates.into_iter() {
-            for pu in progress_updates.into_iter() {
-                self.integration_progress_update(&integration, pu, user_id)
-                    .await
-                    .trace_ok();
-            }
-        }
-        for col_update in collection_updates.into_iter() {
-            let metadata_result = commit_metadata(
-                CommitMediaInput {
-                    lot: col_update.lot,
-                    source: col_update.source,
-                    identifier: col_update.identifier.clone(),
-                    force_update: None,
-                },
-                &self.db,
-                &self.timezone,
-                &self.config,
-                &self.commit_cache,
-                &self.perform_application_job,
-            )
-            .await;
-            if let Ok(metadata::Model { id, .. }) = metadata_result {
-                add_entity_to_collection(
-                    &self.db,
-                    user_id,
-                    ChangeCollectionToEntityInput {
-                        creator_user_id: user_id.to_owned(),
-                        collection_name: col_update.collection,
-                        entity_id: id.clone(),
-                        entity_lot: EntityLot::Metadata,
-                        ..Default::default()
-                    },
-                    &self.perform_core_application_job,
-                )
+            self.integration_progress_update(integration, progress_updates)
                 .await
                 .trace_ok();
-            }
         }
-        Integration::update_many()
-            .filter(integration::Column::Id.is_in(to_update_integrations))
-            .col_expr(
-                integration::Column::LastTriggeredOn,
-                Expr::value(Utc::now()),
-            )
-            .exec(&self.db)
-            .await?;
         Ok(true)
     }
 
