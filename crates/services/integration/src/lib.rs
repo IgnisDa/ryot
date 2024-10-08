@@ -182,6 +182,71 @@ impl IntegrationService {
         }
     }
 
+    async fn integration_progress_update(
+        &self,
+        integration: integration::Model,
+        pu: ImportResult,
+    ) -> GqlResult<()> {
+        if pu.progress < integration.minimum_progress.unwrap() {
+            ryot_log!(
+                debug,
+                "Progress update for integration {} is below minimum threshold",
+                integration.id
+            );
+            return Ok(());
+        }
+        let progress = if pu.progress > integration.maximum_progress.unwrap() {
+            dec!(100)
+        } else {
+            pu.progress
+        };
+        let metadata::Model { id, .. } = commit_metadata(
+            CommitMediaInput {
+                lot: pu.lot,
+                source: pu.source,
+                identifier: pu.identifier,
+                force_update: None,
+            },
+            &self.db,
+            &self.timezone,
+            &self.config,
+            &self.commit_cache,
+            &self.perform_application_job,
+        )
+        .await?;
+        if let Err(err) = progress_update(
+            ProgressUpdateInput {
+                metadata_id: id,
+                progress: Some(progress),
+                date: Some(get_current_date(&self.timezone)),
+                show_season_number: pu.show_season_number,
+                show_episode_number: pu.show_episode_number,
+                podcast_episode_number: pu.podcast_episode_number,
+                anime_episode_number: pu.anime_episode_number,
+                manga_chapter_number: pu.manga_chapter_number,
+                manga_volume_number: pu.manga_volume_number,
+                provider_watched_on: pu.provider_watched_on,
+                change_state: None,
+            },
+            &integration.user_id,
+            true,
+            &self.db,
+            &self.timezone,
+            &self.config,
+            &self.cache_service,
+            &self.perform_core_application_job,
+        )
+        .await
+        {
+            ryot_log!(debug, "Error updating progress: {:?}", err);
+        } else {
+            let mut to_update: integration::ActiveModel = integration.into();
+            to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
+            to_update.update(&self.db).await?;
+        }
+        Ok(())
+    }
+
     pub async fn process_integration_webhook(
         &self,
         integration_slug: String,
@@ -300,71 +365,6 @@ impl IntegrationService {
                     _ => unreachable!(),
                 };
             }
-        }
-        Ok(())
-    }
-
-    async fn integration_progress_update(
-        &self,
-        integration: integration::Model,
-        pu: ImportResult,
-    ) -> GqlResult<()> {
-        if pu.progress < integration.minimum_progress.unwrap() {
-            ryot_log!(
-                debug,
-                "Progress update for integration {} is below minimum threshold",
-                integration.id
-            );
-            return Ok(());
-        }
-        let progress = if pu.progress > integration.maximum_progress.unwrap() {
-            dec!(100)
-        } else {
-            pu.progress
-        };
-        let metadata::Model { id, .. } = commit_metadata(
-            CommitMediaInput {
-                lot: pu.lot,
-                source: pu.source,
-                identifier: pu.identifier,
-                force_update: None,
-            },
-            &self.db,
-            &self.timezone,
-            &self.config,
-            &self.commit_cache,
-            &self.perform_application_job,
-        )
-        .await?;
-        if let Err(err) = progress_update(
-            ProgressUpdateInput {
-                metadata_id: id,
-                progress: Some(progress),
-                date: Some(get_current_date(&self.timezone)),
-                show_season_number: pu.show_season_number,
-                show_episode_number: pu.show_episode_number,
-                podcast_episode_number: pu.podcast_episode_number,
-                anime_episode_number: pu.anime_episode_number,
-                manga_chapter_number: pu.manga_chapter_number,
-                manga_volume_number: pu.manga_volume_number,
-                provider_watched_on: pu.provider_watched_on,
-                change_state: None,
-            },
-            &integration.user_id,
-            true,
-            &self.db,
-            &self.timezone,
-            &self.config,
-            &self.cache_service,
-            &self.perform_core_application_job,
-        )
-        .await
-        {
-            ryot_log!(debug, "Error updating progress: {:?}", err);
-        } else {
-            let mut to_update: integration::ActiveModel = integration.into();
-            to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
-            to_update.update(&self.db).await?;
         }
         Ok(())
     }
