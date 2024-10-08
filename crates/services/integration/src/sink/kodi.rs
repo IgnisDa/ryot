@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use dependent_models::ImportResult;
 use enums::MediaSource;
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen, IntegrationMediaSeen};
 
 use crate::integration_trait::YankIntegration;
 
@@ -21,7 +21,24 @@ impl KodiIntegration {
         payload.source = MediaSource::Tmdb;
         payload.provider_watched_on = Some("Kodi".to_string());
 
-        Ok((vec![payload], vec![]))
+        Ok(ImportResult {
+            media: vec![ImportOrExportMediaItem {
+                lot: payload.lot,
+                source: payload.source,
+                identifier: payload.identifier,
+                source_id: "".to_string(),
+                seen_history: vec![ImportOrExportMediaItemSeen {
+                    progress: Some(payload.progress),
+                    show_season_number: payload.show_season_number,
+                    show_episode_number: payload.show_episode_number,
+                    provider_watched_on: payload.provider_watched_on,
+                    ..Default::default()
+                }],
+                reviews: vec![],
+                collections: vec![],
+            }],
+            ..Default::default()
+        })
     }
 }
 
