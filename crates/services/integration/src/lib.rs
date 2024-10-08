@@ -2,7 +2,6 @@ use std::{future::Future, sync::Arc};
 
 use anyhow::{bail, Result};
 use apalis::prelude::MemoryStorage;
-use application_utils::get_current_date;
 use async_graphql::{Error, Result as GqlResult};
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
@@ -15,10 +14,10 @@ use database_models::{
 };
 use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
-use dependent_utils::{commit_metadata, process_import, progress_update};
+use dependent_utils::{commit_metadata, process_import};
 use enums::MediaSource;
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::{CommitCache, CommitMediaInput, ProgressUpdateInput};
+use media_models::{CommitCache, CommitMediaInput};
 use moka::future::Cache;
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
@@ -195,9 +194,10 @@ impl IntegrationService {
     async fn integration_progress_update(
         &self,
         integration: integration::Model,
-        pu: ImportResult,
+        updates: ImportResult,
     ) -> GqlResult<()> {
-        if pu.progress < integration.minimum_progress.unwrap() {
+        let mut updates = updates;
+        if updates.progress < integration.minimum_progress.unwrap() {
             ryot_log!(
                 debug,
                 "Progress update for integration {} is below minimum threshold",
@@ -205,45 +205,20 @@ impl IntegrationService {
             );
             return Ok(());
         }
-        let progress = if pu.progress > integration.maximum_progress.unwrap() {
+        let progress = if updates.progress > integration.maximum_progress.unwrap() {
             dec!(100)
         } else {
-            pu.progress
+            updates.progress
         };
-        let metadata::Model { id, .. } = commit_metadata(
-            CommitMediaInput {
-                lot: pu.lot,
-                source: pu.source,
-                identifier: pu.identifier,
-                force_update: None,
-            },
-            &self.db,
-            &self.timezone,
-            &self.config,
-            &self.commit_cache,
-            &self.perform_application_job,
-        )
-        .await?;
-        if let Err(err) = progress_update(
-            ProgressUpdateInput {
-                metadata_id: id,
-                progress: Some(progress),
-                date: Some(get_current_date(&self.timezone)),
-                show_season_number: pu.show_season_number,
-                show_episode_number: pu.show_episode_number,
-                podcast_episode_number: pu.podcast_episode_number,
-                anime_episode_number: pu.anime_episode_number,
-                manga_chapter_number: pu.manga_chapter_number,
-                manga_volume_number: pu.manga_volume_number,
-                provider_watched_on: pu.provider_watched_on,
-                change_state: None,
-            },
+        if let Err(err) = process_import(
             &integration.user_id,
-            true,
+            updates,
             &self.db,
             &self.timezone,
             &self.config,
             &self.cache_service,
+            &self.commit_cache,
+            &self.perform_application_job,
             &self.perform_core_application_job,
         )
         .await
