@@ -60,7 +60,7 @@ pub(crate) struct PlexIntegration {
 }
 
 impl PlexIntegration {
-    pub fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
+    pub const fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
         Self {
             payload,
             plex_user,

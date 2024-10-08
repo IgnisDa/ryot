@@ -20,6 +20,7 @@ impl KodiIntegration {
         };
         payload.source = MediaSource::Tmdb;
         payload.provider_watched_on = Some("Kodi".to_string());
+
         Ok((vec![payload], vec![]))
     }
 }
