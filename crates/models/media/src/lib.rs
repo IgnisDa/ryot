@@ -609,7 +609,7 @@ pub struct ImportOrExportItemRating {
 
 /// Details about a specific media item that needs to be imported or exported.
 #[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMediaItem {
     /// An string to help identify it in the original source.

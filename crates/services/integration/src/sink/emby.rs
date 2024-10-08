@@ -107,8 +107,7 @@ impl EmbyIntegration {
                     provider_watched_on: Some("Emby".to_string()),
                     ..Default::default()
                 }],
-                reviews: vec![],
-                collections: vec![],
+                ..Default::default()
             }],
             ..Default::default()
         })

@@ -86,8 +86,7 @@ pub async fn import(
             source,
             source_id: record.id,
             collections: vec![DefaultCollection::Watchlist.to_string()],
-            reviews: vec![],
-            seen_history: vec![],
+          ..Default::default()
         });
     }
     Ok(ImportResult {

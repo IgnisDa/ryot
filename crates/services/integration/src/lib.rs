@@ -229,18 +229,10 @@ impl IntegrationService {
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
-        // FIXME: Return `ImportResult` from these functions
         match maybe_progress_update {
             Ok(pu) => {
-                let media_vec = pu.0;
-                for media in media_vec {
-                    self.integration_progress_update(
-                        &integration,
-                        media.clone(),
-                        &integration.user_id,
-                    )
+                self.integration_progress_update(&integration, pu, &integration.user_id)
                     .await?;
-                }
                 let mut to_update: integration::ActiveModel = integration.into();
                 to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
                 to_update.update(&self.db).await?;
@@ -322,7 +314,7 @@ impl IntegrationService {
     async fn integration_progress_update(
         &self,
         integration: &integration::Model,
-        pu: IntegrationMediaSeen,
+        pu: ImportResult,
         user_id: &String,
     ) -> GqlResult<()> {
         if pu.progress < integration.minimum_progress.unwrap() {

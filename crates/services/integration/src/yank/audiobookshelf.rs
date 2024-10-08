@@ -64,7 +64,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
 
         ryot_log!(debug, "Got response for items in progress {:?}", resp);
 
-        let mut media_items = vec![];
+        let mut result = ImportResult::default();
 
         for item in resp.library_items.iter() {
             let metadata = item.media.clone().unwrap().metadata;

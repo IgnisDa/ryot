@@ -34,8 +34,7 @@ impl KodiIntegration {
                     provider_watched_on: payload.provider_watched_on,
                     ..Default::default()
                 }],
-                reviews: vec![],
-                collections: vec![],
+                ..Default::default()
             }],
             ..Default::default()
         })

@@ -103,8 +103,7 @@ impl JellyfinIntegration {
                     provider_watched_on: Some("Jellyfin".to_string()),
                     ..Default::default()
                 }],
-                reviews: vec![],
-                collections: vec![],
+                ..Default::default()
             }],
             ..Default::default()
         })

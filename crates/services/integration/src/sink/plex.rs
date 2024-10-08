@@ -147,8 +147,7 @@ impl PlexIntegration {
                     show_episode_number: payload.metadata.episode_number,
                     ..Default::default()
                 }],
-                reviews: vec![],
-                collections: vec![],
+                ..Default::default()
             }],
             ..Default::default()
         })

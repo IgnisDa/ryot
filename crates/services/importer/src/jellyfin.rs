@@ -178,8 +178,8 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 source: MediaSource::Tmdb,
                 seen_history: vec![seen],
                 identifier: tmdb_id,
-                reviews: vec![],
                 collections,
+..Default::default()
             });
         } else {
             failed_items.push(ImportFailedItem {

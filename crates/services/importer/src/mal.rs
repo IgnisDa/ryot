@@ -94,7 +94,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         seen_history,
         source_id: item.title.clone(),
         reviews: vec![review_item],
-        collections: vec![],
+        ..Default::default()
     }
 }
 
