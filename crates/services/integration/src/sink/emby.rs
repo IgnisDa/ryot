@@ -99,7 +99,6 @@ impl EmbyIntegration {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,
-                source_id: "".to_string(),
                 seen_history: vec![ImportOrExportMediaItemSeen {
                     progress: Some(position / runtime * dec!(100)),
                     show_season_number: payload.item.season_number,

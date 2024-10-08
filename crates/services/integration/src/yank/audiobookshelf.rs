@@ -8,7 +8,10 @@ use common_utils::ryot_log;
 use database_models::metadata;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{
+    CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen,
+    IntegrationMediaCollection, IntegrationMediaSeen,
+};
 use providers::google_books::GoogleBooksService;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
@@ -165,13 +168,16 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                     } else {
                         resp.progress
                     };
-                    media_items.push(IntegrationMediaSeen {
+                    result.media.push(ImportOrExportMediaItem {
                         lot,
                         source,
                         identifier,
-                        podcast_episode_number,
-                        progress: progress * dec!(100),
-                        provider_watched_on: Some("Audiobookshelf".to_string()),
+                        seen_history: vec![ImportOrExportMediaItemSeen {
+                            podcast_episode_number,
+                            progress: Some(progress * dec!(100)),
+                            provider_watched_on: Some("Audiobookshelf".to_string()),
+                            ..Default::default()
+                        }],
                         ..Default::default()
                     });
                 }

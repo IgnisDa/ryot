@@ -26,7 +26,6 @@ impl KodiIntegration {
                 lot: payload.lot,
                 source: payload.source,
                 identifier: payload.identifier,
-                source_id: "".to_string(),
                 seen_history: vec![ImportOrExportMediaItemSeen {
                     progress: Some(payload.progress),
                     show_season_number: payload.show_season_number,

@@ -139,7 +139,6 @@ impl PlexIntegration {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,
-                source_id: "".to_string(),
                 seen_history: vec![ImportOrExportMediaItemSeen {
                     progress: Some(progress),
                     provider_watched_on: Some("Plex".to_string()),
