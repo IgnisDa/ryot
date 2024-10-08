@@ -197,19 +197,26 @@ impl IntegrationService {
         updates: ImportResult,
     ) -> GqlResult<()> {
         let mut updates = updates;
-        if updates.progress < integration.minimum_progress.unwrap() {
-            ryot_log!(
-                debug,
-                "Progress update for integration {} is below minimum threshold",
-                integration.id
-            );
-            return Ok(());
+        for media in updates.media.iter_mut() {
+            let mut history = vec![];
+            for update in media.seen_history.iter_mut() {
+                if let Some(progress) = update.progress {
+                    if progress < integration.minimum_progress.unwrap() {
+                        ryot_log!(
+                            debug,
+                            "Progress update for integration {} is below minimum threshold",
+                            integration.id
+                        );
+                        continue;
+                    }
+                    if progress > integration.maximum_progress.unwrap() {
+                        update.progress = Some(dec!(100));
+                    }
+                    history.push(update);
+                }
+            }
+            media.seen_history = history.into_iter().map(|h| h.clone()).collect();
         }
-        let progress = if updates.progress > integration.maximum_progress.unwrap() {
-            dec!(100)
-        } else {
-            updates.progress
-        };
         if let Err(err) = process_import(
             &integration.user_id,
             updates,
