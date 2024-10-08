@@ -10,7 +10,7 @@ anyhow = { workspace = true }
 apalis = { workspace = true }
 application-utils = { path = "../../crates/utils/application" }
 async-graphql = { workspace = true }
-async-graphql-axum = "=7.0.9"
+async-graphql-axum = "=7.0.11"
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
