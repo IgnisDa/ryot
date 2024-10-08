@@ -13,10 +13,8 @@ use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use reqwest::Url;
-use rust_decimal::{
-    prelude::{FromPrimitive, Zero},
-    Decimal,
-};
+use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal_macros::dec;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -339,12 +337,12 @@ impl KomgaIntegration {
 
     fn calculate_percentage(curr_page: i32, total_page: i32) -> Decimal {
         if total_page == 0 {
-            return Decimal::zero();
+            return dec!(0);
         }
 
         let percentage = (curr_page as f64 / total_page as f64) * 100.0;
 
-        Decimal::from_f64(percentage).unwrap_or(Decimal::zero())
+        Decimal::from_f64(percentage).unwrap_or(dec!())
     }
 
     async fn process_events(&self, data: komga_events::Data) -> Option<IntegrationMediaSeen> {
