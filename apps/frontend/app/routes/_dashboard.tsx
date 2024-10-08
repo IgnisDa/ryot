@@ -120,6 +120,7 @@ import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
+	useGetWatchProviders,
 	useMetadataDetails,
 	useUserCollections,
 	useUserDetails,
@@ -245,8 +246,11 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const decodedCookie = jwtDecode<{
 		access_link?: { id: string; is_demo?: boolean };
 	}>(getAuthorizationCookie(request));
+	console.log(decodedCookie);
 	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
+	console.log(isAccessLinkSession);
 	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
+	console.log(isDemo);
 
 	const shouldHaveUmami =
 		envData.FRONTEND_UMAMI_SCRIPT_URL &&
@@ -1058,7 +1062,6 @@ const NewProgressUpdateForm = ({
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 	history: History;
 }) => {
-	const userPreferences = useUserPreferences();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
 		new Date(),
@@ -1066,6 +1069,7 @@ const NewProgressUpdateForm = ({
 	const [watchTime, setWatchTime] =
 		useState<(typeof WATCH_TIMES)[number]>("Just Right Now");
 	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
+	const watchProviders = useGetWatchProviders(metadataDetails.lot);
 
 	return (
 		<Form
@@ -1256,9 +1260,9 @@ const NewProgressUpdateForm = ({
 					/>
 				) : null}
 				<Select
+					data={watchProviders}
 					name="providerWatchedOn"
 					defaultValue={lastProviderWatchedOn}
-					data={userPreferences.general.watchProviders}
 					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 				/>
 				{selectedDate ? (
