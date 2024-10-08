@@ -5,7 +5,7 @@ use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::integration_trait::YankIntegration;
+use crate::traita::YankIntegration;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct IntegrationMediaSeen {

@@ -6,7 +6,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use crate::integration_trait::YankIntegration;
+use crate::traita::YankIntegration;
 
 mod models {
     use super::*;

@@ -10,7 +10,7 @@ use rust_decimal_macros::dec;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
-use crate::integration_trait::{ShowIdentifier, YankIntegration};
+use crate::traita::{ShowIdentifier, YankIntegration};
 
 mod models {
     use super::*;

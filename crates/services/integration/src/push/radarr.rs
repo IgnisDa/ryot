@@ -8,7 +8,7 @@ use radarr_api_rs::{
 };
 use traits::TraceOk;
 
-use crate::integration_trait::PushIntegration;
+use crate::traita::PushIntegration;
 
 pub(crate) struct RadarrIntegration {
     radarr_base_url: String,

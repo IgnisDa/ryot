@@ -22,7 +22,7 @@ use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
-use crate::integration_trait::YankIntegration;
+use crate::traita::YankIntegration;
 
 mod komga_book {
     use super::*;

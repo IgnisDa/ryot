@@ -29,20 +29,20 @@ use sea_orm::{
 use traits::TraceOk;
 use uuid::Uuid;
 
-mod integration_trait;
 mod push;
 mod sink;
+mod traita;
 mod yank;
 
 use crate::{
-    integration_trait::PushIntegration,
-    integration_trait::YankIntegration,
-    integration_trait::YankIntegrationWithCommit,
     push::{radarr::RadarrIntegration, sonarr::SonarrIntegration},
     sink::{
         emby::EmbyIntegration, jellyfin::JellyfinIntegration, kodi::KodiIntegration,
         plex::PlexIntegration,
     },
+    traita::PushIntegration,
+    traita::YankIntegration,
+    traita::YankIntegrationWithCommit,
     yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
 };
 
