@@ -122,6 +122,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetMantineColor,
+	useGetWatchProviders,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -1293,13 +1294,9 @@ const EditHistoryItemModal = (props: {
 		);
 	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
 		props.seen;
-	const userPreferences = useUserPreferences();
 	const coreDetails = useCoreDetails();
 	const isNotCompleted = props.seen.state !== SeenState.Completed;
-	const watchProviders =
-		userPreferences.general.watchProviders.find(
-			(l) => l.lot === loaderData.metadataDetails.lot,
-		)?.values || [];
+	const watchProviders = useGetWatchProviders(loaderData.metadataDetails.lot);
 	const [manualTimeSpentValue, setManualTimeSpentValue] =
 		useState<DurationInput>(convertSecondsToDuration(manualTimeSpent));
 	const manualTimeSpentInSeconds =

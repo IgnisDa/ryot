@@ -7,7 +7,10 @@ import {
 	useSearchParams,
 	useSubmit,
 } from "@remix-run/react";
-import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import type {
+	EntityLot,
+	MediaLot,
+} from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
@@ -179,4 +182,12 @@ export const useApplicationEvents = () => {
 export const forceUpdateEverySecond = () => {
 	const forceUpdate = useForceUpdate();
 	useInterval(forceUpdate, 1000);
+};
+
+export const useGetWatchProviders = (mediaLot: MediaLot) => {
+	const userPreferences = useUserPreferences();
+	const watchProviders =
+		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)
+			?.values || [];
+	return watchProviders;
 };
