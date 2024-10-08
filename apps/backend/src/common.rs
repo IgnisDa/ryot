@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{hash::Hash as StdHash, sync::Arc};
 
 use apalis::prelude::MemoryStorage;
 use application_utils::AuthContext;
@@ -15,7 +15,7 @@ use cache_service::CacheService;
 use chrono::Duration;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
-use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT, TEMP_DIR};
+use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT};
 use exporter_resolver::{ExporterMutation, ExporterQuery};
 use exporter_service::ExporterService;
 use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
@@ -28,6 +28,7 @@ use integration_service::IntegrationService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
+use moka::future::Cache;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
@@ -55,6 +56,13 @@ pub struct AppServices {
     pub app_router: Router,
 }
 
+fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Arc<Cache<T, ()>> {
+    let cache = Cache::builder()
+        .time_to_live(Duration::try_hours(hours).unwrap().to_std().unwrap())
+        .build();
+    Arc::new(cache)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn create_app_services(
     is_pro: bool,
@@ -65,7 +73,6 @@ pub async fn create_app_services(
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
-    let path = PathBuf::new().join(TEMP_DIR);
     let timezone = Arc::new(timezone);
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
@@ -87,13 +94,14 @@ pub async fn create_app_services(
         config.clone(),
         perform_core_application_job,
     ));
-    let seen_progress_cache = create_disk_cache(config.server.progress_update_threshold);
+    let commit_cache = create_disk_cache(1);
     let integration_service = Arc::new(IntegrationService::new(
         &db,
         timezone.clone(),
         config.clone(),
+        cache_service.clone(),
+        commit_cache.clone(),
         perform_application_job,
-        seen_progress_cache.clone(),
         perform_core_application_job,
     ));
     let miscellaneous_service = Arc::new(
@@ -104,8 +112,8 @@ pub async fn create_app_services(
             timezone.clone(),
             config.clone(),
             cache_service.clone(),
+            commit_cache.clone(),
             file_storage_service.clone(),
-            seen_progress_cache,
             perform_application_job,
             perform_core_application_job,
         )
@@ -122,8 +130,9 @@ pub async fn create_app_services(
         &db,
         timezone.clone(),
         config.clone(),
+        cache_service.clone(),
+        commit_cache.clone(),
         perform_application_job,
-        seen_progress_cache,
         perform_core_application_job,
     ));
     let exporter_service = Arc::new(ExporterService::new(

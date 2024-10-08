@@ -246,7 +246,6 @@ dependencies = [
  "config",
  "file-storage-service",
  "jwt-service",
- "moka",
  "reqwest 0.12.8",
 ]
 
@@ -880,6 +879,7 @@ dependencies = [
  "migrations",
  "miscellaneous-resolver",
  "miscellaneous-service",
+ "moka",
  "openidconnect",
  "reqwest 0.12.8",
  "router-resolver",

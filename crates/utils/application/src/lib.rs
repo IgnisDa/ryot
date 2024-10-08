@@ -1,4 +1,4 @@
-use std::{hash::Hash as StdHash, sync::Arc};
+use std::sync::Arc;
 
 use async_graphql::{Error, Result};
 use async_trait::async_trait;
@@ -7,10 +7,9 @@ use axum::{
     http::{header::AUTHORIZATION, request::Parts, StatusCode},
     Extension, RequestPartsExt,
 };
-use chrono::{Duration, NaiveDate, Utc};
+use chrono::{NaiveDate, Utc};
 use common_utils::USER_AGENT_STR;
 use file_storage_service::FileStorageService;
-use moka::future::Cache;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
     ClientBuilder,
@@ -81,10 +80,4 @@ pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> 
 
 pub fn get_current_date(timezone: &chrono_tz::Tz) -> NaiveDate {
     Utc::now().with_timezone(timezone).date_naive()
-}
-
-pub fn create_disk_cache<T: Eq + StdHash + Sync + Send + 'static>(hours: i64) -> Cache<T, ()> {
-    Cache::builder()
-        .time_to_live(Duration::try_hours(hours).unwrap().to_std().unwrap())
-        .build()
 }
