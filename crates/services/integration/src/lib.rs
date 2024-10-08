@@ -16,6 +16,7 @@ use database_models::{
 use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import, progress_update};
+use enums::MediaSource;
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::{CommitCache, CommitMediaInput, ProgressUpdateInput};
 use moka::future::Cache;
@@ -29,7 +30,6 @@ use traits::TraceOk;
 use uuid::Uuid;
 
 mod integration_trait;
-mod integration_type;
 mod push;
 mod sink;
 mod yank;
@@ -38,7 +38,6 @@ use crate::{
     integration_trait::PushIntegration,
     integration_trait::YankIntegration,
     integration_trait::YankIntegrationWithCommit,
-    integration_type::IntegrationType,
     push::{radarr::RadarrIntegration, sonarr::SonarrIntegration},
     sink::{
         emby::EmbyIntegration, jellyfin::JellyfinIntegration, kodi::KodiIntegration,
@@ -46,6 +45,17 @@ use crate::{
     },
     yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
 };
+
+pub enum IntegrationType {
+    Komga(String, String, String, MediaSource, Option<bool>),
+    Jellyfin(String),
+    Emby(String),
+    Plex(String, Option<String>),
+    Audiobookshelf(String, String, Option<bool>, GoogleBooksService),
+    Kodi(String),
+    Sonarr(String, String, i32, String, String),
+    Radarr(String, String, i32, String, String),
+}
 
 pub struct IntegrationService {
     db: DatabaseConnection,
