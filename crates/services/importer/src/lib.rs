@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use apalis::prelude::{MemoryStorage, MessageQueue};
+use apalis::prelude::MessageQueue;
 use async_graphql::Result;
-use background::{ApplicationJob, CoreApplicationJob};
-use cache_service::CacheService;
+use background::ApplicationJob;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
 use common_utils::ryot_log;
@@ -14,12 +13,9 @@ use dependent_utils::{
 };
 use enums::ImportSource;
 use importer_models::{ImportFailStep, ImportFailedItem, ImportResultResponse};
-use media_models::{CommitCache, DeployImportJobInput, ImportOrExportMediaItem};
-use moka::future::Cache;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder,
-};
+use media_models::{DeployImportJobInput, ImportOrExportMediaItem};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use supporting_service::SupportingService;
 use traits::TraceOk;
 
 mod audiobookshelf;
@@ -36,44 +32,17 @@ mod story_graph;
 mod strong_app;
 mod trakt;
 
-pub struct ImporterService {
-    db: DatabaseConnection,
-    timezone: Arc<chrono_tz::Tz>,
-    config: Arc<config::AppConfig>,
-    cache_service: Arc<CacheService>,
-    commit_cache: Arc<Cache<CommitCache, ()>>,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
-}
+pub struct ImporterService(pub Arc<SupportingService>);
 
 impl ImporterService {
-    pub fn new(
-        db: &DatabaseConnection,
-        timezone: Arc<chrono_tz::Tz>,
-        config: Arc<config::AppConfig>,
-        cache_service: Arc<CacheService>,
-        commit_cache: Arc<Cache<CommitCache, ()>>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
-        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-    ) -> Self {
-        Self {
-            config,
-            timezone,
-            commit_cache,
-            cache_service,
-            db: db.clone(),
-            perform_application_job: perform_application_job.clone(),
-            perform_core_application_job: perform_core_application_job.clone(),
-        }
-    }
-
     pub async fn deploy_import_job(
         &self,
         user_id: String,
         input: DeployImportJobInput,
     ) -> Result<bool> {
         let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-        self.perform_application_job
+        self.0
+            .perform_application_job
             .clone()
             .enqueue(job)
             .await
@@ -86,7 +55,7 @@ impl ImporterService {
         let reports = ImportReport::find()
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         Ok(reports)
@@ -100,7 +69,7 @@ impl ImporterService {
         let db_import_job = self.start_import_job(&user_id, input.source).await?;
         let import = match input.source {
             ImportSource::StrongApp => {
-                strong_app::import(input.strong_app.unwrap(), self.timezone.clone())
+                strong_app::import(input.strong_app.unwrap(), self.0.timezone.clone())
                     .await
                     .unwrap()
             }
@@ -110,7 +79,7 @@ impl ImporterService {
             ImportSource::Mal => mal::import(input.mal.unwrap()).await.unwrap(),
             ImportSource::Goodreads => goodreads::import(
                 input.generic_csv.unwrap(),
-                &get_isbn_service(&self.config).await.unwrap(),
+                &get_isbn_service(&self.0.config).await.unwrap(),
             )
             .await
             .unwrap(),
@@ -118,21 +87,21 @@ impl ImporterService {
             ImportSource::Movary => movary::import(input.movary.unwrap()).await.unwrap(),
             ImportSource::StoryGraph => story_graph::import(
                 input.generic_csv.unwrap(),
-                &get_isbn_service(&self.config).await.unwrap(),
+                &get_isbn_service(&self.0.config).await.unwrap(),
             )
             .await
             .unwrap(),
             ImportSource::Audiobookshelf => audiobookshelf::import(
                 input.url_and_key.unwrap(),
-                &get_isbn_service(&self.config).await.unwrap(),
+                &get_isbn_service(&self.0.config).await.unwrap(),
                 |input| {
                     commit_metadata(
                         input,
-                        &self.db,
-                        &self.timezone,
-                        &self.config,
-                        &self.commit_cache,
-                        &self.perform_application_job,
+                        &self.0.db,
+                        &self.0.timezone,
+                        &self.0.config,
+                        &self.0.commit_cache,
+                        &self.0.perform_application_job,
                     )
                 },
             )
@@ -141,7 +110,7 @@ impl ImporterService {
             ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await.unwrap(),
             ImportSource::Imdb => imdb::import(
                 input.generic_csv.unwrap(),
-                &get_tmdb_non_media_service(&self.config, &self.timezone)
+                &get_tmdb_non_media_service(&self.0.config, &self.0.timezone)
                     .await
                     .unwrap(),
             )
@@ -151,7 +120,7 @@ impl ImporterService {
                 .await
                 .unwrap(),
             ImportSource::OpenScale => {
-                open_scale::import(input.generic_csv.unwrap(), self.timezone.clone())
+                open_scale::import(input.generic_csv.unwrap(), self.0.timezone.clone())
                     .await
                     .unwrap()
             }
@@ -160,22 +129,22 @@ impl ImporterService {
         let details = process_import(
             &user_id,
             import,
-            &self.db,
-            &self.timezone,
-            &self.config,
-            &self.cache_service,
-            &self.commit_cache,
-            &self.perform_application_job,
-            &self.perform_core_application_job,
+            &self.0.db,
+            &self.0.timezone,
+            &self.0.config,
+            &self.0.cache_service,
+            &self.0.commit_cache,
+            &self.0.perform_application_job,
+            &self.0.perform_core_application_job,
         )
         .await?;
         self.finish_import_job(db_import_job, details).await?;
         deploy_background_job(
             &user_id,
             BackgroundJob::CalculateUserActivitiesAndSummary,
-            &self.db,
-            &self.perform_application_job,
-            &self.perform_core_application_job,
+            &self.0.db,
+            &self.0.perform_application_job,
+            &self.0.perform_core_application_job,
         )
         .await
         .trace_ok();
@@ -192,7 +161,7 @@ impl ImporterService {
             source: ActiveValue::Set(source),
             ..Default::default()
         };
-        let model = model.insert(&self.db).await.unwrap();
+        let model = model.insert(&self.0.db).await.unwrap();
         ryot_log!(debug, "Started import job with id = {id}", id = model.id);
         Ok(model)
     }
@@ -206,7 +175,7 @@ impl ImporterService {
         model.finished_on = ActiveValue::Set(Some(Utc::now()));
         model.details = ActiveValue::Set(Some(details));
         model.was_success = ActiveValue::Set(Some(true));
-        let model = model.update(&self.db).await.unwrap();
+        let model = model.update(&self.0.db).await.unwrap();
         Ok(model)
     }
 }

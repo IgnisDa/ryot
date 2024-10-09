@@ -9,10 +9,8 @@ apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
-cache-service = { path = "../../services/cache" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-config = { path = "../../config" }
 convert_case = { workspace = true }
 csv = "=1.3.0"
 data-encoding = "=2.6.0"
@@ -29,7 +27,6 @@ flate2 = "=1.0.33"
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
-moka = { workspace = true }
 providers = { path = "../../providers" }
 regex = { workspace = true }
 reqwest = { workspace = true }
@@ -41,6 +38,7 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 serde-xml-rs = "=0.6.0"
 specific-models = { path = "../../models/specific" }
+supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
 

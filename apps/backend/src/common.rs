@@ -98,21 +98,13 @@ pub async fn create_app_services(
     let collection_service = Arc::new(CollectionService(supporting_service.clone()));
     let integration_service = Arc::new(IntegrationService(supporting_service.clone()));
     let miscellaneous_service = Arc::new(MiscellaneousService(supporting_service.clone()));
+    let importer_service = Arc::new(ImporterService(supporting_service.clone()));
     let user_service = Arc::new(UserService::new(
         is_pro,
         &db,
         config.clone(),
         oidc_client.clone(),
         perform_application_job,
-    ));
-    let importer_service = Arc::new(ImporterService::new(
-        &db,
-        timezone.clone(),
-        config.clone(),
-        cache_service.clone(),
-        commit_cache.clone(),
-        perform_application_job,
-        perform_core_application_job,
     ));
     let exporter_service = Arc::new(ExporterService::new(
         &db,
