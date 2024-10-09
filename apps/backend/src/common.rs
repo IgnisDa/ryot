@@ -82,11 +82,11 @@ pub async fn create_app_services(
     let supporting_service = Arc::new(
         SupportingService::new(
             is_pro,
-            oidc_client.is_some(),
             &db,
             timezone.clone(),
             config.clone(),
             cache_service.clone(),
+            oidc_client,
             commit_cache.clone(),
             file_storage_service.clone(),
             perform_application_job,
@@ -94,18 +94,12 @@ pub async fn create_app_services(
         )
         .await,
     );
+    let user_service = Arc::new(UserService(supporting_service.clone()));
+    let importer_service = Arc::new(ImporterService(supporting_service.clone()));
     let exercise_service = Arc::new(ExerciseService(supporting_service.clone()));
     let collection_service = Arc::new(CollectionService(supporting_service.clone()));
     let integration_service = Arc::new(IntegrationService(supporting_service.clone()));
     let miscellaneous_service = Arc::new(MiscellaneousService(supporting_service.clone()));
-    let importer_service = Arc::new(ImporterService(supporting_service.clone()));
-    let user_service = Arc::new(UserService::new(
-        is_pro,
-        &db,
-        config.clone(),
-        oidc_client.clone(),
-        perform_application_job,
-    ));
     let exporter_service = Arc::new(ExporterService::new(
         &db,
         config.clone(),

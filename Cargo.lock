@@ -6324,6 +6324,7 @@ dependencies = [
  "file-storage-service",
  "media-models",
  "moka",
+ "openidconnect",
  "sea-orm",
 ]
 
@@ -7077,15 +7078,12 @@ dependencies = [
 name = "user-service"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "application-utils",
  "argon2",
  "async-graphql",
- "background",
  "chrono",
  "common-models",
  "common-utils",
- "config",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -7100,6 +7098,7 @@ dependencies = [
  "openidconnect",
  "sea-orm",
  "serde_json",
+ "supporting-service",
  "tracing",
  "user-models",
 ]

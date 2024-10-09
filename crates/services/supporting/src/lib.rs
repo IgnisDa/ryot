@@ -6,15 +6,16 @@ use cache_service::CacheService;
 use file_storage_service::FileStorageService;
 use media_models::CommitCache;
 use moka::future::Cache;
+use openidconnect::core::CoreClient;
 use sea_orm::DatabaseConnection;
 
 pub struct SupportingService {
     pub is_pro: bool,
-    pub oidc_enabled: bool,
     pub db: DatabaseConnection,
     pub timezone: Arc<chrono_tz::Tz>,
     pub config: Arc<config::AppConfig>,
     pub cache_service: Arc<CacheService>,
+    pub oidc_client: Arc<Option<CoreClient>>,
     pub commit_cache: Arc<Cache<CommitCache, ()>>,
     pub file_storage_service: Arc<FileStorageService>,
     pub perform_application_job: MemoryStorage<ApplicationJob>,
@@ -25,11 +26,11 @@ impl SupportingService {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         is_pro: bool,
-        oidc_enabled: bool,
         db: &DatabaseConnection,
         timezone: Arc<chrono_tz::Tz>,
         config: Arc<config::AppConfig>,
         cache_service: Arc<CacheService>,
+        oidc_client: Arc<Option<CoreClient>>,
         commit_cache: Arc<Cache<CommitCache, ()>>,
         file_storage_service: Arc<FileStorageService>,
         perform_application_job: &MemoryStorage<ApplicationJob>,
@@ -39,7 +40,7 @@ impl SupportingService {
             config,
             is_pro,
             timezone,
-            oidc_enabled,
+            oidc_client,
             commit_cache,
             cache_service,
             db: db.clone(),
