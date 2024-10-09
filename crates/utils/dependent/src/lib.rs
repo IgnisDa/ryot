@@ -1247,7 +1247,6 @@ pub async fn after_media_seen_tasks(seen: seen::Model, ss: &Arc<SupportingServic
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 pub async fn progress_update(
     input: ProgressUpdateInput,
     user_id: &String,
