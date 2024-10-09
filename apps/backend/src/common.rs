@@ -98,14 +98,9 @@ pub async fn create_app_services(
     let importer_service = Arc::new(ImporterService(supporting_service.clone()));
     let exercise_service = Arc::new(ExerciseService(supporting_service.clone()));
     let collection_service = Arc::new(CollectionService(supporting_service.clone()));
+    let exporter_service = Arc::new(ExporterService(supporting_service.clone()));
     let integration_service = Arc::new(IntegrationService(supporting_service.clone()));
     let miscellaneous_service = Arc::new(MiscellaneousService(supporting_service.clone()));
-    let exporter_service = Arc::new(ExporterService::new(
-        &db,
-        config.clone(),
-        perform_application_job,
-        file_storage_service.clone(),
-    ));
     let statistics_service = Arc::new(StatisticsService::new(&db));
     let schema = Schema::build(
         QueryRoot::default(),
