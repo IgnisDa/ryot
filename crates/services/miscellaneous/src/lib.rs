@@ -1684,9 +1684,7 @@ ORDER BY RANDOM() LIMIT 10;
                 )
                 .await,
             ),
-            MediaSource::Tmdb => {
-                Box::new(get_tmdb_non_media_service(&self.0.config, &self.0.timezone).await?)
-            }
+            MediaSource::Tmdb => Box::new(get_tmdb_non_media_service(&self.0).await?),
             MediaSource::Anilist => Box::new(
                 NonMediaAnilistService::new(
                     &self.0.config.anime_and_manga.anilist,
@@ -2409,7 +2407,7 @@ ORDER BY RANDOM() LIMIT 10;
                     serde_json::from_str(&serde_json::to_string(&reminder)?)?;
                 let col = col.unwrap();
                 let related_users = col.find_related(UserToEntity).all(&self.0.db).await?;
-                if get_current_date(self.0.timezone.as_ref()) == reminder.reminder {
+                if get_current_date(&self.0.timezone) == reminder.reminder {
                     for user in related_users {
                         queue_notifications_to_user_platforms(
                             &user.user_id,
@@ -2484,9 +2482,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
-        let date_to_calculate_from = get_current_date(self.0.timezone.as_ref())
-            .pred_opt()
-            .unwrap();
+        let date_to_calculate_from = get_current_date(&self.0.timezone).pred_opt().unwrap();
 
         let mut meta_stream = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
@@ -2626,7 +2622,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn queue_notifications_for_released_media(&self) -> Result<()> {
-        let today = get_current_date(self.0.timezone.as_ref());
+        let today = get_current_date(&self.0.timezone);
         let calendar_events = CalendarEvent::find()
             .filter(calendar_event::Column::Date.eq(today))
             .find_also_related(Metadata)

@@ -60,7 +60,7 @@ where
 pub trait GraphqlRepresentation {
     async fn graphql_representation(
         self,
-        file_storage_service: &Arc<FileStorageService>,
+        file_storage_service: &FileStorageService,
     ) -> Result<Self>
     where
         Self: Sized;

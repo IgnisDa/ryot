@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
@@ -159,7 +159,7 @@ pub struct ExerciseListItem {
 impl GraphqlRepresentation for ExerciseListItem {
     async fn graphql_representation(
         self,
-        file_storage_service: &Arc<FileStorageService>,
+        file_storage_service: &FileStorageService,
     ) -> GraphqlResult<Self> {
         let mut converted_exercise = self.clone();
         if let Some(img) = self.attributes.internal_images.first() {

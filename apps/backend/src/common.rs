@@ -67,27 +67,24 @@ pub async fn create_app_services(
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
-    let timezone = Arc::new(timezone);
-    let oidc_client = Arc::new(create_oidc_client(&config).await);
+    let oidc_client = create_oidc_client(&config).await;
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
     ));
-    let cache_service = Arc::new(CacheService::new(&db));
-    let commit_cache = Arc::new(
-        Cache::builder()
-            .time_to_live(Duration::try_hours(1).unwrap().to_std().unwrap())
-            .build(),
-    );
+    let cache_service = CacheService::new(&db);
+    let commit_cache = Cache::builder()
+        .time_to_live(Duration::try_hours(1).unwrap().to_std().unwrap())
+        .build();
     let supporting_service = Arc::new(
         SupportingService::new(
             is_pro,
             &db,
-            timezone.clone(),
+            timezone,
+            cache_service,
             config.clone(),
-            cache_service.clone(),
             oidc_client,
-            commit_cache.clone(),
+            commit_cache,
             file_storage_service.clone(),
             perform_application_job,
             perform_core_application_job,

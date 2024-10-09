@@ -75,24 +75,21 @@ use user_models::{UserPreferences, UserReviewScale};
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
-pub async fn get_openlibrary_service(
-    config: &Arc<config::AppConfig>,
-) -> Result<OpenlibraryService> {
+pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
     Ok(OpenlibraryService::new(&config.books.openlibrary, config.frontend.page_size).await)
 }
 
-pub async fn get_isbn_service(config: &Arc<config::AppConfig>) -> Result<GoogleBooksService> {
+pub async fn get_isbn_service(config: &config::AppConfig) -> Result<GoogleBooksService> {
     Ok(GoogleBooksService::new(&config.books.google_books, config.frontend.page_size).await)
 }
 
 pub async fn get_tmdb_non_media_service(
-    config: &Arc<config::AppConfig>,
-    timezone: &Arc<chrono_tz::Tz>,
+    ss: &Arc<SupportingService>,
 ) -> Result<NonMediaTmdbService> {
     Ok(NonMediaTmdbService::new(
-        &config.movies_and_shows.tmdb.access_token,
-        config.movies_and_shows.tmdb.locale.clone(),
-        timezone.clone(),
+        &ss.config.movies_and_shows.tmdb.access_token,
+        ss.config.movies_and_shows.tmdb.locale.clone(),
+        Arc::new(ss.timezone),
     )
     .await)
 }
@@ -122,7 +119,7 @@ pub async fn get_metadata_provider(
             MediaLot::Show => Box::new(
                 TmdbShowService::new(
                     &ss.config.movies_and_shows.tmdb,
-                    ss.timezone.clone(),
+                    Arc::new(ss.timezone),
                     ss.config.frontend.page_size,
                 )
                 .await,
@@ -130,7 +127,7 @@ pub async fn get_metadata_provider(
             MediaLot::Movie => Box::new(
                 TmdbMovieService::new(
                     &ss.config.movies_and_shows.tmdb,
-                    ss.timezone.clone(),
+                    Arc::new(ss.timezone),
                     ss.config.frontend.page_size,
                 )
                 .await,

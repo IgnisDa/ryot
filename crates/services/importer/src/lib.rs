@@ -69,7 +69,7 @@ impl ImporterService {
         let db_import_job = self.start_import_job(&user_id, input.source).await?;
         let import = match input.source {
             ImportSource::StrongApp => {
-                strong_app::import(input.strong_app.unwrap(), self.0.timezone.clone())
+                strong_app::import(input.strong_app.unwrap(), &self.0.timezone)
                     .await
                     .unwrap()
             }
@@ -101,9 +101,7 @@ impl ImporterService {
             ImportSource::Igdb => igdb::import(input.igdb.unwrap()).await.unwrap(),
             ImportSource::Imdb => imdb::import(
                 input.generic_csv.unwrap(),
-                &get_tmdb_non_media_service(&self.0.config, &self.0.timezone)
-                    .await
-                    .unwrap(),
+                &get_tmdb_non_media_service(&self.0).await.unwrap(),
             )
             .await
             .unwrap(),
@@ -111,7 +109,7 @@ impl ImporterService {
                 .await
                 .unwrap(),
             ImportSource::OpenScale => {
-                open_scale::import(input.generic_csv.unwrap(), self.0.timezone.clone())
+                open_scale::import(input.generic_csv.unwrap(), &self.0.timezone)
                     .await
                     .unwrap()
             }
@@ -163,7 +161,7 @@ pub mod utils {
 
     pub fn get_date_time_with_offset(
         date_time: NaiveDateTime,
-        timezone: Arc<chrono_tz::Tz>,
+        timezone: &chrono_tz::Tz,
     ) -> DateTime<Utc> {
         let offset = timezone
             .offset_from_utc_datetime(&Utc::now().naive_utc())

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt, sync::Arc};
+use std::{collections::HashSet, fmt};
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
@@ -717,7 +717,7 @@ pub struct MetadataVideo {
 
 pub async fn first_metadata_image_as_url(
     value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &Arc<FileStorageService>,
+    file_storage_service: &FileStorageService,
 ) -> Option<String> {
     if let Some(images) = value {
         if let Some(i) = images.first().cloned() {
@@ -732,7 +732,7 @@ pub async fn first_metadata_image_as_url(
 
 pub async fn metadata_images_as_urls(
     value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &Arc<FileStorageService>,
+    file_storage_service: &FileStorageService,
 ) -> Vec<String> {
     let mut images = vec![];
     if let Some(imgs) = value {
