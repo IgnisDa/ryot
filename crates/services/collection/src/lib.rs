@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use apalis::prelude::MemoryStorage;
 use async_graphql::{Error, Result};
-use background::CoreApplicationJob;
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
 };
@@ -29,32 +27,15 @@ use migrations::{
     AliasedMetadataGroup, AliasedPerson, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ColumnTrait, EntityTrait, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use sea_query::{
     extension::postgres::PgExpr, Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr,
 };
+use supporting_service::SupportingService;
 
-pub struct CollectionService {
-    db: DatabaseConnection,
-    config: Arc<config::AppConfig>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
-}
-
-impl CollectionService {
-    pub fn new(
-        db: &DatabaseConnection,
-        config: Arc<config::AppConfig>,
-        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-    ) -> Self {
-        Self {
-            config,
-            db: db.clone(),
-            perform_core_application_job: perform_core_application_job.clone(),
-        }
-    }
-}
+pub struct CollectionService(pub Arc<SupportingService>);
 
 impl CollectionService {
     pub async fn user_collections_list(
@@ -142,7 +123,7 @@ impl CollectionService {
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .into_model::<CollectionItem>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         Ok(collections)
@@ -157,7 +138,7 @@ impl CollectionService {
         let filter = input.filter.unwrap_or_default();
         let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
         let maybe_collection = Collection::find_by_id(input.collection_id.clone())
-            .one(&self.db)
+            .one(&self.0.db)
             .await
             .unwrap();
         let collection = match maybe_collection {
@@ -167,7 +148,7 @@ impl CollectionService {
 
         let take = input
             .take
-            .unwrap_or_else(|| self.config.frontend.page_size.try_into().unwrap());
+            .unwrap_or_else(|| self.0.config.frontend.page_size.try_into().unwrap());
         let results = if take != 0 {
             let paginator = CollectionToEntity::find()
                 .left_join(Metadata)
@@ -246,7 +227,7 @@ impl CollectionService {
                     },
                     sort.order.into(),
                 )
-                .paginate(&self.db, take);
+                .paginate(&self.0.db, take);
             let mut items = vec![];
             let ItemsAndPagesNumber {
                 number_of_items,
@@ -275,9 +256,13 @@ impl CollectionService {
                 items: vec![],
             }
         };
-        let user = collection.find_related(User).one(&self.db).await?.unwrap();
+        let user = collection
+            .find_related(User)
+            .one(&self.0.db)
+            .await?
+            .unwrap();
         let reviews = item_reviews(
-            &self.db,
+            &self.0.db,
             &collection.user_id,
             &input.collection_id,
             EntityLot::Collection,
@@ -297,7 +282,7 @@ impl CollectionService {
         user_id: &String,
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
-        create_or_update_collection(&self.db, user_id, input).await
+        create_or_update_collection(&self.0.db, user_id, input).await
     }
 
     pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
@@ -307,10 +292,13 @@ impl CollectionService {
         let collection = Collection::find()
             .filter(collection::Column::Name.eq(name))
             .filter(collection::Column::UserId.eq(user_id.to_owned()))
-            .one(&self.db)
+            .one(&self.0.db)
             .await?;
         let resp = if let Some(c) = collection {
-            Collection::delete_by_id(c.id).exec(&self.db).await.is_ok()
+            Collection::delete_by_id(c.id)
+                .exec(&self.0.db)
+                .await
+                .is_ok()
         } else {
             false
         };
@@ -322,7 +310,13 @@ impl CollectionService {
         user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
-        add_entity_to_collection(&self.db, user_id, input, &self.perform_core_application_job).await
+        add_entity_to_collection(
+            &self.0.db,
+            user_id,
+            input,
+            &self.0.perform_core_application_job,
+        )
+        .await
     }
 
     pub async fn remove_entity_from_collection(
@@ -330,6 +324,6 @@ impl CollectionService {
         user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<StringIdObject> {
-        remove_entity_from_collection(&self.db, user_id, input).await
+        remove_entity_from_collection(&self.0.db, user_id, input).await
     }
 }

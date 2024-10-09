@@ -4,11 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-apalis = { workspace = true }
 async-graphql = { workspace = true }
-background = { path = "../../background" }
 common-models = { path = "../../models/common" }
-config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
@@ -17,3 +14,4 @@ media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
+supporting-service = { path = "../supporting" }

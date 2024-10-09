@@ -1274,11 +1274,8 @@ dependencies = [
 name = "collection-service"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "async-graphql",
- "background",
  "common-models",
- "config",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -1287,6 +1284,7 @@ dependencies = [
  "migrations",
  "sea-orm",
  "sea-query",
+ "supporting-service",
 ]
 
 [[package]]
