@@ -11,14 +11,12 @@ async-graphql = { workspace = true }
 background = { path = "../../background" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
 const-str = { workspace = true }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enums = { path = "../../enums" }
-file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 itertools = { workspace = true }
 migrations = { path = "../../migrations" }
@@ -27,6 +25,7 @@ reqwest = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
 slug = { workspace = true }
+supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
 
 [package.metadata.cargo-machete]

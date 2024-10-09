@@ -94,14 +94,7 @@ pub async fn create_app_services(
         )
         .await,
     );
-    let exercise_service = Arc::new(ExerciseService::new(
-        is_pro,
-        &db,
-        config.clone(),
-        file_storage_service.clone(),
-        perform_application_job,
-        perform_core_application_job,
-    ));
+    let exercise_service = Arc::new(ExerciseService(supporting_service.clone()));
     let collection_service = Arc::new(CollectionService::new(
         &db,
         config.clone(),

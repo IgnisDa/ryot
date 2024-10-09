@@ -2388,14 +2388,12 @@ dependencies = [
  "background",
  "common-models",
  "common-utils",
- "config",
  "const-str",
  "database-models",
  "database-utils",
  "dependent-models",
  "dependent-utils",
  "enums",
- "file-storage-service",
  "fitness-models",
  "itertools 0.13.0",
  "migrations",
@@ -2404,6 +2402,7 @@ dependencies = [
  "sea-orm",
  "sea-query",
  "slug",
+ "supporting-service",
  "tracing",
 ]
 
