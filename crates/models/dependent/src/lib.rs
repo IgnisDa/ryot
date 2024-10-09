@@ -5,7 +5,7 @@ use database_models::{
     user_to_entity, workout, workout_template,
 };
 use enums::UserToMediaReason;
-use fitness_models::UserToExerciseHistoryExtraInformation;
+use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
 use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
@@ -205,10 +205,10 @@ pub struct UserMetadataDetails {
 
 #[derive(Debug, Default)]
 pub struct ImportResult {
+    pub workouts: Vec<UserWorkoutInput>,
     pub failed_items: Vec<ImportFailedItem>,
     pub media: Vec<ImportOrExportMediaItem>,
     pub people: Vec<ImportOrExportPersonItem>,
-    pub workouts: Vec<ImportOrExportWorkoutItem>,
     pub measurements: Vec<user_measurement::Model>,
     pub media_groups: Vec<ImportOrExportMediaGroupItem>,
     pub collections: Vec<CreateOrUpdateCollectionInput>,

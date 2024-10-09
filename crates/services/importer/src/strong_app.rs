@@ -3,10 +3,9 @@ use std::fs;
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
 use csv::ReaderBuilder;
-use database_models::workout;
-use dependent_models::{ImportOrExportWorkoutItem, ImportResult};
+use dependent_models::ImportResult;
 use fitness_models::{
-    SetLot, UserExerciseInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutSetStatistic,
+    SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
@@ -122,30 +121,25 @@ pub async fn import(
             } else {
                 Duration::try_seconds(0).unwrap()
             };
-            workouts.push(workout::Model {
+            workouts.push(UserWorkoutInput {
+                exercises,
+                assets: None,
                 start_time: ndt,
                 template_id: None,
                 repeated_from: None,
+                default_rest_timer: None,
+                create_workout_id: None,
+                update_workout_id: None,
                 name: entry.workout_name,
+                comment: entry.workout_notes,
                 end_time: ndt + workout_duration,
-                information: WorkoutInformation {
-                    exercises,
-                    assets: None,
-                    comment: entry.workout_notes,
-                },
-                ..Default::default()
+                update_workout_template_id: None,
             });
             exercises = vec![];
         }
     }
     Ok(ImportResult {
-        workouts: workouts
-            .into_iter()
-            .map(|w| ImportOrExportWorkoutItem {
-                details: w,
-                collections: vec![],
-            })
-            .collect_vec(),
+        workouts,
         ..Default::default()
     })
 }
