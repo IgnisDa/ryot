@@ -161,7 +161,7 @@ jobs:
         with:
           key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
           save-if: ${{ github.event_name != 'pull_request' }}
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: target
           key: cargo-build-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
