@@ -891,6 +891,7 @@ dependencies = [
  "serde_with 3.11.0",
  "statistics-resolver",
  "statistics-service",
+ "supporting-service",
  "tokio",
  "tower 0.4.13",
  "tower-http",

@@ -53,6 +53,7 @@ serde_with = { workspace = true }
 schematic = { workspace = true }
 statistics-resolver = { path = "../../crates/resolvers/statistics" }
 statistics-service = { path = "../../crates/services/statistics" }
+supporting-service = { path = "../../crates/services/supporting" }
 tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }

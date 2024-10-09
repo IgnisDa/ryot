@@ -38,6 +38,7 @@ use router_resolver::{config_handler, graphql_playground, integration_webhook, u
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQuery;
 use statistics_service::StatisticsService;
+use supporting_service::SupportingService;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -67,10 +68,32 @@ pub async fn create_app_services(
     timezone: chrono_tz::Tz,
 ) -> AppServices {
     let timezone = Arc::new(timezone);
+    let oidc_client = Arc::new(create_oidc_client(&config).await);
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
     ));
+    let cache_service = Arc::new(CacheService::new(&db));
+    let commit_cache = Arc::new(
+        Cache::builder()
+            .time_to_live(Duration::try_hours(1).unwrap().to_std().unwrap())
+            .build(),
+    );
+    let supporting_service = Arc::new(
+        SupportingService::new(
+            is_pro,
+            oidc_client.is_some(),
+            &db,
+            timezone.clone(),
+            config.clone(),
+            cache_service.clone(),
+            commit_cache.clone(),
+            file_storage_service.clone(),
+            perform_application_job,
+            perform_core_application_job,
+        )
+        .await,
+    );
     let exercise_service = Arc::new(ExerciseService::new(
         is_pro,
         &db,
@@ -79,19 +102,11 @@ pub async fn create_app_services(
         perform_application_job,
         perform_core_application_job,
     ));
-    let oidc_client = Arc::new(create_oidc_client(&config).await);
-
-    let cache_service = Arc::new(CacheService::new(&db));
     let collection_service = Arc::new(CollectionService::new(
         &db,
         config.clone(),
         perform_core_application_job,
     ));
-    let commit_cache = Arc::new(
-        Cache::builder()
-            .time_to_live(Duration::try_hours(1).unwrap().to_std().unwrap())
-            .build(),
-    );
     let integration_service = Arc::new(IntegrationService::new(
         &db,
         timezone.clone(),
