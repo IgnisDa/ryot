@@ -34,6 +34,7 @@ members = [
     "crates/services/miscellaneous",
     "crates/services/notification",
     "crates/services/statistics",
+    "crates/services/supporting",
     "crates/services/user",
     "crates/traits",
     "crates/utils/application",

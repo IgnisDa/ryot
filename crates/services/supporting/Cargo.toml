@@ -1,0 +1,15 @@
+[package]
+name = "supporting-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apalis = { workspace = true }
+background = { path = "../../background" }
+cache-service = { path = "../../services/cache" }
+chrono-tz = { workspace = true }
+config = { path = "../../config" }
+file-storage-service = { path = "../../services/file-storage" }
+media-models = { path = "../../models/media" }
+moka = { workspace = true }
+sea-orm = { workspace = true }

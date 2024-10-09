@@ -6326,6 +6326,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "supporting-service"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "background",
+ "cache-service",
+ "chrono-tz",
+ "config",
+ "file-storage-service",
+ "media-models",
+ "moka",
+ "sea-orm",
+]
+
+[[package]]
 name = "supports-color"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
