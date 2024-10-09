@@ -6225,6 +6225,7 @@ dependencies = [
  "dependent-models",
  "media-models",
  "sea-orm",
+ "supporting-service",
  "tracing",
 ]
 
