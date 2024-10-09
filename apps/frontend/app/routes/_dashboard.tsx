@@ -246,11 +246,8 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	const decodedCookie = jwtDecode<{
 		access_link?: { id: string; is_demo?: boolean };
 	}>(getAuthorizationCookie(request));
-	console.log(decodedCookie);
 	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
-	console.log(isAccessLinkSession);
 	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
-	console.log(isDemo);
 
 	const shouldHaveUmami =
 		envData.FRONTEND_UMAMI_SCRIPT_URL &&
