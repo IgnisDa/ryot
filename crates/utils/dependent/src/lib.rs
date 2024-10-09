@@ -1892,11 +1892,12 @@ pub async fn process_import(
     }
 
     for (idx, item) in import.metadata.into_iter().enumerate() {
-        ryot_log!(
-            debug,
-            "Importing media with identifier = {:#?}",
-            item.source_id
-        );
+        let source_id = if item.source_id.is_empty() {
+            item.identifier.clone()
+        } else {
+            item.source_id.clone()
+        };
+        ryot_log!(debug, "Importing media with identifier = {:#?}", source_id);
         let rev_length = item.reviews.len();
         let identifier = item.identifier.clone();
         let data = commit_metadata(
