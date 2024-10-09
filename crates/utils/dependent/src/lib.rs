@@ -1832,7 +1832,38 @@ pub async fn create_or_update_workout(
     Ok(data.id)
 }
 
-// TODO: Write a function to call `create_collection` and `add_entity_to_collection` at once
+async fn create_collection_and_add_entity_to_it(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    collection_name: String,
+    entity_id: String,
+    entity_lot: EntityLot,
+) -> Result<()> {
+    create_or_update_collection(
+        &ss.db,
+        user_id,
+        CreateOrUpdateCollectionInput {
+            name: collection_name.clone(),
+            ..Default::default()
+        },
+    )
+    .await?;
+    add_entity_to_collection(
+        user_id,
+        ChangeCollectionToEntityInput {
+            entity_id,
+            entity_lot,
+            creator_user_id: user_id.clone(),
+            collection_name: collection_name.to_string(),
+            ..Default::default()
+        },
+        ss,
+    )
+    .await
+    .ok();
+    Ok(())
+}
+
 pub async fn process_import(
     user_id: &String,
     import: ImportResult,
@@ -1860,7 +1891,7 @@ pub async fn process_import(
         ryot_log!(debug, "Collection {} created", idx);
     }
 
-    for (idx, item) in import.media.iter().enumerate() {
+    for (idx, item) in import.media.into_iter().enumerate() {
         ryot_log!(
             debug,
             "Importing media with identifier = {iden}",
@@ -1942,42 +1973,26 @@ pub async fn process_import(
                 };
             }
         }
-        for col in item.collections.iter() {
-            create_or_update_collection(
-                &ss.db,
+        for col in item.collections.into_iter() {
+            create_collection_and_add_entity_to_it(
+                ss,
                 user_id,
-                CreateOrUpdateCollectionInput {
-                    name: col.to_string(),
-                    ..Default::default()
-                },
+                col,
+                metadata.id.clone(),
+                EntityLot::Metadata,
             )
             .await?;
-            add_entity_to_collection(
-                user_id,
-                ChangeCollectionToEntityInput {
-                    creator_user_id: user_id.clone(),
-                    collection_name: col.to_string(),
-                    entity_id: metadata.id.clone(),
-                    entity_lot: EntityLot::Metadata,
-                    ..Default::default()
-                },
-                ss,
-            )
-            .await
-            .ok();
         }
         ryot_log!(
-                debug,
-                "Imported item: {idx}/{total}, lot: {lot}, history count: {hist}, review count: {rev}, collection count: {col}",
-                idx = idx + 1,
-                total = import.media.len(),
-                lot = item.lot,
-                hist = item.seen_history.len(),
-                rev = rev_length,
-                col = item.collections.len(),
-            );
+            debug,
+            "Imported item: {idx}, lot: {lot}, history count: {hist}, review count: {rev}",
+            idx = idx + 1,
+            lot = item.lot,
+            hist = item.seen_history.len(),
+            rev = rev_length,
+        );
     }
-    for (idx, item) in import.media_groups.iter().enumerate() {
+    for (idx, item) in import.media_groups.into_iter().enumerate() {
         ryot_log!(
             debug,
             "Importing media group with identifier = {iden}",
@@ -2016,41 +2031,25 @@ pub async fn process_import(
                 };
             }
         }
-        for col in item.collections.iter() {
-            create_or_update_collection(
-                &ss.db,
+        for col in item.collections.into_iter() {
+            create_collection_and_add_entity_to_it(
+                ss,
                 user_id,
-                CreateOrUpdateCollectionInput {
-                    name: col.to_string(),
-                    ..Default::default()
-                },
+                col,
+                metadata_group_id.clone(),
+                EntityLot::MetadataGroup,
             )
             .await?;
-            add_entity_to_collection(
-                user_id,
-                ChangeCollectionToEntityInput {
-                    creator_user_id: user_id.clone(),
-                    collection_name: col.to_string(),
-                    entity_id: metadata_group_id.clone(),
-                    entity_lot: EntityLot::MetadataGroup,
-                    ..Default::default()
-                },
-                ss,
-            )
-            .await
-            .ok();
         }
         ryot_log!(
-                debug,
-                "Imported item: {idx}/{total}, lot: {lot}, review count: {rev}, collection count: {col}",
-                idx = idx + 1,
-                total = import.media.len(),
-                lot = item.lot,
-                rev = rev_length,
-                col = item.collections.len(),
-            );
+            debug,
+            "Imported item: {idx}, lot: {lot}, review count: {rev}",
+            idx = idx + 1,
+            lot = item.lot,
+            rev = rev_length,
+        );
     }
-    for (idx, item) in import.people.iter().enumerate() {
+    for (idx, item) in import.people.into_iter().enumerate() {
         let person = commit_person(
             CommitPersonInput {
                 identifier: item.identifier.clone(),
@@ -2078,35 +2077,20 @@ pub async fn process_import(
                 };
             }
         }
-        for col in item.collections.iter() {
-            create_or_update_collection(
-                &ss.db,
+        for col in item.collections.into_iter() {
+            create_collection_and_add_entity_to_it(
+                ss,
                 user_id,
-                CreateOrUpdateCollectionInput {
-                    name: col.to_string(),
-                    ..Default::default()
-                },
+                col,
+                person.id.clone(),
+                EntityLot::Person,
             )
             .await?;
-            add_entity_to_collection(
-                user_id,
-                ChangeCollectionToEntityInput {
-                    creator_user_id: user_id.clone(),
-                    collection_name: col.to_string(),
-                    entity_id: person.id.clone(),
-                    entity_lot: EntityLot::Person,
-                    ..Default::default()
-                },
-                ss,
-            )
-            .await
-            .ok();
         }
         ryot_log!(
             debug,
-            "Imported person: {idx}/{total}, name: {name}",
+            "Imported person: {idx}, name: {name}",
             idx = idx + 1,
-            total = import.people.len(),
             name = item.name,
         );
     }
@@ -2134,28 +2118,14 @@ pub async fn process_import(
             }
             Ok(workout_id) => {
                 for col in workout.collections.into_iter() {
-                    create_or_update_collection(
-                        &ss.db,
+                    create_collection_and_add_entity_to_it(
+                        ss,
                         user_id,
-                        CreateOrUpdateCollectionInput {
-                            name: col.to_string(),
-                            ..Default::default()
-                        },
+                        col,
+                        workout_id.clone(),
+                        EntityLot::Workout,
                     )
                     .await?;
-                    add_entity_to_collection(
-                        user_id,
-                        ChangeCollectionToEntityInput {
-                            entity_id: workout_id.clone(),
-                            entity_lot: EntityLot::Workout,
-                            creator_user_id: user_id.clone(),
-                            collection_name: col.to_string(),
-                            ..Default::default()
-                        },
-                        ss,
-                    )
-                    .await
-                    .ok();
                 }
             }
         }
