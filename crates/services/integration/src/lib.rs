@@ -1,10 +1,7 @@
 use std::{future::Future, sync::Arc};
 
 use anyhow::{bail, Result};
-use apalis::prelude::MemoryStorage;
 use async_graphql::{Error, Result as GqlResult};
-use background::{ApplicationJob, CoreApplicationJob};
-use cache_service::CacheService;
 use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{integration, prelude::Integration};
@@ -17,14 +14,11 @@ use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import};
 use enums::MediaSource;
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::{CommitCache, CommitMediaInput};
-use moka::future::Cache;
+use media_models::CommitMediaInput;
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QuerySelect,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
 
@@ -56,37 +50,9 @@ pub enum IntegrationType {
     Radarr(String, String, i32, String, String),
 }
 
-pub struct IntegrationService {
-    db: DatabaseConnection,
-    timezone: Arc<chrono_tz::Tz>,
-    config: Arc<config::AppConfig>,
-    cache_service: Arc<CacheService>,
-    commit_cache: Arc<Cache<CommitCache, ()>>,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
-}
+pub struct IntegrationService(pub Arc<SupportingService>);
 
 impl IntegrationService {
-    pub fn new(
-        db: &DatabaseConnection,
-        timezone: Arc<chrono_tz::Tz>,
-        config: Arc<config::AppConfig>,
-        cache_service: Arc<CacheService>,
-        commit_cache: Arc<Cache<CommitCache, ()>>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
-        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-    ) -> Self {
-        Self {
-            config,
-            timezone,
-            commit_cache,
-            cache_service,
-            db: db.clone(),
-            perform_application_job: perform_application_job.clone(),
-            perform_core_application_job: perform_core_application_job.clone(),
-        }
-    }
-
     async fn push(&self, integration_type: IntegrationType) -> Result<()> {
         match integration_type {
             IntegrationType::Sonarr(
@@ -132,11 +98,11 @@ impl IntegrationService {
                 jellyfin.yank_progress().await
             }
             IntegrationType::Emby(payload) => {
-                let emby = EmbyIntegration::new(payload, self.db.clone());
+                let emby = EmbyIntegration::new(payload, self.0.db.clone());
                 emby.yank_progress().await
             }
             IntegrationType::Plex(payload, plex_user) => {
-                let plex = PlexIntegration::new(payload, plex_user, self.db.clone());
+                let plex = PlexIntegration::new(payload, plex_user, self.0.db.clone());
                 plex.yank_progress().await
             }
             IntegrationType::Kodi(payload) => {
@@ -182,7 +148,7 @@ impl IntegrationService {
                     username,
                     password,
                     provider,
-                    self.db.clone(),
+                    self.0.db.clone(),
                     sync_to_owned_collection,
                 );
                 komga.yank_progress().await
@@ -220,13 +186,13 @@ impl IntegrationService {
         if let Err(err) = process_import(
             &integration.user_id,
             updates,
-            &self.db,
-            &self.timezone,
-            &self.config,
-            &self.cache_service,
-            &self.commit_cache,
-            &self.perform_application_job,
-            &self.perform_core_application_job,
+            &self.0.db,
+            &self.0.timezone,
+            &self.0.config,
+            &self.0.cache_service,
+            &self.0.commit_cache,
+            &self.0.perform_application_job,
+            &self.0.perform_core_application_job,
         )
         .await
         {
@@ -234,7 +200,7 @@ impl IntegrationService {
         } else {
             let mut to_update: integration::ActiveModel = integration.into();
             to_update.last_triggered_on = ActiveValue::Set(Some(Utc::now()));
-            to_update.update(&self.db).await?;
+            to_update.update(&self.0.db).await?;
         }
         Ok(())
     }
@@ -250,11 +216,11 @@ impl IntegrationService {
             integration_slug
         );
         let integration = Integration::find_by_id(integration_slug)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
         let preferences =
-            user_preferences_by_id(&self.db, &integration.user_id, &self.config).await?;
+            user_preferences_by_id(&self.0.db, &integration.user_id, &self.0.config).await?;
         if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
@@ -298,7 +264,7 @@ impl IntegrationService {
         collection_to_entity_id: Uuid,
     ) -> GqlResult<()> {
         let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
         if !matches!(cte.entity_lot, EntityLot::Metadata) {
@@ -307,7 +273,7 @@ impl IntegrationService {
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
             .filter(integration::Column::Lot.eq(IntegrationLot::Push))
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for integration in integrations {
             let possible_collection_ids = match integration.provider_specifics.clone() {
@@ -323,7 +289,7 @@ impl IntegrationService {
             }
             let specifics = integration.provider_specifics.unwrap();
             let metadata = Metadata::find_by_id(&cte.entity_id)
-                .one(&self.db)
+                .one(&self.0.db)
                 .await?
                 .ok_or_else(|| Error::new("Metadata does not exist"))?;
             let maybe_entity_id = match metadata.lot {
@@ -362,14 +328,14 @@ impl IntegrationService {
     }
 
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
-        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
+        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
         if preferences.general.disable_integrations {
             return Ok(false);
         }
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let mut progress_updates = vec![];
         let mut to_update_integrations = vec![];
@@ -387,19 +353,19 @@ impl IntegrationService {
                             specifics.audiobookshelf_token.unwrap(),
                             integration.sync_to_owned_collection,
                             GoogleBooksService::new(
-                                &self.config.books.google_books,
-                                self.config.frontend.page_size,
+                                &self.0.config.books.google_books,
+                                self.0.config.frontend.page_size,
                             )
                             .await,
                         ),
                         |input| {
                             commit_metadata(
                                 input,
-                                &self.db,
-                                &self.timezone,
-                                &self.config,
-                                &self.commit_cache,
-                                &self.perform_application_job,
+                                &self.0.db,
+                                &self.0.timezone,
+                                &self.0.config,
+                                &self.0.commit_cache,
+                                &self.0.perform_application_job,
                             )
                         },
                     )
@@ -436,7 +402,7 @@ impl IntegrationService {
             .select_only()
             .column(integration::Column::UserId)
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for user_id in users_with_integrations {
             ryot_log!(debug, "Yanking integrations data for user {}", user_id);

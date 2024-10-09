@@ -5,16 +5,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
-background = { path = "../../background" }
-cache-service = { path = "../../services/cache" }
 chrono = { workspace = true }
-chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
@@ -23,7 +18,6 @@ enums = { path = "../../enums" }
 eventsource-stream = "=0.2.3"
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
-moka = { workspace = true }
 providers = { path = "../../providers" }
 radarr-api-rs = "=3.0.1"
 regex = { workspace = true }
@@ -36,10 +30,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = "=3.0.0"
 specific-models = { path = "../../models/specific" }
+supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
 uuid = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]
