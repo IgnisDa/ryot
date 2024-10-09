@@ -8,7 +8,7 @@ use sea_orm::prelude::async_trait::async_trait;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{ShowIdentifier, YankIntegration};
+use crate::utils::ShowIdentifier;
 
 mod models {
     use super::*;
@@ -111,17 +111,15 @@ impl EmbyIntegration {
             ..Default::default()
         })
     }
+
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
+        self.emby_progress().await
+    }
 }
 
 #[async_trait]
 impl ShowIdentifier for EmbyIntegration {
     fn get_db(&self) -> &DatabaseConnection {
         &self.db
-    }
-}
-
-impl YankIntegration for EmbyIntegration {
-    async fn yank_progress(&self) -> Result<ImportResult> {
-        self.emby_progress().await
     }
 }

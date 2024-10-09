@@ -22,8 +22,6 @@ use sea_query::Expr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError, mpsc::UnboundedReceiver};
 
-use crate::utils::YankIntegration;
-
 mod komga_book {
     use super::*;
 
@@ -514,10 +512,8 @@ impl KomgaIntegration {
 
         Ok(result)
     }
-}
 
-impl YankIntegration for KomgaIntegration {
-    async fn yank_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         self.komga_progress().await
     }
 }

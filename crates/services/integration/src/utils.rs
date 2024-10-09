@@ -1,33 +1,12 @@
 use anyhow::{bail, Result};
-use async_graphql::Result as GqlResult;
 use database_models::metadata;
 use database_utils::ilike_sql;
-use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::CommitMediaInput;
 use sea_orm::{
     prelude::async_trait::async_trait, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
     QueryFilter,
 };
 use sea_query::{extension::postgres::PgExpr, Alias, Expr, Func};
-use std::future::Future;
-
-pub trait YankIntegration {
-    async fn yank_progress(&self) -> Result<ImportResult>;
-}
-
-pub trait YankIntegrationWithCommit {
-    async fn yank_progress<F>(
-        &self,
-        commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> Result<ImportResult>
-    where
-        F: Future<Output = GqlResult<metadata::Model>>;
-}
-
-pub trait PushIntegration {
-    async fn push_progress(&self) -> Result<()>;
-}
 
 #[async_trait]
 pub trait ShowIdentifier {

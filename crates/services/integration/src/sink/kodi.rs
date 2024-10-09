@@ -5,8 +5,6 @@ use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::YankIntegration;
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct IntegrationMediaSeen {
     identifier: String,
@@ -47,10 +45,8 @@ impl KodiIntegration {
             ..Default::default()
         })
     }
-}
 
-impl YankIntegration for KodiIntegration {
-    async fn yank_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         self.kodi_progress().await
     }
 }

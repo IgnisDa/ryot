@@ -14,8 +14,6 @@ use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
 
-use crate::utils::YankIntegrationWithCommit;
-
 pub(crate) struct AudiobookshelfIntegration {
     base_url: String,
     access_token: String,
@@ -37,10 +35,8 @@ impl AudiobookshelfIntegration {
             isbn_service,
         }
     }
-}
 
-impl YankIntegrationWithCommit for AudiobookshelfIntegration {
-    async fn yank_progress<F>(
+    pub async fn yank_progress<F>(
         &self,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
     ) -> Result<ImportResult>

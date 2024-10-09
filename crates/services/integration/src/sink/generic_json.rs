@@ -1,8 +1,6 @@
 use anyhow::{bail, Result};
 use dependent_models::{CompleteExport, ImportResult};
 
-use crate::utils::YankIntegration;
-
 pub(crate) struct GenericJsonIntegration {
     payload: String,
 }
@@ -19,10 +17,8 @@ impl GenericJsonIntegration {
         dbg!(&payload);
         todo!()
     }
-}
 
-impl YankIntegration for GenericJsonIntegration {
-    async fn yank_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         self.generic_json_progress().await
     }
 }

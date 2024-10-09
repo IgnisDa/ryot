@@ -8,8 +8,6 @@ use radarr_api_rs::{
 };
 use traits::TraceOk;
 
-use crate::utils::PushIntegration;
-
 pub(crate) struct RadarrIntegration {
     radarr_base_url: String,
     radarr_api_key: String,
@@ -56,10 +54,8 @@ impl RadarrIntegration {
             .trace_ok();
         Ok(())
     }
-}
 
-impl PushIntegration for RadarrIntegration {
-    async fn push_progress(&self) -> anyhow::Result<()> {
+    pub async fn push_progress(&self) -> anyhow::Result<()> {
         self.radarr_push().await
     }
 }

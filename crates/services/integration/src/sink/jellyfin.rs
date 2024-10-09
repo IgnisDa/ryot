@@ -6,8 +6,6 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::YankIntegration;
-
 mod models {
     use super::*;
 
@@ -107,10 +105,8 @@ impl JellyfinIntegration {
             ..Default::default()
         })
     }
-}
 
-impl YankIntegration for JellyfinIntegration {
-    async fn yank_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         self.jellyfin_progress().await
     }
 }

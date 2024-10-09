@@ -28,9 +28,6 @@ use crate::{
         emby::EmbyIntegration, jellyfin::JellyfinIntegration, kodi::KodiIntegration,
         plex::PlexIntegration,
     },
-    utils::PushIntegration,
-    utils::YankIntegration,
-    utils::YankIntegrationWithCommit,
     yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
 };
 

@@ -10,7 +10,7 @@ use rust_decimal_macros::dec;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{ShowIdentifier, YankIntegration};
+use crate::utils::ShowIdentifier;
 
 mod models {
     use super::*;
@@ -151,17 +151,15 @@ impl PlexIntegration {
             ..Default::default()
         })
     }
+
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
+        self.plex_progress().await
+    }
 }
 
 #[async_trait]
 impl ShowIdentifier for PlexIntegration {
     fn get_db(&self) -> &DatabaseConnection {
         &self.db
-    }
-}
-
-impl YankIntegration for PlexIntegration {
-    async fn yank_progress(&self) -> Result<ImportResult> {
-        self.plex_progress().await
     }
 }
