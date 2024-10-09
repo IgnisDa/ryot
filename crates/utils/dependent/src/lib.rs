@@ -5,7 +5,6 @@ use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use cache_service::CacheService;
 use chrono::Utc;
 use common_models::{
     ApplicationCacheKey, BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection,
@@ -45,7 +44,6 @@ use media_models::{
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation,
 };
-use moka::future::Cache;
 use nanoid::nanoid;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService},
@@ -71,6 +69,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale};
 
@@ -101,39 +100,38 @@ pub async fn get_tmdb_non_media_service(
 pub async fn get_metadata_provider(
     lot: MediaLot,
     source: MediaSource,
-    config: &Arc<config::AppConfig>,
-    timezone: &Arc<chrono_tz::Tz>,
+    ss: &Arc<SupportingService>,
 ) -> Result<Provider> {
     let err = || Err(Error::new("This source is not supported".to_owned()));
     let service: Provider = match source {
         MediaSource::Vndb => {
-            Box::new(VndbService::new(&config.visual_novels, config.frontend.page_size).await)
+            Box::new(VndbService::new(&ss.config.visual_novels, ss.config.frontend.page_size).await)
         }
-        MediaSource::Openlibrary => Box::new(get_openlibrary_service(config).await?),
-        MediaSource::Itunes => {
-            Box::new(ITunesService::new(&config.podcasts.itunes, config.frontend.page_size).await)
-        }
-        MediaSource::GoogleBooks => Box::new(get_isbn_service(config).await?),
-        MediaSource::Audible => Box::new(
-            AudibleService::new(&config.audio_books.audible, config.frontend.page_size).await,
+        MediaSource::Openlibrary => Box::new(get_openlibrary_service(&ss.config).await?),
+        MediaSource::Itunes => Box::new(
+            ITunesService::new(&ss.config.podcasts.itunes, ss.config.frontend.page_size).await,
         ),
-        MediaSource::Listennotes => {
-            Box::new(ListennotesService::new(&config.podcasts, config.frontend.page_size).await)
-        }
+        MediaSource::GoogleBooks => Box::new(get_isbn_service(&ss.config).await?),
+        MediaSource::Audible => Box::new(
+            AudibleService::new(&ss.config.audio_books.audible, ss.config.frontend.page_size).await,
+        ),
+        MediaSource::Listennotes => Box::new(
+            ListennotesService::new(&ss.config.podcasts, ss.config.frontend.page_size).await,
+        ),
         MediaSource::Tmdb => match lot {
             MediaLot::Show => Box::new(
                 TmdbShowService::new(
-                    &config.movies_and_shows.tmdb,
-                    timezone.clone(),
-                    config.frontend.page_size,
+                    &ss.config.movies_and_shows.tmdb,
+                    ss.timezone.clone(),
+                    ss.config.frontend.page_size,
                 )
                 .await,
             ),
             MediaLot::Movie => Box::new(
                 TmdbMovieService::new(
-                    &config.movies_and_shows.tmdb,
-                    timezone.clone(),
-                    config.frontend.page_size,
+                    &ss.config.movies_and_shows.tmdb,
+                    ss.timezone.clone(),
+                    ss.config.frontend.page_size,
                 )
                 .await,
             ),
@@ -142,15 +140,15 @@ pub async fn get_metadata_provider(
         MediaSource::Anilist => match lot {
             MediaLot::Anime => Box::new(
                 AnilistAnimeService::new(
-                    &config.anime_and_manga.anilist,
-                    config.frontend.page_size,
+                    &ss.config.anime_and_manga.anilist,
+                    ss.config.frontend.page_size,
                 )
                 .await,
             ),
             MediaLot::Manga => Box::new(
                 AnilistMangaService::new(
-                    &config.anime_and_manga.anilist,
-                    config.frontend.page_size,
+                    &ss.config.anime_and_manga.anilist,
+                    ss.config.frontend.page_size,
                 )
                 .await,
             ),
@@ -158,20 +156,22 @@ pub async fn get_metadata_provider(
         },
         MediaSource::Mal => match lot {
             MediaLot::Anime => Box::new(
-                MalAnimeService::new(&config.anime_and_manga.mal, config.frontend.page_size).await,
+                MalAnimeService::new(&ss.config.anime_and_manga.mal, ss.config.frontend.page_size)
+                    .await,
             ),
             MediaLot::Manga => Box::new(
-                MalMangaService::new(&config.anime_and_manga.mal, config.frontend.page_size).await,
+                MalMangaService::new(&ss.config.anime_and_manga.mal, ss.config.frontend.page_size)
+                    .await,
             ),
             _ => return err(),
         },
         MediaSource::Igdb => {
-            Box::new(IgdbService::new(&config.video_games, config.frontend.page_size).await)
+            Box::new(IgdbService::new(&ss.config.video_games, ss.config.frontend.page_size).await)
         }
         MediaSource::MangaUpdates => Box::new(
             MangaUpdatesService::new(
-                &config.anime_and_manga.manga_updates,
-                config.frontend.page_size,
+                &ss.config.anime_and_manga.manga_updates,
+                ss.config.frontend.page_size,
             )
             .await,
         ),
@@ -184,10 +184,9 @@ pub async fn details_from_provider(
     lot: MediaLot,
     source: MediaSource,
     identifier: &str,
-    config: &Arc<config::AppConfig>,
-    timezone: &Arc<chrono_tz::Tz>,
+    ss: &Arc<SupportingService>,
 ) -> Result<MediaDetails> {
-    let provider = get_metadata_provider(lot, source, config, timezone).await?;
+    let provider = get_metadata_provider(lot, source, ss).await?;
     let results = provider.metadata_details(identifier).await?;
     Ok(results)
 }
@@ -359,34 +358,33 @@ async fn change_metadata_associations(
     suggestions: Vec<PartialMetadataWithoutId>,
     groups: Vec<String>,
     people: Vec<PartialMetadataPerson>,
-    db: &DatabaseConnection,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
     MetadataToPerson::delete_many()
         .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
-        .exec(db)
+        .exec(&ss.db)
         .await?;
     MetadataToGenre::delete_many()
         .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
-        .exec(db)
+        .exec(&ss.db)
         .await?;
     MetadataToMetadata::delete_many()
         .filter(metadata_to_metadata::Column::FromMetadataId.eq(metadata_id))
         .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
-        .exec(db)
+        .exec(&ss.db)
         .await?;
     for (index, creator) in people.into_iter().enumerate() {
-        associate_person_with_metadata(metadata_id, creator, index, db)
+        associate_person_with_metadata(metadata_id, creator, index, &ss.db)
             .await
             .ok();
     }
     for genre in genres {
-        associate_genre_with_metadata(genre, metadata_id, db)
+        associate_genre_with_metadata(genre, metadata_id, &ss.db)
             .await
             .ok();
     }
     for suggestion in suggestions {
-        associate_suggestion_with_metadata(suggestion, metadata_id, db)
+        associate_suggestion_with_metadata(suggestion, metadata_id, &ss.db)
             .await
             .ok();
     }
@@ -395,7 +393,7 @@ async fn change_metadata_associations(
             lot,
             source,
             group_identifier,
-            perform_application_job,
+            &ss.perform_application_job,
         )
         .await
         .ok();
@@ -406,20 +404,16 @@ async fn change_metadata_associations(
 pub async fn update_metadata(
     metadata_id: &String,
     force_update: bool,
-    db: &DatabaseConnection,
-    config: &Arc<config::AppConfig>,
-    timezone: &Arc<chrono_tz::Tz>,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<(String, MediaStateChanged)>> {
     let metadata = Metadata::find_by_id(metadata_id)
-        .one(db)
+        .one(&ss.db)
         .await
         .unwrap()
         .unwrap();
     if !force_update {
         // check whether the metadata needs to be updated
-        let provider =
-            get_metadata_provider(metadata.lot, metadata.source, config, timezone).await?;
+        let provider = get_metadata_provider(metadata.lot, metadata.source, ss).await?;
         if let Ok(false) = provider
             .metadata_updated_since(&metadata.identifier, metadata.last_updated_on)
             .await
@@ -436,22 +430,16 @@ pub async fn update_metadata(
     Metadata::update_many()
         .filter(metadata::Column::Id.eq(metadata_id))
         .col_expr(metadata::Column::IsPartial, Expr::value(false))
-        .exec(db)
+        .exec(&ss.db)
         .await?;
-    let maybe_details = details_from_provider(
-        metadata.lot,
-        metadata.source,
-        &metadata.identifier,
-        config,
-        timezone,
-    )
-    .await;
+    let maybe_details =
+        details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
     let notifications = match maybe_details {
         Ok(details) => {
             let mut notifications = vec![];
 
             let meta = Metadata::find_by_id(metadata_id)
-                .one(db)
+                .one(&ss.db)
                 .await
                 .unwrap()
                 .unwrap();
@@ -648,7 +636,7 @@ pub async fn update_metadata(
             meta.video_game_specifics = ActiveValue::Set(details.video_game_specifics);
             meta.visual_novel_specifics = ActiveValue::Set(details.visual_novel_specifics);
             meta.external_identifiers = ActiveValue::Set(details.external_identifiers);
-            let metadata = meta.update(db).await.unwrap();
+            let metadata = meta.update(&ss.db).await.unwrap();
 
             change_metadata_associations(
                 &metadata.id,
@@ -658,8 +646,7 @@ pub async fn update_metadata(
                 details.suggestions,
                 details.group_identifiers,
                 details.people,
-                db,
-                perform_application_job,
+                ss,
             )
             .await?;
             notifications
@@ -716,15 +703,12 @@ pub async fn queue_notifications_to_user_platforms(
 pub async fn queue_media_state_changed_notification_for_user(
     user_id: &String,
     notification: &(String, MediaStateChanged),
-    db: &DatabaseConnection,
-    config: &Arc<config::AppConfig>,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let (msg, change) = notification;
-    let notification_preferences = user_preferences_by_id(db, user_id, config)
-        .await?
-        .notifications;
+    let notification_preferences = user_preferences_by_id(user_id, ss).await?.notifications;
     if notification_preferences.enabled && notification_preferences.to_send.contains(change) {
-        queue_notifications_to_user_platforms(user_id, msg, db)
+        queue_notifications_to_user_platforms(user_id, msg, &ss.db)
             .await
             .trace_ok();
     } else {
@@ -739,27 +723,17 @@ pub async fn queue_media_state_changed_notification_for_user(
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
     force_update: bool,
-    db: &DatabaseConnection,
-    config: &Arc<config::AppConfig>,
-    timezone: &Arc<chrono_tz::Tz>,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let notifications = update_metadata(
-        metadata_id,
-        force_update,
-        db,
-        config,
-        timezone,
-        perform_application_job,
-    )
-    .await
-    .unwrap();
+    let notifications = update_metadata(metadata_id, force_update, ss)
+        .await
+        .unwrap();
     if !notifications.is_empty() {
         let users_to_notify =
-            get_entities_monitored_by(metadata_id, EntityLot::Metadata, db).await?;
+            get_entities_monitored_by(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
             for user_id in users_to_notify.iter() {
-                queue_media_state_changed_notification_for_user(user_id, &notification, db, config)
+                queue_media_state_changed_notification_for_user(user_id, &notification, ss)
                     .await
                     .trace_ok();
             }
@@ -771,8 +745,7 @@ pub async fn update_metadata_and_notify_users(
 pub async fn commit_metadata_internal(
     details: MediaDetails,
     is_partial: Option<bool>,
-    db: &DatabaseConnection,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
     let mut images = vec![];
     images.extend(details.url_images.into_iter().map(|i| MetadataImage {
@@ -818,7 +791,7 @@ pub async fn commit_metadata_internal(
         }),
         ..Default::default()
     };
-    let metadata = metadata.insert(db).await?;
+    let metadata = metadata.insert(&ss.db).await?;
 
     change_metadata_associations(
         &metadata.id,
@@ -828,8 +801,7 @@ pub async fn commit_metadata_internal(
         details.suggestions.clone(),
         details.group_identifiers.clone(),
         details.people.clone(),
-        db,
-        perform_application_job,
+        ss,
     )
     .await?;
     Ok(metadata)
@@ -837,46 +809,32 @@ pub async fn commit_metadata_internal(
 
 pub async fn commit_metadata(
     input: CommitMediaInput,
-    db: &DatabaseConnection,
-    timezone: &Arc<chrono_tz::Tz>,
-    config: &Arc<config::AppConfig>,
-    commit_cache: &Arc<Cache<CommitCache, ()>>,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
     if let Some(m) = Metadata::find()
         .filter(metadata::Column::Lot.eq(input.lot))
         .filter(metadata::Column::Source.eq(input.source))
         .filter(metadata::Column::Identifier.eq(input.identifier.clone()))
-        .one(db)
+        .one(&ss.db)
         .await?
     {
         let cached_metadata = CommitCache {
             id: m.id.clone(),
             lot: EntityLot::Metadata,
         };
-        if commit_cache.get(&cached_metadata).await.is_some() {
+        if ss.commit_cache.get(&cached_metadata).await.is_some() {
             return Ok(m);
         }
-        commit_cache.insert(cached_metadata.clone(), ()).await;
+        ss.commit_cache.insert(cached_metadata.clone(), ()).await;
         if input.force_update.unwrap_or_default() {
             ryot_log!(debug, "Forcing update of metadata with id {}", &m.id);
-            update_metadata_and_notify_users(
-                &m.id,
-                true,
-                db,
-                config,
-                timezone,
-                perform_application_job,
-            )
-            .await?;
+            update_metadata_and_notify_users(&m.id, true, ss).await?;
         }
-        commit_cache.remove(&cached_metadata).await;
+        ss.commit_cache.remove(&cached_metadata).await;
         Ok(m)
     } else {
-        let details =
-            details_from_provider(input.lot, input.source, &input.identifier, config, timezone)
-                .await?;
-        let media = commit_metadata_internal(details, None, db, perform_application_job).await?;
+        let details = details_from_provider(input.lot, input.source, &input.identifier, ss).await?;
+        let media = commit_metadata_internal(details, None, ss).await?;
         Ok(media)
     }
 }
@@ -900,18 +858,16 @@ pub async fn deploy_update_metadata_job(
 pub async fn deploy_background_job(
     user_id: &String,
     job_name: BackgroundJob,
-    db: &DatabaseConnection,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
-    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let core_storage = &mut perform_core_application_job.clone();
-    let storage = &mut perform_application_job.clone();
+    let core_storage = &mut ss.perform_core_application_job.clone();
+    let storage = &mut ss.perform_application_job.clone();
     match job_name {
         BackgroundJob::UpdateAllMetadata
         | BackgroundJob::UpdateAllExercises
         | BackgroundJob::RecalculateCalendarEvents
         | BackgroundJob::PerformBackgroundTasks => {
-            admin_account_guard(db, user_id).await?;
+            admin_account_guard(&ss.db, user_id).await?;
         }
         _ => {}
     }
@@ -922,15 +878,15 @@ pub async fn deploy_background_job(
                 .column(metadata::Column::Id)
                 .order_by_asc(metadata::Column::LastUpdatedOn)
                 .into_tuple::<String>()
-                .all(db)
+                .all(&ss.db)
                 .await
                 .unwrap();
             for metadata_id in many_metadata {
-                deploy_update_metadata_job(&metadata_id, true, perform_application_job).await?;
+                deploy_update_metadata_job(&metadata_id, true, storage).await?;
             }
         }
         BackgroundJob::UpdateAllExercises => {
-            perform_application_job
+            storage
                 .enqueue(ApplicationJob::UpdateExerciseLibrary)
                 .await
                 .unwrap();
@@ -975,11 +931,9 @@ pub async fn deploy_background_job(
 pub async fn post_review(
     user_id: &String,
     input: CreateOrUpdateReviewInput,
-    db: &DatabaseConnection,
-    config: &Arc<config::AppConfig>,
-    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
-    let preferences = user_preferences_by_id(db, user_id, config).await?;
+    let preferences = user_preferences_by_id(user_id, ss).await?;
     if preferences.general.disable_reviews {
         return Err(Error::new("Reviews are disabled"));
     }
@@ -1051,24 +1005,28 @@ pub async fn post_review(
     if let Some(d) = input.date {
         review_obj.posted_on = ActiveValue::Set(d);
     }
-    let insert = review_obj.save(db).await.unwrap();
+    let insert = review_obj.save(&ss.db).await.unwrap();
     if insert.visibility.unwrap() == Visibility::Public {
         let entity_lot = insert.entity_lot.unwrap();
         let id = insert.entity_id.unwrap();
         let obj_title = match entity_lot {
-            EntityLot::Metadata => Metadata::find_by_id(&id).one(db).await?.unwrap().title,
+            EntityLot::Metadata => Metadata::find_by_id(&id).one(&ss.db).await?.unwrap().title,
             EntityLot::MetadataGroup => {
-                MetadataGroup::find_by_id(&id).one(db).await?.unwrap().title
+                MetadataGroup::find_by_id(&id)
+                    .one(&ss.db)
+                    .await?
+                    .unwrap()
+                    .title
             }
-            EntityLot::Person => Person::find_by_id(&id).one(db).await?.unwrap().name,
-            EntityLot::Collection => Collection::find_by_id(&id).one(db).await?.unwrap().name,
+            EntityLot::Person => Person::find_by_id(&id).one(&ss.db).await?.unwrap().name,
+            EntityLot::Collection => Collection::find_by_id(&id).one(&ss.db).await?.unwrap().name,
             EntityLot::Exercise => id.clone(),
             EntityLot::Workout | EntityLot::WorkoutTemplate => unreachable!(),
         };
-        let user = user_by_id(db, &insert.user_id.unwrap()).await?;
+        let user = user_by_id(&ss.db, &insert.user_id.unwrap()).await?;
         // DEV: Do not send notification if updating a review
         if input.review_id.is_none() {
-            perform_core_application_job
+            ss.perform_core_application_job
                 .clone()
                 .enqueue(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
                     obj_title,
@@ -1090,17 +1048,15 @@ pub async fn commit_metadata_group_internal(
     identifier: &String,
     lot: MediaLot,
     source: MediaSource,
-    db: &DatabaseConnection,
-    config: &Arc<config::AppConfig>,
-    timezone: &Arc<chrono_tz::Tz>,
+    ss: &Arc<SupportingService>,
 ) -> Result<(String, Vec<PartialMetadataWithoutId>)> {
     let existing_group = MetadataGroup::find()
         .filter(metadata_group::Column::Identifier.eq(identifier))
         .filter(metadata_group::Column::Lot.eq(lot))
         .filter(metadata_group::Column::Source.eq(source))
-        .one(db)
+        .one(&ss.db)
         .await?;
-    let provider = get_metadata_provider(lot, source, config, timezone).await?;
+    let provider = get_metadata_provider(lot, source, ss).await?;
     let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
     let group_id = match existing_group {
         Some(eg) => eg.id,
@@ -1108,7 +1064,7 @@ pub async fn commit_metadata_group_internal(
             let mut db_group: metadata_group::ActiveModel =
                 group_details.into_model("".to_string(), None).into();
             db_group.id = ActiveValue::NotSet;
-            let new_group = db_group.insert(db).await?;
+            let new_group = db_group.insert(&ss.db).await?;
             new_group.id
         }
     };
@@ -1213,14 +1169,9 @@ pub async fn is_metadata_finished_by_user(
     Ok((is_finished, seen_history))
 }
 
-pub async fn after_media_seen_tasks(
-    seen: seen::Model,
-    db: &DatabaseConnection,
-    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-) -> Result<()> {
+pub async fn after_media_seen_tasks(seen: seen::Model, ss: &Arc<SupportingService>) -> Result<()> {
     let add_entity_to_collection = |collection_name: &str| {
         add_entity_to_collection(
-            db,
             &seen.user_id,
             ChangeCollectionToEntityInput {
                 creator_user_id: seen.user_id.clone(),
@@ -1229,12 +1180,12 @@ pub async fn after_media_seen_tasks(
                 entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
-            perform_core_application_job,
+            ss,
         )
     };
     let remove_entity_from_collection = |collection_name: &str| {
         remove_entity_from_collection(
-            db,
+            &ss.db,
             &seen.user_id,
             ChangeCollectionToEntityInput {
                 creator_user_id: seen.user_id.clone(),
@@ -1261,7 +1212,7 @@ pub async fn after_media_seen_tasks(
         }
         SeenState::Completed => {
             let metadata = Metadata::find_by_id(&seen.metadata_id)
-                .one(db)
+                .one(&ss.db)
                 .await?
                 .unwrap();
             if metadata.lot == MediaLot::Podcast
@@ -1270,7 +1221,7 @@ pub async fn after_media_seen_tasks(
                 || metadata.lot == MediaLot::Manga
             {
                 let (is_complete, _) =
-                    is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, db).await?;
+                    is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, &ss.db).await?;
                 if is_complete {
                     remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
                         .await
@@ -1302,11 +1253,7 @@ pub async fn progress_update(
     user_id: &String,
     // update only if media has not been consumed for this user in the last `n` duration
     respect_cache: bool,
-    db: &DatabaseConnection,
-    timezone: &Arc<chrono_tz::Tz>,
-    config: &Arc<config::AppConfig>,
-    cache_service: &Arc<CacheService>,
-    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
     let cache = ApplicationCacheKey::ProgressUpdateCache {
         user_id: user_id.to_owned(),
@@ -1318,7 +1265,7 @@ pub async fn progress_update(
         anime_episode_number: input.anime_episode_number,
         podcast_episode_number: input.podcast_episode_number,
     };
-    let in_cache = cache_service.get(cache.clone()).await?;
+    let in_cache = ss.cache_service.get(cache.clone()).await?;
     if respect_cache && in_cache.is_some() {
         ryot_log!(debug, "Seen is already in cache");
         return Ok(ProgressUpdateResultUnion::Error(ProgressUpdateError {
@@ -1333,7 +1280,7 @@ pub async fn progress_update(
         .filter(seen::Column::State.ne(SeenState::Dropped))
         .filter(seen::Column::MetadataId.eq(&input.metadata_id))
         .order_by_desc(seen::Column::LastUpdatedOn)
-        .all(db)
+        .all(&ss.db)
         .await
         .unwrap();
     #[derive(Debug, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy)]
@@ -1352,7 +1299,7 @@ pub async fn progress_update(
                     match input.date {
                         None => ProgressUpdateAction::InThePast,
                         Some(u) => {
-                            if get_current_date(timezone) == u {
+                            if get_current_date(&ss.timezone) == u {
                                 if all_prev_seen.is_empty() {
                                     ProgressUpdateAction::Now
                                 } else {
@@ -1414,7 +1361,7 @@ pub async fn progress_update(
                     }))
             }
 
-            last_seen.update(db).await.unwrap()
+            last_seen.update(&ss.db).await.unwrap()
         }
         ProgressUpdateAction::ChangeState => {
             let new_state = input.change_state.unwrap_or(SeenState::Dropped);
@@ -1422,7 +1369,7 @@ pub async fn progress_update(
                 .filter(seen::Column::UserId.eq(user_id))
                 .filter(seen::Column::MetadataId.eq(input.metadata_id))
                 .order_by_desc(seen::Column::LastUpdatedOn)
-                .one(db)
+                .one(&ss.db)
                 .await
                 .unwrap();
             match last_seen {
@@ -1436,7 +1383,7 @@ pub async fn progress_update(
                     last_seen.updated_at = ActiveValue::Set(updated_at);
                     last_seen.provider_watched_on =
                         ActiveValue::Set(input.provider_watched_on.or(watched_on));
-                    last_seen.update(db).await.unwrap()
+                    last_seen.update(&ss.db).await.unwrap()
                 }
                 None => {
                     return err();
@@ -1447,7 +1394,7 @@ pub async fn progress_update(
         | ProgressUpdateAction::InThePast
         | ProgressUpdateAction::JustStarted => {
             let meta = Metadata::find_by_id(&input.metadata_id)
-                .one(db)
+                .one(&ss.db)
                 .await
                 .unwrap()
                 .unwrap();
@@ -1521,17 +1468,17 @@ pub async fn progress_update(
                 manga_extra_information: ActiveValue::Set(manga_ei),
                 ..Default::default()
             };
-            seen_insert.insert(db).await.unwrap()
+            seen_insert.insert(&ss.db).await.unwrap()
         }
     };
     ryot_log!(debug, "Progress update = {:?}", seen);
     let id = seen.id.clone();
     if seen.state == SeenState::Completed && respect_cache {
-        cache_service
-            .set_with_expiry(cache, config.server.progress_update_threshold)
+        ss.cache_service
+            .set_with_expiry(cache, ss.config.server.progress_update_threshold)
             .await?;
     }
-    after_media_seen_tasks(seen, db, perform_core_application_job).await?;
+    after_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
 
@@ -1617,8 +1564,7 @@ fn get_index_of_highest_pb(
 pub async fn create_or_update_workout(
     input: UserWorkoutInput,
     user_id: &String,
-    db: &DatabaseConnection,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> AnyhowResult<String> {
     let end_time = input.end_time;
     let mut input = input;
@@ -1626,7 +1572,7 @@ pub async fn create_or_update_workout(
         Some(id) => (
             id.to_owned(),
             // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
-            Some(Workout::find_by_id(id).one(db).await?.unwrap()),
+            Some(Workout::find_by_id(id).one(&ss.db).await?.unwrap()),
         ),
         None => (
             input
@@ -1653,7 +1599,10 @@ pub async fn create_or_update_workout(
         if ex.sets.is_empty() {
             bail!("This exercise has no associated sets")
         }
-        let db_ex = match Exercise::find_by_id(ex.exercise_id.clone()).one(db).await? {
+        let db_ex = match Exercise::find_by_id(ex.exercise_id.clone())
+            .one(&ss.db)
+            .await?
+        {
             None => {
                 ryot_log!(error, "Exercise with id = {} not found", ex.exercise_id);
                 continue;
@@ -1665,7 +1614,7 @@ pub async fn create_or_update_workout(
         let association = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id.clone()))
-            .one(db)
+            .one(&ss.db)
             .await
             .ok()
             .flatten();
@@ -1693,7 +1642,7 @@ pub async fn create_or_update_workout(
                     exercise_num_times_interacted: ActiveValue::Set(Some(1)),
                     ..Default::default()
                 };
-                user_to_ex.insert(db).await.unwrap()
+                user_to_ex.insert(&ss.db).await.unwrap()
             }
             Some(e) => {
                 let last_updated_on = e.last_updated_on;
@@ -1705,7 +1654,7 @@ pub async fn create_or_update_workout(
                 to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
                 to_update.last_updated_on =
                     ActiveValue::Set(first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on));
-                to_update.update(db).await?
+                to_update.update(&ss.db).await?
             }
         };
         if let Some(d) = ex.rest_time {
@@ -1774,7 +1723,10 @@ pub async fn create_or_update_workout(
                 .and_then(|record| record.sets.first());
             let set = sets.get_mut(set_idx).unwrap();
             if let Some(r) = possible_record {
-                if let Some(workout) = Workout::find_by_id(r.workout_id.clone()).one(db).await? {
+                if let Some(workout) = Workout::find_by_id(r.workout_id.clone())
+                    .one(&ss.db)
+                    .await?
+                {
                     let workout_set =
                         workout.information.exercises[r.exercise_idx].sets[r.set_idx].clone();
                     if set.get_personal_best(best_type) > workout_set.get_personal_best(best_type) {
@@ -1824,7 +1776,7 @@ pub async fn create_or_update_workout(
         association_extra_information.personal_bests = personal_bests;
         association.exercise_extra_information =
             ActiveValue::Set(Some(association_extra_information));
-        association.update(db).await?;
+        association.update(&ss.db).await?;
         exercises.push((
             best_set,
             db_ex.lot,
@@ -1875,29 +1827,22 @@ pub async fn create_or_update_workout(
         insert.end_time = ActiveValue::Set(old_workout.end_time);
         insert.start_time = ActiveValue::Set(old_workout.start_time);
         insert.repeated_from = ActiveValue::Set(old_workout.repeated_from.clone());
-        old_workout.delete(db).await?;
+        old_workout.delete(&ss.db).await?;
     }
-    let data = insert.insert(db).await?;
+    let data = insert.insert(&ss.db).await?;
     if to_update_workout.is_some() {
-        deploy_job_to_re_evaluate_user_workouts(perform_application_job, user_id).await;
+        deploy_job_to_re_evaluate_user_workouts(user_id, &ss.perform_application_job).await;
     }
     Ok(data.id)
 }
 
-#[allow(clippy::too_many_arguments)]
 pub async fn process_import(
     user_id: &String,
     import: ImportResult,
-    db: &DatabaseConnection,
-    timezone: &Arc<chrono_tz::Tz>,
-    config: &Arc<config::AppConfig>,
-    cache_service: &Arc<CacheService>,
-    commit_cache: &Arc<Cache<CommitCache, ()>>,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
-    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<ImportResultResponse> {
     let mut import = import;
-    let preferences = user_by_id(db, user_id).await?.preferences;
+    let preferences = user_by_id(&ss.db, user_id).await?.preferences;
     for m in import.media.iter_mut() {
         m.seen_history.sort_by(|a, b| {
             a.ended_on
@@ -1906,7 +1851,7 @@ pub async fn process_import(
         });
     }
     for col_details in import.collections.clone() {
-        create_or_update_collection(db, user_id, col_details).await?;
+        create_or_update_collection(&ss.db, user_id, col_details).await?;
     }
     for (idx, item) in import.media.iter().enumerate() {
         ryot_log!(
@@ -1923,11 +1868,7 @@ pub async fn process_import(
                 source: item.source,
                 force_update: Some(true),
             },
-            db,
-            timezone,
-            config,
-            commit_cache,
-            perform_application_job,
+            ss,
         )
         .await;
         let metadata = match data {
@@ -1965,11 +1906,7 @@ pub async fn process_import(
                 },
                 user_id,
                 false,
-                db,
-                timezone,
-                config,
-                cache_service,
-                perform_core_application_job,
+                ss,
             )
             .await
             {
@@ -1988,9 +1925,7 @@ pub async fn process_import(
                 metadata.id.clone(),
                 EntityLot::Metadata,
             ) {
-                if let Err(e) =
-                    post_review(user_id, input, db, config, perform_core_application_job).await
-                {
+                if let Err(e) = post_review(user_id, input, ss).await {
                     import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::ReviewConversion,
@@ -2002,7 +1937,7 @@ pub async fn process_import(
         }
         for col in item.collections.iter() {
             create_or_update_collection(
-                db,
+                &ss.db,
                 user_id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
@@ -2011,7 +1946,6 @@ pub async fn process_import(
             )
             .await?;
             add_entity_to_collection(
-                db,
                 user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: user_id.clone(),
@@ -2020,7 +1954,7 @@ pub async fn process_import(
                     entity_lot: EntityLot::Metadata,
                     ..Default::default()
                 },
-                perform_core_application_job,
+                ss,
             )
             .await
             .ok();
@@ -2043,15 +1977,8 @@ pub async fn process_import(
             iden = &item.title
         );
         let rev_length = item.reviews.len();
-        let data = commit_metadata_group_internal(
-            &item.identifier,
-            item.lot,
-            item.source,
-            db,
-            config,
-            timezone,
-        )
-        .await;
+        let data =
+            commit_metadata_group_internal(&item.identifier, item.lot, item.source, ss).await;
         let metadata_group_id = match data {
             Ok(r) => r.0,
             Err(e) => {
@@ -2072,9 +1999,7 @@ pub async fn process_import(
                 metadata_group_id.clone(),
                 EntityLot::MetadataGroup,
             ) {
-                if let Err(e) =
-                    post_review(user_id, input, db, config, perform_core_application_job).await
-                {
+                if let Err(e) = post_review(user_id, input, ss).await {
                     import.failed_items.push(ImportFailedItem {
                         lot: Some(item.lot),
                         step: ImportFailStep::ReviewConversion,
@@ -2086,7 +2011,7 @@ pub async fn process_import(
         }
         for col in item.collections.iter() {
             create_or_update_collection(
-                db,
+                &ss.db,
                 user_id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
@@ -2095,7 +2020,6 @@ pub async fn process_import(
             )
             .await?;
             add_entity_to_collection(
-                db,
                 user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: user_id.clone(),
@@ -2104,7 +2028,7 @@ pub async fn process_import(
                     entity_lot: EntityLot::MetadataGroup,
                     ..Default::default()
                 },
-                perform_core_application_job,
+                ss,
             )
             .await
             .ok();
@@ -2127,7 +2051,7 @@ pub async fn process_import(
                 source: item.source,
                 source_specifics: item.source_specifics.clone(),
             },
-            db,
+            &ss.db,
         )
         .await?;
         for review in item.reviews.iter() {
@@ -2137,9 +2061,7 @@ pub async fn process_import(
                 person.id.clone(),
                 EntityLot::Person,
             ) {
-                if let Err(e) =
-                    post_review(user_id, input, db, config, perform_core_application_job).await
-                {
+                if let Err(e) = post_review(user_id, input, ss).await {
                     import.failed_items.push(ImportFailedItem {
                         lot: None,
                         step: ImportFailStep::ReviewConversion,
@@ -2151,7 +2073,7 @@ pub async fn process_import(
         }
         for col in item.collections.iter() {
             create_or_update_collection(
-                db,
+                &ss.db,
                 user_id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
@@ -2160,7 +2082,6 @@ pub async fn process_import(
             )
             .await?;
             add_entity_to_collection(
-                db,
                 user_id,
                 ChangeCollectionToEntityInput {
                     creator_user_id: user_id.clone(),
@@ -2169,7 +2090,7 @@ pub async fn process_import(
                     entity_lot: EntityLot::Person,
                     ..Default::default()
                 },
-                perform_core_application_job,
+                ss,
             )
             .await
             .ok();
@@ -2183,9 +2104,7 @@ pub async fn process_import(
         );
     }
     for workout in import.workouts.clone() {
-        if let Err(err) =
-            create_or_update_workout(workout, user_id, db, perform_application_job).await
-        {
+        if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
             import.failed_items.push(ImportFailedItem {
                 lot: None,
                 step: ImportFailStep::InputTransformation,
@@ -2195,7 +2114,7 @@ pub async fn process_import(
         }
     }
     for measurement in import.measurements.clone() {
-        if let Err(err) = create_user_measurement(user_id, measurement, db).await {
+        if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
             import.failed_items.push(ImportFailedItem {
                 lot: None,
                 step: ImportFailStep::InputTransformation,

@@ -310,13 +310,7 @@ impl CollectionService {
         user_id: &String,
         input: ChangeCollectionToEntityInput,
     ) -> Result<bool> {
-        add_entity_to_collection(
-            &self.0.db,
-            user_id,
-            input,
-            &self.0.perform_core_application_job,
-        )
-        .await
+        add_entity_to_collection(user_id, input, &self.0).await
     }
 
     pub async fn remove_entity_from_collection(

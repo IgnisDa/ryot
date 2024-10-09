@@ -58,7 +58,7 @@ pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
     pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
-        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
+        let preferences = user_preferences_by_id(user_id, &self.0).await?;
         let limit = preferences
             .general
             .dashboard
@@ -961,7 +961,7 @@ impl UserService {
     }
 
     pub async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
-        user_preferences_by_id(&self.0.db, user_id, &self.0.config).await
+        user_preferences_by_id(user_id, &self.0).await
     }
 
     pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {

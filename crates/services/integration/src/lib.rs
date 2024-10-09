@@ -183,19 +183,7 @@ impl IntegrationService {
             }
             media.seen_history = history.into_iter().map(|h| h.clone()).collect();
         }
-        if let Err(err) = process_import(
-            &integration.user_id,
-            updates,
-            &self.0.db,
-            &self.0.timezone,
-            &self.0.config,
-            &self.0.cache_service,
-            &self.0.commit_cache,
-            &self.0.perform_application_job,
-            &self.0.perform_core_application_job,
-        )
-        .await
-        {
+        if let Err(err) = process_import(&integration.user_id, updates, &self.0).await {
             ryot_log!(debug, "Error updating progress: {:?}", err);
         } else {
             let mut to_update: integration::ActiveModel = integration.into();
@@ -219,8 +207,7 @@ impl IntegrationService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
-        let preferences =
-            user_preferences_by_id(&self.0.db, &integration.user_id, &self.0.config).await?;
+        let preferences = user_preferences_by_id(&integration.user_id, &self.0).await?;
         if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
             return Err(Error::new("Integration is disabled".to_owned()));
         }
@@ -328,7 +315,7 @@ impl IntegrationService {
     }
 
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
-        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
+        let preferences = user_preferences_by_id(user_id, &self.0).await?;
         if preferences.general.disable_integrations {
             return Ok(false);
         }
@@ -358,16 +345,7 @@ impl IntegrationService {
                             )
                             .await,
                         ),
-                        |input| {
-                            commit_metadata(
-                                input,
-                                &self.0.db,
-                                &self.0.timezone,
-                                &self.0.config,
-                                &self.0.commit_cache,
-                                &self.0.perform_application_job,
-                            )
-                        },
+                        |input| commit_metadata(input, &self.0),
                     )
                     .await
                 }

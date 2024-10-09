@@ -185,9 +185,7 @@ ORDER BY RANDOM() LIMIT 10;
         .await?;
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
-            let provider =
-                get_metadata_provider(media.lot, media.source, &self.0.config, &self.0.timezone)
-                    .await?;
+            let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
             if let Ok(recommendations) = provider
                 .get_recommendations_for_metadata(&media.identifier)
                 .await
@@ -920,7 +918,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
-        let preferences = user_preferences_by_id(&self.0.db, &user_id, &self.0.config).await?;
+        let preferences = user_preferences_by_id(&user_id, &self.0).await?;
 
         let avg_rating_col = "user_average_rating";
         let cloned_user_id_1 = user_id.clone();
@@ -1089,18 +1087,9 @@ ORDER BY RANDOM() LIMIT 10;
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         for seen in input {
-            progress_update(
-                seen,
-                &user_id,
-                false,
-                &self.0.db,
-                &self.0.timezone,
-                &self.0.config,
-                &self.0.cache_service,
-                &self.0.perform_core_application_job,
-            )
-            .await
-            .trace_ok();
+            progress_update(seen, &user_id, false, &self.0)
+                .await
+                .trace_ok();
         }
         Ok(true)
     }
@@ -1110,14 +1099,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         job_name: BackgroundJob,
     ) -> Result<bool> {
-        deploy_background_job(
-            user_id,
-            job_name,
-            &self.0.db,
-            &self.0.perform_application_job,
-            &self.0.perform_core_application_job,
-        )
-        .await
+        deploy_background_job(user_id, job_name, &self.0).await
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
@@ -1264,7 +1246,7 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(metadata_group::Column::Source.eq(source))
             .one(&self.0.db)
             .await?;
-        let provider = get_metadata_provider(lot, source, &self.0.config, &self.0.timezone).await?;
+        let provider = get_metadata_provider(lot, source, &self.0).await?;
         let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
             Some(eg) => {
@@ -1341,7 +1323,7 @@ ORDER BY RANDOM() LIMIT 10;
             seen.review_id = ActiveValue::Set(to_update_review_id);
         }
         let seen = seen.update(&self.0.db).await.unwrap();
-        after_media_seen_tasks(seen, &self.0.db, &self.0.perform_core_application_job).await?;
+        after_media_seen_tasks(seen, &self.0).await?;
         Ok(true)
     }
 
@@ -1478,15 +1460,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
-        commit_metadata(
-            input,
-            &self.0.db,
-            &self.0.timezone,
-            &self.0.config,
-            &self.0.commit_cache,
-            &self.0.perform_application_job,
-        )
-        .await
+        commit_metadata(input, &self.0).await
     }
 
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
@@ -1552,10 +1526,8 @@ ORDER BY RANDOM() LIMIT 10;
             });
         }
         let cloned_user_id = user_id.to_owned();
-        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
-        let provider =
-            get_metadata_provider(input.lot, input.source, &self.0.config, &self.0.timezone)
-                .await?;
+        let preferences = user_preferences_by_id(user_id, &self.0).await?;
+        let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -1629,7 +1601,7 @@ ORDER BY RANDOM() LIMIT 10;
                 items: vec![],
             });
         }
-        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
+        let preferences = user_preferences_by_id(user_id, &self.0).await?;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
@@ -1657,10 +1629,8 @@ ORDER BY RANDOM() LIMIT 10;
                 items: vec![],
             });
         }
-        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
-        let provider =
-            get_metadata_provider(input.lot, input.source, &self.0.config, &self.0.timezone)
-                .await?;
+        let preferences = user_preferences_by_id(user_id, &self.0).await?;
+        let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -1731,15 +1701,9 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn commit_metadata_group(&self, input: CommitMediaInput) -> Result<StringIdObject> {
-        let (group_id, associated_items) = commit_metadata_group_internal(
-            &input.identifier,
-            input.lot,
-            input.source,
-            &self.0.db,
-            &self.0.config,
-            &self.0.timezone,
-        )
-        .await?;
+        let (group_id, associated_items) =
+            commit_metadata_group_internal(&input.identifier, input.lot, input.source, &self.0)
+                .await?;
         for (idx, media) in associated_items.into_iter().enumerate() {
             let db_partial_metadata = create_partial_metadata(media, &self.0.db).await?;
             MetadataToMetadataGroup::delete_many()
@@ -1763,14 +1727,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         input: CreateOrUpdateReviewInput,
     ) -> Result<StringIdObject> {
-        post_review(
-            user_id,
-            input,
-            &self.0.db,
-            &self.0.config,
-            &self.0.perform_core_application_job,
-        )
-        .await
+        post_review(user_id, input, &self.0).await
     }
 
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
@@ -1836,12 +1793,7 @@ ORDER BY RANDOM() LIMIT 10;
             si.delete(&self.0.db).await.trace_ok();
             associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata)
                 .await?;
-            after_media_seen_tasks(
-                cloned_seen,
-                &self.0.db,
-                &self.0.perform_core_application_job,
-            )
-            .await?;
+            after_media_seen_tasks(cloned_seen, &self.0).await?;
             Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
@@ -1926,15 +1878,8 @@ ORDER BY RANDOM() LIMIT 10;
             visual_novel_specifics: input.visual_novel_specifics,
             ..Default::default()
         };
-        let media = commit_metadata_internal(
-            details,
-            Some(is_partial),
-            &self.0.db,
-            &self.0.perform_application_job,
-        )
-        .await?;
+        let media = commit_metadata_internal(details, Some(is_partial), &self.0).await?;
         add_entity_to_collection(
-            &self.0.db,
             &user_id,
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id.to_owned(),
@@ -1943,7 +1888,7 @@ ORDER BY RANDOM() LIMIT 10;
                 entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
-            &self.0.perform_core_application_job,
+            &self.0,
         )
         .await?;
         Ok(media)
@@ -2058,24 +2003,11 @@ ORDER BY RANDOM() LIMIT 10;
             meta_map
         );
         for (metadata_id, to_notify) in meta_map {
-            let notifications = update_metadata(
-                &metadata_id,
-                false,
-                &self.0.db,
-                &self.0.config,
-                &self.0.timezone,
-                &self.0.perform_application_job,
-            )
-            .await?;
+            let notifications = update_metadata(&metadata_id, false, &self.0).await?;
             for user in to_notify {
                 for notification in notifications.iter() {
-                    queue_media_state_changed_notification_for_user(
-                        &user,
-                        notification,
-                        &self.0.db,
-                        &self.0.config,
-                    )
-                    .await?;
+                    queue_media_state_changed_notification_for_user(&user, notification, &self.0)
+                        .await?;
                 }
             }
         }
@@ -2096,13 +2028,8 @@ ORDER BY RANDOM() LIMIT 10;
                 .unwrap_or_default();
             for user in to_notify {
                 for notification in notifications.iter() {
-                    queue_media_state_changed_notification_for_user(
-                        &user,
-                        notification,
-                        &self.0.db,
-                        &self.0.config,
-                    )
-                    .await?;
+                    queue_media_state_changed_notification_for_user(&user, notification, &self.0)
+                        .await?;
                 }
             }
         }
@@ -2737,13 +2664,8 @@ ORDER BY RANDOM() LIMIT 10;
             let users_to_notify =
                 get_entities_monitored_by(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
             for user in users_to_notify {
-                queue_media_state_changed_notification_for_user(
-                    &user,
-                    &notification,
-                    &self.0.db,
-                    &self.0.config,
-                )
-                .await?;
+                queue_media_state_changed_notification_for_user(&user, &notification, &self.0)
+                    .await?;
             }
         }
         Ok(())
@@ -2827,15 +2749,7 @@ ORDER BY RANDOM() LIMIT 10;
         metadata_id: &String,
         force_update: bool,
     ) -> Result<()> {
-        update_metadata_and_notify_users(
-            metadata_id,
-            force_update,
-            &self.0.db,
-            &self.0.config,
-            &self.0.timezone,
-            &self.0.perform_application_job,
-        )
-        .await
+        update_metadata_and_notify_users(metadata_id, force_update, &self.0).await
     }
 
     pub async fn update_person_and_notify_users(&self, person_id: String) -> Result<()> {
@@ -2851,8 +2765,7 @@ ORDER BY RANDOM() LIMIT 10;
                     queue_media_state_changed_notification_for_user(
                         user_id,
                         &notification,
-                        &self.0.db,
-                        &self.0.config,
+                        &self.0,
                     )
                     .await
                     .trace_ok();

@@ -253,13 +253,7 @@ impl ExerciseService {
         user_id: &String,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
-        workout_details(
-            &self.0.db,
-            &self.0.file_storage_service,
-            user_id,
-            workout_id,
-        )
-        .await
+        workout_details(user_id, workout_id, &self.0).await
     }
 
     pub async fn user_exercise_details(
@@ -556,9 +550,7 @@ impl ExerciseService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let identifier =
-            create_or_update_workout(input, user_id, &self.0.db, &self.0.perform_application_job)
-                .await?;
+        let identifier = create_or_update_workout(input, user_id, &self.0).await?;
         Ok(identifier)
     }
 
@@ -582,7 +574,7 @@ impl ExerciseService {
             }
             if new_wkt.is_changed() {
                 new_wkt.update(&self.0.db).await?;
-                deploy_job_to_re_evaluate_user_workouts(&self.0.perform_application_job, &user_id)
+                deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0.perform_application_job)
                     .await;
                 Ok(true)
             } else {
@@ -623,7 +615,6 @@ impl ExerciseService {
             }
         };
         add_entity_to_collection(
-            &self.0.db,
             &user_id.clone(),
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id,
@@ -632,7 +623,7 @@ impl ExerciseService {
                 entity_lot: EntityLot::Exercise,
                 ..Default::default()
             },
-            &self.0.perform_core_application_job,
+            &self.0,
         )
         .await?;
         Ok(exercise.id)

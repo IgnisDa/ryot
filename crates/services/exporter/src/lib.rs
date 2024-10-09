@@ -341,13 +341,7 @@ impl ExporterService {
             .all(&self.0.db)
             .await?;
         for workout_id in workout_ids {
-            let details = workout_details(
-                &self.0.db,
-                &self.0.file_storage_service,
-                user_id,
-                workout_id,
-            )
-            .await?;
+            let details = workout_details(user_id, workout_id, &self.0).await?;
             let exp = ImportOrExportWorkoutItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.name).collect(),

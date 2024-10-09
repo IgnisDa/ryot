@@ -22,7 +22,6 @@ use database_models::{
 };
 use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
 use enums::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
-use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use futures::TryStreamExt;
 use itertools::Itertools;
@@ -45,6 +44,7 @@ use sea_orm::{
     TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
 use uuid::Uuid;
 
@@ -72,27 +72,26 @@ pub async fn user_by_id(db: &DatabaseConnection, user_id: &String) -> Result<use
 }
 
 pub async fn user_preferences_by_id(
-    db: &DatabaseConnection,
     user_id: &String,
-    config: &Arc<config::AppConfig>,
+    ss: &Arc<SupportingService>,
 ) -> Result<UserPreferences> {
-    let mut preferences = user_by_id(db, user_id).await?.preferences;
+    let mut preferences = user_by_id(&ss.db, user_id).await?.preferences;
     preferences.features_enabled.media.anime =
-        config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
+        ss.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.anime;
     preferences.features_enabled.media.audio_book =
-        config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
+        ss.config.audio_books.is_enabled() && preferences.features_enabled.media.audio_book;
     preferences.features_enabled.media.book =
-        config.books.is_enabled() && preferences.features_enabled.media.book;
+        ss.config.books.is_enabled() && preferences.features_enabled.media.book;
     preferences.features_enabled.media.show =
-        config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
+        ss.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.show;
     preferences.features_enabled.media.manga =
-        config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
+        ss.config.anime_and_manga.is_enabled() && preferences.features_enabled.media.manga;
     preferences.features_enabled.media.movie =
-        config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
+        ss.config.movies_and_shows.is_enabled() && preferences.features_enabled.media.movie;
     preferences.features_enabled.media.podcast =
-        config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
+        ss.config.podcasts.is_enabled() && preferences.features_enabled.media.podcast;
     preferences.features_enabled.media.video_game =
-        config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
+        ss.config.video_games.is_enabled() && preferences.features_enabled.media.video_game;
     Ok(preferences)
 }
 
@@ -189,14 +188,13 @@ pub async fn entity_in_collections(
 }
 
 pub async fn workout_details(
-    db: &DatabaseConnection,
-    file_storage_service: &Arc<FileStorageService>,
     user_id: &String,
     workout_id: String,
+    ss: &Arc<SupportingService>,
 ) -> Result<UserWorkoutDetails> {
     let maybe_workout = Workout::find_by_id(workout_id.clone())
         .filter(workout::Column::UserId.eq(user_id))
-        .one(db)
+        .one(&ss.db)
         .await?;
     match maybe_workout {
         None => Err(Error::new(
@@ -204,8 +202,8 @@ pub async fn workout_details(
         )),
         Some(e) => {
             let collections =
-                entity_in_collections(db, user_id, &workout_id, EntityLot::Workout).await?;
-            let details = e.graphql_representation(file_storage_service).await?;
+                entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
+            let details = e.graphql_representation(&ss.file_storage_service).await?;
             Ok(UserWorkoutDetails {
                 details,
                 collections,
@@ -284,32 +282,31 @@ where
 }
 
 pub async fn add_entity_to_collection(
-    db: &DatabaseConnection,
     user_id: &String,
     input: ChangeCollectionToEntityInput,
-    perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     let collection = Collection::find()
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::UserId.eq(user_id))
         .filter(collection::Column::Name.eq(input.collection_name))
-        .one(db)
+        .one(&ss.db)
         .await
         .unwrap()
         .unwrap();
     let mut updated: collection::ActiveModel = collection.into();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
-    let collection = updated.update(db).await.unwrap();
+    let collection = updated.update(&ss.db).await.unwrap();
     let column = get_cte_column_from_lot(input.entity_lot);
     let resp = if let Some(etc) = CollectionToEntity::find()
         .filter(CteColAlias::CollectionId.eq(collection.id.clone()))
         .filter(column.eq(input.entity_id.clone()))
-        .one(db)
+        .one(&ss.db)
         .await?
     {
         let mut to_update: collection_to_entity::ActiveModel = etc.into();
         to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(db).await?
+        to_update.update(&ss.db).await?
     } else {
         let mut created_collection = collection_to_entity::ActiveModel {
             collection_id: ActiveValue::Set(collection.id),
@@ -330,17 +327,17 @@ pub async fn add_entity_to_collection(
             }
             EntityLot::Collection => unreachable!(),
         }
-        let created = created_collection.insert(db).await?;
+        let created = created_collection.insert(&ss.db).await?;
         ryot_log!(debug, "Created collection to entity: {:?}", created);
         if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate
         {
-            associate_user_with_entity(db, user_id, input.entity_id, input.entity_lot)
+            associate_user_with_entity(&ss.db, user_id, input.entity_id, input.entity_lot)
                 .await
                 .ok();
         }
         created
     };
-    perform_core_application_job
+    ss.perform_core_application_job
         .enqueue(CoreApplicationJob::EntityAddedToCollection(
             user_id.to_owned(),
             resp.id,
@@ -818,8 +815,8 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
 }
 
 pub async fn deploy_job_to_re_evaluate_user_workouts(
-    perform_application_job: &MemoryStorage<ApplicationJob>,
     user_id: &String,
+    perform_application_job: &MemoryStorage<ApplicationJob>,
 ) {
     perform_application_job
         .clone()

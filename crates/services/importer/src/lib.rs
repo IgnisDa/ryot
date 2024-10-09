@@ -94,16 +94,7 @@ impl ImporterService {
             ImportSource::Audiobookshelf => audiobookshelf::import(
                 input.url_and_key.unwrap(),
                 &get_isbn_service(&self.0.config).await.unwrap(),
-                |input| {
-                    commit_metadata(
-                        input,
-                        &self.0.db,
-                        &self.0.timezone,
-                        &self.0.config,
-                        &self.0.commit_cache,
-                        &self.0.perform_application_job,
-                    )
-                },
+                |input| commit_metadata(input, &self.0),
             )
             .await
             .unwrap(),
@@ -126,25 +117,12 @@ impl ImporterService {
             }
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
         };
-        let details = process_import(
-            &user_id,
-            import,
-            &self.0.db,
-            &self.0.timezone,
-            &self.0.config,
-            &self.0.cache_service,
-            &self.0.commit_cache,
-            &self.0.perform_application_job,
-            &self.0.perform_core_application_job,
-        )
-        .await?;
+        let details = process_import(&user_id, import, &self.0).await?;
         self.finish_import_job(db_import_job, details).await?;
         deploy_background_job(
             &user_id,
             BackgroundJob::CalculateUserActivitiesAndSummary,
-            &self.0.db,
-            &self.0.perform_application_job,
-            &self.0.perform_core_application_job,
+            &self.0,
         )
         .await
         .trace_ok();
