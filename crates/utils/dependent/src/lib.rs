@@ -1832,6 +1832,7 @@ pub async fn create_or_update_workout(
     Ok(data.id)
 }
 
+// TODO: Write a function to call `create_collection` and `add_entity_to_collection` at once
 pub async fn process_import(
     user_id: &String,
     import: ImportResult,
@@ -1846,9 +1847,19 @@ pub async fn process_import(
                 .cmp(&b.ended_on.unwrap_or_default())
         });
     }
-    for col_details in import.collections.clone() {
+
+    let total = import.collections.len()
+        + import.media.len()
+        + import.media_groups.len()
+        + import.people.len()
+        + import.workouts.len()
+        + import.measurements.len();
+
+    for (idx, col_details) in import.collections.into_iter().enumerate() {
         create_or_update_collection(&ss.db, user_id, col_details).await?;
+        ryot_log!(debug, "Collection {} created", idx);
     }
+
     for (idx, item) in import.media.iter().enumerate() {
         ryot_log!(
             debug,
@@ -2099,7 +2110,7 @@ pub async fn process_import(
             name = item.name,
         );
     }
-    for workout in import.workouts.clone() {
+    for (idx, workout) in import.workouts.into_iter().enumerate() {
         if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
             import.failed_items.push(ImportFailedItem {
                 lot: None,
@@ -2108,8 +2119,9 @@ pub async fn process_import(
                 error: Some(err.to_string()),
             });
         }
+        ryot_log!(debug, "Workout {} created", idx);
     }
-    for workout in import.application_workouts.clone() {
+    for (idx, workout) in import.application_workouts.into_iter().enumerate() {
         let workout_input = db_workout_to_workout_input(workout.details);
         match create_or_update_workout(workout_input, user_id, ss).await {
             Err(err) => {
@@ -2147,8 +2159,9 @@ pub async fn process_import(
                 }
             }
         }
+        ryot_log!(debug, "Workout {} created", idx);
     }
-    for measurement in import.measurements.clone() {
+    for (idx, measurement) in import.measurements.into_iter().enumerate() {
         if let Err(err) = create_user_measurement(user_id, measurement, &ss.db).await {
             import.failed_items.push(ImportFailedItem {
                 lot: None,
@@ -2157,19 +2170,13 @@ pub async fn process_import(
                 error: Some(err.message),
             });
         }
+        ryot_log!(debug, "Measurement {} created", idx);
     }
 
     // TODO: Allow importing exercises
 
     let details = ImportResultResponse {
-        import: ImportDetails {
-            total: import.collections.len()
-                + import.media.len()
-                + import.media_groups.len()
-                + import.people.len()
-                + import.workouts.len()
-                + import.measurements.len(),
-        },
+        import: ImportDetails { total },
         failed_items: import.failed_items,
     };
 
