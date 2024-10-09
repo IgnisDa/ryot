@@ -157,3 +157,12 @@ TMDb ID attached to their metadata.
    the zipped addon to your Kodi instance. Once installed, it will be visible under
    the "Services" sub category named "Ryot".
 4. Click on "Configure" to fill in the correct details.
+
+### Generic Json
+
+The "Generic Json" can be used to import all possible data using a generic JSON data
+format. The format of the JSON file should be `CompleteExport` as described in the
+[exporting](guides/exporting.md#type-definition) documentation.
+
+You can use this to build integrations with other services that Ryot does not support
+natively.
