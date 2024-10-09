@@ -8,7 +8,7 @@ use sea_orm::prelude::async_trait::async_trait;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
-use crate::traita::{ShowIdentifier, YankIntegration};
+use crate::utils::{ShowIdentifier, YankIntegration};
 
 mod models {
     use super::*;

@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 mod push;
 mod sink;
-mod traita;
+mod utils;
 mod yank;
 
 use crate::{
@@ -33,9 +33,9 @@ use crate::{
         emby::EmbyIntegration, jellyfin::JellyfinIntegration, kodi::KodiIntegration,
         plex::PlexIntegration,
     },
-    traita::PushIntegration,
-    traita::YankIntegration,
-    traita::YankIntegrationWithCommit,
+    utils::PushIntegration,
+    utils::YankIntegration,
+    utils::YankIntegrationWithCommit,
     yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
 };
 

@@ -8,7 +8,7 @@ use sonarr_api_rs::{
 };
 use traits::TraceOk;
 
-use crate::traita::PushIntegration;
+use crate::utils::PushIntegration;
 
 pub(crate) struct SonarrIntegration {
     sonarr_base_url: String,
