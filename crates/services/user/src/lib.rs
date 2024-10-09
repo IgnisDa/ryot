@@ -70,8 +70,8 @@ impl UserService {
         is_pro: bool,
         db: &DatabaseConnection,
         config: Arc<config::AppConfig>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
         oidc_client: Arc<Option<CoreClient>>,
+        perform_application_job: &MemoryStorage<ApplicationJob>,
     ) -> Self {
         Self {
             config,

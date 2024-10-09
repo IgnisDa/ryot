@@ -135,8 +135,8 @@ pub async fn create_app_services(
         is_pro,
         &db,
         config.clone(),
-        perform_application_job,
         oidc_client.clone(),
+        perform_application_job,
     ));
     let importer_service = Arc::new(ImporterService::new(
         &db,
