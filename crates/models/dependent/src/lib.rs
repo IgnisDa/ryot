@@ -212,6 +212,7 @@ pub struct ImportResult {
     pub measurements: Vec<user_measurement::Model>,
     pub media_groups: Vec<ImportOrExportMediaGroupItem>,
     pub collections: Vec<CreateOrUpdateCollectionInput>,
+    pub application_workouts: Vec<ImportOrExportWorkoutItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

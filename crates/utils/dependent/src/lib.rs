@@ -2100,6 +2100,16 @@ pub async fn process_import(
         );
     }
     for workout in import.workouts.clone() {
+        if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
+            import.failed_items.push(ImportFailedItem {
+                lot: None,
+                step: ImportFailStep::InputTransformation,
+                identifier: "Exercise".to_string(),
+                error: Some(err.to_string()),
+            });
+        }
+    }
+    for workout in import.application_workouts.clone() {
         let workout_input = db_workout_to_workout_input(workout.details);
         match create_or_update_workout(workout_input, user_id, ss).await {
             Err(err) => {
