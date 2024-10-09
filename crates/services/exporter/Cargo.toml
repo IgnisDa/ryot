@@ -8,14 +8,12 @@ apalis = { workspace = true }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
 chrono = { workspace = true }
-config = { path = "../../config" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
-file-storage-service = { path = "../file-storage" }
 fitness-models = { path = "../../models/fitness" }
 media-models = { path = "../../models/media" }
 mime_guess = "=2.0.5"
@@ -23,5 +21,6 @@ nanoid = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 struson = { version = "=0.5.0", features = ["serde"] }
+supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
 tokio-util = { version = "=0.7.11", features = ["codec"] }

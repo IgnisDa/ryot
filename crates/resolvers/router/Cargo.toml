@@ -9,9 +9,9 @@ async-graphql = { workspace = true }
 axum = { workspace = true }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
+integration-service = { path = "../../services/integration" }
 nanoid = { workspace = true }
 serde_json = { workspace = true }
-miscellaneous-service = { path = "../../services/miscellaneous" }
 tracing = { workspace = true }
 
 [package.metadata.cargo-machete]

@@ -2,13 +2,13 @@ use std::{
     collections::{HashMap, HashSet},
     fs,
     path::PathBuf,
+    sync::Arc,
 };
 
 use anyhow::{anyhow, Result};
 use application_utils::{get_base_http_client, get_current_date};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use chrono_tz::Tz;
 use common_models::{IdObject, NamedObject, SearchDetails, StoredUrl};
 use common_utils::{
     convert_date_to_year, convert_string_to_date, SHOW_SPECIAL_SEASON_NAMES, TEMP_DIR,
@@ -170,7 +170,7 @@ pub struct TmdbService {
     client: Client,
     language: String,
     settings: Settings,
-    timezone: Tz,
+    timezone: Arc<chrono_tz::Tz>,
 }
 
 impl TmdbService {
@@ -388,12 +388,12 @@ pub struct NonMediaTmdbService {
 }
 
 impl NonMediaTmdbService {
-    pub async fn new(config: &config::TmdbConfig, timezone: chrono_tz::Tz) -> Self {
-        let (client, settings) = get_client_config(&config.access_token).await;
+    pub async fn new(access_token: &str, language: String, timezone: Arc<chrono_tz::Tz>) -> Self {
+        let (client, settings) = get_client_config(access_token).await;
         Self {
             base: TmdbService {
                 client,
-                language: config.locale.clone(),
+                language,
                 settings,
                 timezone,
             },
@@ -617,7 +617,7 @@ pub struct TmdbMovieService {
 impl TmdbMovieService {
     pub async fn new(
         config: &config::TmdbConfig,
-        timezone: chrono_tz::Tz,
+        timezone: Arc<chrono_tz::Tz>,
         _page_limit: i32,
     ) -> Self {
         let (client, settings) = get_client_config(&config.access_token).await;
@@ -975,7 +975,7 @@ pub struct TmdbShowService {
 impl TmdbShowService {
     pub async fn new(
         config: &config::TmdbConfig,
-        timezone: chrono_tz::Tz,
+        timezone: Arc<chrono_tz::Tz>,
         _page_limit: i32,
     ) -> Self {
         let (client, settings) = get_client_config(&config.access_token).await;

@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, sync::Arc};
 
 use async_graphql::Result;
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
@@ -10,20 +10,13 @@ use media_models::{
 use sea_orm::{
     prelude::Expr,
     sea_query::{Alias, Func},
-    ColumnTrait, DatabaseConnection, EntityTrait, Iden, QueryFilter, QueryOrder, QuerySelect,
-    QueryTrait,
+    ColumnTrait, EntityTrait, Iden, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
+use supporting_service::SupportingService;
 
-#[derive(Debug)]
-pub struct StatisticsService {
-    db: DatabaseConnection,
-}
+pub struct StatisticsService(pub Arc<SupportingService>);
 
 impl StatisticsService {
-    pub fn new(db: &DatabaseConnection) -> Self {
-        Self { db: db.clone() }
-    }
-
     pub async fn daily_user_activities(
         &self,
         user_id: &String,
@@ -58,7 +51,7 @@ impl StatisticsService {
                     "num_days",
                 )
                 .into_tuple::<Option<i32>>()
-                .one(&self.db)
+                .one(&self.0.db)
                 .await?;
             if let Some(Some(num_days)) = total {
                 if num_days >= 500 {
@@ -192,7 +185,7 @@ impl StatisticsService {
             .group_by(day_alias.clone())
             .order_by_asc(day_alias)
             .into_model::<DailyUserActivityItem>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         let total_count = items.iter().map(|i| i.total_count).sum();
@@ -225,6 +218,6 @@ impl StatisticsService {
         user_id: &String,
         calculate_from_beginning: bool,
     ) -> Result<()> {
-        calculate_user_activities_and_summary(&self.db, user_id, calculate_from_beginning).await
+        calculate_user_activities_and_summary(&self.0.db, user_id, calculate_from_beginning).await
     }
 }

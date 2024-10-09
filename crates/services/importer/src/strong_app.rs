@@ -1,4 +1,4 @@
-use std::{fs, sync::Arc};
+use std::fs;
 
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
@@ -39,7 +39,7 @@ struct Entry {
 
 pub async fn import(
     input: DeployStrongAppImportInput,
-    timezone: Arc<chrono_tz::Tz>,
+    timezone: &chrono_tz::Tz,
 ) -> Result<ImportResult> {
     let file_string = fs::read_to_string(&input.export_path)?;
     // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
@@ -95,12 +95,12 @@ pub async fn import(
         }
         if next_entry.set_order <= entry.set_order {
             exercises.push(UserExerciseInput {
-                exercise_id: target_exercise.target_name.clone(),
                 sets,
                 notes,
                 assets: None,
                 rest_time: None,
                 superset_with: vec![],
+                exercise_id: target_exercise.target_name.clone(),
             });
             sets = vec![];
             notes = vec![];
@@ -108,7 +108,7 @@ pub async fn import(
         if next_entry.date != entry.date {
             let ndt = NaiveDateTime::parse_from_str(&entry.date, "%Y-%m-%d %H:%M:%S")
                 .expect("Failed to parse input string");
-            let ndt = utils::get_date_time_with_offset(ndt, timezone.clone());
+            let ndt = utils::get_date_time_with_offset(ndt, timezone);
             let re = Regex::new(r"^(\d+h)?\s?(\d+m)?$").unwrap();
             let workout_duration = if let Some(captures) = re.captures(&entry.workout_duration) {
                 let hours = captures.get(1).map_or(0, |m| {
@@ -122,17 +122,17 @@ pub async fn import(
                 Duration::try_seconds(0).unwrap()
             };
             workouts.push(UserWorkoutInput {
-                create_workout_id: None,
+                exercises,
+                assets: None,
+                start_time: ndt,
                 template_id: None,
                 repeated_from: None,
                 default_rest_timer: None,
+                create_workout_id: None,
+                update_workout_id: None,
                 name: entry.workout_name,
                 comment: entry.workout_notes,
-                start_time: ndt,
                 end_time: ndt + workout_duration,
-                exercises,
-                assets: None,
-                update_workout_id: None,
                 update_workout_template_id: None,
             });
             exercises = vec![];

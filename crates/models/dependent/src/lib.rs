@@ -74,7 +74,7 @@ pub struct CompleteExport {
     /// Data about user's workouts.
     pub workouts: Option<Vec<ImportOrExportWorkoutItem>>,
     /// Data about user's media groups.
-    pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
+    pub media_groups: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
     /// Data about user's workout templates.
@@ -205,13 +205,14 @@ pub struct UserMetadataDetails {
 
 #[derive(Debug, Default)]
 pub struct ImportResult {
-    pub collections: Vec<CreateOrUpdateCollectionInput>,
-    pub media: Vec<ImportOrExportMediaItem>,
-    pub media_groups: Vec<ImportOrExportMediaGroupItem>,
-    pub people: Vec<ImportOrExportPersonItem>,
-    pub measurements: Vec<user_measurement::Model>,
     pub workouts: Vec<UserWorkoutInput>,
     pub failed_items: Vec<ImportFailedItem>,
+    pub metadata: Vec<ImportOrExportMediaItem>,
+    pub people: Vec<ImportOrExportPersonItem>,
+    pub measurements: Vec<user_measurement::Model>,
+    pub metadata_groups: Vec<ImportOrExportMediaGroupItem>,
+    pub collections: Vec<CreateOrUpdateCollectionInput>,
+    pub application_workouts: Vec<ImportOrExportWorkoutItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

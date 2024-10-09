@@ -1,11 +1,10 @@
 use anyhow::{bail, Result};
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-
-use super::integration_trait::YankIntegration;
 
 mod models {
     use super::*;
@@ -56,9 +55,7 @@ impl JellyfinIntegration {
         Self { payload }
     }
 
-    async fn jellyfin_progress(
-        &self,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    async fn jellyfin_progress(&self) -> Result<ImportResult> {
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&self.payload)?;
         let identifier = payload
             .item
@@ -91,26 +88,25 @@ impl JellyfinIntegration {
             _ => bail!("Only movies and shows supported"),
         };
 
-        Ok((
-            vec![IntegrationMediaSeen {
-                identifier,
+        Ok(ImportResult {
+            metadata: vec![ImportOrExportMediaItem {
                 lot,
+                identifier,
                 source: MediaSource::Tmdb,
-                progress: position / runtime * dec!(100),
-                show_season_number: payload.item.season_number,
-                show_episode_number: payload.item.episode_number,
-                provider_watched_on: Some("Jellyfin".to_string()),
+                seen_history: vec![ImportOrExportMediaItemSeen {
+                    progress: Some(position / runtime * dec!(100)),
+                    show_season_number: payload.item.season_number,
+                    show_episode_number: payload.item.episode_number,
+                    provider_watched_on: Some("Jellyfin".to_string()),
+                    ..Default::default()
+                }],
                 ..Default::default()
             }],
-            vec![],
-        ))
+            ..Default::default()
+        })
     }
-}
 
-impl YankIntegration for JellyfinIntegration {
-    async fn yank_progress(
-        &self,
-    ) -> Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         self.jellyfin_progress().await
     }
 }

@@ -11,11 +11,9 @@ background = { path = "../../background" }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 enums = { path = "../../enums" }
-file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 futures = { workspace = true }
 itertools = { workspace = true }
@@ -27,6 +25,7 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
+supporting-service = { path = "../../services/supporting" }
 tracing = { workspace = true }
 user-models = { path = "../../models/user" }
 uuid = { workspace = true }

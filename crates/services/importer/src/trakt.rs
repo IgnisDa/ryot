@@ -232,7 +232,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     }
     Ok(ImportResult {
         collections,
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })
@@ -257,9 +257,7 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMediaItem, ImportF
             lot,
             identifier: identifier.to_string(),
             source: MediaSource::Tmdb,
-            seen_history: vec![],
-            reviews: vec![],
-            collections: vec![],
+            ..Default::default()
         }),
         None => Err(ImportFailedItem {
             lot: None,

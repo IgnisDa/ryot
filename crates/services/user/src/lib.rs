@@ -1,10 +1,8 @@
 use std::{str::FromStr, sync::Arc};
 
-use apalis::prelude::MemoryStorage;
 use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
-use background::ApplicationJob;
 use chrono::{Timelike, Utc};
 use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
@@ -37,16 +35,16 @@ use media_models::{
 use nanoid::nanoid;
 use notification_service::send_notification;
 use openidconnect::{
-    core::{CoreClient, CoreResponseType},
-    reqwest::async_http_client,
-    AuthenticationFlow, AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse,
+    core::CoreResponseType, reqwest::async_http_client, AuthenticationFlow, AuthorizationCode,
+    CsrfToken, Nonce, Scope, TokenResponse,
 };
 use sea_orm::{
     prelude::Expr,
     sea_query::{extension::postgres::PgExpr, Func},
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, Iterable,
-    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, ModelTrait, Order,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
 };
+use supporting_service::SupportingService;
 use user_models::{
     DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserGeneralDashboardElement,
     UserGeneralPreferences, UserPreferences, UserReviewScale,
@@ -56,34 +54,11 @@ fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
     Ok(())
 }
 
-#[derive(Debug)]
-pub struct UserService {
-    is_pro: bool,
-    db: DatabaseConnection,
-    config: Arc<config::AppConfig>,
-    oidc_client: Arc<Option<CoreClient>>,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-}
+pub struct UserService(pub Arc<SupportingService>);
 
 impl UserService {
-    pub fn new(
-        is_pro: bool,
-        db: &DatabaseConnection,
-        config: Arc<config::AppConfig>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
-        oidc_client: Arc<Option<CoreClient>>,
-    ) -> Self {
-        Self {
-            config,
-            is_pro,
-            oidc_client,
-            db: db.clone(),
-            perform_application_job: perform_application_job.clone(),
-        }
-    }
-
     pub async fn user_recommendations(&self, user_id: &String) -> Result<Vec<String>> {
-        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
+        let preferences = user_preferences_by_id(user_id, &self.0).await?;
         let limit = preferences
             .general
             .dashboard
@@ -103,7 +78,7 @@ impl UserService {
                 Order::Desc,
             )
             .limit(limit)
-            .all(&self.db)
+            .all(&self.0.db)
             .await?
             .into_iter()
             .map(|r| r.id)
@@ -115,7 +90,7 @@ impl UserService {
         let links = AccessLink::find()
             .filter(access_link::Column::UserId.eq(user_id))
             .order_by_desc(access_link::Column::CreatedOn)
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         Ok(links)
     }
@@ -125,7 +100,7 @@ impl UserService {
         input: CreateAccessLinkInput,
         user_id: String,
     ) -> Result<StringIdObject> {
-        pro_instance_guard(self.is_pro).await?;
+        pro_instance_guard(self.0.is_pro).await?;
         let new_link = access_link::ActiveModel {
             user_id: ActiveValue::Set(user_id),
             name: ActiveValue::Set(input.name),
@@ -136,7 +111,7 @@ impl UserService {
             is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
             ..Default::default()
         };
-        let link = new_link.insert(&self.db).await?;
+        let link = new_link.insert(&self.0.db).await?;
         Ok(StringIdObject { id: link.id })
     }
 
@@ -145,11 +120,11 @@ impl UserService {
         input: ProcessAccessLinkInput,
     ) -> Result<ProcessAccessLinkResult> {
         let maybe_link = match input {
-            ProcessAccessLinkInput::Id(id) => AccessLink::find_by_id(id).one(&self.db).await?,
+            ProcessAccessLinkInput::Id(id) => AccessLink::find_by_id(id).one(&self.0.db).await?,
             ProcessAccessLinkInput::Username(username) => {
                 let user = User::find()
                     .filter(user::Column::Name.eq(username))
-                    .one(&self.db)
+                    .one(&self.0.db)
                     .await?;
                 match user {
                     None => None,
@@ -157,7 +132,7 @@ impl UserService {
                         u.find_related(AccessLink)
                             .filter(access_link::Column::IsAccountDefault.eq(true))
                             .filter(access_link::Column::IsRevoked.is_null())
-                            .one(&self.db)
+                            .one(&self.0.db)
                             .await?
                     }
                 }
@@ -193,11 +168,11 @@ impl UserService {
         let validity = if let Some(expires) = link.expires_on {
             (expires - Utc::now()).num_days().try_into().unwrap()
         } else {
-            self.config.users.token_valid_for_days
+            self.0.config.users.token_valid_for_days
         };
         let api_key = sign(
             link.user_id.clone(),
-            &self.config.users.jwt_secret,
+            &self.0.config.users.jwt_secret,
             validity,
             Some(AccessLinkClaims {
                 id: link.id.clone(),
@@ -208,7 +183,7 @@ impl UserService {
         issued_tokens.push(api_key.clone());
         let mut link: access_link::ActiveModel = link.into();
         link.issued_tokens = ActiveValue::Set(issued_tokens);
-        let link = link.update(&self.db).await?;
+        let link = link.update(&self.0.db).await?;
         Ok(ProcessAccessLinkResult::Ok(ProcessAccessLinkResponse {
             api_key,
             token_valid_for_days: validity,
@@ -217,8 +192,8 @@ impl UserService {
     }
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
-        pro_instance_guard(self.is_pro).await?;
-        revoke_access_link(&self.db, access_link_id).await
+        pro_instance_guard(self.0.is_pro).await?;
+        revoke_access_link(&self.0.db, access_link_id).await
     }
 
     pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
@@ -231,7 +206,7 @@ impl UserService {
                 )
             })
             .order_by_asc(user::Column::Name)
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         Ok(users)
     }
@@ -241,8 +216,8 @@ impl UserService {
         admin_user_id: String,
         to_delete_user_id: String,
     ) -> Result<bool> {
-        admin_account_guard(&self.db, &admin_user_id).await?;
-        let maybe_user = User::find_by_id(to_delete_user_id).one(&self.db).await?;
+        admin_account_guard(&self.0.db, &admin_user_id).await?;
+        let maybe_user = User::find_by_id(to_delete_user_id).one(&self.0.db).await?;
         if let Some(u) = maybe_user {
             if self
                 .users_list(None)
@@ -256,7 +231,7 @@ impl UserService {
             {
                 return Ok(false);
             }
-            u.delete(&self.db).await?;
+            u.delete(&self.0.db).await?;
             Ok(true)
         } else {
             Ok(false)
@@ -264,8 +239,9 @@ impl UserService {
     }
 
     pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
-        if !self.config.users.allow_registration
-            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
+        if !self.0.config.users.allow_registration
+            && input.admin_access_token.unwrap_or_default()
+                != self.0.config.server.admin_access_token
         {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::Disabled,
@@ -283,7 +259,7 @@ impl UserService {
                 Some(data.password),
             ),
         };
-        if User::find().filter(filter).count(&self.db).await.unwrap() != 0 {
+        if User::find().filter(filter).count(&self.0.db).await.unwrap() != 0 {
             return Ok(RegisterResult::Error(RegisterError {
                 error: RegisterErrorVariant::IdentifierAlreadyExists,
             }));
@@ -292,7 +268,7 @@ impl UserService {
             AuthUserInput::Oidc(data) => Some(data.issuer_id),
             AuthUserInput::Password(_) => None,
         };
-        let lot = if User::find().count(&self.db).await.unwrap() == 0 {
+        let lot = if User::find().count(&self.0.db).await.unwrap() == 0 {
             UserLot::Admin
         } else {
             UserLot::Normal
@@ -306,7 +282,7 @@ impl UserService {
             preferences: ActiveValue::Set(UserPreferences::default()),
             ..Default::default()
         };
-        let user = user.insert(&self.db).await.unwrap();
+        let user = user.insert(&self.0.db).await.unwrap();
         ryot_log!(
             debug,
             "User {:?} registered with id {:?}",
@@ -316,7 +292,7 @@ impl UserService {
         for col in DefaultCollection::iter() {
             let meta = col.meta().to_owned();
             create_or_update_collection(
-                &self.db,
+                &self.0.db,
                 &user.id,
                 CreateOrUpdateCollectionInput {
                     name: col.to_string(),
@@ -329,7 +305,7 @@ impl UserService {
             .ok();
         }
         deploy_job_to_calculate_user_activities_and_summary(
-            &self.perform_application_job,
+            &self.0.perform_application_job,
             &user.id,
             false,
         )
@@ -340,8 +316,8 @@ impl UserService {
     pub async fn generate_auth_token(&self, user_id: String) -> Result<String> {
         let auth_token = sign(
             user_id,
-            &self.config.users.jwt_secret,
-            self.config.users.token_valid_for_days,
+            &self.0.config.users.jwt_secret,
+            self.0.config.users.token_valid_for_days,
             None,
         )?;
         Ok(auth_token)
@@ -352,7 +328,7 @@ impl UserService {
             AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
             AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
         };
-        match User::find().filter(filter).one(&self.db).await.unwrap() {
+        match User::find().filter(filter).one(&self.0.db).await.unwrap() {
             None => Ok(LoginResult::Error(LoginError {
                 error: LoginErrorVariant::UsernameDoesNotExist,
             })),
@@ -362,7 +338,7 @@ impl UserService {
                         error: LoginErrorVariant::AccountDisabled,
                     }));
                 }
-                if self.config.users.validate_password {
+                if self.0.config.users.validate_password {
                     if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
                         if let Some(hashed_password) = &user.password {
                             let parsed_hash = PasswordHash::new(hashed_password).unwrap();
@@ -384,7 +360,7 @@ impl UserService {
                 let jwt_key = self.generate_auth_token(user.id.clone()).await?;
                 let mut user: user::ActiveModel = user.into();
                 user.last_login_on = ActiveValue::Set(Some(Utc::now()));
-                user.update(&self.db).await?;
+                user.update(&self.0.db).await?;
                 Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
             }
         }
@@ -396,12 +372,13 @@ impl UserService {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         if user_id.unwrap_or_default() != input.user_id
-            && input.admin_access_token.unwrap_or_default() != self.config.server.admin_access_token
+            && input.admin_access_token.unwrap_or_default()
+                != self.0.config.server.admin_access_token
         {
             return Err(Error::new("Admin access token mismatch".to_owned()));
         }
         let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await
             .unwrap()
             .unwrap()
@@ -421,7 +398,7 @@ impl UserService {
         if let Some(d) = input.is_disabled {
             user_obj.is_disabled = ActiveValue::Set(Some(d));
         }
-        let user_obj = user_obj.update(&self.db).await.unwrap();
+        let user_obj = user_obj.update(&self.0.db).await.unwrap();
         Ok(StringIdObject { id: user_obj.id })
     }
 
@@ -431,7 +408,7 @@ impl UserService {
         input: UpdateUserPreferenceInput,
     ) -> Result<bool> {
         let err = || Error::new("Incorrect property value encountered");
-        let user_model = user_by_id(&self.db, &user_id).await?;
+        let user_model = user_by_id(&self.0.db, &user_id).await?;
         let mut preferences = user_model.preferences.clone();
         match input.property.is_empty() {
             true => {
@@ -767,7 +744,7 @@ impl UserService {
         };
         let mut user_model: user::ActiveModel = user_model.into();
         user_model.preferences = ActiveValue::Set(preferences);
-        user_model.update(&self.db).await?;
+        user_model.update(&self.0.db).await?;
         Ok(true)
     }
 
@@ -777,7 +754,7 @@ impl UserService {
         input: UpdateUserIntegrationInput,
     ) -> Result<bool> {
         let db_integration = Integration::find_by_id(input.integration_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
         if db_integration.user_id != user_id {
@@ -798,7 +775,7 @@ impl UserService {
         if let Some(d) = input.is_disabled {
             db_integration.is_disabled = ActiveValue::Set(Some(d));
         }
-        db_integration.update(&self.db).await?;
+        db_integration.update(&self.0.db).await?;
         Ok(true)
     }
 
@@ -826,7 +803,7 @@ impl UserService {
             provider_specifics: ActiveValue::Set(input.provider_specifics),
             ..Default::default()
         };
-        let integration = to_insert.insert(&self.db).await?;
+        let integration = to_insert.insert(&self.0.db).await?;
         Ok(StringIdObject { id: integration.id })
     }
 
@@ -836,13 +813,13 @@ impl UserService {
         integration_id: String,
     ) -> Result<bool> {
         let integration = Integration::find_by_id(integration_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
         if integration.user_id != user_id {
             return Err(Error::new("Integration does not belong to the user"));
         }
-        integration.delete(&self.db).await?;
+        integration.delete(&self.0.db).await?;
         Ok(true)
     }
 
@@ -924,7 +901,7 @@ impl UserService {
             description: ActiveValue::Set(description),
             ..Default::default()
         };
-        let new_notification_id = notification.insert(&self.db).await?.id;
+        let new_notification_id = notification.insert(&self.0.db).await?.id;
         Ok(new_notification_id)
     }
 
@@ -934,7 +911,7 @@ impl UserService {
         input: UpdateUserNotificationPlatformInput,
     ) -> Result<bool> {
         let db_notification = NotificationPlatform::find_by_id(input.notification_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
         if db_notification.user_id != user_id {
@@ -946,7 +923,7 @@ impl UserService {
         if let Some(s) = input.is_disabled {
             db_notification.is_disabled = ActiveValue::Set(Some(s));
         }
-        db_notification.update(&self.db).await?;
+        db_notification.update(&self.0.db).await?;
         Ok(true)
     }
 
@@ -956,7 +933,7 @@ impl UserService {
         notification_id: String,
     ) -> Result<bool> {
         let notification = NotificationPlatform::find_by_id(notification_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
         if notification.user_id != user_id {
@@ -964,33 +941,33 @@ impl UserService {
                 "Notification platform does not belong to the user",
             ));
         }
-        notification.delete(&self.db).await?;
+        notification.delete(&self.0.db).await?;
         Ok(true)
     }
 
     pub async fn test_user_notification_platforms(&self, user_id: &String) -> Result<bool> {
         let notifications = NotificationPlatform::find()
             .filter(notification_platform::Column::UserId.eq(user_id))
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for platform in notifications {
             if platform.is_disabled.unwrap_or_default() {
                 continue;
             }
             let msg = format!("This is a test notification for platform: {}", platform.lot);
-            send_notification(platform.platform_specifics, &self.config, &msg).await?;
+            send_notification(platform.platform_specifics, &self.0.config, &msg).await?;
         }
         Ok(true)
     }
 
     pub async fn user_preferences(&self, user_id: &String) -> Result<UserPreferences> {
-        user_preferences_by_id(&self.db, user_id, &self.config).await
+        user_preferences_by_id(user_id, &self.0).await
     }
 
     pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token, &self.config.users.jwt_secret);
+        let found_token = user_id_from_token(token, &self.0.config.users.jwt_secret);
         if let Ok(user_id) = found_token {
-            let user = user_by_id(&self.db, &user_id).await?;
+            let user = user_by_id(&self.0.db, &user_id).await?;
             Ok(UserDetailsResult::Ok(Box::new(user)))
         } else {
             Ok(UserDetailsResult::Error(UserDetailsError {
@@ -1002,7 +979,7 @@ impl UserService {
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
         let integrations = Integration::find()
             .filter(integration::Column::UserId.eq(user_id))
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         Ok(integrations)
     }
@@ -1013,13 +990,13 @@ impl UserService {
     ) -> Result<Vec<notification_platform::Model>> {
         let all_notifications = NotificationPlatform::find()
             .filter(notification_platform::Column::UserId.eq(user_id))
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         Ok(all_notifications)
     }
 
     pub async fn get_oidc_redirect_url(&self) -> Result<String> {
-        match self.oidc_client.as_ref() {
+        match self.0.oidc_client.as_ref() {
             Some(client) => {
                 let (authorize_url, _, _) = client
                     .authorize_url(
@@ -1036,7 +1013,7 @@ impl UserService {
     }
 
     pub async fn get_oidc_token(&self, code: String) -> Result<OidcTokenOutput> {
-        match self.oidc_client.as_ref() {
+        match self.0.oidc_client.as_ref() {
             Some(client) => {
                 let token = client
                     .exchange_code(AuthorizationCode::new(code))
@@ -1058,7 +1035,7 @@ impl UserService {
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
         let user = User::find()
             .filter(user::Column::OidcIssuerId.eq(oidc_issuer_id))
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .map(|u| u.id);
         Ok(user)

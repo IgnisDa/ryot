@@ -1,19 +1,18 @@
 use std::future::Future;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_graphql::Result as GqlResult;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::metadata;
+use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
-use media_models::{CommitMediaInput, IntegrationMediaCollection, IntegrationMediaSeen};
+use media_models::{CommitMediaInput, ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use providers::google_books::GoogleBooksService;
 use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
-
-use super::integration_trait::YankIntegrationWithCommit;
 
 pub(crate) struct AudiobookshelfIntegration {
     base_url: String,
@@ -36,13 +35,11 @@ impl AudiobookshelfIntegration {
             isbn_service,
         }
     }
-}
 
-impl YankIntegrationWithCommit for AudiobookshelfIntegration {
-    async fn yank_progress<F>(
+    pub async fn yank_progress<F>(
         &self,
         commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> anyhow::Result<(Vec<IntegrationMediaSeen>, Vec<IntegrationMediaCollection>)>
+    ) -> Result<ImportResult>
     where
         F: Future<Output = GqlResult<metadata::Model>>,
     {
@@ -63,7 +60,7 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
 
         ryot_log!(debug, "Got response for items in progress {:?}", resp);
 
-        let mut media_items = vec![];
+        let mut result = ImportResult::default();
 
         for item in resp.library_items.iter() {
             let metadata = item.media.clone().unwrap().metadata;
@@ -164,13 +161,16 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                     } else {
                         resp.progress
                     };
-                    media_items.push(IntegrationMediaSeen {
+                    result.metadata.push(ImportOrExportMediaItem {
                         lot,
                         source,
                         identifier,
-                        podcast_episode_number,
-                        progress: progress * dec!(100),
-                        provider_watched_on: Some("Audiobookshelf".to_string()),
+                        seen_history: vec![ImportOrExportMediaItemSeen {
+                            podcast_episode_number,
+                            progress: Some(progress * dec!(100)),
+                            provider_watched_on: Some("Audiobookshelf".to_string()),
+                            ..Default::default()
+                        }],
                         ..Default::default()
                     });
                 }
@@ -180,7 +180,6 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                 }
             };
         }
-        let mut collection_updates = vec![];
         if let Some(true) = self.sync_to_owned_collection {
             let libraries_resp = client
                 .get("libraries")
@@ -217,15 +216,16 @@ impl YankIntegrationWithCommit for AudiobookshelfIntegration {
                         } else {
                             continue;
                         };
-                    collection_updates.push(IntegrationMediaCollection {
+                    result.metadata.push(ImportOrExportMediaItem {
                         identifier,
                         lot,
                         source,
-                        collection: DefaultCollection::Owned.to_string(),
+                        collections: vec![DefaultCollection::Owned.to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
-        Ok((media_items, collection_updates))
+        Ok(result)
     }
 }

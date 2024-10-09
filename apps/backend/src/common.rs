@@ -12,6 +12,7 @@ use axum::{
 };
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
+use chrono::Duration;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
 use common_utils::{ryot_log, FRONTEND_OAUTH_ENDPOINT};
@@ -23,9 +24,11 @@ use fitness_resolver::{ExerciseMutation, ExerciseQuery};
 use fitness_service::ExerciseService;
 use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
+use integration_service::IntegrationService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
+use moka::future::Cache;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
@@ -35,6 +38,7 @@ use router_resolver::{config_handler, graphql_playground, integration_webhook, u
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQuery;
 use statistics_service::StatisticsService;
+use supporting_service::SupportingService;
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -48,6 +52,7 @@ pub struct AppServices {
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub exercise_service: Arc<ExerciseService>,
+    pub integration_service: Arc<IntegrationService>,
     pub statistics_service: Arc<StatisticsService>,
     pub app_router: Router,
 }
@@ -62,63 +67,38 @@ pub async fn create_app_services(
     perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
     timezone: chrono_tz::Tz,
 ) -> AppServices {
-    let timezone = Arc::new(timezone);
+    let oidc_client = create_oidc_client(&config).await;
     let file_storage_service = Arc::new(FileStorageService::new(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
     ));
-    let exercise_service = Arc::new(ExerciseService::new(
-        is_pro,
-        &db,
-        config.clone(),
-        file_storage_service.clone(),
-        perform_application_job,
-        perform_core_application_job,
-    ));
-    let oidc_client = Arc::new(create_oidc_client(&config).await);
-
-    let cache_service = Arc::new(CacheService::new(&db));
-    let collection_service = Arc::new(CollectionService::new(
-        &db,
-        config.clone(),
-        perform_core_application_job,
-    ));
-    let miscellaneous_service = Arc::new(
-        MiscellaneousService::new(
+    let cache_service = CacheService::new(&db);
+    let commit_cache = Cache::builder()
+        .time_to_live(Duration::try_hours(1).unwrap().to_std().unwrap())
+        .build();
+    let supporting_service = Arc::new(
+        SupportingService::new(
             is_pro,
-            oidc_client.is_some(),
             &db,
-            timezone.clone(),
+            timezone,
+            cache_service,
             config.clone(),
-            cache_service.clone(),
+            oidc_client,
+            commit_cache,
             file_storage_service.clone(),
             perform_application_job,
             perform_core_application_job,
         )
         .await,
     );
-    let user_service = Arc::new(UserService::new(
-        is_pro,
-        &db,
-        config.clone(),
-        perform_application_job,
-        oidc_client.clone(),
-    ));
-    let importer_service = Arc::new(ImporterService::new(
-        &db,
-        perform_application_job,
-        perform_core_application_job,
-        miscellaneous_service.clone(),
-        exercise_service.clone(),
-        timezone.clone(),
-    ));
-    let exporter_service = Arc::new(ExporterService::new(
-        &db,
-        config.clone(),
-        perform_application_job,
-        file_storage_service.clone(),
-    ));
-    let statistics_service = Arc::new(StatisticsService::new(&db));
+    let user_service = Arc::new(UserService(supporting_service.clone()));
+    let importer_service = Arc::new(ImporterService(supporting_service.clone()));
+    let exercise_service = Arc::new(ExerciseService(supporting_service.clone()));
+    let exporter_service = Arc::new(ExporterService(supporting_service.clone()));
+    let collection_service = Arc::new(CollectionService(supporting_service.clone()));
+    let statistics_service = Arc::new(StatisticsService(supporting_service.clone()));
+    let integration_service = Arc::new(IntegrationService(supporting_service.clone()));
+    let miscellaneous_service = Arc::new(MiscellaneousService(supporting_service.clone()));
     let schema = Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
@@ -163,7 +143,7 @@ pub async fn create_app_services(
         .route("/graphql", gql)
         .route("/upload", post(upload_file))
         .layer(Extension(config.clone()))
-        .layer(Extension(miscellaneous_service.clone()))
+        .layer(Extension(integration_service.clone()))
         .layer(Extension(schema))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
@@ -172,12 +152,13 @@ pub async fn create_app_services(
         ))
         .layer(cors);
     AppServices {
-        miscellaneous_service,
+        app_router,
         importer_service,
         exporter_service,
         exercise_service,
         statistics_service,
-        app_router,
+        integration_service,
+        miscellaneous_service,
     }
 }
 

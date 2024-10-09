@@ -1,4 +1,4 @@
-use std::{env, sync::Arc};
+use std::env;
 
 use anyhow::{anyhow, Result};
 use askama::Template;
@@ -20,7 +20,7 @@ use user_models::NotificationPlatformSpecifics;
 // TODO: Allow formatting messages
 pub async fn send_notification(
     specifics: NotificationPlatformSpecifics,
-    config: &Arc<AppConfig>,
+    config: &AppConfig,
     msg: &str,
 ) -> Result<()> {
     let project_name = PROJECT_NAME.to_case(Case::Title);

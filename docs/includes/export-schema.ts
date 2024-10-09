@@ -353,7 +353,7 @@ export interface CompleteExport {
 	/** Data about user's media. */
 	media: ImportOrExportMediaItem[] | null;
 	/** Data about user's media groups. */
-	media_group: ImportOrExportMediaGroupItem[] | null;
+	media_groups: ImportOrExportMediaGroupItem[] | null;
 	/** Data about user's people. */
 	people: ImportOrExportPersonItem[] | null;
 	/** Data about user's workout templates. */

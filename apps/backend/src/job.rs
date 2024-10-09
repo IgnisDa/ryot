@@ -6,6 +6,7 @@ use common_utils::ryot_log;
 use exporter_service::ExporterService;
 use fitness_service::ExerciseService;
 use importer_service::ImporterService;
+use integration_service::IntegrationService;
 use media_models::CommitMediaInput;
 use miscellaneous_service::MiscellaneousService;
 use statistics_service::StatisticsService;
@@ -21,9 +22,9 @@ pub async fn background_jobs(
 
 pub async fn sync_integrations_data(
     _information: ScheduledJob,
-    misc_service: Data<Arc<MiscellaneousService>>,
+    integration_service: Data<Arc<IntegrationService>>,
 ) -> Result<(), Error> {
-    misc_service.sync_integrations_data().await.unwrap();
+    integration_service.yank_integrations_data().await.unwrap();
     Ok(())
 }
 
@@ -31,13 +32,14 @@ pub async fn sync_integrations_data(
 
 pub async fn perform_core_application_job(
     information: CoreApplicationJob,
+    integration_service: Data<Arc<IntegrationService>>,
     misc_service: Data<Arc<MiscellaneousService>>,
 ) -> Result<(), Error> {
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let start = Instant::now();
     let status = match information {
-        CoreApplicationJob::SyncIntegrationsData(user_id) => misc_service
+        CoreApplicationJob::SyncIntegrationsData(user_id) => integration_service
             .yank_integrations_data_for_user(&user_id)
             .await
             .is_ok(),
@@ -68,6 +70,7 @@ pub async fn perform_core_application_job(
 pub async fn perform_application_job(
     information: ApplicationJob,
     misc_service: Data<Arc<MiscellaneousService>>,
+    integration_service: Data<Arc<IntegrationService>>,
     importer_service: Data<Arc<ImporterService>>,
     exporter_service: Data<Arc<ExporterService>>,
     exercise_service: Data<Arc<ExerciseService>>,
@@ -129,7 +132,15 @@ pub async fn perform_application_job(
             .deploy_update_exercise_library_job()
             .await
             .is_ok(),
-        ApplicationJob::SyncIntegrationsData => misc_service.sync_integrations_data().await.is_ok(),
+        ApplicationJob::SyncIntegrationsData => {
+            integration_service.yank_integrations_data().await.is_ok()
+        }
+        ApplicationJob::HandleEntityAddedToCollectionEvent(user_id, collection_to_entity_id) => {
+            integration_service
+                .handle_entity_added_to_collection_event(user_id, collection_to_entity_id)
+                .await
+                .is_ok()
+        }
     };
     ryot_log!(
         trace,

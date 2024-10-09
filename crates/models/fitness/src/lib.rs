@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
@@ -15,6 +15,24 @@ use schematic::{ConfigEnum, Schematic};
 use sea_orm::{prelude::DateTimeUtc, FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+pub const LOT_MAPPINGS: &[(ExerciseLot, &[WorkoutSetPersonalBest])] = &[
+    (ExerciseLot::Duration, &[WorkoutSetPersonalBest::Time]),
+    (
+        ExerciseLot::DistanceAndDuration,
+        &[WorkoutSetPersonalBest::Pace, WorkoutSetPersonalBest::Time],
+    ),
+    (
+        ExerciseLot::RepsAndWeight,
+        &[
+            WorkoutSetPersonalBest::Weight,
+            WorkoutSetPersonalBest::OneRm,
+            WorkoutSetPersonalBest::Volume,
+            WorkoutSetPersonalBest::Reps,
+        ],
+    ),
+    (ExerciseLot::Reps, &[WorkoutSetPersonalBest::Reps]),
+];
 
 #[derive(Debug, Clone, Serialize, Enum, Copy, Deserialize, FromJsonQueryResult, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -141,7 +159,7 @@ pub struct ExerciseListItem {
 impl GraphqlRepresentation for ExerciseListItem {
     async fn graphql_representation(
         self,
-        file_storage_service: &Arc<FileStorageService>,
+        file_storage_service: &FileStorageService,
     ) -> GraphqlResult<Self> {
         let mut converted_exercise = self.clone();
         if let Some(img) = self.attributes.internal_images.first() {
@@ -440,6 +458,7 @@ pub enum UserUnitSystem {
     PartialEq,
     SimpleObject,
     Schematic,
+    Default,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutInformation {
@@ -476,6 +495,7 @@ pub struct WorkoutSummaryExercise {
     FromJsonQueryResult,
     Eq,
     PartialEq,
+    Default,
     SimpleObject,
     Schematic,
 )]

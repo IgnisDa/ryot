@@ -10,7 +10,7 @@ anyhow = { workspace = true }
 apalis = { workspace = true }
 application-utils = { path = "../../crates/utils/application" }
 async-graphql = { workspace = true }
-async-graphql-axum = "=7.0.9"
+async-graphql-axum = "=7.0.11"
 axum = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 background = { path = "../../crates/background" }
@@ -34,9 +34,11 @@ fitness-service = { path = "../../crates/services/fitness" }
 http = "=1.1.0"
 importer-resolver = { path = "../../crates/resolvers/importer" }
 importer-service = { path = "../../crates/services/importer" }
+integration-service = { path = "../../crates/services/integration" }
 itertools = { workspace = true }
 logs-wheel = "=0.3.1"
 media-models = { path = "../../crates/models/media" }
+moka = { workspace = true }
 migrations = { path = "../../crates/migrations" }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
 miscellaneous-service = { path = "../../crates/services/miscellaneous" }
@@ -51,6 +53,7 @@ serde_with = { workspace = true }
 schematic = { workspace = true }
 statistics-resolver = { path = "../../crates/resolvers/statistics" }
 statistics-service = { path = "../../crates/services/statistics" }
+supporting-service = { path = "../../crates/services/supporting" }
 tokio = { workspace = true }
 tower = { version = "=0.4.13", features = ["buffer"] }
 tower-http = { version = "=0.5.2", features = ["catch-panic", "cors", "trace"] }

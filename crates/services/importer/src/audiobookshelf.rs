@@ -167,13 +167,12 @@ where
                 identifier,
                 seen_history,
                 source_id: metadata.title,
-                collections: vec![],
-                reviews: vec![],
+                ..Default::default()
             })
         }
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

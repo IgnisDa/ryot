@@ -35,7 +35,7 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         media.push(convert_to_format(item, MediaLot::Manga));
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         ..Default::default()
     })
 }
@@ -94,7 +94,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMediaItem {
         seen_history,
         source_id: item.title.clone(),
         reviews: vec![review_item],
-        collections: vec![],
+        ..Default::default()
     }
 }
 

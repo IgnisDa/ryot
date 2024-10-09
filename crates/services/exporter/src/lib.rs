@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 
-use apalis::prelude::{MemoryStorage, MessageQueue};
+use apalis::prelude::MessageQueue;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::{DateTime, Utc};
@@ -18,7 +18,6 @@ use database_utils::{
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use enums::EntityLot;
-use file_storage_service::FileStorageService;
 use fitness_models::UserMeasurementsListInput;
 use media_models::{
     ImportOrExportExerciseItem, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -31,10 +30,11 @@ use reqwest::{
     Body, Client,
 };
 use sea_orm::{
-    strum::Display, ColumnTrait, DatabaseConnection, EntityTrait, EnumIter, Iterable, ModelTrait,
-    QueryFilter, QueryOrder, QuerySelect,
+    strum::Display, ColumnTrait, EntityTrait, EnumIter, Iterable, ModelTrait, QueryFilter,
+    QueryOrder, QuerySelect,
 };
 use struson::writer::{JsonStreamWriter, JsonWriter};
+use supporting_service::SupportingService;
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
@@ -50,30 +50,12 @@ enum ExportItem {
     WorkoutTemplates,
 }
 
-pub struct ExporterService {
-    db: DatabaseConnection,
-    config: Arc<config::AppConfig>,
-    file_storage_service: Arc<FileStorageService>,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-}
+pub struct ExporterService(pub Arc<SupportingService>);
 
 impl ExporterService {
-    pub fn new(
-        db: &DatabaseConnection,
-        config: Arc<config::AppConfig>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
-        file_storage_service: Arc<FileStorageService>,
-    ) -> Self {
-        Self {
-            db: db.clone(),
-            config,
-            file_storage_service,
-            perform_application_job: perform_application_job.clone(),
-        }
-    }
-
     pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
-        self.perform_application_job
+        self.0
+            .perform_application_job
             .clone()
             .enqueue(ApplicationJob::PerformExport(user_id))
             .await
@@ -82,20 +64,23 @@ impl ExporterService {
     }
 
     pub async fn user_exports(&self, user_id: String) -> Result<Vec<ExportJob>> {
-        if !self.config.file_storage.is_enabled() {
+        if !self.0.config.file_storage.is_enabled() {
             return Ok(vec![]);
         }
         let mut resp = vec![];
         let objects = self
+            .0
             .file_storage_service
             .list_objects_at_prefix(format!("exports/{}", user_id))
             .await;
         for (size, object_key) in objects {
             let url = self
+                .0
                 .file_storage_service
                 .get_presigned_url(object_key.clone())
                 .await;
             let metadata = self
+                .0
                 .file_storage_service
                 .get_object_metadata(object_key)
                 .await;
@@ -118,7 +103,7 @@ impl ExporterService {
     }
 
     pub async fn perform_export(&self, user_id: String) -> Result<bool> {
-        if !self.config.file_storage.is_enabled() {
+        if !self.0.config.file_storage.is_enabled() {
             return Err(Error::new(
                 "File storage needs to be enabled to perform an export.",
             ));
@@ -148,6 +133,7 @@ impl ExporterService {
         writer.finish_document().unwrap();
         let ended_at = Utc::now();
         let (_key, url) = self
+            .0
             .file_storage_service
             .get_presigned_put_url(
                 export_path
@@ -191,20 +177,20 @@ impl ExporterService {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataId.is_not_null())
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         for rm in related_metadata.iter() {
             let m = rm
                 .find_related(Metadata)
-                .one(&self.db)
+                .one(&self.0.db)
                 .await
                 .unwrap()
                 .unwrap();
             let seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
-                .all(&self.db)
+                .all(&self.0.db)
                 .await
                 .unwrap();
             let seen_history = seen_history
@@ -233,16 +219,17 @@ impl ExporterService {
                     }
                 })
                 .collect();
-            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::Metadata, false)
+            let reviews = item_reviews(&self.0.db, user_id, &m.id, EntityLot::Metadata, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
                 .collect();
-            let collections = entity_in_collections(&self.db, user_id, &m.id, EntityLot::Metadata)
-                .await?
-                .into_iter()
-                .map(|c| c.name)
-                .collect();
+            let collections =
+                entity_in_collections(&self.0.db, user_id, &m.id, EntityLot::Metadata)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
             let exp = ImportOrExportMediaItem {
                 source_id: m.title,
                 lot: m.lot,
@@ -265,23 +252,23 @@ impl ExporterService {
         let related_metadata = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::MetadataGroupId.is_not_null())
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         for rm in related_metadata.iter() {
             let m = rm
                 .find_related(MetadataGroup)
-                .one(&self.db)
+                .one(&self.0.db)
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, &m.id, EntityLot::MetadataGroup, false)
+            let reviews = item_reviews(&self.0.db, user_id, &m.id, EntityLot::MetadataGroup, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
                 .collect();
             let collections =
-                entity_in_collections(&self.db, user_id, &m.id, EntityLot::MetadataGroup)
+                entity_in_collections(&self.0.db, user_id, &m.id, EntityLot::MetadataGroup)
                     .await?
                     .into_iter()
                     .map(|c| c.name)
@@ -307,22 +294,22 @@ impl ExporterService {
         let related_people = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::PersonId.is_not_null())
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         for rm in related_people.iter() {
             let p = rm
                 .find_related(Person)
-                .one(&self.db)
+                .one(&self.0.db)
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, &p.id, EntityLot::Person, false)
+            let reviews = item_reviews(&self.0.db, user_id, &p.id, EntityLot::Person, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
                 .collect();
-            let collections = entity_in_collections(&self.db, user_id, &p.id, EntityLot::Person)
+            let collections = entity_in_collections(&self.0.db, user_id, &p.id, EntityLot::Person)
                 .await?
                 .into_iter()
                 .map(|c| c.name)
@@ -351,11 +338,10 @@ impl ExporterService {
             .filter(workout::Column::UserId.eq(user_id))
             .order_by_desc(workout::Column::EndTime)
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for workout_id in workout_ids {
-            let details =
-                workout_details(&self.db, &self.file_storage_service, user_id, workout_id).await?;
+            let details = workout_details(user_id, workout_id, &self.0).await?;
             let exp = ImportOrExportWorkoutItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.name).collect(),
@@ -371,7 +357,7 @@ impl ExporterService {
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
         let measurements = user_measurements_list(
-            &self.db,
+            &self.0.db,
             user_id,
             UserMeasurementsListInput {
                 start_time: None,
@@ -393,26 +379,27 @@ impl ExporterService {
         let exercises = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::ExerciseId.is_not_null())
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         for rm in exercises.iter() {
             let e = rm
                 .find_related(Exercise)
-                .one(&self.db)
+                .one(&self.0.db)
                 .await
                 .unwrap()
                 .unwrap();
-            let reviews = item_reviews(&self.db, user_id, &e.id, EntityLot::Exercise, false)
+            let reviews = item_reviews(&self.0.db, user_id, &e.id, EntityLot::Exercise, false)
                 .await?
                 .into_iter()
                 .map(|r| self.get_review_export_item(r))
                 .collect();
-            let collections = entity_in_collections(&self.db, user_id, &e.id, EntityLot::Exercise)
-                .await?
-                .into_iter()
-                .map(|c| c.name)
-                .collect();
+            let collections =
+                entity_in_collections(&self.0.db, user_id, &e.id, EntityLot::Exercise)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect();
             let exp = ImportOrExportExerciseItem {
                 name: e.id,
                 collections,
@@ -434,10 +421,11 @@ impl ExporterService {
             .filter(workout_template::Column::UserId.eq(user_id))
             .order_by_desc(workout_template::Column::CreatedOn)
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for workout_template_id in workout_template_ids {
-            let details = workout_template_details(&self.db, user_id, workout_template_id).await?;
+            let details =
+                workout_template_details(&self.0.db, user_id, workout_template_id).await?;
             let exp = ImportOrExportWorkoutTemplateItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.name).collect(),

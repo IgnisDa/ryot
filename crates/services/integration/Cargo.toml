@@ -7,12 +7,16 @@ edition = "2021"
 anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
-common-utils = { path = "../../utils/common" }
+chrono = { workspace = true }
 common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
+dependent-models = { path = "../../models/dependent" }
+dependent-utils = { path = "../../utils/dependent" }
 enums = { path = "../../enums" }
 eventsource-stream = "=0.2.3"
+itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }
 radarr-api-rs = "=3.0.1"
@@ -26,9 +30,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sonarr-api-rs = "=3.0.0"
 specific-models = { path = "../../models/specific" }
+supporting-service = { path = "../supporting" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
-
-[package.metadata.cargo-machete]
-ignored = ["tracing"]
+uuid = { workspace = true }

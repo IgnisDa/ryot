@@ -63,13 +63,12 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             lot,
             source,
             identifier: record.common.tmdb_id.to_string(),
-            seen_history: vec![],
             reviews: vec![ImportOrExportItemRating {
                 // DEV: Rates items out of 10
                 rating: Some(record.user_rating.saturating_mul(dec!(10))),
                 ..Default::default()
             }],
-            collections: vec![],
+            ..Default::default()
         })
     }
     let mut watchlist_reader = Reader::from_path(input.watchlist).unwrap();
@@ -91,9 +90,8 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             lot,
             source,
             identifier: record.tmdb_id.to_string(),
-            seen_history: vec![],
-            reviews: vec![],
             collections: vec![DefaultCollection::Watchlist.to_string()],
+            ..Default::default()
         })
     }
     let mut history_reader = Reader::from_path(input.history).unwrap();
@@ -153,12 +151,12 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
                 identifier: record.common.tmdb_id.to_string(),
                 seen_history: vec![seen_item],
                 reviews,
-                collections: vec![],
+                ..Default::default()
             })
         }
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt, sync::Arc};
+use std::{collections::HashSet, fmt};
 
 use async_graphql::{Enum, InputObject, InputType, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
@@ -609,7 +609,7 @@ pub struct ImportOrExportItemRating {
 
 /// Details about a specific media item that needs to be imported or exported.
 #[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct ImportOrExportMediaItem {
     /// An string to help identify it in the original source.
@@ -717,7 +717,7 @@ pub struct MetadataVideo {
 
 pub async fn first_metadata_image_as_url(
     value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &Arc<FileStorageService>,
+    file_storage_service: &FileStorageService,
 ) -> Option<String> {
     if let Some(images) = value {
         if let Some(i) = images.first().cloned() {
@@ -732,7 +732,7 @@ pub async fn first_metadata_image_as_url(
 
 pub async fn metadata_images_as_urls(
     value: &Option<Vec<MetadataImage>>,
-    file_storage_service: &Arc<FileStorageService>,
+    file_storage_service: &FileStorageService,
 ) -> Vec<String> {
     let mut images = vec![];
     if let Some(imgs) = value {
@@ -1042,30 +1042,6 @@ pub struct DeployImportJobInput {
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,
     pub generic_csv: Option<DeployGenericCsvImportInput>,
     pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IntegrationMediaSeen {
-    pub identifier: String,
-    pub lot: MediaLot,
-    #[serde(default)]
-    pub source: MediaSource,
-    pub progress: Decimal,
-    pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<Decimal>,
-    pub manga_volume_number: Option<i32>,
-    pub provider_watched_on: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct IntegrationMediaCollection {
-    pub identifier: String,
-    pub lot: MediaLot,
-    pub source: MediaSource,
-    pub collection: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -1659,4 +1635,10 @@ pub struct DailyUserActivityItem {
     pub total_review_count: i64,
     pub total_count: i64,
     pub total_duration: i64,
+}
+
+#[derive(Debug, Ord, PartialEq, Eq, PartialOrd, Clone, Hash)]
+pub struct CommitCache {
+    pub id: String,
+    pub lot: EntityLot,
 }

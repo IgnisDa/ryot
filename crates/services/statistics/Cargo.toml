@@ -10,6 +10,7 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 media-models = { path = "../../models/media" }
 sea-orm = { workspace = true }
+supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
 
 [package.metadata.cargo-machete]

@@ -8,8 +8,6 @@ use sonarr_api_rs::{
 };
 use traits::TraceOk;
 
-use super::integration_trait::PushIntegration;
-
 pub(crate) struct SonarrIntegration {
     sonarr_base_url: String,
     sonarr_api_key: String,
@@ -58,10 +56,8 @@ impl SonarrIntegration {
             .trace_ok();
         Ok(())
     }
-}
 
-impl PushIntegration for SonarrIntegration {
-    async fn push_progress(&self) -> anyhow::Result<()> {
+    pub async fn push_progress(&self) -> anyhow::Result<()> {
         self.sonarr_push().await
     }
 }

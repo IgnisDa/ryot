@@ -58,11 +58,11 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
             identifier: record.id,
             seen_history: seen_history.clone(),
             collections: vec![collection.clone()],
-            reviews: vec![],
+            ..Default::default()
         });
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

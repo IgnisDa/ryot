@@ -318,7 +318,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
         final_data.push(item);
     }
     Ok(ImportResult {
-        media: final_data,
+        metadata: final_data,
         failed_items,
         collections,
         ..Default::default()
