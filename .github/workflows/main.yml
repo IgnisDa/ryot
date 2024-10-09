@@ -164,7 +164,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: target
-          key: cargo-build-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          key: cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-build-${{ runner.os }}-
       - name: Install cross
