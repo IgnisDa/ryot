@@ -3,11 +3,10 @@ use std::{
     sync::Arc,
 };
 
-use apalis::prelude::{MemoryStorage, MessageQueue};
+use apalis::prelude::MessageQueue;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use cache_service::CacheService;
 use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
@@ -53,17 +52,16 @@ use enums::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
 };
 use env_utils::APP_VERSION;
-use file_storage_service::FileStorageService;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use markdown::{to_html_with_options as markdown_to_html_opts, CompileOptions, Options};
 use media_models::{
-    first_metadata_image_as_url, metadata_images_as_urls, CommitCache, CommitMediaInput,
-    CommitPersonInput, CreateCustomMetadataInput, CreateOrUpdateReviewInput,
-    CreateReviewCommentInput, GenreDetailsInput, GenreListItem, GraphqlCalendarEvent,
-    GraphqlMediaAssets, GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset,
-    GroupedCalendarEvent, ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges,
-    MediaDetails, MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    first_metadata_image_as_url, metadata_images_as_urls, CommitMediaInput, CommitPersonInput,
+    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
+    GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
+    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaDetails,
+    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
     MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
@@ -78,7 +76,6 @@ use media_models::{
 use migrations::{
     AliasedMetadata, AliasedMetadataToGenre, AliasedReview, AliasedSeen, AliasedUserToEntity,
 };
-use moka::future::Cache;
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
@@ -107,6 +104,7 @@ use sea_query::{
     PostgresQueryBuilder, Query, SelectStatement,
 };
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
 use user_models::UserReviewScale;
 use uuid::Uuid;
@@ -126,47 +124,7 @@ impl MediaProviderLanguages for CustomService {
     }
 }
 
-pub struct MiscellaneousService {
-    is_pro: bool,
-    oidc_enabled: bool,
-    db: DatabaseConnection,
-    timezone: Arc<chrono_tz::Tz>,
-    config: Arc<config::AppConfig>,
-    cache_service: Arc<CacheService>,
-    commit_cache: Arc<Cache<CommitCache, ()>>,
-    file_storage_service: Arc<FileStorageService>,
-    perform_application_job: MemoryStorage<ApplicationJob>,
-    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
-}
-
-impl MiscellaneousService {
-    #[allow(clippy::too_many_arguments)]
-    pub async fn new(
-        is_pro: bool,
-        oidc_enabled: bool,
-        db: &DatabaseConnection,
-        timezone: Arc<chrono_tz::Tz>,
-        config: Arc<config::AppConfig>,
-        cache_service: Arc<CacheService>,
-        commit_cache: Arc<Cache<CommitCache, ()>>,
-        file_storage_service: Arc<FileStorageService>,
-        perform_application_job: &MemoryStorage<ApplicationJob>,
-        perform_core_application_job: &MemoryStorage<CoreApplicationJob>,
-    ) -> Self {
-        Self {
-            config,
-            is_pro,
-            timezone,
-            oidc_enabled,
-            commit_cache,
-            cache_service,
-            db: db.clone(),
-            file_storage_service,
-            perform_application_job: perform_application_job.clone(),
-            perform_core_application_job: perform_core_application_job.clone(),
-        }
-    }
-}
+pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
     pub async fn update_claimed_recommendations_and_download_new_ones(&self) -> Result<()> {
@@ -179,13 +137,13 @@ impl MiscellaneousService {
             .column(metadata::Column::Id)
             .filter(metadata::Column::IsRecommendation.eq(true))
             .into_tuple::<String>()
-            .stream(&self.db)
+            .stream(&self.0.db)
             .await?;
         let mut recommendations_to_update = vec![];
         while let Some(meta) = metadata_stream.try_next().await? {
             let num_ute = UserToEntity::find()
                 .filter(user_to_entity::Column::MetadataId.eq(&meta))
-                .count(&self.db)
+                .count(&self.0.db)
                 .await?;
             if num_ute > 0 {
                 recommendations_to_update.push(meta);
@@ -197,7 +155,7 @@ impl MiscellaneousService {
                 is_recommendation: ActiveValue::Set(None),
                 ..Default::default()
             })
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         ryot_log!(debug, "Downloading new recommendations for users");
         #[derive(Debug, FromQueryResult)]
@@ -223,12 +181,12 @@ ORDER BY RANDOM() LIMIT 10;
                 MediaSource::Vndb.into(),
             ],
         ))
-        .all(&self.db)
+        .all(&self.0.db)
         .await?;
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
             let provider =
-                get_metadata_provider(media.lot, media.source, &self.config, &self.timezone)
+                get_metadata_provider(media.lot, media.source, &self.0.config, &self.0.timezone)
                     .await?;
             if let Ok(recommendations) = provider
                 .get_recommendations_for_metadata(&media.identifier)
@@ -258,42 +216,43 @@ ORDER BY RANDOM() LIMIT 10;
                     .add(access_link::Column::ExpiresOn.lte(Utc::now())),
             )
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for access_link in access_links {
-            revoke_access_link(&self.db, access_link).await?;
+            revoke_access_link(&self.0.db, access_link).await?;
         }
         Ok(())
     }
 
     pub async fn core_details(&self) -> CoreDetails {
-        let mut files_enabled = self.config.file_storage.is_enabled();
-        if files_enabled && !self.file_storage_service.is_enabled().await {
+        let mut files_enabled = self.0.config.file_storage.is_enabled();
+        if files_enabled && !self.0.file_storage_service.is_enabled().await {
             files_enabled = false;
         }
         CoreDetails {
-            is_pro: self.is_pro,
+            is_pro: self.0.is_pro,
             version: APP_VERSION.to_owned(),
             file_storage_enabled: files_enabled,
-            oidc_enabled: self.oidc_enabled,
-            page_limit: self.config.frontend.page_size,
+            oidc_enabled: self.0.oidc_enabled,
+            page_limit: self.0.config.frontend.page_size,
             docs_link: "https://docs.ryot.io".to_owned(),
             backend_errors: BackendError::iter().collect(),
-            smtp_enabled: self.config.server.smtp.is_enabled(),
+            smtp_enabled: self.0.config.server.smtp.is_enabled(),
             website_url: "https://ryot.io".to_owned(),
-            signup_allowed: self.config.users.allow_registration,
-            local_auth_disabled: self.config.users.disable_local_auth,
-            token_valid_for_days: self.config.users.token_valid_for_days,
+            signup_allowed: self.0.config.users.allow_registration,
+            local_auth_disabled: self.0.config.users.disable_local_auth,
+            token_valid_for_days: self.0.config.users.token_valid_for_days,
             repository_link: "https://github.com/ignisda/ryot".to_owned(),
         }
     }
 
     async fn metadata_assets(&self, meta: &metadata::Model) -> Result<GraphqlMediaAssets> {
-        let images = metadata_images_as_urls(&meta.images, &self.file_storage_service).await;
+        let images = metadata_images_as_urls(&meta.images, &self.0.file_storage_service).await;
         let mut videos = vec![];
         if let Some(vids) = &meta.videos {
             for v in vids.clone() {
                 let url = self
+                    .0
                     .file_storage_service
                     .get_stored_asset(v.identifier)
                     .await;
@@ -308,7 +267,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     async fn generic_metadata(&self, metadata_id: &String) -> Result<MetadataBaseData> {
         let mut meta = match Metadata::find_by_id(metadata_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await
             .unwrap()
         {
@@ -319,7 +278,7 @@ ORDER BY RANDOM() LIMIT 10;
             .find_related(Genre)
             .order_by_asc(genre::Column::Name)
             .into_model::<GenreListItem>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         #[derive(Debug, FromQueryResult)]
@@ -346,11 +305,11 @@ ORDER BY RANDOM() LIMIT 10;
             )
             .order_by_asc(metadata_to_person::Column::Index)
             .into_model::<PartialCreator>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let mut creators: HashMap<String, Vec<_>> = HashMap::new();
         for cr in crts {
-            let image = first_metadata_image_as_url(&cr.images, &self.file_storage_service).await;
+            let image = first_metadata_image_as_url(&cr.images, &self.0.file_storage_service).await;
             let creator = MetadataCreator {
                 image,
                 name: cr.name,
@@ -407,7 +366,7 @@ ORDER BY RANDOM() LIMIT 10;
                 metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion),
             )
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let assets = self.metadata_assets(&meta).await.unwrap();
         Ok(MetadataBaseData {
@@ -433,12 +392,12 @@ ORDER BY RANDOM() LIMIT 10;
                 metadata::Column::PublishYear,
             ])
             .into_model::<MetadataPartialDetails>()
-            .one(&self.db)
+            .one(&self.0.db)
             .await
             .unwrap()
             .ok_or_else(|| Error::new("The record does not exist".to_owned()))?;
         metadata.image =
-            first_metadata_image_as_url(&metadata.images, &self.file_storage_service).await;
+            first_metadata_image_as_url(&metadata.images, &self.0.file_storage_service).await;
         Ok(metadata)
     }
 
@@ -447,7 +406,7 @@ ORDER BY RANDOM() LIMIT 10;
         metadata_id: &String,
         force_update: bool,
     ) -> Result<bool> {
-        deploy_update_metadata_job(metadata_id, force_update, &self.perform_application_job).await
+        deploy_update_metadata_job(metadata_id, force_update, &self.0.perform_application_job).await
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -510,12 +469,16 @@ ORDER BY RANDOM() LIMIT 10;
         let group = {
             let association = MetadataToMetadataGroup::find()
                 .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-                .one(&self.db)
+                .one(&self.0.db)
                 .await?;
             match association {
                 None => None,
                 Some(a) => {
-                    let grp = a.find_related(MetadataGroup).one(&self.db).await?.unwrap();
+                    let grp = a
+                        .find_related(MetadataGroup)
+                        .one(&self.0.db)
+                        .await?
+                        .unwrap();
                     Some(GraphqlMetadataGroup {
                         id: grp.id,
                         name: grp.title,
@@ -567,10 +530,16 @@ ORDER BY RANDOM() LIMIT 10;
     ) -> Result<UserMetadataDetails> {
         let media_details = self.generic_metadata(&metadata_id).await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-        let reviews =
-            item_reviews(&self.db, &user_id, &metadata_id, EntityLot::Metadata, true).await?;
-        let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &self.db).await?;
+            entity_in_collections(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
+        let reviews = item_reviews(
+            &self.0.db,
+            &user_id,
+            &metadata_id,
+            EntityLot::Metadata,
+            true,
+        )
+        .await?;
+        let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &self.0.db).await?;
         let in_progress = history
             .iter()
             .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -656,6 +625,7 @@ ORDER BY RANDOM() LIMIT 10;
             .to_owned();
         let stmt = self.get_db_stmt(seen_select);
         let seen_by = self
+            .0
             .db
             .query_one(stmt)
             .await?
@@ -663,7 +633,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap();
         let seen_by: usize = seen_by.try_into().unwrap();
         let user_to_meta =
-            get_user_to_entity_association(&self.db, &user_id, metadata_id, EntityLot::Metadata)
+            get_user_to_entity_association(&self.0.db, &user_id, metadata_id, EntityLot::Metadata)
                 .await;
         let average_rating = if reviews.is_empty() {
             None
@@ -753,9 +723,10 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = item_reviews(&self.db, &user_id, &person_id, EntityLot::Person, true).await?;
+        let reviews =
+            item_reviews(&self.0.db, &user_id, &person_id, EntityLot::Person, true).await?;
         let collections =
-            entity_in_collections(&self.db, &user_id, &person_id, EntityLot::Person).await?;
+            entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
         Ok(UserPersonDetails {
             reviews,
             collections,
@@ -768,14 +739,14 @@ ORDER BY RANDOM() LIMIT 10;
         metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
         let collections = entity_in_collections(
-            &self.db,
+            &self.0.db,
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
         )
         .await?;
         let reviews = item_reviews(
-            &self.db,
+            &self.0.db,
             &user_id,
             &metadata_group_id,
             EntityLot::MetadataGroup,
@@ -859,7 +830,7 @@ ORDER BY RANDOM() LIMIT 10;
             })
             .limit(media_limit)
             .into_model::<CalEvent>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let mut events = vec![];
         for evt in all_events {
@@ -895,7 +866,8 @@ ORDER BY RANDOM() LIMIT 10;
             };
 
             if image.is_none() {
-                image = first_metadata_image_as_url(&evt.m_images, &self.file_storage_service).await
+                image =
+                    first_metadata_image_as_url(&evt.m_images, &self.0.file_storage_service).await
             }
             calc.metadata_image = image;
             calc.episode_name = title;
@@ -948,7 +920,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: MetadataListInput,
     ) -> Result<SearchResults<String>> {
-        let preferences = user_preferences_by_id(&self.db, &user_id, &self.config).await?;
+        let preferences = user_preferences_by_id(&self.0.db, &user_id, &self.0.config).await?;
 
         let avg_rating_col = "user_average_rating";
         let cloned_user_id_1 = user_id.clone();
@@ -963,7 +935,9 @@ ORDER BY RANDOM() LIMIT 10;
             UserReviewScale::OutOfFive => 20,
             UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
         };
-        let take = input.take.unwrap_or(self.config.frontend.page_size as u64);
+        let take = input
+            .take
+            .unwrap_or(self.0.config.frontend.page_size as u64);
         let page: u64 = input
             .search
             .clone()
@@ -1073,7 +1047,7 @@ ORDER BY RANDOM() LIMIT 10;
                 ),
             })
             .into_tuple::<String>()
-            .paginate(&self.db, take);
+            .paginate(&self.0.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -1100,7 +1074,8 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
-        self.perform_core_application_job
+        self.0
+            .perform_core_application_job
             .clone()
             .enqueue(CoreApplicationJob::BulkProgressUpdate(user_id, input))
             .await
@@ -1118,11 +1093,11 @@ ORDER BY RANDOM() LIMIT 10;
                 seen,
                 &user_id,
                 false,
-                &self.db,
-                &self.timezone,
-                &self.config,
-                &self.cache_service,
-                &self.perform_core_application_job,
+                &self.0.db,
+                &self.0.timezone,
+                &self.0.config,
+                &self.0.cache_service,
+                &self.0.perform_core_application_job,
             )
             .await
             .trace_ok();
@@ -1138,9 +1113,9 @@ ORDER BY RANDOM() LIMIT 10;
         deploy_background_job(
             user_id,
             job_name,
-            &self.db,
-            &self.perform_application_job,
-            &self.perform_core_application_job,
+            &self.0.db,
+            &self.0.perform_application_job,
+            &self.0.perform_core_application_job,
         )
         .await
     }
@@ -1150,7 +1125,7 @@ ORDER BY RANDOM() LIMIT 10;
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         for user_id in all_users {
@@ -1159,7 +1134,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .column(collection::Column::UserId)
                 .left_join(UserToEntity)
                 .filter(user_to_entity::Column::UserId.eq(&user_id))
-                .all(&self.db)
+                .all(&self.0.db)
                 .await
                 .unwrap();
             let monitoring_collection_id = collections
@@ -1191,14 +1166,15 @@ ORDER BY RANDOM() LIMIT 10;
             let all_user_to_entities = UserToEntity::find()
                 .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
                 .filter(user_to_entity::Column::UserId.eq(&user_id))
-                .all(&self.db)
+                .all(&self.0.db)
                 .await
                 .unwrap();
             for ute in all_user_to_entities {
                 let mut new_reasons = HashSet::new();
                 let (entity_id, entity_lot) = if let Some(metadata_id) = ute.metadata_id.clone() {
                     let (is_finished, seen_history) =
-                        is_metadata_finished_by_user(&ute.user_id, &metadata_id, &self.db).await?;
+                        is_metadata_finished_by_user(&ute.user_id, &metadata_id, &self.0.db)
+                            .await?;
                     if !seen_history.is_empty() {
                         new_reasons.insert(UserToMediaReason::Seen);
                     }
@@ -1216,7 +1192,7 @@ ORDER BY RANDOM() LIMIT 10;
                 };
 
                 let collections_part_of =
-                    entity_in_collections(&self.db, &user_id, &entity_id, entity_lot)
+                    entity_in_collections(&self.0.db, &user_id, &entity_id, entity_lot)
                         .await?
                         .into_iter()
                         .map(|c| c.id)
@@ -1229,7 +1205,7 @@ ORDER BY RANDOM() LIMIT 10;
                             .or(review::Column::MetadataGroupId.eq(ute.metadata_group_id.clone()))
                             .or(review::Column::PersonId.eq(ute.person_id.clone())),
                     )
-                    .count(&self.db)
+                    .count(&self.0.db)
                     .await
                     .unwrap()
                     > 0
@@ -1260,7 +1236,7 @@ ORDER BY RANDOM() LIMIT 10;
                     HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
                 if new_reasons.is_empty() {
                     ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
-                    ute.delete(&self.db).await.unwrap();
+                    ute.delete(&self.0.db).await.unwrap();
                 } else {
                     let mut ute: user_to_entity::ActiveModel = ute.into();
                     if new_reasons != previous_reasons {
@@ -1269,7 +1245,7 @@ ORDER BY RANDOM() LIMIT 10;
                             ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                     }
                     ute.needs_to_be_updated = ActiveValue::Set(None);
-                    ute.update(&self.db).await.unwrap();
+                    ute.update(&self.0.db).await.unwrap();
                 }
             }
         }
@@ -1286,22 +1262,22 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(metadata_group::Column::Identifier.eq(identifier))
             .filter(metadata_group::Column::Lot.eq(lot))
             .filter(metadata_group::Column::Source.eq(source))
-            .one(&self.db)
+            .one(&self.0.db)
             .await?;
-        let provider = get_metadata_provider(lot, source, &self.config, &self.timezone).await?;
+        let provider = get_metadata_provider(lot, source, &self.0.config, &self.0.timezone).await?;
         let (group_details, associated_items) = provider.metadata_group_details(identifier).await?;
         let group_id = match existing_group {
             Some(eg) => {
                 let mut eg: metadata_group::ActiveModel = eg.into();
                 eg.is_partial = ActiveValue::Set(Some(false));
-                let eg = eg.update(&self.db).await?;
+                let eg = eg.update(&self.0.db).await?;
                 eg.id
             }
             None => {
                 let mut db_group: metadata_group::ActiveModel =
                     group_details.into_model("".to_string(), None).into();
                 db_group.id = ActiveValue::NotSet;
-                let new_group = db_group.insert(&self.db).await?;
+                let new_group = db_group.insert(&self.0.db).await?;
                 new_group.id
             }
         };
@@ -1312,7 +1288,7 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         data: PartialMetadataWithoutId,
     ) -> Result<PartialMetadata> {
-        create_partial_metadata(data, &self.db).await
+        create_partial_metadata(data, &self.0.db).await
     }
 
     pub async fn update_seen_item(
@@ -1320,7 +1296,11 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UpdateSeenItemInput,
     ) -> Result<bool> {
-        let seen = match Seen::find_by_id(input.seen_id).one(&self.db).await.unwrap() {
+        let seen = match Seen::find_by_id(input.seen_id)
+            .one(&self.0.db)
+            .await
+            .unwrap()
+        {
             Some(s) => s,
             None => return Err(Error::new("No seen found for this user and metadata")),
         };
@@ -1343,7 +1323,10 @@ ORDER BY RANDOM() LIMIT 10;
         if let Some(review_id) = input.review_id {
             let (review, to_update_review_id) = match review_id.is_empty() {
                 false => (
-                    Review::find_by_id(&review_id).one(&self.db).await.unwrap(),
+                    Review::find_by_id(&review_id)
+                        .one(&self.0.db)
+                        .await
+                        .unwrap(),
                     Some(review_id),
                 ),
                 true => (None, None),
@@ -1357,18 +1340,19 @@ ORDER BY RANDOM() LIMIT 10;
             }
             seen.review_id = ActiveValue::Set(to_update_review_id);
         }
-        let seen = seen.update(&self.db).await.unwrap();
-        after_media_seen_tasks(seen, &self.db, &self.perform_core_application_job).await?;
+        let seen = seen.update(&self.0.db).await.unwrap();
+        after_media_seen_tasks(seen, &self.0.db, &self.0.perform_core_application_job).await?;
         Ok(true)
     }
 
     pub async fn deploy_update_person_job(&self, person_id: String) -> Result<bool> {
         let person = Person::find_by_id(person_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await
             .unwrap()
             .unwrap();
-        self.perform_application_job
+        self.0
+            .perform_application_job
             .clone()
             .enqueue(ApplicationJob::UpdatePerson(person.id))
             .await
@@ -1381,11 +1365,12 @@ ORDER BY RANDOM() LIMIT 10;
         metadata_group_id: String,
     ) -> Result<bool> {
         let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await
             .unwrap()
             .unwrap();
-        self.perform_application_job
+        self.0
+            .perform_application_job
             .clone()
             .enqueue(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
             .await
@@ -1399,7 +1384,7 @@ ORDER BY RANDOM() LIMIT 10;
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
-        let txn = self.db.begin().await?;
+        let txn = self.0.db.begin().await?;
         for old_seen in Seen::find()
             .filter(seen::Column::MetadataId.eq(&merge_from))
             .filter(seen::Column::UserId.eq(&user_id))
@@ -1495,17 +1480,17 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn commit_metadata(&self, input: CommitMediaInput) -> Result<metadata::Model> {
         commit_metadata(
             input,
-            &self.db,
-            &self.timezone,
-            &self.config,
-            &self.commit_cache,
-            &self.perform_application_job,
+            &self.0.db,
+            &self.0.timezone,
+            &self.0.config,
+            &self.0.commit_cache,
+            &self.0.perform_application_job,
         )
         .await
     }
 
     pub async fn commit_person(&self, input: CommitPersonInput) -> Result<StringIdObject> {
-        commit_person(input, &self.db).await
+        commit_person(input, &self.0.db).await
     }
 
     pub async fn disassociate_metadata(
@@ -1516,17 +1501,17 @@ ORDER BY RANDOM() LIMIT 10;
         let delete_review = Review::delete_many()
             .filter(review::Column::MetadataId.eq(&metadata_id))
             .filter(review::Column::UserId.eq(&user_id))
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         ryot_log!(debug, "Deleted {} reviews", delete_review.rows_affected);
         let delete_seen = Seen::delete_many()
             .filter(seen::Column::MetadataId.eq(&metadata_id))
             .filter(seen::Column::UserId.eq(&user_id))
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
         let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
-            &self.db,
+            &self.0.db,
             &user_id,
             &metadata_id,
             EntityLot::Metadata,
@@ -1536,7 +1521,7 @@ ORDER BY RANDOM() LIMIT 10;
         .map(|(_, id)| id);
         let delete_collections = CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::Id.is_in(collections_part_of))
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         ryot_log!(
             debug,
@@ -1546,7 +1531,7 @@ ORDER BY RANDOM() LIMIT 10;
         UserToEntity::delete_many()
             .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
             .filter(user_to_entity::Column::UserId.eq(user_id))
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         Ok(true)
     }
@@ -1567,9 +1552,10 @@ ORDER BY RANDOM() LIMIT 10;
             });
         }
         let cloned_user_id = user_id.to_owned();
-        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
+        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
         let provider =
-            get_metadata_provider(input.lot, input.source, &self.config, &self.timezone).await?;
+            get_metadata_provider(input.lot, input.source, &self.0.config, &self.0.timezone)
+                .await?;
         let results = provider
             .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -1604,7 +1590,7 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(metadata::Column::Source.eq(input.source))
             .filter(metadata::Column::Identifier.is_in(&all_identifiers))
             .into_tuple::<(String, String, bool)>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?
             .into_iter()
             .map(|(key, value1, value2)| (key, (value1, value2)));
@@ -1643,7 +1629,7 @@ ORDER BY RANDOM() LIMIT 10;
                 items: vec![],
             });
         }
-        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
+        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
         let provider = self.get_non_metadata_provider(input.source).await?;
         let results = provider
             .people_search(
@@ -1671,9 +1657,10 @@ ORDER BY RANDOM() LIMIT 10;
                 items: vec![],
             });
         }
-        let preferences = user_preferences_by_id(&self.db, user_id, &self.config).await?;
+        let preferences = user_preferences_by_id(&self.0.db, user_id, &self.0.config).await?;
         let provider =
-            get_metadata_provider(input.lot, input.source, &self.config, &self.timezone).await?;
+            get_metadata_provider(input.lot, input.source, &self.0.config, &self.0.timezone)
+                .await?;
         let results = provider
             .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
             .await?;
@@ -1684,48 +1671,56 @@ ORDER BY RANDOM() LIMIT 10;
         let err = || Err(Error::new("This source is not supported".to_owned()));
         let service: Provider = match source {
             MediaSource::Vndb => Box::new(
-                VndbService::new(&self.config.visual_novels, self.config.frontend.page_size).await,
+                VndbService::new(
+                    &self.0.config.visual_novels,
+                    self.0.config.frontend.page_size,
+                )
+                .await,
             ),
-            MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.config).await?),
+            MediaSource::Openlibrary => Box::new(get_openlibrary_service(&self.0.config).await?),
             MediaSource::Itunes => Box::new(
-                ITunesService::new(&self.config.podcasts.itunes, self.config.frontend.page_size)
-                    .await,
+                ITunesService::new(
+                    &self.0.config.podcasts.itunes,
+                    self.0.config.frontend.page_size,
+                )
+                .await,
             ),
             MediaSource::GoogleBooks => Box::new(
                 GoogleBooksService::new(
-                    &self.config.books.google_books,
-                    self.config.frontend.page_size,
+                    &self.0.config.books.google_books,
+                    self.0.config.frontend.page_size,
                 )
                 .await,
             ),
             MediaSource::Audible => Box::new(
                 AudibleService::new(
-                    &self.config.audio_books.audible,
-                    self.config.frontend.page_size,
+                    &self.0.config.audio_books.audible,
+                    self.0.config.frontend.page_size,
                 )
                 .await,
             ),
             MediaSource::Listennotes => Box::new(
-                ListennotesService::new(&self.config.podcasts, self.config.frontend.page_size)
+                ListennotesService::new(&self.0.config.podcasts, self.0.config.frontend.page_size)
                     .await,
             ),
             MediaSource::Igdb => Box::new(
-                IgdbService::new(&self.config.video_games, self.config.frontend.page_size).await,
+                IgdbService::new(&self.0.config.video_games, self.0.config.frontend.page_size)
+                    .await,
             ),
             MediaSource::MangaUpdates => Box::new(
                 MangaUpdatesService::new(
-                    &self.config.anime_and_manga.manga_updates,
-                    self.config.frontend.page_size,
+                    &self.0.config.anime_and_manga.manga_updates,
+                    self.0.config.frontend.page_size,
                 )
                 .await,
             ),
             MediaSource::Tmdb => {
-                Box::new(get_tmdb_non_media_service(&self.config, &self.timezone).await?)
+                Box::new(get_tmdb_non_media_service(&self.0.config, &self.0.timezone).await?)
             }
             MediaSource::Anilist => Box::new(
                 NonMediaAnilistService::new(
-                    &self.config.anime_and_manga.anilist,
-                    self.config.frontend.page_size,
+                    &self.0.config.anime_and_manga.anilist,
+                    self.0.config.frontend.page_size,
                 )
                 .await,
             ),
@@ -1740,17 +1735,17 @@ ORDER BY RANDOM() LIMIT 10;
             &input.identifier,
             input.lot,
             input.source,
-            &self.db,
-            &self.config,
-            &self.timezone,
+            &self.0.db,
+            &self.0.config,
+            &self.0.timezone,
         )
         .await?;
         for (idx, media) in associated_items.into_iter().enumerate() {
-            let db_partial_metadata = create_partial_metadata(media, &self.db).await?;
+            let db_partial_metadata = create_partial_metadata(media, &self.0.db).await?;
             MetadataToMetadataGroup::delete_many()
                 .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&group_id))
                 .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
-                .exec(&self.db)
+                .exec(&self.0.db)
                 .await
                 .ok();
             let intermediate = metadata_to_metadata_group::ActiveModel {
@@ -1758,7 +1753,7 @@ ORDER BY RANDOM() LIMIT 10;
                 metadata_id: ActiveValue::Set(db_partial_metadata.id),
                 part: ActiveValue::Set((idx + 1).try_into().unwrap()),
             };
-            intermediate.insert(&self.db).await.ok();
+            intermediate.insert(&self.0.db).await.ok();
         }
         Ok(StringIdObject { id: group_id })
     }
@@ -1771,9 +1766,9 @@ ORDER BY RANDOM() LIMIT 10;
         post_review(
             user_id,
             input,
-            &self.db,
-            &self.config,
-            &self.perform_core_application_job,
+            &self.0.db,
+            &self.0.config,
+            &self.0.perform_core_application_job,
         )
         .await
     }
@@ -1781,20 +1776,20 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
         let review = Review::find()
             .filter(review::Column::Id.eq(review_id))
-            .one(&self.db)
+            .one(&self.0.db)
             .await
             .unwrap();
         match review {
             Some(r) => {
                 if r.user_id == user_id {
                     associate_user_with_entity(
-                        &self.db,
+                        &self.0.db,
                         &user_id,
                         r.entity_id.clone(),
                         r.entity_lot,
                     )
                     .await?;
-                    r.delete(&self.db).await?;
+                    r.delete(&self.0.db).await?;
                     Ok(true)
                 } else {
                     Err(Error::new("This review does not belong to you".to_owned()))
@@ -1809,7 +1804,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: &String,
         seen_id: String,
     ) -> Result<StringIdObject> {
-        let seen_item = Seen::find_by_id(seen_id).one(&self.db).await.unwrap();
+        let seen_item = Seen::find_by_id(seen_id).one(&self.0.db).await.unwrap();
         if let Some(si) = seen_item {
             let cloned_seen = si.clone();
             let (ssn, sen) = match &si.show_extra_information {
@@ -1830,7 +1825,7 @@ ORDER BY RANDOM() LIMIT 10;
                 user_id: user_id.to_owned(),
                 metadata_id: si.metadata_id.clone(),
             };
-            self.cache_service.delete(cache).await?;
+            self.0.cache_service.delete(cache).await?;
             let seen_id = si.id.clone();
             let metadata_id = si.metadata_id.clone();
             if &si.user_id != user_id {
@@ -1838,10 +1833,15 @@ ORDER BY RANDOM() LIMIT 10;
                     "This seen item does not belong to this user".to_owned(),
                 ));
             }
-            si.delete(&self.db).await.trace_ok();
-            associate_user_with_entity(&self.db, user_id, metadata_id, EntityLot::Metadata).await?;
-            after_media_seen_tasks(cloned_seen, &self.db, &self.perform_core_application_job)
+            si.delete(&self.0.db).await.trace_ok();
+            associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata)
                 .await?;
+            after_media_seen_tasks(
+                cloned_seen,
+                &self.0.db,
+                &self.0.perform_core_application_job,
+            )
+            .await?;
             Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
@@ -1853,11 +1853,11 @@ ORDER BY RANDOM() LIMIT 10;
             .select_only()
             .column(user::Column::Id)
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await
             .unwrap();
         for user_id in all_users {
-            calculate_user_activities_and_summary(&self.db, &user_id, false).await?;
+            calculate_user_activities_and_summary(&self.0.db, &user_id, false).await?;
         }
         Ok(())
     }
@@ -1929,12 +1929,12 @@ ORDER BY RANDOM() LIMIT 10;
         let media = commit_metadata_internal(
             details,
             Some(is_partial),
-            &self.db,
-            &self.perform_application_job,
+            &self.0.db,
+            &self.0.perform_application_job,
         )
         .await?;
         add_entity_to_collection(
-            &self.db,
+            &self.0.db,
             &user_id,
             ChangeCollectionToEntityInput {
                 creator_user_id: user_id.to_owned(),
@@ -1943,7 +1943,7 @@ ORDER BY RANDOM() LIMIT 10;
                 entity_lot: EntityLot::Metadata,
                 ..Default::default()
             },
-            &self.perform_core_application_job,
+            &self.0.perform_core_application_job,
         )
         .await?;
         Ok(media)
@@ -2021,7 +2021,8 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         collection_to_entity_id: Uuid,
     ) -> Result<()> {
-        self.perform_application_job
+        self.0
+            .perform_application_job
             .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(
                 user_id,
                 collection_to_entity_id,
@@ -2037,7 +2038,7 @@ ORDER BY RANDOM() LIMIT 10;
     ) -> Result<HashMap<String, HashSet<String>>> {
         let monitored_entities = MonitoredEntity::find()
             .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let mut monitored_by = HashMap::new();
         for entity in monitored_entities {
@@ -2060,10 +2061,10 @@ ORDER BY RANDOM() LIMIT 10;
             let notifications = update_metadata(
                 &metadata_id,
                 false,
-                &self.db,
-                &self.config,
-                &self.timezone,
-                &self.perform_application_job,
+                &self.0.db,
+                &self.0.config,
+                &self.0.timezone,
+                &self.0.perform_application_job,
             )
             .await?;
             for user in to_notify {
@@ -2071,8 +2072,8 @@ ORDER BY RANDOM() LIMIT 10;
                     queue_media_state_changed_notification_for_user(
                         &user,
                         notification,
-                        &self.db,
-                        &self.config,
+                        &self.0.db,
+                        &self.0.config,
                     )
                     .await?;
                 }
@@ -2098,8 +2099,8 @@ ORDER BY RANDOM() LIMIT 10;
                     queue_media_state_changed_notification_for_user(
                         &user,
                         notification,
-                        &self.db,
-                        &self.config,
+                        &self.0.db,
+                        &self.0.config,
                     )
                     .await?;
                 }
@@ -2130,10 +2131,10 @@ ORDER BY RANDOM() LIMIT 10;
                 Expr::col(genre::Column::Name).into(),
             ]))
             .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
-        let paginator = query
-            .clone()
-            .into_model::<GenreListItem>()
-            .paginate(&self.db, self.config.frontend.page_size.try_into().unwrap());
+        let paginator = query.clone().into_model::<GenreListItem>().paginate(
+            &self.0.db,
+            self.0.config.frontend.page_size.try_into().unwrap(),
+        );
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -2181,7 +2182,7 @@ ORDER BY RANDOM() LIMIT 10;
         };
         let take = input
             .take
-            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+            .unwrap_or(self.0.config.frontend.page_size.try_into().unwrap());
         let paginator = MetadataGroup::find()
             .select_only()
             .column(metadata_group::Column::Id)
@@ -2209,7 +2210,7 @@ ORDER BY RANDOM() LIMIT 10;
             )
             .order_by(order_by, sort_order)
             .into_tuple::<String>()
-            .paginate(&self.db, take);
+            .paginate(&self.0.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -2257,7 +2258,7 @@ ORDER BY RANDOM() LIMIT 10;
         };
         let take = input
             .take
-            .unwrap_or(self.config.frontend.page_size.try_into().unwrap());
+            .unwrap_or(self.0.config.frontend.page_size.try_into().unwrap());
         let creators_paginator = Person::find()
             .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                 query.filter(
@@ -2290,7 +2291,7 @@ ORDER BY RANDOM() LIMIT 10;
             .group_by(person::Column::Name)
             .order_by(order_by, sort_order)
             .into_tuple::<String>()
-            .paginate(&self.db, take);
+            .paginate(&self.0.db, take);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -2314,15 +2315,15 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn person_details(&self, person_id: String) -> Result<PersonDetails> {
         let mut details = Person::find_by_id(person_id.clone())
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .unwrap();
         details.display_images =
-            metadata_images_as_urls(&details.images, &self.file_storage_service).await;
+            metadata_images_as_urls(&details.images, &self.0.file_storage_service).await;
         let associations = MetadataToPerson::find()
             .filter(metadata_to_person::Column::PersonId.eq(person_id))
             .order_by_asc(metadata_to_person::Column::Index)
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let mut contents: HashMap<_, Vec<_>> = HashMap::new();
         for assoc in associations {
@@ -2374,12 +2375,12 @@ ORDER BY RANDOM() LIMIT 10;
     pub async fn genre_details(&self, input: GenreDetailsInput) -> Result<GenreDetails> {
         let page = input.page.unwrap_or(1);
         let genre = Genre::find_by_id(input.genre_id.clone())
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .unwrap();
         let paginator = MetadataToGenre::find()
             .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
-            .paginate(&self.db, self.config.frontend.page_size as u64);
+            .paginate(&self.0.db, self.0.config.frontend.page_size as u64);
         let ItemsAndPagesNumber {
             number_of_items,
             number_of_pages,
@@ -2413,13 +2414,14 @@ ORDER BY RANDOM() LIMIT 10;
         metadata_group_id: String,
     ) -> Result<MetadataGroupDetails> {
         let mut group = MetadataGroup::find_by_id(metadata_group_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .unwrap();
         let mut images = vec![];
         for image in group.images.iter() {
             images.push(
-                self.file_storage_service
+                self.0
+                    .file_storage_service
                     .get_stored_asset(image.url.clone())
                     .await,
             );
@@ -2453,7 +2455,7 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id.clone()))
             .order_by_asc(metadata_to_metadata_group::Column::Part)
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         Ok(MetadataGroupDetails {
             details: group,
@@ -2472,24 +2474,24 @@ ORDER BY RANDOM() LIMIT 10;
         for (cte, col) in CollectionToEntity::find()
             .find_also_related(Collection)
             .filter(collection::Column::Name.eq(DefaultCollection::Reminders.to_string()))
-            .all(&self.db)
+            .all(&self.0.db)
             .await?
         {
             if let Some(reminder) = cte.information {
                 let reminder: UserMediaReminder =
                     serde_json::from_str(&serde_json::to_string(&reminder)?)?;
                 let col = col.unwrap();
-                let related_users = col.find_related(UserToEntity).all(&self.db).await?;
-                if get_current_date(self.timezone.as_ref()) == reminder.reminder {
+                let related_users = col.find_related(UserToEntity).all(&self.0.db).await?;
+                if get_current_date(self.0.timezone.as_ref()) == reminder.reminder {
                     for user in related_users {
                         queue_notifications_to_user_platforms(
                             &user.user_id,
                             &reminder.text,
-                            &self.db,
+                            &self.0.db,
                         )
                         .await?;
                         remove_entity_from_collection(
-                            &self.db,
+                            &self.0.db,
                             &user.user_id,
                             ChangeCollectionToEntityInput {
                                 creator_user_id: col.user_id.clone(),
@@ -2513,7 +2515,7 @@ ORDER BY RANDOM() LIMIT 10;
         input: CreateReviewCommentInput,
     ) -> Result<bool> {
         let review = Review::find_by_id(input.review_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .unwrap();
         let mut comments = review.comments.clone();
@@ -2536,7 +2538,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .unwrap();
             comment.liked_by.remove(&user_id);
         } else {
-            let user = user_by_id(&self.db, &user_id).await?;
+            let user = user_by_id(&self.0.db, &user_id).await?;
             comments.push(ImportOrExportItemReviewComment {
                 id: nanoid!(20),
                 text: input.text.unwrap(),
@@ -2550,22 +2552,24 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let mut review: review::ActiveModel = review.into();
         review.comments = ActiveValue::Set(comments);
-        review.update(&self.db).await?;
+        review.update(&self.0.db).await?;
         Ok(true)
     }
 
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
-        let date_to_calculate_from = get_current_date(self.timezone.as_ref()).pred_opt().unwrap();
+        let date_to_calculate_from = get_current_date(self.0.timezone.as_ref())
+            .pred_opt()
+            .unwrap();
 
         let mut meta_stream = Metadata::find()
             .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
             .filter(metadata::Column::IsPartial.eq(false))
-            .stream(&self.db)
+            .stream(&self.0.db)
             .await?;
 
         while let Some(meta) = meta_stream.try_next().await? {
             ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
-            let calendar_events = meta.find_related(CalendarEvent).all(&self.db).await?;
+            let calendar_events = meta.find_related(CalendarEvent).all(&self.0.db).await?;
             for cal_event in calendar_events {
                 let mut need_to_delete = true;
                 if let Some(show) = cal_event.metadata_show_extra_information {
@@ -2612,7 +2616,7 @@ ORDER BY RANDOM() LIMIT 10;
                         cal_event.id
                     );
                     CalendarEvent::delete_by_id(cal_event.id)
-                        .exec(&self.db)
+                        .exec(&self.0.db)
                         .await?;
                 }
             }
@@ -2628,7 +2632,7 @@ ORDER BY RANDOM() LIMIT 10;
                     .or(metadata::Column::IsPartial.eq(false)),
             )
             .order_by_desc(metadata::Column::LastUpdatedOn)
-            .stream(&self.db)
+            .stream(&self.0.db)
             .await?;
         let mut calendar_events_inserts = vec![];
         let mut metadata_updates = vec![];
@@ -2688,18 +2692,18 @@ ORDER BY RANDOM() LIMIT 10;
         }
         for cal_insert in calendar_events_inserts {
             ryot_log!(debug, "Inserting calendar event: {:?}", cal_insert);
-            cal_insert.insert(&self.db).await.ok();
+            cal_insert.insert(&self.0.db).await.ok();
         }
         ryot_log!(debug, "Finished updating calendar events");
         Ok(())
     }
 
     async fn queue_notifications_for_released_media(&self) -> Result<()> {
-        let today = get_current_date(self.timezone.as_ref());
+        let today = get_current_date(self.0.timezone.as_ref());
         let calendar_events = CalendarEvent::find()
             .filter(calendar_event::Column::Date.eq(today))
             .find_also_related(Metadata)
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let notifications = calendar_events
             .into_iter()
@@ -2731,13 +2735,13 @@ ORDER BY RANDOM() LIMIT 10;
             .collect_vec();
         for (metadata_id, notification) in notifications.into_iter() {
             let users_to_notify =
-                get_entities_monitored_by(&metadata_id, EntityLot::Metadata, &self.db).await?;
+                get_entities_monitored_by(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
             for user in users_to_notify {
                 queue_media_state_changed_notification_for_user(
                     &user,
                     &notification,
-                    &self.db,
-                    &self.config,
+                    &self.0.db,
+                    &self.0.config,
                 )
                 .await?;
             }
@@ -2748,7 +2752,7 @@ ORDER BY RANDOM() LIMIT 10;
     async fn update_person(&self, person_id: String) -> Result<Vec<(String, MediaStateChanged)>> {
         let mut notifications = vec![];
         let person = Person::find_by_id(person_id.clone())
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .unwrap();
         let provider = self.get_non_metadata_provider(person.source).await?;
@@ -2777,12 +2781,12 @@ ORDER BY RANDOM() LIMIT 10;
         to_update_person.name = ActiveValue::Set(provider_person.name);
         for (role, media) in provider_person.related.clone() {
             let title = media.title.clone();
-            let pm = create_partial_metadata(media, &self.db).await?;
+            let pm = create_partial_metadata(media, &self.0.db).await?;
             let already_intermediate = MetadataToPerson::find()
                 .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
                 .filter(metadata_to_person::Column::PersonId.eq(&person_id))
                 .filter(metadata_to_person::Column::Role.eq(&role))
-                .one(&self.db)
+                .one(&self.0.db)
                 .await?;
             if already_intermediate.is_none() {
                 let intermediate = metadata_to_person::ActiveModel {
@@ -2791,7 +2795,7 @@ ORDER BY RANDOM() LIMIT 10;
                     role: ActiveValue::Set(role.clone()),
                     ..Default::default()
                 };
-                intermediate.insert(&self.db).await.unwrap();
+                intermediate.insert(&self.0.db).await.unwrap();
             }
             let search_for = MediaAssociatedPersonStateChanges {
                 media: CommitMediaInput {
@@ -2814,7 +2818,7 @@ ORDER BY RANDOM() LIMIT 10;
             }
         }
         to_update_person.state_changes = ActiveValue::Set(Some(default_state_changes));
-        to_update_person.update(&self.db).await.unwrap();
+        to_update_person.update(&self.0.db).await.unwrap();
         Ok(notifications)
     }
 
@@ -2826,10 +2830,10 @@ ORDER BY RANDOM() LIMIT 10;
         update_metadata_and_notify_users(
             metadata_id,
             force_update,
-            &self.db,
-            &self.config,
-            &self.timezone,
-            &self.perform_application_job,
+            &self.0.db,
+            &self.0.config,
+            &self.0.timezone,
+            &self.0.perform_application_job,
         )
         .await
     }
@@ -2841,14 +2845,14 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap_or_default();
         if !notifications.is_empty() {
             let users_to_notify =
-                get_entities_monitored_by(&person_id, EntityLot::Person, &self.db).await?;
+                get_entities_monitored_by(&person_id, EntityLot::Person, &self.0.db).await?;
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
                     queue_media_state_changed_notification_for_user(
                         user_id,
                         &notification,
-                        &self.db,
-                        &self.config,
+                        &self.0.db,
+                        &self.0.config,
                     )
                     .await
                     .trace_ok();
@@ -2860,7 +2864,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn update_metadata_group(&self, metadata_group_id: &str) -> Result<()> {
         let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
-            .one(&self.db)
+            .one(&self.0.db)
             .await?
             .unwrap();
         self.commit_metadata_group(CommitMediaInput {
@@ -2875,7 +2879,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
-            get_entities_monitored_by(&event.obj_id, event.entity_lot, &self.db).await?;
+            get_entities_monitored_by(&event.obj_id, event.entity_lot, &self.0.db).await?;
         let users = User::find()
             .select_only()
             .column(user::Column::Id)
@@ -2885,7 +2889,7 @@ ORDER BY RANDOM() LIMIT 10;
                 MediaStateChanged::ReviewPosted
             )))
             .into_tuple::<String>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for user_id in users {
             let url = self.get_entity_details_frontend_url(
@@ -2899,7 +2903,7 @@ ORDER BY RANDOM() LIMIT 10;
                     "New review posted for {} ({}, {}) by {}.",
                     event.obj_title, event.entity_lot, url, event.username
                 ),
-                &self.db,
+                &self.0.db,
             )
             .await?;
         }
@@ -2921,7 +2925,7 @@ ORDER BY RANDOM() LIMIT 10;
             EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
             EntityLot::WorkoutTemplate => format!("fitness/templates/{}", id),
         };
-        url = format!("{}/{}", self.config.frontend.url, url);
+        url = format!("{}/{}", self.0.config.frontend.url, url);
         if let Some(tab) = default_tab {
             url += format!("?defaultTab={}", tab).as_str()
         }
@@ -2931,14 +2935,14 @@ ORDER BY RANDOM() LIMIT 10;
     async fn invalidate_import_jobs(&self) -> Result<()> {
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::WasSuccess.is_null())
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         for job in all_jobs {
             if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
                 ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
                 let mut job: import_report::ActiveModel = job.into();
                 job.was_success = ActiveValue::Set(Some(false));
-                job.save(&self.db).await?;
+                job.save(&self.0.db).await?;
             }
         }
         Ok(())
@@ -2961,18 +2965,18 @@ ORDER BY RANDOM() LIMIT 10;
             .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
             .order_by_asc(collection_to_entity::Column::Id)
             .into_model::<CustomQueryResponse>()
-            .all(&self.db)
+            .all(&self.0.db)
             .await?;
         let mut to_delete = vec![];
         for cte in all_cte {
             let delta = cte.last_updated_on.unwrap_or_else(Utc::now) - cte.created_on;
-            if delta.num_days().abs() > self.config.media.monitoring_remove_after_days {
+            if delta.num_days().abs() > self.0.config.media.monitoring_remove_after_days {
                 to_delete.push(cte.id);
             }
         }
         CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::Id.is_in(to_delete))
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         Ok(())
     }
@@ -2984,11 +2988,11 @@ ORDER BY RANDOM() LIMIT 10;
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::MetadataId.is_null())
             .into_tuple::<String>()
-            .stream(&self.db)
+            .stream(&self.0.db)
             .await?;
         while let Some(meta) = metadata_stream.try_next().await? {
             ryot_log!(debug, "Removing metadata id = {:#?}", meta);
-            Metadata::delete_by_id(meta).exec(&self.db).await?;
+            Metadata::delete_by_id(meta).exec(&self.0.db).await?;
         }
         let mut people_stream = Person::find()
             .select_only()
@@ -2996,11 +3000,11 @@ ORDER BY RANDOM() LIMIT 10;
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::PersonId.is_null())
             .into_tuple::<String>()
-            .stream(&self.db)
+            .stream(&self.0.db)
             .await?;
         while let Some(person) = people_stream.try_next().await? {
             ryot_log!(debug, "Removing person id = {:#?}", person);
-            Person::delete_by_id(person).exec(&self.db).await?;
+            Person::delete_by_id(person).exec(&self.0.db).await?;
         }
         let mut metadata_group_stream = MetadataGroup::find()
             .select_only()
@@ -3008,12 +3012,12 @@ ORDER BY RANDOM() LIMIT 10;
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::MetadataGroupId.is_null())
             .into_tuple::<String>()
-            .stream(&self.db)
+            .stream(&self.0.db)
             .await?;
         while let Some(meta_group) = metadata_group_stream.try_next().await? {
             ryot_log!(debug, "Removing metadata group id = {:#?}", meta_group);
             MetadataGroup::delete_by_id(meta_group)
-                .exec(&self.db)
+                .exec(&self.0.db)
                 .await?;
         }
         let mut genre_stream = Genre::find()
@@ -3022,23 +3026,23 @@ ORDER BY RANDOM() LIMIT 10;
             .left_join(MetadataToGenre)
             .filter(metadata_to_genre::Column::MetadataId.is_null())
             .into_tuple::<String>()
-            .stream(&self.db)
+            .stream(&self.0.db)
             .await?;
         while let Some(genre) = genre_stream.try_next().await? {
             ryot_log!(debug, "Removing genre id = {:#?}", genre);
-            Genre::delete_by_id(genre).exec(&self.db).await?;
+            Genre::delete_by_id(genre).exec(&self.0.db).await?;
         }
         ryot_log!(debug, "Deleting all queued notifications");
-        QueuedNotification::delete_many().exec(&self.db).await?;
+        QueuedNotification::delete_many().exec(&self.0.db).await?;
         ryot_log!(debug, "Deleting revoked access tokens");
         AccessLink::delete_many()
             .filter(access_link::Column::IsRevoked.eq(true))
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         ryot_log!(debug, "Deleting expired application caches");
         ApplicationCache::delete_many()
             .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
-            .exec(&self.db)
+            .exec(&self.0.db)
             .await?;
         Ok(())
     }
@@ -3079,7 +3083,7 @@ ORDER BY RANDOM() LIMIT 10;
             Metadata::update_many(),
             metadata::Column::Id,
             metadata::Column::IsPartial,
-            &self.db,
+            &self.0.db,
         )
         .await?;
         update_partial_states(
@@ -3087,7 +3091,7 @@ ORDER BY RANDOM() LIMIT 10;
             MetadataGroup::update_many(),
             metadata_group::Column::Id,
             metadata_group::Column::IsPartial,
-            &self.db,
+            &self.0.db,
         )
         .await?;
         update_partial_states(
@@ -3095,19 +3099,19 @@ ORDER BY RANDOM() LIMIT 10;
             Person::update_many(),
             person::Column::Id,
             person::Column::IsPartial,
-            &self.db,
+            &self.0.db,
         )
         .await?;
         Ok(())
     }
 
     pub async fn send_pending_notifications(&self) -> Result<()> {
-        let users = User::find().all(&self.db).await?;
+        let users = User::find().all(&self.0.db).await?;
         for user_details in users {
             ryot_log!(debug, "Sending notification to user: {:?}", user_details.id);
             let notifications = QueuedNotification::find()
                 .filter(queued_notification::Column::UserId.eq(&user_details.id))
-                .all(&self.db)
+                .all(&self.0.db)
                 .await?;
             if notifications.is_empty() {
                 continue;
@@ -3119,7 +3123,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .join("\n");
             let platforms = NotificationPlatform::find()
                 .filter(notification_platform::Column::UserId.eq(&user_details.id))
-                .all(&self.db)
+                .all(&self.0.db)
                 .await?;
             for notification in platforms {
                 if notification.is_disabled.unwrap_or_default() {
@@ -3132,7 +3136,7 @@ ORDER BY RANDOM() LIMIT 10;
                     continue;
                 }
                 if let Err(err) =
-                    send_notification(notification.platform_specifics, &self.config, &msg).await
+                    send_notification(notification.platform_specifics, &self.0.config, &msg).await
                 {
                     ryot_log!(trace, "Error sending notification: {:?}", err);
                 }
