@@ -11,7 +11,16 @@ use serde::{Deserialize, Serialize};
 
 /// A workout that was completed by the user.
 #[derive(
-    Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Schematic,
+    Clone,
+    Debug,
+    PartialEq,
+    DeriveEntityModel,
+    Eq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    Schematic,
+    Default,
 )]
 #[sea_orm(table_name = "workout")]
 #[graphql(name = "Workout")]

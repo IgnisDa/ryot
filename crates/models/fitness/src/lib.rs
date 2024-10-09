@@ -458,6 +458,7 @@ pub enum UserUnitSystem {
     PartialEq,
     SimpleObject,
     Schematic,
+    Default,
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutInformation {
@@ -494,6 +495,7 @@ pub struct WorkoutSummaryExercise {
     FromJsonQueryResult,
     Eq,
     PartialEq,
+    Default,
     SimpleObject,
     Schematic,
 )]

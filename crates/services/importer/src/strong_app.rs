@@ -3,9 +3,10 @@ use std::fs;
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
 use csv::ReaderBuilder;
+use database_models::workout;
 use dependent_models::{ImportOrExportWorkoutItem, ImportResult};
 use fitness_models::{
-    SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
+    SetLot, UserExerciseInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutSetStatistic,
 };
 use itertools::Itertools;
 use media_models::DeployStrongAppImportInput;
@@ -95,12 +96,12 @@ pub async fn import(
         }
         if next_entry.set_order <= entry.set_order {
             exercises.push(UserExerciseInput {
-                exercise_id: target_exercise.target_name.clone(),
                 sets,
                 notes,
                 assets: None,
                 rest_time: None,
                 superset_with: vec![],
+                exercise_id: target_exercise.target_name.clone(),
             });
             sets = vec![];
             notes = vec![];
@@ -121,19 +122,18 @@ pub async fn import(
             } else {
                 Duration::try_seconds(0).unwrap()
             };
-            workouts.push(UserWorkoutInput {
-                create_workout_id: None,
+            workouts.push(workout::Model {
+                start_time: ndt,
                 template_id: None,
                 repeated_from: None,
-                default_rest_timer: None,
                 name: entry.workout_name,
-                comment: entry.workout_notes,
-                start_time: ndt,
                 end_time: ndt + workout_duration,
-                exercises,
-                assets: None,
-                update_workout_id: None,
-                update_workout_template_id: None,
+                information: WorkoutInformation {
+                    exercises,
+                    assets: None,
+                    comment: entry.workout_notes,
+                },
+                ..Default::default()
             });
             exercises = vec![];
         }
