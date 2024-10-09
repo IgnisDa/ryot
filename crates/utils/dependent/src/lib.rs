@@ -1865,7 +1865,7 @@ pub async fn process_import(
                 identifier,
                 lot: item.lot,
                 source: item.source,
-                force_update: Some(true),
+                force_update: None,
             },
             ss,
         )
