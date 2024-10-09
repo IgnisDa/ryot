@@ -1,5 +1,4 @@
 use anyhow::{bail, Context, Result};
-use async_graphql::async_trait::async_trait;
 use common_utils::ryot_log;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
@@ -10,7 +9,7 @@ use rust_decimal_macros::dec;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::ShowIdentifier;
+use crate::utils::get_show_by_episode_identifier;
 
 mod models {
     use super::*;
@@ -94,9 +93,8 @@ impl PlexIntegration {
             "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
             "episode" => {
                 let series_name = metadata.show_name.as_ref().context("Show name missing")?;
-                let db_show = self
-                    .get_show_by_episode_identifier(series_name, identifier)
-                    .await?;
+                let db_show =
+                    get_show_by_episode_identifier(&self.db, series_name, identifier).await?;
                 Ok((db_show.identifier, MediaLot::Show))
             }
             _ => bail!("Only movies and shows supported"),
@@ -154,12 +152,5 @@ impl PlexIntegration {
 
     pub async fn yank_progress(&self) -> Result<ImportResult> {
         self.plex_progress().await
-    }
-}
-
-#[async_trait]
-impl ShowIdentifier for PlexIntegration {
-    fn get_db(&self) -> &DatabaseConnection {
-        &self.db
     }
 }

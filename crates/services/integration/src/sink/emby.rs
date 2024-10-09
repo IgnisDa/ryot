@@ -4,11 +4,10 @@ use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::prelude::async_trait::async_trait;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::ShowIdentifier;
+use crate::utils::get_show_by_episode_identifier;
 
 mod models {
     use super::*;
@@ -86,9 +85,8 @@ impl EmbyIntegration {
                     let episode_name = payload.item.episode_name.as_ref().ok_or_else(|| {
                         anyhow::anyhow!("No episode name associated with this media")
                     })?;
-                    let db_show = self
-                        .get_show_by_episode_identifier(series_name, episode_name)
-                        .await?;
+                    let db_show =
+                        get_show_by_episode_identifier(&self.db, series_name, episode_name).await?;
                     (db_show.identifier, MediaLot::Show)
                 }
                 _ => bail!("Only movies and shows supported"),
@@ -114,12 +112,5 @@ impl EmbyIntegration {
 
     pub async fn yank_progress(&self) -> Result<ImportResult> {
         self.emby_progress().await
-    }
-}
-
-#[async_trait]
-impl ShowIdentifier for EmbyIntegration {
-    fn get_db(&self) -> &DatabaseConnection {
-        &self.db
     }
 }
