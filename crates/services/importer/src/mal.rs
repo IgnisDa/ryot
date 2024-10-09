@@ -35,7 +35,7 @@ pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
         media.push(convert_to_format(item, MediaLot::Manga));
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         ..Default::default()
     })
 }

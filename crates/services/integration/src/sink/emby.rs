@@ -95,7 +95,7 @@ impl EmbyIntegration {
             };
 
         Ok(ImportResult {
-            media: vec![ImportOrExportMediaItem {
+            metadata: vec![ImportOrExportMediaItem {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,

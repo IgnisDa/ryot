@@ -1871,7 +1871,7 @@ pub async fn process_import(
 ) -> Result<ImportResultResponse> {
     let mut import = import;
     let preferences = user_by_id(&ss.db, user_id).await?.preferences;
-    for m in import.media.iter_mut() {
+    for m in import.metadata.iter_mut() {
         m.seen_history.sort_by(|a, b| {
             a.ended_on
                 .unwrap_or_default()
@@ -1880,8 +1880,8 @@ pub async fn process_import(
     }
 
     let total = import.collections.len()
-        + import.media.len()
-        + import.media_groups.len()
+        + import.metadata.len()
+        + import.metadata_groups.len()
         + import.people.len()
         + import.workouts.len()
         + import.measurements.len();
@@ -1891,7 +1891,7 @@ pub async fn process_import(
         ryot_log!(debug, "Collection {} created", idx);
     }
 
-    for (idx, item) in import.media.into_iter().enumerate() {
+    for (idx, item) in import.metadata.into_iter().enumerate() {
         ryot_log!(
             debug,
             "Importing media with identifier = {iden}",
@@ -1992,7 +1992,7 @@ pub async fn process_import(
             rev = rev_length,
         );
     }
-    for (idx, item) in import.media_groups.into_iter().enumerate() {
+    for (idx, item) in import.metadata_groups.into_iter().enumerate() {
         ryot_log!(
             debug,
             "Importing media group with identifier = {iden}",

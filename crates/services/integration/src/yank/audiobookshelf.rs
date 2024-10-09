@@ -161,7 +161,7 @@ impl AudiobookshelfIntegration {
                     } else {
                         resp.progress
                     };
-                    result.media.push(ImportOrExportMediaItem {
+                    result.metadata.push(ImportOrExportMediaItem {
                         lot,
                         source,
                         identifier,
@@ -216,7 +216,7 @@ impl AudiobookshelfIntegration {
                         } else {
                             continue;
                         };
-                    result.media.push(ImportOrExportMediaItem {
+                    result.metadata.push(ImportOrExportMediaItem {
                         identifier,
                         lot,
                         source,

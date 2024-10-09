@@ -209,7 +209,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
     }
 
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

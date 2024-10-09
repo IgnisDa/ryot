@@ -40,7 +40,7 @@ impl IntegrationService {
         updates: ImportResult,
     ) -> GqlResult<()> {
         let mut updates = updates;
-        updates.media.iter_mut().for_each(|media| {
+        updates.metadata.iter_mut().for_each(|media| {
             media.seen_history.retain(|update| match update.progress {
                 Some(progress) if progress < integration.minimum_progress.unwrap() => {
                     ryot_log!(

@@ -232,7 +232,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     }
     Ok(ImportResult {
         collections,
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

@@ -29,7 +29,7 @@ impl KodiIntegration {
         };
 
         Ok(ImportResult {
-            media: vec![ImportOrExportMediaItem {
+            metadata: vec![ImportOrExportMediaItem {
                 lot: payload.lot,
                 source: MediaSource::Tmdb,
                 identifier: payload.identifier,

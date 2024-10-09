@@ -135,7 +135,7 @@ impl PlexIntegration {
         let progress = Self::calculate_progress(&payload)?;
 
         Ok(ImportResult {
-            media: vec![ImportOrExportMediaItem {
+            metadata: vec![ImportOrExportMediaItem {
                 lot,
                 identifier,
                 source: MediaSource::Tmdb,

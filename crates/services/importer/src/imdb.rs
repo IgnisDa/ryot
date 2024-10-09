@@ -86,11 +86,11 @@ pub async fn import(
             source,
             source_id: record.id,
             collections: vec![DefaultCollection::Watchlist.to_string()],
-          ..Default::default()
+            ..Default::default()
         });
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

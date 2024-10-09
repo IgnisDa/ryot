@@ -172,7 +172,7 @@ where
         }
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

@@ -207,10 +207,10 @@ pub struct UserMetadataDetails {
 pub struct ImportResult {
     pub workouts: Vec<UserWorkoutInput>,
     pub failed_items: Vec<ImportFailedItem>,
-    pub media: Vec<ImportOrExportMediaItem>,
+    pub metadata: Vec<ImportOrExportMediaItem>,
     pub people: Vec<ImportOrExportPersonItem>,
     pub measurements: Vec<user_measurement::Model>,
-    pub media_groups: Vec<ImportOrExportMediaGroupItem>,
+    pub metadata_groups: Vec<ImportOrExportMediaGroupItem>,
     pub collections: Vec<CreateOrUpdateCollectionInput>,
     pub application_workouts: Vec<ImportOrExportWorkoutItem>,
 }

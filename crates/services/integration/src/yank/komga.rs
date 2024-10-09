@@ -422,7 +422,7 @@ impl KomgaIntegration {
             })
             .collect()
             .await;
-        result.media.extend(unique_collection_updates.into_values());
+        result.metadata.extend(unique_collection_updates.into_values());
         Ok(())
     }
 
@@ -497,7 +497,7 @@ impl KomgaIntegration {
         let media_items = unique_media_items.into_values().collect_vec();
         ryot_log!(debug, "Media Items: {:?}", media_items);
         media_items.into_iter().for_each(|(commit, hist)| {
-            result.media.push(ImportOrExportMediaItem {
+            result.metadata.push(ImportOrExportMediaItem {
                 lot: commit.lot,
                 source: commit.source,
                 identifier: commit.identifier,

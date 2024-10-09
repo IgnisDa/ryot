@@ -144,7 +144,7 @@ pub async fn import(
         }
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

@@ -156,7 +156,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         }
     }
     Ok(ImportResult {
-        media,
+        metadata: media,
         failed_items,
         ..Default::default()
     })

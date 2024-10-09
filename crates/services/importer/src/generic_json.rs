@@ -23,9 +23,9 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         .collect_vec();
 
     Ok(ImportResult {
-        media,
+        metadata: media,
         people: complete_data.people.unwrap_or_default(),
-        media_groups: complete_data.media_groups.unwrap_or_default(),
+        metadata_groups: complete_data.media_groups.unwrap_or_default(),
         measurements: complete_data.measurements.unwrap_or_default(),
         application_workouts: complete_data.workouts.unwrap_or_default(),
         ..Default::default()
