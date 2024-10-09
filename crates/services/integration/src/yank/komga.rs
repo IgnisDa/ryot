@@ -188,7 +188,7 @@ pub(crate) struct KomgaIntegration {
     base_url: String,
     username: String,
     password: String,
-    provider: MediaSource,
+    source: MediaSource,
     db: DatabaseConnection,
     sync_to_owned_collection: Option<bool>,
 }
@@ -200,16 +200,16 @@ impl KomgaIntegration {
         base_url: String,
         username: String,
         password: String,
-        provider: MediaSource,
+        source: MediaSource,
         db: DatabaseConnection,
         sync_to_owned_collection: Option<bool>,
     ) -> Self {
         Self {
+            db,
+            source,
             base_url,
             username,
             password,
-            provider,
-            db,
             sync_to_owned_collection,
         }
     }
@@ -322,7 +322,7 @@ impl KomgaIntegration {
         if !providers.is_empty() {
             Ok(providers
                 .iter()
-                .find(|x| x.0 == self.provider)
+                .find(|x| x.0 == self.source)
                 .cloned()
                 .or_else(|| providers.first().cloned())
                 .unwrap_or_default())

@@ -1,23 +1,18 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
-use anyhow::{bail, Result};
 use async_graphql::{Error, Result as GqlResult};
 use chrono::Utc;
 use common_utils::ryot_log;
+use database_models::prelude::{CollectionToEntity, Metadata};
 use database_models::{integration, prelude::Integration};
-use database_models::{
-    metadata,
-    prelude::{CollectionToEntity, Metadata},
-};
 use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import};
-use enums::MediaSource;
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
-use media_models::CommitMediaInput;
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sink::generic_json::GenericJsonIntegration;
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
@@ -39,124 +34,9 @@ use crate::{
     yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
 };
 
-pub enum IntegrationType {
-    Komga(String, String, String, MediaSource, Option<bool>),
-    Jellyfin(String),
-    Emby(String),
-    Plex(String, Option<String>),
-    Audiobookshelf(String, String, Option<bool>, GoogleBooksService),
-    Kodi(String),
-    Sonarr(String, String, i32, String, String),
-    Radarr(String, String, i32, String, String),
-}
-
 pub struct IntegrationService(pub Arc<SupportingService>);
 
 impl IntegrationService {
-    async fn push(&self, integration_type: IntegrationType) -> Result<()> {
-        match integration_type {
-            IntegrationType::Sonarr(
-                sonarr_base_url,
-                sonarr_api_key,
-                sonarr_profile_id,
-                sonarr_root_folder_path,
-                tvdb_id,
-            ) => {
-                let sonarr = SonarrIntegration::new(
-                    sonarr_base_url,
-                    sonarr_api_key,
-                    sonarr_profile_id,
-                    sonarr_root_folder_path,
-                    tvdb_id,
-                );
-                sonarr.push_progress().await
-            }
-            IntegrationType::Radarr(
-                radarr_base_url,
-                radarr_api_key,
-                radarr_profile_id,
-                radarr_root_folder_path,
-                tmdb_id,
-            ) => {
-                let radarr = RadarrIntegration::new(
-                    radarr_base_url,
-                    radarr_api_key,
-                    radarr_profile_id,
-                    radarr_root_folder_path,
-                    tmdb_id,
-                );
-                radarr.push_progress().await
-            }
-            _ => bail!("Unsupported integration type"),
-        }
-    }
-
-    async fn process_progress(&self, integration_type: IntegrationType) -> Result<ImportResult> {
-        match integration_type {
-            IntegrationType::Jellyfin(payload) => {
-                let jellyfin = JellyfinIntegration::new(payload);
-                jellyfin.yank_progress().await
-            }
-            IntegrationType::Emby(payload) => {
-                let emby = EmbyIntegration::new(payload, self.0.db.clone());
-                emby.yank_progress().await
-            }
-            IntegrationType::Plex(payload, plex_user) => {
-                let plex = PlexIntegration::new(payload, plex_user, self.0.db.clone());
-                plex.yank_progress().await
-            }
-            IntegrationType::Kodi(payload) => {
-                let kodi = KodiIntegration::new(payload);
-                kodi.yank_progress().await
-            }
-            _ => bail!("Unsupported integration type"),
-        }
-    }
-
-    async fn process_progress_commit<F>(
-        &self,
-        integration_type: IntegrationType,
-        commit_metadata: impl Fn(CommitMediaInput) -> F,
-    ) -> Result<ImportResult>
-    where
-        F: Future<Output = GqlResult<metadata::Model>>,
-    {
-        match integration_type {
-            IntegrationType::Audiobookshelf(
-                base_url,
-                access_token,
-                sync_to_owned_collection,
-                isbn_service,
-            ) => {
-                let audiobookshelf = AudiobookshelfIntegration::new(
-                    base_url,
-                    access_token,
-                    sync_to_owned_collection,
-                    isbn_service,
-                );
-                audiobookshelf.yank_progress(commit_metadata).await
-            }
-            IntegrationType::Komga(
-                base_url,
-                username,
-                password,
-                provider,
-                sync_to_owned_collection,
-            ) => {
-                let komga = KomgaIntegration::new(
-                    base_url,
-                    username,
-                    password,
-                    provider,
-                    self.0.db.clone(),
-                    sync_to_owned_collection,
-                );
-                komga.yank_progress().await
-            }
-            _ => bail!("Unsupported integration type"),
-        }
-    }
-
     async fn integration_progress_update(
         &self,
         integration: integration::Model,
@@ -213,24 +93,26 @@ impl IntegrationService {
         }
         let maybe_progress_update = match integration.provider {
             IntegrationProvider::Kodi => {
-                self.process_progress(IntegrationType::Kodi(payload.clone()))
-                    .await
+                let kodi = KodiIntegration::new(payload);
+                kodi.yank_progress().await
             }
             IntegrationProvider::Emby => {
-                self.process_progress(IntegrationType::Emby(payload.clone()))
-                    .await
+                let emby = EmbyIntegration::new(payload, self.0.db.clone());
+                emby.yank_progress().await
             }
             IntegrationProvider::Jellyfin => {
-                self.process_progress(IntegrationType::Jellyfin(payload.clone()))
-                    .await
+                let jellyfin = JellyfinIntegration::new(payload);
+                jellyfin.yank_progress().await
             }
             IntegrationProvider::Plex => {
                 let specifics = integration.clone().provider_specifics.unwrap();
-                self.process_progress(IntegrationType::Plex(
-                    payload.clone(),
-                    specifics.plex_username,
-                ))
-                .await
+                let plex =
+                    PlexIntegration::new(payload, specifics.plex_username, self.0.db.clone());
+                plex.yank_progress().await
+            }
+            IntegrationProvider::GenericJson => {
+                let generic_json = GenericJsonIntegration::new(payload);
+                generic_json.yank_progress().await
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
@@ -288,24 +170,24 @@ impl IntegrationService {
             if let Some(entity_id) = maybe_entity_id {
                 let _push_result = match integration.provider {
                     IntegrationProvider::Radarr => {
-                        self.push(IntegrationType::Radarr(
+                        let sonarr = SonarrIntegration::new(
                             specifics.radarr_base_url.unwrap(),
                             specifics.radarr_api_key.unwrap(),
                             specifics.radarr_profile_id.unwrap(),
                             specifics.radarr_root_folder_path.unwrap(),
                             entity_id,
-                        ))
-                        .await
+                        );
+                        sonarr.push_progress().await
                     }
                     IntegrationProvider::Sonarr => {
-                        self.push(IntegrationType::Sonarr(
+                        let radarr = RadarrIntegration::new(
                             specifics.sonarr_base_url.unwrap(),
                             specifics.sonarr_api_key.unwrap(),
                             specifics.sonarr_profile_id.unwrap(),
                             specifics.sonarr_root_folder_path.unwrap(),
                             entity_id,
-                        ))
-                        .await
+                        );
+                        radarr.push_progress().await
                     }
                     _ => unreachable!(),
                 };
@@ -334,30 +216,30 @@ impl IntegrationService {
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
-                    self.process_progress_commit(
-                        IntegrationType::Audiobookshelf(
-                            specifics.audiobookshelf_base_url.unwrap(),
-                            specifics.audiobookshelf_token.unwrap(),
-                            integration.sync_to_owned_collection,
-                            GoogleBooksService::new(
-                                &self.0.config.books.google_books,
-                                self.0.config.frontend.page_size,
-                            )
-                            .await,
-                        ),
-                        |input| commit_metadata(input, &self.0),
-                    )
-                    .await
+                    let audiobookshelf = AudiobookshelfIntegration::new(
+                        specifics.audiobookshelf_base_url.unwrap(),
+                        specifics.audiobookshelf_token.unwrap(),
+                        integration.sync_to_owned_collection,
+                        GoogleBooksService::new(
+                            &self.0.config.books.google_books,
+                            self.0.config.frontend.page_size,
+                        )
+                        .await,
+                    );
+                    audiobookshelf
+                        .yank_progress(|input| commit_metadata(input, &self.0))
+                        .await
                 }
                 IntegrationProvider::Komga => {
-                    self.process_progress(IntegrationType::Komga(
+                    let komga = KomgaIntegration::new(
                         specifics.komga_base_url.unwrap(),
                         specifics.komga_username.unwrap(),
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
+                        self.0.db.clone(),
                         integration.sync_to_owned_collection,
-                    ))
-                    .await
+                    );
+                    komga.yank_progress().await
                 }
                 _ => continue,
             };
