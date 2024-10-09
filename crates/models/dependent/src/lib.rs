@@ -5,7 +5,7 @@ use database_models::{
     user_to_entity, workout, workout_template,
 };
 use enums::UserToMediaReason;
-use fitness_models::{UserToExerciseHistoryExtraInformation, UserWorkoutInput};
+use fitness_models::UserToExerciseHistoryExtraInformation;
 use importer_models::ImportFailedItem;
 use media_models::{
     CreateOrUpdateCollectionInput, DailyUserActivitiesResponseGroupedBy, DailyUserActivityItem,
@@ -74,7 +74,7 @@ pub struct CompleteExport {
     /// Data about user's workouts.
     pub workouts: Option<Vec<ImportOrExportWorkoutItem>>,
     /// Data about user's media groups.
-    pub media_group: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
+    pub media_groups: Option<Vec<media_models::ImportOrExportMediaGroupItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
     /// Data about user's workout templates.
@@ -205,13 +205,13 @@ pub struct UserMetadataDetails {
 
 #[derive(Debug, Default)]
 pub struct ImportResult {
-    pub collections: Vec<CreateOrUpdateCollectionInput>,
-    pub media: Vec<ImportOrExportMediaItem>,
-    pub media_groups: Vec<ImportOrExportMediaGroupItem>,
-    pub people: Vec<ImportOrExportPersonItem>,
-    pub measurements: Vec<user_measurement::Model>,
-    pub workouts: Vec<UserWorkoutInput>,
     pub failed_items: Vec<ImportFailedItem>,
+    pub media: Vec<ImportOrExportMediaItem>,
+    pub people: Vec<ImportOrExportPersonItem>,
+    pub workouts: Vec<ImportOrExportWorkoutItem>,
+    pub measurements: Vec<user_measurement::Model>,
+    pub media_groups: Vec<ImportOrExportMediaGroupItem>,
+    pub collections: Vec<CreateOrUpdateCollectionInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

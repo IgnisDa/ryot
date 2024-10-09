@@ -2100,13 +2100,42 @@ pub async fn process_import(
         );
     }
     for workout in import.workouts.clone() {
-        if let Err(err) = create_or_update_workout(workout, user_id, ss).await {
-            import.failed_items.push(ImportFailedItem {
-                lot: None,
-                step: ImportFailStep::InputTransformation,
-                identifier: "Exercise".to_string(),
-                error: Some(err.to_string()),
-            });
+        let workout_input = db_workout_to_workout_input(workout.details);
+        match create_or_update_workout(workout_input, user_id, ss).await {
+            Err(err) => {
+                import.failed_items.push(ImportFailedItem {
+                    lot: None,
+                    step: ImportFailStep::InputTransformation,
+                    identifier: "Exercise".to_string(),
+                    error: Some(err.to_string()),
+                });
+            }
+            Ok(workout_id) => {
+                for col in workout.collections.into_iter() {
+                    create_or_update_collection(
+                        &ss.db,
+                        user_id,
+                        CreateOrUpdateCollectionInput {
+                            name: col.to_string(),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+                    add_entity_to_collection(
+                        user_id,
+                        ChangeCollectionToEntityInput {
+                            entity_id: workout_id.clone(),
+                            entity_lot: EntityLot::Workout,
+                            creator_user_id: user_id.clone(),
+                            collection_name: col.to_string(),
+                            ..Default::default()
+                        },
+                        ss,
+                    )
+                    .await
+                    .ok();
+                }
+            }
         }
     }
     for measurement in import.measurements.clone() {

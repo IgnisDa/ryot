@@ -3,7 +3,7 @@ use std::fs;
 use async_graphql::Result;
 use chrono::{Duration, NaiveDateTime};
 use csv::ReaderBuilder;
-use dependent_models::ImportResult;
+use dependent_models::{ImportOrExportWorkoutItem, ImportResult};
 use fitness_models::{
     SetLot, UserExerciseInput, UserWorkoutInput, UserWorkoutSetRecord, WorkoutSetStatistic,
 };
@@ -139,7 +139,13 @@ pub async fn import(
         }
     }
     Ok(ImportResult {
-        workouts,
+        workouts: workouts
+            .into_iter()
+            .map(|w| ImportOrExportWorkoutItem {
+                details: w,
+                collections: vec![],
+            })
+            .collect_vec(),
         ..Default::default()
     })
 }

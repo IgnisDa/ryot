@@ -2,7 +2,6 @@ use std::fs;
 
 use async_graphql::Result;
 use dependent_models::{CompleteExport, ImportResult};
-use dependent_utils::db_workout_to_workout_input;
 use enums::ImportSource;
 use itertools::Itertools;
 use media_models::DeployJsonImportInput;
@@ -23,18 +22,11 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         })
         .collect_vec();
 
-    let workouts = complete_data
-        .workouts
-        .unwrap_or_default()
-        .into_iter()
-        .map(|w| db_workout_to_workout_input(w.details))
-        .collect_vec();
-
     Ok(ImportResult {
         media,
-        workouts,
-        media_groups: complete_data.media_group.unwrap_or_default(),
         people: complete_data.people.unwrap_or_default(),
+        workouts: complete_data.workouts.unwrap_or_default(),
+        media_groups: complete_data.media_groups.unwrap_or_default(),
         measurements: complete_data.measurements.unwrap_or_default(),
         ..Default::default()
     })
