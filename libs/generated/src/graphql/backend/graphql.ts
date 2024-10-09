@@ -833,6 +833,7 @@ export enum IntegrationLot {
 export enum IntegrationProvider {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   Emby = 'EMBY',
+  GenericJson = 'GENERIC_JSON',
   Jellyfin = 'JELLYFIN',
   Kodi = 'KODI',
   Komga = 'KOMGA',
@@ -2479,7 +2480,9 @@ export enum UserUnitSystem {
 }
 
 export type UserUpcomingCalendarEventInput = {
+  /** The number of days to select */
   nextDays?: InputMaybe<Scalars['Int']['input']>;
+  /** The number of media to select */
   nextMedia?: InputMaybe<Scalars['Int']['input']>;
 };
 

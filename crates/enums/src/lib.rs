@@ -461,6 +461,7 @@ pub enum IntegrationProvider {
     Radarr,
     Sonarr,
     Komga,
+    GenericJson,
 }
 
 #[derive(
