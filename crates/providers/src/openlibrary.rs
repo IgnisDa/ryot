@@ -9,8 +9,9 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
+    MetadataPersonRelated, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics,
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
@@ -261,9 +262,9 @@ impl MediaProvider for OpenlibraryService {
                     .collect_vec()
                     .first()
                     .cloned();
-                related.push((
-                    "Author".to_owned(),
-                    PartialMetadataWithoutId {
+                related.push(MetadataPersonRelated {
+                    role: "Author".to_owned(),
+                    metadata: PartialMetadataWithoutId {
                         identifier: get_key(&entry.key),
                         title,
                         lot: MediaLot::Book,
@@ -271,7 +272,7 @@ impl MediaProvider for OpenlibraryService {
                         is_recommendation: None,
                         image,
                     },
-                ))
+                })
             }
         }
         ryot_log!(debug, "Found {} related works.", related.len());

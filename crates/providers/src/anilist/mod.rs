@@ -10,9 +10,9 @@ use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MediaDetails,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
-    MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    PersonSourceSpecifics,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
+    MetadataVideo, MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -281,9 +281,9 @@ impl MediaProvider for NonMediaAnilistService {
                 .into_iter()
                 .map(|r| {
                     let data = r.unwrap().node.unwrap();
-                    (
-                        STUDIO_ROLE.to_owned(),
-                        PartialMetadataWithoutId {
+                    MetadataPersonRelated {
+                        role: STUDIO_ROLE.to_owned(),
+                        metadata: PartialMetadataWithoutId {
                             title: data.title.unwrap().native.unwrap(),
                             identifier: data.id.to_string(),
                             source: MediaSource::Anilist,
@@ -295,7 +295,7 @@ impl MediaProvider for NonMediaAnilistService {
                             image: data.cover_image.unwrap().extra_large,
                             is_recommendation: None,
                         },
-                    )
+                    }
                 })
                 .collect();
             MetadataPerson {
@@ -370,9 +370,9 @@ impl MediaProvider for NonMediaAnilistService {
                         title.romaji,
                         &self.base.preferred_language,
                     );
-                    (
-                        "Voicing".to_owned(),
-                        PartialMetadataWithoutId {
+                    MetadataPersonRelated {
+                        role: "Voicing".to_owned(),
+                        metadata: PartialMetadataWithoutId {
                             title,
                             identifier: data.id.to_string(),
                             source: MediaSource::Anilist,
@@ -384,7 +384,7 @@ impl MediaProvider for NonMediaAnilistService {
                             image: data.cover_image.unwrap().extra_large,
                             is_recommendation: None,
                         },
-                    )
+                    }
                 })
                 .collect_vec();
             related.extend(
@@ -403,9 +403,9 @@ impl MediaProvider for NonMediaAnilistService {
                             title.romaji,
                             &self.base.preferred_language,
                         );
-                        (
-                            "Production".to_owned(),
-                            PartialMetadataWithoutId {
+                        MetadataPersonRelated {
+                            role: "Production".to_owned(),
+                            metadata: PartialMetadataWithoutId {
                                 title,
                                 identifier: data.id.to_string(),
                                 source: MediaSource::Anilist,
@@ -417,7 +417,7 @@ impl MediaProvider for NonMediaAnilistService {
                                 image: data.cover_image.unwrap().extra_large,
                                 is_recommendation: None,
                             },
-                        )
+                        }
                     }),
             );
             MetadataPerson {

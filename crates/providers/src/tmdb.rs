@@ -20,9 +20,10 @@ use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
     ExternalIdentifiers, MediaDetails, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
-    MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
+    MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason,
+    ShowSpecifics, WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -519,9 +520,9 @@ impl MediaProvider for NonMediaTmdbService {
                 .map_err(|e| anyhow!(e))?;
             for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
                 if let Some(job) = media.job {
-                    related.push((
-                        job,
-                        PartialMetadataWithoutId {
+                    related.push(MetadataPersonRelated {
+                        role: job,
+                        metadata: PartialMetadataWithoutId {
                             identifier: media.id.unwrap().to_string(),
                             title: media.title.or(media.name).unwrap_or_default(),
                             image: media.poster_path.map(|p| self.base.get_image_url(p)),
@@ -533,7 +534,7 @@ impl MediaProvider for NonMediaTmdbService {
                             source: MediaSource::Tmdb,
                             is_recommendation: None,
                         },
-                    ));
+                    });
                 }
             }
         } else {
@@ -551,22 +552,20 @@ impl MediaProvider for NonMediaTmdbService {
                         .json()
                         .await
                         .map_err(|e| anyhow!(e))?;
-                    related.extend(cred_det.results.into_iter().map(|m| {
-                        (
-                            "Production Company".to_owned(),
-                            PartialMetadataWithoutId {
-                                identifier: m.id.to_string(),
-                                title: m.title.unwrap_or_default(),
-                                image: m.poster_path.map(|p| self.base.get_image_url(p)),
-                                lot: match m_typ {
-                                    "movie" => MediaLot::Movie,
-                                    "tv" => MediaLot::Show,
-                                    _ => unreachable!(),
-                                },
-                                source: MediaSource::Tmdb,
-                                is_recommendation: None,
+                    related.extend(cred_det.results.into_iter().map(|m| MetadataPersonRelated {
+                        role: "Production Company".to_owned(),
+                        metadata: PartialMetadataWithoutId {
+                            identifier: m.id.to_string(),
+                            title: m.title.unwrap_or_default(),
+                            image: m.poster_path.map(|p| self.base.get_image_url(p)),
+                            lot: match m_typ {
+                                "movie" => MediaLot::Movie,
+                                "tv" => MediaLot::Show,
+                                _ => unreachable!(),
                             },
-                        )
+                            source: MediaSource::Tmdb,
+                            is_recommendation: None,
+                        },
                     }));
                     if cred_det.page == cred_det.total_pages {
                         break;

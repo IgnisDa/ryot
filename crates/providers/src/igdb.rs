@@ -12,8 +12,9 @@ use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
-    MetadataSearchItem, MetadataVideo, MetadataVideoSource, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, VideoGameSpecifics,
+    MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    VideoGameSpecifics,
 };
 use reqwest::{
     header::{HeaderName, HeaderValue, AUTHORIZATION},
@@ -369,9 +370,9 @@ where id = {id};
             .into_iter()
             .map(|r| {
                 let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
-                (
-                    "Publishing".to_owned(),
-                    PartialMetadataWithoutId {
+                MetadataPersonRelated {
+                    role: "Publishing".to_owned(),
+                    metadata: PartialMetadataWithoutId {
                         title: r.name.unwrap(),
                         identifier: r.id.to_string(),
                         source: MediaSource::Igdb,
@@ -379,14 +380,14 @@ where id = {id};
                         image,
                         is_recommendation: None,
                     },
-                )
+                }
             })
             .collect_vec();
         related.extend(detail.developed.unwrap_or_default().into_iter().map(|r| {
             let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
-            (
-                "Development".to_owned(),
-                PartialMetadataWithoutId {
+            MetadataPersonRelated {
+                role: "Development".to_owned(),
+                metadata: PartialMetadataWithoutId {
                     title: r.name.unwrap(),
                     identifier: r.id.to_string(),
                     source: MediaSource::Igdb,
@@ -394,7 +395,7 @@ where id = {id};
                     image,
                     is_recommendation: None,
                 },
-            )
+            }
         }));
         Ok(MetadataPerson {
             identifier: detail.id.to_string(),

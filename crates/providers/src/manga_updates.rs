@@ -7,8 +7,9 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
+    MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
+    MetadataPersonRelated, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
+    PeopleSearchItem, PersonSourceSpecifics,
 };
 use reqwest::Client;
 use rust_decimal::Decimal;
@@ -237,18 +238,16 @@ impl MediaProvider for MangaUpdatesService {
         let related = related_data
             .series_list
             .into_iter()
-            .map(|r| {
-                (
-                    "Author".to_owned(),
-                    PartialMetadataWithoutId {
-                        title: r.title,
-                        identifier: r.series_id.to_string(),
-                        source: MediaSource::MangaUpdates,
-                        lot: MediaLot::Manga,
-                        image: None,
-                        is_recommendation: None,
-                    },
-                )
+            .map(|r| MetadataPersonRelated {
+                role: "Author".to_owned(),
+                metadata: PartialMetadataWithoutId {
+                    title: r.title,
+                    identifier: r.series_id.to_string(),
+                    source: MediaSource::MangaUpdates,
+                    lot: MediaLot::Manga,
+                    image: None,
+                    is_recommendation: None,
+                },
             })
             .collect_vec();
         let resp = MetadataPerson {
