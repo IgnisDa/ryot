@@ -60,6 +60,8 @@ struct TmdbCredit {
     profile_path: Option<String>,
     poster_path: Option<String>,
     media_type: Option<String>,
+    #[serde(alias = "first_air_date")]
+    release_date: Option<String>,
     known_for_department: Option<String>,
 }
 
@@ -162,6 +164,20 @@ struct TmdbWatchProviderResponse {
 struct TmdbFindByExternalSourceResponse {
     movie_results: Vec<TmdbEntry>,
     tv_results: Vec<TmdbEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbNonMediaEntity {
+    id: i32,
+    name: String,
+    biography: Option<String>,
+    description: Option<String>,
+    birthday: Option<NaiveDate>,
+    deathday: Option<NaiveDate>,
+    homepage: Option<String>,
+    gender: Option<u8>,
+    origin_country: Option<String>,
+    place_of_birth: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1347,20 +1363,6 @@ async fn get_client_config(access_token: &str) -> (Client, Settings) {
         serde_json::from_str(&data).unwrap()
     };
     (client, tmdb_settings)
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbNonMediaEntity {
-    id: i32,
-    name: String,
-    biography: Option<String>,
-    description: Option<String>,
-    birthday: Option<NaiveDate>,
-    deathday: Option<NaiveDate>,
-    homepage: Option<String>,
-    gender: Option<u8>,
-    origin_country: Option<String>,
-    place_of_birth: Option<String>,
 }
 
 fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {
