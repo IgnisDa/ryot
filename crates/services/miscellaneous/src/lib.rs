@@ -2842,17 +2842,17 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn invalidate_import_jobs(&self) -> Result<()> {
+        let threshold = Utc::now() - ChronoDuration::hours(24);
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::WasSuccess.is_null())
+            .filter(import_report::Column::StartedOn.lt(threshold))
             .all(&self.0.db)
             .await?;
         for job in all_jobs {
-            if Utc::now() - job.started_on > ChronoDuration::try_hours(24).unwrap() {
-                ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
-                let mut job: import_report::ActiveModel = job.into();
-                job.was_success = ActiveValue::Set(Some(false));
-                job.save(&self.0.db).await?;
-            }
+            ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
+            let mut job: import_report::ActiveModel = job.into();
+            job.was_success = ActiveValue::Set(Some(false));
+            job.save(&self.0.db).await?;
         }
         Ok(())
     }
@@ -2883,10 +2883,15 @@ ORDER BY RANDOM() LIMIT 10;
                 to_delete.push(cte.id);
             }
         }
-        CollectionToEntity::delete_many()
+        let result = CollectionToEntity::delete_many()
             .filter(collection_to_entity::Column::Id.is_in(to_delete))
             .exec(&self.0.db)
             .await?;
+        ryot_log!(
+            debug,
+            "Deleted {} collection to entity associations",
+            result.rows_affected
+        );
         Ok(())
     }
 
@@ -2978,6 +2983,7 @@ ORDER BY RANDOM() LIMIT 10;
                 .all(db)
                 .await?;
             for chunk in ids_to_update.chunks(100) {
+                ryot_log!(debug, "Entities to update: {:?}", chunk);
                 updater
                     .clone()
                     .col_expr(entity_update_column, Expr::value(true))

@@ -1759,7 +1759,6 @@ dependencies = [
  "async-graphql",
  "background",
  "chrono",
- "chrono-tz",
  "common-models",
  "common-utils",
  "config",
