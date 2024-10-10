@@ -2697,20 +2697,20 @@ ORDER BY RANDOM() LIMIT 10;
         to_update_person.images = ActiveValue::Set(images);
         to_update_person.is_partial = ActiveValue::Set(Some(false));
         to_update_person.name = ActiveValue::Set(provider_person.name);
-        for (role, media) in provider_person.related.clone() {
-            let title = media.title.clone();
-            let pm = create_partial_metadata(media, &self.0.db).await?;
+        for data in provider_person.related.clone() {
+            let title = data.metadata.title.clone();
+            let pm = create_partial_metadata(data.metadata, &self.0.db).await?;
             let already_intermediate = MetadataToPerson::find()
                 .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
                 .filter(metadata_to_person::Column::PersonId.eq(&person_id))
-                .filter(metadata_to_person::Column::Role.eq(&role))
+                .filter(metadata_to_person::Column::Role.eq(&data.role))
                 .one(&self.0.db)
                 .await?;
             if already_intermediate.is_none() {
                 let intermediate = metadata_to_person::ActiveModel {
                     person_id: ActiveValue::Set(person.id.clone()),
                     metadata_id: ActiveValue::Set(pm.id.clone()),
-                    role: ActiveValue::Set(role.clone()),
+                    role: ActiveValue::Set(data.role.clone()),
                     ..Default::default()
                 };
                 intermediate.insert(&self.0.db).await.unwrap();
@@ -2722,13 +2722,13 @@ ORDER BY RANDOM() LIMIT 10;
                     source: pm.source,
                     ..Default::default()
                 },
-                role: role.clone(),
+                role: data.role.clone(),
             };
             if !default_state_changes.media_associated.contains(&search_for) {
                 notifications.push((
                     format!(
                         "{} has been associated with {} as {}",
-                        person.name, title, role
+                        person.name, title, data.role
                     ),
                     MediaStateChanged::PersonMediaAssociated,
                 ));
