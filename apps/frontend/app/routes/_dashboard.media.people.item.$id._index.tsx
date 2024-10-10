@@ -162,8 +162,8 @@ export default function Page() {
 										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 											{role.items.map((item) => (
 												<PartialMetadataDisplay
-													key={item.mediaId}
-													metadataId={item.mediaId}
+													key={item.metadataId}
+													metadataId={item.metadataId}
 													extraText={
 														item.character ? `as ${item.character}` : undefined
 													}
