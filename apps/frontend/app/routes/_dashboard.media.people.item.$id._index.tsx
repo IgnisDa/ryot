@@ -69,12 +69,17 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [roleFilter, setRoleFilter] = useLocalStorage(
+		"MediaTabRoleFilter",
+		loaderData.personDetails.contents.map((c) => c.name).at(0) || null,
+	);
+	const [timeFilter, setTimeFilter] = useLocalStorage(
+		"MediaTabTimeFilter",
+		"All",
+	);
+
 	const totalMetadata = sum(
 		loaderData.personDetails.contents.map((c) => c.count),
-	);
-	const [roleFilter, setRoleFilter] = useLocalStorage(
-		"MediaTabsRoleFilter",
-		loaderData.personDetails.contents.map((c) => c.name).at(0) || null,
 	);
 
 	return (
@@ -169,15 +174,25 @@ export default function Page() {
 					<Tabs.Panel value="media">
 						<MediaScrollArea>
 							<Stack>
-								<Select
-									size="xs"
-									value={roleFilter}
-									onChange={(value) => setRoleFilter(value)}
-									data={loaderData.personDetails.contents.map((c) => ({
-										value: c.name,
-										label: `${c.name} (${c.count})`,
-									}))}
-								/>
+								<Group>
+									<Select
+										flex={1}
+										size="xs"
+										value={roleFilter}
+										onChange={(value) => setRoleFilter(value)}
+										data={loaderData.personDetails.contents.map((c) => ({
+											value: c.name,
+											label: `${c.name} (${c.count})`,
+										}))}
+									/>
+									<Select
+										flex={1}
+										size="xs"
+										value={timeFilter}
+										data={["All", "Upcoming"]}
+										onChange={(value) => setTimeFilter(value || "All")}
+									/>
+								</Group>
 								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
 									{loaderData.personDetails.contents
 										.find((c) => c.name === roleFilter)
