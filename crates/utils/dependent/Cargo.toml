@@ -10,7 +10,6 @@ application-utils = { path = "../application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }
 chrono = { workspace = true }
-chrono-tz = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../common" }
 config = { path = "../../config" }
