@@ -38,8 +38,7 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { dayjsLib } from "~/lib/generals";
-import { useMetadataDetails, useUserPreferences } from "~/lib/hooks";
+import { useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 
@@ -73,10 +72,6 @@ export default function Page() {
 	const [roleFilter, setRoleFilter] = useLocalStorage(
 		"MediaTabRoleFilter",
 		loaderData.personDetails.contents.map((c) => c.name).at(0) || null,
-	);
-	const [timeFilter, setTimeFilter] = useLocalStorage(
-		"MediaTabTimeFilter",
-		"All",
 	);
 
 	const totalMetadata = sum(
@@ -174,10 +169,12 @@ export default function Page() {
 					</Tabs.List>
 					<Tabs.Panel value="media">
 						<MediaScrollArea>
-							<Stack>
-								<Group>
+							<Stack gap="xl">
+								<Group justify="center">
+									<Text size="sm" c="dimmed">
+										Role:
+									</Text>
 									<Select
-										flex={1}
 										size="xs"
 										value={roleFilter}
 										onChange={(value) => setRoleFilter(value)}
@@ -185,13 +182,6 @@ export default function Page() {
 											value: c.name,
 											label: `${c.name} (${c.count})`,
 										}))}
-									/>
-									<Select
-										flex={1}
-										size="xs"
-										value={timeFilter}
-										data={["All", "Upcoming"]}
-										onChange={(value) => setTimeFilter(value || "All")}
 									/>
 								</Group>
 								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
@@ -202,7 +192,6 @@ export default function Page() {
 												key={item.metadataId}
 												character={item.character}
 												metadataId={item.metadataId}
-												isUpcomingFilterApplied={timeFilter === "Upcoming"}
 											/>
 										))}
 								</SimpleGrid>
@@ -299,18 +288,11 @@ export default function Page() {
 const MetadataDisplay = (props: {
 	metadataId: string;
 	character?: string | null;
-	isUpcomingFilterApplied: boolean;
 }) => {
-	const { data } = useMetadataDetails(props.metadataId);
-	const shouldDisplay = props.isUpcomingFilterApplied
-		? dayjsLib(data?.publishDate) > dayjsLib()
-		: true;
-	return shouldDisplay ? (
+	return (
 		<PartialMetadataDisplay
 			metadataId={props.metadataId}
 			extraText={props.character ? `as ${props.character}` : undefined}
 		/>
-	) : (
-		<></>
 	);
 };
