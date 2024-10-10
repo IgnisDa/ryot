@@ -1,10 +1,10 @@
 import {
 	Anchor,
-	Box,
 	Button,
 	Container,
 	Group,
 	Menu,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -25,6 +25,7 @@ import {
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -70,6 +71,10 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
 	const totalMetadata = sum(
 		loaderData.personDetails.contents.map((c) => c.count),
+	);
+	const [roleFilter, setRoleFilter] = useLocalStorage(
+		"MediaTabsRoleFilter",
+		loaderData.personDetails.contents.map((c) => c.name).at(0) || null,
 	);
 
 	return (
@@ -164,24 +169,28 @@ export default function Page() {
 					<Tabs.Panel value="media">
 						<MediaScrollArea>
 							<Stack>
-								{loaderData.personDetails.contents.map((role) => (
-									<Box key={role.name}>
-										<Title order={3} mb="xs" ta="center">
-											{role.name}
-										</Title>
-										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-											{role.items.map((item) => (
-												<PartialMetadataDisplay
-													key={item.metadataId}
-													metadataId={item.metadataId}
-													extraText={
-														item.character ? `as ${item.character}` : undefined
-													}
-												/>
-											))}
-										</SimpleGrid>
-									</Box>
-								))}
+								<Select
+									size="xs"
+									value={roleFilter}
+									onChange={(value) => setRoleFilter(value)}
+									data={loaderData.personDetails.contents.map((c) => ({
+										value: c.name,
+										label: `${c.name} (${c.count})`,
+									}))}
+								/>
+								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+									{loaderData.personDetails.contents
+										.find((c) => c.name === roleFilter)
+										?.items.map((item) => (
+											<PartialMetadataDisplay
+												key={item.metadataId}
+												metadataId={item.metadataId}
+												extraText={
+													item.character ? `as ${item.character}` : undefined
+												}
+											/>
+										))}
+								</SimpleGrid>
 							</Stack>
 						</MediaScrollArea>
 					</Tabs.Panel>
