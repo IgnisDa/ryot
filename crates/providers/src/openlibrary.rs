@@ -263,14 +263,15 @@ impl MediaProvider for OpenlibraryService {
                     .first()
                     .cloned();
                 related.push(MetadataPersonRelated {
+                    character: None,
                     role: "Author".to_owned(),
                     metadata: PartialMetadataWithoutId {
-                        identifier: get_key(&entry.key),
                         title,
-                        lot: MediaLot::Book,
-                        source: MediaSource::Openlibrary,
-                        is_recommendation: None,
                         image,
+                        lot: MediaLot::Book,
+                        is_recommendation: None,
+                        identifier: get_key(&entry.key),
+                        source: MediaSource::Openlibrary,
                     },
                 })
             }

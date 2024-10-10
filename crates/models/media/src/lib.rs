@@ -474,6 +474,7 @@ pub struct PartialMetadataPerson {
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct MetadataPersonRelated {
     pub role: String,
+    pub character: Option<String>,
     pub metadata: PartialMetadataWithoutId,
 }
 

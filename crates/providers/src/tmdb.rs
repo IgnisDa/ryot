@@ -517,21 +517,24 @@ impl MediaProvider for NonMediaTmdbService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
-                if let Some(role) = media.job {
-                    let metadata = PartialMetadataWithoutId {
-                        identifier: media.id.unwrap().to_string(),
-                        title: media.title.or(media.name).unwrap_or_default(),
-                        image: media.poster_path.map(|p| self.base.get_image_url(p)),
-                        lot: match media.media_type.unwrap().as_ref() {
-                            "movie" => MediaLot::Movie,
-                            "tv" => MediaLot::Show,
-                            _ => continue,
-                        },
-                        source: MediaSource::Tmdb,
-                        is_recommendation: None,
-                    };
-                    related.push(MetadataPersonRelated { role, metadata });
-                }
+                let role = media.job.unwrap_or_else(|| "Actor".to_owned());
+                let metadata = PartialMetadataWithoutId {
+                    is_recommendation: None,
+                    source: MediaSource::Tmdb,
+                    identifier: media.id.unwrap().to_string(),
+                    title: media.title.or(media.name).unwrap_or_default(),
+                    image: media.poster_path.map(|p| self.base.get_image_url(p)),
+                    lot: match media.media_type.unwrap().as_ref() {
+                        "movie" => MediaLot::Movie,
+                        "tv" => MediaLot::Show,
+                        _ => continue,
+                    },
+                };
+                related.push(MetadataPersonRelated {
+                    role,
+                    metadata,
+                    character: media.character,
+                });
             }
         } else {
             for m_typ in ["movie", "tv"] {
@@ -549,8 +552,11 @@ impl MediaProvider for NonMediaTmdbService {
                         .await
                         .map_err(|e| anyhow!(e))?;
                     related.extend(cred_det.results.into_iter().map(|m| MetadataPersonRelated {
+                        character: None,
                         role: "Production Company".to_owned(),
                         metadata: PartialMetadataWithoutId {
+                            is_recommendation: None,
+                            source: MediaSource::Tmdb,
                             identifier: m.id.to_string(),
                             title: m.title.unwrap_or_default(),
                             image: m.poster_path.map(|p| self.base.get_image_url(p)),
@@ -559,8 +565,6 @@ impl MediaProvider for NonMediaTmdbService {
                                 "tv" => MediaLot::Show,
                                 _ => unreachable!(),
                             },
-                            source: MediaSource::Tmdb,
-                            is_recommendation: None,
                         },
                     }));
                     if cred_det.page == cred_det.total_pages {

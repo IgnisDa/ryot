@@ -239,14 +239,15 @@ impl MediaProvider for MangaUpdatesService {
             .series_list
             .into_iter()
             .map(|r| MetadataPersonRelated {
+                character: None,
                 role: "Author".to_owned(),
                 metadata: PartialMetadataWithoutId {
-                    title: r.title,
-                    identifier: r.series_id.to_string(),
-                    source: MediaSource::MangaUpdates,
-                    lot: MediaLot::Manga,
                     image: None,
+                    title: r.title,
+                    lot: MediaLot::Manga,
                     is_recommendation: None,
+                    source: MediaSource::MangaUpdates,
+                    identifier: r.series_id.to_string(),
                 },
             })
             .collect_vec();

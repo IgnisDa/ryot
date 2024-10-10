@@ -22,6 +22,11 @@ query StaffQuery($id: Int!) {
     homeTown
     characterMedia {
       edges {
+				characters {
+          name {
+            full
+          }
+        }
         node {
           id
           type

@@ -2708,9 +2708,10 @@ ORDER BY RANDOM() LIMIT 10;
                 .await?;
             if already_intermediate.is_none() {
                 let intermediate = metadata_to_person::ActiveModel {
-                    person_id: ActiveValue::Set(person.id.clone()),
-                    metadata_id: ActiveValue::Set(pm.id.clone()),
                     role: ActiveValue::Set(data.role.clone()),
+                    metadata_id: ActiveValue::Set(pm.id.clone()),
+                    person_id: ActiveValue::Set(person.id.clone()),
+                    character: ActiveValue::Set(data.character.clone()),
                     ..Default::default()
                 };
                 intermediate.insert(&self.0.db).await.unwrap();
@@ -3115,6 +3116,7 @@ ORDER BY RANDOM() LIMIT 10;
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+        self.update_person("per_UMMu0GhlSrp1".to_string()).await?;
         Ok(true)
     }
 }

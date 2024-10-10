@@ -282,6 +282,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .map(|r| {
                     let data = r.unwrap().node.unwrap();
                     MetadataPersonRelated {
+                        character: None,
                         role: STUDIO_ROLE.to_owned(),
                         metadata: PartialMetadataWithoutId {
                             title: data.title.unwrap().native.unwrap(),
@@ -355,14 +356,17 @@ impl MediaProvider for NonMediaAnilistService {
                     None
                 }
             });
-            let mut related = details
+            let mut related = vec![];
+            details
                 .character_media
                 .unwrap()
                 .edges
                 .unwrap()
                 .into_iter()
-                .map(|r| {
-                    let data = r.unwrap().node.unwrap();
+                .for_each(|r| {
+                    let edge = r.unwrap();
+                    let characters = edge.characters.unwrap_or_default();
+                    let data = edge.node.unwrap();
                     let title = data.title.unwrap();
                     let title = get_in_preferred_language(
                         title.native,
@@ -370,23 +374,27 @@ impl MediaProvider for NonMediaAnilistService {
                         title.romaji,
                         &self.base.preferred_language,
                     );
-                    MetadataPersonRelated {
-                        role: "Voicing".to_owned(),
-                        metadata: PartialMetadataWithoutId {
-                            title,
-                            identifier: data.id.to_string(),
-                            source: MediaSource::Anilist,
-                            lot: match data.type_.unwrap() {
-                                staff_query::MediaType::ANIME => MediaLot::Anime,
-                                staff_query::MediaType::MANGA => MediaLot::Manga,
-                                staff_query::MediaType::Other(_) => unreachable!(),
-                            },
-                            image: data.cover_image.unwrap().extra_large,
-                            is_recommendation: None,
-                        },
+                    for character in characters {
+                        if let Some(character) = character.and_then(|c| c.name) {
+                            related.push(MetadataPersonRelated {
+                                character: character.full,
+                                role: "Voicing".to_owned(),
+                                metadata: PartialMetadataWithoutId {
+                                    title: title.clone(),
+                                    is_recommendation: None,
+                                    identifier: data.id.to_string(),
+                                    source: MediaSource::Anilist,
+                                    lot: match data.type_.clone().unwrap() {
+                                        staff_query::MediaType::ANIME => MediaLot::Anime,
+                                        staff_query::MediaType::MANGA => MediaLot::Manga,
+                                        staff_query::MediaType::Other(_) => unreachable!(),
+                                    },
+                                    image: data.cover_image.clone().unwrap().extra_large,
+                                },
+                            })
+                        }
                     }
-                })
-                .collect_vec();
+                });
             related.extend(
                 details
                     .staff_media
@@ -395,7 +403,8 @@ impl MediaProvider for NonMediaAnilistService {
                     .unwrap()
                     .into_iter()
                     .map(|r| {
-                        let data = r.unwrap().node.unwrap();
+                        let edge = r.unwrap();
+                        let data = edge.node.unwrap();
                         let title = data.title.unwrap();
                         let title = get_in_preferred_language(
                             title.native,
@@ -404,7 +413,8 @@ impl MediaProvider for NonMediaAnilistService {
                             &self.base.preferred_language,
                         );
                         MetadataPersonRelated {
-                            role: "Production".to_owned(),
+                            character: None,
+                            role: edge.staff_role.unwrap_or_else(|| "Production".to_owned()),
                             metadata: PartialMetadataWithoutId {
                                 title,
                                 identifier: data.id.to_string(),

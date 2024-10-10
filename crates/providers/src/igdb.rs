@@ -371,14 +371,15 @@ where id = {id};
             .map(|r| {
                 let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
                 MetadataPersonRelated {
+                    character: None,
                     role: "Publishing".to_owned(),
                     metadata: PartialMetadataWithoutId {
-                        title: r.name.unwrap(),
-                        identifier: r.id.to_string(),
-                        source: MediaSource::Igdb,
-                        lot: MediaLot::VideoGame,
                         image,
+                        title: r.name.unwrap(),
                         is_recommendation: None,
+                        lot: MediaLot::VideoGame,
+                        source: MediaSource::Igdb,
+                        identifier: r.id.to_string(),
                     },
                 }
             })
@@ -386,14 +387,15 @@ where id = {id};
         related.extend(detail.developed.unwrap_or_default().into_iter().map(|r| {
             let image = r.cover.map(|a| self.get_cover_image_url(a.image_id));
             MetadataPersonRelated {
+                character: None,
                 role: "Development".to_owned(),
                 metadata: PartialMetadataWithoutId {
-                    title: r.name.unwrap(),
-                    identifier: r.id.to_string(),
-                    source: MediaSource::Igdb,
-                    lot: MediaLot::VideoGame,
                     image,
+                    title: r.name.unwrap(),
                     is_recommendation: None,
+                    lot: MediaLot::VideoGame,
+                    source: MediaSource::Igdb,
+                    identifier: r.id.to_string(),
                 },
             }
         }));
