@@ -1,10 +1,10 @@
 import {
 	Anchor,
-	Box,
 	Button,
 	Container,
 	Group,
 	Menu,
+	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
@@ -18,12 +18,14 @@ import {
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { sum } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconUser,
 } from "@tabler/icons-react";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import {
@@ -41,7 +43,7 @@ import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	defaultTab: z.string().optional().default("media"),
+	defaultTab: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -67,6 +69,14 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const [roleFilter, setRoleFilter] = useLocalStorage(
+		"MediaTabRoleFilter",
+		loaderData.personDetails.contents.map((c) => c.name).at(0) || null,
+	);
+
+	const totalMetadata = sum(
+		loaderData.personDetails.contents.map((c) => c.count),
+	);
 
 	return (
 		<Container>
@@ -87,9 +97,7 @@ export default function Page() {
 				</Title>
 				<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 					{[
-						`${
-							loaderData.personDetails.contents.flatMap((c) => c.items).length
-						} media items`,
+						`${totalMetadata} media items`,
 						loaderData.personDetails.details.birthDate &&
 							`Birth: ${loaderData.personDetails.details.birthDate}`,
 						loaderData.personDetails.details.deathDate &&
@@ -126,11 +134,19 @@ export default function Page() {
 						))}
 					</Group>
 				) : null}
-				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
+				<Tabs
+					variant="outline"
+					defaultValue={
+						loaderData.query.defaultTab ||
+						(totalMetadata > 0 ? "media" : "actions")
+					}
+				>
 					<Tabs.List mb="xs">
-						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
-							Media
-						</Tabs.Tab>
+						{totalMetadata > 0 ? (
+							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
+								Media
+							</Tabs.Tab>
+						) : null}
 						{loaderData.personDetails.details.description ? (
 							<Tabs.Tab
 								value="overview"
@@ -153,25 +169,32 @@ export default function Page() {
 					</Tabs.List>
 					<Tabs.Panel value="media">
 						<MediaScrollArea>
-							<Stack>
-								{loaderData.personDetails.contents.map((role) => (
-									<Box key={role.name}>
-										<Title order={3} mb="xs" ta="center">
-											{role.name}
-										</Title>
-										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
-											{role.items.map((item) => (
-												<PartialMetadataDisplay
-													key={item.mediaId}
-													metadataId={item.mediaId}
-													extraText={
-														item.character ? `as ${item.character}` : undefined
-													}
-												/>
-											))}
-										</SimpleGrid>
-									</Box>
-								))}
+							<Stack gap="xl">
+								<Group justify="center">
+									<Text size="sm" c="dimmed">
+										Role:
+									</Text>
+									<Select
+										size="xs"
+										value={roleFilter}
+										onChange={(value) => setRoleFilter(value)}
+										data={loaderData.personDetails.contents.map((c) => ({
+											value: c.name,
+											label: `${c.name} (${c.count})`,
+										}))}
+									/>
+								</Group>
+								<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
+									{loaderData.personDetails.contents
+										.find((c) => c.name === roleFilter)
+										?.items.map((item) => (
+											<MetadataDisplay
+												key={item.metadataId}
+												character={item.character}
+												metadataId={item.metadataId}
+											/>
+										))}
+								</SimpleGrid>
 							</Stack>
 						</MediaScrollArea>
 					</Tabs.Panel>
@@ -261,3 +284,15 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const MetadataDisplay = (props: {
+	metadataId: string;
+	character?: string | null;
+}) => {
+	return (
+		<PartialMetadataDisplay
+			metadataId={props.metadataId}
+			extraText={props.character ? `as ${props.character}` : undefined}
+		/>
+	);
+};

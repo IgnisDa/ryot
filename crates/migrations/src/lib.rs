@@ -42,6 +42,7 @@ mod m20240928_add_grid_packing_to_general_preferences;
 mod m20241002_add_columns_for_associating_seen_with_reviews;
 mod m20241004_create_application_cache;
 mod m20241006_changes_for_issue_1056;
+mod m20241010_changes_for_issue_708;
 
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230413_create_person::Person as AliasedPerson;
@@ -104,6 +105,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20241002_add_columns_for_associating_seen_with_reviews::Migration),
             Box::new(m20241004_create_application_cache::Migration),
             Box::new(m20241006_changes_for_issue_1056::Migration),
+            Box::new(m20241010_changes_for_issue_708::Migration),
         ]
     }
 }

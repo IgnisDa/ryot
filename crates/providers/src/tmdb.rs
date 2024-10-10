@@ -20,9 +20,10 @@ use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
     ExternalIdentifiers, MediaDetails, MetadataGroupSearchItem, MetadataImage,
-    MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem, MetadataVideo,
-    MetadataVideoSource, MovieSpecifics, PartialMetadataPerson, PartialMetadataWithoutId,
-    PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason, ShowSpecifics, WatchProvider,
+    MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
+    MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
+    PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason,
+    ShowSpecifics, WatchProvider,
 };
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION},
@@ -37,7 +38,6 @@ use traits::{MediaProvider, MediaProviderLanguages};
 
 static URL: &str = "https://api.themoviedb.org/3";
 static FILE: &str = "tmdb.json";
-static POSSIBLE_ROLES: [&str; 5] = ["Acting", "Directing", "Director", "Production", "Writer"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -54,14 +54,14 @@ struct TmdbLanguage {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
     id: Option<i32>,
+    job: Option<String>,
     name: Option<String>,
     title: Option<String>,
-    media_type: Option<String>,
-    known_for_department: Option<String>,
-    job: Option<String>,
     character: Option<String>,
-    profile_path: Option<String>,
+    media_type: Option<String>,
     poster_path: Option<String>,
+    profile_path: Option<String>,
+    known_for_department: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -163,6 +163,20 @@ struct TmdbWatchProviderResponse {
 struct TmdbFindByExternalSourceResponse {
     movie_results: Vec<TmdbEntry>,
     tv_results: Vec<TmdbEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TmdbNonMediaEntity {
+    id: i32,
+    name: String,
+    biography: Option<String>,
+    description: Option<String>,
+    birthday: Option<NaiveDate>,
+    deathday: Option<NaiveDate>,
+    homepage: Option<String>,
+    gender: Option<u8>,
+    origin_country: Option<String>,
+    place_of_birth: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -503,23 +517,24 @@ impl MediaProvider for NonMediaTmdbService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
-                if let Some(job) = media.job {
-                    related.push((
-                        job,
-                        PartialMetadataWithoutId {
-                            identifier: media.id.unwrap().to_string(),
-                            title: media.title.or(media.name).unwrap_or_default(),
-                            image: media.poster_path.map(|p| self.base.get_image_url(p)),
-                            lot: match media.media_type.unwrap().as_ref() {
-                                "movie" => MediaLot::Movie,
-                                "tv" => MediaLot::Show,
-                                _ => continue,
-                            },
-                            source: MediaSource::Tmdb,
-                            is_recommendation: None,
-                        },
-                    ));
-                }
+                let role = media.job.unwrap_or_else(|| "Actor".to_owned());
+                let metadata = PartialMetadataWithoutId {
+                    is_recommendation: None,
+                    source: MediaSource::Tmdb,
+                    identifier: media.id.unwrap().to_string(),
+                    title: media.title.or(media.name).unwrap_or_default(),
+                    image: media.poster_path.map(|p| self.base.get_image_url(p)),
+                    lot: match media.media_type.unwrap().as_ref() {
+                        "movie" => MediaLot::Movie,
+                        "tv" => MediaLot::Show,
+                        _ => continue,
+                    },
+                };
+                related.push(MetadataPersonRelated {
+                    role,
+                    metadata,
+                    character: media.character,
+                });
             }
         } else {
             for m_typ in ["movie", "tv"] {
@@ -536,22 +551,21 @@ impl MediaProvider for NonMediaTmdbService {
                         .json()
                         .await
                         .map_err(|e| anyhow!(e))?;
-                    related.extend(cred_det.results.into_iter().map(|m| {
-                        (
-                            "Production Company".to_owned(),
-                            PartialMetadataWithoutId {
-                                identifier: m.id.to_string(),
-                                title: m.title.unwrap_or_default(),
-                                image: m.poster_path.map(|p| self.base.get_image_url(p)),
-                                lot: match m_typ {
-                                    "movie" => MediaLot::Movie,
-                                    "tv" => MediaLot::Show,
-                                    _ => unreachable!(),
-                                },
-                                source: MediaSource::Tmdb,
-                                is_recommendation: None,
+                    related.extend(cred_det.results.into_iter().map(|m| MetadataPersonRelated {
+                        character: None,
+                        role: "Production Company".to_owned(),
+                        metadata: PartialMetadataWithoutId {
+                            is_recommendation: None,
+                            source: MediaSource::Tmdb,
+                            identifier: m.id.to_string(),
+                            title: m.title.unwrap_or_default(),
+                            image: m.poster_path.map(|p| self.base.get_image_url(p)),
+                            lot: match m_typ {
+                                "movie" => MediaLot::Movie,
+                                "tv" => MediaLot::Show,
+                                _ => unreachable!(),
                             },
-                        )
+                        },
                     }));
                     if cred_det.page == cred_det.total_pages {
                         break;
@@ -719,16 +733,14 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     g.id.and_then(|id| {
-                        g.known_for_department
-                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
-                            .map(|r| PartialMetadataPerson {
-                                identifier: id.to_string(),
-                                name: g.name.unwrap_or_default(),
-                                role: r,
-                                source: MediaSource::Tmdb,
-                                character: g.character,
-                                source_specifics: None,
-                            })
+                        g.known_for_department.map(|r| PartialMetadataPerson {
+                            identifier: id.to_string(),
+                            name: g.name.unwrap_or_default(),
+                            role: r,
+                            source: MediaSource::Tmdb,
+                            character: g.character,
+                            source_specifics: None,
+                        })
                     })
                 })
                 .unique()
@@ -741,16 +753,14 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     g.id.and_then(|id| {
-                        g.known_for_department
-                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
-                            .map(|r| PartialMetadataPerson {
-                                identifier: id.to_string(),
-                                name: g.name.unwrap_or_default(),
-                                role: r,
-                                source: MediaSource::Tmdb,
-                                character: g.character,
-                                source_specifics: None,
-                            })
+                        g.known_for_department.map(|r| PartialMetadataPerson {
+                            identifier: id.to_string(),
+                            name: g.name.unwrap_or_default(),
+                            role: r,
+                            source: MediaSource::Tmdb,
+                            character: g.character,
+                            source_specifics: None,
+                        })
                     })
                 })
                 .unique()
@@ -1136,7 +1146,6 @@ impl MediaProvider for TmdbShowService {
             .sorted_by_key(|c| c.1)
             .rev()
             .map(|c| c.0)
-            .filter(|c| POSSIBLE_ROLES.contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
         let seasons_without_specials = seasons
@@ -1353,20 +1362,6 @@ async fn get_client_config(access_token: &str) -> (Client, Settings) {
         serde_json::from_str(&data).unwrap()
     };
     (client, tmdb_settings)
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct TmdbNonMediaEntity {
-    id: i32,
-    name: String,
-    biography: Option<String>,
-    description: Option<String>,
-    birthday: Option<NaiveDate>,
-    deathday: Option<NaiveDate>,
-    homepage: Option<String>,
-    gender: Option<u8>,
-    origin_country: Option<String>,
-    place_of_birth: Option<String>,
 }
 
 fn replace_from_end(input_string: String, search_string: &str, replace_string: &str) -> String {

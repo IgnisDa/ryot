@@ -472,18 +472,25 @@ pub struct PartialMetadataPerson {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct MetadataPersonRelated {
+    pub role: String,
+    pub character: Option<String>,
+    pub metadata: PartialMetadataWithoutId,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct MetadataPerson {
+    pub name: String,
     pub identifier: String,
     pub source: MediaSource,
-    pub name: String,
-    pub description: Option<String>,
-    pub images: Option<Vec<String>>,
     pub gender: Option<String>,
-    pub death_date: Option<NaiveDate>,
-    pub birth_date: Option<NaiveDate>,
     pub place: Option<String>,
     pub website: Option<String>,
-    pub related: Vec<(String, PartialMetadataWithoutId)>,
+    pub description: Option<String>,
+    pub images: Option<Vec<String>>,
+    pub death_date: Option<NaiveDate>,
+    pub birth_date: Option<NaiveDate>,
+    pub related: Vec<MetadataPersonRelated>,
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
 
@@ -1269,12 +1276,14 @@ pub struct MetadataCreatorGroupedByRole {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsItemWithCharacter {
-    pub media_id: String,
+    pub metadata_id: String,
     pub character: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsGroupedByRole {
+    /// The number of items in this role.
+    pub count: usize,
     /// The name of the role performed.
     pub name: String,
     /// The media items in which this role was performed.
