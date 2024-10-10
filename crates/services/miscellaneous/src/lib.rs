@@ -2266,7 +2266,11 @@ ORDER BY RANDOM() LIMIT 10;
         let contents = contents
             .into_iter()
             .sorted_by_key(|(role, _)| role.clone())
-            .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
+            .map(|(name, items)| PersonDetailsGroupedByRole {
+                count: items.len(),
+                name,
+                items,
+            })
             .collect_vec();
         let slug = slug::slugify(&details.name);
         let identifier = &details.identifier;
@@ -3116,7 +3120,6 @@ ORDER BY RANDOM() LIMIT 10;
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-        self.update_person("per_UMMu0GhlSrp1".to_string()).await?;
         Ok(true)
     }
 }

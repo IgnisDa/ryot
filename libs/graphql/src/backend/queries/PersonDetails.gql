@@ -17,6 +17,7 @@ query PersonDetails($personId: String!) {
     }
     contents {
       name
+      count
       items {
         character
         metadataId
