@@ -38,7 +38,8 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { useUserPreferences } from "~/lib/hooks";
+import { dayjsLib } from "~/lib/generals";
+import { useMetadataDetails, useUserPreferences } from "~/lib/hooks";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 
@@ -201,6 +202,7 @@ export default function Page() {
 												key={item.metadataId}
 												character={item.character}
 												metadataId={item.metadataId}
+												isUpcomingFilterApplied={timeFilter === "Upcoming"}
 											/>
 										))}
 								</SimpleGrid>
@@ -297,11 +299,18 @@ export default function Page() {
 const MetadataDisplay = (props: {
 	metadataId: string;
 	character?: string | null;
+	isUpcomingFilterApplied: boolean;
 }) => {
-	return (
+	const { data } = useMetadataDetails(props.metadataId);
+	const shouldDisplay = props.isUpcomingFilterApplied
+		? dayjsLib(data?.publishDate) > dayjsLib()
+		: true;
+	return shouldDisplay ? (
 		<PartialMetadataDisplay
 			metadataId={props.metadataId}
 			extraText={props.character ? `as ${props.character}` : undefined}
 		/>
+	) : (
+		<></>
 	);
 };
