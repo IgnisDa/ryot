@@ -55,12 +55,12 @@ struct TmdbCredit {
     id: Option<i32>,
     name: Option<String>,
     title: Option<String>,
-    media_type: Option<String>,
-    known_for_department: Option<String>,
     job: Option<String>,
     character: Option<String>,
     profile_path: Option<String>,
     poster_path: Option<String>,
+    media_type: Option<String>,
+    known_for_department: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
