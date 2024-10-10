@@ -252,18 +252,18 @@ impl MediaProvider for AudibleService {
             .await
             .map_err(|e| anyhow!(e))?;
         Ok(MetadataPerson {
-            identifier: data.asin,
-            name: data.name,
-            description: data.description,
-            images: Some(Vec::from_iter(data.image)),
-            source: MediaSource::Audible,
+            place: None,
             gender: None,
+            website: None,
+            name: data.name,
+            related: vec![],
             death_date: None,
             birth_date: None,
-            place: None,
-            website: None,
-            related: vec![],
+            identifier: data.asin,
             source_specifics: None,
+            description: data.description,
+            source: MediaSource::Audible,
+            images: Some(Vec::from_iter(data.image)),
         })
     }
 
