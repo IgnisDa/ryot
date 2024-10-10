@@ -54,15 +54,13 @@ struct TmdbLanguage {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbCredit {
     id: Option<i32>,
+    job: Option<String>,
     name: Option<String>,
     title: Option<String>,
-    job: Option<String>,
     character: Option<String>,
-    profile_path: Option<String>,
-    poster_path: Option<String>,
     media_type: Option<String>,
-    #[serde(alias = "first_air_date")]
-    release_date: Option<String>,
+    poster_path: Option<String>,
+    profile_path: Option<String>,
     known_for_department: Option<String>,
 }
 
