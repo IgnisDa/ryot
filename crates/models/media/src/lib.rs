@@ -1275,7 +1275,7 @@ pub struct MetadataCreatorGroupedByRole {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsItemWithCharacter {
-    pub media_id: String,
+    pub metadata_id: String,
     pub character: Option<String>,
 }
 

@@ -18,8 +18,8 @@ query PersonDetails($personId: String!) {
     contents {
       name
       items {
-        mediaId
         character
+        metadataId
       }
     }
   }
