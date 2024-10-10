@@ -37,7 +37,6 @@ use traits::{MediaProvider, MediaProviderLanguages};
 
 static URL: &str = "https://api.themoviedb.org/3";
 static FILE: &str = "tmdb.json";
-static POSSIBLE_ROLES: [&str; 5] = ["Acting", "Directing", "Director", "Production", "Writer"];
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -719,16 +718,14 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     g.id.and_then(|id| {
-                        g.known_for_department
-                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
-                            .map(|r| PartialMetadataPerson {
-                                identifier: id.to_string(),
-                                name: g.name.unwrap_or_default(),
-                                role: r,
-                                source: MediaSource::Tmdb,
-                                character: g.character,
-                                source_specifics: None,
-                            })
+                        g.known_for_department.map(|r| PartialMetadataPerson {
+                            identifier: id.to_string(),
+                            name: g.name.unwrap_or_default(),
+                            role: r,
+                            source: MediaSource::Tmdb,
+                            character: g.character,
+                            source_specifics: None,
+                        })
                     })
                 })
                 .unique()
@@ -741,16 +738,14 @@ impl MediaProvider for TmdbMovieService {
                 .into_iter()
                 .flat_map(|g| {
                     g.id.and_then(|id| {
-                        g.known_for_department
-                            .filter(|r| POSSIBLE_ROLES.contains(&r.as_str()))
-                            .map(|r| PartialMetadataPerson {
-                                identifier: id.to_string(),
-                                name: g.name.unwrap_or_default(),
-                                role: r,
-                                source: MediaSource::Tmdb,
-                                character: g.character,
-                                source_specifics: None,
-                            })
+                        g.known_for_department.map(|r| PartialMetadataPerson {
+                            identifier: id.to_string(),
+                            name: g.name.unwrap_or_default(),
+                            role: r,
+                            source: MediaSource::Tmdb,
+                            character: g.character,
+                            source_specifics: None,
+                        })
                     })
                 })
                 .unique()
@@ -1136,7 +1131,6 @@ impl MediaProvider for TmdbShowService {
             .sorted_by_key(|c| c.1)
             .rev()
             .map(|c| c.0)
-            .filter(|c| POSSIBLE_ROLES.contains(&c.role.as_str()))
             .cloned()
             .collect_vec();
         let seasons_without_specials = seasons
