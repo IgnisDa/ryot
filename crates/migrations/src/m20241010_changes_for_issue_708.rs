@@ -7,8 +7,19 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(r#"DELETE FROM "metadata_to_person";"#)
-            .await?;
+        db.execute_unprepared(
+            r#"
+UPDATE "person"
+SET "is_partial" = true
+WHERE EXISTS (
+    SELECT 1
+    FROM "metadata_to_person" mp
+    WHERE mp."person_id" = "person"."id"
+);
+DELETE FROM "metadata_to_person";
+"#,
+        )
+        .await?;
         Ok(())
     }
 
