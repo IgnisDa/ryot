@@ -182,12 +182,10 @@ export default function Page() {
 									{loaderData.personDetails.contents
 										.find((c) => c.name === roleFilter)
 										?.items.map((item) => (
-											<PartialMetadataDisplay
+											<MetadataDisplay
 												key={item.metadataId}
+												character={item.character}
 												metadataId={item.metadataId}
-												extraText={
-													item.character ? `as ${item.character}` : undefined
-												}
 											/>
 										))}
 								</SimpleGrid>
@@ -280,3 +278,15 @@ export default function Page() {
 		</Container>
 	);
 }
+
+const MetadataDisplay = (props: {
+	metadataId: string;
+	character?: string | null;
+}) => {
+	return (
+		<PartialMetadataDisplay
+			metadataId={props.metadataId}
+			extraText={props.character ? `as ${props.character}` : undefined}
+		/>
+	);
+};
