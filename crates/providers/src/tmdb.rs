@@ -517,22 +517,20 @@ impl MediaProvider for NonMediaTmdbService {
                 .await
                 .map_err(|e| anyhow!(e))?;
             for media in cred_det.crew.into_iter().chain(cred_det.cast.into_iter()) {
-                if let Some(job) = media.job {
-                    related.push(MetadataPersonRelated {
-                        role: job,
-                        metadata: PartialMetadataWithoutId {
-                            identifier: media.id.unwrap().to_string(),
-                            title: media.title.or(media.name).unwrap_or_default(),
-                            image: media.poster_path.map(|p| self.base.get_image_url(p)),
-                            lot: match media.media_type.unwrap().as_ref() {
-                                "movie" => MediaLot::Movie,
-                                "tv" => MediaLot::Show,
-                                _ => continue,
-                            },
-                            source: MediaSource::Tmdb,
-                            is_recommendation: None,
+                if let Some(role) = media.job {
+                    let metadata = PartialMetadataWithoutId {
+                        identifier: media.id.unwrap().to_string(),
+                        title: media.title.or(media.name).unwrap_or_default(),
+                        image: media.poster_path.map(|p| self.base.get_image_url(p)),
+                        lot: match media.media_type.unwrap().as_ref() {
+                            "movie" => MediaLot::Movie,
+                            "tv" => MediaLot::Show,
+                            _ => continue,
                         },
-                    });
+                        source: MediaSource::Tmdb,
+                        is_recommendation: None,
+                    };
+                    related.push(MetadataPersonRelated { role, metadata });
                 }
             }
         } else {
