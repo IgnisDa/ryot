@@ -18,6 +18,7 @@ import {
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { sum } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
 	IconInfoCircle,
@@ -41,7 +42,7 @@ import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 
 const searchParamsSchema = z.object({
-	defaultTab: z.string().optional().default("media"),
+	defaultTab: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -67,6 +68,9 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionData] = useAddEntityToCollection();
+	const totalMetadata = sum(
+		loaderData.personDetails.contents.map((c) => c.count),
+	);
 
 	return (
 		<Container>
@@ -87,9 +91,7 @@ export default function Page() {
 				</Title>
 				<Text c="dimmed" fz={{ base: "sm", lg: "md" }}>
 					{[
-						`${
-							loaderData.personDetails.contents.flatMap((c) => c.items).length
-						} media items`,
+						`${totalMetadata} media items`,
 						loaderData.personDetails.details.birthDate &&
 							`Birth: ${loaderData.personDetails.details.birthDate}`,
 						loaderData.personDetails.details.deathDate &&
@@ -126,11 +128,19 @@ export default function Page() {
 						))}
 					</Group>
 				) : null}
-				<Tabs variant="outline" defaultValue={loaderData.query.defaultTab}>
+				<Tabs
+					variant="outline"
+					defaultValue={
+						loaderData.query.defaultTab ||
+						(totalMetadata > 0 ? "media" : "actions")
+					}
+				>
 					<Tabs.List mb="xs">
-						<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
-							Media
-						</Tabs.Tab>
+						{totalMetadata > 0 ? (
+							<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
+								Media
+							</Tabs.Tab>
+						) : null}
 						{loaderData.personDetails.details.description ? (
 							<Tabs.Tab
 								value="overview"
