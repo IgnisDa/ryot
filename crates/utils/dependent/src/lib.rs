@@ -2192,3 +2192,16 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             .collect(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add() {
+        let a = vec![1, 2, 3];
+        let b = vec![4, 5, 6];
+        let c = a.into_iter().chain(b).collect_vec();
+        assert_eq!(c, vec![1, 2, 3, 4, 5, 6]);
+    }
+}
