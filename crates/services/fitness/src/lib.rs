@@ -660,6 +660,7 @@ impl ExerciseService {
             association.update(&self.0.db).await?;
         }
         wkt.delete(&self.0.db).await?;
+        self.re_evaluate_user_workouts(user_id).await?;
         Ok(true)
     }
 
