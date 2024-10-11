@@ -47,11 +47,7 @@ use sea_orm::{
 };
 use sea_query::{extension::postgres::PgExpr, Alias, Condition, Expr, Func, JoinType, OnConflict};
 use slug::slugify;
-
-use logic::delete_existing_workout;
 use supporting_service::SupportingService;
-
-mod logic;
 
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
 const JSON_URL: &str = const_str::concat!(EXERCISE_DB_URL, "/dist/exercises.json");
@@ -635,7 +631,32 @@ impl ExerciseService {
             .one(&self.0.db)
             .await?
         {
-            delete_existing_workout(wkt, &self.0.db, user_id).await?;
+            for (idx, ex) in wkt.information.exercises.iter().enumerate() {
+                let association = match UserToEntity::find()
+                    .filter(user_to_entity::Column::UserId.eq(&user_id))
+                    .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
+                    .one(&self.0.db)
+                    .await?
+                {
+                    None => continue,
+                    Some(assoc) => assoc,
+                };
+                let mut ei = association
+                    .exercise_extra_information
+                    .clone()
+                    .unwrap_or_default();
+                if let Some(ex_idx) = ei
+                    .history
+                    .iter()
+                    .position(|e| e.workout_id == wkt.id && e.idx == idx)
+                {
+                    ei.history.remove(ex_idx);
+                }
+                let mut association: user_to_entity::ActiveModel = association.into();
+                association.exercise_extra_information = ActiveValue::Set(Some(ei));
+                association.update(&self.0.db).await?;
+            }
+            wkt.delete(&self.0.db).await?;
             Ok(true)
         } else {
             Err(Error::new("Workout does not exist for user"))
