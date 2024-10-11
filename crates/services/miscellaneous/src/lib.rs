@@ -1,4 +1,5 @@
 use std::{
+    cmp::Reverse,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -2265,12 +2266,12 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let contents = contents
             .into_iter()
-            .sorted_by_key(|(role, _)| role.clone())
             .map(|(name, items)| PersonDetailsGroupedByRole {
                 count: items.len(),
                 name,
                 items,
             })
+            .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
         let slug = slug::slugify(&details.name);
         let identifier = &details.identifier;
