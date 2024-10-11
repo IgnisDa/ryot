@@ -240,14 +240,17 @@ export const addExerciseToWorkout = async (
 	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
-		const alreadyDoneSets = [];
-		const allHistory = exerciseDetails.userDetails.history || [];
-		for (const history of allHistory.slice(0, 3)) {
+		let sets: ExerciseSet[] = [
+			{ statistic: {}, lot: SetLot.Normal, confirmedAt: null },
+		];
+		let alreadyDoneSets: AlreadyDoneExerciseSet[] = [];
+		const history = (exerciseDetails.userDetails.history || []).at(0);
+		if (history) {
 			const workout = await getWorkoutDetails(history.workoutId);
-			const setStatistics = workout.details.information.exercises[
-				history.idx
-			].sets.map((s) => s.statistic);
-			alreadyDoneSets.push({ statistic: setStatistics[0] });
+			sets = workout.details.information.exercises[history.idx].sets.map((v) =>
+				convertHistorySetToCurrentSet(v),
+			);
+			alreadyDoneSets = sets.map((s) => ({ statistic: s.statistic }));
 		}
 		draft.exercises.push({
 			identifier: randomUUID(),
@@ -257,7 +260,7 @@ export const addExerciseToWorkout = async (
 				images: exerciseDetails.details.attributes.images,
 			},
 			lot: ex.lot,
-			sets: [{ statistic: {}, lot: SetLot.Normal, confirmedAt: null }],
+			sets,
 			supersetWith: [],
 			alreadyDoneSets,
 			restTimer: { duration: 60, enabled: true },
