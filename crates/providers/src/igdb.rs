@@ -11,7 +11,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MediaDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
+    MetadataDetails, MetadataGroupSearchItem, MetadataImageForMediaDetails, MetadataPerson,
     MetadataPersonRelated, MetadataSearchItem, MetadataVideo, MetadataVideoSource,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
     VideoGameSpecifics,
@@ -424,7 +424,7 @@ where id = {id};
         })
     }
 
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let client = self.get_client().await;
         let req_body = format!(
             r#"{field} where id = {id};"#,
@@ -564,7 +564,7 @@ impl IgdbService {
         ]))
     }
 
-    fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MediaDetails {
+    fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MetadataDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| MetadataImageForMediaDetails {
             image: self.get_cover_image_url(a.image_id),
         }));
@@ -612,7 +612,7 @@ impl IgdbService {
                 source: MetadataVideoSource::Youtube,
             })
             .collect_vec();
-        MediaDetails {
+        MetadataDetails {
             identifier: item.id.to_string(),
             lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,

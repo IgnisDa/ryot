@@ -61,8 +61,8 @@ use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
     GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaDetails,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaGeneralFilter,
+    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails,
     MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
@@ -1855,7 +1855,7 @@ ORDER BY RANDOM() LIMIT 10;
             MediaLot::VideoGame => input.video_game_specifics.is_none(),
             MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
-        let details = MediaDetails {
+        let details = MetadataDetails {
             identifier,
             title: input.title,
             description: input.description,

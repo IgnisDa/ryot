@@ -516,7 +516,7 @@ pub struct ExternalIdentifiers {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct MediaDetails {
+pub struct MetadataDetails {
     pub identifier: String,
     pub is_nsfw: Option<bool>,
     pub title: String,

@@ -38,7 +38,7 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use media_models::{
     CommitCache, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    CreateOrUpdateReviewInput, ImportOrExportItemRating, MediaDetails, MetadataImage,
+    CreateOrUpdateReviewInput, ImportOrExportItemRating, MetadataDetails, MetadataImage,
     PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
@@ -182,7 +182,7 @@ pub async fn details_from_provider(
     source: MediaSource,
     identifier: &str,
     ss: &Arc<SupportingService>,
-) -> Result<MediaDetails> {
+) -> Result<MetadataDetails> {
     let provider = get_metadata_provider(lot, source, ss).await?;
     let results = provider.metadata_details(identifier).await?;
     Ok(results)
@@ -740,7 +740,7 @@ pub async fn update_metadata_and_notify_users(
 }
 
 pub async fn commit_metadata_internal(
-    details: MediaDetails,
+    details: MetadataDetails,
     is_partial: Option<bool>,
     ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {

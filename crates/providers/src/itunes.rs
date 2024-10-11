@@ -7,7 +7,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
+    MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
     PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::Client;
@@ -79,7 +79,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for ITunesService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
             .get(format!("{}/lookup", URL))
@@ -154,7 +154,7 @@ impl MediaProvider for ITunesService {
             })
             .collect_vec();
         episodes.reverse();
-        Ok(MediaDetails {
+        Ok(MetadataDetails {
             identifier: details.identifier,
             title: details.title,
             publish_date,

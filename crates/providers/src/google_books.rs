@@ -8,7 +8,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    BookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+    BookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
     MetadataSearchItem,
 };
 use reqwest::{
@@ -94,7 +94,7 @@ struct SearchResponse {
 
 #[async_trait]
 impl MediaProvider for GoogleBooksService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
             .get(format!("{}/{}", URL, identifier))
@@ -135,7 +135,7 @@ impl MediaProvider for GoogleBooksService {
             .unwrap_or_default()
             .into_iter()
             .map(|b| {
-                let MediaDetails {
+                let MetadataDetails {
                     identifier,
                     title,
                     url_images,
@@ -171,7 +171,7 @@ impl GoogleBooksService {
         &self,
         item: ItemVolumeInfo,
         id: String,
-    ) -> MediaDetails {
+    ) -> MetadataDetails {
         let mut images = vec![];
         if let Some(il) = item.image_links {
             if let Some(a) = il.thumbnail {
@@ -222,7 +222,7 @@ impl GoogleBooksService {
         if let Some(g) = item.main_category {
             genres.push(g);
         }
-        MediaDetails {
+        MetadataDetails {
             identifier: id,
             lot: MediaLot::Book,
             source: MediaSource::GoogleBooks,

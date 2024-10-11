@@ -9,7 +9,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+    AudioBookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
     MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
     PeopleSearchItem, PersonSourceSpecifics,
 };
@@ -323,7 +323,7 @@ impl MediaProvider for AudibleService {
         ))
     }
 
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
             .get(format!("{}/{}", self.url, identifier))
@@ -423,7 +423,7 @@ impl MediaProvider for AudibleService {
 }
 
 impl AudibleService {
-    fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
+    fn audible_response_to_search_response(&self, item: AudibleItem) -> MetadataDetails {
         let images = Vec::from_iter(
             item.product_images
                 .unwrap()
@@ -466,7 +466,7 @@ impl AudibleService {
         } else {
             None
         };
-        MediaDetails {
+        MetadataDetails {
             identifier: item.asin,
             lot: MediaLot::AudioBook,
             source: MediaSource::Audible,

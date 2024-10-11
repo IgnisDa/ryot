@@ -7,7 +7,7 @@ use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use media_models::{
-    AnimeSpecifics, MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataSearchItem,
+    AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem,
     PartialMetadataWithoutId,
 };
 use rand::{seq::SliceRandom, thread_rng};
@@ -67,7 +67,7 @@ impl MalAnimeService {
 
 #[async_trait]
 impl MediaProvider for MalAnimeService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details = details(&self.base.client, "anime", identifier).await?;
         Ok(details)
     }
@@ -105,7 +105,7 @@ impl MalMangaService {
 
 #[async_trait]
 impl MediaProvider for MalMangaService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details = details(&self.base.client, "manga", identifier).await?;
         Ok(details)
     }
@@ -202,7 +202,7 @@ struct ItemData {
     node: ItemNode,
 }
 
-async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDetails> {
+async fn details(client: &Client, media_type: &str, id: &str) -> Result<MetadataDetails> {
     let details: ItemNode = client
         .get(format!("{}/{}/{}", URL, media_type, id))
         .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
@@ -263,7 +263,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<MediaDet
     }
     suggestions.shuffle(&mut thread_rng());
     let is_nsfw = details.nsfw.map(|n| !matches!(n.as_str(), "white"));
-    let data = MediaDetails {
+    let data = MetadataDetails {
         identifier: details.id.to_string(),
         title: details.title,
         source: MediaSource::Mal,
