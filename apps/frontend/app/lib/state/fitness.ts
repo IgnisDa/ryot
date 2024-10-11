@@ -155,12 +155,11 @@ export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
 	});
 
 type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
+type TSet =
+	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 
 export const convertHistorySetToCurrentSet = (
-	s: Pick<
-		TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number],
-		"statistic" | "lot" | "note"
-	>,
+	s: Pick<TSet, "statistic" | "lot" | "note">,
 	confirmedAt?: string | null,
 ) =>
 	({
