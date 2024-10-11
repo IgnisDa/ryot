@@ -1577,7 +1577,7 @@ pub async fn create_or_update_workout(
             None,
         ),
     };
-    ryot_log!(debug, "Creating new workout with id = {}", new_workout_id);
+    ryot_log!(debug, "Creating workout with id = {}", new_workout_id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
