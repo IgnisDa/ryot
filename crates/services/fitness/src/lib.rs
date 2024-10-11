@@ -626,41 +626,41 @@ impl ExerciseService {
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
-        if let Some(wkt) = Workout::find_by_id(workout_id)
+        let wkt = match Workout::find_by_id(workout_id)
             .filter(workout::Column::UserId.eq(&user_id))
             .one(&self.0.db)
             .await?
         {
-            for (idx, ex) in wkt.information.exercises.iter().enumerate() {
-                let association = match UserToEntity::find()
-                    .filter(user_to_entity::Column::UserId.eq(&user_id))
-                    .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
-                    .one(&self.0.db)
-                    .await?
-                {
-                    None => continue,
-                    Some(assoc) => assoc,
-                };
-                let mut ei = association
-                    .exercise_extra_information
-                    .clone()
-                    .unwrap_or_default();
-                if let Some(ex_idx) = ei
-                    .history
-                    .iter()
-                    .position(|e| e.workout_id == wkt.id && e.idx == idx)
-                {
-                    ei.history.remove(ex_idx);
-                }
-                let mut association: user_to_entity::ActiveModel = association.into();
-                association.exercise_extra_information = ActiveValue::Set(Some(ei));
-                association.update(&self.0.db).await?;
+            Some(wkt) => wkt,
+            None => return Err(Error::new("Workout does not exist for user")),
+        };
+        for (idx, ex) in wkt.information.exercises.iter().enumerate() {
+            let association = match UserToEntity::find()
+                .filter(user_to_entity::Column::UserId.eq(&user_id))
+                .filter(user_to_entity::Column::ExerciseId.eq(ex.name.clone()))
+                .one(&self.0.db)
+                .await?
+            {
+                None => continue,
+                Some(assoc) => assoc,
+            };
+            let mut ei = association
+                .exercise_extra_information
+                .clone()
+                .unwrap_or_default();
+            if let Some(ex_idx) = ei
+                .history
+                .iter()
+                .position(|e| e.workout_id == wkt.id && e.idx == idx)
+            {
+                ei.history.remove(ex_idx);
             }
-            wkt.delete(&self.0.db).await?;
-            Ok(true)
-        } else {
-            Err(Error::new("Workout does not exist for user"))
+            let mut association: user_to_entity::ActiveModel = association.into();
+            association.exercise_extra_information = ActiveValue::Set(Some(ei));
+            association.update(&self.0.db).await?;
         }
+        wkt.delete(&self.0.db).await?;
+        Ok(true)
     }
 
     pub async fn re_evaluate_user_workouts(&self, user_id: String) -> Result<()> {
