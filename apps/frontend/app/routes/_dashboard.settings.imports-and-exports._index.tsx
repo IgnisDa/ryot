@@ -503,22 +503,23 @@ export default function Page() {
 									</Anchor>
 								</Group>
 							</Flex>
-							<Form
-								method="POST"
-								encType="multipart/form-data"
-								action={withQuery("", { intent: "deployExport" })}
-							>
+							<Form method="POST" encType="multipart/form-data">
+								<input
+									type="hidden"
+									name="intent"
+									defaultValue="deployExport"
+								/>
 								<Tooltip
 									label="Please enable file storage to use this feature"
 									disabled={fileUploadNotAllowed}
 								>
 									<Button
-										type="submit"
-										variant="light"
-										color="blue"
+										mt="xs"
 										fullWidth
 										radius="md"
-										mt="xs"
+										color="blue"
+										type="submit"
+										variant="light"
 										disabled={fileUploadNotAllowed}
 									>
 										Start job
