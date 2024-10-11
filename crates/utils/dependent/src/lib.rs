@@ -1553,7 +1553,7 @@ fn get_index_of_highest_pb(
             _ => record1,
         }
     });
-    record.and_then(|r| records.iter().position(|l| l == r))
+    record.and_then(|r| records.iter().position(|l| l.statistic == r.statistic))
 }
 
 /// Create a workout in the database and also update user and exercise associations.
