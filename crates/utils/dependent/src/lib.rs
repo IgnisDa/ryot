@@ -1523,36 +1523,22 @@ pub async fn create_user_measurement(
 }
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
-    records
-        .iter()
-        .enumerate()
-        .max_by_key(|(_, record)| {
-            record.statistic.duration.unwrap_or(dec!(0))
-                + record.statistic.distance.unwrap_or(dec!(0))
-                + record.statistic.reps.unwrap_or(dec!(0))
-                + record.statistic.weight.unwrap_or(dec!(0))
-        })
-        .map(|(index, _)| index)
+    let record = records.iter().enumerate().max_by_key(|(_, record)| {
+        record.statistic.duration.unwrap_or(dec!(0))
+            + record.statistic.distance.unwrap_or(dec!(0))
+            + record.statistic.reps.unwrap_or(dec!(0))
+            + record.statistic.weight.unwrap_or(dec!(0))
+    });
+    record.and_then(|(_, r)| records.iter().position(|l| l.statistic == r.statistic))
 }
 
 fn get_index_of_highest_pb(
     records: &[WorkoutSetRecord],
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<usize> {
-    let record = records.iter().reduce(|record1, record2| {
-        let pb1 = record1.get_personal_best(pb_type);
-        let pb2 = record2.get_personal_best(pb_type);
-        match (pb1, pb2) {
-            (Some(pb1), Some(pb2)) => {
-                if pb1 > pb2 {
-                    record1
-                } else {
-                    record2
-                }
-            }
-            _ => record1,
-        }
-    });
+    let record = records
+        .iter()
+        .max_by_key(|record| record.get_personal_best(pb_type).unwrap_or(dec!(0)));
     record.and_then(|r| records.iter().position(|l| l.statistic == r.statistic))
 }
 
