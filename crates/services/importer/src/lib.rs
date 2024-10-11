@@ -115,7 +115,7 @@ impl ImporterService {
             }
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await.unwrap(),
         };
-        let details = process_import(&user_id, import, &self.0).await?;
+        let details = process_import(&user_id, false, import, &self.0).await?;
         self.finish_import_job(db_import_job, details).await?;
         deploy_background_job(
             &user_id,

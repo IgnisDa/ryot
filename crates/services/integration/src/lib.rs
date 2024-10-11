@@ -39,8 +39,8 @@ impl IntegrationService {
         integration: integration::Model,
         updates: ImportResult,
     ) -> GqlResult<()> {
-        let mut updates = updates;
-        updates.metadata.iter_mut().for_each(|media| {
+        let mut import = updates;
+        import.metadata.iter_mut().for_each(|media| {
             media.seen_history.retain(|update| match update.progress {
                 Some(progress) if progress < integration.minimum_progress.unwrap() => {
                     ryot_log!(
@@ -66,7 +66,7 @@ impl IntegrationService {
                 }
             });
         });
-        if let Err(err) = process_import(&integration.user_id, updates, &self.0).await {
+        if let Err(err) = process_import(&integration.user_id, true, import, &self.0).await {
             ryot_log!(debug, "Error updating progress: {:?}", err);
         } else {
             let mut to_update: integration::ActiveModel = integration.into();

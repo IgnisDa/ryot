@@ -1866,6 +1866,7 @@ async fn create_collection_and_add_entity_to_it(
 
 pub async fn process_import(
     user_id: &String,
+    respect_cache: bool,
     import: ImportResult,
     ss: &Arc<SupportingService>,
 ) -> Result<ImportResultResponse> {
@@ -1944,7 +1945,7 @@ pub async fn process_import(
                     change_state: None,
                 },
                 user_id,
-                false,
+                respect_cache,
                 ss,
             )
             .await
