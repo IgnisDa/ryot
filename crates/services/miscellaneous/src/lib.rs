@@ -184,28 +184,29 @@ ORDER BY RANDOM() LIMIT 10;
         ))
         .all(&self.0.db)
         .await?;
-        ryot_log!(debug, "Downloading recommendations for {:?}", media_items);
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
+            ryot_log!(debug, "Getting recommendations: {:?}", media);
             let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
-            if let Ok(recommendations) = provider
+            match provider
                 .get_recommendations_for_metadata(&media.identifier)
                 .await
             {
-                ryot_log!(
-                    debug,
-                    "Found recommendations for {:?}: {:?}",
-                    media,
-                    recommendations
-                );
-                for mut rec in recommendations {
-                    rec.is_recommendation = Some(true);
-                    if let Ok(meta) = self.create_partial_metadata(rec).await {
-                        media_item_ids.push(meta.id);
+                Ok(recommendations) => {
+                    ryot_log!(debug, "Found recommendations: {:?}", recommendations);
+                    for mut rec in recommendations {
+                        rec.is_recommendation = Some(true);
+                        if let Ok(meta) = self.create_partial_metadata(rec).await {
+                            media_item_ids.push(meta.id);
+                        }
                     }
+                }
+                Err(e) => {
+                    ryot_log!(warn, "Could not get recommendations: {:?}", e);
                 }
             }
         }
+        ryot_log!(debug, "Created recommendations: {:?}", media_item_ids);
         Ok(())
     }
 
@@ -3117,6 +3118,9 @@ ORDER BY RANDOM() LIMIT 10;
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+        self.update_claimed_recommendations_and_download_new_ones()
+            .await
+            .unwrap();
         Ok(true)
     }
 }
