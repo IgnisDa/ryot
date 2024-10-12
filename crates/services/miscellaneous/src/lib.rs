@@ -47,7 +47,7 @@ use dependent_utils::{
     deploy_update_metadata_job, get_entities_monitored_by, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, is_metadata_finished_by_user, post_review,
     progress_update, queue_media_state_changed_notification_for_user,
-    queue_notifications_to_user_platforms, update_metadata, update_metadata_and_notify_users,
+    queue_notifications_to_user_platforms, update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
@@ -2001,14 +2001,10 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
-        for (metadata_id, to_notify) in meta_map {
-            let notifications = update_metadata(&metadata_id, false, &self.0).await?;
-            for user in to_notify {
-                for notification in notifications.iter() {
-                    queue_media_state_changed_notification_for_user(&user, notification, &self.0)
-                        .await?;
-                }
-            }
+        for (metadata_id, _) in meta_map {
+            self.update_metadata_and_notify_users(&metadata_id, true)
+                .await
+                .ok();
         }
         Ok(())
     }
@@ -2020,17 +2016,10 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             person_map
         );
-        for (person_id, to_notify) in person_map {
-            let notifications = self
-                .update_person(person_id.parse().unwrap())
+        for (person_id, _) in person_map {
+            self.update_person_and_notify_users(person_id.parse().unwrap())
                 .await
-                .unwrap_or_default();
-            for user in to_notify {
-                for notification in notifications.iter() {
-                    queue_media_state_changed_notification_for_user(&user, notification, &self.0)
-                        .await?;
-                }
-            }
+                .ok();
         }
         Ok(())
     }
