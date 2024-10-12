@@ -184,6 +184,7 @@ ORDER BY RANDOM() LIMIT 10;
         ))
         .all(&self.0.db)
         .await?;
+        ryot_log!(debug, "Downloading recommendations for {:?}", media_items);
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
             let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
@@ -191,6 +192,12 @@ ORDER BY RANDOM() LIMIT 10;
                 .get_recommendations_for_metadata(&media.identifier)
                 .await
             {
+                ryot_log!(
+                    debug,
+                    "Found recommendations for {:?}: {:?}",
+                    media,
+                    recommendations
+                );
                 for mut rec in recommendations {
                     rec.is_recommendation = Some(true);
                     if let Ok(meta) = self.create_partial_metadata(rec).await {
