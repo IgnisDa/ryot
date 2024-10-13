@@ -50,7 +50,11 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { commaDelimitedString, dayjsLib } from "~/lib/generals";
+import {
+	applicationBaseUrl,
+	commaDelimitedString,
+	dayjsLib,
+} from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -302,10 +306,7 @@ const DisplayIntegration = (props: {
 		useDisclosure(false);
 	const submit = useConfirmSubmit();
 
-	const integrationUrl =
-		typeof window !== "undefined"
-			? `${window.location.origin}/_i/${props.integration.id}`
-			: "";
+	const integrationUrl = `${applicationBaseUrl}/_i/${props.integration.id}`;
 
 	return (
 		<Paper p="xs" withBorder>
