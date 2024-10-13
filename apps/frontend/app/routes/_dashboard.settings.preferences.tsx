@@ -3,6 +3,7 @@ import {
 	ActionIcon,
 	Affix,
 	Alert,
+	Box,
 	Button,
 	Container,
 	Divider,
@@ -527,19 +528,6 @@ export default function Page() {
 								cols={{ base: 1, md: 2 }}
 								style={{ alignItems: "center" }}
 							>
-								<Select
-									size="xs"
-									label="Unit system to use for measurements"
-									data={Object.values(UserUnitSystem).map((c) => ({
-										value: c.toLowerCase(),
-										label: startCase(c.toLowerCase()),
-									}))}
-									defaultValue={userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!!isEditDisabled}
-									onChange={(val) => {
-										if (val) appendPref("fitness.exercises.unit_system", val);
-									}}
-								/>
 								<Group wrap="nowrap">
 									<ActionIcon
 										onClick={async () => {
@@ -559,7 +547,48 @@ export default function Page() {
 										Show me notifications related to the current workout
 									</Text>
 								</Group>
+								<Select
+									size="xs"
+									label="Unit system to use for measurements"
+									data={Object.values(UserUnitSystem).map((c) => ({
+										value: c.toLowerCase(),
+										label: startCase(c.toLowerCase()),
+									}))}
+									defaultValue={userPreferences.fitness.exercises.unitSystem.toLowerCase()}
+									disabled={!!isEditDisabled}
+									onChange={(val) => {
+										if (val) appendPref("fitness.exercises.unit_system", val);
+									}}
+								/>
 							</SimpleGrid>
+							<Box>
+								<Text>Default Rest Timers</Text>
+								<SimpleGrid cols={3}>
+									{(["normalSet", "warmupSet", "dropSet"] as const).map(
+										(name) => {
+											const value =
+												userPreferences.fitness.exercises.restTimers[name];
+											return (
+												<NumberInput
+													size="xs"
+													key={name}
+													disabled={!!isEditDisabled}
+													label={changeCase(snakeCase(name))}
+													defaultValue={isNumber(value) ? value : undefined}
+													onChange={(val) => {
+														if (isNumber(val)) {
+															appendPref(
+																`fitness.exercises.rest_timers.${snakeCase(name)}`,
+																String(val),
+															);
+														}
+													}}
+												/>
+											);
+										},
+									)}
+								</SimpleGrid>
+							</Box>
 							<Text>The default measurements you want to keep track of.</Text>
 							<SimpleGrid cols={2}>
 								{Object.entries(
