@@ -75,6 +75,7 @@ import { confirmWrapper } from "~/components/confirmation";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	commaDelimitedString,
 	dayjsLib,
 	getPartialMetadataDetailsQuery,
 	queryClient,
@@ -178,12 +179,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 
 const createOrUpdateSchema = z.object({
 	name: z.string(),
-	description: z.string().optional(),
 	updateId: z.string().optional(),
-	collaborators: z
-		.string()
-		.optional()
-		.transform((v) => (v ? v.split(",") : undefined)),
+	description: z.string().optional(),
+	collaborators: commaDelimitedString,
 	informationTemplate: z
 		.array(
 			z.object({
