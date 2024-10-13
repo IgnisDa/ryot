@@ -205,10 +205,5 @@ export const useComplexJsonUpdate = () => {
 		updateUserPreferencesHandler.append([property, value]);
 	};
 
-	return {
-		reset,
-		appendPref,
-		toUpdatePreferences,
-		updateUserPreferencesHandler,
-	};
+	return { reset, appendPref, toUpdatePreferences };
 };
