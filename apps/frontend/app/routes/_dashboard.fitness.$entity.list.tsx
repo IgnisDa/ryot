@@ -260,7 +260,7 @@ export default function Page() {
 										{workout.summary.exercises.map((exercise, idx) => (
 											<ExerciseDisplay
 												exercise={exercise}
-												key={`${idx}-${exercise.id}`}
+												key={`${idx}-${exercise.name}`}
 											/>
 										))}
 									</Accordion.Panel>
@@ -317,7 +317,7 @@ const ExerciseDisplay = (props: {
 				{props.exercise.numSets} ×
 			</Text>
 			<Text style={{ flex: 1 }} fz="sm">
-				{props.exercise.id}
+				{props.exercise.name}
 			</Text>
 			{stat ? <Text fz="sm">{stat}</Text> : null}
 		</Flex>
