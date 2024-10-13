@@ -492,7 +492,7 @@ const CreateAccessLinkModal = (props: {
 					<Checkbox
 						label="Allow mutation"
 						name="isMutationAllowed"
-						description="Users will be able to change your data if this is checked"
+						description="Allow users to able to change your data?"
 					/>
 					<Button type="submit">Submit</Button>
 				</Stack>
