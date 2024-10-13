@@ -325,10 +325,10 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
 		const toAdd = {
+			sets,
+			notes,
 			identifier: exercise.identifier,
 			exerciseId: exercise.exerciseId,
-			notes,
-			sets,
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			supersetWith: exercise.supersetWith as any,
 			assets: {
@@ -348,10 +348,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 		);
 		supersetWith = supersetWith.filter((idx) => idx !== -1);
 		ex.supersetWith = supersetWith;
-	}
-	for (const ex of input.input.exercises) {
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		(ex as any).identifier = undefined;
 	}
 	return input;
 };
