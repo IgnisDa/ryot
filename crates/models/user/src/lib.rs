@@ -279,7 +279,7 @@ pub struct UserGeneralPreferences {
             .collect(),
     }]))]
     pub watch_providers: Vec<UserGeneralWatchProvider>,
-    #[educe(Default = GridPacking::Normal)]
+    #[educe(Default = GridPacking::Dense)]
     pub grid_packing: GridPacking,
     #[educe(Default = UserReviewScale::OutOfHundred)]
     pub review_scale: UserReviewScale,
