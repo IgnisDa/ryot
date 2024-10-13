@@ -370,10 +370,37 @@ pub struct UserToExerciseBestSetExtraInformation {
 }
 
 #[derive(
+    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+)]
+pub struct UserToExerciseRestTimerSettingsExtraInformation {
+    pub drop_set: Option<u16>,
+    pub warmup_set: Option<u16>,
+    pub normal_set: Option<u16>,
+}
+
+impl Default for UserToExerciseRestTimerSettingsExtraInformation {
+    fn default() -> Self {
+        Self {
+            drop_set: None,
+            warmup_set: None,
+            normal_set: Some(60),
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
+)]
+pub struct UserToExerciseSettingsExtraInformation {
+    pub rest_timer: UserToExerciseRestTimerSettingsExtraInformation,
+}
+
+#[derive(
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseExtraInformation {
     pub lifetime_stats: WorkoutOrExerciseTotals,
+    pub settings: UserToExerciseSettingsExtraInformation,
     pub history: Vec<UserToExerciseHistoryExtraInformation>,
     pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
 }
