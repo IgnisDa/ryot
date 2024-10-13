@@ -45,8 +45,8 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use user_models::{
-    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserGeneralDashboardElement,
-    UserGeneralPreferences, UserPreferences, UserReviewScale,
+    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserPreferences,
+    UserReviewScale,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -424,13 +424,13 @@ impl UserService {
                                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                                 match left {
                                     "custom" => {
-                                        let value = serde_json::from_str(&input.value).unwrap();
-                                        preferences.fitness.measurements.custom = value;
+                                        preferences.fitness.measurements.custom =
+                                            serde_json::from_str(&input.value).unwrap()
                                     }
                                     "inbuilt" => match right {
                                         "weight" => {
                                             preferences.fitness.measurements.inbuilt.weight =
-                                                value_bool.unwrap();
+                                                value_bool.unwrap()
                                         }
                                         "body_mass_index" => {
                                             preferences
@@ -703,15 +703,8 @@ impl UserService {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
                         "dashboard" => {
-                            let value = serde_json::from_str::<Vec<UserGeneralDashboardElement>>(
-                                &input.value,
-                            )
-                            .unwrap();
-                            let default_general_preferences = UserGeneralPreferences::default();
-                            if value.len() != default_general_preferences.dashboard.len() {
-                                return Err(err());
-                            }
-                            preferences.general.dashboard = value;
+                            preferences.general.dashboard =
+                                serde_json::from_str(&input.value).unwrap();
                         }
                         "disable_integrations" => {
                             preferences.general.disable_integrations = value_bool.unwrap();
