@@ -375,7 +375,7 @@ pub struct UserToExerciseBestSetExtraInformation {
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Educe,
 )]
 #[educe(Default)]
-pub struct UserToExerciseRestTimerSettingsExtraInformation {
+pub struct RestTimersSettings {
     pub drop_set: Option<u16>,
     pub warmup_set: Option<u16>,
     #[educe(Default = Some(60))]
@@ -386,7 +386,7 @@ pub struct UserToExerciseRestTimerSettingsExtraInformation {
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseSettingsExtraInformation {
-    pub rest_timer: UserToExerciseRestTimerSettingsExtraInformation,
+    pub rest_timers: RestTimersSettings,
 }
 
 #[derive(

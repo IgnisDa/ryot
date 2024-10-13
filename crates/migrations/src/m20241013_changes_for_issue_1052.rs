@@ -7,6 +7,17 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+        db.execute_unprepared(
+            r#"
+UPDATE "user"
+SET "preferences" = jsonb_set(
+    "preferences",
+    '{fitness,exercises,rest_timers}',
+    jsonb_build_object('normal_set', 60)
+);
+        "#,
+        )
+        .await?;
         for x in ["workout", "workout_template"] {
             db.execute_unprepared(&format!(
                 r#"
@@ -51,7 +62,7 @@ UPDATE "user_to_entity"
 SET "exercise_extra_information" = jsonb_set(
     "exercise_extra_information",
     '{settings}',
-    jsonb_build_object('rest_timer', jsonb_build_object('normal_set', 60))
+    jsonb_build_object('rest_timers', jsonb_build_object('normal_set', 60))
 )
 WHERE "user_to_entity"."exercise_extra_information" IS NOT NULL;
         "#,

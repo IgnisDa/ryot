@@ -185,3 +185,9 @@ fragment WorkoutInformationPart on WorkoutInformation {
     }
   }
 }
+
+fragment RestTimersPart on RestTimersSettings {
+  dropSet
+  warmupSet
+  normalSet
+}

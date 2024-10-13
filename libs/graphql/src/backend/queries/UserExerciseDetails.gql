@@ -21,10 +21,8 @@ query UserExerciseDetails($exerciseId: String!) {
       exerciseNumTimesInteracted
       exerciseExtraInformation {
         settings {
-          restTimer {
-            dropSet
-            warmupSet
-            normalSet
+          restTimers {
+            ...RestTimersPart
           }
         }
         lifetimeStats {

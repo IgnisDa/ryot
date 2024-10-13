@@ -54,6 +54,9 @@ query UserPreferences {
       }
       exercises {
         unitSystem
+        restTimers {
+          ...RestTimersPart
+        }
       }
     }
     notifications {
