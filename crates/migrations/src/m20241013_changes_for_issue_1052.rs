@@ -25,6 +25,7 @@ SET "information" = jsonb_set(
         FROM jsonb_array_elements("information"->'exercises') AS exercise
     )
 );
+
 UPDATE "{x}"
 SET "summary" = jsonb_set(
     "summary",
@@ -44,6 +45,18 @@ SET "summary" = jsonb_set(
             ))
             .await?;
         }
+        db.execute_unprepared(
+            r#"
+UPDATE "user_to_entity"
+SET "exercise_extra_information" = jsonb_set(
+    "exercise_extra_information",
+    '{settings}',
+    jsonb_build_object('rest_timer', '{}'::jsonb)
+)
+WHERE "user_to_entity"."exercise_extra_information" IS NOT NULL;
+        "#,
+        )
+        .await?;
         Ok(())
     }
 
