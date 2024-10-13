@@ -5,6 +5,7 @@ use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
 use async_trait::async_trait;
 use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
 use derive_more::{Add, AddAssign, Sum};
+use educe::Educe;
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
@@ -371,22 +372,14 @@ pub struct UserToExerciseBestSetExtraInformation {
 
 #[skip_serializing_none]
 #[derive(
-    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
+    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Educe,
 )]
+#[educe(Default)]
 pub struct UserToExerciseRestTimerSettingsExtraInformation {
     pub drop_set: Option<u16>,
     pub warmup_set: Option<u16>,
+    #[educe(Default = Some(60))]
     pub normal_set: Option<u16>,
-}
-
-impl Default for UserToExerciseRestTimerSettingsExtraInformation {
-    fn default() -> Self {
-        Self {
-            drop_set: None,
-            warmup_set: None,
-            normal_set: Some(60),
-        }
-    }
 }
 
 #[derive(

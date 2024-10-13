@@ -6,6 +6,7 @@ use common_utils::{convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
+use educe::Educe;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -33,29 +34,15 @@ enum AudibleSimilarityType {
     NextInSameSeries,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Educe)]
+#[educe(Default)]
 struct PrimaryQuery {
+    #[educe(
+        Default = "contributors,category_ladders,media,product_attrs,product_extended_attrs,series,relationships,rating"
+    )]
     response_groups: String,
+    #[educe(Default = "2400")]
     image_sizes: String,
-}
-
-impl Default for PrimaryQuery {
-    fn default() -> Self {
-        Self {
-            response_groups: [
-                "contributors",
-                "category_ladders",
-                "media",
-                "product_attrs",
-                "product_extended_attrs",
-                "series",
-                "relationships",
-                "rating",
-            ]
-            .join(","),
-            image_sizes: ["2400"].join(","),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize)]

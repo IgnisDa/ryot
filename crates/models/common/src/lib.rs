@@ -1,4 +1,5 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
+use educe::Educe;
 use enum_meta::{meta, Meta};
 use enums::EntityLot;
 use rust_decimal::Decimal;
@@ -36,16 +37,11 @@ pub struct IdAndNamedObject {
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Educe)]
+#[educe(Default(expression = StoredUrl::Url(String::from("https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png"))))]
 pub enum StoredUrl {
     S3(String),
     Url(String),
-}
-
-impl Default for StoredUrl {
-    fn default() -> Self {
-        Self::Url("".to_owned())
-    }
 }
 
 #[derive(Debug, InputObject)]
