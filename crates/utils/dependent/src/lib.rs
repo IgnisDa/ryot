@@ -30,10 +30,9 @@ use enums::{EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenSt
 use fitness_models::{
     ExerciseBestSetRecord, ProcessedExercise, UserExerciseInput,
     UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-    UserToExerciseHistoryExtraInformation, UserToExerciseSettingsExtraInformation,
-    UserWorkoutInput, UserWorkoutSetRecord, WorkoutInformation, WorkoutOrExerciseTotals,
-    WorkoutSetPersonalBest, WorkoutSetRecord, WorkoutSetTotals, WorkoutSummary,
-    WorkoutSummaryExercise, LOT_MAPPINGS,
+    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
+    WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetPersonalBest, WorkoutSetRecord,
+    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
@@ -1614,10 +1613,8 @@ pub async fn create_or_update_workout(
                     exercise_id: ActiveValue::Set(Some(ex.exercise_id.clone())),
                     exercise_extra_information: ActiveValue::Set(Some(
                         UserToExerciseExtraInformation {
-                            personal_bests: vec![],
                             history: vec![history_item],
-                            lifetime_stats: WorkoutOrExerciseTotals::default(),
-                            settings: UserToExerciseSettingsExtraInformation::default(),
+                            ..Default::default()
                         },
                     )),
                     created_on: ActiveValue::Set(
