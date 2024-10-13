@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::SearchInput;
+use common_models::{SearchInput, UpdateComplexJsonInput};
 use database_models::{exercise, user_measurement, workout, workout_template};
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
@@ -226,5 +226,16 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_custom_exercise(user_id, input).await
+    }
+
+    /// Update a user's exercise settings.
+    async fn update_user_exercise_settings(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateComplexJsonInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.update_user_exercise_settings(user_id, input).await
     }
 }

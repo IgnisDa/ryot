@@ -48,6 +48,13 @@ impl Default for StoredUrl {
     }
 }
 
+#[derive(Debug, InputObject)]
+pub struct UpdateComplexJsonInput {
+    /// Dot delimited path to the property that needs to be changed.
+    pub property: String,
+    pub value: String,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Enum, ConfigEnum)]
 pub enum CollectionExtraInformationLot {
     String,

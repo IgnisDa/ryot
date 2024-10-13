@@ -4,7 +4,7 @@ use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::{Timelike, Utc};
-use common_models::{DefaultCollection, StringIdObject};
+use common_models::{DefaultCollection, StringIdObject, UpdateComplexJsonInput};
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
@@ -29,8 +29,7 @@ use media_models::{
     ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
     ProcessAccessLinkResult, RegisterError, RegisterErrorVariant, RegisterResult,
     RegisterUserInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserDetailsError,
-    UserDetailsErrorVariant,
+    UpdateUserNotificationPlatformInput, UserDetailsError, UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -405,7 +404,7 @@ impl UserService {
     pub async fn update_user_preference(
         &self,
         user_id: String,
-        input: UpdateUserPreferenceInput,
+        input: UpdateComplexJsonInput,
     ) -> Result<bool> {
         let err = || Error::new("Incorrect property value encountered");
         let user_model = user_by_id(&self.0.db, &user_id).await?;

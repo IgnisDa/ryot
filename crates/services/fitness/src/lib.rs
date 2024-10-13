@@ -6,6 +6,7 @@ use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput, StoredUrl,
+    UpdateComplexJsonInput,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -758,5 +759,13 @@ impl ExerciseService {
         self.create_custom_exercise(user_id, input.update.clone())
             .await?;
         Ok(true)
+    }
+
+    pub async fn update_user_exercise_settings(
+        &self,
+        user_id: String,
+        input: UpdateComplexJsonInput,
+    ) -> Result<bool> {
+        todo!()
     }
 }

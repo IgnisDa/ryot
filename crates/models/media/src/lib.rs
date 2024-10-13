@@ -1212,14 +1212,6 @@ pub struct UpdateUserInput {
 }
 
 #[derive(Debug, InputObject)]
-pub struct UpdateUserPreferenceInput {
-    /// Dot delimited path to the property that needs to be changed. Setting it\
-    /// to empty resets the preferences to default.
-    pub property: String,
-    pub value: String,
-}
-
-#[derive(Debug, InputObject)]
 pub struct GenreDetailsInput {
     pub genre_id: String,
     pub page: Option<u64>,
