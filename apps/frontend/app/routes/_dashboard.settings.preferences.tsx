@@ -523,7 +523,7 @@ export default function Page() {
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="fitness">
-						<Stack>
+						<Stack gap="xl">
 							<SimpleGrid
 								cols={{ base: 1, md: 2 }}
 								style={{ alignItems: "center" }}
@@ -589,26 +589,28 @@ export default function Page() {
 									)}
 								</SimpleGrid>
 							</Box>
-							<Text>The default measurements you want to keep track of.</Text>
-							<SimpleGrid cols={2}>
-								{Object.entries(
-									userPreferences.fitness.measurements.inbuilt,
-								).map(([name, isEnabled]) => (
-									<Switch
-										size="xs"
-										key={name}
-										label={changeCase(snakeCase(name))}
-										defaultChecked={isEnabled}
-										disabled={!!isEditDisabled}
-										onChange={(ev) => {
-											appendPref(
-												`fitness.measurements.inbuilt.${snakeCase(name)}`,
-												String(ev.currentTarget.checked),
-											);
-										}}
-									/>
-								))}
-							</SimpleGrid>
+							<Stack gap="xs">
+								<Text>The default measurements you want to keep track of</Text>
+								<SimpleGrid cols={2}>
+									{Object.entries(
+										userPreferences.fitness.measurements.inbuilt,
+									).map(([name, isEnabled]) => (
+										<Switch
+											size="xs"
+											key={name}
+											label={changeCase(snakeCase(name))}
+											defaultChecked={isEnabled}
+											disabled={!!isEditDisabled}
+											onChange={(ev) => {
+												appendPref(
+													`fitness.measurements.inbuilt.${snakeCase(name)}`,
+													String(ev.currentTarget.checked),
+												);
+											}}
+										/>
+									))}
+								</SimpleGrid>
+							</Stack>
 							<JsonInput
 								label="The custom metrics you want to keep track of"
 								description="The name of the attribute along with the data type. Only decimal data type is supported."
