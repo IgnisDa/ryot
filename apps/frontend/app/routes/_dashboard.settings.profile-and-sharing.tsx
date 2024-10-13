@@ -487,7 +487,7 @@ const CreateAccessLinkModal = (props: {
 					<TextInput
 						name="redirectTo"
 						label="Redirect to"
-						description="Users will be redirected to this URL after accessing the URL"
+						description="Users will be redirected to this URL when they use the link"
 					/>
 					<Checkbox
 						label="Allow mutation"
