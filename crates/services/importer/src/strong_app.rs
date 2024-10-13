@@ -101,7 +101,7 @@ pub async fn import(
                 assets: None,
                 rest_time: None,
                 superset_with: vec![],
-                id: Uuid::new_v4().to_string(),
+                identifier: Uuid::new_v4().to_string(),
                 exercise_id: target_exercise.target_name.clone(),
             });
             sets = vec![];

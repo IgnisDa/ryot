@@ -162,14 +162,15 @@ fragment WorkoutInformationPart on WorkoutInformation {
     ...EntityAssetsPart
   }
   exercises {
-    name
     lot
+    name
     notes
     restTime
+    identifier
+    supersetWith
     total {
       ...WorkoutOrExerciseTotalsPart
     }
-    supersetWith
     assets {
       ...EntityAssetsPart
     }

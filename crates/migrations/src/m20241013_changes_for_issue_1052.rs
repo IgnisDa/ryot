@@ -18,7 +18,7 @@ impl MigrationTrait for Migration {
                     SELECT jsonb_agg(
                         jsonb_set(
                             exercise,
-                            '{{id}}',
+                            '{{identifier}}',
                             to_jsonb(gen_random_uuid())
                             )
                         )
