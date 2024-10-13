@@ -1411,7 +1411,7 @@ export type MutationRootUpdateUserArgs = {
 
 
 export type MutationRootUpdateUserExerciseSettingsArgs = {
-  input: UpdateComplexJsonInput;
+  input: UpdateUserExerciseSettings;
 };
 
 
@@ -2097,6 +2097,11 @@ export type UpdateSeenItemInput = {
   reviewId?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
   startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+};
+
+export type UpdateUserExerciseSettings = {
+  change: UpdateComplexJsonInput;
+  exerciseId: Scalars['String']['input'];
 };
 
 export type UpdateUserInput = {

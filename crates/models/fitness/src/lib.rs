@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
 use async_trait::async_trait;
-use common_models::{SearchInput, StoredUrl};
+use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
 use derive_more::{Add, AddAssign, Sum};
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -652,6 +652,12 @@ pub struct ExerciseFilters {
     pub mechanic: Vec<ExerciseMechanic>,
     pub equipment: Vec<ExerciseEquipment>,
     pub muscle: Vec<ExerciseMuscle>,
+}
+
+#[derive(Debug, InputObject)]
+pub struct UpdateUserExerciseSettings {
+    pub exercise_id: String,
+    pub change: UpdateComplexJsonInput,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

@@ -35,9 +35,9 @@ use enums::{
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
-    GithubExerciseAttributes, ProcessedExercise, UpdateUserWorkoutAttributesInput,
-    UserMeasurementsListInput, UserWorkoutInput, WorkoutInformation, WorkoutSetRecord,
-    WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
+    GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
+    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserWorkoutInput,
+    WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -764,8 +764,13 @@ impl ExerciseService {
     pub async fn update_user_exercise_settings(
         &self,
         user_id: String,
-        input: UpdateComplexJsonInput,
+        input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
+        let ute = UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(input.exercise_id))
+            .one(&self.0.db)
+            .await?;
         todo!()
     }
 }

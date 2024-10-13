@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::{SearchInput, UpdateComplexJsonInput};
+use common_models::SearchInput;
 use database_models::{exercise, user_measurement, workout, workout_template};
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
     UserWorkoutTemplateDetails,
 };
 use fitness_models::{
-    ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserWorkoutAttributesInput,
-    UserMeasurementsListInput, UserWorkoutInput,
+    ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserExerciseSettings,
+    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserWorkoutInput,
 };
 use fitness_service::ExerciseService;
 use sea_orm::prelude::DateTimeUtc;
@@ -232,7 +232,7 @@ impl ExerciseMutation {
     async fn update_user_exercise_settings(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateComplexJsonInput,
+        input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
