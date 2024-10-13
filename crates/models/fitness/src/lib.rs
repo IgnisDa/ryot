@@ -482,7 +482,7 @@ pub struct WorkoutInformation {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSummaryExercise {
-    pub id: String,
+    pub name: String,
     pub num_sets: usize,
     pub lot: Option<ExerciseLot>,
     pub best_set: Option<WorkoutSetRecord>,

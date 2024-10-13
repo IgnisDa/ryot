@@ -10,21 +10,36 @@ impl MigrationTrait for Migration {
         for x in ["workout", "workout_template"] {
             db.execute_unprepared(&format!(
                 r#"
-                UPDATE "{x}"
-                SET "information" = jsonb_set(
-                    "information",
-                    '{{exercises}}',
-                    (
-                    SELECT jsonb_agg(
-                        jsonb_set(
-                            exercise,
-                            '{{identifier}}',
-                            to_jsonb(gen_random_uuid())
-                            )
-                        )
-                        FROM jsonb_array_elements("information"->'exercises') AS exercise
-                        )
-                    );
+UPDATE "{x}"
+SET "information" = jsonb_set(
+    "information",
+    '{{exercises}}',
+    (
+    SELECT jsonb_agg(
+        jsonb_set(
+            exercise,
+            '{{identifier}}',
+            to_jsonb(gen_random_uuid())
+            )
+        )
+        FROM jsonb_array_elements("information"->'exercises') AS exercise
+    )
+);
+UPDATE "{x}"
+SET "summary" = jsonb_set(
+    "summary",
+    '{{exercises}}',
+    (
+        SELECT jsonb_agg(
+            jsonb_set(
+                exercise - 'id',
+                '{{name}}',
+                exercise->'id'
+            )
+        )
+        FROM jsonb_array_elements("summary"->'exercises') AS exercise
+    )
+);
                     "#,
             ))
             .await?;

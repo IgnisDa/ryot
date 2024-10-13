@@ -104,9 +104,9 @@ fragment WorkoutSummaryPart on WorkoutSummary {
     ...WorkoutOrExerciseTotalsPart
   }
   exercises {
-    numSets
-    id
     lot
+    name
+    numSets
     bestSet {
       ...WorkoutSetRecordPart
     }

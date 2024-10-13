@@ -112,7 +112,7 @@ impl ExerciseService {
         for exercise in input.exercises {
             let db_ex = self.exercise_details(exercise.exercise_id.clone()).await?;
             summary.exercises.push(WorkoutSummaryExercise {
-                id: exercise.exercise_id.clone(),
+                name: exercise.exercise_id.clone(),
                 best_set: None,
                 lot: None,
                 num_sets: exercise.sets.len(),
@@ -738,7 +738,7 @@ impl ExerciseService {
                         .unwrap();
                     let mut summary = db_workout.summary.clone();
                     let mut information = db_workout.information.clone();
-                    summary.exercises[workout.idx].id = input.update.id.clone();
+                    summary.exercises[workout.idx].name = input.update.id.clone();
                     information.exercises[workout.idx].name = input.update.id.clone();
                     let mut db_workout: workout::ActiveModel = db_workout.into();
                     db_workout.summary = ActiveValue::Set(summary);

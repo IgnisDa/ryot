@@ -1791,7 +1791,7 @@ pub async fn create_or_update_workout(
                 .map(|(best_set, lot, e)| WorkoutSummaryExercise {
                     best_set,
                     lot: Some(lot),
-                    id: e.name.clone(),
+                    name: e.name.clone(),
                     num_sets: e.sets.len(),
                 })
                 .collect(),
