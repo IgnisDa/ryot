@@ -3118,9 +3118,6 @@ ORDER BY RANDOM() LIMIT 10;
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-        self.update_claimed_recommendations_and_download_new_ones()
-            .await
-            .unwrap();
         Ok(true)
     }
 }
