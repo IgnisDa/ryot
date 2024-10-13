@@ -790,12 +790,12 @@ impl ExerciseService {
         let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
         match left {
             "rest_timers" => {
-                let rest_timer_settings = &mut exercise_extra_information.settings.rest_timers;
                 let value = input.change.value.parse().unwrap();
+                let rest_timers = &mut exercise_extra_information.settings.rest_timers;
                 match right {
-                    "drop_set" => rest_timer_settings.drop_set = Some(value),
-                    "normal_set" => rest_timer_settings.normal_set = Some(value),
-                    "warmup_set" => rest_timer_settings.warmup_set = Some(value),
+                    "drop_set" => rest_timers.drop_set = Some(value),
+                    "normal_set" => rest_timers.normal_set = Some(value),
+                    "warmup_set" => rest_timers.warmup_set = Some(value),
                     _ => return Err(err()),
                 }
             }
