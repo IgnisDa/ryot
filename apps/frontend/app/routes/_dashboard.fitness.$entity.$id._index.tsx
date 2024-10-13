@@ -24,7 +24,7 @@ import {
 	DeleteUserWorkoutDocument,
 	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
-	UpdateUserWorkoutDocument,
+	UpdateUserWorkoutAttributesDocument,
 	UserWorkoutTemplateDetailsDocument,
 	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -169,7 +169,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const submission = processSubmission(formData, editWorkoutSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
-				UpdateUserWorkoutDocument,
+				UpdateUserWorkoutAttributesDocument,
 				{ input: submission },
 			);
 			return Response.json({ status: "success", submission } as const, {

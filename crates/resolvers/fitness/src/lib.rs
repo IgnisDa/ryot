@@ -8,7 +8,7 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use fitness_models::{
-    ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserWorkoutInput,
+    ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserWorkoutAttributesInput,
     UserMeasurementsListInput, UserWorkoutInput,
 };
 use fitness_service::ExerciseService;
@@ -189,14 +189,14 @@ impl ExerciseMutation {
     }
 
     /// Change the details about a user's workout.
-    async fn update_user_workout(
+    async fn update_user_workout_attributes(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserWorkoutInput,
+        input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_workout(user_id, input).await
+        service.update_user_workout_attributes(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.

@@ -373,8 +373,8 @@ pub struct UserToExerciseBestSetExtraInformation {
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseExtraInformation {
-    pub history: Vec<UserToExerciseHistoryExtraInformation>,
     pub lifetime_stats: WorkoutOrExerciseTotals,
+    pub history: Vec<UserToExerciseHistoryExtraInformation>,
     pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
 }
 
@@ -628,7 +628,7 @@ pub struct ExerciseFilters {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-pub struct UpdateUserWorkoutInput {
+pub struct UpdateUserWorkoutAttributesInput {
     pub id: String,
     pub start_time: Option<DateTimeUtc>,
     pub end_time: Option<DateTimeUtc>,

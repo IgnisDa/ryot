@@ -34,9 +34,9 @@ use enums::{
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
-    GithubExerciseAttributes, ProcessedExercise, UpdateUserWorkoutInput, UserMeasurementsListInput,
-    UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
-    LOT_MAPPINGS,
+    GithubExerciseAttributes, ProcessedExercise, UpdateUserWorkoutAttributesInput,
+    UserMeasurementsListInput, UserWorkoutInput, WorkoutInformation, WorkoutSetRecord,
+    WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -551,10 +551,10 @@ impl ExerciseService {
         Ok(identifier)
     }
 
-    pub async fn update_user_workout(
+    pub async fn update_user_workout_attributes(
         &self,
         user_id: String,
-        input: UpdateUserWorkoutInput,
+        input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
         if let Some(wkt) = Workout::find()
             .filter(workout::Column::UserId.eq(&user_id))

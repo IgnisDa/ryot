@@ -172,8 +172,8 @@ mutation UpdateUserNotificationPlatform($input: UpdateUserNotificationPlatformIn
   updateUserNotificationPlatform(input: $input)
 }
 
-mutation UpdateUserWorkout($input: UpdateUserWorkoutInput!) {
-  updateUserWorkout(input: $input)
+mutation UpdateUserWorkoutAttributes($input: UpdateUserWorkoutAttributesInput!) {
+  updateUserWorkoutAttributes(input: $input)
 }
 
 mutation GenerateAuthToken {
