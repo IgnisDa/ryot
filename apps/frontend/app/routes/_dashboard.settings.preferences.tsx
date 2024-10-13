@@ -25,7 +25,6 @@ import {
 	Tooltip,
 	rem,
 } from "@mantine/core";
-import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
@@ -61,6 +60,7 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { queryClient, queryFactory } from "~/lib/generals";
 import {
+	useComplexJsonUpdate,
 	useConfirmSubmit,
 	useDashboardLayoutData,
 	useUserPreferences,
@@ -138,20 +138,12 @@ export default function Page() {
 	const [dashboardElements, setDashboardElements] = useState(
 		userPreferences.general.dashboard,
 	);
-	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
-		[string, string]
-	>([]);
+	const { toUpdatePreferences, appendPref, reset } = useComplexJsonUpdate();
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemo;
-
-	const appendPref = (property: string, value: string) => {
-		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
-		if (index !== -1) updateUserPreferencesHandler.remove(index);
-		updateUserPreferencesHandler.append([property, value]);
-	};
 
 	return (
 		<Container size="xs">
@@ -166,7 +158,7 @@ export default function Page() {
 						replace
 						method="POST"
 						action={`?defaultTab=${defaultTab}`}
-						onSubmit={() => updateUserPreferencesHandler.setState([])}
+						onSubmit={() => reset()}
 					>
 						{toUpdatePreferences.map((pref) => (
 							<input
