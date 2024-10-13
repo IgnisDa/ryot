@@ -7,26 +7,28 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(
-            r#"
-UPDATE "workout"
-SET "information" = jsonb_set(
-    "information",
-    '{exercises}',
-    (
-        SELECT jsonb_agg(
-            jsonb_set(
-                exercise,
-                '{id}',
-                to_jsonb(gen_random_uuid())
-            )
-        )
-        FROM jsonb_array_elements("information"->'exercises') AS exercise
-    )
-);
-"#,
-        )
-        .await?;
+        for x in ["workout", "workout_template"] {
+            db.execute_unprepared(&format!(
+                r#"
+                UPDATE "{x}"
+                SET "information" = jsonb_set(
+                    "information",
+                    '{{exercises}}',
+                    (
+                    SELECT jsonb_agg(
+                        jsonb_set(
+                            exercise,
+                            '{{id}}',
+                            to_jsonb(gen_random_uuid())
+                            )
+                        )
+                        FROM jsonb_array_elements("information"->'exercises') AS exercise
+                        )
+                    );
+                    "#,
+            ))
+            .await?;
+        }
         Ok(())
     }
 
