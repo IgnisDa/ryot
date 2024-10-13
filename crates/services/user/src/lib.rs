@@ -577,12 +577,28 @@ impl UserService {
                                     _ => return Err(err()),
                                 }
                             }
-                            "exercises" => match right {
-                                "unit_system" => {
-                                    preferences.fitness.exercises.unit_system =
-                                        UserUnitSystem::from_str(&input.value).unwrap();
-                                }
-                                _ => return Err(err()),
+                            "exercises" => match right.split_once('.') {
+                                Some((left, right)) => match left {
+                                    "rest_timers" => {
+                                        let value = input.value.parse().ok();
+                                        let rest_timers =
+                                            &mut preferences.fitness.exercises.rest_timers;
+                                        match right {
+                                            "drop_set" => rest_timers.drop_set = value,
+                                            "normal_set" => rest_timers.normal_set = value,
+                                            "warmup_set" => rest_timers.warmup_set = value,
+                                            _ => return Err(err()),
+                                        }
+                                    }
+                                    _ => return Err(err()),
+                                },
+                                None => match right {
+                                    "unit_system" => {
+                                        preferences.fitness.exercises.unit_system =
+                                            UserUnitSystem::from_str(&input.value).unwrap();
+                                    }
+                                    _ => return Err(err()),
+                                },
                             },
                             _ => return Err(err()),
                         }
