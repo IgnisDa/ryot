@@ -369,6 +369,7 @@ pub struct UserToExerciseBestSetExtraInformation {
     pub sets: Vec<ExerciseBestSetRecord>,
 }
 
+#[skip_serializing_none]
 #[derive(
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject,
 )]
