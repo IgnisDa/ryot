@@ -787,10 +787,10 @@ impl ExerciseService {
             }
         };
         let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
-        let rest_timer_settings = &mut exercise_extra_information.settings.rest_timer;
         let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
         match left {
             "rest_timer" => {
+                let rest_timer_settings = &mut exercise_extra_information.settings.rest_timer;
                 let value = input.change.value.parse().unwrap();
                 match right {
                     "normal_set" => {
