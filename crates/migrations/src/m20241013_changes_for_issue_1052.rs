@@ -51,7 +51,7 @@ UPDATE "user_to_entity"
 SET "exercise_extra_information" = jsonb_set(
     "exercise_extra_information",
     '{settings}',
-    jsonb_build_object('rest_timer', '{}'::jsonb)
+    jsonb_build_object('rest_timer', jsonb_build_object('normal_set', 60))
 )
 WHERE "user_to_entity"."exercise_extra_information" IS NOT NULL;
         "#,
