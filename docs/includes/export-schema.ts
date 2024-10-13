@@ -274,6 +274,7 @@ export interface WorkoutOrExerciseTotals {
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
+	id: string;
 	/** @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'} */
 	lot: ExerciseLot;
 	name: string;

@@ -416,6 +416,7 @@ pub struct EntityAssets {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct ProcessedExercise {
+    pub id: String,
     pub name: String,
     pub lot: ExerciseLot,
     pub notes: Vec<String>,
@@ -522,12 +523,13 @@ pub struct UserWorkoutSetRecord {
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserExerciseInput {
-    pub exercise_id: String,
-    pub sets: Vec<UserWorkoutSetRecord>,
+    pub id: String,
     pub notes: Vec<String>,
+    pub exercise_id: String,
     pub rest_time: Option<u16>,
-    pub assets: Option<EntityAssets>,
     pub superset_with: Vec<u16>,
+    pub assets: Option<EntityAssets>,
+    pub sets: Vec<UserWorkoutSetRecord>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]

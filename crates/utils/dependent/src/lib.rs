@@ -1766,6 +1766,7 @@ pub async fn create_or_update_workout(
                 sets,
                 lot: db_ex.lot,
                 name: db_ex.id,
+                id: ex.id.clone(),
                 total: Some(total),
                 notes: ex.notes.clone(),
                 rest_time: ex.rest_time,
@@ -2159,6 +2160,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             .exercises
             .into_iter()
             .map(|e| UserExerciseInput {
+                id: e.id,
                 exercise_id: e.name,
                 sets: e
                     .sets

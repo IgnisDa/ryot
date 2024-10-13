@@ -1607,6 +1607,7 @@ export type ProcessAccessLinkResult = ProcessAccessLinkError | ProcessAccessLink
 /** An exercise that has been processed and committed to the database. */
 export type ProcessedExercise = {
   assets?: Maybe<EntityAssets>;
+  id: Scalars['String']['output'];
   lot: ExerciseLot;
   name: Scalars['String']['output'];
   notes: Array<Scalars['String']['output']>;
@@ -2166,6 +2167,7 @@ export type UserExerciseDetails = {
 export type UserExerciseInput = {
   assets?: InputMaybe<EntityAssetsInput>;
   exerciseId: Scalars['String']['input'];
+  id: Scalars['String']['input'];
   notes: Array<Scalars['String']['input']>;
   restTime?: InputMaybe<Scalars['Int']['input']>;
   sets: Array<UserWorkoutSetRecord>;
