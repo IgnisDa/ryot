@@ -6,7 +6,6 @@ use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use common_models::{
     ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, SearchInput, StoredUrl,
-    UpdateComplexJsonInput,
 };
 use common_utils::ryot_log;
 use database_models::{
@@ -36,8 +35,9 @@ use fitness_models::{
     ExerciseAttributes, ExerciseCategory, ExerciseFilters, ExerciseListItem, ExerciseParameters,
     ExerciseParametersLotMapping, ExerciseSortBy, ExercisesListInput, GithubExercise,
     GithubExerciseAttributes, ProcessedExercise, UpdateUserExerciseSettings,
-    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserWorkoutInput,
-    WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise, LOT_MAPPINGS,
+    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserToExerciseExtraInformation,
+    UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary, WorkoutSummaryExercise,
+    LOT_MAPPINGS,
 };
 use itertools::Itertools;
 use migrations::AliasedExercise;
@@ -766,11 +766,50 @@ impl ExerciseService {
         user_id: String,
         input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
-        let ute = UserToEntity::find()
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .filter(user_to_entity::Column::ExerciseId.eq(input.exercise_id))
+        let err = || Error::new("Incorrect property value encountered");
+        let ute = match UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
+            .filter(user_to_entity::Column::ExerciseId.eq(&input.exercise_id))
             .one(&self.0.db)
-            .await?;
-        todo!()
+            .await?
+        {
+            Some(ute) => ute,
+            None => {
+                let data = user_to_entity::ActiveModel {
+                    user_id: ActiveValue::Set(user_id),
+                    exercise_id: ActiveValue::Set(Some(input.exercise_id)),
+                    exercise_extra_information: ActiveValue::Set(Some(
+                        UserToExerciseExtraInformation::default(),
+                    )),
+                    ..Default::default()
+                };
+                data.insert(&self.0.db).await?
+            }
+        };
+        let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
+        let rest_timer_settings = &mut exercise_extra_information.settings.rest_timer;
+        let (left, right) = input.change.property.split_once('.').ok_or_else(err)?;
+        match left {
+            "rest_timer" => {
+                let value = input.change.value.parse().unwrap();
+                match right {
+                    "normal_set" => {
+                        rest_timer_settings.normal_set = Some(value);
+                    }
+                    "warmup_set" => {
+                        rest_timer_settings.warmup_set = Some(value);
+                    }
+                    "drop_set" => {
+                        rest_timer_settings.drop_set = Some(value);
+                    }
+                    _ => return Err(err()),
+                }
+            }
+            _ => return Err(err()),
+        };
+        let mut ute: user_to_entity::ActiveModel = ute.into();
+        ute.exercise_extra_information = ActiveValue::Set(Some(exercise_extra_information));
+        ute.update(&self.0.db).await?;
+        Ok(true)
     }
 }
