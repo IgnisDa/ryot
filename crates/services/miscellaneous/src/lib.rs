@@ -8,7 +8,7 @@ use apalis::prelude::MessageQueue;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
     DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl,
@@ -106,6 +106,7 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
+use tokio::time::{sleep, timeout, Duration as TokioDuration};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
 use user_models::UserReviewScale;
 use uuid::Uuid;
@@ -193,11 +194,13 @@ ORDER BY RANDOM() LIMIT 10;
         for media in media_items.into_iter() {
             ryot_log!(debug, "Getting recommendations: {:?}", media);
             let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
-            match provider
-                .get_recommendations_for_metadata(&media.identifier)
-                .await
+            match timeout(
+                TokioDuration::from_secs(15),
+                provider.get_recommendations_for_metadata(&media.identifier),
+            )
+            .await
             {
-                Ok(recommendations) => {
+                Ok(Ok(recommendations)) => {
                     ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                     for mut rec in recommendations {
                         rec.is_recommendation = Some(true);
@@ -206,8 +209,8 @@ ORDER BY RANDOM() LIMIT 10;
                         }
                     }
                 }
-                Err(e) => {
-                    ryot_log!(warn, "Could not get recommendations: {:?}", e);
+                _ => {
+                    ryot_log!(warn, "Could not get recommendations");
                 }
             }
         }
@@ -2851,7 +2854,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn invalidate_import_jobs(&self) -> Result<()> {
-        let threshold = Utc::now() - ChronoDuration::hours(24);
+        let threshold = Utc::now() - Duration::hours(24);
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::WasSuccess.is_null())
             .filter(import_report::Column::StartedOn.lt(threshold))
@@ -3123,7 +3126,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+        sleep(TokioDuration::from_secs(3)).await;
         Ok(true)
     }
 }
