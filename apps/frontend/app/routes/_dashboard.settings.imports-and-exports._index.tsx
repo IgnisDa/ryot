@@ -71,7 +71,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 
 export const action = unstable_defineAction(async ({ request }) => {
 	const formData = await unstable_parseMultipartFormData(
-		request,
+		request.clone(),
 		temporaryFileUploadHandler,
 	);
 	return namedAction(request, {
