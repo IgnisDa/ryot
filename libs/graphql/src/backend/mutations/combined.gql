@@ -245,3 +245,7 @@ mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
 mutation RevokeAccessLink($accessLinkId: String!) {
   revokeAccessLink(accessLinkId: $accessLinkId)
 }
+
+mutation UpdateUserExerciseSettings($input: UpdateUserExerciseSettings!) {
+  updateUserExerciseSettings(input: $input)
+}
