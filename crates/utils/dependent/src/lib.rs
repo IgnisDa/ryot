@@ -1606,38 +1606,33 @@ pub async fn create_or_update_workout(
             workout_id: new_workout_id.clone(),
             workout_end_on: end_time,
         };
-        let association = match association {
+        let asc = match association {
+            Some(e) => e,
             None => {
                 let user_to_ex = user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(user_id.clone()),
                     exercise_id: ActiveValue::Set(Some(ex.exercise_id.clone())),
                     exercise_extra_information: ActiveValue::Set(Some(
-                        UserToExerciseExtraInformation {
-                            history: vec![history_item],
-                            ..Default::default()
-                        },
+                        UserToExerciseExtraInformation::default(),
                     )),
                     created_on: ActiveValue::Set(
                         first_set_of_exercise_confirmed_at.unwrap_or(end_time),
                     ),
-                    exercise_num_times_interacted: ActiveValue::Set(Some(1)),
                     ..Default::default()
                 };
                 user_to_ex.insert(&ss.db).await.unwrap()
             }
-            Some(e) => {
-                let last_updated_on = e.last_updated_on;
-                let mut extra_info = e.exercise_extra_information.clone().unwrap_or_default();
-                extra_info.history.insert(0, history_item);
-                let mut to_update: user_to_entity::ActiveModel = e.into();
-                to_update.exercise_num_times_interacted =
-                    ActiveValue::Set(Some(extra_info.history.len().try_into().unwrap()));
-                to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
-                to_update.last_updated_on =
-                    ActiveValue::Set(first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on));
-                to_update.update(&ss.db).await?
-            }
         };
+        let last_updated_on = asc.last_updated_on;
+        let mut extra_info = asc.exercise_extra_information.clone().unwrap_or_default();
+        extra_info.history.insert(0, history_item);
+        let mut to_update: user_to_entity::ActiveModel = asc.into();
+        to_update.exercise_num_times_interacted =
+            ActiveValue::Set(Some(extra_info.history.len().try_into().unwrap()));
+        to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
+        to_update.last_updated_on =
+            ActiveValue::Set(first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on));
+        let association = to_update.update(&ss.db).await?;
         if let Some(d) = ex.rest_time {
             total.rest_time += d * (ex.sets.len() - 1) as u16;
         }
