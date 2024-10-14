@@ -184,6 +184,11 @@ ORDER BY RANDOM() LIMIT 10;
         ))
         .all(&self.0.db)
         .await?;
+        ryot_log!(
+            debug,
+            "Media items selected for recommendations: {:?}",
+            media_items
+        );
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
             ryot_log!(debug, "Getting recommendations: {:?}", media);
@@ -2679,6 +2684,7 @@ ORDER BY RANDOM() LIMIT 10;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
             .await?;
+        ryot_log!(debug, "Updating person for {:?}", person_id);
         let images = provider_person.images.map(|images| {
             images
                 .into_iter()
