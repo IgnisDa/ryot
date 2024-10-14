@@ -344,23 +344,28 @@ export default function Page() {
 											noCasing
 										/>
 									) : null}
-									{loaderData.userExerciseDetails.details?.createdOn ? (
-										<DisplayData
-											name="First done on"
-											data={dayjsLib(
-												loaderData.userExerciseDetails.details.createdOn,
-											).format("ll")}
-											noCasing
-										/>
-									) : null}
-									{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
-										<DisplayData
-											name="Last done on"
-											data={dayjsLib(
-												loaderData.userExerciseDetails.details.lastUpdatedOn,
-											).format("ll")}
-											noCasing
-										/>
+									{(loaderData.userExerciseDetails.history?.length || 0) > 0 ? (
+										<>
+											{loaderData.userExerciseDetails.details?.createdOn ? (
+												<DisplayData
+													name="First done on"
+													data={dayjsLib(
+														loaderData.userExerciseDetails.details.createdOn,
+													).format("ll")}
+													noCasing
+												/>
+											) : null}
+											{loaderData.userExerciseDetails.details?.lastUpdatedOn ? (
+												<DisplayData
+													name="Last done on"
+													data={dayjsLib(
+														loaderData.userExerciseDetails.details
+															.lastUpdatedOn,
+													).format("ll")}
+													noCasing
+												/>
+											) : null}
+										</>
 									) : null}
 								</SimpleGrid>
 								{loaderData.exerciseDetails.muscles.length > 0 ? (
