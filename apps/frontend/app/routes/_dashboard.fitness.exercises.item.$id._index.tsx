@@ -24,13 +24,14 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
+import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import { Link, useLoaderData, useNavigate } from "@remix-run/react";
+import { Form, Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	ExerciseDetailsDocument,
 	ExerciseSource,
+	UpdateUserExerciseSettingsDocument,
 	UserExerciseDetailsDocument,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -89,6 +90,7 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollection, useReviewEntity } from "~/lib/state/media";
 import {
+	createToastHeaders,
 	getCachedExerciseParameters,
 	getWorkoutCookieValue,
 	serverGqlService,
@@ -100,8 +102,10 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
+const paramsSchema = { id: z.string() };
+
 export const loader = unstable_defineLoader(async ({ params, request }) => {
-	const { id: exerciseId } = zx.parseParams(params, { id: z.string() });
+	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const workoutInProgress = !!getWorkoutCookieValue(request);
 	const [exerciseParameters, { exerciseDetails }, { userExerciseDetails }] =
@@ -127,6 +131,32 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${data?.exerciseDetails.id} | Ryot` }];
 };
+
+export const action = unstable_defineAction(async ({ params, request }) => {
+	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
+	const entries = Object.entries(Object.fromEntries(await request.formData()));
+	const submission = [];
+	for (const [property, value] of entries) {
+		if (property.includes("."))
+			submission.push({
+				property,
+				value: value.toString(),
+			});
+	}
+	for (const change of submission) {
+		await serverGqlService.authenticatedRequest(
+			request,
+			UpdateUserExerciseSettingsDocument,
+			{ input: { change, exerciseId } },
+		);
+	}
+	return Response.json({ status: "success" } as const, {
+		headers: await createToastHeaders({
+			type: "success",
+			message: "Preferences updated",
+		}),
+	});
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -174,35 +204,46 @@ export default function Page() {
 				withCloseButton={false}
 				centered
 			>
-				<Stack>
-					<Title order={3}>Rest timers</Title>
-					<Text size="sm">
-						When a new set is added, rest timers will be added automatically
-						according to the settings below.
-						<Text size="xs" c="dimmed" span>
-							{" "}
-							Default rest timer durations can be changed in the fitness
-							preferences.
-						</Text>
-					</Text>
-					{(["normalSet", "warmupSet", "dropSet"] as const).map((name) => {
-						const value =
-							loaderData.userExerciseDetails.details?.exerciseExtraInformation
-								?.settings.restTimers[name];
-						return (
-							<NumberInput
-								key={name}
-								label={changeCase(snakeCase(name))}
-								defaultValue={isNumber(value) ? value : undefined}
-								onChange={(val) => {
-									if (isNumber(val))
-										appendPref(`rest_timers.${snakeCase(name)}`, String(val));
-								}}
+				<Form method="POST" onSubmit={() => closeUpdatePreferencesModal()}>
+					<Stack>
+						{toUpdatePreferences.map((pref) => (
+							<input
+								hidden
+								readOnly
+								key={pref[0]}
+								name={pref[0]}
+								value={pref[1]}
 							/>
-						);
-					})}
-					<Button>Save settings for exercise</Button>
-				</Stack>
+						))}
+						<Title order={3}>Rest timers</Title>
+						<Text size="sm">
+							When a new set is added, rest timers will be added automatically
+							according to the settings below.
+							<Text size="xs" c="dimmed" span>
+								{" "}
+								Default rest timer durations can be changed in the fitness
+								preferences.
+							</Text>
+						</Text>
+						{(["normalSet", "warmupSet", "dropSet"] as const).map((name) => {
+							const value =
+								loaderData.userExerciseDetails.details?.exerciseExtraInformation
+									?.settings.restTimers[name];
+							return (
+								<NumberInput
+									key={name}
+									label={changeCase(snakeCase(name))}
+									defaultValue={isNumber(value) ? value : undefined}
+									onChange={(val) => {
+										if (isNumber(val))
+											appendPref(`rest_timers.${snakeCase(name)}`, String(val));
+									}}
+								/>
+							);
+						})}
+						<Button type="submit">Save settings for exercise</Button>
+					</Stack>
+				</Form>
 			</Modal>
 			<Container size="xs" px="lg">
 				<Stack>
