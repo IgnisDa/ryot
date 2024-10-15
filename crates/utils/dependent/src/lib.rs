@@ -1672,6 +1672,7 @@ pub async fn create_or_update_workout(
                 actual_rest_time,
                 totals: Some(totals),
                 note: set.note.clone(),
+                rest_time: set.rest_time,
                 personal_bests: Some(vec![]),
                 confirmed_at: set.confirmed_at,
                 statistic: set.statistic.clone(),
@@ -2163,6 +2164,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                         lot: s.lot,
                         note: s.note,
                         statistic: s.statistic,
+                        rest_time: s.rest_time,
                         confirmed_at: s.confirmed_at,
                     })
                     .collect(),

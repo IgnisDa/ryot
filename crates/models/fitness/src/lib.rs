@@ -311,6 +311,7 @@ pub struct WorkoutSetTotals {
 pub struct WorkoutSetRecord {
     pub lot: SetLot,
     pub note: Option<String>,
+    pub rest_time: Option<u16>,
     pub actual_rest_time: Option<i64>,
     pub statistic: WorkoutSetStatistic,
     pub totals: Option<WorkoutSetTotals>,
@@ -538,6 +539,7 @@ pub struct UserMeasurementsListInput {
 pub struct UserWorkoutSetRecord {
     pub lot: SetLot,
     pub note: Option<String>,
+    pub rest_time: Option<u16>,
     pub statistic: WorkoutSetStatistic,
     pub confirmed_at: Option<DateTimeUtc>,
 }

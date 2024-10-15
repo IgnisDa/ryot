@@ -81,15 +81,16 @@ pub async fn import(
         }
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
-                duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
-                distance: entry.distance,
-                reps: entry.reps,
                 weight,
+                reps: entry.reps,
+                distance: entry.distance,
+                duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
                 ..Default::default()
             },
             note: None,
-            lot: SetLot::Normal,
+            rest_time: None,
             confirmed_at: None,
+            lot: SetLot::Normal,
         });
         if let Some(n) = entry.notes {
             notes.push(n);

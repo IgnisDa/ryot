@@ -175,13 +175,14 @@ fragment WorkoutInformationPart on WorkoutInformation {
       ...EntityAssetsPart
     }
     sets {
+      lot
+      note
+      restTime
+      confirmedAt
+      personalBests
       statistic {
         ...WorkoutSetStatisticPart
       }
-      note
-      lot
-      personalBests
-      confirmedAt
     }
   }
 }
