@@ -25,8 +25,8 @@ import {
 	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
 	UpdateUserWorkoutAttributesDocument,
+	UserWorkoutDetailsDocument,
 	UserWorkoutTemplateDetailsDocument,
-	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -89,48 +89,50 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const resp = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
-			const [{ workoutDetails }] = await Promise.all([
-				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
-					workoutId: entityId,
-				}),
+			const [{ userWorkoutDetails }] = await Promise.all([
+				serverGqlService.authenticatedRequest(
+					request,
+					UserWorkoutDetailsDocument,
+					{ workoutId: entityId },
+				),
 			]);
 			let repeatedWorkout = null;
-			if (workoutDetails.details.repeatedFrom) {
-				const { workoutDetails: repeatedWorkoutData } =
+			if (userWorkoutDetails.details.repeatedFrom) {
+				const { userWorkoutDetails: repeatedWorkoutData } =
 					await serverGqlService.authenticatedRequest(
 						request,
-						WorkoutDetailsDocument,
-						{ workoutId: workoutDetails.details.repeatedFrom },
+						UserWorkoutDetailsDocument,
+						{ workoutId: userWorkoutDetails.details.repeatedFrom },
 					);
 				repeatedWorkout = {
-					id: workoutDetails.details.repeatedFrom,
+					id: userWorkoutDetails.details.repeatedFrom,
 					name: repeatedWorkoutData.details.name,
 					doneOn: repeatedWorkoutData.details.startTime,
 				};
 			}
 			let template = null;
-			if (workoutDetails.details.templateId) {
+			if (userWorkoutDetails.details.templateId) {
 				const { userWorkoutTemplateDetails } =
 					await serverGqlService.authenticatedRequest(
 						request,
 						UserWorkoutTemplateDetailsDocument,
-						{ workoutTemplateId: workoutDetails.details.templateId },
+						{ workoutTemplateId: userWorkoutDetails.details.templateId },
 					);
 				template = {
-					id: workoutDetails.details.templateId,
+					id: userWorkoutDetails.details.templateId,
 					name: userWorkoutTemplateDetails.details.name,
 				};
 			}
 			return {
-				entityName: workoutDetails.details.name,
-				startTime: workoutDetails.details.startTime,
-				endTime: workoutDetails.details.endTime,
-				duration: workoutDetails.details.duration,
-				information: workoutDetails.details.information,
-				summary: workoutDetails.details.summary,
+				entityName: userWorkoutDetails.details.name,
+				startTime: userWorkoutDetails.details.startTime,
+				endTime: userWorkoutDetails.details.endTime,
+				duration: userWorkoutDetails.details.duration,
+				information: userWorkoutDetails.details.information,
+				summary: userWorkoutDetails.details.summary,
 				repeatedWorkout: repeatedWorkout,
 				template,
-				collections: workoutDetails.collections,
+				collections: userWorkoutDetails.collections,
 				defaultRestTimer: undefined,
 			};
 		})

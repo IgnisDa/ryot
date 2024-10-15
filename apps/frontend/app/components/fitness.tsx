@@ -22,7 +22,7 @@ import {
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
-	type WorkoutDetailsQuery,
+	type UserWorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, startCase } from "@ryot/ts-utils";
@@ -143,7 +143,7 @@ export const DisplaySetStatistics = (props: {
 };
 
 type Exercise =
-	WorkoutDetailsQuery["workoutDetails"]["details"]["information"]["exercises"][number];
+	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
 
 export const DisplaySet = (props: {

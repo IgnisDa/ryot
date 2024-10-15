@@ -5,10 +5,10 @@ import {
 	type ExerciseLot,
 	SetLot,
 	UserExerciseDetailsDocument,
+	UserWorkoutDetailsDocument,
+	type UserWorkoutDetailsQuery,
 	type UserWorkoutSetRecord,
 	UserWorkoutTemplateDetailsDocument,
-	WorkoutDetailsDocument,
-	type WorkoutDetailsQuery,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -33,9 +33,9 @@ import {
 import type { useCoreDetails } from "../hooks";
 
 export type ExerciseSet = {
-	statistic: WorkoutSetStatistic;
 	lot: SetLot;
 	confirmedAt: string | null;
+	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
 };
 
@@ -137,8 +137,8 @@ export const getWorkoutDetailsQuery = (workoutId: string) =>
 		queryKey: queryFactory.fitness.workoutDetails(workoutId).queryKey,
 		queryFn: () =>
 			clientGqlService
-				.request(WorkoutDetailsDocument, { workoutId })
-				.then((data) => data.workoutDetails),
+				.request(UserWorkoutDetailsDocument, { workoutId })
+				.then((data) => data.userWorkoutDetails),
 	});
 
 export const getWorkoutDetails = async (workoutId: string) =>
@@ -154,7 +154,7 @@ export const getWorkoutTemplateDetailsQuery = (workoutTemplateId: string) =>
 				.then((data) => data.userWorkoutTemplateDetails),
 	});
 
-type TWorkoutDetails = WorkoutDetailsQuery["workoutDetails"];
+type TWorkoutDetails = UserWorkoutDetailsQuery["userWorkoutDetails"];
 type TSet =
 	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 
