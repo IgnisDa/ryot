@@ -1976,22 +1976,6 @@ ORDER BY RANDOM() LIMIT 10;
             .collect()
     }
 
-    pub async fn handle_entity_added_to_collection_event(
-        &self,
-        user_id: String,
-        collection_to_entity_id: Uuid,
-    ) -> Result<()> {
-        self.0
-            .perform_application_job
-            .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(
-                user_id,
-                collection_to_entity_id,
-            ))
-            .await
-            .unwrap();
-        Ok(())
-    }
-
     async fn get_monitored_entities(
         &self,
         entity_lot: EntityLot,

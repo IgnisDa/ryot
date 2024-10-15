@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background::{ApplicationJob, CoreApplicationJob};
+use background::ApplicationJob;
 use chrono::Utc;
 use common_models::{
     BackendError, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
@@ -337,11 +337,8 @@ pub async fn add_entity_to_collection(
         }
         created
     };
-    ss.perform_core_application_job
-        .enqueue(CoreApplicationJob::EntityAddedToCollection(
-            user_id.to_owned(),
-            resp.id,
-        ))
+    ss.perform_application_job
+        .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
         .await
         .unwrap();
     Ok(true)

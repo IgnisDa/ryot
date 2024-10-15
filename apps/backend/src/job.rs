@@ -50,12 +50,6 @@ pub async fn perform_core_application_job(
             .bulk_progress_update(user_id, input)
             .await
             .is_ok(),
-        CoreApplicationJob::EntityAddedToCollection(user_id, collection_to_entity_id) => {
-            misc_service
-                .handle_entity_added_to_collection_event(user_id, collection_to_entity_id)
-                .await
-                .is_ok()
-        }
     };
     ryot_log!(
         trace,
@@ -135,9 +129,9 @@ pub async fn perform_application_job(
         ApplicationJob::SyncIntegrationsData => {
             integration_service.yank_integrations_data().await.is_ok()
         }
-        ApplicationJob::HandleEntityAddedToCollectionEvent(user_id, collection_to_entity_id) => {
+        ApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
             integration_service
-                .handle_entity_added_to_collection_event(user_id, collection_to_entity_id)
+                .handle_entity_added_to_collection_event(collection_to_entity_id)
                 .await
                 .is_ok()
         }

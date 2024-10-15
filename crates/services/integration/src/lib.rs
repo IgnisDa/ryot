@@ -3,15 +3,19 @@ use std::sync::Arc;
 use async_graphql::{Error, Result as GqlResult};
 use chrono::Utc;
 use common_utils::ryot_log;
-use database_models::prelude::{CollectionToEntity, Metadata};
-use database_models::{integration, prelude::Integration};
+use database_models::{
+    integration,
+    prelude::{Collection, CollectionToEntity, Integration, Metadata, User},
+};
 use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QuerySelect,
+};
 use sink::generic_json::GenericJsonIntegration;
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -133,18 +137,24 @@ impl IntegrationService {
 
     pub async fn handle_entity_added_to_collection_event(
         &self,
-        user_id: String,
         collection_to_entity_id: Uuid,
     ) -> GqlResult<()> {
-        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
+        let (cte, collection) = CollectionToEntity::find_by_id(collection_to_entity_id)
+            .find_also_related(Collection)
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
+        let user = collection
+            .unwrap()
+            .find_related(User)
+            .one(&self.0.db)
+            .await?
+            .unwrap();
         if !matches!(cte.entity_lot, EntityLot::Metadata) {
             return Ok(());
         }
         let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
+            .filter(integration::Column::UserId.eq(user.id))
             .filter(integration::Column::Lot.eq(IntegrationLot::Push))
             .all(&self.0.db)
             .await?;
