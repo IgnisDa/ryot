@@ -5,7 +5,8 @@ use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{
     integration,
-    prelude::{Collection, CollectionToEntity, Integration, Metadata, User},
+    prelude::{CollectionToEntity, Integration, Metadata, UserToEntity},
+    user_to_entity,
 };
 use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
@@ -13,9 +14,7 @@ use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use providers::google_books::GoogleBooksService;
 use rust_decimal_macros::dec;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QuerySelect,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use sink::generic_json::GenericJsonIntegration;
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -139,72 +138,78 @@ impl IntegrationService {
         &self,
         collection_to_entity_id: Uuid,
     ) -> GqlResult<()> {
-        let (cte, collection) = CollectionToEntity::find_by_id(collection_to_entity_id)
-            .find_also_related(Collection)
+        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
-        let user = collection
-            .unwrap()
-            .find_related(User)
-            .one(&self.0.db)
-            .await?
-            .unwrap();
         if !matches!(cte.entity_lot, EntityLot::Metadata) {
             return Ok(());
         }
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user.id))
-            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
+        let users = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::UserId)
+            .filter(user_to_entity::Column::CollectionId.eq(&cte.collection_id))
+            .into_tuple::<String>()
             .all(&self.0.db)
             .await?;
-        for integration in integrations {
-            let possible_collection_ids = match integration.provider_specifics.clone() {
-                Some(s) => match integration.provider {
-                    IntegrationProvider::Radarr => s.radarr_sync_collection_ids.unwrap_or_default(),
-                    IntegrationProvider::Sonarr => s.sonarr_sync_collection_ids.unwrap_or_default(),
-                    _ => vec![],
-                },
-                None => vec![],
-            };
-            if !possible_collection_ids.contains(&cte.collection_id) {
-                continue;
-            }
-            let specifics = integration.provider_specifics.unwrap();
-            let metadata = Metadata::find_by_id(&cte.entity_id)
-                .one(&self.0.db)
-                .await?
-                .ok_or_else(|| Error::new("Metadata does not exist"))?;
-            let maybe_entity_id = match metadata.lot {
-                MediaLot::Show => metadata
-                    .external_identifiers
-                    .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
-                _ => Some(metadata.identifier.clone()),
-            };
-            if let Some(entity_id) = maybe_entity_id {
-                let _push_result = match integration.provider {
-                    IntegrationProvider::Radarr => {
-                        let sonarr = SonarrIntegration::new(
-                            specifics.radarr_base_url.unwrap(),
-                            specifics.radarr_api_key.unwrap(),
-                            specifics.radarr_profile_id.unwrap(),
-                            specifics.radarr_root_folder_path.unwrap(),
-                            entity_id,
-                        );
-                        sonarr.push_progress().await
-                    }
-                    IntegrationProvider::Sonarr => {
-                        let radarr = RadarrIntegration::new(
-                            specifics.sonarr_base_url.unwrap(),
-                            specifics.sonarr_api_key.unwrap(),
-                            specifics.sonarr_profile_id.unwrap(),
-                            specifics.sonarr_root_folder_path.unwrap(),
-                            entity_id,
-                        );
-                        radarr.push_progress().await
-                    }
-                    _ => unreachable!(),
+        for user_id in users {
+            let integrations = Integration::find()
+                .filter(integration::Column::UserId.eq(user_id))
+                .filter(integration::Column::Lot.eq(IntegrationLot::Push))
+                .all(&self.0.db)
+                .await?;
+            for integration in integrations {
+                let possible_collection_ids = match integration.provider_specifics.clone() {
+                    Some(s) => match integration.provider {
+                        IntegrationProvider::Radarr => {
+                            s.radarr_sync_collection_ids.unwrap_or_default()
+                        }
+                        IntegrationProvider::Sonarr => {
+                            s.sonarr_sync_collection_ids.unwrap_or_default()
+                        }
+                        _ => vec![],
+                    },
+                    None => vec![],
                 };
+                if !possible_collection_ids.contains(&cte.collection_id) {
+                    continue;
+                }
+                let specifics = integration.provider_specifics.unwrap();
+                let metadata = Metadata::find_by_id(&cte.entity_id)
+                    .one(&self.0.db)
+                    .await?
+                    .ok_or_else(|| Error::new("Metadata does not exist"))?;
+                let maybe_entity_id = match metadata.lot {
+                    MediaLot::Show => metadata
+                        .external_identifiers
+                        .and_then(|ei| ei.tvdb_id.map(|i| i.to_string())),
+                    _ => Some(metadata.identifier.clone()),
+                };
+                if let Some(entity_id) = maybe_entity_id {
+                    let _push_result = match integration.provider {
+                        IntegrationProvider::Radarr => {
+                            let sonarr = SonarrIntegration::new(
+                                specifics.radarr_base_url.unwrap(),
+                                specifics.radarr_api_key.unwrap(),
+                                specifics.radarr_profile_id.unwrap(),
+                                specifics.radarr_root_folder_path.unwrap(),
+                                entity_id,
+                            );
+                            sonarr.push_progress().await
+                        }
+                        IntegrationProvider::Sonarr => {
+                            let radarr = RadarrIntegration::new(
+                                specifics.sonarr_base_url.unwrap(),
+                                specifics.sonarr_api_key.unwrap(),
+                                specifics.sonarr_profile_id.unwrap(),
+                                specifics.sonarr_root_folder_path.unwrap(),
+                                entity_id,
+                            );
+                            radarr.push_progress().await
+                        }
+                        _ => unreachable!(),
+                    };
+                }
             }
         }
         Ok(())
