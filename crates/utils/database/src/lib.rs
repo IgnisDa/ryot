@@ -187,7 +187,7 @@ pub async fn entity_in_collections(
     Ok(eic.into_iter().map(|(c, _)| c).collect_vec())
 }
 
-pub async fn workout_details(
+pub async fn user_workout_details(
     user_id: &String,
     workout_id: String,
     ss: &Arc<SupportingService>,
@@ -212,7 +212,7 @@ pub async fn workout_details(
     }
 }
 
-pub async fn workout_template_details(
+pub async fn user_workout_template_details(
     db: &DatabaseConnection,
     user_id: &String,
     workout_template_id: String,

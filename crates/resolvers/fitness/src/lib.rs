@@ -85,14 +85,14 @@ impl ExerciseQuery {
     }
 
     /// Get details about a workout.
-    async fn workout_details(
+    async fn user_workout_details(
         &self,
         gql_ctx: &Context<'_>,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.workout_details(&user_id, workout_id).await
+        service.user_workout_details(&user_id, workout_id).await
     }
 
     /// Get information about an exercise for a user.

@@ -17,8 +17,8 @@ use database_models::{
 };
 use database_utils::{
     add_entity_to_collection, deploy_job_to_re_evaluate_user_workouts, entity_in_collections,
-    ilike_sql, item_reviews, pro_instance_guard, user_measurements_list, workout_details,
-    workout_template_details,
+    ilike_sql, item_reviews, pro_instance_guard, user_measurements_list, user_workout_details,
+    user_workout_template_details,
 };
 use dependent_models::{
     SearchResults, UpdateCustomExerciseInput, UserExerciseDetails, UserWorkoutDetails,
@@ -92,7 +92,7 @@ impl ExerciseService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        workout_template_details(&self.0.db, &user_id, workout_template_id).await
+        user_workout_template_details(&self.0.db, &user_id, workout_template_id).await
     }
 
     pub async fn create_or_update_user_workout_template(
@@ -247,12 +247,12 @@ impl ExerciseService {
         }
     }
 
-    pub async fn workout_details(
+    pub async fn user_workout_details(
         &self,
         user_id: &String,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
-        workout_details(user_id, workout_id, &self.0).await
+        user_workout_details(user_id, workout_id, &self.0).await
     }
 
     pub async fn user_exercise_details(

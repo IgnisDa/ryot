@@ -13,8 +13,8 @@ use database_models::{
     seen, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    entity_in_collections, item_reviews, user_measurements_list, workout_details,
-    workout_template_details,
+    entity_in_collections, item_reviews, user_measurements_list, user_workout_details,
+    user_workout_template_details,
 };
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use enums::EntityLot;
@@ -341,7 +341,7 @@ impl ExporterService {
             .all(&self.0.db)
             .await?;
         for workout_id in workout_ids {
-            let details = workout_details(user_id, workout_id, &self.0).await?;
+            let details = user_workout_details(user_id, workout_id, &self.0).await?;
             let exp = ImportOrExportWorkoutItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.name).collect(),
@@ -425,7 +425,7 @@ impl ExporterService {
             .await?;
         for workout_template_id in workout_template_ids {
             let details =
-                workout_template_details(&self.0.db, user_id, workout_template_id).await?;
+                user_workout_template_details(&self.0.db, user_id, workout_template_id).await?;
             let exp = ImportOrExportWorkoutTemplateItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.name).collect(),
