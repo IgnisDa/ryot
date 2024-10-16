@@ -1602,7 +1602,7 @@ const SetDisplay = (props: {
 								/>
 							) : (
 								<Text
-									size="sm"
+									size={hasRestTimerOfThisSetElapsed ? "xs" : "sm"}
 									c={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
 									fw={hasRestTimerOfThisSetElapsed ? undefined : "bold"}
 								>
