@@ -237,13 +237,16 @@ export const currentWorkoutToCreateWorkoutInput = (
 export const exerciseHasDetailsToShow = (exercise: Exercise) =>
 	exercise.exerciseDetails.images.length > 0;
 
-type Timer = {
+export type CurrentWorkoutTimer = {
 	totalTime: number;
 	endAt: string;
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
-const timerAtom = atomWithStorage<Timer | null>("CurrentWorkoutTimer", null);
+const timerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
+	"CurrentWorkoutTimer",
+	null,
+);
 
 export const useTimerAtom = () => useAtom(timerAtom);
 

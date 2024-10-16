@@ -126,6 +126,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
+	type CurrentWorkoutTimer,
 	type InProgressWorkout,
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
@@ -1293,8 +1294,6 @@ const SetDisplay = (props: {
 		sound.play();
 	};
 
-	forceUpdateEverySecond();
-
 	useDidUpdate(() => {
 		if (currentWorkout && isString(value))
 			setCurrentWorkout(
@@ -1591,17 +1590,25 @@ const SetDisplay = (props: {
 					/>
 				) : null}
 				{didCurrentSetActivateTimer ? (
-					<Progress
-						size="lg"
-						transitionDuration={300}
-						value={
-							(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
-							currentTimer.totalTime
-						}
-					/>
+					<DisplaySetRestTimer currentTimer={currentTimer} />
 				) : null}
 			</Box>
 		</Paper>
+	);
+};
+
+const DisplaySetRestTimer = (props: { currentTimer: CurrentWorkoutTimer }) => {
+	forceUpdateEverySecond();
+
+	return (
+		<Progress
+			size="lg"
+			transitionDuration={300}
+			value={
+				(dayjsLib(props.currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+				props.currentTimer.totalTime
+			}
+		/>
 	);
 };
 
