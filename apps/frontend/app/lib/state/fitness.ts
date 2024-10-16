@@ -37,6 +37,7 @@ export type ExerciseSet = {
 	confirmedAt: string | null;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
+	restTimer?: { isActive: boolean; duration: number } | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -159,7 +160,7 @@ type TSet =
 	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 
 export const convertHistorySetToCurrentSet = (
-	s: Pick<TSet, "statistic" | "lot" | "note">,
+	s: Pick<TSet, "statistic" | "lot" | "note" | "restTime">,
 	confirmedAt?: string | null,
 ) =>
 	({
@@ -167,7 +168,95 @@ export const convertHistorySetToCurrentSet = (
 		note: s.note,
 		statistic: s.statistic,
 		confirmedAt: confirmedAt ?? null,
+		restTimer: s.restTime ? { isActive: true, duration: s.restTime } : null,
 	}) satisfies ExerciseSet;
+
+export const currentWorkoutToCreateWorkoutInput = (
+	currentWorkout: InProgressWorkout,
+	isCreatingTemplate: boolean,
+) => {
+	const input: CreateOrUpdateUserWorkoutMutationVariables = {
+		input: {
+			endTime: new Date().toISOString(),
+			templateId: currentWorkout.templateId,
+			updateWorkoutId: currentWorkout.updateWorkoutId,
+			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
+			startTime: new Date(currentWorkout.startTime).toISOString(),
+			name: currentWorkout.name,
+			comment: currentWorkout.comment,
+			repeatedFrom: currentWorkout.repeatedFrom,
+			defaultRestTimer: currentWorkout.defaultRestTimer,
+			exercises: [],
+			assets: {
+				images: [...currentWorkout.images],
+				videos: [...currentWorkout.videos],
+			},
+		},
+	};
+	for (const exercise of currentWorkout.exercises) {
+		const sets = Array<UserWorkoutSetRecord>();
+		for (const set of exercise.sets)
+			if (isCreatingTemplate || set.confirmedAt) {
+				const note = isString(set.note) ? set.note : undefined;
+				if (Object.keys(set.statistic).length === 0) continue;
+				sets.push({
+					note,
+					lot: set.lot,
+					confirmedAt: set.confirmedAt
+						? new Date(set.confirmedAt).toISOString()
+						: null,
+					statistic: set.statistic,
+					restTime: set.restTimer?.duration,
+				});
+			}
+		if (sets.length === 0) continue;
+		const notes = Array<string>();
+		for (const note of exercise.notes) if (note) notes.push(note);
+		const toAdd = {
+			sets,
+			notes,
+			identifier: exercise.identifier,
+			exerciseId: exercise.exerciseId,
+			// biome-ignore lint/suspicious/noExplicitAny: required here
+			supersetWith: exercise.supersetWith as any,
+			assets: {
+				images: exercise.images.map((m) => m.key),
+				videos: exercise.videos.map((m) => m.key),
+			},
+			restTime: exercise.restTimer?.enabled
+				? exercise.restTimer.duration
+				: undefined,
+		};
+		input.input.exercises.push(toAdd);
+	}
+	for (const ex of input.input.exercises) {
+		let supersetWith = ex.supersetWith.map((identifier) =>
+			// biome-ignore lint/suspicious/noExplicitAny: required here
+			input.input.exercises.findIndex((e: any) => e.identifier === identifier),
+		);
+		supersetWith = supersetWith.filter((idx) => idx !== -1);
+		ex.supersetWith = supersetWith;
+	}
+	return input;
+};
+
+export const exerciseHasDetailsToShow = (exercise: Exercise) =>
+	exercise.exerciseDetails.images.length > 0;
+
+type Timer = {
+	totalTime: number;
+	endAt: Dayjs;
+	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
+};
+
+const timerAtom = atomWithReset<Timer | null>(null);
+
+export const useTimerAtom = () => useAtom(timerAtom);
+
+const measurementsDrawerOpenAtom = atom(false);
+
+export const useMeasurementsDrawerOpen = () =>
+	useAtom(measurementsDrawerOpenAtom);
 
 export const duplicateOldWorkout = async (
 	workoutInformation: WorkoutInformation,
@@ -283,89 +372,3 @@ export const addExerciseToWorkout = async (
 		),
 	);
 };
-
-export const currentWorkoutToCreateWorkoutInput = (
-	currentWorkout: InProgressWorkout,
-	isCreatingTemplate: boolean,
-) => {
-	const input: CreateOrUpdateUserWorkoutMutationVariables = {
-		input: {
-			endTime: new Date().toISOString(),
-			templateId: currentWorkout.templateId,
-			updateWorkoutId: currentWorkout.updateWorkoutId,
-			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
-			startTime: new Date(currentWorkout.startTime).toISOString(),
-			name: currentWorkout.name,
-			comment: currentWorkout.comment,
-			repeatedFrom: currentWorkout.repeatedFrom,
-			defaultRestTimer: currentWorkout.defaultRestTimer,
-			exercises: [],
-			assets: {
-				images: [...currentWorkout.images],
-				videos: [...currentWorkout.videos],
-			},
-		},
-	};
-	for (const exercise of currentWorkout.exercises) {
-		const sets = Array<UserWorkoutSetRecord>();
-		for (const set of exercise.sets)
-			if (isCreatingTemplate || set.confirmedAt) {
-				const note = isString(set.note) ? set.note : undefined;
-				if (Object.keys(set.statistic).length === 0) continue;
-				sets.push({
-					note,
-					lot: set.lot,
-					confirmedAt: set.confirmedAt
-						? new Date(set.confirmedAt).toISOString()
-						: null,
-					statistic: set.statistic,
-				});
-			}
-		if (sets.length === 0) continue;
-		const notes = Array<string>();
-		for (const note of exercise.notes) if (note) notes.push(note);
-		const toAdd = {
-			sets,
-			notes,
-			identifier: exercise.identifier,
-			exerciseId: exercise.exerciseId,
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			supersetWith: exercise.supersetWith as any,
-			assets: {
-				images: exercise.images.map((m) => m.key),
-				videos: exercise.videos.map((m) => m.key),
-			},
-			restTime: exercise.restTimer?.enabled
-				? exercise.restTimer.duration
-				: undefined,
-		};
-		input.input.exercises.push(toAdd);
-	}
-	for (const ex of input.input.exercises) {
-		let supersetWith = ex.supersetWith.map((identifier) =>
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			input.input.exercises.findIndex((e: any) => e.identifier === identifier),
-		);
-		supersetWith = supersetWith.filter((idx) => idx !== -1);
-		ex.supersetWith = supersetWith;
-	}
-	return input;
-};
-
-export const exerciseHasDetailsToShow = (exercise: Exercise) =>
-	exercise.exerciseDetails.images.length > 0;
-
-type Timer = {
-	totalTime: number;
-	endAt: Dayjs;
-	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
-};
-
-const timerAtom = atomWithReset<Timer | null>(null);
-
-export const useTimerAtom = () => useAtom(timerAtom);
-
-const measurementsDrawerOpenAtom = atom(false);
-
-export const useMeasurementsDrawerOpen = () =>
-	useAtom(measurementsDrawerOpenAtom);
