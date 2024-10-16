@@ -19,7 +19,6 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
-	Progress,
 	RingProgress,
 	ScrollArea,
 	SimpleGrid,
@@ -82,7 +81,6 @@ import {
 	IconPhoto,
 	IconReorder,
 	IconTrash,
-	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
@@ -147,7 +145,6 @@ import {
 } from "~/lib/utilities.server";
 
 const workoutCookieName = CurrentWorkoutKey;
-const defaultTimerLocalStorageKey = "DefaultExerciseRestTimer";
 
 export const loader = unstable_defineLoader(async ({ params, request }) => {
 	const { action } = zx.parseParams(params, {
@@ -292,7 +289,21 @@ export default function Page() {
 		});
 	};
 
-	const stopTimer = () => setCurrentTimer(RESET);
+	const stopTimer = () => {
+		const triggeredBy = currentTimer?.triggeredBy;
+		if (currentWorkout && triggeredBy) {
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const exercise = draft.exercises.find(
+						(e) => e.identifier === triggeredBy.exerciseIdentifier,
+					);
+					const restTimer = exercise?.sets[triggeredBy.setIdx].restTimer;
+					if (exercise && restTimer) restTimer.hasElapsed = true;
+				}),
+			);
+		}
+		setCurrentTimer(RESET);
+	};
 
 	const createUserWorkoutFetcher = useFetcher<typeof action>();
 
@@ -786,7 +797,6 @@ const ExerciseDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
-	const [currentTimer] = useTimerAtom();
 	const coreDetails = useCoreDetails();
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [detailsParent] = useAutoAnimate();
@@ -799,10 +809,6 @@ const ExerciseDisplay = (props: {
 		const sound = new Howl({ src: ["/add-set.mp3"] });
 		sound.play();
 	};
-	const [
-		restTimerModalOpened,
-		{ close: restTimerModalClose, toggle: restTimerModalToggle },
-	] = useDisclosure(false);
 	const [cameraFacing, toggleCameraFacing] = useToggle([
 		"environment",
 		"user",
@@ -835,67 +841,6 @@ const ExerciseDisplay = (props: {
 				exerciseIdx={props.exerciseIdx}
 				exerciseIdentifier={exercise.identifier}
 			/>
-			<Modal
-				opened={restTimerModalOpened}
-				onClose={restTimerModalClose}
-				withCloseButton={false}
-				size="xs"
-			>
-				<Stack>
-					<Switch
-						label="Enabled"
-						labelPosition="left"
-						styles={{ body: { justifyContent: "space-between" } }}
-						defaultChecked={exercise.restTimer?.enabled}
-						onChange={(v) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									const defaultDuration = Number.parseInt(
-										localStorage.getItem(defaultTimerLocalStorageKey) || "20",
-									);
-									draft.exercises[props.exerciseIdx].restTimer = {
-										enabled: v.currentTarget.checked,
-										duration: exercise.restTimer?.duration ?? defaultDuration,
-									};
-								}),
-							);
-						}}
-					/>
-					<NumberInput
-						value={exercise.restTimer?.duration}
-						onChange={(v) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									const value = isNumber(v) ? v : null;
-									const restTimer =
-										draft.exercises[props.exerciseIdx].restTimer;
-									if (restTimer && value) {
-										restTimer.duration = value;
-										localStorage.setItem(
-											defaultTimerLocalStorageKey,
-											value.toString(),
-										);
-									}
-								}),
-							);
-						}}
-						disabled={!exercise.restTimer?.enabled}
-						hideControls
-						suffix="s"
-						label="Duration"
-						styles={{
-							root: {
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "space-between",
-							},
-							label: { flex: "none" },
-							input: { width: "90px" },
-						}}
-						ta="right"
-					/>
-				</Stack>
-			</Modal>
 			<Modal
 				opened={assetsModalOpened}
 				onClose={assetsModalClose}
@@ -1009,10 +954,6 @@ const ExerciseDisplay = (props: {
 										<IconDotsVertical />
 									</ActionIcon>
 								</Menu.Target>
-								{currentTimer?.triggeredBy?.exerciseIdentifier ===
-								exercise.identifier ? (
-									<RestTimerProgress onClick={props.openTimerDrawer} />
-								) : null}
 							</Group>
 							{exercise.notes.map((note, idx) => (
 								<NoteInput
@@ -1024,17 +965,6 @@ const ExerciseDisplay = (props: {
 							))}
 						</Stack>
 						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconZzz size={14} />}
-								onClick={restTimerModalToggle}
-								rightSection={
-									exercise.restTimer?.enabled
-										? `${exercise.restTimer.duration}s`
-										: "Off"
-								}
-							>
-								Rest timer
-							</Menu.Item>
 							<Menu.Item
 								leftSection={<IconClipboard size={14} />}
 								rightSection={
@@ -1309,30 +1239,6 @@ const ExerciseDisplay = (props: {
 			<Divider />
 		</>
 	) : null;
-};
-
-const RestTimerProgress = (props: { onClick: () => void }) => {
-	const [currentTimer] = useTimerAtom();
-	forceUpdateEverySecond();
-
-	if (!currentTimer) return null;
-
-	return (
-		<Progress
-			pos="absolute"
-			color="violet"
-			bottom={-6}
-			value={
-				(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
-				currentTimer.totalTime
-			}
-			size="xs"
-			radius="md"
-			w="100%"
-			onClick={props.onClick}
-			style={{ cursor: "pointer" }}
-		/>
-	);
 };
 
 const getNextSetInWorkout = (
@@ -1610,16 +1516,11 @@ const SetDisplay = (props: {
 										currentTimer?.triggeredBy?.setIdx === props.setIdx
 									)
 										props.stopTimer();
-									if (
-										exercise.restTimer?.enabled &&
-										newConfirmed &&
-										set.lot !== SetLot.WarmUp
-									) {
-										props.startTimer(exercise.restTimer.duration, {
+									if (set.restTimer && newConfirmed)
+										props.startTimer(set.restTimer.duration, {
 											exerciseIdentifier: exercise.identifier,
 											setIdx: props.setIdx,
 										});
-									}
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
 											const currentExercise =
@@ -1666,11 +1567,11 @@ const SetDisplay = (props: {
 			{set.restTimer ? (
 				<Divider
 					mx="xs"
-					mb="xs"
+					my="xs"
 					size="lg"
 					labelPosition="center"
 					color={set.restTimer.hasElapsed ? "green" : "blue"}
-					opacity={set.restTimer.hasElapsed ? 0.3 : undefined}
+					opacity={set.restTimer.hasElapsed ? 0.5 : undefined}
 					label={
 						<Text
 							size="sm"

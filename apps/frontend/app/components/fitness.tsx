@@ -34,7 +34,6 @@ import {
 	IconRun,
 	IconTrophy,
 	IconWeight,
-	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -312,12 +311,6 @@ export const ExerciseHistory = (props: {
 						{opened ? (
 							<>
 								<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
-									{exercise.restTime ? (
-										<Flex align="center" gap="xs">
-											<IconZzz size={14} />
-											<Text fz="xs">Rest time: {exercise.restTime}s</Text>
-										</Flex>
-									) : null}
 									{exercise.total ? (
 										<>
 											{Number(exercise.total.reps) > 0 ? (

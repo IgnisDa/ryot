@@ -38,11 +38,7 @@ export type ExerciseSet = {
 	confirmedAt: string | null;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
-	restTimer?: {
-		duration: number;
-		isActive?: boolean;
-		hasElapsed?: boolean;
-	} | null;
+	restTimer?: { duration: number; hasElapsed?: boolean } | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
