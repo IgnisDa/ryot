@@ -271,8 +271,8 @@ export default function Page() {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
 				playCompleteTimerSound();
-				timerDrawerClose();
 				stopTimer();
+				setTimeout(() => timerDrawerClose(), 500);
 			}
 		}
 	}, 1000);
