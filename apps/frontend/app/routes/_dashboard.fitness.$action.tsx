@@ -1309,6 +1309,8 @@ const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
 		currentTimer?.triggeredBy?.setIdx === props.setIdx;
 
+	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
+
 	return (
 		<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
 			<Flex justify="space-between" align="center" py={4}>
@@ -1345,7 +1347,7 @@ const SetDisplay = (props: {
 											const currentSet =
 												draft.exercises[props.exerciseIdx].sets[props.setIdx];
 											currentSet.lot = lot;
-											if (!currentSet.restTimer?.hasElapsed && restTime)
+											if (!hasRestTimerOfThisSetElapsed && restTime)
 												currentSet.restTimer = { duration: restTime };
 										}),
 									);
@@ -1574,15 +1576,15 @@ const SetDisplay = (props: {
 			<Box mx="xs" my="xs" ref={parent}>
 				{set.restTimer && !didCurrentSetActivateTimer ? (
 					<Divider
-						size="lg"
 						labelPosition="center"
-						color={set.restTimer.hasElapsed ? "green" : "blue"}
-						opacity={set.restTimer.hasElapsed ? 0.5 : undefined}
+						size={hasRestTimerOfThisSetElapsed ? undefined : "lg"}
+						color={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
+						opacity={hasRestTimerOfThisSetElapsed ? 0.5 : undefined}
 						label={
 							<Text
 								size="sm"
-								fw="bold"
-								c={set.restTimer.hasElapsed ? "green" : "blue"}
+								c={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
+								fw={hasRestTimerOfThisSetElapsed ? undefined : "bold"}
 							>
 								{formatTimerDuration(set.restTimer.duration * 1000)}
 							</Text>
