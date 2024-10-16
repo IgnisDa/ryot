@@ -1685,6 +1685,7 @@ const SetDisplay = (props: {
 				<Divider
 					mx="xs"
 					mb="xs"
+					size="lg"
 					labelPosition="center"
 					color={set.restTimer.hasElapsed ? "green" : "blue"}
 					label={
