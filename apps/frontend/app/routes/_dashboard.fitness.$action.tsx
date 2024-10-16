@@ -63,6 +63,7 @@ import {
 	isEqual,
 	isNumber,
 	isString,
+	mergeWith,
 	snakeCase,
 	startCase,
 	sum,
@@ -131,6 +132,7 @@ import {
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	exerciseHasDetailsToShow,
+	getExerciseDetails,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 	useCurrentWorkout,
@@ -1386,6 +1388,7 @@ const SetDisplay = (props: {
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
+	const userPreferences = useUserPreferences();
 	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const highlightedSet = currentWorkout?.highlightedSet;
@@ -1442,12 +1445,37 @@ const SetDisplay = (props: {
 										{lot.at(0)}
 									</Text>
 								}
-								onClick={() => {
+								onClick={async () => {
+									const exerciseDetails = await getExerciseDetails(
+										currentWorkout.exercises[props.exerciseIdx].exerciseId,
+									);
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
-											draft.exercises[props.exerciseIdx].sets[
-												props.setIdx
-											].lot = lot;
+											const currentSet =
+												draft.exercises[props.exerciseIdx].sets[props.setIdx];
+											currentSet.lot = lot;
+											if (!currentSet.restTimer?.hasElapsed) {
+												const mergedSettings = mergeWith(
+													{},
+													exerciseDetails.userDetails.details
+														?.exerciseExtraInformation?.settings.restTimers ||
+														{},
+													userPreferences.fitness.exercises.restTimers,
+													(objValue?: number, srcValue?: number) => {
+														if (isNumber(objValue)) return objValue;
+														if (isNumber(srcValue)) return srcValue;
+														return undefined;
+													},
+												);
+												const restTime = match(currentSet.lot)
+													.with(SetLot.Normal, () => mergedSettings.normalSet)
+													.with(SetLot.Drop, () => mergedSettings.dropSet)
+													.with(SetLot.WarmUp, () => mergedSettings.warmupSet)
+													.with(SetLot.Failure, () => mergedSettings.failureSet)
+													.exhaustive();
+												if (restTime)
+													currentSet.restTimer = { duration: restTime };
+											}
 										}),
 									);
 								}}

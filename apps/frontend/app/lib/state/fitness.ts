@@ -37,7 +37,11 @@ export type ExerciseSet = {
 	confirmedAt: string | null;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
-	restTimer?: { isActive: boolean; duration: number } | null;
+	restTimer?: {
+		duration: number;
+		isActive?: boolean;
+		hasElapsed?: boolean;
+	} | null;
 };
 
 type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
@@ -125,7 +129,7 @@ export const getUserExerciseDetailsQuery = (exerciseId: string) =>
 				.then((data) => data.userExerciseDetails),
 	});
 
-const getExerciseDetails = async (exerciseId: string) => {
+export const getExerciseDetails = async (exerciseId: string) => {
 	const [details, userDetails] = await Promise.all([
 		queryClient.ensureQueryData(getExerciseDetailsQuery(exerciseId)),
 		queryClient.ensureQueryData(getUserExerciseDetailsQuery(exerciseId)),
@@ -168,9 +172,7 @@ export const convertHistorySetToCurrentSet = (
 		note: set.note,
 		statistic: set.statistic,
 		confirmedAt: confirmedAt ?? null,
-		restTimer: set.restTime
-			? { isActive: false, duration: set.restTime }
-			: null,
+		restTimer: set.restTime ? { duration: set.restTime } : null,
 	}) satisfies ExerciseSet;
 
 export const currentWorkoutToCreateWorkoutInput = (
