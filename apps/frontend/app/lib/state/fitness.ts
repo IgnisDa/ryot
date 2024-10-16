@@ -104,11 +104,12 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 export const getDefaultWorkout = (): InProgressWorkout => {
 	const date = new Date();
 	return {
-		name: `${getTimeOfDay(date.getHours())} Workout`,
-		startTime: date.toISOString(),
-		exercises: [],
 		images: [],
 		videos: [],
+		exercises: [],
+		startTime: date.toISOString(),
+		name: `${getTimeOfDay(date.getHours())} Workout`,
+		highlightedSet: { exerciseIdx: 0, setIdx: 0 },
 	};
 };
 
