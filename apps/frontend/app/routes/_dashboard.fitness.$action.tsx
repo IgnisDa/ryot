@@ -34,6 +34,7 @@ import {
 	rem,
 } from "@mantine/core";
 import {
+	useClickOutside,
 	useDebouncedState,
 	useDidUpdate,
 	useDisclosure,
@@ -1290,7 +1291,9 @@ const SetDisplay = (props: {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
+
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
 		sound.play();
@@ -1582,14 +1585,30 @@ const SetDisplay = (props: {
 						size={hasRestTimerOfThisSetElapsed ? undefined : "lg"}
 						color={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
 						opacity={hasRestTimerOfThisSetElapsed ? 0.5 : undefined}
+						style={{
+							cursor: hasRestTimerOfThisSetElapsed ? undefined : "pointer",
+						}}
+						onClick={() => {
+							if (hasRestTimerOfThisSetElapsed) return;
+							setIsEditingRestTimer(true);
+						}}
 						label={
-							<Text
-								size="sm"
-								c={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
-								fw={hasRestTimerOfThisSetElapsed ? undefined : "bold"}
-							>
-								{formatTimerDuration(set.restTimer.duration * 1000)}
-							</Text>
+							isEditingRestTimer ? (
+								<EditSetRestTimer
+									setIdx={props.setIdx}
+									exerciseIdx={props.exerciseIdx}
+									defaultDuration={set.restTimer.duration}
+									setIsEditingRestTimer={setIsEditingRestTimer}
+								/>
+							) : (
+								<Text
+									size="sm"
+									c={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
+									fw={hasRestTimerOfThisSetElapsed ? undefined : "bold"}
+								>
+									{formatTimerDuration(set.restTimer.duration * 1000)}
+								</Text>
+							)
 						}
 					/>
 				) : null}
@@ -1601,6 +1620,45 @@ const SetDisplay = (props: {
 				) : null}
 			</Box>
 		</Paper>
+	);
+};
+
+const EditSetRestTimer = (props: {
+	setIdx: number;
+	exerciseIdx: number;
+	defaultDuration: number;
+	setIsEditingRestTimer: (v: boolean) => void;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const editRestTimerRef = useClickOutside(() =>
+		props.setIsEditingRestTimer(false),
+	);
+	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
+
+	useDidUpdate(() => {
+		if (currentWorkout && value)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const exercise = draft.exercises[props.exerciseIdx];
+					exercise.sets[props.setIdx].restTimer = { duration: value };
+				}),
+			);
+	}, [value]);
+
+	if (!currentWorkout) return null;
+
+	return (
+		<NumberInput
+			size="xs"
+			suffix="s"
+			w={rem(80)}
+			ref={editRestTimerRef}
+			defaultValue={props.defaultDuration}
+			onChange={(v) => {
+				if (!v) return;
+				setValue(Number.parseInt(v.toString()));
+			}}
+		/>
 	);
 };
 
