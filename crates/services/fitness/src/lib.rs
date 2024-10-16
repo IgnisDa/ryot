@@ -797,6 +797,7 @@ impl ExerciseService {
                     "drop_set" => rest_timers.drop_set = Some(value),
                     "normal_set" => rest_timers.normal_set = Some(value),
                     "warmup_set" => rest_timers.warmup_set = Some(value),
+                    "failure_set" => rest_timers.failure_set = Some(value),
                     _ => return Err(err()),
                 }
             }
