@@ -221,26 +221,31 @@ export default function Page() {
 							according to the settings below.
 							<Text size="xs" c="dimmed" span>
 								{" "}
-								Default rest timer durations can be changed in the fitness
-								preferences.
+								Default rest timer durations for all exercises can be changed in
+								the fitness preferences.
 							</Text>
 						</Text>
-						{(["normalSet", "warmupSet", "dropSet"] as const).map((name) => {
-							const value =
-								loaderData.userExerciseDetails.details?.exerciseExtraInformation
-									?.settings.restTimers[name];
-							return (
-								<NumberInput
-									key={name}
-									label={changeCase(snakeCase(name))}
-									defaultValue={isNumber(value) ? value : undefined}
-									onChange={(val) => {
-										if (isNumber(val))
-											appendPref(`rest_timers.${snakeCase(name)}`, String(val));
-									}}
-								/>
-							);
-						})}
+						{(["normalSet", "warmupSet", "dropSet", "failureSet"] as const).map(
+							(name) => {
+								const value =
+									loaderData.userExerciseDetails.details
+										?.exerciseExtraInformation?.settings.restTimers[name];
+								return (
+									<NumberInput
+										key={name}
+										label={changeCase(snakeCase(name))}
+										defaultValue={isNumber(value) ? value : undefined}
+										onChange={(val) => {
+											if (isNumber(val))
+												appendPref(
+													`rest_timers.${snakeCase(name)}`,
+													String(val),
+												);
+										}}
+									/>
+								);
+							},
+						)}
 						<Button type="submit">Save settings for exercise</Button>
 					</Stack>
 				</Form>
@@ -635,6 +640,7 @@ export default function Page() {
 							onClick={async () => {
 								await addExerciseToWorkout(
 									currentWorkout,
+									userPreferences.fitness.exercises.restTimers,
 									setCurrentWorkout,
 									[
 										{

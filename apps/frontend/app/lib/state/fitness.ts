@@ -3,6 +3,7 @@ import {
 	type CreateOrUpdateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
 	type ExerciseLot,
+	type RestTimersSettings,
 	SetLot,
 	UserExerciseDetailsDocument,
 	UserWorkoutDetailsDocument,
@@ -12,7 +13,7 @@ import {
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isString } from "@ryot/ts-utils";
+import { isNumber, isString, mergeWith } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
@@ -20,6 +21,7 @@ import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import { $path } from "remix-routes";
+import { P, match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
@@ -159,16 +161,43 @@ type TWorkoutDetails = UserWorkoutDetailsQuery["userWorkoutDetails"];
 type TSet =
 	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 
+const customMerger = (objValue?: number, srcValue?: number) => {
+	if (isNumber(objValue)) return objValue;
+	if (isNumber(srcValue)) return srcValue;
+	return undefined;
+};
+
 export const convertHistorySetToCurrentSet = async (
-	s: Pick<TSet, "statistic" | "lot" | "note" | "restTime">,
+	exerciseId: string,
+	set: Pick<TSet, "statistic" | "lot" | "note" | "restTime">,
+	userRestTimerPreferences: RestTimersSettings,
 	confirmedAt?: string | null,
 ) => {
+	const exerciseDetails = await getExerciseDetails(exerciseId);
+	const mergedSettings = mergeWith(
+		{},
+		exerciseDetails.userDetails.details?.exerciseExtraInformation?.settings
+			.restTimers || {},
+		userRestTimerPreferences,
+		customMerger,
+	);
+	const restTime = match(set.restTime)
+		.with(undefined, null, () =>
+			match(set.lot)
+				.with(SetLot.Normal, () => mergedSettings.normalSet)
+				.with(SetLot.Drop, () => mergedSettings.dropSet)
+				.with(SetLot.WarmUp, () => mergedSettings.warmupSet)
+				.with(SetLot.Failure, () => mergedSettings.failureSet)
+				.exhaustive(),
+		)
+		.with(P.number, (v) => v)
+		.exhaustive();
 	return {
-		lot: s.lot,
-		note: s.note,
-		statistic: s.statistic,
+		lot: set.lot,
+		note: set.note,
+		statistic: set.statistic,
 		confirmedAt: confirmedAt ?? null,
-		restTimer: s.restTime ? { isActive: true, duration: s.restTime } : null,
+		restTimer: restTime ? { isActive: false, duration: restTime } : null,
 	} satisfies ExerciseSet;
 };
 
@@ -263,6 +292,7 @@ export const duplicateOldWorkout = async (
 	workoutInformation: WorkoutInformation,
 	name: string,
 	coreDetails: ReturnType<typeof useCoreDetails>,
+	userRestTimerPreferences: RestTimersSettings,
 	params: {
 		repeatedFromId?: string;
 		templateId?: string;
@@ -283,7 +313,9 @@ export const duplicateOldWorkout = async (
 		const sets = await Promise.all(
 			ex.sets.map((v) =>
 				convertHistorySetToCurrentSet(
+					ex.name,
 					v,
+					userRestTimerPreferences,
 					params.updateWorkoutId ? v.confirmedAt : undefined,
 				),
 			),
@@ -323,6 +355,7 @@ export const duplicateOldWorkout = async (
 
 export const addExerciseToWorkout = async (
 	currentWorkout: InProgressWorkout,
+	userRestTimerPreferences: RestTimersSettings,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 	navigate: NavigateFunction,
@@ -340,7 +373,7 @@ export const addExerciseToWorkout = async (
 			const workout = await getWorkoutDetails(history.workoutId);
 			sets = await Promise.all(
 				workout.details.information.exercises[history.idx].sets.map((v) =>
-					convertHistorySetToCurrentSet(v),
+					convertHistorySetToCurrentSet(ex.name, v, userRestTimerPreferences),
 				),
 			);
 			alreadyDoneSets = sets.map((s) => ({ statistic: s.statistic }));

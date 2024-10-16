@@ -72,6 +72,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetWorkoutStarter,
+	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import { duplicateOldWorkout } from "~/lib/state/fitness";
@@ -220,6 +221,7 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
+	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const [
 		adjustTimeModalOpened,
@@ -246,6 +248,7 @@ export default function Page() {
 			loaderData.information,
 			loaderData.entityName,
 			coreDetails,
+			userPreferences.fitness.exercises.restTimers,
 			params,
 		);
 		startWorkout(workout, params.action);

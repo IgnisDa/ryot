@@ -50,7 +50,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useUserCollections } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useUserCollections,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getCachedExerciseParameters,
@@ -138,7 +142,9 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const userPreferences = useUserPreferences();
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
 		lot: ExerciseLot;
@@ -147,8 +153,6 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== pageQueryParam && k !== "query")
@@ -315,6 +319,7 @@ export default function Page() {
 						onClick={async () => {
 							await addExerciseToWorkout(
 								currentWorkout,
+								userPreferences.fitness.exercises.restTimers,
 								setCurrentWorkout,
 								selectedExercises,
 								navigate,

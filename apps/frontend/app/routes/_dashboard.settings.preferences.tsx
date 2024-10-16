@@ -3,7 +3,6 @@ import {
 	ActionIcon,
 	Affix,
 	Alert,
-	Box,
 	Button,
 	Container,
 	Divider,
@@ -553,34 +552,36 @@ export default function Page() {
 									}}
 								/>
 							</SimpleGrid>
-							<Box>
-								<Text>Default Rest Timers</Text>
+							<Input.Wrapper
+								label="Default Rest Timers"
+								description="When adding an exercise to your workout, these timer values will be used if you have not configured a rest timer for that exercise."
+							>
 								<SimpleGrid cols={3}>
-									{(["normalSet", "warmupSet", "dropSet"] as const).map(
-										(name) => {
-											const value =
-												userPreferences.fitness.exercises.restTimers[name];
-											return (
-												<NumberInput
-													size="xs"
-													key={name}
-													disabled={!!isEditDisabled}
-													label={changeCase(snakeCase(name))}
-													defaultValue={isNumber(value) ? value : undefined}
-													onChange={(val) => {
-														if (isNumber(val)) {
-															appendPref(
-																`fitness.exercises.rest_timers.${snakeCase(name)}`,
-																String(val),
-															);
-														}
-													}}
-												/>
-											);
-										},
-									)}
+									{(
+										["normalSet", "warmupSet", "dropSet", "failureSet"] as const
+									).map((name) => {
+										const value =
+											userPreferences.fitness.exercises.restTimers[name];
+										return (
+											<NumberInput
+												size="xs"
+												key={name}
+												disabled={!!isEditDisabled}
+												label={changeCase(snakeCase(name))}
+												defaultValue={isNumber(value) ? value : undefined}
+												onChange={(val) => {
+													if (isNumber(val)) {
+														appendPref(
+															`fitness.exercises.rest_timers.${snakeCase(name)}`,
+															String(val),
+														);
+													}
+												}}
+											/>
+										);
+									})}
 								</SimpleGrid>
-							</Box>
+							</Input.Wrapper>
 							<Stack gap="xs">
 								<Text>The default measurements you want to keep track of</Text>
 								<SimpleGrid cols={2}>
