@@ -191,4 +191,5 @@ fragment RestTimersPart on RestTimersSettings {
   dropSet
   warmupSet
   normalSet
+  failureSet
 }

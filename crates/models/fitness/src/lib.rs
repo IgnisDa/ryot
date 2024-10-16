@@ -381,6 +381,7 @@ pub struct RestTimersSettings {
     pub warmup_set: Option<u16>,
     #[educe(Default = Some(60))]
     pub normal_set: Option<u16>,
+    pub failure_set: Option<u16>,
 }
 
 #[derive(
