@@ -24,7 +24,6 @@ pub struct Model {
     pub user_id: String,
     pub summary: WorkoutSummary,
     pub information: WorkoutInformation,
-    pub default_rest_timer: Option<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -15,6 +15,7 @@ SET "preferences" = jsonb_set(
     '{fitness,exercises,rest_timers}',
     jsonb_build_object('normal_set', 60)
 );
+ALTER TABLE "workout_template" DROP COLUMN IF EXISTS "default_rest_timer";
         "#,
         )
         .await?;

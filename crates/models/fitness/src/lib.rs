@@ -563,7 +563,6 @@ pub struct UserWorkoutInput {
     pub template_id: Option<String>,
     pub assets: Option<EntityAssets>,
     pub repeated_from: Option<String>,
-    pub default_rest_timer: Option<i32>,
     // If specified, the workout will be created with this ID.
     #[graphql(skip_input)]
     pub create_workout_id: Option<String>,

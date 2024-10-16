@@ -308,7 +308,6 @@ export interface WorkoutSummary {
 
 export interface WorkoutTemplate {
 	created_on: string;
-	default_rest_timer: number | null;
 	id: string;
 	information: WorkoutInformation;
 	name: string;

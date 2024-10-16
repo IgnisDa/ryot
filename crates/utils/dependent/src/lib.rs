@@ -2141,14 +2141,13 @@ pub async fn process_import(
 pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutInput {
     UserWorkoutInput {
         name: user_workout.name,
-        create_workout_id: Some(user_workout.id),
         update_workout_id: None,
-        default_rest_timer: None,
         end_time: user_workout.end_time,
         update_workout_template_id: None,
         start_time: user_workout.start_time,
         template_id: user_workout.template_id,
         assets: user_workout.information.assets,
+        create_workout_id: Some(user_workout.id),
         repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
         exercises: user_workout

@@ -129,7 +129,6 @@ pub async fn import(
                 start_time: ndt,
                 template_id: None,
                 repeated_from: None,
-                default_rest_timer: None,
                 create_workout_id: None,
                 update_workout_id: None,
                 name: entry.workout_name,

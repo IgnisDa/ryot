@@ -152,7 +152,6 @@ impl ExerciseService {
             summary: ActiveValue::Set(summary),
             information: ActiveValue::Set(information),
             visibility: ActiveValue::Set(Visibility::Private),
-            default_rest_timer: ActiveValue::Set(input.default_rest_timer),
             ..Default::default()
         };
         let template = WorkoutTemplate::insert(template)
@@ -163,7 +162,6 @@ impl ExerciseService {
                         workout_template::Column::Summary,
                         workout_template::Column::Visibility,
                         workout_template::Column::Information,
-                        workout_template::Column::DefaultRestTimer,
                     ])
                     .to_owned(),
             )
