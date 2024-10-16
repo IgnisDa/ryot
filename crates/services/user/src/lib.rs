@@ -587,6 +587,7 @@ impl UserService {
                                             "drop_set" => rest_timers.drop_set = value,
                                             "normal_set" => rest_timers.normal_set = value,
                                             "warmup_set" => rest_timers.warmup_set = value,
+                                            "failure_set" => rest_timers.failure_set = value,
                                             _ => return Err(err()),
                                         }
                                     }
