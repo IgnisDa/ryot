@@ -100,7 +100,6 @@ pub async fn import(
                 sets,
                 notes,
                 assets: None,
-                rest_time: None,
                 superset_with: vec![],
                 identifier: Uuid::new_v4().to_string(),
                 exercise_id: target_exercise.target_name.clone(),

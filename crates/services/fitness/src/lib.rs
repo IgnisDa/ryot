@@ -139,7 +139,6 @@ impl ExerciseService {
                     .collect(),
                 notes: exercise.notes,
                 name: exercise.exercise_id,
-                rest_time: exercise.rest_time,
                 superset_with: exercise.superset_with,
             });
         }

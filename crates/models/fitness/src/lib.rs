@@ -443,7 +443,6 @@ pub struct ProcessedExercise {
     pub lot: ExerciseLot,
     pub identifier: String,
     pub notes: Vec<String>,
-    pub rest_time: Option<u16>,
     /// The indices of the exercises with which this has been superset with.
     pub superset_with: Vec<u16>,
     pub sets: Vec<WorkoutSetRecord>,
@@ -550,7 +549,6 @@ pub struct UserExerciseInput {
     pub identifier: String,
     pub notes: Vec<String>,
     pub exercise_id: String,
-    pub rest_time: Option<u16>,
     pub superset_with: Vec<u16>,
     pub assets: Option<EntityAssets>,
     pub sets: Vec<UserWorkoutSetRecord>,

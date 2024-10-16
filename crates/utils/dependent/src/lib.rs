@@ -1592,7 +1592,7 @@ pub async fn create_or_update_workout(
             Some(e) => e,
         };
         let mut sets = vec![];
-        let mut total = WorkoutOrExerciseTotals::default();
+        let mut totals = WorkoutOrExerciseTotals::default();
         let association = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id.clone()))
@@ -1633,9 +1633,11 @@ pub async fn create_or_update_workout(
         to_update.last_updated_on =
             ActiveValue::Set(first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on));
         let association = to_update.update(&ss.db).await?;
-        if let Some(d) = ex.rest_time {
-            total.rest_time += d * (ex.sets.len() - 1) as u16;
-        }
+        totals.rest_time = ex
+            .sets
+            .iter()
+            .map(|s| s.rest_time.unwrap_or_default())
+            .sum();
         ex.sets
             .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
         for set in ex.sets.iter_mut() {
@@ -1652,16 +1654,16 @@ pub async fn create_or_update_workout(
             first_set_of_exercise_confirmed_at = set.confirmed_at;
             set.remove_invalids(&db_ex.lot);
             if let Some(r) = set.statistic.reps {
-                total.reps += r;
+                totals.reps += r;
                 if let Some(w) = set.statistic.weight {
-                    total.weight += w * r;
+                    totals.weight += w * r;
                 }
             }
             if let Some(d) = set.statistic.duration {
-                total.duration += d;
+                totals.duration += d;
             }
             if let Some(d) = set.statistic.distance {
-                total.distance += d;
+                totals.distance += d;
             }
             let mut totals = WorkoutSetTotals::default();
             if let (Some(we), Some(re)) = (&set.statistic.weight, &set.statistic.reps) {
@@ -1710,17 +1712,17 @@ pub async fn create_or_update_workout(
                         if let Some(ref mut set_personal_bests) = set.personal_bests {
                             set_personal_bests.push(*best_type);
                         }
-                        total.personal_bests_achieved += 1;
+                        totals.personal_bests_achieved += 1;
                     }
                 }
             } else {
                 if let Some(ref mut set_personal_bests) = set.personal_bests {
                     set_personal_bests.push(*best_type);
                 }
-                total.personal_bests_achieved += 1;
+                totals.personal_bests_achieved += 1;
             }
         }
-        workout_totals.push(total.clone());
+        workout_totals.push(totals.clone());
         for (set_idx, set) in sets.iter().enumerate() {
             if let Some(set_personal_bests) = &set.personal_bests {
                 for best in set_personal_bests.iter() {
@@ -1749,7 +1751,7 @@ pub async fn create_or_update_workout(
             .unwrap_or_default();
         association_extra_information.history[0].best_set = best_set.clone();
         let mut association: user_to_entity::ActiveModel = association.into();
-        association_extra_information.lifetime_stats += total.clone();
+        association_extra_information.lifetime_stats += totals.clone();
         association_extra_information.personal_bests = personal_bests;
         association.exercise_extra_information =
             ActiveValue::Set(Some(association_extra_information));
@@ -1761,9 +1763,8 @@ pub async fn create_or_update_workout(
                 sets,
                 lot: db_ex.lot,
                 name: db_ex.id,
-                total: Some(total),
+                total: Some(totals),
                 notes: ex.notes.clone(),
-                rest_time: ex.rest_time,
                 assets: ex.assets.clone(),
                 identifier: ex.identifier.clone(),
                 superset_with: ex.superset_with.clone(),
@@ -2169,7 +2170,6 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                     })
                     .collect(),
                 notes: e.notes,
-                rest_time: e.rest_time,
                 assets: e.assets,
                 superset_with: e.superset_with,
             })

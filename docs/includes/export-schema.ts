@@ -280,7 +280,6 @@ export interface ProcessedExercise {
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];
-	rest_time: number | null;
 	sets: WorkoutSetRecord[];
 	/** The indices of the exercises with which this has been superset with. */
 	superset_with: number[];
