@@ -326,7 +326,6 @@ export default function Page() {
 							/>
 							<Stack ref={parent}>
 								<TextInput
-									w={loaderData.isCreatingTemplate ? "65%" : "100%"}
 									size="sm"
 									label="Name"
 									placeholder="A name for your workout"
