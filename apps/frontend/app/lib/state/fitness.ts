@@ -159,17 +159,18 @@ type TWorkoutDetails = UserWorkoutDetailsQuery["userWorkoutDetails"];
 type TSet =
 	TWorkoutDetails["details"]["information"]["exercises"][number]["sets"][number];
 
-export const convertHistorySetToCurrentSet = (
+export const convertHistorySetToCurrentSet = async (
 	s: Pick<TSet, "statistic" | "lot" | "note" | "restTime">,
 	confirmedAt?: string | null,
-) =>
-	({
+) => {
+	return {
 		lot: s.lot,
 		note: s.note,
 		statistic: s.statistic,
 		confirmedAt: confirmedAt ?? null,
 		restTimer: s.restTime ? { isActive: true, duration: s.restTime } : null,
-	}) satisfies ExerciseSet;
+	} satisfies ExerciseSet;
+};
 
 export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
@@ -279,10 +280,12 @@ export const duplicateOldWorkout = async (
 	inProgress.comment = workoutInformation.comment || undefined;
 	inProgress.defaultRestTimer = params.defaultRestTimer;
 	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
-		const sets = ex.sets.map((v) =>
-			convertHistorySetToCurrentSet(
-				v,
-				params.updateWorkoutId ? v.confirmedAt : undefined,
+		const sets = await Promise.all(
+			ex.sets.map((v) =>
+				convertHistorySetToCurrentSet(
+					v,
+					params.updateWorkoutId ? v.confirmedAt : undefined,
+				),
 			),
 		);
 		const exerciseDetails = await getExerciseDetails(ex.name);
@@ -335,8 +338,10 @@ export const addExerciseToWorkout = async (
 		const history = (exerciseDetails.userDetails.history || []).at(0);
 		if (history) {
 			const workout = await getWorkoutDetails(history.workoutId);
-			sets = workout.details.information.exercises[history.idx].sets.map((v) =>
-				convertHistorySetToCurrentSet(v),
+			sets = await Promise.all(
+				workout.details.information.exercises[history.idx].sets.map((v) =>
+					convertHistorySetToCurrentSet(v),
+				),
 			);
 			alreadyDoneSets = sets.map((s) => ({ statistic: s.statistic }));
 		}
