@@ -106,7 +106,7 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
-use tokio::time::{sleep, timeout, Duration as TokioDuration};
+use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
 use user_models::UserReviewScale;
 use uuid::Uuid;
@@ -194,13 +194,11 @@ ORDER BY RANDOM() LIMIT 10;
         for media in media_items.into_iter() {
             ryot_log!(debug, "Getting recommendations: {:?}", media);
             let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
-            match timeout(
-                TokioDuration::from_secs(15),
-                provider.get_recommendations_for_metadata(&media.identifier),
-            )
-            .await
+            match provider
+                .get_recommendations_for_metadata(&media.identifier)
+                .await
             {
-                Ok(Ok(recommendations)) => {
+                Ok(recommendations) => {
                     ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                     for mut rec in recommendations {
                         rec.is_recommendation = Some(true);
@@ -209,8 +207,8 @@ ORDER BY RANDOM() LIMIT 10;
                         }
                     }
                 }
-                _ => {
-                    ryot_log!(warn, "Could not get recommendations");
+                e => {
+                    ryot_log!(warn, "Could not get recommendations {:?}", e);
                 }
             }
         }
