@@ -72,7 +72,6 @@ export type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	videos: Array<string>;
 	images: Array<string>;
-	highlightedSet?: { exerciseIdx: number; setIdx: number };
 };
 
 type CurrentWorkout = InProgressWorkout | null;
@@ -102,7 +101,6 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 		exercises: [],
 		startTime: date.toISOString(),
 		name: `${getTimeOfDay(date.getHours())} Workout`,
-		highlightedSet: { exerciseIdx: 0, setIdx: 0 },
 	};
 };
 

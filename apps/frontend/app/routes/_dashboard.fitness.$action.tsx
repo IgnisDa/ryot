@@ -1543,7 +1543,6 @@ const SetDisplay = (props: {
 											);
 											if (newConfirmed) {
 												focusOnExercise(nextSet.exerciseIdx);
-												draft.highlightedSet = nextSet;
 												if (nextSet.wasLastSet) {
 													currentExercise.isShowDetailsOpen = false;
 													const nextExercise =
@@ -1593,7 +1592,7 @@ const SetDisplay = (props: {
 				) : null}
 				{didCurrentSetActivateTimer ? (
 					<Progress
-						size="xl"
+						size="lg"
 						transitionDuration={300}
 						value={
 							(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
