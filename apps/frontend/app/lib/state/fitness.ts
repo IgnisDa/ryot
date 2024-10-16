@@ -15,7 +15,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, isString, mergeWith } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
-import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
@@ -252,7 +251,7 @@ export const exerciseHasDetailsToShow = (exercise: Exercise) =>
 
 type Timer = {
 	totalTime: number;
-	endAt: Dayjs;
+	endAt: string;
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 

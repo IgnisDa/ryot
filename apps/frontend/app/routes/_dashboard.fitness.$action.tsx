@@ -267,7 +267,10 @@ export default function Page() {
 	const [currentTimer, setCurrentTimer] = useTimerAtom();
 
 	useInterval(() => {
-		const timeRemaining = currentTimer?.endAt.diff(dayjsLib(), "second");
+		const timeRemaining = dayjsLib(currentTimer?.endAt).diff(
+			dayjsLib(),
+			"second",
+		);
 		if (timeRemaining && timeRemaining <= 3) {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
@@ -283,9 +286,9 @@ export default function Page() {
 		triggeredBy?: { exerciseIdentifier: string; setIdx: number },
 	) => {
 		setCurrentTimer({
+			triggeredBy,
 			totalTime: duration,
-			endAt: dayjsLib().add(duration, "second"),
-			triggeredBy: triggeredBy,
+			endAt: dayjsLib().add(duration, "second").toISOString(),
 		});
 	};
 
@@ -609,7 +612,7 @@ const RestTimer = () => {
 	const [currentTimer] = useTimerAtom();
 
 	return currentTimer
-		? formatTimerDuration(currentTimer.endAt.diff(dayjsLib()))
+		? formatTimerDuration(dayjsLib(currentTimer.endAt).diff(dayjsLib()))
 		: "Timer";
 };
 
@@ -1338,7 +1341,7 @@ const RestTimerProgress = (props: { onClick: () => void }) => {
 			color="violet"
 			bottom={-6}
 			value={
-				(currentTimer.endAt.diff(dayjsLib(), "seconds") * 100) /
+				(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
 				currentTimer.totalTime
 			}
 			size="xs"
@@ -1736,7 +1739,8 @@ const TimerDrawer = (props: {
 							sections={[
 								{
 									value:
-										(currentTimer.endAt.diff(dayjsLib(), "seconds") * 100) /
+										(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") *
+											100) /
 										currentTimer.totalTime,
 									color: "orange",
 								},
@@ -1744,7 +1748,9 @@ const TimerDrawer = (props: {
 							label={
 								<>
 									<Text ta="center" fz={64}>
-										{formatTimerDuration(currentTimer.endAt.diff(dayjsLib()))}
+										{formatTimerDuration(
+											dayjsLib(currentTimer.endAt).diff(dayjsLib()),
+										)}
 									</Text>
 									<Text ta="center" c="dimmed" fz="lg" mt="-md">
 										{formatTimerDuration(currentTimer.totalTime * 1000)}
@@ -1759,7 +1765,9 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = draft.endAt.subtract(30, "seconds");
+												draft.endAt = dayjsLib(draft.endAt)
+													.subtract(30, "seconds")
+													.toISOString();
 												draft.totalTime -= 30;
 											}
 										}),
@@ -1767,7 +1775,9 @@ const TimerDrawer = (props: {
 								}}
 								size="compact-lg"
 								variant="outline"
-								disabled={currentTimer.endAt.diff(dayjsLib(), "seconds") <= 30}
+								disabled={
+									dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") <= 30
+								}
 							>
 								-30 sec
 							</Button>
@@ -1777,7 +1787,9 @@ const TimerDrawer = (props: {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
 											if (draft) {
-												draft.endAt = draft.endAt.add(30, "seconds");
+												draft.endAt = dayjsLib(draft.endAt)
+													.add(30, "seconds")
+													.toISOString();
 												draft.totalTime += 30;
 											}
 										}),
