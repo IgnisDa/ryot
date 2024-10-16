@@ -68,6 +68,39 @@ WHERE "user_to_entity"."exercise_extra_information" IS NOT NULL;
         "#,
         )
         .await?;
+        db.execute_unprepared(
+            r#"
+DO $$
+DECLARE
+    workout_row RECORD;
+BEGIN
+    FOR workout_row IN SELECT id, information FROM workout
+    LOOP
+        UPDATE workout
+        SET information = jsonb_set(
+            workout_row.information,
+            '{exercises}',
+            (
+                SELECT jsonb_agg(
+                    CASE
+                        WHEN (exercise->>'rest_time')::int > 0 THEN
+                            jsonb_set(exercise, '{sets}', (
+                                SELECT jsonb_agg(jsonb_set(set_row, '{rest_time}', exercise->'rest_time'))
+                                FROM jsonb_array_elements(exercise->'sets') AS set_row
+                            ))
+                        ELSE
+                            exercise
+                    END
+                )
+                FROM jsonb_array_elements(workout_row.information->'exercises') AS exercise
+            )
+        )
+        WHERE id = workout_row.id;
+    END LOOP;
+END $$;
+        "#,
+        )
+        .await?;
         Ok(())
     }
 
