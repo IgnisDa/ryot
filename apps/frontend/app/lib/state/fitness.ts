@@ -3,6 +3,7 @@ import {
 	type CreateOrUpdateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
 	type ExerciseLot,
+	type RestTimersSettings,
 	SetLot,
 	UserExerciseDetailsDocument,
 	UserWorkoutDetailsDocument,
@@ -12,7 +13,7 @@ import {
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isString } from "@ryot/ts-utils";
+import { isNumber, isString, mergeWith } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
 import type { Dayjs } from "dayjs";
 import { createDraft, finishDraft } from "immer";
@@ -20,6 +21,7 @@ import { atom, useAtom } from "jotai";
 import { atomWithReset, atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import { $path } from "remix-routes";
+import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { v4 as randomUUID } from "uuid";
 import {
@@ -129,7 +131,7 @@ export const getUserExerciseDetailsQuery = (exerciseId: string) =>
 				.then((data) => data.userExerciseDetails),
 	});
 
-export const getExerciseDetails = async (exerciseId: string) => {
+const getExerciseDetails = async (exerciseId: string) => {
 	const [details, userDetails] = await Promise.all([
 		queryClient.ensureQueryData(getExerciseDetailsQuery(exerciseId)),
 		queryClient.ensureQueryData(getUserExerciseDetailsQuery(exerciseId)),
@@ -320,6 +322,32 @@ export const duplicateOldWorkout = async (
 		inProgress.exercises[idx].supersetWith = supersetWith;
 	}
 	return inProgress;
+};
+
+export const getRestTimerForSet = async (
+	lot: SetLot,
+	exerciseId: string,
+	userPreferencesRestTimer: RestTimersSettings,
+) => {
+	const exerciseDetails = await getExerciseDetails(exerciseId);
+	const mergedSettings = mergeWith(
+		{},
+		exerciseDetails.userDetails.details?.exerciseExtraInformation?.settings
+			.restTimers || {},
+		userPreferencesRestTimer,
+		(objValue?: number, srcValue?: number) => {
+			if (isNumber(objValue)) return objValue;
+			if (isNumber(srcValue)) return srcValue;
+			return undefined;
+		},
+	);
+	const restTime = match(lot)
+		.with(SetLot.Normal, () => mergedSettings.normalSet)
+		.with(SetLot.Drop, () => mergedSettings.dropSet)
+		.with(SetLot.WarmUp, () => mergedSettings.warmupSet)
+		.with(SetLot.Failure, () => mergedSettings.failureSet)
+		.exhaustive();
+	return restTime;
 };
 
 export const addExerciseToWorkout = async (

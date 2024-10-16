@@ -63,7 +63,6 @@ import {
 	isEqual,
 	isNumber,
 	isString,
-	mergeWith,
 	snakeCase,
 	startCase,
 	sum,
@@ -132,7 +131,7 @@ import {
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	exerciseHasDetailsToShow,
-	getExerciseDetails,
+	getRestTimerForSet,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 	useCurrentWorkout,
@@ -1449,36 +1448,18 @@ const SetDisplay = (props: {
 									</Text>
 								}
 								onClick={async () => {
-									const exerciseDetails = await getExerciseDetails(
+									const restTime = await getRestTimerForSet(
+										lot,
 										currentWorkout.exercises[props.exerciseIdx].exerciseId,
+										userPreferences.fitness.exercises.restTimers,
 									);
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
 											const currentSet =
 												draft.exercises[props.exerciseIdx].sets[props.setIdx];
 											currentSet.lot = lot;
-											if (!currentSet.restTimer?.hasElapsed) {
-												const mergedSettings = mergeWith(
-													{},
-													exerciseDetails.userDetails.details
-														?.exerciseExtraInformation?.settings.restTimers ||
-														{},
-													userPreferences.fitness.exercises.restTimers,
-													(objValue?: number, srcValue?: number) => {
-														if (isNumber(objValue)) return objValue;
-														if (isNumber(srcValue)) return srcValue;
-														return undefined;
-													},
-												);
-												const restTime = match(currentSet.lot)
-													.with(SetLot.Normal, () => mergedSettings.normalSet)
-													.with(SetLot.Drop, () => mergedSettings.dropSet)
-													.with(SetLot.WarmUp, () => mergedSettings.warmupSet)
-													.with(SetLot.Failure, () => mergedSettings.failureSet)
-													.exhaustive();
-												if (restTime)
-													currentSet.restTimer = { duration: restTime };
-											}
+											if (!currentSet.restTimer?.hasElapsed && restTime)
+												currentSet.restTimer = { duration: restTime };
 										}),
 									);
 								}}
