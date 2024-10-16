@@ -1300,7 +1300,9 @@ const SetDisplay = (props: {
 			);
 	}, [value]);
 
-	return currentWorkout && exercise && set ? (
+	if (!currentWorkout || !exercise || !set) return null;
+
+	return (
 		<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
@@ -1583,7 +1585,7 @@ const SetDisplay = (props: {
 				/>
 			) : null}
 		</Paper>
-	) : null;
+	);
 };
 
 const styles = {
