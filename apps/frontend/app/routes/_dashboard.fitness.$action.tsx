@@ -1598,7 +1598,7 @@ const SetDisplay = (props: {
 									setIdx={props.setIdx}
 									exerciseIdx={props.exerciseIdx}
 									defaultDuration={set.restTimer.duration}
-									setIsEditingRestTimer={setIsEditingRestTimer}
+									onClickOutside={() => setIsEditingRestTimer(false)}
 								/>
 							) : (
 								<Text
@@ -1627,12 +1627,10 @@ const EditSetRestTimer = (props: {
 	setIdx: number;
 	exerciseIdx: number;
 	defaultDuration: number;
-	setIsEditingRestTimer: (v: boolean) => void;
+	onClickOutside: () => void;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const editRestTimerRef = useClickOutside(() =>
-		props.setIsEditingRestTimer(false),
-	);
+	const editRestTimerRef = useClickOutside(props.onClickOutside);
 	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
 
 	useDidUpdate(() => {
@@ -1653,7 +1651,7 @@ const EditSetRestTimer = (props: {
 			suffix="s"
 			w={rem(80)}
 			ref={editRestTimerRef}
-			defaultValue={props.defaultDuration}
+			value={props.defaultDuration}
 			onChange={(v) => {
 				if (!v) return;
 				setValue(Number.parseInt(v.toString()));
