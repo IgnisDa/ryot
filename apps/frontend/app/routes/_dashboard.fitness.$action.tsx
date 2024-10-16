@@ -787,9 +787,9 @@ const focusOnExercise = (idx: number) => {
 
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
+	stopTimer: () => void;
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
-	stopTimer: () => void;
 	reorderDrawerToggle: () => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
@@ -1212,6 +1212,7 @@ const ExerciseDisplay = (props: {
 								startTimer={props.startTimer}
 								exerciseIdx={props.exerciseIdx}
 								key={`${exercise.identifier}-${idx}`}
+								openTimerDrawer={props.openTimerDrawer}
 								toBeDisplayedColumns={toBeDisplayedColumns}
 							/>
 						))}
@@ -1278,6 +1279,7 @@ const SetDisplay = (props: {
 	distanceCol: boolean;
 	stopTimer: () => void;
 	startTimer: FuncStartTimer;
+	openTimerDrawer: () => void;
 	toBeDisplayedColumns: number;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
@@ -1592,20 +1594,28 @@ const SetDisplay = (props: {
 					/>
 				) : null}
 				{didCurrentSetActivateTimer ? (
-					<DisplaySetRestTimer currentTimer={currentTimer} />
+					<DisplaySetRestTimer
+						currentTimer={currentTimer}
+						onClick={props.openTimerDrawer}
+					/>
 				) : null}
 			</Box>
 		</Paper>
 	);
 };
 
-const DisplaySetRestTimer = (props: { currentTimer: CurrentWorkoutTimer }) => {
+const DisplaySetRestTimer = (props: {
+	onClick: () => void;
+	currentTimer: CurrentWorkoutTimer;
+}) => {
 	forceUpdateEverySecond();
 
 	return (
 		<Progress
 			size="lg"
+			onClick={props.onClick}
 			transitionDuration={300}
+			style={{ cursor: "pointer" }}
 			value={
 				(dayjsLib(props.currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
 				props.currentTimer.totalTime
@@ -1645,9 +1655,9 @@ const TimerDrawer = (props: {
 				{currentTimer ? (
 					<>
 						<RingProgress
+							roundCaps
 							size={300}
 							thickness={8}
-							roundCaps
 							sections={[
 								{
 									value:
