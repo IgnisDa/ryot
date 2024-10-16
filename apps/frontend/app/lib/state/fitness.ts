@@ -17,7 +17,7 @@ import { isNumber, isString, mergeWith } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
-import { atomWithReset, atomWithStorage } from "jotai/utils";
+import { atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -255,7 +255,7 @@ type Timer = {
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
-const timerAtom = atomWithReset<Timer | null>(null);
+const timerAtom = atomWithStorage<Timer | null>("CurrentWorkoutTimer", null);
 
 export const useTimerAtom = () => useAtom(timerAtom);
 
