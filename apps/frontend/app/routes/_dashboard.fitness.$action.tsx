@@ -360,7 +360,7 @@ export default function Page() {
 									}
 								/>
 								<Group>
-									<DurationTimer />
+									<WorkoutDurationTimer />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -597,6 +597,9 @@ const StatDisplay = (props: {
 	);
 };
 
+const formatTimerDuration = (duration: number) =>
+	dayjsLib.duration(duration).format("mm:ss");
+
 const offsetDate = (startTime?: string) => {
 	const now = dayjsLib();
 	return now.diff(dayjsLib(startTime), "seconds");
@@ -607,11 +610,11 @@ const RestTimer = () => {
 	const [currentTimer] = useTimerAtom();
 
 	return currentTimer
-		? dayjsLib.duration(currentTimer.endAt.diff(dayjsLib())).format("m:ss")
+		? formatTimerDuration(currentTimer.endAt.diff(dayjsLib()))
 		: "Timer";
 };
 
-const DurationTimer = () => {
+const WorkoutDurationTimer = () => {
 	const { isCreatingTemplate, isUpdatingWorkout } =
 		useLoaderData<typeof loader>();
 	const [currentWorkout] = useCurrentWorkout();
@@ -1755,14 +1758,10 @@ const TimerDrawer = (props: {
 							label={
 								<>
 									<Text ta="center" fz={64}>
-										{dayjsLib
-											.duration(currentTimer.endAt.diff(dayjsLib()))
-											.format("m:ss")}
+										{formatTimerDuration(currentTimer.endAt.diff(dayjsLib()))}
 									</Text>
 									<Text ta="center" c="dimmed" fz="lg" mt="-md">
-										{dayjsLib
-											.duration(currentTimer.totalTime * 1000)
-											.format("m:ss")}
+										{formatTimerDuration(currentTimer.totalTime * 1000)}
 									</Text>
 								</>
 							}
