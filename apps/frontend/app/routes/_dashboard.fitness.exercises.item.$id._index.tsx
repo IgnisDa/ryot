@@ -640,7 +640,6 @@ export default function Page() {
 							onClick={async () => {
 								await addExerciseToWorkout(
 									currentWorkout,
-									userPreferences.fitness.exercises.restTimers,
 									setCurrentWorkout,
 									[
 										{

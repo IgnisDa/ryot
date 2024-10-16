@@ -792,7 +792,6 @@ const ExerciseDisplay = (props: {
 	reorderDrawerToggle: () => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -1182,15 +1181,8 @@ const ExerciseDisplay = (props: {
 																		workout.details.information.exercises[
 																			history.idx
 																		].sets;
-																	const converted = await Promise.all(
-																		sets.map((set) =>
-																			convertHistorySetToCurrentSet(
-																				exercise.exerciseId,
-																				set,
-																				userPreferences.fitness.exercises
-																					.restTimers,
-																			),
-																		),
+																	const converted = sets.map((set) =>
+																		convertHistorySetToCurrentSet(set),
 																	);
 																	setCurrentWorkout(
 																		produce(currentWorkout, (draft) => {

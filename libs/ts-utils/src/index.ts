@@ -16,7 +16,6 @@ import isInteger from "lodash/isInteger";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
 import mapValues from "lodash/mapValues";
-import mergeWith from "lodash/mergeWith";
 import omitBy from "lodash/omitBy";
 import pickBy from "lodash/pickBy";
 import set from "lodash/set";
@@ -106,7 +105,6 @@ export {
 	isNumber,
 	isString,
 	mapValues,
-	mergeWith,
 	omitBy,
 	pickBy,
 	set,
