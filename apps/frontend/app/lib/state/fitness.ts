@@ -57,7 +57,6 @@ export type Exercise = {
 	notes: Array<string>;
 	sets: Array<ExerciseSet>;
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
-	restTimer?: { enabled: boolean; duration: number } | null;
 	videos: Array<Media>;
 	images: Array<Media>;
 	supersetWith: Array<string>;
@@ -74,7 +73,6 @@ export type InProgressWorkout = {
 	endTime?: string;
 	name: string;
 	comment?: string;
-	defaultRestTimer?: number | null;
 	exercises: Array<Exercise>;
 	videos: Array<string>;
 	images: Array<string>;
@@ -191,7 +189,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			repeatedFrom: currentWorkout.repeatedFrom,
-			defaultRestTimer: currentWorkout.defaultRestTimer,
 			exercises: [],
 			assets: {
 				images: [...currentWorkout.images],
@@ -229,9 +226,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 				images: exercise.images.map((m) => m.key),
 				videos: exercise.videos.map((m) => m.key),
 			},
-			restTime: exercise.restTimer?.enabled
-				? exercise.restTimer.duration
-				: undefined,
 		};
 		input.input.exercises.push(toAdd);
 	}
@@ -273,7 +267,6 @@ export const duplicateOldWorkout = async (
 		templateId?: string;
 		updateWorkoutId?: string;
 		updateWorkoutTemplateId?: string;
-		defaultRestTimer?: number | null;
 	},
 ) => {
 	const inProgress = getDefaultWorkout();
@@ -283,7 +276,6 @@ export const duplicateOldWorkout = async (
 	inProgress.updateWorkoutId = params.updateWorkoutId;
 	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
-	inProgress.defaultRestTimer = params.defaultRestTimer;
 	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
 		const sets = ex.sets.map((v) =>
 			convertHistorySetToCurrentSet(
@@ -292,7 +284,6 @@ export const duplicateOldWorkout = async (
 			),
 		);
 		const exerciseDetails = await getExerciseDetails(ex.name);
-		const defaultRestTime = params.defaultRestTimer || ex.restTime;
 		inProgress.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: exerciseIdx === 0,
@@ -304,9 +295,6 @@ export const duplicateOldWorkout = async (
 			lot: ex.lot,
 			notes: ex.notes,
 			supersetWith: [],
-			restTimer: defaultRestTime
-				? { duration: defaultRestTime, enabled: true }
-				: null,
 			sets: sets,
 			openedDetailsTab: !coreDetails.isPro
 				? "images"
@@ -383,7 +371,6 @@ export const addExerciseToWorkout = async (
 			sets,
 			supersetWith: [],
 			alreadyDoneSets,
-			restTimer: { duration: 60, enabled: true },
 			notes: [],
 			images: [],
 			videos: [],

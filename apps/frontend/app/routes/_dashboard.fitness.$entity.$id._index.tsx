@@ -133,7 +133,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				repeatedWorkout: repeatedWorkout,
 				template,
 				collections: userWorkoutDetails.collections,
-				defaultRestTimer: undefined,
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
@@ -153,7 +152,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				repeatedWorkout: null,
 				template: null,
 				collections: userWorkoutTemplateDetails.collections,
-				defaultRestTimer: userWorkoutTemplateDetails.details.defaultRestTimer,
 			};
 		})
 		.exhaustive();
@@ -239,7 +237,6 @@ export default function Page() {
 		templateId?: string;
 		updateWorkoutId?: string;
 		updateWorkoutTemplateId?: string;
-		defaultRestTimer?: number | null;
 	}) => {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
@@ -312,7 +309,6 @@ export default function Page() {
 													performDecision({
 														action: FitnessAction.LogWorkout,
 														templateId: loaderData.entityId,
-														defaultRestTimer: loaderData.defaultRestTimer,
 													})
 												}
 												leftSection={<IconPlayerPlay size={14} />}
@@ -324,7 +320,6 @@ export default function Page() {
 													performDecision({
 														action: FitnessAction.CreateTemplate,
 														updateWorkoutTemplateId: loaderData.entityId,
-														defaultRestTimer: loaderData.defaultRestTimer,
 													})
 												}
 												leftSection={<IconPencil size={14} />}
@@ -351,7 +346,6 @@ export default function Page() {
 													performDecision({
 														action: FitnessAction.UpdateWorkout,
 														updateWorkoutId: loaderData.entityId,
-														defaultRestTimer: loaderData.defaultRestTimer,
 													})
 												}
 												leftSection={<IconPencil size={14} />}
@@ -501,12 +495,6 @@ export default function Page() {
 											units: ["h", "m"],
 										},
 									)}
-								/>
-							) : null}
-							{loaderData.defaultRestTimer ? (
-								<DisplayStat
-									icon={<IconZzz size={16} />}
-									data={`${loaderData.defaultRestTimer}s`}
 								/>
 							) : null}
 							{loaderData.summary.total ? (
