@@ -794,6 +794,7 @@ const ExerciseDisplay = (props: {
 	reorderDrawerToggle: () => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -1220,16 +1221,23 @@ const ExerciseDisplay = (props: {
 					</Box>
 					<Button
 						variant="subtle"
-						onClick={() => {
+						onClick={async () => {
 							playAddSetSound();
+							const setLot = SetLot.Normal;
+							const restTimer = await getRestTimerForSet(
+								setLot,
+								exercise.exerciseId,
+								userPreferences.fitness.exercises.restTimers,
+							);
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
 									const currentSet =
 										draft.exercises[props.exerciseIdx].sets.at(-1);
 									draft.exercises[props.exerciseIdx].sets.push({
-										statistic: currentSet?.statistic ?? {},
-										lot: SetLot.Normal,
+										lot: setLot,
 										confirmedAt: null,
+										statistic: currentSet?.statistic ?? {},
+										restTimer: restTimer ? { duration: restTimer } : undefined,
 									});
 								}),
 							);

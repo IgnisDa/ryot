@@ -639,7 +639,9 @@ export default function Page() {
 							size="xl"
 							onClick={async () => {
 								await addExerciseToWorkout(
+									navigate,
 									currentWorkout,
+									userPreferences.fitness.exercises.restTimers,
 									setCurrentWorkout,
 									[
 										{
@@ -647,7 +649,6 @@ export default function Page() {
 											lot: loaderData.exerciseDetails.lot,
 										},
 									],
-									navigate,
 								);
 							}}
 						>

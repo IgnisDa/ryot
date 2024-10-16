@@ -256,8 +256,8 @@ export const useMeasurementsDrawerOpen = () =>
 	useAtom(measurementsDrawerOpenAtom);
 
 export const duplicateOldWorkout = async (
-	workoutInformation: WorkoutInformation,
 	name: string,
+	workoutInformation: WorkoutInformation,
 	coreDetails: ReturnType<typeof useCoreDetails>,
 	params: {
 		repeatedFromId?: string;
@@ -336,17 +336,29 @@ export const getRestTimerForSet = async (
 };
 
 export const addExerciseToWorkout = async (
+	navigate: NavigateFunction,
 	currentWorkout: InProgressWorkout,
+	userPreferencesRestTimer: RestTimersSettings,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
-	navigate: NavigateFunction,
 ) => {
 	const draft = createDraft(currentWorkout);
 	const idxOfNextExercise = draft.exercises.length;
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const exerciseDetails = await getExerciseDetails(ex.name);
+		const setLot = SetLot.Normal;
+		const restTimer = await getRestTimerForSet(
+			setLot,
+			ex.name,
+			userPreferencesRestTimer,
+		);
 		let sets: ExerciseSet[] = [
-			{ statistic: {}, lot: SetLot.Normal, confirmedAt: null },
+			{
+				lot: setLot,
+				statistic: {},
+				confirmedAt: null,
+				restTimer: restTimer ? { duration: restTimer } : undefined,
+			},
 		];
 		let alreadyDoneSets: AlreadyDoneExerciseSet[] = [];
 		const history = (exerciseDetails.userDetails.history || []).at(0);

@@ -50,7 +50,11 @@ import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useUserCollections } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useUserCollections,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getCachedExerciseParameters,
@@ -138,6 +142,7 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
@@ -313,10 +318,11 @@ export default function Page() {
 						disabled={selectedExercises.length === 0}
 						onClick={async () => {
 							await addExerciseToWorkout(
+								navigate,
 								currentWorkout,
+								userPreferences.fitness.exercises.restTimers,
 								setCurrentWorkout,
 								selectedExercises,
-								navigate,
 							);
 						}}
 					>

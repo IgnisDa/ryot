@@ -240,8 +240,8 @@ export default function Page() {
 	}) => {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
-			loaderData.information,
 			loaderData.entityName,
+			loaderData.information,
 			coreDetails,
 			params,
 		);
