@@ -1688,6 +1688,7 @@ const SetDisplay = (props: {
 					size="lg"
 					labelPosition="center"
 					color={set.restTimer.hasElapsed ? "green" : "blue"}
+					opacity={set.restTimer.hasElapsed ? 0.3 : undefined}
 					label={
 						<Text
 							size="sm"
