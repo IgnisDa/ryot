@@ -19,6 +19,7 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
+	Progress,
 	RingProgress,
 	ScrollArea,
 	SimpleGrid,
@@ -1282,6 +1283,7 @@ const SetDisplay = (props: {
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const [currentTimer, _] = useTimerAtom();
+	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
@@ -1290,6 +1292,8 @@ const SetDisplay = (props: {
 		const sound = new Howl({ src: ["/check.mp3"] });
 		sound.play();
 	};
+
+	forceUpdateEverySecond();
 
 	useDidUpdate(() => {
 		if (currentWorkout && isString(value))
@@ -1301,6 +1305,10 @@ const SetDisplay = (props: {
 	}, [value]);
 
 	if (!currentWorkout || !exercise || !set) return null;
+
+	const didCurrentSetActivateTimer =
+		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
+		currentTimer?.triggeredBy?.setIdx === props.setIdx;
 
 	return (
 		<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
@@ -1565,25 +1573,35 @@ const SetDisplay = (props: {
 					onChange={(v) => setValue(v.currentTarget.value)}
 				/>
 			) : undefined}
-			{set.restTimer ? (
-				<Divider
-					mx="xs"
-					my="xs"
-					size="lg"
-					labelPosition="center"
-					color={set.restTimer.hasElapsed ? "green" : "blue"}
-					opacity={set.restTimer.hasElapsed ? 0.5 : undefined}
-					label={
-						<Text
-							size="sm"
-							fw="bold"
-							c={set.restTimer.hasElapsed ? "green" : "blue"}
-						>
-							{formatTimerDuration(set.restTimer.duration * 1000)}
-						</Text>
-					}
-				/>
-			) : null}
+			<Box mx="xs" my="xs" ref={parent}>
+				{set.restTimer && !didCurrentSetActivateTimer ? (
+					<Divider
+						size="lg"
+						labelPosition="center"
+						color={set.restTimer.hasElapsed ? "green" : "blue"}
+						opacity={set.restTimer.hasElapsed ? 0.5 : undefined}
+						label={
+							<Text
+								size="sm"
+								fw="bold"
+								c={set.restTimer.hasElapsed ? "green" : "blue"}
+							>
+								{formatTimerDuration(set.restTimer.duration * 1000)}
+							</Text>
+						}
+					/>
+				) : null}
+				{didCurrentSetActivateTimer ? (
+					<Progress
+						size="xl"
+						transitionDuration={300}
+						value={
+							(dayjsLib(currentTimer.endAt).diff(dayjsLib(), "seconds") * 100) /
+							currentTimer.totalTime
+						}
+					/>
+				) : null}
+			</Box>
 		</Paper>
 	);
 };
