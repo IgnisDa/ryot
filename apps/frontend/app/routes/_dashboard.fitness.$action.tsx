@@ -1393,13 +1393,9 @@ const SetDisplay = (props: {
 	const userPreferences = useUserPreferences();
 	const [currentTimer, _] = useTimerAtom();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const highlightedSet = currentWorkout?.highlightedSet;
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
-	const isHighlighted =
-		highlightedSet?.exerciseIdx === props.exerciseIdx &&
-		highlightedSet?.setIdx === props.setIdx;
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
 		sound.play();
@@ -1415,15 +1411,7 @@ const SetDisplay = (props: {
 	}, [value]);
 
 	return currentWorkout && exercise && set ? (
-		<Paper
-			withBorder
-			id={`${props.exerciseIdx}-${props.setIdx}`}
-			shadow={isHighlighted ? "xl" : undefined}
-			style={{
-				transition: "border-color 0.2s ease-in-out",
-				borderColor: isHighlighted ? undefined : "transparent",
-			}}
-		>
+		<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
 			<Flex justify="space-between" align="center" py={4}>
 				<Menu>
 					<Menu.Target>
@@ -1690,6 +1678,23 @@ const SetDisplay = (props: {
 					onChange={(v) => setValue(v.currentTarget.value)}
 				/>
 			) : undefined}
+			{set.restTimer ? (
+				<Divider
+					mx="xs"
+					mb="xs"
+					labelPosition="center"
+					color={set.restTimer.hasElapsed ? "green" : "blue"}
+					label={
+						<Text
+							size="sm"
+							fw="bold"
+							c={set.restTimer.hasElapsed ? "green" : "blue"}
+						>
+							{formatTimerDuration(set.restTimer.duration * 1000)}
+						</Text>
+					}
+				/>
+			) : null}
 		</Paper>
 	) : null;
 };
