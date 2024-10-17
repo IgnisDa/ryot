@@ -74,6 +74,8 @@ import {
 	IconCamera,
 	IconCameraRotate,
 	IconCheck,
+	IconChevronDown,
+	IconChevronUp,
 	IconClipboard,
 	IconClock,
 	IconDotsVertical,
@@ -966,11 +968,29 @@ const ExerciseDisplay = (props: {
 								>
 									{exercise.exerciseId}
 								</Anchor>
-								<Menu.Target>
-									<ActionIcon color="blue" mr={-10}>
-										<IconDotsVertical />
+								<Group wrap="nowrap" gap={4} mr={-10}>
+									<ActionIcon
+										onClick={() => {
+											setCurrentWorkout(
+												produce(currentWorkout, (draft) => {
+													draft.exercises[props.exerciseIdx].isCollapsed =
+														!exercise.isCollapsed;
+												}),
+											);
+										}}
+									>
+										{exercise.isCollapsed ? (
+											<IconChevronDown />
+										) : (
+											<IconChevronUp />
+										)}
 									</ActionIcon>
-								</Menu.Target>
+									<Menu.Target>
+										<ActionIcon color="blue">
+											<IconDotsVertical />
+										</ActionIcon>
+									</Menu.Target>
+								</Group>
 							</Group>
 							{exercise.notes.map((note, idx) => (
 								<NoteInput
@@ -1602,6 +1622,7 @@ const SetDisplay = (props: {
 											if (newConfirmed) {
 												focusOnExercise(nextSet.exerciseIdx);
 												if (nextSet.wasLastSet) {
+													currentExercise.isCollapsed = true;
 													currentExercise.isShowDetailsOpen = false;
 													const nextExercise =
 														draft.exercises[nextSet.exerciseIdx];
@@ -1611,8 +1632,10 @@ const SetDisplay = (props: {
 															exerciseDetails,
 															userExerciseDetails,
 														);
-													if (nextExerciseHasDetailsToShow)
+													if (nextExerciseHasDetailsToShow) {
+														nextExercise.isCollapsed = false;
 														nextExercise.isShowDetailsOpen = true;
+													}
 												}
 											}
 										}),

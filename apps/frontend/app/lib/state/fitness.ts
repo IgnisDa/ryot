@@ -52,6 +52,7 @@ export type Exercise = {
 	notes: Array<string>;
 	videos: Array<Media>;
 	images: Array<Media>;
+	isCollapsed?: boolean;
 	sets: Array<ExerciseSet>;
 	supersetWith: Array<string>;
 	isShowDetailsOpen: boolean;
