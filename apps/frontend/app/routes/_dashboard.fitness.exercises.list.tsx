@@ -38,13 +38,14 @@ import {
 	ExerciseSortBy,
 	ExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase, startCase } from "@ryot/ts-utils";
+import { isNumber, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconCheck,
 	IconFilter,
 	IconPlus,
 } from "@tabler/icons-react";
+import { produce } from "immer";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -162,7 +163,9 @@ export default function Page() {
 		);
 
 	const allowAddingExerciseToWorkout =
-		currentWorkout && loaderData.workoutInProgress;
+		currentWorkout &&
+		loaderData.workoutInProgress &&
+		!isNumber(currentWorkout.replacingExerciseIdx);
 
 	return (
 		<Container size="md">
@@ -254,25 +257,44 @@ export default function Page() {
 												/>
 											) : null}
 											<Indicator
-												disabled={!exercise.numTimesInteracted}
-												label={exercise.numTimesInteracted ?? ""}
-												position="top-start"
 												size={16}
 												offset={8}
 												color="grape"
+												position="top-start"
+												disabled={!exercise.numTimesInteracted}
+												label={exercise.numTimesInteracted ?? ""}
 											>
 												<Avatar
-													imageProps={{ loading: "lazy" }}
-													src={exercise.image}
-													radius="xl"
 													size="lg"
+													radius="xl"
+													src={exercise.image}
+													imageProps={{ loading: "lazy" }}
 												/>
 											</Indicator>
 											<Link
+												onClick={(e) => {
+													if (allowAddingExerciseToWorkout) return;
+													e.preventDefault();
+													if (currentWorkout) {
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																if (
+																	!isNumber(currentWorkout.replacingExerciseIdx)
+																)
+																	return;
+																draft.exercises[
+																	currentWorkout.replacingExerciseIdx
+																].exerciseId = exercise.id;
+																draft.replacingExerciseIdx = undefined;
+															}),
+														);
+														navigate(-1);
+													}
+												}}
+												style={{ all: "unset", cursor: "pointer" }}
 												to={$path("/fitness/exercises/item/:id", {
 													id: encodeURIComponent(exercise.id),
 												})}
-												style={{ all: "unset", cursor: "pointer" }}
 											>
 												<Flex direction="column" justify="space-around">
 													<Text>{exercise.id}</Text>
