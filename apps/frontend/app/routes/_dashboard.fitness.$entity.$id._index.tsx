@@ -553,8 +553,8 @@ export default function Page() {
 						<ExerciseHistory
 							exerciseIdx={idx}
 							entityId={loaderData.entityId}
-							key={`${exercise.name}-${idx}`}
 							entityType={loaderData.entity}
+							key={`${exercise.name}-${idx}`}
 							supersetInformation={loaderData.information.supersets}
 						/>
 					))}

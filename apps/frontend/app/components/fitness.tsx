@@ -237,7 +237,7 @@ export const ExerciseHistory = (props: {
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise?.name || ""),
 	);
-	const isInSuperSet = useMemo(
+	const isInSuperset = useMemo(
 		() =>
 			props.supersetInformation?.find((s) =>
 				s.exercises.includes(exercise?.identifier),
@@ -251,8 +251,9 @@ export const ExerciseHistory = (props: {
 			withBorder
 			id={props.exerciseIdx.toString()}
 			style={{
-				borderLeftColor: isInSuperSet
-					? theme.colors[isInSuperSet.color][6]
+				borderLeftWidth: isInSuperset ? "3px" : undefined,
+				borderLeftColor: isInSuperset
+					? theme.colors[isInSuperset.color][6]
 					: undefined,
 			}}
 		>
