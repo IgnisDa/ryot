@@ -68,6 +68,11 @@ derive_more = { version = "=1.0.0", features = [
     "add_assign",
     "sum",
 ], default-features = false }
+educe = { version = "=0.6.0", features = [
+    "Debug",
+    "Default",
+    "full",
+], default-features = false }
 enum_meta = "=0.7.0"
 itertools = "=0.13.0"
 futures = "=0.3.31"

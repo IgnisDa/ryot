@@ -24,9 +24,9 @@ import {
 	DeleteUserWorkoutDocument,
 	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
-	UpdateUserWorkoutDocument,
+	UpdateUserWorkoutAttributesDocument,
+	UserWorkoutDetailsDocument,
 	UserWorkoutTemplateDetailsDocument,
-	WorkoutDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -89,49 +89,50 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 	});
 	const resp = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
-			const [{ workoutDetails }] = await Promise.all([
-				serverGqlService.authenticatedRequest(request, WorkoutDetailsDocument, {
-					workoutId: entityId,
-				}),
+			const [{ userWorkoutDetails }] = await Promise.all([
+				serverGqlService.authenticatedRequest(
+					request,
+					UserWorkoutDetailsDocument,
+					{ workoutId: entityId },
+				),
 			]);
 			let repeatedWorkout = null;
-			if (workoutDetails.details.repeatedFrom) {
-				const { workoutDetails: repeatedWorkoutData } =
+			if (userWorkoutDetails.details.repeatedFrom) {
+				const { userWorkoutDetails: repeatedWorkoutData } =
 					await serverGqlService.authenticatedRequest(
 						request,
-						WorkoutDetailsDocument,
-						{ workoutId: workoutDetails.details.repeatedFrom },
+						UserWorkoutDetailsDocument,
+						{ workoutId: userWorkoutDetails.details.repeatedFrom },
 					);
 				repeatedWorkout = {
-					id: workoutDetails.details.repeatedFrom,
+					id: userWorkoutDetails.details.repeatedFrom,
 					name: repeatedWorkoutData.details.name,
 					doneOn: repeatedWorkoutData.details.startTime,
 				};
 			}
 			let template = null;
-			if (workoutDetails.details.templateId) {
+			if (userWorkoutDetails.details.templateId) {
 				const { userWorkoutTemplateDetails } =
 					await serverGqlService.authenticatedRequest(
 						request,
 						UserWorkoutTemplateDetailsDocument,
-						{ workoutTemplateId: workoutDetails.details.templateId },
+						{ workoutTemplateId: userWorkoutDetails.details.templateId },
 					);
 				template = {
-					id: workoutDetails.details.templateId,
+					id: userWorkoutDetails.details.templateId,
 					name: userWorkoutTemplateDetails.details.name,
 				};
 			}
 			return {
-				entityName: workoutDetails.details.name,
-				startTime: workoutDetails.details.startTime,
-				endTime: workoutDetails.details.endTime,
-				duration: workoutDetails.details.duration,
-				information: workoutDetails.details.information,
-				summary: workoutDetails.details.summary,
+				entityName: userWorkoutDetails.details.name,
+				startTime: userWorkoutDetails.details.startTime,
+				endTime: userWorkoutDetails.details.endTime,
+				duration: userWorkoutDetails.details.duration,
+				information: userWorkoutDetails.details.information,
+				summary: userWorkoutDetails.details.summary,
 				repeatedWorkout: repeatedWorkout,
 				template,
-				collections: workoutDetails.collections,
-				defaultRestTimer: undefined,
+				collections: userWorkoutDetails.collections,
 			};
 		})
 		.with(FitnessEntity.Templates, async () => {
@@ -151,7 +152,6 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 				repeatedWorkout: null,
 				template: null,
 				collections: userWorkoutTemplateDetails.collections,
-				defaultRestTimer: userWorkoutTemplateDetails.details.defaultRestTimer,
 			};
 		})
 		.exhaustive();
@@ -169,7 +169,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			const submission = processSubmission(formData, editWorkoutSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
-				UpdateUserWorkoutDocument,
+				UpdateUserWorkoutAttributesDocument,
 				{ input: submission },
 			);
 			return Response.json({ status: "success", submission } as const, {
@@ -237,12 +237,11 @@ export default function Page() {
 		templateId?: string;
 		updateWorkoutId?: string;
 		updateWorkoutTemplateId?: string;
-		defaultRestTimer?: number | null;
 	}) => {
 		setIsWorkoutLoading(true);
 		const workout = await duplicateOldWorkout(
-			loaderData.information,
 			loaderData.entityName,
+			loaderData.information,
 			coreDetails,
 			params,
 		);
@@ -262,8 +261,8 @@ export default function Page() {
 					<Form
 						replace
 						method="POST"
-						action={withQuery("", { intent: "edit" })}
 						onSubmit={() => adjustTimeModalClose()}
+						action={withQuery(".", { intent: "edit" })}
 					>
 						<Stack>
 							<Title order={3}>Adjust times</Title>
@@ -310,7 +309,6 @@ export default function Page() {
 													performDecision({
 														action: FitnessAction.LogWorkout,
 														templateId: loaderData.entityId,
-														defaultRestTimer: loaderData.defaultRestTimer,
 													})
 												}
 												leftSection={<IconPlayerPlay size={14} />}
@@ -322,7 +320,6 @@ export default function Page() {
 													performDecision({
 														action: FitnessAction.CreateTemplate,
 														updateWorkoutTemplateId: loaderData.entityId,
-														defaultRestTimer: loaderData.defaultRestTimer,
 													})
 												}
 												leftSection={<IconPencil size={14} />}
@@ -349,7 +346,6 @@ export default function Page() {
 													performDecision({
 														action: FitnessAction.UpdateWorkout,
 														updateWorkoutId: loaderData.entityId,
-														defaultRestTimer: loaderData.defaultRestTimer,
 													})
 												}
 												leftSection={<IconPencil size={14} />}
@@ -398,7 +394,7 @@ export default function Page() {
 								</Menu.Item>
 								<Form
 									method="POST"
-									action={withQuery("", { intent: "delete" })}
+									action={withQuery(".", { intent: "delete" })}
 								>
 									<input
 										type="hidden"
@@ -501,12 +497,6 @@ export default function Page() {
 									)}
 								/>
 							) : null}
-							{loaderData.defaultRestTimer ? (
-								<DisplayStat
-									icon={<IconZzz size={16} />}
-									data={`${loaderData.defaultRestTimer}s`}
-								/>
-							) : null}
 							{loaderData.summary.total ? (
 								<>
 									{Number(loaderData.summary.total.weight) !== 0 ? (
@@ -563,8 +553,9 @@ export default function Page() {
 						<ExerciseHistory
 							exerciseIdx={idx}
 							entityId={loaderData.entityId}
-							key={`${exercise.name}-${idx}`}
 							entityType={loaderData.entity}
+							key={`${exercise.name}-${idx}`}
+							supersetInformation={loaderData.information.supersets}
 						/>
 					))}
 				</Stack>

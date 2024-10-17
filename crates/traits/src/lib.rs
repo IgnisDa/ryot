@@ -10,7 +10,7 @@ use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::check_token;
 use dependent_models::SearchResults;
 use media_models::{
-    MediaDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
+    MetadataDetails, MetadataGroupSearchItem, MetadataPerson, MetadataSearchItem,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics,
 };
 use sea_orm::{prelude::DateTimeUtc, DatabaseConnection};
@@ -30,7 +30,7 @@ pub trait MediaProvider {
 
     /// Get details about a media item.
     #[allow(unused_variables)]
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         bail!("This provider does not support getting media details")
     }
 

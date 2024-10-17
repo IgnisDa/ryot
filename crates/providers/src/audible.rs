@@ -6,10 +6,11 @@ use common_utils::{convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::SearchResults;
+use educe::Educe;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    AudioBookSpecifics, MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
+    AudioBookSpecifics, MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails,
     MetadataPerson, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
     PeopleSearchItem, PersonSourceSpecifics,
 };
@@ -33,29 +34,15 @@ enum AudibleSimilarityType {
     NextInSameSeries,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Educe)]
+#[educe(Default)]
 struct PrimaryQuery {
+    #[educe(
+        Default = "contributors,category_ladders,media,product_attrs,product_extended_attrs,series,relationships,rating"
+    )]
     response_groups: String,
+    #[educe(Default = "2400")]
     image_sizes: String,
-}
-
-impl Default for PrimaryQuery {
-    fn default() -> Self {
-        Self {
-            response_groups: [
-                "contributors",
-                "category_ladders",
-                "media",
-                "product_attrs",
-                "product_extended_attrs",
-                "series",
-                "relationships",
-                "rating",
-            ]
-            .join(","),
-            image_sizes: ["2400"].join(","),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -323,7 +310,7 @@ impl MediaProvider for AudibleService {
         ))
     }
 
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
             .get(format!("{}/{}", self.url, identifier))
@@ -423,7 +410,7 @@ impl MediaProvider for AudibleService {
 }
 
 impl AudibleService {
-    fn audible_response_to_search_response(&self, item: AudibleItem) -> MediaDetails {
+    fn audible_response_to_search_response(&self, item: AudibleItem) -> MetadataDetails {
         let images = Vec::from_iter(
             item.product_images
                 .unwrap()
@@ -466,7 +453,7 @@ impl AudibleService {
         } else {
             None
         };
-        MediaDetails {
+        MetadataDetails {
             identifier: item.asin,
             lot: MediaLot::AudioBook,
             source: MediaSource::Audible,

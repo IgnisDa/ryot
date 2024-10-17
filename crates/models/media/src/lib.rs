@@ -516,7 +516,7 @@ pub struct ExternalIdentifiers {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct MediaDetails {
+pub struct MetadataDetails {
     pub identifier: String,
     pub is_nsfw: Option<bool>,
     pub title: String,
@@ -1209,14 +1209,6 @@ pub struct UpdateUserInput {
     pub username: Option<String>,
     pub extra_information: Option<serde_json::Value>,
     pub admin_access_token: Option<String>,
-}
-
-#[derive(Debug, InputObject)]
-pub struct UpdateUserPreferenceInput {
-    /// Dot delimited path to the property that needs to be changed. Setting it\
-    /// to empty resets the preferences to default.
-    pub property: String,
-    pub value: String,
 }
 
 #[derive(Debug, InputObject)]

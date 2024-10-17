@@ -14,7 +14,6 @@ pub enum CoreApplicationJob {
     SyncIntegrationsData(String),
     ReviewPosted(ReviewPostedEvent),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
-    EntityAddedToCollection(String, Uuid),
 }
 
 impl Message for CoreApplicationJob {
@@ -37,7 +36,7 @@ pub enum ApplicationJob {
     PerformBackgroundTasks,
     UpdateExerciseLibrary,
     SyncIntegrationsData,
-    HandleEntityAddedToCollectionEvent(String, Uuid),
+    HandleEntityAddedToCollectionEvent(Uuid),
 }
 
 impl Message for ApplicationJob {

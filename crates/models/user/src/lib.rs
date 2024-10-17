@@ -1,7 +1,8 @@
 use async_graphql::{Enum, SimpleObject};
 use common_models::MediaStateChanged;
+use educe::Educe;
 use enums::MediaLot;
-use fitness_models::UserUnitSystem;
+use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -19,126 +20,107 @@ const MOVIE_WATCH_PROVIDERS: [&str; 8] = [
 ];
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
+#[educe(Default)]
 pub struct UserNotificationsPreferences {
+    #[educe(Default(expression = MediaStateChanged::iter().collect()))]
     pub to_send: Vec<MediaStateChanged>,
+    #[educe(Default = true)]
     pub enabled: bool,
-}
-
-impl Default for UserNotificationsPreferences {
-    fn default() -> Self {
-        Self {
-            to_send: MediaStateChanged::iter().collect(),
-            enabled: true,
-        }
-    }
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
+#[educe(Default)]
 pub struct UserMediaFeaturesEnabledPreferences {
+    #[educe(Default = true)]
     pub enabled: bool,
+    #[educe(Default = true)]
     pub anime: bool,
+    #[educe(Default = true)]
     pub audio_book: bool,
+    #[educe(Default = true)]
     pub book: bool,
+    #[educe(Default = true)]
     pub manga: bool,
+    #[educe(Default = true)]
     pub movie: bool,
+    #[educe(Default = true)]
     pub podcast: bool,
+    #[educe(Default = true)]
     pub show: bool,
+    #[educe(Default = true)]
     pub video_game: bool,
+    #[educe(Default = true)]
     pub visual_novel: bool,
+    #[educe(Default = true)]
     pub people: bool,
+    #[educe(Default = true)]
     pub groups: bool,
+    #[educe(Default = true)]
     pub genres: bool,
 }
 
-impl Default for UserMediaFeaturesEnabledPreferences {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            anime: true,
-            audio_book: true,
-            book: true,
-            manga: true,
-            movie: true,
-            podcast: true,
-            show: true,
-            video_game: true,
-            visual_novel: true,
-            people: true,
-            groups: true,
-            genres: true,
-        }
-    }
-}
-
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
+#[educe(Default)]
 pub struct UserOthersFeaturesEnabledPreferences {
+    #[educe(Default = true)]
     pub collections: bool,
+    #[educe(Default = true)]
     pub calendar: bool,
 }
 
-impl Default for UserOthersFeaturesEnabledPreferences {
-    fn default() -> Self {
-        Self {
-            calendar: true,
-            collections: true,
-        }
-    }
-}
-
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
+#[educe(Default)]
 pub struct UserFitnessFeaturesEnabledPreferences {
+    #[educe(Default = true)]
     pub enabled: bool,
+    #[educe(Default = true)]
     pub measurements: bool,
+    #[educe(Default = true)]
     pub workouts: bool,
+    #[educe(Default = true)]
     pub templates: bool,
 }
 
-impl Default for UserFitnessFeaturesEnabledPreferences {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            measurements: true,
-            workouts: true,
-            templates: true,
-        }
-    }
-}
-
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
-pub struct UserExercisePreferences {
+#[educe(Default)]
+pub struct UserExercisesPreferences {
+    #[educe(Default = UserUnitSystem::Metric)]
     pub unit_system: UserUnitSystem,
-}
-
-impl Default for UserExercisePreferences {
-    fn default() -> Self {
-        Self {
-            unit_system: UserUnitSystem::Metric,
-        }
-    }
+    pub set_rest_timers: SetRestTimersSettings,
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
+#[educe(Default)]
 pub struct UserMeasurementsInBuiltPreferences {
+    #[educe(Default = true)]
     pub weight: bool,
+    #[educe(Default = true)]
     pub body_mass_index: bool,
+    #[educe(Default = true)]
     pub total_body_water: bool,
+    #[educe(Default = true)]
     pub muscle: bool,
+    #[educe(Default = true)]
     pub body_fat: bool,
+    #[educe(Default = true)]
     pub waist_to_height_ratio: bool,
+    #[educe(Default = true)]
     pub waist_to_hip_ratio: bool,
+    #[educe(Default = true)]
     pub basal_metabolic_rate: bool,
+    #[educe(Default = true)]
     pub total_daily_energy_expenditure: bool,
     pub calories: bool,
     pub lean_body_mass: bool,
@@ -154,36 +136,6 @@ pub struct UserMeasurementsInBuiltPreferences {
     pub chest_skinfold: bool,
     pub abdominal_skinfold: bool,
     pub thigh_skinfold: bool,
-}
-
-impl Default for UserMeasurementsInBuiltPreferences {
-    fn default() -> Self {
-        Self {
-            weight: true,
-            body_mass_index: true,
-            total_body_water: true,
-            muscle: true,
-            body_fat: true,
-            waist_to_height_ratio: true,
-            waist_to_hip_ratio: true,
-            basal_metabolic_rate: true,
-            total_daily_energy_expenditure: true,
-            calories: false,
-            lean_body_mass: false,
-            bone_mass: false,
-            visceral_fat: false,
-            waist_circumference: false,
-            hip_circumference: false,
-            chest_circumference: false,
-            thigh_circumference: false,
-            biceps_circumference: false,
-            neck_circumference: false,
-            body_fat_caliper: false,
-            chest_skinfold: false,
-            abdominal_skinfold: false,
-            thigh_skinfold: false,
-        }
-    }
 }
 
 #[derive(
@@ -205,23 +157,17 @@ pub struct UserCustomMeasurement {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
+#[educe(Default)]
 pub struct UserMeasurementsPreferences {
+    #[educe(Default(expression = vec![UserCustomMeasurement {
+        name: "sugar_level".to_owned(),
+        data_type: UserCustomMeasurementDataType::Decimal,
+    }]))]
     pub custom: Vec<UserCustomMeasurement>,
+    #[educe(Default(expression = UserMeasurementsInBuiltPreferences::default()))]
     pub inbuilt: UserMeasurementsInBuiltPreferences,
-}
-
-impl Default for UserMeasurementsPreferences {
-    fn default() -> Self {
-        Self {
-            custom: vec![UserCustomMeasurement {
-                name: "sugar_level".to_owned(),
-                data_type: UserCustomMeasurementDataType::Decimal,
-            }],
-            inbuilt: UserMeasurementsInBuiltPreferences::default(),
-        }
-    }
 }
 
 #[derive(
@@ -237,7 +183,7 @@ pub struct UserFeaturesEnabledPreferences {
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserFitnessPreferences {
-    pub exercises: UserExercisePreferences,
+    pub exercises: UserExercisesPreferences,
     pub measurements: UserMeasurementsPreferences,
 }
 
@@ -314,80 +260,74 @@ pub struct UserGeneralWatchProvider {
 }
 
 #[derive(
-    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult,
+    Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, FromJsonQueryResult, Educe,
 )]
+#[educe(Default)]
 pub struct UserGeneralPreferences {
+    #[educe(Default = true)]
     pub display_nsfw: bool,
+    #[educe(Default = false)]
     pub disable_videos: bool,
+    #[educe(Default = false)]
     pub disable_reviews: bool,
+    #[educe(Default = true)]
     pub persist_queries: bool,
+    #[educe(Default(expression = vec![UserGeneralWatchProvider {
+        lot: MediaLot::Movie,
+        values: MOVIE_WATCH_PROVIDERS
+            .into_iter()
+            .map(|s| s.to_owned())
+            .collect(),
+    }]))]
     pub watch_providers: Vec<UserGeneralWatchProvider>,
+    #[educe(Default = GridPacking::Dense)]
     pub grid_packing: GridPacking,
+    #[educe(Default = UserReviewScale::OutOfHundred)]
     pub review_scale: UserReviewScale,
+    #[educe(Default = false)]
     pub disable_watch_providers: bool,
+    #[educe(Default = false)]
     pub disable_integrations: bool,
+    #[educe(Default = false)]
     pub disable_navigation_animation: bool,
+    #[educe(Default(expression = vec![
+        UserGeneralDashboardElement {
+            section: DashboardElementLot::Upcoming,
+            hidden: false,
+            num_elements: Some(8),
+        },
+        UserGeneralDashboardElement {
+            section: DashboardElementLot::InProgress,
+            hidden: false,
+            num_elements: Some(8),
+        },
+        UserGeneralDashboardElement {
+            section: DashboardElementLot::Summary,
+            hidden: false,
+            num_elements: None,
+        },
+        UserGeneralDashboardElement {
+            section: DashboardElementLot::Recommendations,
+            hidden: false,
+            num_elements: Some(8),
+        },
+        UserGeneralDashboardElement {
+            section: DashboardElementLot::Activity,
+            hidden: false,
+            num_elements: None,
+        },
+    ]))]
     pub dashboard: Vec<UserGeneralDashboardElement>,
-}
-
-impl Default for UserGeneralPreferences {
-    fn default() -> Self {
-        Self {
-            watch_providers: vec![UserGeneralWatchProvider {
-                lot: MediaLot::Movie,
-                values: MOVIE_WATCH_PROVIDERS
-                    .into_iter()
-                    .map(|s| s.to_owned())
-                    .collect(),
-            }],
-            display_nsfw: true,
-            review_scale: UserReviewScale::default(),
-            grid_packing: GridPacking::default(),
-            dashboard: vec![
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Upcoming,
-                    hidden: false,
-                    num_elements: Some(8),
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::InProgress,
-                    hidden: false,
-                    num_elements: Some(8),
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Summary,
-                    hidden: false,
-                    num_elements: None,
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Recommendations,
-                    hidden: false,
-                    num_elements: Some(8),
-                },
-                UserGeneralDashboardElement {
-                    section: DashboardElementLot::Activity,
-                    hidden: false,
-                    num_elements: None,
-                },
-            ],
-            persist_queries: true,
-            disable_integrations: false,
-            disable_navigation_animation: false,
-            disable_videos: false,
-            disable_watch_providers: false,
-            disable_reviews: false,
-        }
-    }
 }
 
 #[derive(
     Debug, Serialize, Deserialize, SimpleObject, Clone, Eq, PartialEq, Default, FromJsonQueryResult,
 )]
 pub struct UserPreferences {
-    pub features_enabled: UserFeaturesEnabledPreferences,
-    pub notifications: UserNotificationsPreferences,
     pub fitness: UserFitnessPreferences,
     pub general: UserGeneralPreferences,
+    pub notifications: UserNotificationsPreferences,
+    pub features_enabled: UserFeaturesEnabledPreferences,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, FromJsonQueryResult)]

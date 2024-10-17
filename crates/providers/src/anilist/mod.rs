@@ -9,7 +9,7 @@ use enums::{MediaLot, MediaSource};
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use media_models::{
-    AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MediaDetails,
+    AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
     MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
     MetadataVideo, MetadataVideoSource, PartialMetadataPerson, PartialMetadataWithoutId,
     PeopleSearchItem, PersonSourceSpecifics,
@@ -464,7 +464,7 @@ impl AnilistAnimeService {
 
 #[async_trait]
 impl MediaProvider for AnilistAnimeService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details =
             media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
         Ok(details)
@@ -508,7 +508,7 @@ impl AnilistMangaService {
 
 #[async_trait]
 impl MediaProvider for AnilistMangaService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details =
             media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
         Ok(details)
@@ -541,7 +541,7 @@ async fn media_details(
     client: &Client,
     id: &str,
     preferred_language: &AnilistPreferredLanguage,
-) -> Result<MediaDetails> {
+) -> Result<MetadataDetails> {
     let variables = media_details_query::Variables {
         id: id.parse::<i64>().unwrap(),
     };
@@ -704,7 +704,7 @@ async fn media_details(
         title.romaji,
         preferred_language,
     );
-    Ok(MediaDetails {
+    Ok(MetadataDetails {
         title,
         identifier: media.id.to_string(),
         is_nsfw: media.is_adult,

@@ -176,7 +176,7 @@ export default function Page() {
 								<Form
 									replace
 									method="POST"
-									action={withQuery("", { intent: "test" })}
+									action={withQuery(".", { intent: "test" })}
 								>
 									<Button size="xs" variant="light" color="green" type="submit">
 										Trigger test notifications
@@ -199,9 +199,9 @@ export default function Page() {
 						withCloseButton={false}
 					>
 						<Box
-							component={Form}
 							method="POST"
-							action={withQuery("", { intent: "create" })}
+							component={Form}
+							action={withQuery(".", { intent: "create" })}
 							onSubmit={() => {
 								closeCreateUserNotificationPlatformModal();
 								setCreateUserNotificationPlatformLot(undefined);
@@ -356,7 +356,7 @@ const DisplayNotification = (props: {
 					</Text>
 				</Box>
 				<Group>
-					<Form method="POST" action={withQuery("", { intent: "update" })}>
+					<Form method="POST" action={withQuery(".", { intent: "update" })}>
 						<ActionIcon color="indigo" variant="subtle" type="submit">
 							{props.notification.isDisabled ? (
 								<IconPlayerPlay />
@@ -377,7 +377,7 @@ const DisplayNotification = (props: {
 						</ActionIcon>
 					</Form>
 					<Tooltip label="Delete">
-						<Form method="POST" action={withQuery("", { intent: "delete" })}>
+						<Form method="POST" action={withQuery(".", { intent: "delete" })}>
 							<input
 								hidden
 								name="notificationId"

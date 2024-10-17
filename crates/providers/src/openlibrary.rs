@@ -9,7 +9,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    BookSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
+    BookSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,
     MetadataPersonRelated, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
     PeopleSearchItem, PersonSourceSpecifics,
 };
@@ -295,7 +295,7 @@ impl MediaProvider for OpenlibraryService {
         })
     }
 
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
             .get(format!("{}/works/{}.json", URL, identifier))
@@ -450,7 +450,7 @@ impl MediaProvider for OpenlibraryService {
             }
         }
 
-        Ok(MediaDetails {
+        Ok(MetadataDetails {
             identifier: get_key(&data.key),
             title: data.title,
             description,

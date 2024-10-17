@@ -1,4 +1,5 @@
 use std::{
+    cmp::Reverse,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -7,7 +8,7 @@ use apalis::prelude::MessageQueue;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
-use chrono::{Days, Duration as ChronoDuration, NaiveDate, Utc};
+use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     ApplicationCacheKey, BackendError, BackgroundJob, ChangeCollectionToEntityInput,
     DefaultCollection, IdAndNamedObject, MediaStateChanged, SearchDetails, SearchInput, StoredUrl,
@@ -46,7 +47,7 @@ use dependent_utils::{
     deploy_update_metadata_job, get_entities_monitored_by, get_metadata_provider,
     get_openlibrary_service, get_tmdb_non_media_service, is_metadata_finished_by_user, post_review,
     progress_update, queue_media_state_changed_notification_for_user,
-    queue_notifications_to_user_platforms, update_metadata, update_metadata_and_notify_users,
+    queue_notifications_to_user_platforms, update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
@@ -60,8 +61,8 @@ use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMediaAssets,
     GraphqlMetadataDetails, GraphqlMetadataGroup, GraphqlVideoAsset, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaDetails,
-    MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    ImportOrExportItemReviewComment, MediaAssociatedPersonStateChanges, MediaGeneralFilter,
+    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails,
     MetadataFreeCreator, MetadataGroupSearchInput, MetadataGroupSearchItem,
     MetadataGroupsListInput, MetadataImage, MetadataImageForMediaDetails, MetadataListInput,
     MetadataPartialDetails, MetadataSearchInput, MetadataSearchItemResponse, MetadataVideo,
@@ -105,6 +106,7 @@ use sea_query::{
 };
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
+use tokio::time::{sleep, Duration as TokioDuration};
 use traits::{MediaProvider, MediaProviderLanguages, TraceOk};
 use user_models::UserReviewScale;
 use uuid::Uuid;
@@ -183,21 +185,34 @@ ORDER BY RANDOM() LIMIT 10;
         ))
         .all(&self.0.db)
         .await?;
+        ryot_log!(
+            debug,
+            "Media items selected for recommendations: {:?}",
+            media_items
+        );
         let mut media_item_ids = vec![];
         for media in media_items.into_iter() {
+            ryot_log!(debug, "Getting recommendations: {:?}", media);
             let provider = get_metadata_provider(media.lot, media.source, &self.0).await?;
-            if let Ok(recommendations) = provider
+            match provider
                 .get_recommendations_for_metadata(&media.identifier)
                 .await
             {
-                for mut rec in recommendations {
-                    rec.is_recommendation = Some(true);
-                    if let Ok(meta) = self.create_partial_metadata(rec).await {
-                        media_item_ids.push(meta.id);
+                Ok(recommendations) => {
+                    ryot_log!(debug, "Found recommendations: {:?}", recommendations);
+                    for mut rec in recommendations {
+                        rec.is_recommendation = Some(true);
+                        if let Ok(meta) = self.create_partial_metadata(rec).await {
+                            media_item_ids.push(meta.id);
+                        }
                     }
+                }
+                e => {
+                    ryot_log!(warn, "Could not get recommendations {:?}", e);
                 }
             }
         }
+        ryot_log!(debug, "Created recommendations: {:?}", media_item_ids);
         Ok(())
     }
 
@@ -1854,7 +1869,7 @@ ORDER BY RANDOM() LIMIT 10;
             MediaLot::VideoGame => input.video_game_specifics.is_none(),
             MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
         };
-        let details = MediaDetails {
+        let details = MetadataDetails {
             identifier,
             title: input.title,
             description: input.description,
@@ -1959,22 +1974,6 @@ ORDER BY RANDOM() LIMIT 10;
             .collect()
     }
 
-    pub async fn handle_entity_added_to_collection_event(
-        &self,
-        user_id: String,
-        collection_to_entity_id: Uuid,
-    ) -> Result<()> {
-        self.0
-            .perform_application_job
-            .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(
-                user_id,
-                collection_to_entity_id,
-            ))
-            .await
-            .unwrap();
-        Ok(())
-    }
-
     async fn get_monitored_entities(
         &self,
         entity_lot: EntityLot,
@@ -2000,14 +1999,10 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for metadata state changes: {:?}",
             meta_map
         );
-        for (metadata_id, to_notify) in meta_map {
-            let notifications = update_metadata(&metadata_id, false, &self.0).await?;
-            for user in to_notify {
-                for notification in notifications.iter() {
-                    queue_media_state_changed_notification_for_user(&user, notification, &self.0)
-                        .await?;
-                }
-            }
+        for (metadata_id, _) in meta_map {
+            self.update_metadata_and_notify_users(&metadata_id, true)
+                .await
+                .ok();
         }
         Ok(())
     }
@@ -2019,17 +2014,10 @@ ORDER BY RANDOM() LIMIT 10;
             "Users to be notified for people state changes: {:?}",
             person_map
         );
-        for (person_id, to_notify) in person_map {
-            let notifications = self
-                .update_person(person_id.parse().unwrap())
+        for (person_id, _) in person_map {
+            self.update_person_and_notify_users(person_id.parse().unwrap())
                 .await
-                .unwrap_or_default();
-            for user in to_notify {
-                for notification in notifications.iter() {
-                    queue_media_state_changed_notification_for_user(&user, notification, &self.0)
-                        .await?;
-                }
-            }
+                .ok();
         }
         Ok(())
     }
@@ -2265,12 +2253,12 @@ ORDER BY RANDOM() LIMIT 10;
         }
         let contents = contents
             .into_iter()
-            .sorted_by_key(|(role, _)| role.clone())
             .map(|(name, items)| PersonDetailsGroupedByRole {
                 count: items.len(),
                 name,
                 items,
             })
+            .sorted_by_key(|f| Reverse(f.count))
             .collect_vec();
         let slug = slug::slugify(&details.name);
         let identifier = &details.identifier;
@@ -2681,6 +2669,7 @@ ORDER BY RANDOM() LIMIT 10;
         let provider_person = provider
             .person_details(&person.identifier, &person.source_specifics)
             .await?;
+        ryot_log!(debug, "Updating person for {:?}", person_id);
         let images = provider_person.images.map(|images| {
             images
                 .into_iter()
@@ -2847,7 +2836,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     async fn invalidate_import_jobs(&self) -> Result<()> {
-        let threshold = Utc::now() - ChronoDuration::hours(24);
+        let threshold = Utc::now() - Duration::hours(24);
         let all_jobs = ImportReport::find()
             .filter(import_report::Column::WasSuccess.is_null())
             .filter(import_report::Column::StartedOn.lt(threshold))
@@ -3119,7 +3108,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     #[cfg(debug_assertions)]
     pub async fn development_mutation(&self) -> Result<bool> {
-        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+        sleep(TokioDuration::from_secs(3)).await;
         Ok(true)
     }
 }

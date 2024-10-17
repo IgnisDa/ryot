@@ -24,7 +24,6 @@ import {
 	Tooltip,
 	rem,
 } from "@mantine/core";
-import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
@@ -60,6 +59,7 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { queryClient, queryFactory } from "~/lib/generals";
 import {
+	useComplexJsonUpdate,
 	useConfirmSubmit,
 	useDashboardLayoutData,
 	useUserPreferences,
@@ -137,20 +137,12 @@ export default function Page() {
 	const [dashboardElements, setDashboardElements] = useState(
 		userPreferences.general.dashboard,
 	);
-	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
-		[string, string]
-	>([]);
+	const { toUpdatePreferences, appendPref, reset } = useComplexJsonUpdate();
 	const [defaultTab, setDefaultTab] = useState(
 		loaderData.query.defaultTab || "dashboard",
 	);
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemo;
-
-	const appendPref = (property: string, value: string) => {
-		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
-		if (index !== -1) updateUserPreferencesHandler.remove(index);
-		updateUserPreferencesHandler.append([property, value]);
-	};
 
 	return (
 		<Container size="xs">
@@ -165,7 +157,7 @@ export default function Page() {
 						replace
 						method="POST"
 						action={`?defaultTab=${defaultTab}`}
-						onSubmit={() => updateUserPreferencesHandler.setState([])}
+						onSubmit={() => reset()}
 					>
 						{toUpdatePreferences.map((pref) => (
 							<input
@@ -522,24 +514,11 @@ export default function Page() {
 						</Stack>
 					</Tabs.Panel>
 					<Tabs.Panel value="fitness">
-						<Stack>
+						<Stack gap="xl">
 							<SimpleGrid
 								cols={{ base: 1, md: 2 }}
 								style={{ alignItems: "center" }}
 							>
-								<Select
-									size="xs"
-									label="Unit system to use for measurements"
-									data={Object.values(UserUnitSystem).map((c) => ({
-										value: c.toLowerCase(),
-										label: startCase(c.toLowerCase()),
-									}))}
-									defaultValue={userPreferences.fitness.exercises.unitSystem.toLowerCase()}
-									disabled={!!isEditDisabled}
-									onChange={(val) => {
-										if (val) appendPref("fitness.exercises.unit_system", val);
-									}}
-								/>
 								<Group wrap="nowrap">
 									<ActionIcon
 										onClick={async () => {
@@ -559,27 +538,73 @@ export default function Page() {
 										Show me notifications related to the current workout
 									</Text>
 								</Group>
+								<Select
+									size="xs"
+									label="Unit system to use for measurements"
+									data={Object.values(UserUnitSystem).map((c) => ({
+										value: c.toLowerCase(),
+										label: startCase(c.toLowerCase()),
+									}))}
+									defaultValue={userPreferences.fitness.exercises.unitSystem.toLowerCase()}
+									disabled={!!isEditDisabled}
+									onChange={(val) => {
+										if (val) appendPref("fitness.exercises.unit_system", val);
+									}}
+								/>
 							</SimpleGrid>
-							<Text>The default measurements you want to keep track of.</Text>
-							<SimpleGrid cols={2}>
-								{Object.entries(
-									userPreferences.fitness.measurements.inbuilt,
-								).map(([name, isEnabled]) => (
-									<Switch
-										size="xs"
-										key={name}
-										label={changeCase(snakeCase(name))}
-										defaultChecked={isEnabled}
-										disabled={!!isEditDisabled}
-										onChange={(ev) => {
-											appendPref(
-												`fitness.measurements.inbuilt.${snakeCase(name)}`,
-												String(ev.currentTarget.checked),
+							<Input.Wrapper
+								label="Default Rest Timers"
+								description="When adding an exercise to your workout, these timer values will be used if you have not configured a rest timer for that exercise."
+							>
+								<SimpleGrid cols={{ base: 2, md: 4 }}>
+									{(["normal", "warmup", "drop", "failure"] as const).map(
+										(name) => {
+											const value =
+												userPreferences.fitness.exercises.setRestTimers[name];
+											return (
+												<NumberInput
+													suffix="s"
+													size="xs"
+													key={name}
+													disabled={!!isEditDisabled}
+													label={changeCase(snakeCase(name))}
+													defaultValue={isNumber(value) ? value : undefined}
+													onChange={(val) => {
+														if (isNumber(val)) {
+															appendPref(
+																`fitness.exercises.set_rest_timers.${snakeCase(name)}`,
+																String(val),
+															);
+														}
+													}}
+												/>
 											);
-										}}
-									/>
-								))}
-							</SimpleGrid>
+										},
+									)}
+								</SimpleGrid>
+							</Input.Wrapper>
+							<Stack gap="xs">
+								<Text>The default measurements you want to keep track of</Text>
+								<SimpleGrid cols={2}>
+									{Object.entries(
+										userPreferences.fitness.measurements.inbuilt,
+									).map(([name, isEnabled]) => (
+										<Switch
+											size="xs"
+											key={name}
+											label={changeCase(snakeCase(name))}
+											defaultChecked={isEnabled}
+											disabled={!!isEditDisabled}
+											onChange={(ev) => {
+												appendPref(
+													`fitness.measurements.inbuilt.${snakeCase(name)}`,
+													String(ev.currentTarget.checked),
+												);
+											}}
+										/>
+									))}
+								</SimpleGrid>
+							</Stack>
 							<JsonInput
 								label="The custom metrics you want to keep track of"
 								description="The name of the attribute along with the data type. Only decimal data type is supported."

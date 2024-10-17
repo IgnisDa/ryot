@@ -20,6 +20,11 @@ query UserExerciseDetails($exerciseId: String!) {
       lastUpdatedOn
       exerciseNumTimesInteracted
       exerciseExtraInformation {
+        settings {
+          setRestTimers {
+            ...SetRestTimersPart
+          }
+        }
         lifetimeStats {
           weight
           reps
