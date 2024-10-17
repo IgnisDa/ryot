@@ -1682,7 +1682,6 @@ const DisplaySetRestTimer = (props: {
 
 	return (
 		<Progress
-			size="lg"
 			onClick={props.onClick}
 			transitionDuration={300}
 			style={{ cursor: "pointer" }}
