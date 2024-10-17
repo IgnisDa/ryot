@@ -188,24 +188,24 @@ impl IntegrationService {
                 if let Some(entity_id) = maybe_entity_id {
                     let _push_result = match integration.provider {
                         IntegrationProvider::Radarr => {
-                            let sonarr = SonarrIntegration::new(
+                            let radarr = RadarrIntegration::new(
                                 specifics.radarr_base_url.unwrap(),
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
                                 specifics.radarr_root_folder_path.unwrap(),
                                 entity_id,
                             );
-                            sonarr.push_progress().await
+                            radarr.push_progress().await
                         }
                         IntegrationProvider::Sonarr => {
-                            let radarr = RadarrIntegration::new(
+                            let sonarr = SonarrIntegration::new(
                                 specifics.sonarr_base_url.unwrap(),
                                 specifics.sonarr_api_key.unwrap(),
                                 specifics.sonarr_profile_id.unwrap(),
                                 specifics.sonarr_root_folder_path.unwrap(),
                                 entity_id,
                             );
-                            radarr.push_progress().await
+                            sonarr.push_progress().await
                         }
                         _ => unreachable!(),
                     };
