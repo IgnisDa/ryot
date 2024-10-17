@@ -813,9 +813,9 @@ const SupersetModal = (props: {
 					setCurrentWorkout(
 						produce(cw, (draft) => {
 							draft.supersets.push({
+								exercises,
 								color: selectedColor,
 								identifier: randomUUID(),
-								exercises: exercises.map((e) => e),
 							});
 						}),
 					);
