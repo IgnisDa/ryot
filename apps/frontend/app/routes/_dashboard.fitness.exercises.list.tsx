@@ -161,6 +161,9 @@ export default function Page() {
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
 		);
 
+	const allowAddingExerciseToWorkout =
+		currentWorkout && loaderData.workoutInProgress;
+
 	return (
 		<Container size="md">
 			<Stack gap="xl">
@@ -216,7 +219,7 @@ export default function Page() {
 										{loaderData.exercisesList.details.total}
 									</Text>{" "}
 									items found
-									{currentWorkout ? (
+									{allowAddingExerciseToWorkout ? (
 										<>
 											{" "}
 											and{" "}
@@ -235,7 +238,7 @@ export default function Page() {
 											align="center"
 											data-exercise-id={exercise.id}
 										>
-											{currentWorkout ? (
+											{allowAddingExerciseToWorkout ? (
 												<Checkbox
 													onChange={(e) => {
 														if (e.currentTarget.checked)
@@ -308,7 +311,7 @@ export default function Page() {
 					</>
 				)}
 			</Stack>
-			{currentWorkout && loaderData.workoutInProgress ? (
+			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"
