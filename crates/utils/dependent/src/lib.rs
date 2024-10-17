@@ -1767,7 +1767,6 @@ pub async fn create_or_update_workout(
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
                 identifier: ex.identifier.clone(),
-                superset_with: ex.superset_with.clone(),
             },
         ));
     }
@@ -2172,7 +2171,6 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                     .collect(),
                 notes: e.notes,
                 assets: e.assets,
-                superset_with: e.superset_with,
             })
             .collect(),
     }

@@ -170,7 +170,6 @@ fragment WorkoutInformationPart on WorkoutInformation {
     name
     notes
     identifier
-    supersetWith
     total {
       ...WorkoutOrExerciseTotalsPart
     }

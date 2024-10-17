@@ -443,8 +443,6 @@ pub struct ProcessedExercise {
     pub lot: ExerciseLot,
     pub identifier: String,
     pub notes: Vec<String>,
-    /// The indices of the exercises with which this has been superset with.
-    pub superset_with: Vec<u16>,
     pub sets: Vec<WorkoutSetRecord>,
     pub assets: Option<EntityAssets>,
     pub total: Option<WorkoutOrExerciseTotals>,
@@ -573,7 +571,6 @@ pub struct UserExerciseInput {
     pub identifier: String,
     pub notes: Vec<String>,
     pub exercise_id: String,
-    pub superset_with: Vec<u16>,
     pub assets: Option<EntityAssets>,
     pub sets: Vec<UserWorkoutSetRecord>,
 }

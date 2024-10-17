@@ -281,8 +281,6 @@ export interface ProcessedExercise {
 	name: string;
 	notes: string[];
 	sets: WorkoutSetRecord[];
-	/** The indices of the exercises with which this has been superset with. */
-	superset_with: number[];
 	total: WorkoutOrExerciseTotals | null;
 }
 

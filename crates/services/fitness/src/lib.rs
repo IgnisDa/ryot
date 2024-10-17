@@ -140,7 +140,6 @@ impl ExerciseService {
                     .collect(),
                 notes: exercise.notes,
                 name: exercise.exercise_id,
-                superset_with: exercise.superset_with,
             });
         }
         let template = workout_template::ActiveModel {
