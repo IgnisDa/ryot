@@ -54,8 +54,8 @@ query UserPreferences {
       }
       exercises {
         unitSystem
-        restTimers {
-          ...RestTimersPart
+        setRestTimers {
+          ...SetRestTimersPart
         }
       }
     }

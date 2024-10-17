@@ -2,7 +2,7 @@ use async_graphql::{Enum, SimpleObject};
 use common_models::MediaStateChanged;
 use educe::Educe;
 use enums::MediaLot;
-use fitness_models::{RestTimersSettings, UserUnitSystem};
+use fitness_models::{SetRestTimersSettings, UserUnitSystem};
 use sea_orm::{FromJsonQueryResult, Iterable};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -96,7 +96,7 @@ pub struct UserFitnessFeaturesEnabledPreferences {
 pub struct UserExercisesPreferences {
     #[educe(Default = UserUnitSystem::Metric)]
     pub unit_system: UserUnitSystem,
-    pub rest_timers: RestTimersSettings,
+    pub set_rest_timers: SetRestTimersSettings,
 }
 
 #[derive(

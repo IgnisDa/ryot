@@ -579,15 +579,15 @@ impl UserService {
                             }
                             "exercises" => match right.split_once('.') {
                                 Some((left, right)) => match left {
-                                    "rest_timers" => {
+                                    "set_rest_timers" => {
                                         let value = input.value.parse().ok();
-                                        let rest_timers =
-                                            &mut preferences.fitness.exercises.rest_timers;
+                                        let set_rest_timers =
+                                            &mut preferences.fitness.exercises.set_rest_timers;
                                         match right {
-                                            "drop_set" => rest_timers.drop_set = value,
-                                            "normal_set" => rest_timers.normal_set = value,
-                                            "warmup_set" => rest_timers.warmup_set = value,
-                                            "failure_set" => rest_timers.failure_set = value,
+                                            "drop" => set_rest_timers.drop = value,
+                                            "normal" => set_rest_timers.normal = value,
+                                            "warmup" => set_rest_timers.warmup = value,
+                                            "failure" => set_rest_timers.failure = value,
                                             _ => return Err(err()),
                                         }
                                     }

@@ -21,8 +21,8 @@ query UserExerciseDetails($exerciseId: String!) {
       exerciseNumTimesInteracted
       exerciseExtraInformation {
         settings {
-          restTimers {
-            ...RestTimersPart
+          setRestTimers {
+            ...SetRestTimersPart
           }
         }
         lifetimeStats {

@@ -12,8 +12,8 @@ impl MigrationTrait for Migration {
 UPDATE "user"
 SET "preferences" = jsonb_set(
     "preferences",
-    '{fitness,exercises,rest_timers}',
-    jsonb_build_object('normal_set', 60)
+    '{fitness,exercises,set_rest_timers}',
+    jsonb_build_object('normal', 60)
 );
 ALTER TABLE "workout_template" DROP COLUMN IF EXISTS "default_rest_timer";
         "#,
@@ -63,7 +63,7 @@ UPDATE "user_to_entity"
 SET "exercise_extra_information" = jsonb_set(
     "exercise_extra_information",
     '{settings}',
-    jsonb_build_object('rest_timers', jsonb_build_object('normal_set', 60))
+    jsonb_build_object('set_rest_timers', jsonb_build_object('normal', 60))
 )
 WHERE "user_to_entity"."exercise_extra_information" IS NOT NULL;
         "#,
