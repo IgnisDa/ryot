@@ -89,7 +89,7 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
@@ -1638,7 +1638,9 @@ const EditSetRestTimer = (props: {
 	onClickOutside: () => void;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const editRestTimerRef = useClickOutside(props.onClickOutside);
+	const editRestTimerRef = useClickOutside<HTMLInputElement>(
+		props.onClickOutside,
+	);
 	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
 
 	useDidUpdate(() => {
@@ -1650,6 +1652,10 @@ const EditSetRestTimer = (props: {
 				}),
 			);
 	}, [value]);
+
+	useEffect(() => {
+		editRestTimerRef.current?.select();
+	}, [editRestTimerRef]);
 
 	if (!currentWorkout) return null;
 
