@@ -234,30 +234,6 @@ export const ExerciseHistory = (props: {
 		getExerciseDetailsQuery(exercise?.name || ""),
 	);
 
-	const supersetLinks =
-		exercise && exercise.supersetWith.length > 0
-			? exercise.supersetWith
-					.map<ReactNode>((otherExerciseIdx) => (
-						<Anchor
-							key={otherExerciseIdx}
-							fz="xs"
-							href={withFragment(
-								$path("/fitness/:entity/:id", {
-									entity: "workouts",
-									id: props.entityId,
-								}),
-								otherExerciseIdx.toString(),
-							)}
-						>
-							{
-								workoutDetails.details.information.exercises[otherExerciseIdx]
-									.name
-							}
-						</Anchor>
-					))
-					.reduce((prev, curr) => [prev, ", ", curr])
-			: null;
-
 	return (
 		<Paper withBorder p="xs" id={props.exerciseIdx.toString()}>
 			{exerciseDetails && workoutDetails && exercise ? (
@@ -361,9 +337,6 @@ export const ExerciseHistory = (props: {
 									</ScrollArea>
 								) : null}
 							</>
-						) : null}
-						{!props.hideExerciseDetails && supersetLinks ? (
-							<Text fz="xs">Superset with {supersetLinks}</Text>
 						) : null}
 						{exercise.notes.map((n, idxN) => (
 							<Text c="dimmed" key={n} size="xs">

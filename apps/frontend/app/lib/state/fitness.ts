@@ -55,7 +55,6 @@ export type Exercise = {
 	images: Array<Media>;
 	isCollapsed?: boolean;
 	sets: Array<ExerciseSet>;
-	supersetWith: Array<string>;
 	isShowDetailsOpen: boolean;
 	openedDetailsTab?: "images" | "history";
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
@@ -219,22 +218,12 @@ export const currentWorkoutToCreateWorkoutInput = (
 			notes,
 			identifier: exercise.identifier,
 			exerciseId: exercise.exerciseId,
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			supersetWith: exercise.supersetWith as any,
 			assets: {
 				images: exercise.images.map((m) => m.key),
 				videos: exercise.videos.map((m) => m.key),
 			},
 		};
 		input.input.exercises.push(toAdd);
-	}
-	for (const ex of input.input.exercises) {
-		let supersetWith = ex.supersetWith.map((identifier) =>
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			input.input.exercises.findIndex((e: any) => e.identifier === identifier),
-		);
-		supersetWith = supersetWith.filter((idx) => idx !== -1);
-		ex.supersetWith = supersetWith;
 	}
 	return input;
 };
@@ -292,7 +281,6 @@ export const duplicateOldWorkout = async (
 			exerciseId: ex.name,
 			lot: ex.lot,
 			notes: ex.notes,
-			supersetWith: [],
 			sets: sets,
 			openedDetailsTab: !coreDetails.isPro
 				? "images"
@@ -300,12 +288,6 @@ export const duplicateOldWorkout = async (
 					? "history"
 					: "images",
 		});
-	}
-	for (const [idx, exercise] of workoutInformation.exercises.entries()) {
-		const supersetWith = exercise.supersetWith.map(
-			(index) => inProgress.exercises[index].identifier,
-		);
-		inProgress.exercises[idx].supersetWith = supersetWith;
 	}
 	return inProgress;
 };
@@ -376,7 +358,6 @@ export const addExerciseToWorkout = async (
 			exerciseId: ex.name,
 			lot: ex.lot,
 			sets,
-			supersetWith: [],
 			alreadyDoneSets,
 			notes: [],
 			images: [],
