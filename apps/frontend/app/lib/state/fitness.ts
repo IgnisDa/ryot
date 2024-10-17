@@ -14,7 +14,13 @@ import {
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, isString, mergeWith, sortBy } from "@ryot/ts-utils";
+import {
+	cloneDeep,
+	isNumber,
+	isString,
+	mergeWith,
+	sortBy,
+} from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
@@ -176,9 +182,13 @@ export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
 	isCreatingTemplate: boolean,
 ) => {
-	const sortedSupersets = sortBy(currentWorkout.supersets, (s) =>
-		currentWorkout.exercises.map((e) => e.identifier).indexOf(s.exercises[0]),
-	);
+	const sortedSupersets = currentWorkout.supersets.map((superset) => {
+		const cloned = cloneDeep(superset);
+		cloned.exercises = sortBy(superset.exercises, (s) =>
+			currentWorkout.exercises.map((e) => e.identifier).indexOf(s),
+		);
+		return cloned;
+	});
 	const input: CreateOrUpdateUserWorkoutMutationVariables = {
 		input: {
 			exercises: [],
