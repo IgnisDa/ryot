@@ -293,7 +293,7 @@ const UserDisplay = (props: { index: number }) => {
 					>
 						<IconPencil />
 					</ActionIcon>
-					<Form method="POST" action={withQuery("", { intent: "delete" })}>
+					<Form method="POST" action={withQuery(".", { intent: "delete" })}>
 						<input hidden name="toDeleteUserId" defaultValue={user.id} />
 						<ActionIcon
 							color="red"
@@ -332,7 +332,7 @@ const UpdateUserModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => props.closeIntegrationModal()}
-				action={withQuery("", { intent: "update" })}
+				action={withQuery(".", { intent: "update" })}
 			>
 				<input hidden name="userId" defaultValue={props.updateUserData?.id} />
 				<Stack>

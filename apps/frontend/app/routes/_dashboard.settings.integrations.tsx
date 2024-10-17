@@ -230,7 +230,7 @@ export default function Page() {
 						<Form
 							replace
 							method="POST"
-							action={withQuery("", { intent: "generateAuthToken" })}
+							action={withQuery(".", { intent: "generateAuthToken" })}
 						>
 							<Button
 								variant="light"
@@ -349,7 +349,7 @@ const DisplayIntegration = (props: {
 						>
 							<IconPencil />
 						</ActionIcon>
-						<Form method="POST" action={withQuery("", { intent: "delete" })}>
+						<Form method="POST" action={withQuery(".", { intent: "delete" })}>
 							<input
 								type="hidden"
 								name="integrationId"
@@ -405,7 +405,7 @@ const CreateIntegrationModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => props.closeIntegrationModal()}
-				action={withQuery("", { intent: "create" })}
+				action={withQuery(".", { intent: "create" })}
 			>
 				<Stack>
 					<Select
@@ -574,7 +574,7 @@ const UpdateIntegrationModal = (props: {
 					replace
 					method="POST"
 					onSubmit={() => props.closeIntegrationModal()}
-					action={withQuery("", { intent: "update" })}
+					action={withQuery(".", { intent: "update" })}
 				>
 					<input
 						type="hidden"

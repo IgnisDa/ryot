@@ -381,7 +381,7 @@ const DisplayAccessLink = (props: {
 								</ActionIcon>
 								<Form
 									method="POST"
-									action={withQuery("", { intent: "revokeAccessLink" })}
+									action={withQuery(".", { intent: "revokeAccessLink" })}
 								>
 									<input
 										type="hidden"
@@ -458,7 +458,7 @@ const CreateAccessLinkModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => props.closeModal()}
-				action={withQuery("", { intent: "createAccessLink" })}
+				action={withQuery(".", { intent: "createAccessLink" })}
 			>
 				<Stack>
 					<Title order={3}>Create new access link</Title>

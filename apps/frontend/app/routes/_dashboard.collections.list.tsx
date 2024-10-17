@@ -427,7 +427,7 @@ const DisplayCollection = (props: {
 							{!props.collection.isDefault ? (
 								<Form
 									method="POST"
-									action={withQuery("", { intent: "delete" })}
+									action={withQuery(".", { intent: "delete" })}
 								>
 									<input
 										hidden
@@ -522,7 +522,7 @@ const CreateOrUpdateModal = (props: {
 		<Box
 			method="POST"
 			component={Form}
-			action={withQuery("", { intent: "createOrUpdate" })}
+			action={withQuery(".", { intent: "createOrUpdate" })}
 		>
 			<Stack>
 				<Title order={3}>

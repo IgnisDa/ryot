@@ -287,7 +287,7 @@ export default function Page() {
 					<Form
 						replace
 						method="POST"
-						action={withQuery("", { intent: "getOidcRedirectUrl" })}
+						action={withQuery(".", { intent: "getOidcRedirectUrl" })}
 					>
 						<Button
 							variant="outline"

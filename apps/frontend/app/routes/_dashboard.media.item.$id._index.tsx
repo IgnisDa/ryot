@@ -939,7 +939,7 @@ export default function Page() {
 										</Menu.Item>
 										<Form
 											method="POST"
-											action={withQuery("", { intent: "removeItem" })}
+											action={withQuery(".", { intent: "removeItem" })}
 										>
 											<input
 												hidden
@@ -1314,7 +1314,7 @@ const EditHistoryItemModal = (props: {
 				replace
 				method="POST"
 				onSubmit={props.onClose}
-				action={withQuery("", { intent: "editSeenItem" })}
+				action={withQuery(".", { intent: "editSeenItem" })}
 			>
 				<input hidden name="seenId" defaultValue={id} />
 				<Stack>
@@ -1420,7 +1420,7 @@ const MergeMetadataModal = (props: {
 			<Form
 				replace
 				method="POST"
-				action={withQuery("", { intent: "mergeMetadata" })}
+				action={withQuery(".", { intent: "mergeMetadata" })}
 			>
 				<input hidden name="mergeFrom" defaultValue={props.metadataId} />
 				<Stack>
@@ -1565,7 +1565,7 @@ const HistoryItem = (props: {
 					<Form
 						replace
 						method="POST"
-						action={withQuery("", { intent: "deleteSeenItem" })}
+						action={withQuery(".", { intent: "deleteSeenItem" })}
 					>
 						<input hidden name="seenId" defaultValue={props.history.id} />
 						<ActionIcon

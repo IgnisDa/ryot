@@ -261,8 +261,8 @@ export default function Page() {
 					<Form
 						replace
 						method="POST"
-						action={withQuery("", { intent: "edit" })}
 						onSubmit={() => adjustTimeModalClose()}
+						action={withQuery(".", { intent: "edit" })}
 					>
 						<Stack>
 							<Title order={3}>Adjust times</Title>
@@ -394,7 +394,7 @@ export default function Page() {
 								</Menu.Item>
 								<Form
 									method="POST"
-									action={withQuery("", { intent: "delete" })}
+									action={withQuery(".", { intent: "delete" })}
 								>
 									<input
 										type="hidden"
