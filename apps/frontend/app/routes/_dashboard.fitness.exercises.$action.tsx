@@ -39,6 +39,7 @@ import { $path } from "remix-routes";
 import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { useCoreDetails } from "~/lib/hooks";
@@ -170,7 +171,12 @@ export default function Page() {
 
 	return (
 		<Container>
-			<Form method="POST" encType="multipart/form-data" replace>
+			<Form
+				replace
+				method="POST"
+				encType="multipart/form-data"
+				action={withQuery(".", { intent: loaderData.action })}
+			>
 				<Stack>
 					<Title>{title} Exercise</Title>
 					{loaderData.details?.id ? (
@@ -180,7 +186,6 @@ export default function Page() {
 							defaultValue={loaderData.details.id}
 						/>
 					) : null}
-					<input type="hidden" name="intent" value={loaderData.action} />
 					<TextInput
 						label="Name"
 						required
