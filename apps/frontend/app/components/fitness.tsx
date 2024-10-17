@@ -41,7 +41,7 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { FitnessEntity, dayjsLib, getSetColor } from "~/lib/generals";
-import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
+import { useGetRandomMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
@@ -150,7 +150,6 @@ export const DisplaySet = (props: {
 	idx: number;
 	exerciseLot: ExerciseLot;
 }) => {
-	const getMantineColor = useGetMantineColor();
 	const [opened, { close, open }] = useDisclosure(false);
 
 	return (
@@ -181,16 +180,14 @@ export const DisplaySet = (props: {
 						</Popover.Target>
 						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
 							<Flex>
-								{props.set.personalBests.map((pb) => (
-									<Badge
-										key={pb}
-										variant="light"
-										size="xs"
-										color={getMantineColor(pb)}
-									>
-										{startCase(pb)}
-									</Badge>
-								))}
+								{props.set.personalBests.map((pb) => {
+									const color = useGetRandomMantineColor(pb);
+									return (
+										<Badge key={pb} size="xs" color={color} variant="light">
+											{startCase(pb)}
+										</Badge>
+									);
+								})}
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>

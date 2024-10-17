@@ -28,15 +28,12 @@ import {
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
 
-export const useGetMantineColor = () => {
+export const useGetRandomMantineColor = (input: string) => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
 
 	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-	const getColor = (input: string) =>
-		colors[(getStringAsciiValue(input) + colors.length) % colors.length];
-
-	return getColor;
+	return colors[(getStringAsciiValue(input) + colors.length) % colors.length];
 };
 
 export const useFallbackImageUrl = (text = "No Image") => {
