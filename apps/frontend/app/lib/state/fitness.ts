@@ -3,8 +3,8 @@ import {
 	type CreateOrUpdateUserWorkoutMutationVariables,
 	ExerciseDetailsDocument,
 	type ExerciseLot,
-	type RestTimersSettings,
 	SetLot,
+	type SetRestTimersSettings,
 	UserExerciseDetailsDocument,
 	UserWorkoutDetailsDocument,
 	type UserWorkoutDetailsQuery,
@@ -312,13 +312,13 @@ export const duplicateOldWorkout = async (
 export const getRestTimerForSet = async (
 	lot: SetLot,
 	exerciseId: string,
-	userPreferencesRestTimer: RestTimersSettings,
+	userPreferencesRestTimer: SetRestTimersSettings,
 ) => {
 	const exerciseDetails = await getExerciseDetails(exerciseId);
 	const mergedSettings = mergeWith(
 		{},
 		exerciseDetails.userDetails.details?.exerciseExtraInformation?.settings
-			.restTimers || {},
+			.setRestTimers || {},
 		userPreferencesRestTimer,
 		(objValue?: number, srcValue?: number) => {
 			if (isNumber(objValue)) return objValue;
@@ -327,10 +327,10 @@ export const getRestTimerForSet = async (
 		},
 	);
 	const restTime = match(lot)
-		.with(SetLot.Normal, () => mergedSettings.normalSet)
-		.with(SetLot.Drop, () => mergedSettings.dropSet)
-		.with(SetLot.WarmUp, () => mergedSettings.warmupSet)
-		.with(SetLot.Failure, () => mergedSettings.failureSet)
+		.with(SetLot.Normal, () => mergedSettings.normal)
+		.with(SetLot.Drop, () => mergedSettings.drop)
+		.with(SetLot.WarmUp, () => mergedSettings.warmup)
+		.with(SetLot.Failure, () => mergedSettings.failure)
 		.exhaustive();
 	return restTime;
 };
@@ -338,7 +338,7 @@ export const getRestTimerForSet = async (
 export const addExerciseToWorkout = async (
 	navigate: NavigateFunction,
 	currentWorkout: InProgressWorkout,
-	userPreferencesRestTimer: RestTimersSettings,
+	userPreferencesRestTimer: SetRestTimersSettings,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
 	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
 ) => {

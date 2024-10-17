@@ -226,28 +226,28 @@ export default function Page() {
 							</Text>
 						</Text>
 						<SimpleGrid cols={2}>
-							{(
-								["normalSet", "warmupSet", "dropSet", "failureSet"] as const
-							).map((name) => {
-								const value =
-									loaderData.userExerciseDetails.details
-										?.exerciseExtraInformation?.settings.restTimers[name];
-								return (
-									<NumberInput
-										suffix="s"
-										key={name}
-										label={changeCase(snakeCase(name))}
-										defaultValue={isNumber(value) ? value : undefined}
-										onChange={(val) => {
-											if (isNumber(val))
-												appendPref(
-													`rest_timers.${snakeCase(name)}`,
-													String(val),
-												);
-										}}
-									/>
-								);
-							})}
+							{(["normal", "warmup", "drop", "failure"] as const).map(
+								(name) => {
+									const value =
+										loaderData.userExerciseDetails.details
+											?.exerciseExtraInformation?.settings.setRestTimers[name];
+									return (
+										<NumberInput
+											suffix="s"
+											key={name}
+											label={changeCase(snakeCase(name))}
+											defaultValue={isNumber(value) ? value : undefined}
+											onChange={(val) => {
+												if (isNumber(val))
+													appendPref(
+														`set_rest_timers.${snakeCase(name)}`,
+														String(val),
+													);
+											}}
+										/>
+									);
+								},
+							)}
 						</SimpleGrid>
 						<Button type="submit">Save settings for exercise</Button>
 					</Stack>
@@ -644,7 +644,7 @@ export default function Page() {
 								await addExerciseToWorkout(
 									navigate,
 									currentWorkout,
-									userPreferences.fitness.exercises.restTimers,
+									userPreferences.fitness.exercises.setRestTimers,
 									setCurrentWorkout,
 									[
 										{

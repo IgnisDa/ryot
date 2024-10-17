@@ -1227,7 +1227,7 @@ const ExerciseDisplay = (props: {
 							const restTimer = await getRestTimerForSet(
 								setLot,
 								exercise.exerciseId,
-								userPreferences.fitness.exercises.restTimers,
+								userPreferences.fitness.exercises.setRestTimers,
 							);
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {
@@ -1353,7 +1353,7 @@ const SetDisplay = (props: {
 									const restTime = await getRestTimerForSet(
 										lot,
 										currentWorkout.exercises[props.exerciseIdx].exerciseId,
-										userPreferences.fitness.exercises.restTimers,
+										userPreferences.fitness.exercises.setRestTimers,
 									);
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
@@ -1661,9 +1661,9 @@ const EditSetRestTimer = (props: {
 
 	return (
 		<NumberInput
+			w={rem(80)}
 			size="xs"
 			suffix="s"
-			w={rem(80)}
 			ref={editRestTimerRef}
 			value={props.defaultDuration}
 			onChange={(v) => {
@@ -1682,6 +1682,7 @@ const DisplaySetRestTimer = (props: {
 
 	return (
 		<Progress
+			size="lg"
 			onClick={props.onClick}
 			transitionDuration={300}
 			style={{ cursor: "pointer" }}

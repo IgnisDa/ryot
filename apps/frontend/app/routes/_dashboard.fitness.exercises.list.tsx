@@ -320,7 +320,7 @@ export default function Page() {
 							await addExerciseToWorkout(
 								navigate,
 								currentWorkout,
-								userPreferences.fitness.exercises.restTimers,
+								userPreferences.fitness.exercises.setRestTimers,
 								setCurrentWorkout,
 								selectedExercises,
 							);

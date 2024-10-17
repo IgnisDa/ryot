@@ -557,30 +557,30 @@ export default function Page() {
 								description="When adding an exercise to your workout, these timer values will be used if you have not configured a rest timer for that exercise."
 							>
 								<SimpleGrid cols={{ base: 2, md: 4 }}>
-									{(
-										["normalSet", "warmupSet", "dropSet", "failureSet"] as const
-									).map((name) => {
-										const value =
-											userPreferences.fitness.exercises.restTimers[name];
-										return (
-											<NumberInput
-												suffix="s"
-												size="xs"
-												key={name}
-												disabled={!!isEditDisabled}
-												label={changeCase(snakeCase(name))}
-												defaultValue={isNumber(value) ? value : undefined}
-												onChange={(val) => {
-													if (isNumber(val)) {
-														appendPref(
-															`fitness.exercises.rest_timers.${snakeCase(name)}`,
-															String(val),
-														);
-													}
-												}}
-											/>
-										);
-									})}
+									{(["normal", "warmup", "drop", "failure"] as const).map(
+										(name) => {
+											const value =
+												userPreferences.fitness.exercises.setRestTimers[name];
+											return (
+												<NumberInput
+													suffix="s"
+													size="xs"
+													key={name}
+													disabled={!!isEditDisabled}
+													label={changeCase(snakeCase(name))}
+													defaultValue={isNumber(value) ? value : undefined}
+													onChange={(val) => {
+														if (isNumber(val)) {
+															appendPref(
+																`fitness.exercises.set_rest_timers.${snakeCase(name)}`,
+																String(val),
+															);
+														}
+													}}
+												/>
+											);
+										},
+									)}
 								</SimpleGrid>
 							</Input.Wrapper>
 							<Stack gap="xs">
