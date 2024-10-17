@@ -556,7 +556,7 @@ export default function Page() {
 								label="Default Rest Timers"
 								description="When adding an exercise to your workout, these timer values will be used if you have not configured a rest timer for that exercise."
 							>
-								<SimpleGrid cols={3}>
+								<SimpleGrid cols={{ base: 2, md: 4 }}>
 									{(
 										["normalSet", "warmupSet", "dropSet", "failureSet"] as const
 									).map((name) => {
@@ -564,6 +564,7 @@ export default function Page() {
 											userPreferences.fitness.exercises.restTimers[name];
 										return (
 											<NumberInput
+												suffix="s"
 												size="xs"
 												key={name}
 												disabled={!!isEditDisabled}
