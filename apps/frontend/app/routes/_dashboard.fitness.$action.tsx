@@ -1,4 +1,5 @@
 import { Buffer } from "buffer";
+import { v4 as randomUUID } from "uuid";
 import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
@@ -737,16 +738,20 @@ const DisplaySupersetModal = (props: {
 			opened={isString(props.supersetWith)}
 		>
 			{props.supersetWith ? (
-				<SupersetModal supersetWith={props.supersetWith} />
+				<SupersetModal
+					onClose={props.onClose}
+					supersetWith={props.supersetWith}
+				/>
 			) : null}
 		</Modal>
 	);
 };
 
 const SupersetModal = (props: {
+	onClose: () => void;
 	supersetWith: string;
 }) => {
-	const [currentWorkout] = useCurrentWorkout();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [exercises, setExercisesHandle] = useListState<string>([
 		props.supersetWith,
 	]);
@@ -772,22 +777,41 @@ const SupersetModal = (props: {
 				/>
 			</Group>
 			<Stack gap="xs">
-				{currentWorkout.exercises.map((ex) => (
-					<Button
-						size="xs"
-						fullWidth
-						key={ex.identifier}
-						color={selectedColor}
-						variant={exercises.includes(ex.identifier) ? "light" : "outline"}
-						onClick={() => {
-							setExercisesHandle.append(ex.identifier);
-						}}
-					>
-						{ex.exerciseId}
-					</Button>
-				))}
+				{currentWorkout.exercises.map((ex) => {
+					const index = exercises.findIndex((e) => e === ex.identifier);
+					return (
+						<Button
+							size="xs"
+							fullWidth
+							key={ex.identifier}
+							color={selectedColor}
+							variant={index !== -1 ? "light" : "outline"}
+							onClick={() => {
+								if (index !== -1) setExercisesHandle.remove(index);
+								else setExercisesHandle.append(ex.identifier);
+							}}
+						>
+							{ex.exerciseId}
+						</Button>
+					);
+				})}
 			</Stack>
-			<Button>Create superset</Button>
+			<Button
+				onClick={() => {
+					setCurrentWorkout(
+						produce(currentWorkout, (draft) => {
+							draft.supersets.push({
+								color: selectedColor,
+								identifier: randomUUID(),
+								exercises: exercises.map((e) => e),
+							});
+						}),
+					);
+					props.onClose();
+				}}
+			>
+				Create superset
+			</Button>
 		</Stack>
 	);
 };
