@@ -74,7 +74,6 @@ import {
 	IconCamera,
 	IconCameraRotate,
 	IconCheck,
-	IconChevronDown,
 	IconChevronUp,
 	IconClipboard,
 	IconClock,
@@ -852,7 +851,12 @@ const ExerciseDisplay = (props: {
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
 
-	return currentWorkout ? (
+	if (!currentWorkout) return null;
+
+	const isExerciseComplete =
+		getProgressOfExercise(currentWorkout, props.exerciseIdx) === "complete";
+
+	return (
 		<>
 			<SupersetExerciseModal
 				opened={supersetModalOpened}
@@ -968,13 +972,14 @@ const ExerciseDisplay = (props: {
 								>
 									{exercise.exerciseId}
 								</Anchor>
-								<Group wrap="nowrap" gap={4} mr={-10}>
+								<Group wrap="nowrap" mr={-10}>
 									<ActionIcon
-										color={
-											exercise.sets.every((s) => s.confirmedAt)
-												? "green"
-												: undefined
-										}
+										variant="transparent"
+										style={{
+											transition: "rotate 0.3s",
+											rotate: exercise.isCollapsed ? "180deg" : undefined,
+										}}
+										color={isExerciseComplete ? "green" : undefined}
 										onClick={() => {
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
@@ -984,15 +989,11 @@ const ExerciseDisplay = (props: {
 											);
 										}}
 									>
-										{exercise.isCollapsed ? (
-											<IconChevronDown />
-										) : (
-											<IconChevronUp />
-										)}
+										<IconChevronUp />
 									</ActionIcon>
 									<Menu.Target>
 										<ActionIcon color="blue">
-											<IconDotsVertical />
+											<IconDotsVertical size={20} />
 										</ActionIcon>
 									</Menu.Target>
 								</Group>
@@ -1325,7 +1326,7 @@ const ExerciseDisplay = (props: {
 			</Paper>
 			<Divider />
 		</>
-	) : null;
+	);
 };
 
 const getNextSetInWorkout = (
@@ -1932,6 +1933,15 @@ const TimerDrawer = (props: {
 	);
 };
 
+const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
+	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
+	return isCompleted
+		? ("complete" as const)
+		: cw.exercises[index].sets.some((s) => s.confirmedAt)
+			? ("in-progress" as const)
+			: ("not-started" as const);
+};
+
 const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [exerciseElements, exerciseElementsHandlers] = useListState(
@@ -1954,15 +1964,6 @@ const ReorderDrawer = (props: { opened: boolean; onClose: () => void }) => {
 			props.onClose();
 		}
 	}, [exerciseElements]);
-
-	const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
-		const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
-		return isCompleted
-			? ("complete" as const)
-			: cw.exercises[index].sets.some((s) => s.confirmedAt)
-				? ("in-progress" as const)
-				: ("not-started" as const);
-	};
 
 	return currentWorkout ? (
 		<Drawer
