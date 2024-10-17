@@ -751,14 +751,25 @@ const SupersetModal = (props: {
 	onClose: () => void;
 	supersetWith: string;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [cw, setCurrentWorkout] = useCurrentWorkout();
 	const [exercises, setExercisesHandle] = useListState<string>([
 		props.supersetWith,
 	]);
-	const colors = useGetMantineColors().filter((c) => c !== "dark");
-	const [selectedColor, setSelectedColor] = useState(colors[0]);
+	const colors = useGetMantineColors();
+	const [allowedColors, setAllowedColors] = useState<string[]>([]);
+	const [selectedColor, setSelectedColor] = useState<string>("");
 
-	if (!currentWorkout) return null;
+	useEffect(() => {
+		if (cw) {
+			const newColors = colors
+				.filter((c) => c !== "dark")
+				.filter((c) => !cw.supersets.map((s) => s.color).includes(c));
+			setAllowedColors(newColors);
+			setSelectedColor(newColors[0]);
+		}
+	}, [cw]);
+
+	if (!cw) return null;
 
 	return (
 		<Stack gap="lg">
@@ -770,14 +781,14 @@ const SupersetModal = (props: {
 					leftSectionWidth={rem(40)}
 					onChange={(v) => setSelectedColor(v ?? "")}
 					leftSection={<ColorSwatch color={selectedColor} size={20} />}
-					data={colors.map((c) => ({
+					data={allowedColors.map((c) => ({
 						value: c,
 						label: changeCase(c),
 					}))}
 				/>
 			</Group>
 			<Stack gap="xs">
-				{currentWorkout.exercises.map((ex) => {
+				{cw.exercises.map((ex) => {
 					const index = exercises.findIndex((e) => e === ex.identifier);
 					return (
 						<Button
@@ -799,7 +810,7 @@ const SupersetModal = (props: {
 			<Button
 				onClick={() => {
 					setCurrentWorkout(
-						produce(currentWorkout, (draft) => {
+						produce(cw, (draft) => {
 							draft.supersets.push({
 								color: selectedColor,
 								identifier: randomUUID(),
