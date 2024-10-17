@@ -970,6 +970,11 @@ const ExerciseDisplay = (props: {
 								</Anchor>
 								<Group wrap="nowrap" gap={4} mr={-10}>
 									<ActionIcon
+										color={
+											exercise.sets.every((s) => s.confirmedAt)
+												? "green"
+												: undefined
+										}
 										onClick={() => {
 											setCurrentWorkout(
 												produce(currentWorkout, (draft) => {
@@ -1329,23 +1334,16 @@ const getNextSetInWorkout = (
 	currentSetIdx: number,
 ) => {
 	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
-	if (currentExercise.supersetWith.length === 0) {
-		const isLastSet = currentSetIdx === currentExercise.sets.length - 1;
-		if (isLastSet)
-			return {
-				exerciseIdx: currentExerciseIdx + 1,
-				setIdx: 0,
-				wasLastSet: true,
-			};
+	const isLastSet = currentSetIdx === currentExercise.sets.length - 1;
+	if (isLastSet)
 		return {
-			exerciseIdx: currentExerciseIdx,
-			setIdx: currentSetIdx + 1,
-			wasLastSet: false,
+			exerciseIdx: currentExerciseIdx + 1,
+			setIdx: 0,
+			wasLastSet: true,
 		};
-	}
 	return {
 		exerciseIdx: currentExerciseIdx,
-		setIdx: currentSetIdx,
+		setIdx: currentSetIdx + 1,
 		wasLastSet: false,
 	};
 };
