@@ -34,6 +34,7 @@ import {
 	Transition,
 	UnstyledButton,
 	rem,
+	useMantineTheme,
 } from "@mantine/core";
 import {
 	useClickOutside,
@@ -855,6 +856,7 @@ const ExerciseDisplay = (props: {
 	openSupersetModal: (s: string) => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
+	const theme = useMantineTheme();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
 	const navigate = useNavigate();
@@ -901,6 +903,9 @@ const ExerciseDisplay = (props: {
 
 	const isExerciseComplete =
 		getProgressOfExercise(currentWorkout, props.exerciseIdx) === "complete";
+	const partOfSuperset = currentWorkout.supersets.find((s) =>
+		s.exercises.includes(exercise.identifier),
+	);
 
 	return (
 		<>
@@ -994,9 +999,17 @@ const ExerciseDisplay = (props: {
 				</Stack>
 			</Modal>
 			<Paper
-				style={{ scrollMargin: 16 }}
+				radius={0}
+				style={{
+					scrollMargin: 16,
+					borderLeft: partOfSuperset
+						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
+						: undefined,
+				}}
+				pl="sm"
+				ml={{ base: "-md", md: 0 }}
 				id={props.exerciseIdx.toString()}
-				px={{ base: 4, md: "xs", lg: "sm" }}
+				pr={{ base: 4, md: "xs", lg: "sm" }}
 			>
 				<Stack ref={parent}>
 					<Menu shadow="md" width={200} position="left-end">
@@ -1359,7 +1372,6 @@ const ExerciseDisplay = (props: {
 					)}
 				</Stack>
 			</Paper>
-			<Divider />
 		</>
 	);
 };
