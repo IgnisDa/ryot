@@ -71,6 +71,7 @@ export type InProgressWorkout = {
 	images: Array<string>;
 	updateWorkoutId?: string;
 	exercises: Array<Exercise>;
+	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
 };
 

@@ -82,6 +82,7 @@ import {
 	IconLayersIntersect,
 	IconPhoto,
 	IconReorder,
+	IconReplace,
 	IconTrash,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -796,6 +797,7 @@ const ExerciseDisplay = (props: {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const unitSystem = useUserUnitSystem();
+	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
@@ -1003,6 +1005,26 @@ const ExerciseDisplay = (props: {
 								style={isCreatingTemplate ? { display: "none" } : undefined}
 							>
 								Images
+							</Menu.Item>
+							<Menu.Item
+								leftSection={<IconReplace size={14} />}
+								onClick={() => {
+									if (!coreDetails.isPro) {
+										notifications.show({
+											message: PRO_REQUIRED_MESSAGE,
+											color: "red",
+										});
+										return;
+									}
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.replacingExerciseIdx = props.exerciseIdx;
+										}),
+									);
+									navigate($path("/fitness/exercises/list"));
+								}}
+							>
+								Replace exercise
 							</Menu.Item>
 							{exerciseHasDetailsToShow(exercise) ? (
 								<Menu.Item
