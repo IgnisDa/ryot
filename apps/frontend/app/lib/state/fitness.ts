@@ -12,6 +12,7 @@ import {
 	UserWorkoutTemplateDetailsDocument,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
+	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, isString, mergeWith } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
@@ -73,6 +74,7 @@ export type InProgressWorkout = {
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
+	supersets: WorkoutSupersetsInformation[];
 };
 
 type CurrentWorkout = InProgressWorkout | null;
@@ -99,6 +101,7 @@ export const getDefaultWorkout = (): InProgressWorkout => {
 	return {
 		images: [],
 		videos: [],
+		supersets: [],
 		exercises: [],
 		startTime: date.toISOString(),
 		name: `${getTimeOfDay(date.getHours())} Workout`,
@@ -176,15 +179,16 @@ export const currentWorkoutToCreateWorkoutInput = (
 ) => {
 	const input: CreateOrUpdateUserWorkoutMutationVariables = {
 		input: {
+			exercises: [],
+			name: currentWorkout.name,
+			comment: currentWorkout.comment,
 			endTime: new Date().toISOString(),
+			supersets: currentWorkout.supersets,
 			templateId: currentWorkout.templateId,
+			repeatedFrom: currentWorkout.repeatedFrom,
 			updateWorkoutId: currentWorkout.updateWorkoutId,
 			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
-			name: currentWorkout.name,
-			comment: currentWorkout.comment,
-			repeatedFrom: currentWorkout.repeatedFrom,
-			exercises: [],
 			assets: {
 				images: [...currentWorkout.images],
 				videos: [...currentWorkout.videos],
@@ -236,8 +240,8 @@ export const currentWorkoutToCreateWorkoutInput = (
 };
 
 export type CurrentWorkoutTimer = {
-	totalTime: number;
 	endAt: string;
+	totalTime: number;
 	triggeredBy?: { exerciseIdentifier: string; setIdx: number };
 };
 
