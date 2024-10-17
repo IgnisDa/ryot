@@ -71,6 +71,7 @@ import {
 import {
 	useCoreDetails,
 	useDashboardLayoutData,
+	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -506,8 +507,7 @@ const ActualDisplayStat = (props: {
 	}>;
 	color?: string;
 }) => {
-	const theme = useMantineTheme();
-	const colors = Object.keys(theme.colors);
+	const colors = useGetMantineColors();
 
 	return (
 		<Flex align="center">
