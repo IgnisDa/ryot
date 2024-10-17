@@ -107,8 +107,9 @@ impl ExerciseService {
         };
         let mut information = WorkoutInformation {
             assets: None,
-            comment: input.comment,
             exercises: vec![],
+            comment: input.comment,
+            supersets: input.supersets,
         };
         for exercise in input.exercises {
             let db_ex = self.exercise_details(exercise.exercise_id.clone()).await?;

@@ -1793,8 +1793,9 @@ pub async fn create_or_update_workout(
                 .collect(),
         },
         information: WorkoutInformation {
-            comment: input.comment,
             assets: input.assets,
+            comment: input.comment,
+            supersets: input.supersets,
             exercises: exercises.into_iter().map(|(_, _, ex)| ex).collect(),
         },
         template_id: input.template_id,
@@ -2150,6 +2151,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
         create_workout_id: Some(user_workout.id),
         repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
+        supersets: user_workout.information.supersets,
         exercises: user_workout
             .information
             .exercises

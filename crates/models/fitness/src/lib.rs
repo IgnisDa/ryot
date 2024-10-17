@@ -469,6 +469,29 @@ pub enum UserUnitSystem {
     Imperial,
 }
 
+#[skip_serializing_none]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    SimpleObject,
+    Schematic,
+    Default,
+    InputObject,
+)]
+#[serde(rename_all = "snake_case")]
+#[graphql(input_name = "WorkoutSupersetsInformationInput")]
+pub struct WorkoutSupersetsInformation {
+    /// A color that will be displayed on the frontend.
+    pub color: String,
+    /// The identifier of all the exercises which are in the same superset
+    pub exercises: Vec<String>,
+}
+
 /// Information about a workout done.
 #[skip_serializing_none]
 #[derive(
@@ -488,6 +511,7 @@ pub struct WorkoutInformation {
     pub comment: Option<String>,
     pub assets: Option<EntityAssets>,
     pub exercises: Vec<ProcessedExercise>,
+    pub supersets: Vec<WorkoutSupersetsInformation>,
 }
 
 /// The summary about an exercise done in a workout.
@@ -569,6 +593,7 @@ pub struct UserWorkoutInput {
     pub exercises: Vec<UserExerciseInput>,
     pub update_workout_id: Option<String>,
     pub update_workout_template_id: Option<String>,
+    pub supersets: Vec<WorkoutSupersetsInformation>,
 }
 
 impl UserWorkoutSetRecord {

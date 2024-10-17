@@ -161,6 +161,10 @@ fragment WorkoutInformationPart on WorkoutInformation {
   assets {
     ...EntityAssetsPart
   }
+  supersets {
+    color
+    exercises
+  }
   exercises {
     lot
     name

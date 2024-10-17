@@ -127,6 +127,7 @@ pub async fn import(
                 exercises,
                 assets: None,
                 start_time: ndt,
+                supersets: vec![],
                 template_id: None,
                 repeated_from: None,
                 create_workout_id: None,

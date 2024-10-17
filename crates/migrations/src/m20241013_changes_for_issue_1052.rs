@@ -102,6 +102,13 @@ END $$;
         "#,
         )
         .await?;
+        db.execute_unprepared(&format!(
+            r#"
+UPDATE "workout" SET "information" = jsonb_set("information", '{{supersets}}', '[]'::jsonb);
+UPDATE "workout_template" SET "information" = jsonb_set("information", '{{supersets}}', '[]'::jsonb);
+    "#
+        ))
+        .await?;
         Ok(())
     }
 

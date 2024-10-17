@@ -286,11 +286,19 @@ export interface ProcessedExercise {
 	total: WorkoutOrExerciseTotals | null;
 }
 
+export interface WorkoutSupersetsInformation {
+	/** A color that will be displayed on the frontend. */
+	color: string;
+	/** The identifier of all the exercises which are in the same superset */
+	exercises: string[];
+}
+
 /** Information about a workout done. */
 export interface WorkoutInformation {
 	assets: EntityAssets | null;
 	comment: string | null;
 	exercises: ProcessedExercise[];
+	supersets: WorkoutSupersetsInformation[];
 }
 
 /** The summary about an exercise done in a workout. */
