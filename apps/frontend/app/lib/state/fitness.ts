@@ -46,32 +46,32 @@ type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
 type Media = { imageSrc: string; key: string };
 
 export type Exercise = {
+	lot: ExerciseLot;
 	identifier: string;
 	exerciseId: string;
-	exerciseDetails: { images: Array<string> };
-	lot: ExerciseLot;
 	notes: Array<string>;
-	sets: Array<ExerciseSet>;
-	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 	videos: Array<Media>;
 	images: Array<Media>;
+	sets: Array<ExerciseSet>;
 	supersetWith: Array<string>;
 	isShowDetailsOpen: boolean;
 	openedDetailsTab?: "images" | "history";
+	exerciseDetails: { images: Array<string> };
+	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
 
 export type InProgressWorkout = {
-	updateWorkoutId?: string;
-	updateWorkoutTemplateId?: string;
-	repeatedFrom?: string;
-	templateId?: string;
-	startTime: string;
-	endTime?: string;
 	name: string;
 	comment?: string;
-	exercises: Array<Exercise>;
+	endTime?: string;
+	startTime: string;
+	templateId?: string;
 	videos: Array<string>;
+	repeatedFrom?: string;
 	images: Array<string>;
+	updateWorkoutId?: string;
+	exercises: Array<Exercise>;
+	updateWorkoutTemplateId?: string;
 };
 
 type CurrentWorkout = InProgressWorkout | null;
