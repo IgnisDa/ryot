@@ -225,13 +225,16 @@ export default function Page() {
 								the fitness preferences.
 							</Text>
 						</Text>
-						{(["normalSet", "warmupSet", "dropSet", "failureSet"] as const).map(
-							(name) => {
+						<SimpleGrid cols={2}>
+							{(
+								["normalSet", "warmupSet", "dropSet", "failureSet"] as const
+							).map((name) => {
 								const value =
 									loaderData.userExerciseDetails.details
 										?.exerciseExtraInformation?.settings.restTimers[name];
 								return (
 									<NumberInput
+										suffix="s"
 										key={name}
 										label={changeCase(snakeCase(name))}
 										defaultValue={isNumber(value) ? value : undefined}
@@ -244,8 +247,8 @@ export default function Page() {
 										}}
 									/>
 								);
-							},
-						)}
+							})}
+						</SimpleGrid>
 						<Button type="submit">Save settings for exercise</Button>
 					</Stack>
 				</Form>
