@@ -555,6 +555,7 @@ export default function Page() {
 							entityId={loaderData.entityId}
 							key={`${exercise.name}-${idx}`}
 							entityType={loaderData.entity}
+							supersetInformation={loaderData.information.supersets}
 						/>
 					))}
 				</Stack>

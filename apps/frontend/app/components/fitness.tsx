@@ -15,6 +15,7 @@ import {
 	Skeleton,
 	Stack,
 	Text,
+	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { Link } from "@remix-run/react";
@@ -24,6 +25,7 @@ import {
 	UserUnitSystem,
 	type UserWorkoutDetailsQuery,
 	type WorkoutSetStatistic,
+	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, startCase } from "@ryot/ts-utils";
 import {
@@ -36,7 +38,7 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
@@ -209,11 +211,13 @@ export const DisplaySet = (props: {
 export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
-	hideExerciseDetails?: boolean;
 	entityType: FitnessEntity;
-	onCopyButtonClick?: () => Promise<void>;
+	hideExerciseDetails?: boolean;
 	hideExtraDetailsButton?: boolean;
+	onCopyButtonClick?: () => Promise<void>;
+	supersetInformation?: WorkoutSupersetsInformation[];
 }) => {
+	const theme = useMantineTheme();
 	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
@@ -233,9 +237,25 @@ export const ExerciseHistory = (props: {
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise?.name || ""),
 	);
+	const isInSuperSet = useMemo(
+		() =>
+			props.supersetInformation?.find((s) =>
+				s.exercises.includes(exercise?.identifier),
+			),
+		[exercise],
+	);
 
 	return (
-		<Paper withBorder p="xs" id={props.exerciseIdx.toString()}>
+		<Paper
+			p="xs"
+			withBorder
+			id={props.exerciseIdx.toString()}
+			style={{
+				borderLeftColor: isInSuperSet
+					? theme.colors[isInSuperSet.color][6]
+					: undefined,
+			}}
+		>
 			{exerciseDetails && workoutDetails && exercise ? (
 				<>
 					<Stack mb="xs" gap="xs" ref={parent}>
