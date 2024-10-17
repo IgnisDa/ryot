@@ -9,6 +9,7 @@ import {
 	Avatar,
 	Box,
 	Button,
+	ColorSwatch,
 	Container,
 	Divider,
 	Drawer,
@@ -22,6 +23,7 @@ import {
 	Progress,
 	RingProgress,
 	ScrollArea,
+	Select,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -126,6 +128,7 @@ import {
 	forceUpdateEverySecond,
 	useApplicationEvents,
 	useCoreDetails,
+	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -262,10 +265,9 @@ export default function Page() {
 			open: timerDrawerOpen,
 		},
 	] = useDisclosure(false);
-	const [
-		supersetModalOpened,
-		{ close: supersetModalClose, toggle: supersetModalToggle },
-	] = useDisclosure(false);
+	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
+		string | null
+	>(null);
 	const [
 		reorderDrawerOpened,
 		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
@@ -334,9 +336,9 @@ export default function Page() {
 								onClose={reorderDrawerClose}
 								key={currentWorkout.exercises.toString()}
 							/>
-							<SupersetExerciseModal
-								opened={supersetModalOpened}
-								onClose={supersetModalClose}
+							<DisplaySupersetModal
+								supersetWith={supersetWithExerciseIdentifier}
+								onClose={() => setSupersetModalOpened(null)}
 							/>
 							<Stack ref={parent}>
 								<TextInput
@@ -549,8 +551,8 @@ export default function Page() {
 										stopTimer={stopTimer}
 										startTimer={startTimer}
 										openTimerDrawer={timerDrawerOpen}
-										supersetModalToggle={supersetModalToggle}
 										reorderDrawerToggle={reorderDrawerToggle}
+										openSupersetModal={(s) => setSupersetModalOpened(s)}
 									/>
 								))}
 								<Group justify="center">
@@ -724,21 +726,70 @@ const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 	);
 };
 
-const SupersetExerciseModal = (props: {
-	opened: boolean;
+const DisplaySupersetModal = (props: {
 	onClose: () => void;
+	supersetWith: string | null;
 }) => {
-	const [currentWorkout] = useCurrentWorkout();
-
-	return currentWorkout ? (
+	return (
 		<Modal
-			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
+			opened={isString(props.supersetWith)}
 		>
-			<Stack>Hello world</Stack>
+			{props.supersetWith ? (
+				<SupersetModal supersetWith={props.supersetWith} />
+			) : null}
 		</Modal>
-	) : null;
+	);
+};
+
+const SupersetModal = (props: {
+	supersetWith: string;
+}) => {
+	const [currentWorkout] = useCurrentWorkout();
+	const [exercises, setExercisesHandle] = useListState<string>([
+		props.supersetWith,
+	]);
+	const colors = useGetMantineColors().filter((c) => c !== "dark");
+	const [selectedColor, setSelectedColor] = useState(colors[0]);
+
+	if (!currentWorkout) return null;
+
+	return (
+		<Stack gap="lg">
+			<Group>
+				<Text>Select color</Text>
+				<Select
+					size="xs"
+					value={selectedColor}
+					leftSectionWidth={rem(40)}
+					onChange={(v) => setSelectedColor(v ?? "")}
+					leftSection={<ColorSwatch color={selectedColor} size={20} />}
+					data={colors.map((c) => ({
+						value: c,
+						label: changeCase(c),
+					}))}
+				/>
+			</Group>
+			<Stack gap="xs">
+				{currentWorkout.exercises.map((ex) => (
+					<Button
+						size="xs"
+						fullWidth
+						key={ex.identifier}
+						color={selectedColor}
+						variant={exercises.includes(ex.identifier) ? "light" : "outline"}
+						onClick={() => {
+							setExercisesHandle.append(ex.identifier);
+						}}
+					>
+						{ex.exerciseId}
+					</Button>
+				))}
+			</Stack>
+			<Button>Create superset</Button>
+		</Stack>
+	);
 };
 
 type FuncStartTimer = (
@@ -766,7 +817,7 @@ const ExerciseDisplay = (props: {
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	reorderDrawerToggle: () => void;
-	supersetModalToggle: () => void;
+	openSupersetModal: (s: string) => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -978,8 +1029,8 @@ const ExerciseDisplay = (props: {
 								Add note
 							</Menu.Item>
 							<Menu.Item
-								onClick={props.supersetModalToggle}
 								leftSection={<IconLayersIntersect size={14} />}
+								onClick={() => props.openSupersetModal(exercise.identifier)}
 							>
 								Superset
 							</Menu.Item>
