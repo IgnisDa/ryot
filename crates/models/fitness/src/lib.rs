@@ -486,6 +486,7 @@ pub enum UserUnitSystem {
 pub struct WorkoutSupersetsInformation {
     /// A color that will be displayed on the frontend.
     pub color: String,
+    pub identifier: String,
     /// The identifier of all the exercises which are in the same superset
     pub exercises: Vec<String>,
 }

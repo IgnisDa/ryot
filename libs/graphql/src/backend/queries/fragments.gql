@@ -164,6 +164,7 @@ fragment WorkoutInformationPart on WorkoutInformation {
   supersets {
     color
     exercises
+    identifier
   }
   exercises {
     lot
