@@ -24,7 +24,6 @@ import {
 	ScrollArea,
 	SimpleGrid,
 	Stack,
-	Switch,
 	Text,
 	TextInput,
 	Textarea,
@@ -264,6 +263,10 @@ export default function Page() {
 		},
 	] = useDisclosure(false);
 	const [
+		supersetModalOpened,
+		{ close: supersetModalClose, toggle: supersetModalToggle },
+	] = useDisclosure(false);
+	const [
 		reorderDrawerOpened,
 		{ close: reorderDrawerClose, toggle: reorderDrawerToggle },
 	] = useDisclosure(false);
@@ -330,6 +333,10 @@ export default function Page() {
 								opened={reorderDrawerOpened}
 								onClose={reorderDrawerClose}
 								key={currentWorkout.exercises.toString()}
+							/>
+							<SupersetExerciseModal
+								opened={supersetModalOpened}
+								onClose={supersetModalClose}
 							/>
 							<Stack ref={parent}>
 								<TextInput
@@ -542,6 +549,7 @@ export default function Page() {
 										stopTimer={stopTimer}
 										startTimer={startTimer}
 										openTimerDrawer={timerDrawerOpen}
+										supersetModalToggle={supersetModalToggle}
 										reorderDrawerToggle={reorderDrawerToggle}
 									/>
 								))}
@@ -717,12 +725,10 @@ const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 };
 
 const SupersetExerciseModal = (props: {
-	exerciseIdx: number;
-	exerciseIdentifier: string;
 	opened: boolean;
 	onClose: () => void;
 }) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [currentWorkout] = useCurrentWorkout();
 
 	return currentWorkout ? (
 		<Modal
@@ -730,50 +736,7 @@ const SupersetExerciseModal = (props: {
 			onClose={props.onClose}
 			withCloseButton={false}
 		>
-			<Stack>
-				<Text size="lg">
-					Superset {currentWorkout.exercises[props.exerciseIdx].exerciseId}{" "}
-					with:
-				</Text>
-				{currentWorkout.exercises.map((e) => (
-					<Switch
-						key={e.identifier}
-						disabled={e.identifier === props.exerciseIdentifier}
-						onChange={(event) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									const otherExercise = draft.exercises.find(
-										(ex) => ex.identifier === e.identifier,
-									);
-									if (!otherExercise) return;
-									const supersetWith =
-										draft.exercises[props.exerciseIdx].supersetWith;
-									if (event.currentTarget.checked) {
-										supersetWith.push(e.identifier);
-										otherExercise.supersetWith.push(
-											currentWorkout.exercises[props.exerciseIdx].identifier,
-										);
-									} else {
-										draft.exercises[props.exerciseIdx].supersetWith =
-											supersetWith.filter((s) => s !== e.identifier);
-										otherExercise.supersetWith =
-											otherExercise.supersetWith.filter(
-												(s) =>
-													s !==
-													currentWorkout.exercises[props.exerciseIdx]
-														.identifier,
-											);
-									}
-								}),
-							);
-						}}
-						label={e.exerciseId}
-						defaultChecked={currentWorkout.exercises[
-							props.exerciseIdx
-						].supersetWith.includes(e.identifier)}
-					/>
-				))}
-			</Stack>
+			<Stack>Hello world</Stack>
 		</Modal>
 	) : null;
 };
@@ -803,6 +766,7 @@ const ExerciseDisplay = (props: {
 	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	reorderDrawerToggle: () => void;
+	supersetModalToggle: () => void;
 }) => {
 	const { isCreatingTemplate } = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -836,10 +800,6 @@ const ExerciseDisplay = (props: {
 		assetsModalOpened,
 		{ close: assetsModalClose, toggle: assetsModalToggle },
 	] = useDisclosure(false);
-	const [
-		supersetModalOpened,
-		{ close: supersetModalClose, toggle: supersetModalToggle },
-	] = useDisclosure(false);
 
 	const exerciseHistory = userExerciseDetails?.history;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
@@ -858,12 +818,6 @@ const ExerciseDisplay = (props: {
 
 	return (
 		<>
-			<SupersetExerciseModal
-				opened={supersetModalOpened}
-				onClose={supersetModalClose}
-				exerciseIdx={props.exerciseIdx}
-				exerciseIdentifier={exercise.identifier}
-			/>
 			<Modal
 				opened={assetsModalOpened}
 				onClose={assetsModalClose}
@@ -1024,13 +978,8 @@ const ExerciseDisplay = (props: {
 								Add note
 							</Menu.Item>
 							<Menu.Item
+								onClick={props.supersetModalToggle}
 								leftSection={<IconLayersIntersect size={14} />}
-								onClick={supersetModalToggle}
-								rightSection={
-									exercise.supersetWith.length > 0
-										? exercise.supersetWith.length
-										: "Off"
-								}
 							>
 								Superset
 							</Menu.Item>
