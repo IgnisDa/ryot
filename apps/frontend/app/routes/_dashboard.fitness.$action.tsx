@@ -57,6 +57,7 @@ import {
 	type ExerciseDetailsQuery,
 	ExerciseLot,
 	SetLot,
+	type UserExerciseDetailsQuery,
 	UserUnitSystem,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -789,8 +790,11 @@ const focusOnExercise = (idx: number) => {
 };
 
 const exerciseHasDetailsToShow = (
-	ex?: ExerciseDetailsQuery["exerciseDetails"],
-) => (ex?.attributes.images.length || 0) > 0;
+	details?: ExerciseDetailsQuery["exerciseDetails"],
+	userDetails?: UserExerciseDetailsQuery["userExerciseDetails"],
+) =>
+	(details?.attributes.images.length || 0) > 0 ||
+	(userDetails?.history?.length || 0) > 0;
 
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
@@ -1034,7 +1038,10 @@ const ExerciseDisplay = (props: {
 							>
 								Replace exercise
 							</Menu.Item>
-							{exerciseHasDetailsToShow(exerciseDetails) ? (
+							{exerciseHasDetailsToShow(
+								exerciseDetails,
+								userExerciseDetails,
+							) ? (
 								<Menu.Item
 									leftSection={<IconInfoCircle size={14} />}
 									onClick={() => {
@@ -1335,6 +1342,9 @@ const SetDisplay = (props: {
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise.exerciseId),
 	);
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(exercise.exerciseId),
+	);
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -1597,7 +1607,10 @@ const SetDisplay = (props: {
 														draft.exercises[nextSet.exerciseIdx];
 													const nextExerciseHasDetailsToShow =
 														nextExercise &&
-														exerciseHasDetailsToShow(exerciseDetails);
+														exerciseHasDetailsToShow(
+															exerciseDetails,
+															userExerciseDetails,
+														);
 													if (nextExerciseHasDetailsToShow)
 														nextExercise.isShowDetailsOpen = true;
 												}
