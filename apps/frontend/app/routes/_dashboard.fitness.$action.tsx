@@ -54,6 +54,7 @@ import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
+	type ExerciseDetailsQuery,
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
@@ -132,7 +133,7 @@ import {
 	type InProgressWorkout,
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
-	exerciseHasDetailsToShow,
+	getExerciseDetailsQuery,
 	getRestTimerForSet,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
@@ -787,6 +788,10 @@ const focusOnExercise = (idx: number) => {
 	}, 800);
 };
 
+const exerciseHasDetailsToShow = (
+	ex?: ExerciseDetailsQuery["exerciseDetails"],
+) => (ex?.attributes.images.length || 0) > 0;
+
 const ExerciseDisplay = (props: {
 	exerciseIdx: number;
 	stopTimer: () => void;
@@ -805,6 +810,9 @@ const ExerciseDisplay = (props: {
 	const coreDetails = useCoreDetails();
 	const fileUploadAllowed = coreDetails.fileStorageEnabled;
 	const [detailsParent] = useAutoAnimate();
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(exercise.exerciseId),
+	);
 	const { data: userExerciseDetails } = useQuery(
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);
@@ -1026,7 +1034,7 @@ const ExerciseDisplay = (props: {
 							>
 								Replace exercise
 							</Menu.Item>
-							{exerciseHasDetailsToShow(exercise) ? (
+							{exerciseHasDetailsToShow(exerciseDetails) ? (
 								<Menu.Item
 									leftSection={<IconInfoCircle size={14} />}
 									onClick={() => {
@@ -1076,7 +1084,7 @@ const ExerciseDisplay = (props: {
 									.with("images", undefined, () => (
 										<ScrollArea type="scroll">
 											<Group wrap="nowrap">
-												{exercise.exerciseDetails.images.map((i) => (
+												{exerciseDetails?.attributes.images.map((i) => (
 													<Image key={i} radius="md" src={i} h={200} w={350} />
 												))}
 											</Group>
@@ -1320,9 +1328,13 @@ const SetDisplay = (props: {
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
+	invariant(exercise);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(exercise.exerciseId),
+	);
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -1585,7 +1597,7 @@ const SetDisplay = (props: {
 														draft.exercises[nextSet.exerciseIdx];
 													const nextExerciseHasDetailsToShow =
 														nextExercise &&
-														exerciseHasDetailsToShow(nextExercise);
+														exerciseHasDetailsToShow(exerciseDetails);
 													if (nextExerciseHasDetailsToShow)
 														nextExercise.isShowDetailsOpen = true;
 												}
@@ -1704,7 +1716,6 @@ const DisplaySetRestTimer = (props: {
 
 	return (
 		<Progress
-			size="lg"
 			onClick={props.onClick}
 			transitionDuration={300}
 			style={{ cursor: "pointer" }}

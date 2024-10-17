@@ -56,7 +56,6 @@ export type Exercise = {
 	supersetWith: Array<string>;
 	isShowDetailsOpen: boolean;
 	openedDetailsTab?: "images" | "history";
-	exerciseDetails: { images: Array<string> };
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
 
@@ -235,9 +234,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 	return input;
 };
 
-export const exerciseHasDetailsToShow = (exercise: Exercise) =>
-	exercise.exerciseDetails.images.length > 0;
-
 export type CurrentWorkoutTimer = {
 	totalTime: number;
 	endAt: string;
@@ -285,7 +281,6 @@ export const duplicateOldWorkout = async (
 		inProgress.exercises.push({
 			identifier: randomUUID(),
 			isShowDetailsOpen: exerciseIdx === 0,
-			exerciseDetails: { images: exerciseDetails.details.attributes.images },
 			images: [],
 			videos: [],
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
@@ -374,9 +369,6 @@ export const addExerciseToWorkout = async (
 			identifier: randomUUID(),
 			isShowDetailsOpen: true,
 			exerciseId: ex.name,
-			exerciseDetails: {
-				images: exerciseDetails.details.attributes.images,
-			},
 			lot: ex.lot,
 			sets,
 			supersetWith: [],
