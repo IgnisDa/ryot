@@ -15,6 +15,7 @@ SET "preferences" = jsonb_set(
     '{fitness,exercises,set_rest_timers}',
     jsonb_build_object('normal', 60)
 );
+DELETE FROM "daily_user_activity";
 ALTER TABLE "workout_template" DROP COLUMN IF EXISTS "default_rest_timer";
         "#,
         )
