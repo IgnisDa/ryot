@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Enum, InputObject, Result as GraphqlResult, SimpleObject};
 use async_trait::async_trait;
-use common_models::{SearchInput, StoredUrl};
+use common_models::{SearchInput, StoredUrl, UpdateComplexJsonInput};
 use derive_more::{Add, AddAssign, Sum};
+use educe::Educe;
 use enums::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
 };
@@ -310,6 +311,7 @@ pub struct WorkoutSetTotals {
 pub struct WorkoutSetRecord {
     pub lot: SetLot,
     pub note: Option<String>,
+    pub rest_time: Option<u16>,
     pub actual_rest_time: Option<i64>,
     pub statistic: WorkoutSetStatistic,
     pub totals: Option<WorkoutSetTotals>,
@@ -369,12 +371,33 @@ pub struct UserToExerciseBestSetExtraInformation {
     pub sets: Vec<ExerciseBestSetRecord>,
 }
 
+#[skip_serializing_none]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Educe,
+)]
+#[educe(Default)]
+pub struct SetRestTimersSettings {
+    pub drop: Option<u16>,
+    pub warmup: Option<u16>,
+    #[educe(Default = Some(60))]
+    pub normal: Option<u16>,
+    pub failure: Option<u16>,
+}
+
+#[derive(
+    Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
+)]
+pub struct UserToExerciseSettingsExtraInformation {
+    pub set_rest_timers: SetRestTimersSettings,
+}
+
 #[derive(
     Debug, Clone, Serialize, Deserialize, FromJsonQueryResult, Eq, PartialEq, SimpleObject, Default,
 )]
 pub struct UserToExerciseExtraInformation {
-    pub history: Vec<UserToExerciseHistoryExtraInformation>,
     pub lifetime_stats: WorkoutOrExerciseTotals,
+    pub settings: UserToExerciseSettingsExtraInformation,
+    pub history: Vec<UserToExerciseHistoryExtraInformation>,
     pub personal_bests: Vec<UserToExerciseBestSetExtraInformation>,
 }
 
@@ -419,9 +442,6 @@ pub struct ProcessedExercise {
     pub name: String,
     pub lot: ExerciseLot,
     pub notes: Vec<String>,
-    pub rest_time: Option<u16>,
-    /// The indices of the exercises with which this has been superset with.
-    pub superset_with: Vec<u16>,
     pub sets: Vec<WorkoutSetRecord>,
     pub assets: Option<EntityAssets>,
     pub total: Option<WorkoutOrExerciseTotals>,
@@ -446,6 +466,29 @@ pub enum UserUnitSystem {
     Imperial,
 }
 
+#[skip_serializing_none]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    FromJsonQueryResult,
+    Eq,
+    PartialEq,
+    SimpleObject,
+    Schematic,
+    Default,
+    InputObject,
+)]
+#[serde(rename_all = "snake_case")]
+#[graphql(input_name = "WorkoutSupersetsInformationInput")]
+pub struct WorkoutSupersetsInformation {
+    /// A color that will be displayed on the frontend.
+    pub color: String,
+    /// The identifier of all the exercises which are in the same superset
+    pub exercises: Vec<u16>,
+}
+
 /// Information about a workout done.
 #[skip_serializing_none]
 #[derive(
@@ -465,6 +508,7 @@ pub struct WorkoutInformation {
     pub comment: Option<String>,
     pub assets: Option<EntityAssets>,
     pub exercises: Vec<ProcessedExercise>,
+    pub supersets: Vec<WorkoutSupersetsInformation>,
 }
 
 /// The summary about an exercise done in a workout.
@@ -481,7 +525,7 @@ pub struct WorkoutInformation {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct WorkoutSummaryExercise {
-    pub id: String,
+    pub name: String,
     pub num_sets: usize,
     pub lot: Option<ExerciseLot>,
     pub best_set: Option<WorkoutSetRecord>,
@@ -516,18 +560,17 @@ pub struct UserMeasurementsListInput {
 pub struct UserWorkoutSetRecord {
     pub lot: SetLot,
     pub note: Option<String>,
+    pub rest_time: Option<u16>,
     pub statistic: WorkoutSetStatistic,
     pub confirmed_at: Option<DateTimeUtc>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserExerciseInput {
-    pub exercise_id: String,
-    pub sets: Vec<UserWorkoutSetRecord>,
     pub notes: Vec<String>,
-    pub rest_time: Option<u16>,
+    pub exercise_id: String,
     pub assets: Option<EntityAssets>,
-    pub superset_with: Vec<u16>,
+    pub sets: Vec<UserWorkoutSetRecord>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
@@ -539,13 +582,13 @@ pub struct UserWorkoutInput {
     pub template_id: Option<String>,
     pub assets: Option<EntityAssets>,
     pub repeated_from: Option<String>,
-    pub default_rest_timer: Option<i32>,
     // If specified, the workout will be created with this ID.
     #[graphql(skip_input)]
     pub create_workout_id: Option<String>,
     pub exercises: Vec<UserExerciseInput>,
     pub update_workout_id: Option<String>,
     pub update_workout_template_id: Option<String>,
+    pub supersets: Vec<WorkoutSupersetsInformation>,
 }
 
 impl UserWorkoutSetRecord {
@@ -625,8 +668,14 @@ pub struct ExerciseFilters {
     pub muscle: Vec<ExerciseMuscle>,
 }
 
+#[derive(Debug, InputObject)]
+pub struct UpdateUserExerciseSettings {
+    pub exercise_id: String,
+    pub change: UpdateComplexJsonInput,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
-pub struct UpdateUserWorkoutInput {
+pub struct UpdateUserWorkoutAttributesInput {
     pub id: String,
     pub start_time: Option<DateTimeUtc>,
     pub end_time: Option<DateTimeUtc>,

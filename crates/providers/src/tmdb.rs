@@ -19,7 +19,7 @@ use enums::{MediaLot, MediaSource};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
-    ExternalIdentifiers, MediaDetails, MetadataGroupSearchItem, MetadataImage,
+    ExternalIdentifiers, MetadataDetails, MetadataGroupSearchItem, MetadataImage,
     MetadataImageForMediaDetails, MetadataPerson, MetadataPersonRelated, MetadataSearchItem,
     MetadataVideo, MetadataVideoSource, MovieSpecifics, PartialMetadataPerson,
     PartialMetadataWithoutId, PeopleSearchItem, PersonSourceSpecifics, ShowEpisode, ShowSeason,
@@ -694,7 +694,7 @@ impl MediaProvider for TmdbMovieService {
         })
     }
 
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .base
             .client
@@ -799,7 +799,7 @@ impl MediaProvider for TmdbMovieService {
             .base
             .get_external_identifiers("movie", identifier)
             .await?;
-        Ok(MediaDetails {
+        Ok(MetadataDetails {
             identifier: data.id.to_string(),
             is_nsfw: data.adult,
             original_language: self.base.get_language_name(data.original_language),
@@ -1002,7 +1002,7 @@ impl TmdbShowService {
 
 #[async_trait]
 impl MediaProvider for TmdbShowService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .base
             .client
@@ -1164,7 +1164,7 @@ impl MediaProvider for TmdbShowService {
             .count();
         let watch_providers = self.base.get_all_watch_providers("tv", identifier).await?;
         let external_identifiers = self.base.get_external_identifiers("tv", identifier).await?;
-        Ok(MediaDetails {
+        Ok(MetadataDetails {
             identifier: show_data.id.to_string(),
             title: show_data.name.unwrap(),
             is_nsfw: show_data.adult,

@@ -1,5 +1,5 @@
-query WorkoutDetails($workoutId: String!) {
-  workoutDetails(workoutId: $workoutId) {
+query UserWorkoutDetails($workoutId: String!) {
+  userWorkoutDetails(workoutId: $workoutId) {
     collections {
       ...CollectionPart
     }

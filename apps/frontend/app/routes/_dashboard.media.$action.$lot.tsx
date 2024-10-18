@@ -27,6 +27,7 @@ import {
 import {
 	EntityLot,
 	GraphqlSortOrder,
+	GridPacking,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -445,6 +446,8 @@ const MediaSearchItem = (props: {
 }) => {
 	const navigate = useNavigate();
 	const userDetails = useUserDetails();
+	const userPreferences = useUserPreferences();
+	const gridPacking = userPreferences.general.gridPacking;
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
@@ -467,6 +470,8 @@ const MediaSearchItem = (props: {
 		return response;
 	};
 
+	const buttonSize =
+		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 	return (
 		<Box>
 			<BaseMediaDisplayItem
@@ -518,9 +523,9 @@ const MediaSearchItem = (props: {
 			/>
 			<Box px={4}>
 				<Button
-					variant="outline"
 					w="100%"
-					size="compact-md"
+					variant="outline"
+					size={buttonSize}
 					onClick={async () => {
 						const metadataId = await basicCommit();
 						setMetadataToUpdate({ metadataId });
@@ -529,10 +534,10 @@ const MediaSearchItem = (props: {
 					Mark as {getVerb(Verb.Read, props.lot)}
 				</Button>
 				<Button
+					w="100%"
 					mt="xs"
 					variant="outline"
-					w="100%"
-					size="compact-md"
+					size={buttonSize}
 					onClick={async () => {
 						setIsLoading(true);
 						const id = await basicCommit();
@@ -554,7 +559,7 @@ const MediaSearchItem = (props: {
 						revalidator.revalidate();
 					}}
 				>
-					Add to Watchlist
+					Add to watchlist
 				</Button>
 			</Box>
 		</Box>

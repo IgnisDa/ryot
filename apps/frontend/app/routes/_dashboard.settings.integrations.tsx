@@ -50,7 +50,11 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { commaDelimitedString, dayjsLib } from "~/lib/generals";
+import {
+	applicationBaseUrl,
+	commaDelimitedString,
+	dayjsLib,
+} from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -226,7 +230,7 @@ export default function Page() {
 						<Form
 							replace
 							method="POST"
-							action={withQuery("", { intent: "generateAuthToken" })}
+							action={withQuery(".", { intent: "generateAuthToken" })}
 						>
 							<Button
 								variant="light"
@@ -302,10 +306,7 @@ const DisplayIntegration = (props: {
 		useDisclosure(false);
 	const submit = useConfirmSubmit();
 
-	const integrationUrl =
-		typeof window !== "undefined"
-			? `${window.location.origin}/_i/${props.integration.id}`
-			: "";
+	const integrationUrl = `${applicationBaseUrl}/_i/${props.integration.id}`;
 
 	return (
 		<Paper p="xs" withBorder>
@@ -348,7 +349,7 @@ const DisplayIntegration = (props: {
 						>
 							<IconPencil />
 						</ActionIcon>
-						<Form method="POST" action={withQuery("", { intent: "delete" })}>
+						<Form method="POST" action={withQuery(".", { intent: "delete" })}>
 							<input
 								type="hidden"
 								name="integrationId"
@@ -404,7 +405,7 @@ const CreateIntegrationModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => props.closeIntegrationModal()}
-				action={withQuery("", { intent: "create" })}
+				action={withQuery(".", { intent: "create" })}
 			>
 				<Stack>
 					<Select
@@ -573,7 +574,7 @@ const UpdateIntegrationModal = (props: {
 					replace
 					method="POST"
 					onSubmit={() => props.closeIntegrationModal()}
-					action={withQuery("", { intent: "update" })}
+					action={withQuery(".", { intent: "update" })}
 				>
 					<input
 						type="hidden"

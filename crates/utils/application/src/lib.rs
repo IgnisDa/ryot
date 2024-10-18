@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use async_graphql::{Error, Result};
 use async_trait::async_trait;
@@ -74,6 +74,7 @@ pub fn get_base_http_client(headers: Option<Vec<(HeaderName, HeaderValue)>>) -> 
     }
     ClientBuilder::new()
         .default_headers(req_headers)
+        .timeout(Duration::from_secs(15))
         .build()
         .unwrap()
 }

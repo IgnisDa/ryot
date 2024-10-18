@@ -48,7 +48,12 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { dayjsLib, queryClient, queryFactory } from "~/lib/generals";
+import {
+	applicationBaseUrl,
+	dayjsLib,
+	queryClient,
+	queryFactory,
+} from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -274,8 +279,7 @@ export default function Page() {
 													<Text>Make my account public</Text>
 													<Text size="xs" c="dimmed">
 														Anyone would be able to view your profile by
-														visiting {window.location.origin}/u/
-														{userDetails.name}
+														visiting {applicationBaseUrl}/u/{userDetails.name}
 													</Text>
 												</Box>
 												<Button
@@ -336,14 +340,11 @@ const DisplayAccessLink = (props: {
 	const [inputOpened, { toggle: inputToggle }] = useDisclosure(false);
 	const submit = useConfirmSubmit();
 
-	const accessLinkUrl =
-		typeof window !== "undefined"
-			? `${window.location.origin}/${
-					props.accessLink.isAccountDefault
-						? `u/${userDetails.name}`
-						: `_s/${props.accessLink.id}`
-				}`
-			: "";
+	const accessLinkUrl = `${applicationBaseUrl}/${
+		props.accessLink.isAccountDefault
+			? `u/${userDetails.name}`
+			: `_s/${props.accessLink.id}`
+	}`;
 
 	const optionalDetails = [
 		props.accessLink.expiresOn
@@ -380,7 +381,7 @@ const DisplayAccessLink = (props: {
 								</ActionIcon>
 								<Form
 									method="POST"
-									action={withQuery("", { intent: "revokeAccessLink" })}
+									action={withQuery(".", { intent: "revokeAccessLink" })}
 								>
 									<input
 										type="hidden"
@@ -457,7 +458,7 @@ const CreateAccessLinkModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => props.closeModal()}
-				action={withQuery("", { intent: "createAccessLink" })}
+				action={withQuery(".", { intent: "createAccessLink" })}
 			>
 				<Stack>
 					<Title order={3}>Create new access link</Title>
@@ -487,12 +488,12 @@ const CreateAccessLinkModal = (props: {
 					<TextInput
 						name="redirectTo"
 						label="Redirect to"
-						description="Users will be redirected to this URL after accessing the URL"
+						description="Users will be redirected to this URL when they use the link"
 					/>
 					<Checkbox
 						label="Allow mutation"
 						name="isMutationAllowed"
-						description="Users will be able to change your data if this is checked"
+						description="Allow users to able to change your data?"
 					/>
 					<Button type="submit">Submit</Button>
 				</Stack>

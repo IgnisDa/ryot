@@ -210,8 +210,8 @@ export default function Page() {
 					<Tabs.Panel value="import">
 						<Form
 							method="POST"
-							action={withQuery("", { intent: "deployImport" })}
 							encType="multipart/form-data"
+							action={withQuery(".", { intent: "deployImport" })}
 							onSubmit={() => {
 								if (deployImportSource) events.deployImport(deployImportSource);
 							}}

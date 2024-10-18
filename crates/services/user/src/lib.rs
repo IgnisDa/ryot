@@ -4,7 +4,7 @@ use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::{Timelike, Utc};
-use common_models::{DefaultCollection, StringIdObject};
+use common_models::{DefaultCollection, StringIdObject, UpdateComplexJsonInput};
 use common_utils::ryot_log;
 use database_models::{
     access_link, integration, metadata, notification_platform,
@@ -29,8 +29,7 @@ use media_models::{
     ProcessAccessLinkErrorVariant, ProcessAccessLinkInput, ProcessAccessLinkResponse,
     ProcessAccessLinkResult, RegisterError, RegisterErrorVariant, RegisterResult,
     RegisterUserInput, UpdateUserInput, UpdateUserIntegrationInput,
-    UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput, UserDetailsError,
-    UserDetailsErrorVariant,
+    UpdateUserNotificationPlatformInput, UserDetailsError, UserDetailsErrorVariant,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -46,8 +45,8 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 use user_models::{
-    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserGeneralDashboardElement,
-    UserGeneralPreferences, UserPreferences, UserReviewScale,
+    DashboardElementLot, GridPacking, NotificationPlatformSpecifics, UserPreferences,
+    UserReviewScale,
 };
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -405,7 +404,7 @@ impl UserService {
     pub async fn update_user_preference(
         &self,
         user_id: String,
-        input: UpdateUserPreferenceInput,
+        input: UpdateComplexJsonInput,
     ) -> Result<bool> {
         let err = || Error::new("Incorrect property value encountered");
         let user_model = user_by_id(&self.0.db, &user_id).await?;
@@ -425,13 +424,13 @@ impl UserService {
                                 let (left, right) = right.split_once('.').ok_or_else(err)?;
                                 match left {
                                     "custom" => {
-                                        let value = serde_json::from_str(&input.value).unwrap();
-                                        preferences.fitness.measurements.custom = value;
+                                        preferences.fitness.measurements.custom =
+                                            serde_json::from_str(&input.value).unwrap()
                                     }
                                     "inbuilt" => match right {
                                         "weight" => {
                                             preferences.fitness.measurements.inbuilt.weight =
-                                                value_bool.unwrap();
+                                                value_bool.unwrap()
                                         }
                                         "body_mass_index" => {
                                             preferences
@@ -578,12 +577,29 @@ impl UserService {
                                     _ => return Err(err()),
                                 }
                             }
-                            "exercises" => match right {
-                                "unit_system" => {
-                                    preferences.fitness.exercises.unit_system =
-                                        UserUnitSystem::from_str(&input.value).unwrap();
-                                }
-                                _ => return Err(err()),
+                            "exercises" => match right.split_once('.') {
+                                Some((left, right)) => match left {
+                                    "set_rest_timers" => {
+                                        let value = input.value.parse().ok();
+                                        let set_rest_timers =
+                                            &mut preferences.fitness.exercises.set_rest_timers;
+                                        match right {
+                                            "drop" => set_rest_timers.drop = value,
+                                            "normal" => set_rest_timers.normal = value,
+                                            "warmup" => set_rest_timers.warmup = value,
+                                            "failure" => set_rest_timers.failure = value,
+                                            _ => return Err(err()),
+                                        }
+                                    }
+                                    _ => return Err(err()),
+                                },
+                                None => match right {
+                                    "unit_system" => {
+                                        preferences.fitness.exercises.unit_system =
+                                            UserUnitSystem::from_str(&input.value).unwrap();
+                                    }
+                                    _ => return Err(err()),
+                                },
                             },
                             _ => return Err(err()),
                         }
@@ -704,15 +720,8 @@ impl UserService {
                             preferences.general.display_nsfw = value_bool.unwrap();
                         }
                         "dashboard" => {
-                            let value = serde_json::from_str::<Vec<UserGeneralDashboardElement>>(
-                                &input.value,
-                            )
-                            .unwrap();
-                            let default_general_preferences = UserGeneralPreferences::default();
-                            if value.len() != default_general_preferences.dashboard.len() {
-                                return Err(err());
-                            }
-                            preferences.general.dashboard = value;
+                            preferences.general.dashboard =
+                                serde_json::from_str(&input.value).unwrap();
                         }
                         "disable_integrations" => {
                             preferences.general.disable_integrations = value_bool.unwrap();

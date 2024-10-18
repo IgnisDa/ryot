@@ -80,15 +80,16 @@ pub async fn import(
         }
         sets.push(UserWorkoutSetRecord {
             statistic: WorkoutSetStatistic {
-                duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
-                distance: entry.distance,
-                reps: entry.reps,
                 weight,
+                reps: entry.reps,
+                distance: entry.distance,
+                duration: entry.seconds.and_then(|r| r.checked_div(dec!(60))),
                 ..Default::default()
             },
             note: None,
-            lot: SetLot::Normal,
+            rest_time: None,
             confirmed_at: None,
+            lot: SetLot::Normal,
         });
         if let Some(n) = entry.notes {
             notes.push(n);
@@ -98,8 +99,6 @@ pub async fn import(
                 sets,
                 notes,
                 assets: None,
-                rest_time: None,
-                superset_with: vec![],
                 exercise_id: target_exercise.target_name.clone(),
             });
             sets = vec![];
@@ -125,9 +124,9 @@ pub async fn import(
                 exercises,
                 assets: None,
                 start_time: ndt,
+                supersets: vec![],
                 template_id: None,
                 repeated_from: None,
-                default_rest_timer: None,
                 create_workout_id: None,
                 update_workout_id: None,
                 name: entry.workout_name,

@@ -7,7 +7,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MediaDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
+    MetadataDetails, MetadataImageForMediaDetails, MetadataPerson, MetadataSearchItem,
     PartialMetadataPerson, PeopleSearchItem, PersonSourceSpecifics, VisualNovelSpecifics,
 };
 use reqwest::Client;
@@ -164,7 +164,7 @@ impl MediaProvider for VndbService {
         })
     }
 
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
             .post(format!("{}/vn", URL))
@@ -208,7 +208,7 @@ impl MediaProvider for VndbService {
             .unwrap_or_default()
             .into_iter()
             .map(|b| {
-                let MediaDetails {
+                let MetadataDetails {
                     identifier,
                     title,
                     url_images,
@@ -236,7 +236,7 @@ impl MediaProvider for VndbService {
 }
 
 impl VndbService {
-    fn vndb_response_to_search_response(&self, item: ItemResponse) -> MediaDetails {
+    fn vndb_response_to_search_response(&self, item: ItemResponse) -> MetadataDetails {
         let mut images = vec![];
         if let Some(il) = item.image {
             images.push(il.url);
@@ -266,7 +266,7 @@ impl VndbService {
             .into_iter()
             .map(|t| t.name)
             .collect_vec();
-        MediaDetails {
+        MetadataDetails {
             identifier: item.id,
             lot: MediaLot::VisualNovel,
             source: MediaSource::Vndb,

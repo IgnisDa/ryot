@@ -38,19 +38,24 @@ import {
 	ExerciseSortBy,
 	ExercisesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { snakeCase, startCase } from "@ryot/ts-utils";
+import { isNumber, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
 	IconCheck,
 	IconFilter,
 	IconPlus,
 } from "@tabler/icons-react";
+import { produce } from "immer";
 import { $path } from "remix-routes";
 import { z } from "zod";
 import { zx } from "zodix";
 import { DebouncedSearchInput, FiltersModal } from "~/components/common";
 import { dayjsLib, pageQueryParam } from "~/lib/generals";
-import { useAppSearchParam, useUserCollections } from "~/lib/hooks";
+import {
+	useAppSearchParam,
+	useUserCollections,
+	useUserPreferences,
+} from "~/lib/hooks";
 import { addExerciseToWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import {
 	getCachedExerciseParameters,
@@ -138,6 +143,8 @@ export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const navigate = useNavigate();
+	const userPreferences = useUserPreferences();
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [selectedExercises, setSelectedExercises] = useListState<{
 		name: string;
@@ -148,14 +155,17 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-
 	const isFilterChanged = Object.keys(defaultFiltersValue)
 		.filter((k) => k !== pageQueryParam && k !== "query")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
 			(k) => (loaderData.query as any)[k] !== (defaultFiltersValue as any)[k],
 		);
+
+	const allowAddingExerciseToWorkout =
+		currentWorkout &&
+		loaderData.workoutInProgress &&
+		!isNumber(currentWorkout.replacingExerciseIdx);
 
 	return (
 		<Container size="md">
@@ -212,7 +222,7 @@ export default function Page() {
 										{loaderData.exercisesList.details.total}
 									</Text>{" "}
 									items found
-									{currentWorkout ? (
+									{allowAddingExerciseToWorkout ? (
 										<>
 											{" "}
 											and{" "}
@@ -231,7 +241,7 @@ export default function Page() {
 											align="center"
 											data-exercise-id={exercise.id}
 										>
-											{currentWorkout ? (
+											{allowAddingExerciseToWorkout ? (
 												<Checkbox
 													onChange={(e) => {
 														if (e.currentTarget.checked)
@@ -247,25 +257,44 @@ export default function Page() {
 												/>
 											) : null}
 											<Indicator
-												disabled={!exercise.numTimesInteracted}
-												label={exercise.numTimesInteracted ?? ""}
-												position="top-start"
 												size={16}
 												offset={8}
 												color="grape"
+												position="top-start"
+												disabled={!exercise.numTimesInteracted}
+												label={exercise.numTimesInteracted ?? ""}
 											>
 												<Avatar
-													imageProps={{ loading: "lazy" }}
-													src={exercise.image}
-													radius="xl"
 													size="lg"
+													radius="xl"
+													src={exercise.image}
+													imageProps={{ loading: "lazy" }}
 												/>
 											</Indicator>
 											<Link
+												onClick={(e) => {
+													if (allowAddingExerciseToWorkout) return;
+													e.preventDefault();
+													if (currentWorkout) {
+														setCurrentWorkout(
+															produce(currentWorkout, (draft) => {
+																if (
+																	!isNumber(currentWorkout.replacingExerciseIdx)
+																)
+																	return;
+																draft.exercises[
+																	currentWorkout.replacingExerciseIdx
+																].exerciseId = exercise.id;
+																draft.replacingExerciseIdx = undefined;
+															}),
+														);
+														navigate(-1);
+													}
+												}}
+												style={{ all: "unset", cursor: "pointer" }}
 												to={$path("/fitness/exercises/item/:id", {
 													id: encodeURIComponent(exercise.id),
 												})}
-												style={{ all: "unset", cursor: "pointer" }}
 											>
 												<Flex direction="column" justify="space-around">
 													<Text>{exercise.id}</Text>
@@ -304,7 +333,7 @@ export default function Page() {
 					</>
 				)}
 			</Stack>
-			{currentWorkout && loaderData.workoutInProgress ? (
+			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>
 					<ActionIcon
 						color="blue"
@@ -314,10 +343,11 @@ export default function Page() {
 						disabled={selectedExercises.length === 0}
 						onClick={async () => {
 							await addExerciseToWorkout(
+								navigate,
 								currentWorkout,
+								userPreferences.fitness.exercises.setRestTimers,
 								setCurrentWorkout,
 								selectedExercises,
-								navigate,
 							);
 						}}
 					>

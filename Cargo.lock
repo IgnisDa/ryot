@@ -1325,6 +1325,7 @@ name = "common-models"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "educe 0.6.0",
  "enum_meta",
  "enums",
  "rust_decimal",
@@ -2346,6 +2347,7 @@ dependencies = [
  "async-trait",
  "common-models",
  "derive_more 1.0.0",
+ "educe 0.6.0",
  "enums",
  "file-storage-service",
  "rust_decimal",
@@ -2375,7 +2377,6 @@ dependencies = [
 name = "fitness-service"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "apalis",
  "application-utils",
  "async-graphql",
@@ -4632,6 +4633,7 @@ dependencies = [
  "convert_case",
  "database-models",
  "dependent-models",
+ "educe 0.6.0",
  "enums",
  "graphql_client",
  "hashbag",
@@ -7048,6 +7050,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "educe 0.6.0",
  "enums",
  "fitness-models",
  "sea-orm",

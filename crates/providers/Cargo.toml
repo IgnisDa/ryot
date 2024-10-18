@@ -16,6 +16,7 @@ const-str = { workspace = true }
 convert_case = { workspace = true }
 database-models = { path = "../models/database" }
 dependent-models = { path = "../models/dependent" }
+educe = { workspace = true }
 enums = { path = "../enums" }
 graphql_client = "=0.14.0"
 hashbag = { workspace = true }

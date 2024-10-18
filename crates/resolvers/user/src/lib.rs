@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
-use common_models::StringIdObject;
+use common_models::{StringIdObject, UpdateComplexJsonInput};
 use database_models::{access_link, integration, notification_platform, user};
 use dependent_models::UserDetailsResult;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput, UpdateUserInput,
-    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput, UpdateUserPreferenceInput,
+    UpdateUserIntegrationInput, UpdateUserNotificationPlatformInput,
 };
 use traits::AuthProvider;
 use user_models::UserPreferences;
@@ -181,7 +181,7 @@ impl UserMutation {
     async fn update_user_preference(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserPreferenceInput,
+        input: UpdateComplexJsonInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
