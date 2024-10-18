@@ -292,12 +292,13 @@ pub async fn create_partial_metadata(
             }]
         });
         let c = metadata::ActiveModel {
-            title: ActiveValue::Set(data.title),
-            identifier: ActiveValue::Set(data.identifier),
-            lot: ActiveValue::Set(data.lot),
-            source: ActiveValue::Set(data.source),
             images: ActiveValue::Set(image),
+            lot: ActiveValue::Set(data.lot),
+            title: ActiveValue::Set(data.title),
+            source: ActiveValue::Set(data.source),
             is_partial: ActiveValue::Set(Some(true)),
+            identifier: ActiveValue::Set(data.identifier),
+            is_recommendation: ActiveValue::Set(Some(true)),
             ..Default::default()
         };
         c.insert(db).await?
