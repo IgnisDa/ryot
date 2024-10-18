@@ -9,7 +9,6 @@ import {
 	Avatar,
 	Box,
 	Button,
-	ColorSwatch,
 	Container,
 	Divider,
 	Drawer,
@@ -781,7 +780,6 @@ const SupersetModal = (props: {
 					value={selectedColor}
 					leftSectionWidth={rem(40)}
 					onChange={(v) => setSelectedColor(v ?? "")}
-					leftSection={<ColorSwatch color={selectedColor} size={20} />}
 					data={allowedColors.map((c) => ({
 						value: c,
 						label: changeCase(c),
