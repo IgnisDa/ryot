@@ -288,7 +288,7 @@ export interface WorkoutSupersetsInformation {
 	/** A color that will be displayed on the frontend. */
 	color: string;
 	/** The identifier of all the exercises which are in the same superset */
-	exercises: string[];
+	exercises: number[];
 	identifier: string;
 }
 

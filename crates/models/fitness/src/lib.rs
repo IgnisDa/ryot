@@ -488,7 +488,7 @@ pub struct WorkoutSupersetsInformation {
     pub color: String,
     pub identifier: String,
     /// The identifier of all the exercises which are in the same superset
-    pub exercises: Vec<String>,
+    pub exercises: Vec<u16>,
 }
 
 /// Information about a workout done.
