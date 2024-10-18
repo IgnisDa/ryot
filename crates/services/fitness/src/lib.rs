@@ -123,7 +123,6 @@ impl ExerciseService {
                 total: None,
                 assets: None,
                 lot: db_ex.lot,
-                identifier: exercise.identifier,
                 sets: exercise
                     .sets
                     .into_iter()

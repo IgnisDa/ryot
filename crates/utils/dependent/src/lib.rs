@@ -1767,7 +1767,6 @@ pub async fn create_or_update_workout(
                 total: Some(totals),
                 notes: ex.notes.clone(),
                 assets: ex.assets.clone(),
-                identifier: ex.identifier.clone(),
             },
         ));
     }
@@ -2157,7 +2156,6 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
             .exercises
             .into_iter()
             .map(|e| UserExerciseInput {
-                identifier: e.identifier,
                 exercise_id: e.name,
                 sets: e
                     .sets

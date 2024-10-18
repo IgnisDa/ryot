@@ -275,7 +275,6 @@ export interface WorkoutOrExerciseTotals {
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
 	assets: EntityAssets | null;
-	identifier: string;
 	/** @type {'duration' | 'distance_and_duration' | 'reps' | 'reps_and_weight'} */
 	lot: ExerciseLot;
 	name: string;
@@ -289,7 +288,6 @@ export interface WorkoutSupersetsInformation {
 	color: string;
 	/** The identifier of all the exercises which are in the same superset */
 	exercises: number[];
-	identifier: string;
 }
 
 /** Information about a workout done. */

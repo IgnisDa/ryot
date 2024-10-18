@@ -41,7 +41,6 @@ specific-models = { path = "../../models/specific" }
 supporting-service = { path = "../supporting" }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
-uuid = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

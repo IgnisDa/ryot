@@ -441,7 +441,6 @@ pub struct EntityAssets {
 pub struct ProcessedExercise {
     pub name: String,
     pub lot: ExerciseLot,
-    pub identifier: String,
     pub notes: Vec<String>,
     pub sets: Vec<WorkoutSetRecord>,
     pub assets: Option<EntityAssets>,
@@ -486,7 +485,6 @@ pub enum UserUnitSystem {
 pub struct WorkoutSupersetsInformation {
     /// A color that will be displayed on the frontend.
     pub color: String,
-    pub identifier: String,
     /// The identifier of all the exercises which are in the same superset
     pub exercises: Vec<u16>,
 }
@@ -569,7 +567,6 @@ pub struct UserWorkoutSetRecord {
 
 #[derive(Clone, Debug, Deserialize, Serialize, InputObject)]
 pub struct UserExerciseInput {
-    pub identifier: String,
     pub notes: Vec<String>,
     pub exercise_id: String,
     pub assets: Option<EntityAssets>,

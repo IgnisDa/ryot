@@ -13,7 +13,6 @@ use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use super::utils;
 
@@ -100,7 +99,6 @@ pub async fn import(
                 sets,
                 notes,
                 assets: None,
-                identifier: Uuid::new_v4().to_string(),
                 exercise_id: target_exercise.target_name.clone(),
             });
             sets = vec![];
