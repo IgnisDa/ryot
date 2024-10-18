@@ -61,6 +61,7 @@ export type Exercise = {
 };
 
 export type Superset = Omit<WorkoutSupersetsInformation, "exercises"> & {
+	identifier: string;
 	exercises: Array<string>;
 };
 
@@ -300,6 +301,7 @@ export const duplicateOldWorkout = async (
 	}
 	const supersets = workoutInformation.supersets.map((sup) => ({
 		...sup,
+		identifier: randomUUID(),
 		exercises: sup.exercises.map((e) => inProgress.exercises[e].identifier),
 	}));
 	inProgress.supersets = supersets;

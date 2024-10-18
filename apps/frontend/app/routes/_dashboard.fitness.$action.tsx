@@ -95,7 +95,7 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import Cookies from "js-cookie";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
@@ -153,6 +153,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import { v4 as randomUUID } from "uuid";
 
 const workoutCookieName = CurrentWorkoutKey;
 
@@ -759,6 +760,16 @@ const SupersetModal = (props: {
 	const [allowedColors, setAllowedColors] = useState<string[]>([]);
 	const [selectedColor, setSelectedColor] = useState<string>("");
 
+	const exerciseAlreadyInSuperset = useMemo(() => {
+		if (cw) {
+			const index = cw?.supersets.findIndex((s) =>
+				s.exercises.includes(props.supersetWith),
+			);
+			if (index !== -1) return [index, cw.supersets[index]] as const;
+		}
+		return undefined;
+	}, [cw]);
+
 	useEffect(() => {
 		if (cw) {
 			const newColors = colors
@@ -767,25 +778,33 @@ const SupersetModal = (props: {
 			setAllowedColors(newColors);
 			setSelectedColor(newColors[0]);
 		}
-	}, [cw]);
+		if (exerciseAlreadyInSuperset) {
+			setSelectedColor(exerciseAlreadyInSuperset[1].color);
+			setExercisesHandle.setState(exerciseAlreadyInSuperset[1].exercises);
+		}
+	}, [cw, exerciseAlreadyInSuperset]);
 
 	if (!cw) return null;
 
 	return (
 		<Stack gap="lg">
-			<Group>
-				<Text>Select color</Text>
-				<Select
-					size="xs"
-					value={selectedColor}
-					leftSectionWidth={rem(40)}
-					onChange={(v) => setSelectedColor(v ?? "")}
-					data={allowedColors.map((c) => ({
-						value: c,
-						label: changeCase(c),
-					}))}
-				/>
-			</Group>
+			{exerciseAlreadyInSuperset ? (
+				<Text>Editing {exerciseAlreadyInSuperset[1].color} superset:</Text>
+			) : (
+				<Group>
+					<Text>Select color</Text>
+					<Select
+						size="xs"
+						value={selectedColor}
+						leftSectionWidth={rem(40)}
+						onChange={(v) => setSelectedColor(v ?? "")}
+						data={allowedColors.map((c) => ({
+							value: c,
+							label: changeCase(c),
+						}))}
+					/>
+				</Group>
+			)}
 			<Stack gap="xs">
 				{cw.exercises.map((ex) => {
 					const index = exercises.findIndex((e) => e === ex.identifier);
@@ -796,9 +815,13 @@ const SupersetModal = (props: {
 							key={ex.identifier}
 							color={selectedColor}
 							variant={index !== -1 ? "light" : "outline"}
-							disabled={cw.supersets
-								.flatMap((s) => s.exercises)
-								.includes(ex.identifier)}
+							disabled={
+								exerciseAlreadyInSuperset
+									? false
+									: cw.supersets
+											.flatMap((s) => s.exercises)
+											.includes(ex.identifier)
+							}
 							onClick={() => {
 								if (index !== -1) setExercisesHandle.remove(index);
 								else setExercisesHandle.append(ex.identifier);
@@ -818,6 +841,7 @@ const SupersetModal = (props: {
 						produce(cw, (draft) => {
 							draft.supersets.push({
 								color: selectedColor,
+								identifier: randomUUID(),
 								exercises: sortedExercises,
 							});
 						}),
