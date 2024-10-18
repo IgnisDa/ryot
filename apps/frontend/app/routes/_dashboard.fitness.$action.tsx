@@ -763,7 +763,7 @@ const SupersetModal = (props: {
 	useEffect(() => {
 		if (cw) {
 			const newColors = colors
-				.filter((c) => c !== "dark")
+				.filter((c) => !["dark", "gray"].includes(c))
 				.filter((c) => !cw.supersets.map((s) => s.color).includes(c));
 			setAllowedColors(newColors);
 			setSelectedColor(newColors[0]);
@@ -798,6 +798,9 @@ const SupersetModal = (props: {
 							key={ex.identifier}
 							color={selectedColor}
 							variant={index !== -1 ? "light" : "outline"}
+							disabled={cw.supersets
+								.flatMap((s) => s.exercises)
+								.includes(ex.identifier)}
 							onClick={() => {
 								if (index !== -1) setExercisesHandle.remove(index);
 								else setExercisesHandle.append(ex.identifier);
