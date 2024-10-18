@@ -38,7 +38,7 @@ import {
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
@@ -237,12 +237,8 @@ export const ExerciseHistory = (props: {
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise?.name || ""),
 	);
-	const isInSuperset = useMemo(
-		() =>
-			props.supersetInformation?.find((s) =>
-				s.exercises.includes(exercise?.identifier),
-			),
-		[exercise],
+	const isInSuperset = props.supersetInformation?.find((s) =>
+		s.exercises.includes(props.exerciseIdx),
 	);
 
 	return (

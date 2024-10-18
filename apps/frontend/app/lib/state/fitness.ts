@@ -60,6 +60,10 @@ export type Exercise = {
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
 
+export type Superset = Omit<WorkoutSupersetsInformation, "exercises"> & {
+	exercises: Array<string>;
+};
+
 export type InProgressWorkout = {
 	name: string;
 	comment?: string;
@@ -68,12 +72,12 @@ export type InProgressWorkout = {
 	templateId?: string;
 	videos: Array<string>;
 	repeatedFrom?: string;
+	supersets: Superset[];
 	images: Array<string>;
 	updateWorkoutId?: string;
 	exercises: Array<Exercise>;
 	replacingExerciseIdx?: number;
 	updateWorkoutTemplateId?: string;
-	supersets: WorkoutSupersetsInformation[];
 };
 
 type CurrentWorkout = InProgressWorkout | null;
@@ -176,13 +180,19 @@ export const currentWorkoutToCreateWorkoutInput = (
 	currentWorkout: InProgressWorkout,
 	isCreatingTemplate: boolean,
 ) => {
+	const supersets = currentWorkout.supersets.map((sup) => ({
+		...sup,
+		exercises: sup.exercises.map((e) =>
+			currentWorkout.exercises.findIndex((ex) => ex.identifier === e),
+		),
+	}));
 	const input: CreateOrUpdateUserWorkoutMutationVariables = {
 		input: {
+			supersets,
 			exercises: [],
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			endTime: new Date().toISOString(),
-			supersets: currentWorkout.supersets,
 			templateId: currentWorkout.templateId,
 			repeatedFrom: currentWorkout.repeatedFrom,
 			updateWorkoutId: currentWorkout.updateWorkoutId,
