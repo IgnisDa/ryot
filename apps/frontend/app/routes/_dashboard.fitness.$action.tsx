@@ -1794,9 +1794,10 @@ const EditSetRestTimer = (props: {
 
 	return (
 		<NumberInput
-			w={rem(80)}
 			size="xs"
 			suffix="s"
+			w={rem(80)}
+			// This will be fixed when https://github.com/mantinedev/mantine/pull/6997 is merged
 			ref={editRestTimerRef}
 			value={props.defaultDuration}
 			onChange={(v) => {
