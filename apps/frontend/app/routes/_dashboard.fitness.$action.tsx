@@ -1,5 +1,4 @@
 import { Buffer } from "buffer";
-import { v4 as randomUUID } from "uuid";
 import "@mantine/carousel/styles.css";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
@@ -818,7 +817,6 @@ const SupersetModal = (props: {
 						produce(cw, (draft) => {
 							draft.supersets.push({
 								color: selectedColor,
-								identifier: randomUUID(),
 								exercises: sortedExercises,
 							});
 						}),

@@ -226,7 +226,6 @@ export const currentWorkoutToCreateWorkoutInput = (
 		const toAdd = {
 			sets,
 			notes,
-			identifier: exercise.identifier,
 			exerciseId: exercise.exerciseId,
 			assets: {
 				images: exercise.images.map((m) => m.key),
