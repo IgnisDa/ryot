@@ -70,6 +70,7 @@ import {
 	isNumber,
 	isString,
 	snakeCase,
+	sortBy,
 	startCase,
 	sum,
 } from "@ryot/ts-utils";
@@ -810,12 +811,15 @@ const SupersetModal = (props: {
 			</Stack>
 			<Button
 				onClick={() => {
+					const sortedExercises = sortBy(exercises, (ex) =>
+						cw.exercises.map((e) => e.identifier).indexOf(ex),
+					);
 					setCurrentWorkout(
 						produce(cw, (draft) => {
 							draft.supersets.push({
-								exercises,
 								color: selectedColor,
 								identifier: randomUUID(),
+								exercises: sortedExercises,
 							});
 						}),
 					);
