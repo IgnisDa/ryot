@@ -298,6 +298,11 @@ export const duplicateOldWorkout = async (
 					: "images",
 		});
 	}
+	const supersets = workoutInformation.supersets.map((sup) => ({
+		...sup,
+		exercises: sup.exercises.map((e) => inProgress.exercises[e].identifier),
+	}));
+	inProgress.supersets = supersets;
 	return inProgress;
 };
 
