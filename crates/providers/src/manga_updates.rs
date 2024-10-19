@@ -7,7 +7,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MangaSpecifics, MediaDetails, MetadataImageForMediaDetails, MetadataPerson,
+    MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataPerson,
     MetadataPersonRelated, MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
     PeopleSearchItem, PersonSourceSpecifics,
 };
@@ -274,7 +274,7 @@ impl MediaProvider for MangaUpdatesService {
         Ok(resp)
     }
 
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let data: MetadataItemRecord = self
             .client
             .get(format!("{}/series/{}", URL, identifier))
@@ -334,7 +334,7 @@ impl MediaProvider for MangaUpdatesService {
 
         let (volumes, status) = self.extract_status(data.status.clone());
 
-        Ok(MediaDetails {
+        Ok(MetadataDetails {
             identifier: data.series_id.unwrap().to_string(),
             title: data.title.unwrap(),
             description: data.description,

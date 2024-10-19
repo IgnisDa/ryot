@@ -35,6 +35,8 @@ import {
 	CurrentWorkoutKey,
 	FitnessAction,
 	dayjsLib,
+	emptyDecimalString,
+	emptyNumberString,
 	pageQueryParam,
 	queryClient,
 	queryFactory,
@@ -152,16 +154,6 @@ export const combineHeaders = (
 	}
 	return combined;
 };
-
-const emptyNumberString = z
-	.any()
-	.transform((v) => (!v ? undefined : Number.parseInt(v)))
-	.nullable();
-
-const emptyDecimalString = z
-	.any()
-	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
-	.nullable();
 
 export const MetadataIdSchema = z.object({ metadataId: z.string() });
 

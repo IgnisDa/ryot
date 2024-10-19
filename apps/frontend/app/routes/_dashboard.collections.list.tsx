@@ -21,12 +21,7 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import {
-	useDidUpdate,
-	useDisclosure,
-	useHover,
-	useListState,
-} from "@mantine/hooks";
+import { useDidUpdate, useHover, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
 import {
@@ -75,6 +70,7 @@ import { confirmWrapper } from "~/components/confirmation";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	commaDelimitedString,
 	dayjsLib,
 	getPartialMetadataDetailsQuery,
 	queryClient,
@@ -178,12 +174,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 
 const createOrUpdateSchema = z.object({
 	name: z.string(),
-	description: z.string().optional(),
 	updateId: z.string().optional(),
-	collaborators: z
-		.string()
-		.optional()
-		.transform((v) => (v ? v.split(",") : undefined)),
+	description: z.string().optional(),
+	collaborators: commaDelimitedString,
 	informationTemplate: z
 		.array(
 			z.object({
@@ -198,11 +191,11 @@ const createOrUpdateSchema = z.object({
 });
 
 type UpdateCollectionInput = {
-	name: string;
-	id: string;
-	isDefault: boolean;
-	collaborators: Collection["collaborators"];
-	description?: string | null;
+	id?: string;
+	name?: string;
+	isDefault?: boolean;
+	description?: string;
+	collaborators?: Collection["collaborators"];
 	informationTemplate?: CollectionExtraInformation[] | null;
 };
 
@@ -218,15 +211,10 @@ export default function Page() {
 	);
 
 	const [toUpdateCollection, setToUpdateCollection] =
-		useState<UpdateCollectionInput>();
-	const [
-		createOrUpdateModalOpened,
-		{ open: createOrUpdateModalOpen, close: createOrUpdateModalClose },
-	] = useDisclosure(false);
+		useState<UpdateCollectionInput | null>(null);
 	useEffect(() => {
 		if (transition.state !== "submitting") {
-			createOrUpdateModalClose();
-			setToUpdateCollection(undefined);
+			setToUpdateCollection(null);
 		}
 	}, [transition.state]);
 
@@ -238,19 +226,16 @@ export default function Page() {
 					<ActionIcon
 						color="green"
 						variant="outline"
-						onClick={() => {
-							setToUpdateCollection(undefined);
-							createOrUpdateModalOpen();
-						}}
+						onClick={() => setToUpdateCollection({})}
 					>
 						<IconPlus size={20} />
 					</ActionIcon>
 					<Modal
-						opened={createOrUpdateModalOpened}
-						onClose={createOrUpdateModalClose}
-						withCloseButton={false}
 						centered
 						size="lg"
+						withCloseButton={false}
+						opened={toUpdateCollection !== null}
+						onClose={() => setToUpdateCollection(null)}
 					>
 						<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 					</Modal>
@@ -270,7 +255,6 @@ export default function Page() {
 								index={index}
 								collection={c}
 								setToUpdateCollection={setToUpdateCollection}
-								openModal={createOrUpdateModalOpen}
 							/>
 						);
 					}}
@@ -285,10 +269,9 @@ type Collection = UserCollectionsListQuery["userCollectionsList"][number];
 const IMAGES_CONTAINER_WIDTH = 250;
 
 const DisplayCollection = (props: {
-	collection: Collection;
 	index: number;
+	collection: Collection;
 	setToUpdateCollection: (c: UpdateCollectionInput) => void;
-	openModal: () => void;
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
@@ -352,10 +335,10 @@ const DisplayCollection = (props: {
 			pr="md"
 			radius="lg"
 			withBorder
-			mt={props.index !== 0 ? "lg" : undefined}
 			pl={{ base: "md", md: 0 }}
 			py={{ base: "sm", md: 0 }}
 			style={{ overflow: "hidden" }}
+			mt={props.index !== 0 ? "lg" : undefined}
 		>
 			<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 				<Flex
@@ -413,14 +396,13 @@ const DisplayCollection = (props: {
 									variant="outline"
 									onClick={() => {
 										props.setToUpdateCollection({
-											name: props.collection.name,
 											id: props.collection.id,
-											description: props.collection.description,
-											collaborators: props.collection.collaborators,
+											name: props.collection.name,
 											isDefault: props.collection.isDefault,
+											collaborators: props.collection.collaborators,
+											description: props.collection.description ?? undefined,
 											informationTemplate: props.collection.informationTemplate,
 										});
-										props.openModal();
 									}}
 								>
 									<IconEdit size={18} />
@@ -429,7 +411,7 @@ const DisplayCollection = (props: {
 							{!props.collection.isDefault ? (
 								<Form
 									method="POST"
-									action={withQuery("", { intent: "delete" })}
+									action={withQuery(".", { intent: "delete" })}
 								>
 									<input
 										hidden
@@ -509,7 +491,7 @@ const CollectionImageDisplay = (props: {
 };
 
 const CreateOrUpdateModal = (props: {
-	toUpdateCollection: UpdateCollectionInput | undefined;
+	toUpdateCollection: UpdateCollectionInput | null;
 }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
@@ -524,7 +506,7 @@ const CreateOrUpdateModal = (props: {
 		<Box
 			method="POST"
 			component={Form}
-			action={withQuery("", { intent: "createOrUpdate" })}
+			action={withQuery(".", { intent: "createOrUpdate" })}
 		>
 			<Stack>
 				<Title order={3}>
@@ -534,9 +516,7 @@ const CreateOrUpdateModal = (props: {
 					label="Name"
 					required
 					name="name"
-					defaultValue={
-						props.toUpdateCollection ? props.toUpdateCollection.name : undefined
-					}
+					defaultValue={props.toUpdateCollection?.name}
 					readOnly={props.toUpdateCollection?.isDefault}
 					description={
 						props.toUpdateCollection?.isDefault
@@ -545,14 +525,10 @@ const CreateOrUpdateModal = (props: {
 					}
 				/>
 				<Textarea
-					label="Description"
-					name="description"
-					defaultValue={
-						props.toUpdateCollection?.description
-							? props.toUpdateCollection.description
-							: undefined
-					}
 					autosize
+					name="description"
+					label="Description"
+					defaultValue={props.toUpdateCollection?.description}
 				/>
 				<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isPro}>
 					<MultiSelect
@@ -637,9 +613,9 @@ const CreateOrUpdateModal = (props: {
 								</Group>
 								<Group mt="xs" justify="space-around">
 									<Checkbox
+										size="sm"
 										label="Required"
 										name={`informationTemplate[${index}].required`}
-										size="sm"
 										defaultChecked={field.required || undefined}
 									/>
 									<Button
@@ -657,12 +633,10 @@ const CreateOrUpdateModal = (props: {
 					</Stack>
 				</Input.Wrapper>
 				<Button
-					variant="outline"
 					type="submit"
+					variant="outline"
+					value={props.toUpdateCollection?.id}
 					name={props.toUpdateCollection ? "updateId" : undefined}
-					value={
-						props.toUpdateCollection ? props.toUpdateCollection.id : undefined
-					}
 				>
 					{props.toUpdateCollection ? "Update" : "Create"}
 				</Button>

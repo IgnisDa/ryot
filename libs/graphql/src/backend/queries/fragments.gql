@@ -12,8 +12,8 @@ fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
 }
 
 fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
-  chapter
   volume
+  chapter
 }
 
 fragment CalendarEventPart on GraphqlCalendarEvent {
@@ -61,19 +61,19 @@ fragment SeenPart on Seen {
 }
 
 fragment MetadataSearchItemPart on MetadataSearchItem {
-  identifier
   title
   image
+  identifier
   publishYear
 }
 
 fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
-  personalBestsAchieved
-  weight
   reps
+  weight
   distance
   duration
   restTime
+  personalBestsAchieved
 }
 
 fragment EntityAssetsPart on EntityAssets {
@@ -82,21 +82,21 @@ fragment EntityAssetsPart on EntityAssets {
 }
 
 fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
+  reps
+  pace
+  oneRm
+  weight
+  volume
   duration
   distance
-  reps
-  weight
-  oneRm
-  pace
-  volume
 }
 
 fragment WorkoutSetRecordPart on WorkoutSetRecord {
+  lot
+  personalBests
   statistic {
     ...WorkoutSetStatisticPart
   }
-  lot
-  personalBests
 }
 
 fragment WorkoutSummaryPart on WorkoutSummary {
@@ -104,9 +104,9 @@ fragment WorkoutSummaryPart on WorkoutSummary {
     ...WorkoutOrExerciseTotalsPart
   }
   exercises {
-    numSets
-    id
     lot
+    name
+    numSets
     bestSet {
       ...WorkoutSetRecordPart
     }
@@ -135,12 +135,12 @@ fragment ReviewItemPart on ReviewItem {
   comments {
     id
     text
+    likedBy
     createdOn
     user {
       id
       name
     }
-    likedBy
   }
   showExtraInformation {
     ...SeenShowExtraInformationPart
@@ -161,26 +161,36 @@ fragment WorkoutInformationPart on WorkoutInformation {
   assets {
     ...EntityAssetsPart
   }
+  supersets {
+    color
+    exercises
+  }
   exercises {
-    name
     lot
+    name
     notes
-    restTime
     total {
       ...WorkoutOrExerciseTotalsPart
     }
-    supersetWith
     assets {
       ...EntityAssetsPart
     }
     sets {
+      lot
+      note
+      restTime
+      confirmedAt
+      personalBests
       statistic {
         ...WorkoutSetStatisticPart
       }
-      note
-      lot
-      personalBests
-      confirmedAt
     }
   }
+}
+
+fragment SetRestTimersPart on SetRestTimersSettings {
+  drop
+  warmup
+  normal
+  failure
 }

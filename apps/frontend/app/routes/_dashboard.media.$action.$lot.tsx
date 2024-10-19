@@ -27,6 +27,7 @@ import {
 import {
 	EntityLot,
 	GraphqlSortOrder,
+	GridPacking,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -172,19 +173,25 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { metadataSearch } = await serverGqlService.authenticatedRequest(
-				request,
-				MetadataSearchDocument,
-				{
-					input: {
-						lot,
-						search: { page: query[pageQueryParam], query: query.query },
-						source: urlParse.source,
+			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
+			try {
+				const response = await serverGqlService.authenticatedRequest(
+					request,
+					MetadataSearchDocument,
+					{
+						input: {
+							lot,
+							search: { page: query[pageQueryParam], query: query.query },
+							source: urlParse.source,
+						},
 					},
-				},
-			);
+				);
+				metadataSearch = response.metadataSearch;
+			} catch {
+				metadataSearch = false;
+			}
 			return [
-				metadataSearch.details.total,
+				metadataSearch === false ? 0 : metadataSearch.details.total,
 				undefined,
 				{
 					search: metadataSearch,
@@ -386,7 +393,11 @@ export default function Page() {
 								/>
 							) : null}
 						</Flex>
-						{loaderData.mediaSearch.search.details.total > 0 ? (
+						{loaderData.mediaSearch.search === false ? (
+							<Text>
+								Something is wrong. Please try with an alternate provider.
+							</Text>
+						) : loaderData.mediaSearch.search.details.total > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
@@ -445,6 +456,8 @@ const MediaSearchItem = (props: {
 }) => {
 	const navigate = useNavigate();
 	const userDetails = useUserDetails();
+	const userPreferences = useUserPreferences();
+	const gridPacking = userPreferences.general.gridPacking;
 	const [isLoading, setIsLoading] = useState(false);
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
@@ -467,6 +480,8 @@ const MediaSearchItem = (props: {
 		return response;
 	};
 
+	const buttonSize =
+		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 	return (
 		<Box>
 			<BaseMediaDisplayItem
@@ -518,9 +533,9 @@ const MediaSearchItem = (props: {
 			/>
 			<Box px={4}>
 				<Button
-					variant="outline"
 					w="100%"
-					size="compact-md"
+					variant="outline"
+					size={buttonSize}
 					onClick={async () => {
 						const metadataId = await basicCommit();
 						setMetadataToUpdate({ metadataId });
@@ -529,10 +544,10 @@ const MediaSearchItem = (props: {
 					Mark as {getVerb(Verb.Read, props.lot)}
 				</Button>
 				<Button
+					w="100%"
 					mt="xs"
 					variant="outline"
-					w="100%"
-					size="compact-md"
+					size={buttonSize}
 					onClick={async () => {
 						setIsLoading(true);
 						const id = await basicCommit();
@@ -554,7 +569,7 @@ const MediaSearchItem = (props: {
 						revalidator.revalidate();
 					}}
 				>
-					Add to Watchlist
+					Add to watchlist
 				</Button>
 			</Box>
 		</Box>

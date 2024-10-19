@@ -10,7 +10,7 @@ use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MediaDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
+    MetadataDetails, MetadataFreeCreator, MetadataImageForMediaDetails, MetadataSearchItem,
     PartialMetadataWithoutId, PodcastEpisode, PodcastSpecifics,
 };
 use reqwest::{
@@ -68,7 +68,7 @@ impl ListennotesService {
 
 #[async_trait]
 impl MediaProvider for ListennotesService {
-    async fn metadata_details(&self, identifier: &str) -> Result<MediaDetails> {
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let mut details = self
             .details_with_paginated_episodes(identifier, None, None)
             .await?;
@@ -196,7 +196,7 @@ impl ListennotesService {
         identifier: &str,
         next_pub_date: Option<i64>,
         episode_number: Option<i32>,
-    ) -> Result<MediaDetails> {
+    ) -> Result<MetadataDetails> {
         #[serde_as]
         #[derive(Serialize, Deserialize, Debug)]
         struct Podcast {
@@ -225,7 +225,7 @@ impl ListennotesService {
             .await
             .map_err(|e| anyhow!(e))?;
         let podcast_data: Podcast = rsp.json().await.map_err(|e| anyhow!(e))?;
-        Ok(MediaDetails {
+        Ok(MetadataDetails {
             identifier: podcast_data.id,
             title: podcast_data.title,
             is_nsfw: podcast_data.explicit_content,

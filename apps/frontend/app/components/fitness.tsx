@@ -15,6 +15,7 @@ import {
 	Skeleton,
 	Stack,
 	Text,
+	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure, useInViewport } from "@mantine/hooks";
 import { Link } from "@remix-run/react";
@@ -22,8 +23,9 @@ import {
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
-	type WorkoutDetailsQuery,
+	type UserWorkoutDetailsQuery,
 	type WorkoutSetStatistic,
+	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, startCase } from "@ryot/ts-utils";
 import {
@@ -34,7 +36,6 @@ import {
 	IconRun,
 	IconTrophy,
 	IconWeight,
-	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -42,7 +43,7 @@ import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
 import { FitnessEntity, dayjsLib, getSetColor } from "~/lib/generals";
-import { useGetMantineColor, useUserUnitSystem } from "~/lib/hooks";
+import { useGetRandomMantineColor, useUserUnitSystem } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
 	getUserExerciseDetailsQuery,
@@ -143,7 +144,7 @@ export const DisplaySetStatistics = (props: {
 };
 
 type Exercise =
-	WorkoutDetailsQuery["workoutDetails"]["details"]["information"]["exercises"][number];
+	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
 
 export const DisplaySet = (props: {
@@ -151,7 +152,6 @@ export const DisplaySet = (props: {
 	idx: number;
 	exerciseLot: ExerciseLot;
 }) => {
-	const getMantineColor = useGetMantineColor();
 	const [opened, { close, open }] = useDisclosure(false);
 
 	return (
@@ -182,16 +182,14 @@ export const DisplaySet = (props: {
 						</Popover.Target>
 						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
 							<Flex>
-								{props.set.personalBests.map((pb) => (
-									<Badge
-										key={pb}
-										variant="light"
-										size="xs"
-										color={getMantineColor(pb)}
-									>
-										{startCase(pb)}
-									</Badge>
-								))}
+								{props.set.personalBests.map((pb) => {
+									const color = useGetRandomMantineColor(pb);
+									return (
+										<Badge key={pb} size="xs" color={color} variant="light">
+											{startCase(pb)}
+										</Badge>
+									);
+								})}
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>
@@ -213,11 +211,13 @@ export const DisplaySet = (props: {
 export const ExerciseHistory = (props: {
 	entityId: string;
 	exerciseIdx: number;
-	hideExerciseDetails?: boolean;
 	entityType: FitnessEntity;
-	onCopyButtonClick?: () => Promise<void>;
+	hideExerciseDetails?: boolean;
 	hideExtraDetailsButton?: boolean;
+	onCopyButtonClick?: () => Promise<void>;
+	supersetInformation?: WorkoutSupersetsInformation[];
 }) => {
+	const theme = useMantineTheme();
 	const unitSystem = useUserUnitSystem();
 	const [opened, { toggle }] = useDisclosure(false);
 	const [parent] = useAutoAnimate();
@@ -237,33 +237,22 @@ export const ExerciseHistory = (props: {
 	const { data: exerciseDetails } = useQuery(
 		getExerciseDetailsQuery(exercise?.name || ""),
 	);
-
-	const supersetLinks =
-		exercise && exercise.supersetWith.length > 0
-			? exercise.supersetWith
-					.map<ReactNode>((otherExerciseIdx) => (
-						<Anchor
-							key={otherExerciseIdx}
-							fz="xs"
-							href={withFragment(
-								$path("/fitness/:entity/:id", {
-									entity: "workouts",
-									id: props.entityId,
-								}),
-								otherExerciseIdx.toString(),
-							)}
-						>
-							{
-								workoutDetails.details.information.exercises[otherExerciseIdx]
-									.name
-							}
-						</Anchor>
-					))
-					.reduce((prev, curr) => [prev, ", ", curr])
-			: null;
+	const isInSuperset = props.supersetInformation?.find((s) =>
+		s.exercises.includes(props.exerciseIdx),
+	);
 
 	return (
-		<Paper withBorder p="xs" id={props.exerciseIdx.toString()}>
+		<Paper
+			p="xs"
+			withBorder
+			id={props.exerciseIdx.toString()}
+			style={{
+				borderLeftWidth: isInSuperset ? "3px" : undefined,
+				borderLeftColor: isInSuperset
+					? theme.colors[isInSuperset.color][6]
+					: undefined,
+			}}
+		>
 			{exerciseDetails && workoutDetails && exercise ? (
 				<>
 					<Stack mb="xs" gap="xs" ref={parent}>
@@ -312,12 +301,6 @@ export const ExerciseHistory = (props: {
 						{opened ? (
 							<>
 								<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
-									{exercise.restTime ? (
-										<Flex align="center" gap="xs">
-											<IconZzz size={14} />
-											<Text fz="xs">Rest time: {exercise.restTime}s</Text>
-										</Flex>
-									) : null}
 									{exercise.total ? (
 										<>
 											{Number(exercise.total.reps) > 0 ? (
@@ -371,9 +354,6 @@ export const ExerciseHistory = (props: {
 									</ScrollArea>
 								) : null}
 							</>
-						) : null}
-						{!props.hideExerciseDetails && supersetLinks ? (
-							<Text fz="xs">Superset with {supersetLinks}</Text>
 						) : null}
 						{exercise.notes.map((n, idxN) => (
 							<Text c="dimmed" key={n} size="xs">

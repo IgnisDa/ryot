@@ -45,7 +45,7 @@ import {
 	useAppSearchParam,
 	useCoreDetails,
 	useFallbackImageUrl,
-	useGetMantineColor,
+	useGetRandomMantineColor,
 } from "~/lib/hooks";
 import {
 	getEnhancedCookieName,
@@ -133,7 +133,7 @@ type Genre = GenresListQuery["genresList"]["items"][number];
 
 const DisplayGenre = (props: { genre: Genre }) => {
 	const coreDetails = useCoreDetails();
-	const getMantineColor = useGetMantineColor();
+	const color = useGetRandomMantineColor(props.genre.name);
 	const fallbackImageUrl = useFallbackImageUrl(getInitials(props.genre.name));
 	const { data: genreImages } = useQuery({
 		queryKey: queryFactory.media.genreImages(props.genre.id).queryKey,
@@ -192,12 +192,7 @@ const DisplayGenre = (props: { genre: Genre }) => {
 					)}
 				</Box>
 				<Group justify="center">
-					<Box
-						h={11}
-						w={11}
-						style={{ borderRadius: 2 }}
-						bg={getMantineColor(props.genre.name)}
-					/>
+					<Box h={11} w={11} bg={color} style={{ borderRadius: 2 }} />
 					<Text>{truncate(props.genre.name, { length: 13 })}</Text>
 				</Group>
 			</Stack>

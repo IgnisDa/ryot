@@ -1,5 +1,5 @@
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
-import { useForceUpdate } from "@mantine/hooks";
+import { useForceUpdate, useListState } from "@mantine/hooks";
 import {
 	useNavigate,
 	useRevalidator,
@@ -28,15 +28,17 @@ import {
 import { type InProgressWorkout, useCurrentWorkout } from "~/lib/state/fitness";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
 
-export const useGetMantineColor = () => {
+export const useGetMantineColors = () => {
 	const theme = useMantineTheme();
 	const colors = Object.keys(theme.colors);
+	return colors;
+};
+
+export const useGetRandomMantineColor = (input: string) => {
+	const colors = useGetMantineColors();
 
 	// taken from https://stackoverflow.com/questions/44975435/using-mod-operator-in-javascript-to-wrap-around#comment76926119_44975435
-	const getColor = (input: string) =>
-		colors[(getStringAsciiValue(input) + colors.length) % colors.length];
-
-	return getColor;
+	return colors[(getStringAsciiValue(input) + colors.length) % colors.length];
 };
 
 export const useFallbackImageUrl = (text = "No Image") => {
@@ -190,4 +192,20 @@ export const useGetWatchProviders = (mediaLot: MediaLot) => {
 		userPreferences.general.watchProviders.find((l) => l.lot === mediaLot)
 			?.values || [];
 	return watchProviders;
+};
+
+export const useComplexJsonUpdate = () => {
+	const [toUpdatePreferences, updateUserPreferencesHandler] = useListState<
+		[string, string]
+	>([]);
+
+	const reset = () => updateUserPreferencesHandler.setState([]);
+
+	const appendPref = (property: string, value: string) => {
+		const index = toUpdatePreferences.findIndex((p) => p[0] === property);
+		if (index !== -1) updateUserPreferencesHandler.remove(index);
+		updateUserPreferencesHandler.append([property, value]);
+	};
+
+	return { reset, appendPref, toUpdatePreferences };
 };

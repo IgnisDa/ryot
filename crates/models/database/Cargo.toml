@@ -11,7 +11,7 @@ async-trait = { workspace = true }
 boilermates = { workspace = true }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
-educe = { version = "=0.6.0", features = ["Debug"], default-features = false }
+educe = { workspace = true }
 enums = { path = "../../enums" }
 importer-models = { path = "../../models/importer" }
 file-storage-service = { path = "../../services/file-storage" }

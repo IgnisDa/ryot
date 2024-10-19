@@ -56,6 +56,16 @@ export const commaDelimitedString = z
 	.optional()
 	.transform((v) => (isString(v) ? v.split(",") : undefined));
 
+export const emptyNumberString = z
+	.any()
+	.transform((v) => (!v ? undefined : Number.parseInt(v)))
+	.nullable();
+
+export const emptyDecimalString = z
+	.any()
+	.transform((v) => (!v ? undefined : Number.parseFloat(v).toString()))
+	.nullable();
+
 export const CurrentWorkoutKey = "CurrentWorkout";
 export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
@@ -307,10 +317,11 @@ export const getMetadataIcon = (lot: MediaLot) => {
 		.exhaustive();
 };
 
-const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+export const applicationBaseUrl =
+	typeof window !== "undefined" ? window.location.origin : "";
 
 export const clientGqlService = new GraphQLClient(
-	`${baseUrl}/backend/graphql`,
+	`${applicationBaseUrl}/backend/graphql`,
 	{
 		headers: () => {
 			const data = Cookies.get(AUTH_COOKIE_NAME);

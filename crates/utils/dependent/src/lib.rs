@@ -38,7 +38,7 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use media_models::{
     CommitCache, CommitMediaInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    CreateOrUpdateReviewInput, ImportOrExportItemRating, MediaDetails, MetadataImage,
+    CreateOrUpdateReviewInput, ImportOrExportItemRating, MetadataDetails, MetadataImage,
     PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, ProgressUpdateError,
     ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
@@ -182,7 +182,7 @@ pub async fn details_from_provider(
     source: MediaSource,
     identifier: &str,
     ss: &Arc<SupportingService>,
-) -> Result<MediaDetails> {
+) -> Result<MetadataDetails> {
     let provider = get_metadata_provider(lot, source, ss).await?;
     let results = provider.metadata_details(identifier).await?;
     Ok(results)
@@ -292,12 +292,13 @@ pub async fn create_partial_metadata(
             }]
         });
         let c = metadata::ActiveModel {
-            title: ActiveValue::Set(data.title),
-            identifier: ActiveValue::Set(data.identifier),
-            lot: ActiveValue::Set(data.lot),
-            source: ActiveValue::Set(data.source),
             images: ActiveValue::Set(image),
+            lot: ActiveValue::Set(data.lot),
+            title: ActiveValue::Set(data.title),
+            source: ActiveValue::Set(data.source),
             is_partial: ActiveValue::Set(Some(true)),
+            identifier: ActiveValue::Set(data.identifier),
+            is_recommendation: ActiveValue::Set(Some(true)),
             ..Default::default()
         };
         c.insert(db).await?
@@ -740,7 +741,7 @@ pub async fn update_metadata_and_notify_users(
 }
 
 pub async fn commit_metadata_internal(
-    details: MediaDetails,
+    details: MetadataDetails,
     is_partial: Option<bool>,
     ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
@@ -1523,37 +1524,23 @@ pub async fn create_user_measurement(
 }
 
 fn get_best_set_index(records: &[WorkoutSetRecord]) -> Option<usize> {
-    records
-        .iter()
-        .enumerate()
-        .max_by_key(|(_, record)| {
-            record.statistic.duration.unwrap_or(dec!(0))
-                + record.statistic.distance.unwrap_or(dec!(0))
-                + record.statistic.reps.unwrap_or(dec!(0))
-                + record.statistic.weight.unwrap_or(dec!(0))
-        })
-        .map(|(index, _)| index)
+    let record = records.iter().enumerate().max_by_key(|(_, record)| {
+        record.statistic.duration.unwrap_or(dec!(0))
+            + record.statistic.distance.unwrap_or(dec!(0))
+            + record.statistic.reps.unwrap_or(dec!(0))
+            + record.statistic.weight.unwrap_or(dec!(0))
+    });
+    record.and_then(|(_, r)| records.iter().position(|l| l.statistic == r.statistic))
 }
 
 fn get_index_of_highest_pb(
     records: &[WorkoutSetRecord],
     pb_type: &WorkoutSetPersonalBest,
 ) -> Option<usize> {
-    let record = records.iter().reduce(|record1, record2| {
-        let pb1 = record1.get_personal_best(pb_type);
-        let pb2 = record2.get_personal_best(pb_type);
-        match (pb1, pb2) {
-            (Some(pb1), Some(pb2)) => {
-                if pb1 > pb2 {
-                    record1
-                } else {
-                    record2
-                }
-            }
-            _ => record1,
-        }
-    });
-    record.and_then(|r| records.iter().position(|l| l == r))
+    let record = records
+        .iter()
+        .max_by_key(|record| record.get_personal_best(pb_type).unwrap_or(dec!(0)));
+    record.and_then(|r| records.iter().position(|l| l.statistic == r.statistic))
 }
 
 /// Create a workout in the database and also update user and exercise associations.
@@ -1577,7 +1564,7 @@ pub async fn create_or_update_workout(
             None,
         ),
     };
-    ryot_log!(debug, "Creating new workout with id = {}", new_workout_id);
+    ryot_log!(debug, "Creating workout with id = {}", new_workout_id);
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
@@ -1606,7 +1593,7 @@ pub async fn create_or_update_workout(
             Some(e) => e,
         };
         let mut sets = vec![];
-        let mut total = WorkoutOrExerciseTotals::default();
+        let mut totals = WorkoutOrExerciseTotals::default();
         let association = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(ex.exercise_id.clone()))
@@ -1620,42 +1607,38 @@ pub async fn create_or_update_workout(
             workout_id: new_workout_id.clone(),
             workout_end_on: end_time,
         };
-        let association = match association {
+        let asc = match association {
+            Some(e) => e,
             None => {
                 let user_to_ex = user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(user_id.clone()),
                     exercise_id: ActiveValue::Set(Some(ex.exercise_id.clone())),
                     exercise_extra_information: ActiveValue::Set(Some(
-                        UserToExerciseExtraInformation {
-                            history: vec![history_item],
-                            lifetime_stats: WorkoutOrExerciseTotals::default(),
-                            personal_bests: vec![],
-                        },
+                        UserToExerciseExtraInformation::default(),
                     )),
                     created_on: ActiveValue::Set(
                         first_set_of_exercise_confirmed_at.unwrap_or(end_time),
                     ),
-                    exercise_num_times_interacted: ActiveValue::Set(Some(1)),
                     ..Default::default()
                 };
                 user_to_ex.insert(&ss.db).await.unwrap()
             }
-            Some(e) => {
-                let last_updated_on = e.last_updated_on;
-                let mut extra_info = e.exercise_extra_information.clone().unwrap_or_default();
-                extra_info.history.insert(0, history_item);
-                let mut to_update: user_to_entity::ActiveModel = e.into();
-                to_update.exercise_num_times_interacted =
-                    ActiveValue::Set(Some(extra_info.history.len().try_into().unwrap()));
-                to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
-                to_update.last_updated_on =
-                    ActiveValue::Set(first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on));
-                to_update.update(&ss.db).await?
-            }
         };
-        if let Some(d) = ex.rest_time {
-            total.rest_time += d * (ex.sets.len() - 1) as u16;
-        }
+        let last_updated_on = asc.last_updated_on;
+        let mut extra_info = asc.exercise_extra_information.clone().unwrap_or_default();
+        extra_info.history.insert(0, history_item);
+        let mut to_update: user_to_entity::ActiveModel = asc.into();
+        to_update.exercise_num_times_interacted =
+            ActiveValue::Set(Some(extra_info.history.len().try_into().unwrap()));
+        to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
+        to_update.last_updated_on =
+            ActiveValue::Set(first_set_of_exercise_confirmed_at.unwrap_or(last_updated_on));
+        let association = to_update.update(&ss.db).await?;
+        totals.rest_time = ex
+            .sets
+            .iter()
+            .map(|s| s.rest_time.unwrap_or_default())
+            .sum();
         ex.sets
             .sort_unstable_by_key(|s| s.confirmed_at.unwrap_or_default());
         for set in ex.sets.iter_mut() {
@@ -1672,16 +1655,16 @@ pub async fn create_or_update_workout(
             first_set_of_exercise_confirmed_at = set.confirmed_at;
             set.remove_invalids(&db_ex.lot);
             if let Some(r) = set.statistic.reps {
-                total.reps += r;
+                totals.reps += r;
                 if let Some(w) = set.statistic.weight {
-                    total.weight += w * r;
+                    totals.weight += w * r;
                 }
             }
             if let Some(d) = set.statistic.duration {
-                total.duration += d;
+                totals.duration += d;
             }
             if let Some(d) = set.statistic.distance {
-                total.distance += d;
+                totals.distance += d;
             }
             let mut totals = WorkoutSetTotals::default();
             if let (Some(we), Some(re)) = (&set.statistic.weight, &set.statistic.reps) {
@@ -1692,6 +1675,7 @@ pub async fn create_or_update_workout(
                 actual_rest_time,
                 totals: Some(totals),
                 note: set.note.clone(),
+                rest_time: set.rest_time,
                 personal_bests: Some(vec![]),
                 confirmed_at: set.confirmed_at,
                 statistic: set.statistic.clone(),
@@ -1729,17 +1713,17 @@ pub async fn create_or_update_workout(
                         if let Some(ref mut set_personal_bests) = set.personal_bests {
                             set_personal_bests.push(*best_type);
                         }
-                        total.personal_bests_achieved += 1;
+                        totals.personal_bests_achieved += 1;
                     }
                 }
             } else {
                 if let Some(ref mut set_personal_bests) = set.personal_bests {
                     set_personal_bests.push(*best_type);
                 }
-                total.personal_bests_achieved += 1;
+                totals.personal_bests_achieved += 1;
             }
         }
-        workout_totals.push(total.clone());
+        workout_totals.push(totals.clone());
         for (set_idx, set) in sets.iter().enumerate() {
             if let Some(set_personal_bests) = &set.personal_bests {
                 for best in set_personal_bests.iter() {
@@ -1768,7 +1752,7 @@ pub async fn create_or_update_workout(
             .unwrap_or_default();
         association_extra_information.history[0].best_set = best_set.clone();
         let mut association: user_to_entity::ActiveModel = association.into();
-        association_extra_information.lifetime_stats += total.clone();
+        association_extra_information.lifetime_stats += totals.clone();
         association_extra_information.personal_bests = personal_bests;
         association.exercise_extra_information =
             ActiveValue::Set(Some(association_extra_information));
@@ -1780,11 +1764,9 @@ pub async fn create_or_update_workout(
                 sets,
                 lot: db_ex.lot,
                 name: db_ex.id,
-                total: Some(total),
+                total: Some(totals),
                 notes: ex.notes.clone(),
-                rest_time: ex.rest_time,
                 assets: ex.assets.clone(),
-                superset_with: ex.superset_with.clone(),
             },
         ));
     }
@@ -1804,14 +1786,15 @@ pub async fn create_or_update_workout(
                 .map(|(best_set, lot, e)| WorkoutSummaryExercise {
                     best_set,
                     lot: Some(lot),
-                    id: e.name.clone(),
+                    name: e.name.clone(),
                     num_sets: e.sets.len(),
                 })
                 .collect(),
         },
         information: WorkoutInformation {
-            comment: input.comment,
             assets: input.assets,
+            comment: input.comment,
+            supersets: input.supersets,
             exercises: exercises.into_iter().map(|(_, _, ex)| ex).collect(),
         },
         template_id: input.template_id,
@@ -2158,16 +2141,16 @@ pub async fn process_import(
 pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutInput {
     UserWorkoutInput {
         name: user_workout.name,
-        create_workout_id: Some(user_workout.id),
         update_workout_id: None,
-        default_rest_timer: None,
         end_time: user_workout.end_time,
         update_workout_template_id: None,
         start_time: user_workout.start_time,
         template_id: user_workout.template_id,
         assets: user_workout.information.assets,
+        create_workout_id: Some(user_workout.id),
         repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
+        supersets: user_workout.information.supersets,
         exercises: user_workout
             .information
             .exercises
@@ -2181,13 +2164,12 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
                         lot: s.lot,
                         note: s.note,
                         statistic: s.statistic,
+                        rest_time: s.rest_time,
                         confirmed_at: s.confirmed_at,
                     })
                     .collect(),
                 notes: e.notes,
-                rest_time: e.rest_time,
                 assets: e.assets,
-                superset_with: e.superset_with,
             })
             .collect(),
     }

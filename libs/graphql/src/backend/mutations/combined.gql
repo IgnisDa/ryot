@@ -172,8 +172,8 @@ mutation UpdateUserNotificationPlatform($input: UpdateUserNotificationPlatformIn
   updateUserNotificationPlatform(input: $input)
 }
 
-mutation UpdateUserWorkout($input: UpdateUserWorkoutInput!) {
-  updateUserWorkout(input: $input)
+mutation UpdateUserWorkoutAttributes($input: UpdateUserWorkoutAttributesInput!) {
+  updateUserWorkoutAttributes(input: $input)
 }
 
 mutation GenerateAuthToken {
@@ -217,7 +217,7 @@ mutation UpdateUser($input: UpdateUserInput!) {
   }
 }
 
-mutation UpdateUserPreference($input: UpdateUserPreferenceInput!) {
+mutation UpdateUserPreference($input: UpdateComplexJsonInput!) {
   updateUserPreference(input: $input)
 }
 
@@ -244,4 +244,8 @@ mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
 
 mutation RevokeAccessLink($accessLinkId: String!) {
   revokeAccessLink(accessLinkId: $accessLinkId)
+}
+
+mutation UpdateUserExerciseSettings($input: UpdateUserExerciseSettings!) {
+  updateUserExerciseSettings(input: $input)
 }

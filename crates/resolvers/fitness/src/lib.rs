@@ -8,8 +8,8 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use fitness_models::{
-    ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserWorkoutInput,
-    UserMeasurementsListInput, UserWorkoutInput,
+    ExerciseListItem, ExerciseParameters, ExercisesListInput, UpdateUserExerciseSettings,
+    UpdateUserWorkoutAttributesInput, UserMeasurementsListInput, UserWorkoutInput,
 };
 use fitness_service::ExerciseService;
 use sea_orm::prelude::DateTimeUtc;
@@ -85,14 +85,14 @@ impl ExerciseQuery {
     }
 
     /// Get details about a workout.
-    async fn workout_details(
+    async fn user_workout_details(
         &self,
         gql_ctx: &Context<'_>,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.workout_details(&user_id, workout_id).await
+        service.user_workout_details(&user_id, workout_id).await
     }
 
     /// Get information about an exercise for a user.
@@ -189,14 +189,14 @@ impl ExerciseMutation {
     }
 
     /// Change the details about a user's workout.
-    async fn update_user_workout(
+    async fn update_user_workout_attributes(
         &self,
         gql_ctx: &Context<'_>,
-        input: UpdateUserWorkoutInput,
+        input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_workout(user_id, input).await
+        service.update_user_workout_attributes(user_id, input).await
     }
 
     /// Delete a workout and remove all exercise associations.
@@ -226,5 +226,16 @@ impl ExerciseMutation {
         let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.update_custom_exercise(user_id, input).await
+    }
+
+    /// Update a user's exercise settings.
+    async fn update_user_exercise_settings(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UpdateUserExerciseSettings,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<ExerciseService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.update_user_exercise_settings(user_id, input).await
     }
 }

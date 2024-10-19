@@ -82,7 +82,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
-	useGetMantineColor,
+	useGetRandomMantineColor,
 	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
@@ -747,11 +747,11 @@ export const DisplayCollection = (props: {
 	entityId: string;
 	entityLot: EntityLot;
 }) => {
-	const getMantineColor = useGetMantineColor();
+	const color = useGetRandomMantineColor(props.col.name);
 	const submit = useConfirmSubmit();
 
 	return (
-		<Badge key={props.col.id} color={getMantineColor(props.col.name)}>
+		<Badge key={props.col.id} color={color}>
 			<Form
 				method="POST"
 				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}

@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
-use background::{ApplicationJob, CoreApplicationJob};
+use background::ApplicationJob;
 use chrono::Utc;
 use common_models::{
     BackendError, ChangeCollectionToEntityInput, DefaultCollection, IdAndNamedObject,
@@ -187,7 +187,7 @@ pub async fn entity_in_collections(
     Ok(eic.into_iter().map(|(c, _)| c).collect_vec())
 }
 
-pub async fn workout_details(
+pub async fn user_workout_details(
     user_id: &String,
     workout_id: String,
     ss: &Arc<SupportingService>,
@@ -212,7 +212,7 @@ pub async fn workout_details(
     }
 }
 
-pub async fn workout_template_details(
+pub async fn user_workout_template_details(
     db: &DatabaseConnection,
     user_id: &String,
     workout_template_id: String,
@@ -337,11 +337,8 @@ pub async fn add_entity_to_collection(
         }
         created
     };
-    ss.perform_core_application_job
-        .enqueue(CoreApplicationJob::EntityAddedToCollection(
-            user_id.to_owned(),
-            resp.id,
-        ))
+    ss.perform_application_job
+        .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
         .await
         .unwrap();
     Ok(true)

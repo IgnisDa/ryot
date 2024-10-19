@@ -255,6 +255,7 @@ export interface WorkoutSetRecord {
 	lot: SetLot;
 	note: string | null;
 	personal_bests: WorkoutSetPersonalBest[] | null;
+	rest_time: number | null;
 	statistic: WorkoutSetStatistic;
 	totals: WorkoutSetTotals | null;
 }
@@ -278,11 +279,15 @@ export interface ProcessedExercise {
 	lot: ExerciseLot;
 	name: string;
 	notes: string[];
-	rest_time: number | null;
 	sets: WorkoutSetRecord[];
-	/** The indices of the exercises with which this has been superset with. */
-	superset_with: number[];
 	total: WorkoutOrExerciseTotals | null;
+}
+
+export interface WorkoutSupersetsInformation {
+	/** A color that will be displayed on the frontend. */
+	color: string;
+	/** The identifier of all the exercises which are in the same superset */
+	exercises: number[];
 }
 
 /** Information about a workout done. */
@@ -290,13 +295,14 @@ export interface WorkoutInformation {
 	assets: EntityAssets | null;
 	comment: string | null;
 	exercises: ProcessedExercise[];
+	supersets: WorkoutSupersetsInformation[];
 }
 
 /** The summary about an exercise done in a workout. */
 export interface WorkoutSummaryExercise {
 	best_set: WorkoutSetRecord | null;
-	id: string;
 	lot: ExerciseLot | null;
+	name: string;
 	num_sets: number;
 }
 
@@ -307,7 +313,6 @@ export interface WorkoutSummary {
 
 export interface WorkoutTemplate {
 	created_on: string;
-	default_rest_timer: number | null;
 	id: string;
 	information: WorkoutInformation;
 	name: string;

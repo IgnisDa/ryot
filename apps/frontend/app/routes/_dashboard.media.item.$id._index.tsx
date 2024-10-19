@@ -121,7 +121,7 @@ import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
-	useGetMantineColor,
+	useGetRandomMantineColor,
 	useGetWatchProviders,
 	useUserDetails,
 	useUserPreferences,
@@ -248,7 +248,6 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
-	const getMantineColor = useGetMantineColor();
 	const submit = useConfirmSubmit();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
@@ -589,26 +588,29 @@ export default function Page() {
 									{userPreferences.featuresEnabled.media.genres
 										? loaderData.metadataDetails.genres
 												.slice(0, 12)
-												.map((g) => (
-													<Group key={g.id} wrap="nowrap">
-														<Box
-															h={11}
-															w={11}
-															style={{ borderRadius: 2, flex: "none" }}
-															bg={getMantineColor(g.name)}
-														/>
-														<Anchor
-															component={Link}
-															to={$path("/media/genre/:id", {
-																id: g.id,
-															})}
-															fz="sm"
-															truncate
-														>
-															{g.name.trim()}
-														</Anchor>
-													</Group>
-												))
+												.map((g) => {
+													const color = useGetRandomMantineColor(g.name);
+													return (
+														<Group key={g.id} wrap="nowrap">
+															<Box
+																h={11}
+																w={11}
+																bg={color}
+																style={{ borderRadius: 2, flex: "none" }}
+															/>
+															<Anchor
+																component={Link}
+																to={$path("/media/genre/:id", {
+																	id: g.id,
+																})}
+																fz="sm"
+																truncate
+															>
+																{g.name.trim()}
+															</Anchor>
+														</Group>
+													);
+												})
 										: null}
 								</SimpleGrid>
 								{loaderData.metadataDetails.description ? (
@@ -939,7 +941,7 @@ export default function Page() {
 										</Menu.Item>
 										<Form
 											method="POST"
-											action={withQuery("", { intent: "removeItem" })}
+											action={withQuery(".", { intent: "removeItem" })}
 										>
 											<input
 												hidden
@@ -1314,7 +1316,7 @@ const EditHistoryItemModal = (props: {
 				replace
 				method="POST"
 				onSubmit={props.onClose}
-				action={withQuery("", { intent: "editSeenItem" })}
+				action={withQuery(".", { intent: "editSeenItem" })}
 			>
 				<input hidden name="seenId" defaultValue={id} />
 				<Stack>
@@ -1420,7 +1422,7 @@ const MergeMetadataModal = (props: {
 			<Form
 				replace
 				method="POST"
-				action={withQuery("", { intent: "mergeMetadata" })}
+				action={withQuery(".", { intent: "mergeMetadata" })}
 			>
 				<input hidden name="mergeFrom" defaultValue={props.metadataId} />
 				<Stack>
@@ -1565,7 +1567,7 @@ const HistoryItem = (props: {
 					<Form
 						replace
 						method="POST"
-						action={withQuery("", { intent: "deleteSeenItem" })}
+						action={withQuery(".", { intent: "deleteSeenItem" })}
 					>
 						<input hidden name="seenId" defaultValue={props.history.id} />
 						<ActionIcon
