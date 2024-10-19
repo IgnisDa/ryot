@@ -37,7 +37,8 @@ SET "information" = jsonb_set(
         )
         FROM jsonb_array_elements("information"->'exercises') AS exercise
     )
-);
+)
+WHERE jsonb_array_length("information"->'exercises') > 0;
 
 UPDATE "{x}"
 SET "summary" = jsonb_set(
@@ -53,7 +54,8 @@ SET "summary" = jsonb_set(
         )
         FROM jsonb_array_elements("summary"->'exercises') AS exercise
     )
-);
+)
+WHERE jsonb_array_length("summary"->'exercises') > 0;
                     "#,
             ))
             .await?;
