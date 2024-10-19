@@ -7,8 +7,8 @@ use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
 use enums::{MediaLot, MediaSource};
 use media_models::{
-    AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails, MetadataSearchItem,
-    PartialMetadataWithoutId,
+    AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataImageForMediaDetails,
+    MetadataSearchItem, PartialMetadataWithoutId,
 };
 use rand::{seq::SliceRandom, thread_rng};
 use reqwest::{

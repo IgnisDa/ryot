@@ -179,7 +179,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
                 seen_history: vec![seen],
                 identifier: tmdb_id,
                 collections,
-..Default::default()
+                ..Default::default()
             });
         } else {
             failed_items.push(ImportFailedItem {
