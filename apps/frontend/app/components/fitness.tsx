@@ -27,18 +27,19 @@ import {
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, startCase } from "@ryot/ts-utils";
+import { changeCase, isNumber, startCase } from "@ryot/ts-utils";
 import {
 	IconArrowLeftToArc,
 	IconClock,
 	IconInfoCircle,
+	type IconProps,
 	IconRotateClockwise,
 	IconRun,
 	IconTrophy,
 	IconWeight,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
 import { withFragment } from "ufo";
@@ -303,44 +304,36 @@ export const ExerciseHistory = (props: {
 								<SimpleGrid cols={{ base: 2, md: 3 }} spacing={4}>
 									{exercise.total ? (
 										<>
-											{Number(exercise.total.reps) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconRotateClockwise size={14} />
-													<Text fz="xs">Reps: {exercise.total.reps}</Text>
-												</Flex>
-											) : null}
-											{Number(exercise.total.duration) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconClock size={14} />
-													<Text fz="xs">
-														Duration: {exercise.total.duration} min
-													</Text>
-												</Flex>
-											) : null}
-											{Number(exercise.total.weight) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconWeight size={14} />
-													<Text fz="xs">
-														Weight:{" "}
-														{displayWeightWithUnit(
-															unitSystem,
-															exercise.total.weight,
-														)}
-													</Text>
-												</Flex>
-											) : null}
-											{Number(exercise.total.distance) > 0 ? (
-												<Flex align="center" gap="xs">
-													<IconRun size={14} />
-													<Text fz="xs">
-														Distance:{" "}
-														{displayDistanceWithUnit(
-															unitSystem,
-															exercise.total.distance,
-														)}
-													</Text>
-												</Flex>
-											) : null}
+											<DisplayExerciseAttributes
+												label="reps"
+												icon={IconRotateClockwise}
+												value={exercise.total.reps}
+												quantity={exercise.total.reps}
+											/>
+											<DisplayExerciseAttributes
+												label="duration"
+												icon={IconClock}
+												quantity={exercise.total.duration}
+												value={`${exercise.total.duration} min`}
+											/>
+											<DisplayExerciseAttributes
+												label="weight"
+												icon={IconWeight}
+												quantity={exercise.total.weight}
+												value={displayWeightWithUnit(
+													unitSystem,
+													exercise.total.weight,
+												)}
+											/>
+											<DisplayExerciseAttributes
+												icon={IconRun}
+												label="distance"
+												quantity={exercise.total.distance}
+												value={displayDistanceWithUnit(
+													unitSystem,
+													exercise.total.distance,
+												)}
+											/>
 										</>
 									) : null}
 								</SimpleGrid>
@@ -384,6 +377,22 @@ export const ExerciseHistory = (props: {
 			)}
 		</Paper>
 	);
+};
+
+const DisplayExerciseAttributes = (props: {
+	label: string;
+	value: number | string;
+	quantity: number | string;
+	icon: ComponentType<IconProps>;
+}) => {
+	return Number(props.quantity) > 0 ? (
+		<Flex align="center" gap="xs">
+			<props.icon size={14} />
+			<Text fz="xs">
+				{changeCase(props.label)}: {props.value}
+			</Text>
+		</Flex>
+	) : null;
 };
 
 export const ExerciseDisplayItem = (props: {
