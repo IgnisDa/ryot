@@ -488,9 +488,10 @@ const reviewCommentSchema = z.object({
 });
 
 const changeCollectionToEntitySchema = z.object({
-	collectionName: z.string(),
-	creatorUserId: z.string(),
 	entityId: z.string(),
+	creatorUserId: z.string(),
+	collectionName: z.string(),
+	information: z.any().optional(),
 	entityLot: z.nativeEnum(EntityLot),
 });
 
@@ -510,7 +511,7 @@ const reviewSchema = z
 const getChangeCollectionToEntityVariables = (formData: FormData) => {
 	const submission = processSubmission(
 		formData,
-		changeCollectionToEntitySchema.passthrough(),
+		changeCollectionToEntitySchema,
 	);
 	return [submission] as const;
 };

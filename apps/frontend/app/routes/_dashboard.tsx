@@ -1665,14 +1665,14 @@ const AddEntityToCollectionForm = ({
 														: undefined
 												}
 											/>
-											<input
-												readOnly
-												hidden
-												name={`information.${template.name}`}
-												value={
-													ownedOn ? formatDateToNaiveDate(ownedOn) : undefined
-												}
-											/>
+											{ownedOn ? (
+												<input
+													readOnly
+													hidden
+													name={`information.${template.name}`}
+													value={formatDateToNaiveDate(ownedOn)}
+												/>
+											) : null}
 										</>
 									))
 									.with(CollectionExtraInformationLot.DateTime, () => (

@@ -700,17 +700,13 @@ pub async fn queue_notifications_to_user_platforms(
     msg: &str,
     db: &DatabaseConnection,
 ) -> Result<bool> {
-    let user_details = user_by_id(db, user_id).await?;
-    if user_details.preferences.notifications.enabled {
-        let insert_data = queued_notification::ActiveModel {
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            message: ActiveValue::Set(msg.to_owned()),
-            ..Default::default()
-        };
-        insert_data.insert(db).await?;
-    } else {
-        ryot_log!(debug, "User has disabled notifications");
-    }
+    let insert_data = queued_notification::ActiveModel {
+        message: ActiveValue::Set(msg.to_owned()),
+        user_id: ActiveValue::Set(user_id.to_owned()),
+        ..Default::default()
+    };
+    let notification = insert_data.insert(db).await?;
+    ryot_log!(debug, "Queued notification with id = {}", notification.id);
     Ok(true)
 }
 
