@@ -44,9 +44,9 @@ use dependent_models::{
 use dependent_utils::{
     after_media_seen_tasks, commit_metadata, commit_metadata_group_internal,
     commit_metadata_internal, commit_person, create_partial_metadata, deploy_background_job,
-    deploy_update_metadata_job, get_entities_monitored_by, get_metadata_provider,
-    get_openlibrary_service, get_tmdb_non_media_service, is_metadata_finished_by_user, post_review,
-    progress_update, queue_media_state_changed_notification_for_user,
+    deploy_update_metadata_job, get_metadata_provider, get_openlibrary_service,
+    get_tmdb_non_media_service, get_users_monitoring_entity, is_metadata_finished_by_user,
+    post_review, progress_update, queue_media_state_changed_notification_for_user,
     queue_notifications_to_user_platforms, update_metadata_and_notify_users,
 };
 use enums::{
@@ -2650,7 +2650,7 @@ ORDER BY RANDOM() LIMIT 10;
             .collect_vec();
         for (metadata_id, notification) in notifications.into_iter() {
             let users_to_notify =
-                get_entities_monitored_by(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
+                get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
             for user in users_to_notify {
                 queue_media_state_changed_notification_for_user(&user, &notification, &self.0)
                     .await?;
@@ -2749,7 +2749,7 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap_or_default();
         if !notifications.is_empty() {
             let users_to_notify =
-                get_entities_monitored_by(&person_id, EntityLot::Person, &self.0.db).await?;
+                get_users_monitoring_entity(&person_id, EntityLot::Person, &self.0.db).await?;
             for notification in notifications {
                 for user_id in users_to_notify.iter() {
                     queue_media_state_changed_notification_for_user(
@@ -2782,7 +2782,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
-            get_entities_monitored_by(&event.obj_id, event.entity_lot, &self.0.db).await?;
+            get_users_monitoring_entity(&event.obj_id, event.entity_lot, &self.0.db).await?;
         let users = User::find()
             .select_only()
             .column(user::Column::Id)

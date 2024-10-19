@@ -663,7 +663,7 @@ pub async fn update_metadata(
     Ok(notifications)
 }
 
-pub async fn get_entities_monitored_by(
+pub async fn get_users_monitoring_entity(
     entity_id: &String,
     entity_lot: EntityLot,
     db: &DatabaseConnection,
@@ -728,7 +728,7 @@ pub async fn update_metadata_and_notify_users(
         .unwrap();
     if !notifications.is_empty() {
         let users_to_notify =
-            get_entities_monitored_by(metadata_id, EntityLot::Metadata, &ss.db).await?;
+            get_users_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
             for user_id in users_to_notify.iter() {
                 queue_media_state_changed_notification_for_user(user_id, &notification, ss)
