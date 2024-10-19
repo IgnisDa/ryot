@@ -1,6 +1,7 @@
 use async_graphql::Result;
 use chrono::{Duration, Utc};
 use common_models::ApplicationCacheKey;
+use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
@@ -40,6 +41,7 @@ impl CacheService {
             )
             .exec(&self.db)
             .await?;
+        ryot_log!(debug, "Inserted application cache with key = {key:?}");
         Ok(inserted.last_insert_id)
     }
 
