@@ -113,6 +113,7 @@ export default function Page() {
 							{" "}
 							•{" "}
 							<Anchor
+								fz={{ base: "xs", md: "sm" }}
 								href={loaderData.personDetails.details.website}
 								target="_blank"
 							>
