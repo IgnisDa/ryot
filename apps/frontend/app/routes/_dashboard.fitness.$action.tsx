@@ -1797,7 +1797,7 @@ const SetDisplay = (props: {
 												newConfirmed ? dayjsLib().toISOString() : null;
 											if (newConfirmed) {
 												const nextSet = getNextSetInWorkout(
-													currentWorkout,
+													draft,
 													props.exerciseIdx,
 													props.setIdx,
 												);
