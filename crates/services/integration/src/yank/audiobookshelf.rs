@@ -168,7 +168,6 @@ impl AudiobookshelfIntegration {
                         seen_history: vec![ImportOrExportMediaItemSeen {
                             podcast_episode_number,
                             progress: Some(progress * dec!(100)),
-
                             provider_watched_on: Some("Audiobookshelf".to_string()),
                             ..Default::default()
                         }],

@@ -35,7 +35,6 @@ impl KodiIntegration {
                 identifier: payload.identifier,
                 seen_history: vec![ImportOrExportMediaItemSeen {
                     progress: Some(payload.progress),
-
                     provider_watched_on: Some("Kodi".to_string()),
                     show_season_number: payload.show_season_number,
                     show_episode_number: payload.show_episode_number,

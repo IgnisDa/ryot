@@ -139,7 +139,6 @@ impl PlexIntegration {
                 source: MediaSource::Tmdb,
                 seen_history: vec![ImportOrExportMediaItemSeen {
                     progress: Some(progress),
-
                     provider_watched_on: Some("Plex".to_string()),
                     show_season_number: payload.metadata.season_number,
                     show_episode_number: payload.metadata.episode_number,
