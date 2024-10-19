@@ -829,15 +829,12 @@ const CreateSupersetModal = (props: {
 			</Stack>
 			<Button
 				onClick={() => {
-					const sortedExercises = sortBy(exercises, (ex) =>
-						cw.exercises.map((e) => e.identifier).indexOf(ex),
-					);
 					setCurrentWorkout(
 						produce(cw, (draft) => {
 							draft.supersets.push({
+								exercises,
 								color: selectedColor,
 								identifier: randomUUID(),
-								exercises: sortedExercises,
 							});
 						}),
 					);
@@ -912,12 +909,9 @@ const EditSupersetModal = (props: {
 				<Button
 					fullWidth
 					onClick={() => {
-						const sortedExercises = sortBy(exercises, (ex) =>
-							cw.exercises.map((e) => e.identifier).indexOf(ex),
-						);
 						setCurrentWorkout(
 							produce(cw, (draft) => {
-								draft.supersets[props.superset[0]].exercises = sortedExercises;
+								draft.supersets[props.superset[0]].exercises = exercises;
 							}),
 						);
 						props.onClose();
