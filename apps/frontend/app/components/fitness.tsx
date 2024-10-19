@@ -37,6 +37,7 @@ import {
 	IconRun,
 	IconTrophy,
 	IconWeight,
+	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType, ReactNode } from "react";
@@ -333,6 +334,12 @@ export const ExerciseHistory = (props: {
 													unitSystem,
 													exercise.total.distance,
 												)}
+											/>
+											<DisplayExerciseAttributes
+												icon={IconZzz}
+												label="rest time"
+												quantity={exercise.total.restTime}
+												value={`${exercise.total.restTime}s`}
 											/>
 										</>
 									) : null}
