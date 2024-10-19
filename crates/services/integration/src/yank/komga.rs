@@ -6,7 +6,6 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use application_utils::get_base_http_client;
 use async_graphql::futures_util::{stream, StreamExt};
-use chrono::Utc;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::Metadata};
@@ -376,7 +375,6 @@ impl KomgaIntegration {
                 force_update: None,
             },
             ImportOrExportMediaItemSeen {
-                ended_on: Some(Utc::now().date_naive()),
                 progress: Some(
                     self.calculate_percentage(book.read_progress.page, book.media.pages_count),
                 ),

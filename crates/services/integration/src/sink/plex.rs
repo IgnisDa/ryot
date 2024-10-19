@@ -1,5 +1,4 @@
 use anyhow::{bail, Context, Result};
-use chrono::Utc;
 use common_utils::ryot_log;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
@@ -140,7 +139,7 @@ impl PlexIntegration {
                 source: MediaSource::Tmdb,
                 seen_history: vec![ImportOrExportMediaItemSeen {
                     progress: Some(progress),
-                    ended_on: Some(Utc::now().date_naive()),
+
                     provider_watched_on: Some("Plex".to_string()),
                     show_season_number: payload.metadata.season_number,
                     show_episode_number: payload.metadata.episode_number,

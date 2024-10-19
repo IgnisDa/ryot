@@ -3,7 +3,6 @@ use std::future::Future;
 use anyhow::{anyhow, Result};
 use application_utils::get_base_http_client;
 use async_graphql::Result as GqlResult;
-use chrono::Utc;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::metadata;
@@ -169,7 +168,7 @@ impl AudiobookshelfIntegration {
                         seen_history: vec![ImportOrExportMediaItemSeen {
                             podcast_episode_number,
                             progress: Some(progress * dec!(100)),
-                            ended_on: Some(Utc::now().date_naive()),
+
                             provider_watched_on: Some("Audiobookshelf".to_string()),
                             ..Default::default()
                         }],

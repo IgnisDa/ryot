@@ -1,5 +1,4 @@
 use anyhow::{bail, Result};
-use chrono::Utc;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
@@ -36,7 +35,7 @@ impl KodiIntegration {
                 identifier: payload.identifier,
                 seen_history: vec![ImportOrExportMediaItemSeen {
                     progress: Some(payload.progress),
-                    ended_on: Some(Utc::now().date_naive()),
+
                     provider_watched_on: Some("Kodi".to_string()),
                     show_season_number: payload.show_season_number,
                     show_episode_number: payload.show_episode_number,
