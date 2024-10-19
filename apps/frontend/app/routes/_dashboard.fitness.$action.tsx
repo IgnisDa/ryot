@@ -727,27 +727,125 @@ const ImageDisplay = (props: { imageSrc: string; removeImage: () => void }) => {
 	);
 };
 
-const DisplaySupersetModal = (props: {
-	onClose: () => void;
-	supersetWith: string | null;
-}) => {
+const DisplaySupersetModal = ({
+	onClose,
+	supersetWith,
+}: { onClose: () => void; supersetWith: string | null }) => {
+	const [cw] = useCurrentWorkout();
+
+	const exerciseAlreadyInSuperset = useMemo(() => {
+		if (cw && supersetWith) {
+			const index = cw?.supersets.findIndex((s) =>
+				s.exercises.includes(supersetWith),
+			);
+			if (index !== -1) return [index, cw.supersets[index]] as const;
+		}
+		return undefined;
+	}, [cw, supersetWith]);
+
 	return (
 		<Modal
-			onClose={props.onClose}
+			onClose={onClose}
 			withCloseButton={false}
-			opened={isString(props.supersetWith)}
+			opened={isString(supersetWith)}
 		>
-			{props.supersetWith ? (
-				<SupersetModal
-					onClose={props.onClose}
-					supersetWith={props.supersetWith}
-				/>
+			{supersetWith ? (
+				exerciseAlreadyInSuperset ? (
+					<EditSupersetModal onClose={onClose} supersetWith={supersetWith} />
+				) : (
+					<CreateSupersetModal onClose={onClose} supersetWith={supersetWith} />
+				)
 			) : null}
 		</Modal>
 	);
 };
 
-const SupersetModal = (props: {
+const CreateSupersetModal = (props: {
+	onClose: () => void;
+	supersetWith: string;
+}) => {
+	const [cw, setCurrentWorkout] = useCurrentWorkout();
+	const [exercises, setExercisesHandle] = useListState<string>([
+		props.supersetWith,
+	]);
+	const colors = useGetMantineColors();
+	const [allowedColors, setAllowedColors] = useState<string[]>([]);
+	const [selectedColor, setSelectedColor] = useState<string>("");
+
+	useEffect(() => {
+		if (cw) {
+			const newColors = colors
+				.filter((c) => !["dark", "gray"].includes(c))
+				.filter((c) => !cw.supersets.map((s) => s.color).includes(c));
+			setAllowedColors(newColors);
+			setSelectedColor(newColors[0]);
+		}
+	}, [cw]);
+
+	if (!cw) return null;
+
+	return (
+		<Stack gap="lg">
+			<Group>
+				<Text>Select color</Text>
+				<Select
+					size="xs"
+					value={selectedColor}
+					leftSectionWidth={rem(40)}
+					onChange={(v) => setSelectedColor(v ?? "")}
+					data={allowedColors.map((c) => ({
+						value: c,
+						label: changeCase(c),
+					}))}
+				/>
+			</Group>
+			<Stack gap="xs">
+				{cw.exercises.map((ex) => {
+					const index = exercises.findIndex((e) => e === ex.identifier);
+					return (
+						<Button
+							size="xs"
+							fullWidth
+							key={ex.identifier}
+							color={selectedColor}
+							variant={index !== -1 ? "light" : "outline"}
+							disabled={cw.supersets
+								.flatMap((s) => s.exercises)
+								.includes(ex.identifier)}
+							onClick={() => {
+								if (index !== -1) setExercisesHandle.remove(index);
+								else setExercisesHandle.append(ex.identifier);
+							}}
+						>
+							{ex.exerciseId}
+						</Button>
+					);
+				})}
+			</Stack>
+			<Button
+				onClick={() => {
+					const sortedExercises = sortBy(exercises, (ex) =>
+						cw.exercises.map((e) => e.identifier).indexOf(ex),
+					);
+					setCurrentWorkout(
+						produce(cw, (draft) => {
+							draft.supersets.push({
+								color: selectedColor,
+								identifier: randomUUID(),
+								exercises: sortedExercises,
+							});
+						}),
+					);
+					props.onClose();
+				}}
+			>
+				Create superset
+			</Button>
+		</Stack>
+	);
+};
+
+const EditSupersetModal = (props: {
 	onClose: () => void;
 	supersetWith: string;
 }) => {
@@ -848,7 +946,7 @@ const SupersetModal = (props: {
 					props.onClose();
 				}}
 			>
-				Create superset
+				Add to superset
 			</Button>
 		</Stack>
 	);
