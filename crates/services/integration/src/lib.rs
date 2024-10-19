@@ -57,6 +57,7 @@ impl IntegrationService {
                 None => false,
             });
             media.seen_history.iter_mut().for_each(|update| {
+                update.ended_on = Some(Utc::now().date_naive());
                 if let Some(progress) = update.progress {
                     if progress > integration.maximum_progress.unwrap() {
                         ryot_log!(
