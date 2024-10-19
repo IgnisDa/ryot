@@ -41,8 +41,9 @@ impl CacheService {
             )
             .exec(&self.db)
             .await?;
-        ryot_log!(debug, "Inserted application cache with key = {key:?}");
-        Ok(inserted.last_insert_id)
+        let insert_id = inserted.last_insert_id;
+        ryot_log!(debug, "Inserted application cache with id = {insert_id:?}");
+        Ok(insert_id)
     }
 
     pub async fn get(&self, key: ApplicationCacheKey) -> Result<Option<()>> {
