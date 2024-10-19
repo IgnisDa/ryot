@@ -72,7 +72,6 @@ DECLARE
     superset_array jsonb := '[]'::jsonb;
     superset jsonb;
     color_options text[] := ARRAY['red', 'pink', 'yellow', 'gray', 'teal', 'green'];
-    color_index int := 1;
 BEGIN
     FOR workout_record IN SELECT id, information FROM "{x}" LOOP
         workout_json := workout_record.information;
