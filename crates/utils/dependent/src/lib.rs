@@ -72,6 +72,7 @@ use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale};
+use uuid::Uuid;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -663,20 +664,35 @@ pub async fn update_metadata(
     Ok(notifications)
 }
 
+pub async fn get_users_and_cte_monitoring_entity(
+    entity_id: &String,
+    entity_lot: EntityLot,
+    db: &DatabaseConnection,
+) -> Result<Vec<(String, Uuid)>> {
+    let all_entities = MonitoredEntity::find()
+        .select_only()
+        .column(monitored_entity::Column::CollectionToEntityId)
+        .column(monitored_entity::Column::UserId)
+        .filter(monitored_entity::Column::EntityId.eq(entity_id))
+        .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
+        .into_tuple::<(String, Uuid)>()
+        .all(db)
+        .await?;
+    Ok(all_entities)
+}
+
 pub async fn get_users_monitoring_entity(
     entity_id: &String,
     entity_lot: EntityLot,
     db: &DatabaseConnection,
 ) -> Result<Vec<String>> {
-    let all_entities = MonitoredEntity::find()
-        .select_only()
-        .column(monitored_entity::Column::UserId)
-        .filter(monitored_entity::Column::EntityId.eq(entity_id))
-        .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
-        .into_tuple::<String>()
-        .all(db)
-        .await?;
-    Ok(all_entities)
+    Ok(
+        get_users_and_cte_monitoring_entity(entity_id, entity_lot, db)
+            .await?
+            .into_iter()
+            .map(|(u, _)| u)
+            .collect_vec(),
+    )
 }
 
 pub async fn queue_notifications_to_user_platforms(
