@@ -1483,7 +1483,7 @@ const getNextSetInWorkout = (
 	const partOfSuperset = currentWorkout.supersets.find((superset) =>
 		superset.exercises.includes(currentExercise.identifier),
 	);
-	const isLastSet = currentSetIdx === currentExercise.sets.length - 1;
+	const areAllSetsConfirmed = currentExercise.sets.every((s) => s.confirmedAt);
 	if (partOfSuperset) {
 		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
 			currentWorkout.exercises.findIndex((e) => e.identifier === s),
@@ -1501,10 +1501,10 @@ const getNextSetInWorkout = (
 			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
 				(s) => !s.confirmedAt,
 			);
-			return { exerciseIdx, setIdx: setIdx, wasLastSet: isLastSet };
+			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
 		}
 	}
-	if (isLastSet)
+	if (areAllSetsConfirmed)
 		return {
 			exerciseIdx: currentExerciseIdx + 1,
 			setIdx: 0,
