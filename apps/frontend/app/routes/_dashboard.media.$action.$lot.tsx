@@ -173,19 +173,25 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			const urlParse = zx.parseQuery(request, {
 				source: z.nativeEnum(MediaSource).default(metadataSourcesForLot[0]),
 			});
-			const { metadataSearch } = await serverGqlService.authenticatedRequest(
-				request,
-				MetadataSearchDocument,
-				{
-					input: {
-						lot,
-						search: { page: query[pageQueryParam], query: query.query },
-						source: urlParse.source,
+			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
+			try {
+				const response = await serverGqlService.authenticatedRequest(
+					request,
+					MetadataSearchDocument,
+					{
+						input: {
+							lot,
+							search: { page: query[pageQueryParam], query: query.query },
+							source: urlParse.source,
+						},
 					},
-				},
-			);
+				);
+				metadataSearch = response.metadataSearch;
+			} catch {
+				metadataSearch = false;
+			}
 			return [
-				metadataSearch.details.total,
+				metadataSearch === false ? 0 : metadataSearch.details.total,
 				undefined,
 				{
 					search: metadataSearch,
@@ -387,7 +393,11 @@ export default function Page() {
 								/>
 							) : null}
 						</Flex>
-						{loaderData.mediaSearch.search.details.total > 0 ? (
+						{loaderData.mediaSearch.search === false ? (
+							<Text>
+								Something is wrong. Please try with an alternate provider.
+							</Text>
+						) : loaderData.mediaSearch.search.details.total > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
