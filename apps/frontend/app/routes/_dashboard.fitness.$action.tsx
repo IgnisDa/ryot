@@ -828,6 +828,7 @@ const CreateSupersetModal = (props: {
 				})}
 			</Stack>
 			<Button
+				disabled={exercises.length <= 1}
 				onClick={() => {
 					setCurrentWorkout(
 						produce(cw, (draft) => {
@@ -908,6 +909,7 @@ const EditSupersetModal = (props: {
 				</Button>
 				<Button
 					fullWidth
+					disabled={exercises.length <= 1}
 					onClick={() => {
 						setCurrentWorkout(
 							produce(cw, (draft) => {
@@ -1478,7 +1480,30 @@ const getNextSetInWorkout = (
 	currentSetIdx: number,
 ) => {
 	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
+	const partOfSuperset = currentWorkout.supersets.find((superset) =>
+		superset.exercises.includes(currentExercise.identifier),
+	);
 	const isLastSet = currentSetIdx === currentExercise.sets.length - 1;
+	if (partOfSuperset) {
+		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
+			currentWorkout.exercises.findIndex((e) => e.identifier === s),
+		);
+		const nextExerciseWithIncompleteSets = currentWorkout.exercises.find(
+			(e) =>
+				e.identifier !== currentExercise.identifier &&
+				sortedExercises.includes(e.identifier) &&
+				e.sets.some((s) => !s.confirmedAt),
+		);
+		if (nextExerciseWithIncompleteSets) {
+			const exerciseIdx = currentWorkout.exercises.findIndex(
+				(e) => e.identifier === nextExerciseWithIncompleteSets.identifier,
+			);
+			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
+				(s) => !s.confirmedAt,
+			);
+			return { exerciseIdx, setIdx: setIdx, wasLastSet: isLastSet };
+		}
+	}
 	if (isLastSet)
 		return {
 			exerciseIdx: currentExerciseIdx + 1,
@@ -1770,12 +1795,12 @@ const SetDisplay = (props: {
 												draft.exercises[props.exerciseIdx];
 											currentExercise.sets[props.setIdx].confirmedAt =
 												newConfirmed ? dayjsLib().toISOString() : null;
-											const nextSet = getNextSetInWorkout(
-												currentWorkout,
-												props.exerciseIdx,
-												props.setIdx,
-											);
 											if (newConfirmed) {
+												const nextSet = getNextSetInWorkout(
+													currentWorkout,
+													props.exerciseIdx,
+													props.setIdx,
+												);
 												focusOnExercise(nextSet.exerciseIdx);
 												if (nextSet.wasLastSet) {
 													currentExercise.isCollapsed = true;
