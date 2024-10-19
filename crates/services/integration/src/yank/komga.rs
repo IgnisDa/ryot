@@ -338,7 +338,7 @@ impl KomgaIntegration {
         }
     }
 
-    fn calculate_percentage(current_page: i32, total_page: i32) -> Decimal {
+    fn calculate_percentage(&self, current_page: i32, total_page: i32) -> Decimal {
         if total_page == 0 {
             return dec!(0);
         }
@@ -377,10 +377,9 @@ impl KomgaIntegration {
             },
             ImportOrExportMediaItemSeen {
                 ended_on: Some(Utc::now().date_naive()),
-                progress: Some(Self::calculate_percentage(
-                    book.read_progress.page,
-                    book.media.pages_count,
-                )),
+                progress: Some(
+                    self.calculate_percentage(book.read_progress.page, book.media.pages_count),
+                ),
                 provider_watched_on: Some("Komga".to_string()),
                 manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
                 ..Default::default()
