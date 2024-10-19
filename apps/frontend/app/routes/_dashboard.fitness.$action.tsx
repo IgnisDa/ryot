@@ -909,7 +909,11 @@ const EditSupersetModal = (props: {
 				</Button>
 				<Button
 					fullWidth
-					disabled={exercises.length <= 1}
+					disabled={
+						exercises.length <= 1 ||
+						cw.supersets[props.superset[0]].exercises.length ===
+							exercises.length
+					}
 					onClick={() => {
 						setCurrentWorkout(
 							produce(cw, (draft) => {
