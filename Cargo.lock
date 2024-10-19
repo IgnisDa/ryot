@@ -1136,9 +1136,11 @@ dependencies = [
  "async-graphql",
  "chrono",
  "common-models",
+ "common-utils",
  "database-models",
  "sea-orm",
  "sea-query",
+ "tracing",
  "uuid",
 ]
 
@@ -1781,6 +1783,7 @@ dependencies = [
  "tracing",
  "traits",
  "user-models",
+ "uuid",
 ]
 
 [[package]]

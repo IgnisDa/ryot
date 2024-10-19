@@ -44,10 +44,11 @@ use dependent_models::{
 use dependent_utils::{
     after_media_seen_tasks, commit_metadata, commit_metadata_group_internal,
     commit_metadata_internal, commit_person, create_partial_metadata, deploy_background_job,
-    deploy_update_metadata_job, get_entities_monitored_by, get_metadata_provider,
-    get_openlibrary_service, get_tmdb_non_media_service, is_metadata_finished_by_user, post_review,
-    progress_update, queue_media_state_changed_notification_for_user,
-    queue_notifications_to_user_platforms, update_metadata_and_notify_users,
+    deploy_update_metadata_job, get_metadata_provider, get_openlibrary_service,
+    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    is_metadata_finished_by_user, post_review, progress_update,
+    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
+    refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
@@ -1992,7 +1993,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(monitored_by)
     }
 
-    async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
+    async fn update_monitored_metadata_and_queue_notifications(&self) -> Result<()> {
         let meta_map = self.get_monitored_entities(EntityLot::Metadata).await?;
         ryot_log!(
             debug,
@@ -2650,7 +2651,7 @@ ORDER BY RANDOM() LIMIT 10;
             .collect_vec();
         for (metadata_id, notification) in notifications.into_iter() {
             let users_to_notify =
-                get_entities_monitored_by(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
+                get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
             for user in users_to_notify {
                 queue_media_state_changed_notification_for_user(&user, &notification, &self.0)
                     .await?;
@@ -2749,9 +2750,10 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap_or_default();
         if !notifications.is_empty() {
             let users_to_notify =
-                get_entities_monitored_by(&person_id, EntityLot::Person, &self.0.db).await?;
+                get_users_and_cte_monitoring_entity(&person_id, EntityLot::Person, &self.0.db)
+                    .await?;
             for notification in notifications {
-                for user_id in users_to_notify.iter() {
+                for (user_id, cte_id) in users_to_notify.iter() {
                     queue_media_state_changed_notification_for_user(
                         user_id,
                         &notification,
@@ -2759,6 +2761,9 @@ ORDER BY RANDOM() LIMIT 10;
                     )
                     .await
                     .trace_ok();
+                    refresh_collection_to_entity_association(cte_id, &self.0.db)
+                        .await
+                        .trace_ok();
                 }
             }
         }
@@ -2782,7 +2787,7 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
         let monitored_by =
-            get_entities_monitored_by(&event.obj_id, event.entity_lot, &self.0.db).await?;
+            get_users_monitoring_entity(&event.obj_id, event.entity_lot, &self.0.db).await?;
         let users = User::find()
             .select_only()
             .column(user::Column::Id)
@@ -2856,23 +2861,21 @@ ORDER BY RANDOM() LIMIT 10;
         struct CustomQueryResponse {
             id: Uuid,
             created_on: DateTimeUtc,
-            last_updated_on: Option<DateTimeUtc>,
+            last_updated_on: DateTimeUtc,
         }
         let all_cte = CollectionToEntity::find()
             .select_only()
             .column(collection_to_entity::Column::Id)
             .column(collection_to_entity::Column::CreatedOn)
-            .column(metadata::Column::LastUpdatedOn)
-            .left_join(Metadata)
+            .column(collection_to_entity::Column::LastUpdatedOn)
             .inner_join(Collection)
             .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
-            .order_by_asc(collection_to_entity::Column::Id)
             .into_model::<CustomQueryResponse>()
             .all(&self.0.db)
             .await?;
         let mut to_delete = vec![];
         for cte in all_cte {
-            let delta = cte.last_updated_on.unwrap_or_else(Utc::now) - cte.created_on;
+            let delta = cte.last_updated_on - cte.created_on;
             if delta.num_days().abs() > self.0.config.media.monitoring_remove_after_days {
                 to_delete.push(cte.id);
             }
@@ -3059,16 +3062,16 @@ ORDER BY RANDOM() LIMIT 10;
 
         ryot_log!(trace, "Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.trace_ok();
-        ryot_log!(trace, "Removing stale entities from Monitoring collection");
-        self.remove_old_entities_from_monitoring_collection()
-            .await
-            .trace_ok();
         ryot_log!(trace, "Checking for updates for media in Watchlist");
-        self.update_watchlist_metadata_and_queue_notifications()
+        self.update_monitored_metadata_and_queue_notifications()
             .await
             .trace_ok();
         ryot_log!(trace, "Checking for updates for monitored people");
         self.update_monitored_people_and_queue_notifications()
+            .await
+            .trace_ok();
+        ryot_log!(trace, "Removing stale entities from Monitoring collection");
+        self.remove_old_entities_from_monitoring_collection()
             .await
             .trace_ok();
         ryot_log!(trace, "Checking and queuing any pending reminders");

@@ -10,6 +10,7 @@ pub static MONITORED_ENTITY_VIEW_CREATION_SQL: &str = indoc! { r#"
         ute."user_id",
         cte."entity_id",
         cte."entity_lot",
+        cte."id" as "collection_to_entity_id",
         cte."collection_id" AS "origin_collection_id"
     FROM
         "collection_to_entity" cte

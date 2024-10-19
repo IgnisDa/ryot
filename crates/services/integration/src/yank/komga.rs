@@ -337,7 +337,7 @@ impl KomgaIntegration {
         }
     }
 
-    fn calculate_percentage(current_page: i32, total_page: i32) -> Decimal {
+    fn calculate_percentage(&self, current_page: i32, total_page: i32) -> Decimal {
         if total_page == 0 {
             return dec!(0);
         }
@@ -375,12 +375,11 @@ impl KomgaIntegration {
                 force_update: None,
             },
             ImportOrExportMediaItemSeen {
-                manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
-                progress: Some(Self::calculate_percentage(
-                    book.read_progress.page,
-                    book.media.pages_count,
-                )),
+                progress: Some(
+                    self.calculate_percentage(book.read_progress.page, book.media.pages_count),
+                ),
                 provider_watched_on: Some("Komga".to_string()),
+                manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
                 ..Default::default()
             },
         ))
@@ -422,7 +421,9 @@ impl KomgaIntegration {
             })
             .collect()
             .await;
-        result.metadata.extend(unique_collection_updates.into_values());
+        result
+            .metadata
+            .extend(unique_collection_updates.into_values());
         Ok(())
     }
 
@@ -500,8 +501,8 @@ impl KomgaIntegration {
             result.metadata.push(ImportOrExportMediaItem {
                 lot: commit.lot,
                 source: commit.source,
-                identifier: commit.identifier,
                 seen_history: vec![hist],
+                identifier: commit.identifier,
                 ..Default::default()
             });
         });

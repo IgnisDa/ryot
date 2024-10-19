@@ -12,11 +12,11 @@ use common_models::{
 };
 use common_utils::{ryot_log, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
-    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
-    monitored_entity, person,
+    collection_to_entity, genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+    metadata_to_person, monitored_entity, person,
     prelude::{
-        Collection, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-        MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
+        Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
+        MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
     },
     queued_notification, review, seen, user_measurement, user_to_entity, workout,
 };
@@ -72,6 +72,7 @@ use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale};
+use uuid::Uuid;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -663,20 +664,35 @@ pub async fn update_metadata(
     Ok(notifications)
 }
 
-pub async fn get_entities_monitored_by(
+pub async fn get_users_and_cte_monitoring_entity(
+    entity_id: &String,
+    entity_lot: EntityLot,
+    db: &DatabaseConnection,
+) -> Result<Vec<(String, Uuid)>> {
+    let all_entities = MonitoredEntity::find()
+        .select_only()
+        .column(monitored_entity::Column::CollectionToEntityId)
+        .column(monitored_entity::Column::UserId)
+        .filter(monitored_entity::Column::EntityId.eq(entity_id))
+        .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
+        .into_tuple::<(String, Uuid)>()
+        .all(db)
+        .await?;
+    Ok(all_entities)
+}
+
+pub async fn get_users_monitoring_entity(
     entity_id: &String,
     entity_lot: EntityLot,
     db: &DatabaseConnection,
 ) -> Result<Vec<String>> {
-    let all_entities = MonitoredEntity::find()
-        .select_only()
-        .column(monitored_entity::Column::UserId)
-        .filter(monitored_entity::Column::EntityId.eq(entity_id))
-        .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
-        .into_tuple::<String>()
-        .all(db)
-        .await?;
-    Ok(all_entities)
+    Ok(
+        get_users_and_cte_monitoring_entity(entity_id, entity_lot, db)
+            .await?
+            .into_iter()
+            .map(|(u, _)| u)
+            .collect_vec(),
+    )
 }
 
 pub async fn queue_notifications_to_user_platforms(
@@ -718,6 +734,25 @@ pub async fn queue_media_state_changed_notification_for_user(
     Ok(())
 }
 
+pub async fn refresh_collection_to_entity_association(
+    cte_id: &Uuid,
+    db: &DatabaseConnection,
+) -> Result<()> {
+    ryot_log!(
+        debug,
+        "Refreshing collection to entity association for id = {cte_id}"
+    );
+    CollectionToEntity::update_many()
+        .col_expr(
+            collection_to_entity::Column::LastUpdatedOn,
+            Expr::value(Utc::now()),
+        )
+        .filter(collection_to_entity::Column::Id.eq(cte_id.to_owned()))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
     force_update: bool,
@@ -728,10 +763,13 @@ pub async fn update_metadata_and_notify_users(
         .unwrap();
     if !notifications.is_empty() {
         let users_to_notify =
-            get_entities_monitored_by(metadata_id, EntityLot::Metadata, &ss.db).await?;
+            get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
-            for user_id in users_to_notify.iter() {
+            for (user_id, cte_id) in users_to_notify.iter() {
                 queue_media_state_changed_notification_for_user(user_id, &notification, ss)
+                    .await
+                    .trace_ok();
+                refresh_collection_to_entity_association(cte_id, &ss.db)
                     .await
                     .trace_ok();
             }
@@ -1344,9 +1382,6 @@ pub async fn progress_update(
             last_seen.updated_at = ActiveValue::Set(updated_at);
             last_seen.provider_watched_on =
                 ActiveValue::Set(input.provider_watched_on.or(watched_on));
-            if progress == dec!(100) {
-                last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
-            }
 
             // This is needed for manga as some of the apps will update in weird orders
             // For example with komga mihon will update out of order to the server
