@@ -6,6 +6,7 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use application_utils::get_base_http_client;
 use async_graphql::futures_util::{stream, StreamExt};
+use chrono::Utc;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::Metadata};
@@ -375,12 +376,13 @@ impl KomgaIntegration {
                 force_update: None,
             },
             ImportOrExportMediaItemSeen {
-                manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
+                ended_on: Some(Utc::now().date_naive()),
                 progress: Some(Self::calculate_percentage(
                     book.read_progress.page,
                     book.media.pages_count,
                 )),
                 provider_watched_on: Some("Komga".to_string()),
+                manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
                 ..Default::default()
             },
         ))
@@ -422,7 +424,9 @@ impl KomgaIntegration {
             })
             .collect()
             .await;
-        result.metadata.extend(unique_collection_updates.into_values());
+        result
+            .metadata
+            .extend(unique_collection_updates.into_values());
         Ok(())
     }
 
@@ -500,8 +504,8 @@ impl KomgaIntegration {
             result.metadata.push(ImportOrExportMediaItem {
                 lot: commit.lot,
                 source: commit.source,
-                identifier: commit.identifier,
                 seen_history: vec![hist],
+                identifier: commit.identifier,
                 ..Default::default()
             });
         });

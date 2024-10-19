@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use chrono::Utc;
 use dependent_models::ImportResult;
 use enums::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMediaItem, ImportOrExportMediaItemSeen};
@@ -94,6 +95,7 @@ impl JellyfinIntegration {
                 identifier,
                 source: MediaSource::Tmdb,
                 seen_history: vec![ImportOrExportMediaItemSeen {
+                    ended_on: Some(Utc::now().date_naive()),
                     progress: Some(position / runtime * dec!(100)),
                     show_season_number: payload.item.season_number,
                     show_episode_number: payload.item.episode_number,
