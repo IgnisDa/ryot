@@ -12,11 +12,11 @@ use common_models::{
 };
 use common_utils::{ryot_log, SHOW_SPECIAL_SEASON_NAMES};
 use database_models::{
-    genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata, metadata_to_person,
-    monitored_entity, person,
+    collection_to_entity, genre, metadata, metadata_group, metadata_to_genre, metadata_to_metadata,
+    metadata_to_person, monitored_entity, person,
     prelude::{
-        Collection, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadata,
-        MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
+        Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup, MetadataToGenre,
+        MetadataToMetadata, MetadataToPerson, MonitoredEntity, Person, Seen, UserToEntity, Workout,
     },
     queued_notification, review, seen, user_measurement, user_to_entity, workout,
 };
@@ -734,6 +734,21 @@ pub async fn queue_media_state_changed_notification_for_user(
     Ok(())
 }
 
+pub async fn refresh_collection_to_entity_association(
+    cte_id: &Uuid,
+    db: &DatabaseConnection,
+) -> Result<()> {
+    CollectionToEntity::update_many()
+        .col_expr(
+            collection_to_entity::Column::LastUpdatedOn,
+            Expr::value(Utc::now()),
+        )
+        .filter(collection_to_entity::Column::Id.eq(cte_id.to_owned()))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
 pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
     force_update: bool,
@@ -744,10 +759,13 @@ pub async fn update_metadata_and_notify_users(
         .unwrap();
     if !notifications.is_empty() {
         let users_to_notify =
-            get_users_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
+            get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in notifications {
-            for user_id in users_to_notify.iter() {
+            for (user_id, cte_id) in users_to_notify.iter() {
                 queue_media_state_changed_notification_for_user(user_id, &notification, ss)
+                    .await
+                    .trace_ok();
+                refresh_collection_to_entity_association(cte_id, &ss.db)
                     .await
                     .trace_ok();
             }

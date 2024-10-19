@@ -45,9 +45,10 @@ use dependent_utils::{
     after_media_seen_tasks, commit_metadata, commit_metadata_group_internal,
     commit_metadata_internal, commit_person, create_partial_metadata, deploy_background_job,
     deploy_update_metadata_job, get_metadata_provider, get_openlibrary_service,
-    get_tmdb_non_media_service, get_users_monitoring_entity, is_metadata_finished_by_user,
-    post_review, progress_update, queue_media_state_changed_notification_for_user,
-    queue_notifications_to_user_platforms, update_metadata_and_notify_users,
+    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    is_metadata_finished_by_user, post_review, progress_update,
+    queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
+    refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
 use enums::{
     EntityLot, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState, UserToMediaReason,
@@ -2749,9 +2750,10 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap_or_default();
         if !notifications.is_empty() {
             let users_to_notify =
-                get_users_monitoring_entity(&person_id, EntityLot::Person, &self.0.db).await?;
+                get_users_and_cte_monitoring_entity(&person_id, EntityLot::Person, &self.0.db)
+                    .await?;
             for notification in notifications {
-                for user_id in users_to_notify.iter() {
+                for (user_id, cte_id) in users_to_notify.iter() {
                     queue_media_state_changed_notification_for_user(
                         user_id,
                         &notification,
@@ -2759,6 +2761,9 @@ ORDER BY RANDOM() LIMIT 10;
                     )
                     .await
                     .trace_ok();
+                    refresh_collection_to_entity_association(cte_id, &self.0.db)
+                        .await
+                        .trace_ok();
                 }
             }
         }
