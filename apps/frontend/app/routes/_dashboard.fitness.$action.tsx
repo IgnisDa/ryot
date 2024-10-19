@@ -35,7 +35,6 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import {
-	useClickOutside,
 	useDebouncedState,
 	useDidUpdate,
 	useDisclosure,
@@ -103,7 +102,7 @@ import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import { useInterval } from "usehooks-ts";
+import { useInterval, useOnClickOutside } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
@@ -1795,9 +1794,8 @@ const EditSetRestTimer = (props: {
 	onClickOutside: () => void;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const editRestTimerRef = useClickOutside<HTMLInputElement>(
-		props.onClickOutside,
-	);
+	const editRestTimerRef = useRef<HTMLInputElement>(null);
+
 	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
 
 	useDidUpdate(() => {
@@ -1813,6 +1811,8 @@ const EditSetRestTimer = (props: {
 	useEffect(() => {
 		editRestTimerRef.current?.select();
 	}, [editRestTimerRef]);
+
+	useOnClickOutside(editRestTimerRef, props.onClickOutside);
 
 	if (!currentWorkout) return null;
 
