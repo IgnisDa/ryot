@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use educe::Educe;
 use enums::{EntityLot, SeenState};
 use media_models::{
@@ -102,6 +102,7 @@ impl ActiveModelBehavior for ActiveModel {
         let progress = self.progress.clone().unwrap();
         if progress == dec!(100) && state == SeenState::InProgress {
             self.state = ActiveValue::Set(SeenState::Completed);
+            self.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
         }
         if insert {
             self.id = ActiveValue::Set(format!("see_{}", nanoid!(12)));

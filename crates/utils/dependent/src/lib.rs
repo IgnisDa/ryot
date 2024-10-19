@@ -1382,9 +1382,6 @@ pub async fn progress_update(
             last_seen.updated_at = ActiveValue::Set(updated_at);
             last_seen.provider_watched_on =
                 ActiveValue::Set(input.provider_watched_on.or(watched_on));
-            if progress == dec!(100) {
-                last_seen.finished_on = ActiveValue::Set(Some(now.date_naive()));
-            }
 
             // This is needed for manga as some of the apps will update in weird orders
             // For example with komga mihon will update out of order to the server
