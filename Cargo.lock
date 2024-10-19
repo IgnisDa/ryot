@@ -1140,6 +1140,7 @@ dependencies = [
  "database-models",
  "sea-orm",
  "sea-query",
+ "tracing",
  "uuid",
 ]
 
