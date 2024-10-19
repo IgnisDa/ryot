@@ -1993,7 +1993,7 @@ ORDER BY RANDOM() LIMIT 10;
         Ok(monitored_by)
     }
 
-    async fn update_watchlist_metadata_and_queue_notifications(&self) -> Result<()> {
+    async fn update_monitored_metadata_and_queue_notifications(&self) -> Result<()> {
         let meta_map = self.get_monitored_entities(EntityLot::Metadata).await?;
         ryot_log!(
             debug,
@@ -3065,7 +3065,7 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(trace, "Invalidating invalid media import jobs");
         self.invalidate_import_jobs().await.trace_ok();
         ryot_log!(trace, "Checking for updates for media in Watchlist");
-        self.update_watchlist_metadata_and_queue_notifications()
+        self.update_monitored_metadata_and_queue_notifications()
             .await
             .trace_ok();
         ryot_log!(trace, "Checking for updates for monitored people");
