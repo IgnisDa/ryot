@@ -738,6 +738,10 @@ pub async fn refresh_collection_to_entity_association(
     cte_id: &Uuid,
     db: &DatabaseConnection,
 ) -> Result<()> {
+    ryot_log!(
+        debug,
+        "Refreshing collection to entity association for id = {cte_id}"
+    );
     CollectionToEntity::update_many()
         .col_expr(
             collection_to_entity::Column::LastUpdatedOn,
