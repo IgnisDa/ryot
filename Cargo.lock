@@ -1781,6 +1781,7 @@ dependencies = [
  "tracing",
  "traits",
  "user-models",
+ "uuid",
 ]
 
 [[package]]
