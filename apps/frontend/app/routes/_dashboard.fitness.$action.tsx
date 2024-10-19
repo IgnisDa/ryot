@@ -889,21 +889,43 @@ const EditSupersetModal = (props: {
 					);
 				})}
 			</Stack>
-			<Button
-				onClick={() => {
-					const sortedExercises = sortBy(exercises, (ex) =>
-						cw.exercises.map((e) => e.identifier).indexOf(ex),
-					);
-					setCurrentWorkout(
-						produce(cw, (draft) => {
-							draft.supersets[props.superset[0]].exercises = sortedExercises;
-						}),
-					);
-					props.onClose();
-				}}
-			>
-				Add to superset
-			</Button>
+			<Group wrap="nowrap">
+				<Button
+					color="red"
+					flex="none"
+					onClick={async () => {
+						const yes = await confirmWrapper({
+							confirmation: "Are you sure you want to delete this superset?",
+						});
+						if (yes) {
+							setCurrentWorkout(
+								produce(cw, (draft) => {
+									draft.supersets.splice(props.superset[0], 1);
+								}),
+							);
+							props.onClose();
+						}
+					}}
+				>
+					Delete superset
+				</Button>
+				<Button
+					fullWidth
+					onClick={() => {
+						const sortedExercises = sortBy(exercises, (ex) =>
+							cw.exercises.map((e) => e.identifier).indexOf(ex),
+						);
+						setCurrentWorkout(
+							produce(cw, (draft) => {
+								draft.supersets[props.superset[0]].exercises = sortedExercises;
+							}),
+						);
+						props.onClose();
+					}}
+				>
+					Add to superset
+				</Button>
+			</Group>
 		</Stack>
 	);
 };
