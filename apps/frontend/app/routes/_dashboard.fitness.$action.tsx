@@ -791,7 +791,7 @@ const CreateSupersetModal = (props: {
 
 	return (
 		<Stack gap="lg">
-			<Group>
+			<Group wrap="nowrap">
 				<Text>Select color</Text>
 				<Select
 					size="xs"
@@ -911,8 +911,7 @@ const EditSupersetModal = (props: {
 					fullWidth
 					disabled={
 						exercises.length <= 1 ||
-						cw.supersets[props.superset[0]].exercises.length ===
-							exercises.length
+						props.superset[1].exercises.length === exercises.length
 					}
 					onClick={() => {
 						setCurrentWorkout(
