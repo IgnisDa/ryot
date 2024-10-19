@@ -2861,23 +2861,21 @@ ORDER BY RANDOM() LIMIT 10;
         struct CustomQueryResponse {
             id: Uuid,
             created_on: DateTimeUtc,
-            last_updated_on: Option<DateTimeUtc>,
+            last_updated_on: DateTimeUtc,
         }
         let all_cte = CollectionToEntity::find()
             .select_only()
             .column(collection_to_entity::Column::Id)
             .column(collection_to_entity::Column::CreatedOn)
-            .column(metadata::Column::LastUpdatedOn)
-            .left_join(Metadata)
+            .column(collection_to_entity::Column::LastUpdatedOn)
             .inner_join(Collection)
             .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
-            .order_by_asc(collection_to_entity::Column::Id)
             .into_model::<CustomQueryResponse>()
             .all(&self.0.db)
             .await?;
         let mut to_delete = vec![];
         for cte in all_cte {
-            let delta = cte.last_updated_on.unwrap_or_else(Utc::now) - cte.created_on;
+            let delta = cte.last_updated_on - cte.created_on;
             if delta.num_days().abs() > self.0.config.media.monitoring_remove_after_days {
                 to_delete.push(cte.id);
             }
