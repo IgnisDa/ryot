@@ -2282,6 +2282,15 @@ dependencies = [
 [[package]]
 name = "external-utils"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-utils",
+ "reqwest 0.12.8",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "tracing",
+]
 
 [[package]]
 name = "fast_chemail"
@@ -3355,6 +3364,7 @@ dependencies = [
  "enum_meta",
  "enums",
  "env-utils",
+ "external-utils",
  "fitness-models",
  "flate2",
  "importer-models",
