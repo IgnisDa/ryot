@@ -834,6 +834,7 @@ export enum IntegrationProvider {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   Emby = 'EMBY',
   GenericJson = 'GENERIC_JSON',
+  JellyfinPush = 'JELLYFIN_PUSH',
   JellyfinSink = 'JELLYFIN_SINK',
   Kodi = 'KODI',
   Komga = 'KOMGA',
@@ -845,6 +846,9 @@ export enum IntegrationProvider {
 export type IntegrationSourceSpecificsInput = {
   audiobookshelfBaseUrl?: InputMaybe<Scalars['String']['input']>;
   audiobookshelfToken?: InputMaybe<Scalars['String']['input']>;
+  jellyfinBaseUrl?: InputMaybe<Scalars['String']['input']>;
+  jellyfinPassword?: InputMaybe<Scalars['String']['input']>;
+  jellyfinUsername?: InputMaybe<Scalars['String']['input']>;
   komgaBaseUrl?: InputMaybe<Scalars['String']['input']>;
   komgaPassword?: InputMaybe<Scalars['String']['input']>;
   komgaProvider?: InputMaybe<MediaSource>;

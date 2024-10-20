@@ -460,6 +460,7 @@ pub enum IntegrationProvider {
     Kodi,
     Radarr,
     Sonarr,
+    JellyfinPush,
     Komga,
     GenericJson,
 }

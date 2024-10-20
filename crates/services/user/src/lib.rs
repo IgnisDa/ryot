@@ -799,8 +799,12 @@ impl UserService {
             ));
         }
         let lot = match input.provider {
-            IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
-            IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
+            IntegrationProvider::Audiobookshelf | IntegrationProvider::Komga => {
+                IntegrationLot::Yank
+            }
+            IntegrationProvider::Radarr
+            | IntegrationProvider::Sonarr
+            | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
         let to_insert = integration::ActiveModel {
