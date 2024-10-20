@@ -1,6 +1,7 @@
 use apalis::prelude::{Job, Message};
 use chrono::DateTime;
 use chrono_tz::Tz;
+use database_models::seen;
 use enums::{MediaLot, MediaSource};
 use fitness_models::GithubExercise;
 use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
@@ -37,6 +38,7 @@ pub enum ApplicationJob {
     UpdateExerciseLibrary,
     SyncIntegrationsData,
     HandleEntityAddedToCollectionEvent(Uuid),
+    HandleMediaSeenEvent(seen::Model),
 }
 
 impl Message for ApplicationJob {

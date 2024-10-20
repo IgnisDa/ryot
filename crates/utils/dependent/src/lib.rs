@@ -1201,7 +1201,7 @@ pub async fn is_metadata_finished_by_user(
     Ok((is_finished, seen_history))
 }
 
-pub async fn after_media_seen_tasks(seen: seen::Model, ss: &Arc<SupportingService>) -> Result<()> {
+pub async fn handle_media_seen_tasks(seen: seen::Model, ss: &Arc<SupportingService>) -> Result<()> {
     let add_entity_to_collection = |collection_name: &str| {
         add_entity_to_collection(
             &seen.user_id,
@@ -1506,7 +1506,7 @@ pub async fn progress_update(
             .set_with_expiry(cache, ss.config.server.progress_update_threshold)
             .await?;
     }
-    after_media_seen_tasks(seen, ss).await?;
+    handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
 

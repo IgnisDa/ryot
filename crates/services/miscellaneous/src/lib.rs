@@ -42,10 +42,10 @@ use dependent_models::{
     SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
-    after_media_seen_tasks, commit_metadata, commit_metadata_group_internal,
-    commit_metadata_internal, commit_person, create_partial_metadata, deploy_background_job,
-    deploy_update_metadata_job, get_metadata_provider, get_openlibrary_service,
-    get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
+    commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
+    create_partial_metadata, deploy_background_job, deploy_update_metadata_job,
+    get_metadata_provider, get_openlibrary_service, get_tmdb_non_media_service,
+    get_users_and_cte_monitoring_entity, get_users_monitoring_entity, handle_media_seen_tasks,
     is_metadata_finished_by_user, post_review, progress_update,
     queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
     refresh_collection_to_entity_association, update_metadata_and_notify_users,
@@ -1339,7 +1339,7 @@ ORDER BY RANDOM() LIMIT 10;
             seen.review_id = ActiveValue::Set(to_update_review_id);
         }
         let seen = seen.update(&self.0.db).await.unwrap();
-        after_media_seen_tasks(seen, &self.0).await?;
+        self.handle_media_seen_event(seen).await?;
         Ok(true)
     }
 
@@ -1770,6 +1770,10 @@ ORDER BY RANDOM() LIMIT 10;
         }
     }
 
+    pub async fn handle_media_seen_event(&self, seen: seen::Model) -> Result<()> {
+        handle_media_seen_tasks(seen, &self.0).await
+    }
+
     pub async fn delete_seen_item(
         &self,
         user_id: &String,
@@ -1807,7 +1811,7 @@ ORDER BY RANDOM() LIMIT 10;
             si.delete(&self.0.db).await.trace_ok();
             associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata)
                 .await?;
-            after_media_seen_tasks(cloned_seen, &self.0).await?;
+            self.handle_media_seen_event(cloned_seen).await?;
             Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))

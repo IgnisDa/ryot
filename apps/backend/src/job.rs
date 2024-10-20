@@ -96,6 +96,9 @@ pub async fn perform_application_job(
             .update_person_and_notify_users(person_id)
             .await
             .is_ok(),
+        ApplicationJob::HandleMediaSeenEvent(seen) => {
+            misc_service.handle_media_seen_event(seen).await.is_ok()
+        }
         ApplicationJob::UpdateMetadataGroup(metadata_group_id) => misc_service
             .update_metadata_group(&metadata_group_id)
             .await
