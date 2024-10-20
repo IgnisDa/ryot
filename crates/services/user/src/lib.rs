@@ -303,12 +303,7 @@ impl UserService {
             .await
             .ok();
         }
-        deploy_job_to_calculate_user_activities_and_summary(
-            &self.0.perform_application_job,
-            &user.id,
-            false,
-        )
-        .await;
+        deploy_job_to_calculate_user_activities_and_summary(&user.id, false, &self.0).await;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
     }
 

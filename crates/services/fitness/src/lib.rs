@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use apalis::prelude::MessageQueue;
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
@@ -437,11 +436,8 @@ impl ExerciseService {
         let exercises = self.get_all_exercises_from_dataset().await?;
         for exercise in exercises {
             self.0
-                .perform_application_job
-                .clone()
-                .enqueue(ApplicationJob::UpdateGithubExerciseJob(exercise))
-                .await
-                .unwrap();
+                .perform_application_job(ApplicationJob::UpdateGithubExerciseJob(exercise))
+                .await?;
         }
         Ok(true)
     }
@@ -569,8 +565,7 @@ impl ExerciseService {
             }
             if new_wkt.is_changed() {
                 new_wkt.update(&self.0.db).await?;
-                deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0.perform_application_job)
-                    .await;
+                deploy_job_to_re_evaluate_user_workouts(&user_id, &self.0).await;
                 Ok(true)
             } else {
                 Ok(false)
@@ -660,11 +655,8 @@ impl ExerciseService {
         }
         wkt.delete(&self.0.db).await?;
         self.0
-            .perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id))
-            .await
-            .ok();
+            .perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id))
+            .await?;
         Ok(true)
     }
 

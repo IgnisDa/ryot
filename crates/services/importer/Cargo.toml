@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-apalis = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background = { path = "../../background" }

@@ -1709,7 +1709,6 @@ dependencies = [
 name = "database-utils"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "application-utils",
  "async-graphql",
  "background",
@@ -1758,7 +1757,6 @@ name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "apalis",
  "application-utils",
  "async-graphql",
  "background",
@@ -2260,7 +2258,6 @@ dependencies = [
 name = "exporter-service"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "async-graphql",
  "background",
  "chrono",
@@ -2381,7 +2378,6 @@ dependencies = [
 name = "fitness-service"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "application-utils",
  "async-graphql",
  "background",
@@ -3339,7 +3335,6 @@ name = "importer-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "apalis",
  "application-utils",
  "async-graphql",
  "background",
@@ -3844,7 +3839,6 @@ dependencies = [
 name = "miscellaneous-service"
 version = "0.1.0"
 dependencies = [
- "apalis",
  "application-utils",
  "async-graphql",
  "background",
@@ -6320,6 +6314,7 @@ name = "supporting-service"
 version = "0.1.0"
 dependencies = [
  "apalis",
+ "async-graphql",
  "background",
  "cache-service",
  "chrono-tz",

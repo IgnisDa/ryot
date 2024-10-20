@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use apalis::prelude::MessageQueue;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
@@ -420,7 +419,7 @@ ORDER BY RANDOM() LIMIT 10;
         metadata_id: &String,
         force_update: bool,
     ) -> Result<bool> {
-        deploy_update_metadata_job(metadata_id, force_update, &self.0.perform_application_job).await
+        deploy_update_metadata_job(metadata_id, force_update, &self.0).await
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -1089,11 +1088,8 @@ ORDER BY RANDOM() LIMIT 10;
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         self.0
-            .perform_core_application_job
-            .clone()
-            .enqueue(CoreApplicationJob::BulkProgressUpdate(user_id, input))
-            .await
-            .unwrap();
+            .perform_core_application_job(CoreApplicationJob::BulkProgressUpdate(user_id, input))
+            .await?;
         Ok(true)
     }
 
@@ -1350,11 +1346,8 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::UpdatePerson(person.id))
-            .await
-            .unwrap();
+            .perform_application_job(ApplicationJob::UpdatePerson(person.id))
+            .await?;
         Ok(true)
     }
 
@@ -1368,11 +1361,8 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
-            .await
-            .unwrap();
+            .perform_application_job(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
+            .await?;
         Ok(true)
     }
 
@@ -1772,12 +1762,8 @@ ORDER BY RANDOM() LIMIT 10;
 
     async fn deploy_handle_media_seen_event(&self, seen: seen::Model) -> Result<()> {
         self.0
-            .perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::HandleMediaSeenEvent(seen))
+            .perform_application_job(ApplicationJob::HandleMediaSeenEvent(seen))
             .await
-            .unwrap();
-        Ok(())
     }
 
     pub async fn handle_media_seen_event(&self, seen: seen::Model) -> Result<()> {
