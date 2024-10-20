@@ -952,9 +952,9 @@ pub struct IntegrationProviderSpecifics {
     pub sonarr_root_folder_path: Option<String>,
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
 
-    pub jellyfin_base_url: Option<String>,
-    pub jellyfin_username: Option<String>,
-    pub jellyfin_password: Option<String>,
+    pub jellyfin_push_base_url: Option<String>,
+    pub jellyfin_push_username: Option<String>,
+    pub jellyfin_push_password: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
