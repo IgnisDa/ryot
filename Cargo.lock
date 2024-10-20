@@ -2280,6 +2280,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "external-utils"
+version = "0.1.0"
+
+[[package]]
 name = "fast_chemail"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
