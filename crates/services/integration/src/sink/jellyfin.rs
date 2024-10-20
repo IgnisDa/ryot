@@ -46,11 +46,11 @@ mod models {
     }
 }
 
-pub(crate) struct JellyfinIntegration {
+pub(crate) struct JellyfinSinkIntegration {
     payload: String,
 }
 
-impl JellyfinIntegration {
+impl JellyfinSinkIntegration {
     pub const fn new(payload: String) -> Self {
         Self { payload }
     }

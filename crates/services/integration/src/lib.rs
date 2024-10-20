@@ -28,7 +28,7 @@ mod yank;
 use crate::{
     push::{radarr::RadarrIntegration, sonarr::SonarrIntegration},
     sink::{
-        emby::EmbyIntegration, jellyfin::JellyfinIntegration, kodi::KodiIntegration,
+        emby::EmbyIntegration, jellyfin::JellyfinSinkIntegration, kodi::KodiIntegration,
         plex::PlexIntegration,
     },
     yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
@@ -108,8 +108,8 @@ impl IntegrationService {
                 let emby = EmbyIntegration::new(payload, self.0.db.clone());
                 emby.yank_progress().await
             }
-            IntegrationProvider::Jellyfin => {
-                let jellyfin = JellyfinIntegration::new(payload);
+            IntegrationProvider::JellyfinSink => {
+                let jellyfin = JellyfinSinkIntegration::new(payload);
                 jellyfin.yank_progress().await
             }
             IntegrationProvider::Plex => {
