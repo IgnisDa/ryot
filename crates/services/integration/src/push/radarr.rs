@@ -9,41 +9,41 @@ use radarr_api_rs::{
 use traits::TraceOk;
 
 pub(crate) struct RadarrIntegration {
-    radarr_base_url: String,
-    radarr_api_key: String,
-    radarr_profile_id: i32,
-    radarr_root_folder_path: String,
+    base_url: String,
+    api_key: String,
+    profile_id: i32,
+    root_folder_path: String,
     tmdb_id: String,
 }
 
 impl RadarrIntegration {
     pub const fn new(
-        radarr_base_url: String,
-        radarr_api_key: String,
-        radarr_profile_id: i32,
-        radarr_root_folder_path: String,
+        base_url: String,
+        api_key: String,
+        profile_id: i32,
+        root_folder_path: String,
         tmdb_id: String,
     ) -> Self {
         Self {
-            radarr_base_url,
-            radarr_api_key,
-            radarr_profile_id,
-            radarr_root_folder_path,
+            base_url,
+            api_key,
+            profile_id,
+            root_folder_path,
             tmdb_id,
         }
     }
 
-    async fn radarr_push(&self) -> anyhow::Result<()> {
+    pub async fn push_progress(&self) -> anyhow::Result<()> {
         let mut configuration = RadarrConfiguration::new();
-        configuration.base_path = self.radarr_base_url.clone();
+        configuration.base_path = self.base_url.clone();
         configuration.api_key = Some(RadarrApiKey {
-            key: self.radarr_api_key.clone(),
+            key: self.api_key.clone(),
             prefix: None,
         });
         let mut resource = RadarrMovieResource::new();
         resource.tmdb_id = Some(self.tmdb_id.parse().unwrap());
-        resource.quality_profile_id = Some(self.radarr_profile_id);
-        resource.root_folder_path = Some(Some(self.radarr_root_folder_path.clone()));
+        resource.quality_profile_id = Some(self.profile_id);
+        resource.root_folder_path = Some(Some(self.root_folder_path.clone()));
         resource.monitored = Some(true);
         let mut options = RadarrAddMovieOptions::new();
         options.search_for_movie = Some(true);
@@ -53,9 +53,5 @@ impl RadarrIntegration {
             .await
             .trace_ok();
         Ok(())
-    }
-
-    pub async fn push_progress(&self) -> anyhow::Result<()> {
-        self.radarr_push().await
     }
 }

@@ -5,14 +5,15 @@ use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{
     integration,
-    prelude::{CollectionToEntity, Integration, Metadata, UserToEntity},
-    user_to_entity,
+    prelude::{CollectionToEntity, Integration, Metadata, Seen, UserToEntity},
+    seen, user_to_entity,
 };
 use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use providers::google_books::GoogleBooksService;
+use push::jellyfin::JellyfinPushIntegration;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use sink::generic_json::GenericJsonIntegration;
@@ -217,6 +218,33 @@ impl IntegrationService {
     }
 
     pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
+        let seen = Seen::find_by_id(id)
+            .select_only()
+            .columns([seen::Column::UserId])
+            .into_tuple::<String>()
+            .one(&self.0.db)
+            .await?
+            .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
+        let integrations = Integration::find()
+            .filter(integration::Column::UserId.eq(seen))
+            .filter(integration::Column::Lot.eq(IntegrationLot::Push))
+            .filter(integration::Column::Provider.eq(IntegrationProvider::JellyfinPush))
+            .all(&self.0.db)
+            .await?;
+        for integration in integrations {
+            let specifics = integration.provider_specifics.unwrap();
+            match integration.provider {
+                IntegrationProvider::JellyfinPush => {
+                    let integration = JellyfinPushIntegration::new(
+                        specifics.jellyfin_push_base_url.unwrap(),
+                        specifics.jellyfin_push_username.unwrap(),
+                        specifics.jellyfin_push_password.unwrap(),
+                    );
+                    integration.push_progress().await?;
+                }
+                _ => unreachable!(),
+            }
+        }
         Ok(())
     }
 
