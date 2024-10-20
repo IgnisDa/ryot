@@ -16,9 +16,6 @@ use serde_json::json;
 
 use super::{ImportFailStep, ImportFailedItem};
 
-static EMBY_HEADER_VALUE: &str =
-    r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#;
-
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 enum MediaType {
     Movie,
@@ -70,11 +67,14 @@ struct AuthenticateResponse {
 }
 
 pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
+    let mut emby_header_value =
+        r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#
+            .to_string();
     let uri = format!("{}/Users/AuthenticateByName", input.api_url);
     let client = Client::new();
     let authenticate = client
         .post(uri)
-        .header(AUTHORIZATION, EMBY_HEADER_VALUE)
+        .header(AUTHORIZATION, &emby_header_value)
         .json(&serde_json::json!({ "Username": input.username, "Pw": input.password }))
         .send()
         .await
@@ -88,12 +88,14 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
         authenticate.access_token
     );
 
+    emby_header_value.push_str(&format!(r#", Token="{}""#, authenticate.access_token));
+
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert(ACCEPT, APPLICATION_JSON_HEADER.clone());
     headers.insert(
-        "X-Emby-Token",
-        HeaderValue::from_str(&authenticate.access_token).unwrap(),
+        AUTHORIZATION,
+        HeaderValue::from_str(&emby_header_value).unwrap(),
     );
     let url = input.api_url;
     let client: Client = ClientBuilder::new()
