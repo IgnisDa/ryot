@@ -62,8 +62,8 @@ pub mod jellyfin {
 
     pub async fn get_authenticated_client(
         base_url: &String,
-        username: String,
-        password: String,
+        username: &String,
+        password: &String,
     ) -> Result<(Client, String)> {
         let mut emby_header_value =
             r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#

@@ -17,7 +17,7 @@ pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<Impo
 
     let base_url = input.api_url;
     let (client, user_id) =
-        get_authenticated_client(&base_url, input.username, input.password).await?;
+        get_authenticated_client(&base_url, &input.username, &input.password).await?;
 
     let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
     let library_data = client

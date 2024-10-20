@@ -3441,6 +3441,7 @@ dependencies = [
  "dependent-utils",
  "enums",
  "eventsource-stream",
+ "external-utils",
  "itertools 0.13.0",
  "media-models",
  "providers",
