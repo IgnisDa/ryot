@@ -427,7 +427,7 @@ impl KomgaIntegration {
         Ok(())
     }
 
-    async fn komga_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         let mut result = ImportResult::default();
         // DEV: This object needs global lifetime so we can continue to use the receiver if
         // we ever create more SSE Objects we may want to implement a higher level
@@ -512,9 +512,5 @@ impl KomgaIntegration {
         }
 
         Ok(result)
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        self.komga_progress().await
     }
 }

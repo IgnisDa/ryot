@@ -55,7 +55,7 @@ impl JellyfinSinkIntegration {
         Self { payload }
     }
 
-    async fn jellyfin_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&self.payload)?;
         let identifier = payload
             .item
@@ -104,9 +104,5 @@ impl JellyfinSinkIntegration {
             }],
             ..Default::default()
         })
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        self.jellyfin_progress().await
     }
 }

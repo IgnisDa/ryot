@@ -57,9 +57,8 @@ impl EmbyIntegration {
         Self { payload, db }
     }
 
-    async fn emby_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         let payload: models::EmbyWebhookPayload = serde_json::from_str(&self.payload)?;
-
         let runtime = payload
             .item
             .run_time_ticks
@@ -68,7 +67,6 @@ impl EmbyIntegration {
             .playback_info
             .position_ticks
             .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
-
         let (identifier, lot) =
             match payload.item.item_type.as_str() {
                 "Movie" => {
@@ -91,7 +89,6 @@ impl EmbyIntegration {
                 }
                 _ => bail!("Only movies and shows supported"),
             };
-
         Ok(ImportResult {
             metadata: vec![ImportOrExportMediaItem {
                 lot,
@@ -108,9 +105,5 @@ impl EmbyIntegration {
             }],
             ..Default::default()
         })
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        self.emby_progress().await
     }
 }
