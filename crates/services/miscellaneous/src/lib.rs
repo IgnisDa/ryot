@@ -1339,7 +1339,7 @@ ORDER BY RANDOM() LIMIT 10;
             seen.review_id = ActiveValue::Set(to_update_review_id);
         }
         let seen = seen.update(&self.0.db).await.unwrap();
-        self.handle_media_seen_event(seen).await?;
+        self.deploy_handle_media_seen_event(seen).await?;
         Ok(true)
     }
 
@@ -1770,6 +1770,16 @@ ORDER BY RANDOM() LIMIT 10;
         }
     }
 
+    async fn deploy_handle_media_seen_event(&self, seen: seen::Model) -> Result<()> {
+        self.0
+            .perform_application_job
+            .clone()
+            .enqueue(ApplicationJob::HandleMediaSeenEvent(seen))
+            .await
+            .unwrap();
+        Ok(())
+    }
+
     pub async fn handle_media_seen_event(&self, seen: seen::Model) -> Result<()> {
         handle_media_seen_tasks(seen, &self.0).await
     }
@@ -1811,7 +1821,7 @@ ORDER BY RANDOM() LIMIT 10;
             si.delete(&self.0.db).await.trace_ok();
             associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata)
                 .await?;
-            self.handle_media_seen_event(cloned_seen).await?;
+            self.deploy_handle_media_seen_event(cloned_seen).await?;
             Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))
