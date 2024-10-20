@@ -834,7 +834,7 @@ export enum IntegrationProvider {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   Emby = 'EMBY',
   GenericJson = 'GENERIC_JSON',
-  Jellyfin = 'JELLYFIN',
+  JellyfinSink = 'JELLYFIN_SINK',
   Kodi = 'KODI',
   Komga = 'KOMGA',
   Plex = 'PLEX',
