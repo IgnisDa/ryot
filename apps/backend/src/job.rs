@@ -96,9 +96,10 @@ pub async fn perform_application_job(
             .update_person_and_notify_users(person_id)
             .await
             .is_ok(),
-        ApplicationJob::HandleMediaSeenEvent(seen) => {
-            misc_service.handle_media_seen_event(seen).await.is_ok()
-        }
+        ApplicationJob::HandleAfterMediaSeenTasks(seen) => misc_service
+            .handle_after_media_seen_tasks(seen)
+            .await
+            .is_ok(),
         ApplicationJob::UpdateMetadataGroup(metadata_group_id) => misc_service
             .update_metadata_group(&metadata_group_id)
             .await
@@ -138,6 +139,10 @@ pub async fn perform_application_job(
                 .await
                 .is_ok()
         }
+        ApplicationJob::HandleOnSeenComplete(id) => integration_service
+            .handle_on_seen_complete(id)
+            .await
+            .is_ok(),
     };
     ryot_log!(
         trace,

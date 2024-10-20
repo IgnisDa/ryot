@@ -216,6 +216,10 @@ impl IntegrationService {
         Ok(())
     }
 
+    pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
+        Ok(())
+    }
+
     pub async fn yank_integrations_data_for_user(&self, user_id: &String) -> GqlResult<bool> {
         let preferences = user_preferences_by_id(user_id, &self.0).await?;
         if preferences.general.disable_integrations {

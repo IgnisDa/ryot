@@ -38,7 +38,8 @@ pub enum ApplicationJob {
     UpdateExerciseLibrary,
     SyncIntegrationsData,
     HandleEntityAddedToCollectionEvent(Uuid),
-    HandleMediaSeenEvent(seen::Model),
+    HandleAfterMediaSeenTasks(seen::Model),
+    HandleOnSeenComplete(String),
 }
 
 impl Message for ApplicationJob {
