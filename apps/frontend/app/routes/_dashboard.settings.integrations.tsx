@@ -50,11 +50,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import {
-	applicationBaseUrl,
-	commaDelimitedString,
-	dayjsLib,
-} from "~/lib/generals";
+import { applicationBaseUrl, dayjsLib } from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -159,39 +155,11 @@ const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
 const createSchema = z.object({
-	provider: z.nativeEnum(IntegrationProvider),
+	providerSpecifics: z.any().optional(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
+	provider: z.nativeEnum(IntegrationProvider),
 	syncToOwnedCollection: zx.CheckboxAsString.optional(),
-	providerSpecifics: z
-		.object({
-			plexUsername: z.string().optional(),
-
-			audiobookshelfBaseUrl: z.string().optional(),
-			audiobookshelfToken: z.string().optional(),
-
-			komgaBaseUrl: z.string().optional(),
-			komgaUsername: z.string().optional(),
-			komgaPassword: z.string().optional(),
-			komgaProvider: z.nativeEnum(MediaSource).optional(),
-
-			radarrBaseUrl: z.string().optional(),
-			radarrApiKey: z.string().optional(),
-			radarrProfileId: z.number().optional(),
-			radarrRootFolderPath: z.string().optional(),
-			radarrSyncCollectionIds: commaDelimitedString,
-
-			sonarrBaseUrl: z.string().optional(),
-			sonarrApiKey: z.string().optional(),
-			sonarrProfileId: z.number().optional(),
-			sonarrRootFolderPath: z.string().optional(),
-			sonarrSyncCollectionIds: commaDelimitedString,
-
-			jellyfinPushBaseUrl: z.string().optional(),
-			jellyfinPushUsername: z.string().optional(),
-			jellyfinPushPassword: z.string().optional(),
-		})
-		.optional(),
 });
 
 const deleteSchema = z.object({
