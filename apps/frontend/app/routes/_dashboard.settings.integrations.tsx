@@ -69,6 +69,7 @@ const YANK_INTEGRATIONS = [
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
 	IntegrationProvider.Sonarr,
+	IntegrationProvider.JellyfinPush,
 ];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 
@@ -165,22 +166,30 @@ const createSchema = z.object({
 	providerSpecifics: z
 		.object({
 			plexUsername: z.string().optional(),
+
 			audiobookshelfBaseUrl: z.string().optional(),
 			audiobookshelfToken: z.string().optional(),
+
 			komgaBaseUrl: z.string().optional(),
 			komgaUsername: z.string().optional(),
 			komgaPassword: z.string().optional(),
 			komgaProvider: z.nativeEnum(MediaSource).optional(),
+
 			radarrBaseUrl: z.string().optional(),
 			radarrApiKey: z.string().optional(),
 			radarrProfileId: z.number().optional(),
 			radarrRootFolderPath: z.string().optional(),
 			radarrSyncCollectionIds: commaDelimitedString,
+
 			sonarrBaseUrl: z.string().optional(),
 			sonarrApiKey: z.string().optional(),
 			sonarrProfileId: z.number().optional(),
 			sonarrRootFolderPath: z.string().optional(),
 			sonarrSyncCollectionIds: commaDelimitedString,
+
+			jellyfinPushBaseUrl: z.string().optional(),
+			jellyfinPushUsername: z.string().optional(),
+			jellyfinPushPassword: z.string().optional(),
 		})
 		.optional(),
 });
@@ -490,6 +499,25 @@ const CreateIntegrationModal = (props: {
 								<TextInput
 									label="Username"
 									name="providerSpecifics.plexUsername"
+								/>
+							</>
+						))
+						.with(IntegrationProvider.JellyfinPush, () => (
+							<>
+								<TextInput
+									required
+									label="Base URL"
+									name="providerSpecifics.jellyfinPushBaseUrl"
+								/>
+								<TextInput
+									required
+									label="Username"
+									name="providerSpecifics.jellyfinPushUsername"
+								/>
+								<TextInput
+									required
+									label="Password"
+									name="providerSpecifics.jellyfinPushPassword"
 								/>
 							</>
 						))
