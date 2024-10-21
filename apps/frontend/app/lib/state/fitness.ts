@@ -182,7 +182,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 	isCreatingTemplate: boolean,
 ) => {
 	const supersets = currentWorkout.supersets.map((sup) => ({
-		...sup,
+		color: sup.color,
 		exercises: sup.exercises.map((e) =>
 			currentWorkout.exercises.findIndex((ex) => ex.identifier === e),
 		),
