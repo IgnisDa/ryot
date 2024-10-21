@@ -21,7 +21,7 @@ import {
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import { Form } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -30,11 +30,19 @@ import { camelCase, changeCase, processSubmission } from "@ryot/ts-utils";
 import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
 import { $path } from "remix-routes";
 import { z } from "zod";
+import { zx } from "zodix";
 import { useCoreDetails } from "~/lib/hooks";
 import { s3FileUploader, serverGqlService } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async (_args) => {
-	return {};
+const searchParamsSchema = z.object({
+	lot: z.nativeEnum(MediaLot).optional(),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
+
+export const loader = unstable_defineLoader(async ({ request }) => {
+	const query = zx.parseQuery(request, searchParamsSchema);
+	return { query };
 });
 
 export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
@@ -80,6 +88,7 @@ const schema = z.object({
 });
 
 export default function Page() {
+	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 
@@ -91,13 +100,14 @@ export default function Page() {
 					<TextInput label="Title" required autoFocus name="title" />
 					<Group wrap="nowrap">
 						<Select
+							required
+							name="lot"
 							label="Type"
+							defaultValue={loaderData.query.lot}
 							data={Object.values(MediaLot).map((v) => ({
 								value: v,
 								label: changeCase(v),
 							}))}
-							required
-							name="lot"
 						/>
 						<Switch mt="md" label="Is it NSFW?" name="isNsfw" />
 					</Group>
