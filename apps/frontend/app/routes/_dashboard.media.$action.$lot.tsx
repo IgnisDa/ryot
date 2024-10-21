@@ -280,9 +280,9 @@ export default function Page() {
 					<Box ml="auto" visibleFrom="md">
 						<Button
 							component={Link}
-							leftSection={<IconPhotoPlus />}
-							to={$path("/media/create")}
 							variant="transparent"
+							leftSection={<IconPhotoPlus />}
+							to={$path("/media/create", { lot: loaderData.lot })}
 						>
 							Create
 						</Button>
