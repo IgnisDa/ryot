@@ -16,7 +16,7 @@ use providers::google_books::GoogleBooksService;
 use push::jellyfin::JellyfinPushIntegration;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
-use sink::generic_json::GenericJsonIntegration;
+use sink::generic_json::GenericJsonSinkIntegration;
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
@@ -27,12 +27,12 @@ mod utils;
 mod yank;
 
 use crate::{
-    push::{radarr::RadarrIntegration, sonarr::SonarrIntegration},
+    push::{radarr::RadarrPushIntegration, sonarr::SonarrPushIntegration},
     sink::{
-        emby::EmbyIntegration, jellyfin::JellyfinSinkIntegration, kodi::KodiIntegration,
-        plex::PlexIntegration,
+        emby::EmbySinkIntegration, jellyfin::JellyfinSinkIntegration, kodi::KodiSinkIntegration,
+        plex::PlexSinkIntegration,
     },
-    yank::{audiobookshelf::AudiobookshelfIntegration, komga::KomgaIntegration},
+    yank::{audiobookshelf::AudiobookshelfYankIntegration, komga::KomgaYankIntegration},
 };
 
 pub struct IntegrationService(pub Arc<SupportingService>);
@@ -102,11 +102,11 @@ impl IntegrationService {
         }
         let maybe_progress_update = match integration.provider {
             IntegrationProvider::Kodi => {
-                let kodi = KodiIntegration::new(payload);
+                let kodi = KodiSinkIntegration::new(payload);
                 kodi.yank_progress().await
             }
             IntegrationProvider::Emby => {
-                let emby = EmbyIntegration::new(payload, self.0.db.clone());
+                let emby = EmbySinkIntegration::new(payload, self.0.db.clone());
                 emby.yank_progress().await
             }
             IntegrationProvider::JellyfinSink => {
@@ -116,11 +116,11 @@ impl IntegrationService {
             IntegrationProvider::Plex => {
                 let specifics = integration.clone().provider_specifics.unwrap();
                 let plex =
-                    PlexIntegration::new(payload, specifics.plex_username, self.0.db.clone());
+                    PlexSinkIntegration::new(payload, specifics.plex_username, self.0.db.clone());
                 plex.yank_progress().await
             }
             IntegrationProvider::GenericJson => {
-                let generic_json = GenericJsonIntegration::new(payload);
+                let generic_json = GenericJsonSinkIntegration::new(payload);
                 generic_json.yank_progress().await
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
@@ -190,7 +190,7 @@ impl IntegrationService {
                 if let Some(entity_id) = maybe_entity_id {
                     let _push_result = match integration.provider {
                         IntegrationProvider::Radarr => {
-                            let radarr = RadarrIntegration::new(
+                            let radarr = RadarrPushIntegration::new(
                                 specifics.radarr_base_url.unwrap(),
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
@@ -200,7 +200,7 @@ impl IntegrationService {
                             radarr.push_progress().await
                         }
                         IntegrationProvider::Sonarr => {
-                            let sonarr = SonarrIntegration::new(
+                            let sonarr = SonarrPushIntegration::new(
                                 specifics.sonarr_base_url.unwrap(),
                                 specifics.sonarr_api_key.unwrap(),
                                 specifics.sonarr_profile_id.unwrap(),
@@ -268,7 +268,7 @@ impl IntegrationService {
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
-                    let audiobookshelf = AudiobookshelfIntegration::new(
+                    let audiobookshelf = AudiobookshelfYankIntegration::new(
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
                         integration.sync_to_owned_collection,
@@ -283,7 +283,7 @@ impl IntegrationService {
                         .await
                 }
                 IntegrationProvider::Komga => {
-                    let komga = KomgaIntegration::new(
+                    let komga = KomgaYankIntegration::new(
                         specifics.komga_base_url.unwrap(),
                         specifics.komga_username.unwrap(),
                         specifics.komga_password.unwrap(),

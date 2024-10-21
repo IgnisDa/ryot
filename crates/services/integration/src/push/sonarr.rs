@@ -8,7 +8,7 @@ use sonarr_api_rs::{
 };
 use traits::TraceOk;
 
-pub(crate) struct SonarrIntegration {
+pub(crate) struct SonarrPushIntegration {
     base_url: String,
     api_key: String,
     profile_id: i32,
@@ -16,7 +16,7 @@ pub(crate) struct SonarrIntegration {
     tvdb_id: String,
 }
 
-impl SonarrIntegration {
+impl SonarrPushIntegration {
     pub const fn new(
         base_url: String,
         api_key: String,

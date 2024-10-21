@@ -182,7 +182,7 @@ impl KomgaEventHandler {
     }
 }
 
-pub(crate) struct KomgaIntegration {
+pub(crate) struct KomgaYankIntegration {
     base_url: String,
     username: String,
     password: String,
@@ -193,7 +193,7 @@ pub(crate) struct KomgaIntegration {
 
 type ProcessEventReturn = (CommitMediaInput, ImportOrExportMediaItemSeen);
 
-impl KomgaIntegration {
+impl KomgaYankIntegration {
     pub fn new(
         base_url: String,
         username: String,

@@ -8,7 +8,7 @@ use radarr_api_rs::{
 };
 use traits::TraceOk;
 
-pub(crate) struct RadarrIntegration {
+pub(crate) struct RadarrPushIntegration {
     base_url: String,
     api_key: String,
     profile_id: i32,
@@ -16,7 +16,7 @@ pub(crate) struct RadarrIntegration {
     tmdb_id: String,
 }
 
-impl RadarrIntegration {
+impl RadarrPushIntegration {
     pub const fn new(
         base_url: String,
         api_key: String,

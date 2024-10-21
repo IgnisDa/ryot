@@ -52,13 +52,13 @@ mod models {
     }
 }
 
-pub(crate) struct PlexIntegration {
+pub(crate) struct PlexSinkIntegration {
     payload: String,
     plex_user: Option<String>,
     db: DatabaseConnection,
 }
 
-impl PlexIntegration {
+impl PlexSinkIntegration {
     pub const fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
         Self {
             payload,

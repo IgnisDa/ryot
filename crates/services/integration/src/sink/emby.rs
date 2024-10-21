@@ -47,12 +47,12 @@ mod models {
     }
 }
 
-pub(crate) struct EmbyIntegration {
+pub(crate) struct EmbySinkIntegration {
     payload: String,
     db: DatabaseConnection,
 }
 
-impl EmbyIntegration {
+impl EmbySinkIntegration {
     pub const fn new(payload: String, db: DatabaseConnection) -> Self {
         Self { payload, db }
     }

@@ -1,10 +1,10 @@
 use anyhow::{bail, Result};
 use dependent_models::{CompleteExport, ImportResult};
 
-pub(crate) struct GenericJsonIntegration {
+pub(crate) struct GenericJsonSinkIntegration {
     payload: String,
 }
-impl GenericJsonIntegration {
+impl GenericJsonSinkIntegration {
     pub const fn new(payload: String) -> Self {
         Self { payload }
     }

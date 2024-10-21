@@ -14,10 +14,10 @@ struct IntegrationMediaSeen {
     show_episode_number: Option<i32>,
 }
 
-pub(crate) struct KodiIntegration {
+pub(crate) struct KodiSinkIntegration {
     payload: String,
 }
-impl KodiIntegration {
+impl KodiSinkIntegration {
     pub const fn new(payload: String) -> Self {
         Self { payload }
     }
