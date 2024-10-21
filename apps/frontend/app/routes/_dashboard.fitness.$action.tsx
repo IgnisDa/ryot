@@ -42,10 +42,9 @@ import {
 	useToggle,
 } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import { unstable_defineLoader } from "@remix-run/node";
 import {
 	Link,
-	useFetcher,
 	useLoaderData,
 	useNavigate,
 	useRevalidator,
@@ -98,10 +97,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import { $path } from "remix-routes";
 import { ClientOnly } from "remix-utils/client-only";
-import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { useInterval, useOnClickOutside } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
@@ -117,6 +114,7 @@ import {
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
 	dayjsLib,
 	getSetColor,
 	getSurroundingElements,
@@ -149,11 +147,7 @@ import {
 	useMeasurementsDrawerOpen,
 	useTimerAtom,
 } from "~/lib/state/fitness";
-import {
-	isWorkoutActive,
-	redirectWithToast,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { isWorkoutActive, redirectWithToast } from "~/lib/utilities.server";
 
 const workoutCookieName = CurrentWorkoutKey;
 
@@ -182,43 +176,6 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
 	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
 };
-
-export const action = unstable_defineAction(async ({ request }) => {
-	const formData = await request.clone().formData();
-	const workout = JSON.parse(formData.get("workout") as string);
-	return namedAction(request, {
-		createWorkout: async () => {
-			const { createOrUpdateUserWorkout } =
-				await serverGqlService.authenticatedRequest(
-					request,
-					CreateOrUpdateUserWorkoutDocument,
-					workout,
-				);
-			return redirectWithToast(
-				$path("/fitness/:entity/:id", {
-					entity: "workouts",
-					id: createOrUpdateUserWorkout,
-				}),
-				{ message: "Workout completed successfully", type: "success" },
-			);
-		},
-		createTemplate: async () => {
-			const { createOrUpdateUserWorkoutTemplate } =
-				await serverGqlService.authenticatedRequest(
-					request,
-					CreateOrUpdateUserWorkoutTemplateDocument,
-					workout,
-				);
-			return redirectWithToast(
-				$path("/fitness/:entity/:id", {
-					entity: "templates",
-					id: createOrUpdateUserWorkoutTemplate,
-				}),
-				{ message: "Template created successfully", type: "success" },
-			);
-		},
-	});
-});
 
 const deleteUploadedAsset = (key: string) => {
 	const formData = new FormData();
@@ -318,8 +275,6 @@ export default function Page() {
 		}
 		setCurrentTimer(RESET);
 	};
-
-	const createUserWorkoutFetcher = useFetcher<typeof action>();
 
 	return (
 		<Container size="sm">
@@ -492,21 +447,45 @@ export default function Page() {
 															});
 														}
 														stopTimer();
-														if (!loaderData.isCreatingTemplate) {
+														const [entityId, fitnessEntity] = await match(
+															loaderData.isCreatingTemplate,
+														)
+															.with(true, () =>
+																clientGqlService
+																	.request(
+																		CreateOrUpdateUserWorkoutTemplateDocument,
+																		input,
+																	)
+																	.then((c) => [
+																		c.createOrUpdateUserWorkoutTemplate,
+																		FitnessEntity.Templates,
+																	]),
+															)
+															.with(false, () =>
+																clientGqlService
+																	.request(
+																		CreateOrUpdateUserWorkoutDocument,
+																		input,
+																	)
+																	.then((c) => [
+																		c.createOrUpdateUserWorkout,
+																		FitnessEntity.Workouts,
+																	]),
+															)
+															.exhaustive();
+														notifications.show({
+															color: "green",
+															message: "Saved successfully",
+														});
+														Cookies.remove(workoutCookieName);
+														revalidator.revalidate();
+														if (loaderData.action === FitnessAction.LogWorkout)
 															events.createWorkout();
-															Cookies.remove(workoutCookieName);
-														}
-														createUserWorkoutFetcher.submit(
-															{ workout: JSON.stringify(input) },
-															{
-																method: "post",
-																action: withQuery(".", {
-																	intent: loaderData.isCreatingTemplate
-																		? "createTemplate"
-																		: "createWorkout",
-																}),
-																encType: "multipart/form-data",
-															},
+														navigate(
+															$path("/fitness/:entity/:id", {
+																entity: fitnessEntity,
+																id: entityId,
+															}),
 														);
 													}
 												}}
