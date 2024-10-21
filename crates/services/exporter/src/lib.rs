@@ -1,6 +1,5 @@
 use std::{collections::HashMap, fs::File as StdFile, path::PathBuf, sync::Arc};
 
-use apalis::prelude::MessageQueue;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
 use chrono::{DateTime, Utc};
@@ -55,11 +54,8 @@ pub struct ExporterService(pub Arc<SupportingService>);
 impl ExporterService {
     pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
         self.0
-            .perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::PerformExport(user_id))
-            .await
-            .unwrap();
+            .perform_application_job(ApplicationJob::PerformExport(user_id))
+            .await?;
         Ok(true)
     }
 

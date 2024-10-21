@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use apalis::prelude::MessageQueue;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
@@ -42,11 +41,11 @@ use dependent_models::{
     SearchResults, UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails,
 };
 use dependent_utils::{
-    after_media_seen_tasks, commit_metadata, commit_metadata_group_internal,
-    commit_metadata_internal, commit_person, create_partial_metadata, deploy_background_job,
+    commit_metadata, commit_metadata_group_internal, commit_metadata_internal, commit_person,
+    create_partial_metadata, deploy_after_handle_media_seen_tasks, deploy_background_job,
     deploy_update_metadata_job, get_metadata_provider, get_openlibrary_service,
     get_tmdb_non_media_service, get_users_and_cte_monitoring_entity, get_users_monitoring_entity,
-    is_metadata_finished_by_user, post_review, progress_update,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
     queue_media_state_changed_notification_for_user, queue_notifications_to_user_platforms,
     refresh_collection_to_entity_association, update_metadata_and_notify_users,
 };
@@ -420,7 +419,7 @@ ORDER BY RANDOM() LIMIT 10;
         metadata_id: &String,
         force_update: bool,
     ) -> Result<bool> {
-        deploy_update_metadata_job(metadata_id, force_update, &self.0.perform_application_job).await
+        deploy_update_metadata_job(metadata_id, force_update, &self.0).await
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -1089,11 +1088,8 @@ ORDER BY RANDOM() LIMIT 10;
         input: Vec<ProgressUpdateInput>,
     ) -> Result<bool> {
         self.0
-            .perform_core_application_job
-            .clone()
-            .enqueue(CoreApplicationJob::BulkProgressUpdate(user_id, input))
-            .await
-            .unwrap();
+            .perform_core_application_job(CoreApplicationJob::BulkProgressUpdate(user_id, input))
+            .await?;
         Ok(true)
     }
 
@@ -1339,7 +1335,7 @@ ORDER BY RANDOM() LIMIT 10;
             seen.review_id = ActiveValue::Set(to_update_review_id);
         }
         let seen = seen.update(&self.0.db).await.unwrap();
-        after_media_seen_tasks(seen, &self.0).await?;
+        deploy_after_handle_media_seen_tasks(seen, &self.0).await?;
         Ok(true)
     }
 
@@ -1350,11 +1346,8 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::UpdatePerson(person.id))
-            .await
-            .unwrap();
+            .perform_application_job(ApplicationJob::UpdatePerson(person.id))
+            .await?;
         Ok(true)
     }
 
@@ -1368,11 +1361,8 @@ ORDER BY RANDOM() LIMIT 10;
             .unwrap()
             .unwrap();
         self.0
-            .perform_application_job
-            .clone()
-            .enqueue(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
-            .await
-            .unwrap();
+            .perform_application_job(ApplicationJob::UpdateMetadataGroup(metadata_group.id))
+            .await?;
         Ok(true)
     }
 
@@ -1770,6 +1760,10 @@ ORDER BY RANDOM() LIMIT 10;
         }
     }
 
+    pub async fn handle_after_media_seen_tasks(&self, seen: seen::Model) -> Result<()> {
+        handle_after_media_seen_tasks(seen, &self.0).await
+    }
+
     pub async fn delete_seen_item(
         &self,
         user_id: &String,
@@ -1807,7 +1801,7 @@ ORDER BY RANDOM() LIMIT 10;
             si.delete(&self.0.db).await.trace_ok();
             associate_user_with_entity(&self.0.db, user_id, metadata_id, EntityLot::Metadata)
                 .await?;
-            after_media_seen_tasks(cloned_seen, &self.0).await?;
+            deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
             Ok(StringIdObject { id: seen_id })
         } else {
             Err(Error::new("This seen item does not exist".to_owned()))

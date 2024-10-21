@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
@@ -337,10 +336,8 @@ pub async fn add_entity_to_collection(
         }
         created
     };
-    ss.perform_application_job
-        .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
-        .await
-        .unwrap();
+    ss.perform_application_job(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
+        .await?;
     Ok(true)
 }
 
@@ -797,27 +794,23 @@ pub async fn calculate_user_activities_and_summary(
 }
 
 pub async fn deploy_job_to_calculate_user_activities_and_summary(
-    perform_application_job: &MemoryStorage<ApplicationJob>,
     user_id: &String,
     calculate_from_beginning: bool,
+    ss: &Arc<SupportingService>,
 ) {
-    perform_application_job
-        .clone()
-        .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
-            user_id.to_owned(),
-            calculate_from_beginning,
-        ))
-        .await
-        .unwrap();
+    ss.perform_application_job(ApplicationJob::RecalculateUserActivitiesAndSummary(
+        user_id.to_owned(),
+        calculate_from_beginning,
+    ))
+    .await
+    .unwrap();
 }
 
 pub async fn deploy_job_to_re_evaluate_user_workouts(
     user_id: &String,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) {
-    perform_application_job
-        .clone()
-        .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+    ss.perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
         .await
         .unwrap();
 }

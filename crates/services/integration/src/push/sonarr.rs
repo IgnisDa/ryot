@@ -8,43 +8,43 @@ use sonarr_api_rs::{
 };
 use traits::TraceOk;
 
-pub(crate) struct SonarrIntegration {
-    sonarr_base_url: String,
-    sonarr_api_key: String,
-    sonarr_profile_id: i32,
-    sonarr_root_folder_path: String,
+pub(crate) struct SonarrPushIntegration {
+    base_url: String,
+    api_key: String,
+    profile_id: i32,
+    root_folder_path: String,
     tvdb_id: String,
 }
 
-impl SonarrIntegration {
+impl SonarrPushIntegration {
     pub const fn new(
-        sonarr_base_url: String,
-        sonarr_api_key: String,
-        sonarr_profile_id: i32,
-        sonarr_root_folder_path: String,
+        base_url: String,
+        api_key: String,
+        profile_id: i32,
+        root_folder_path: String,
         tvdb_id: String,
     ) -> Self {
         Self {
-            sonarr_base_url,
-            sonarr_api_key,
-            sonarr_profile_id,
-            sonarr_root_folder_path,
+            base_url,
+            api_key,
+            profile_id,
+            root_folder_path,
             tvdb_id,
         }
     }
 
-    async fn sonarr_push(&self) -> anyhow::Result<()> {
+    pub async fn push_progress(&self) -> anyhow::Result<()> {
         let mut configuration = SonarrConfiguration::new();
-        configuration.base_path = self.sonarr_base_url.clone();
+        configuration.base_path = self.base_url.clone();
         configuration.api_key = Some(SonarrApiKey {
-            key: self.sonarr_api_key.clone(),
+            key: self.api_key.clone(),
             prefix: None,
         });
         let mut resource = SonarrSeriesResource::new();
         resource.title = Some(Some(self.tvdb_id.clone()));
         resource.tvdb_id = Some(self.tvdb_id.parse().unwrap());
-        resource.quality_profile_id = Some(self.sonarr_profile_id);
-        resource.root_folder_path = Some(Some(self.sonarr_root_folder_path.clone()));
+        resource.quality_profile_id = Some(self.profile_id);
+        resource.root_folder_path = Some(Some(self.root_folder_path.clone()));
         resource.monitored = Some(true);
         resource.season_folder = Some(true);
         let mut options = SonarrAddSeriesOptions::new();
@@ -55,9 +55,5 @@ impl SonarrIntegration {
             .await
             .trace_ok();
         Ok(())
-    }
-
-    pub async fn push_progress(&self) -> anyhow::Result<()> {
-        self.sonarr_push().await
     }
 }

@@ -41,6 +41,7 @@ members = [
     "crates/utils/common",
     "crates/utils/database",
     "crates/utils/dependent",
+    "crates/utils/external",
     "crates/utils/env",
 ]
 resolver = "2"

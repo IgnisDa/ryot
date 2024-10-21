@@ -14,14 +14,14 @@ use reqwest::header::{HeaderValue, AUTHORIZATION};
 use rust_decimal_macros::dec;
 use specific_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
 
-pub(crate) struct AudiobookshelfIntegration {
+pub(crate) struct AudiobookshelfYankIntegration {
     base_url: String,
     access_token: String,
     sync_to_owned_collection: Option<bool>,
     isbn_service: GoogleBooksService,
 }
 
-impl AudiobookshelfIntegration {
+impl AudiobookshelfYankIntegration {
     pub fn new(
         base_url: String,
         access_token: String,

@@ -303,12 +303,7 @@ impl UserService {
             .await
             .ok();
         }
-        deploy_job_to_calculate_user_activities_and_summary(
-            &self.0.perform_application_job,
-            &user.id,
-            false,
-        )
-        .await;
+        deploy_job_to_calculate_user_activities_and_summary(&user.id, false, &self.0).await;
         Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
     }
 
@@ -799,8 +794,12 @@ impl UserService {
             ));
         }
         let lot = match input.provider {
-            IntegrationProvider::Audiobookshelf => IntegrationLot::Yank,
-            IntegrationProvider::Radarr | IntegrationProvider::Sonarr => IntegrationLot::Push,
+            IntegrationProvider::Audiobookshelf | IntegrationProvider::Komga => {
+                IntegrationLot::Yank
+            }
+            IntegrationProvider::Radarr
+            | IntegrationProvider::Sonarr
+            | IntegrationProvider::JellyfinPush => IntegrationLot::Push,
             _ => IntegrationLot::Sink,
         };
         let to_insert = integration::ActiveModel {

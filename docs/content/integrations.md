@@ -3,28 +3,10 @@
 Integrations can be used to continuously update your media progress or inform external
 services about changes. They can be of following types:
 
-- _Push_: Ryot sends data to an external service when an event occurs.
 - _Yank_: Progress data is downloaded from an externally running server at a periodic
   interval.
 - _Sink_: An external client publishes progress updates to the Ryot server.
-
-## Push integrations
-
-You can enable the following push integrations:
-
-### Radarr
-
-Automatically add movies in the selected collections to Radarr.
-
-1. Obtain your Radarr API key by going to the Radarr general settings page.
-2. Fill the inputs in the integration settings page with the correct details.
-
-### Sonarr
-
-Automatically add shows in the selected collections to Sonarr.
-
-1. Obtain your Sonarr API key by going to the Sonarr general settings page.
-2. Fill the inputs in the integration settings page with the correct details.
+- _Push_: Ryot sends data to an external service when an event occurs.
 
 ## Yank integrations
 
@@ -166,3 +148,31 @@ format. The format of the JSON file should be `CompleteExport` as described in t
 
 You can use this to build integrations with other services that Ryot does not support
 natively.
+
+## Push integrations
+
+You can enable the following push integrations:
+
+### Radarr
+
+Automatically add movies in the selected collections to Radarr.
+
+1. Obtain your Radarr API key by going to the Radarr general settings page.
+2. Fill the inputs in the integration settings page with the correct details.
+
+### Sonarr
+
+Automatically add shows in the selected collections to Sonarr.
+
+1. Obtain your Sonarr API key by going to the Sonarr general settings page.
+2. Fill the inputs in the integration settings page with the correct details.
+
+### Jellyfin
+
+Automatically mark movies and shows as watched in Jellyfin when you mark them as watched
+in Ryot.
+
+1. While creating the integration, you will be asked to provide your Jellyfin username and
+   password.
+2. Every time you mark a movie or show as watched in Ryot, the integration will mark it as
+   watched in Jellyfin.

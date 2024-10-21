@@ -285,8 +285,9 @@ export default function Page() {
 												<Button
 													w="30%"
 													type="submit"
-													color={hasDefaultAccountLink ? "blue" : "green"}
 													variant="light"
+													disabled={isEditDisabled}
+													color={hasDefaultAccountLink ? "blue" : "green"}
 												>
 													{hasDefaultAccountLink ? "Disable" : "Enable"}
 												</Button>

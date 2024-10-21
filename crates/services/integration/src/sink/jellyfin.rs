@@ -46,16 +46,16 @@ mod models {
     }
 }
 
-pub(crate) struct JellyfinIntegration {
+pub(crate) struct JellyfinSinkIntegration {
     payload: String,
 }
 
-impl JellyfinIntegration {
+impl JellyfinSinkIntegration {
     pub const fn new(payload: String) -> Self {
         Self { payload }
     }
 
-    async fn jellyfin_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&self.payload)?;
         let identifier = payload
             .item
@@ -104,9 +104,5 @@ impl JellyfinIntegration {
             }],
             ..Default::default()
         })
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        self.jellyfin_progress().await
     }
 }

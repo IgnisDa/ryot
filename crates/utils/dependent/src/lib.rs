@@ -1,7 +1,6 @@
 use std::{collections::HashMap, iter::zip, sync::Arc};
 
 use anyhow::{bail, Result as AnyhowResult};
-use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::get_current_date;
 use async_graphql::{Enum, Error, Result};
 use background::{ApplicationJob, CoreApplicationJob};
@@ -336,16 +335,12 @@ async fn deploy_associate_group_with_metadata_job(
     lot: MediaLot,
     source: MediaSource,
     identifier: String,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    perform_application_job
-        .clone()
-        .enqueue(ApplicationJob::AssociateGroupWithMetadata(
-            lot, source, identifier,
-        ))
-        .await
-        .unwrap();
-    Ok(())
+    ss.perform_application_job(ApplicationJob::AssociateGroupWithMetadata(
+        lot, source, identifier,
+    ))
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -388,14 +383,9 @@ async fn change_metadata_associations(
             .ok();
     }
     for group_identifier in groups {
-        deploy_associate_group_with_metadata_job(
-            lot,
-            source,
-            group_identifier,
-            &ss.perform_application_job,
-        )
-        .await
-        .ok();
+        deploy_associate_group_with_metadata_job(lot, source, group_identifier, ss)
+            .await
+            .ok();
     }
     Ok(())
 }
@@ -874,16 +864,13 @@ pub async fn commit_metadata(
 pub async fn deploy_update_metadata_job(
     metadata_id: &String,
     force_update: bool,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    perform_application_job
-        .clone()
-        .enqueue(ApplicationJob::UpdateMetadata(
-            metadata_id.to_owned(),
-            force_update,
-        ))
-        .await
-        .unwrap();
+    ss.perform_application_job(ApplicationJob::UpdateMetadata(
+        metadata_id.to_owned(),
+        force_update,
+    ))
+    .await?;
     Ok(true)
 }
 
@@ -892,8 +879,6 @@ pub async fn deploy_background_job(
     job_name: BackgroundJob,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let core_storage = &mut ss.perform_core_application_job.clone();
-    let storage = &mut ss.perform_application_job.clone();
     match job_name {
         BackgroundJob::UpdateAllMetadata
         | BackgroundJob::UpdateAllExercises
@@ -914,47 +899,37 @@ pub async fn deploy_background_job(
                 .await
                 .unwrap();
             for metadata_id in many_metadata {
-                deploy_update_metadata_job(&metadata_id, true, storage).await?;
+                deploy_update_metadata_job(&metadata_id, true, ss).await?;
             }
         }
         BackgroundJob::UpdateAllExercises => {
-            storage
-                .enqueue(ApplicationJob::UpdateExerciseLibrary)
-                .await
-                .unwrap();
+            ss.perform_application_job(ApplicationJob::UpdateExerciseLibrary)
+                .await?;
         }
         BackgroundJob::RecalculateCalendarEvents => {
-            storage
-                .enqueue(ApplicationJob::RecalculateCalendarEvents)
-                .await
-                .unwrap();
+            ss.perform_application_job(ApplicationJob::RecalculateCalendarEvents)
+                .await?;
         }
         BackgroundJob::PerformBackgroundTasks => {
-            storage
-                .enqueue(ApplicationJob::PerformBackgroundTasks)
-                .await
-                .unwrap();
+            ss.perform_application_job(ApplicationJob::PerformBackgroundTasks)
+                .await?;
         }
         BackgroundJob::SyncIntegrationsData => {
-            core_storage
-                .enqueue(CoreApplicationJob::SyncIntegrationsData(user_id.to_owned()))
-                .await
-                .unwrap();
+            ss.perform_core_application_job(CoreApplicationJob::SyncIntegrationsData(
+                user_id.to_owned(),
+            ))
+            .await?;
         }
         BackgroundJob::CalculateUserActivitiesAndSummary => {
-            storage
-                .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
-                    user_id.to_owned(),
-                    true,
-                ))
-                .await
-                .unwrap();
+            ss.perform_application_job(ApplicationJob::RecalculateUserActivitiesAndSummary(
+                user_id.to_owned(),
+                true,
+            ))
+            .await?;
         }
         BackgroundJob::ReEvaluateUserWorkouts => {
-            storage
-                .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
-                .await
-                .unwrap();
+            ss.perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+                .await?;
         }
     };
     Ok(true)
@@ -1058,17 +1033,14 @@ pub async fn post_review(
         let user = user_by_id(&ss.db, &insert.user_id.unwrap()).await?;
         // DEV: Do not send notification if updating a review
         if input.review_id.is_none() {
-            ss.perform_core_application_job
-                .clone()
-                .enqueue(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
-                    obj_title,
-                    entity_lot,
-                    obj_id: id,
-                    username: user.name,
-                    review_id: insert.id.clone().unwrap(),
-                }))
-                .await
-                .unwrap();
+            ss.perform_core_application_job(CoreApplicationJob::ReviewPosted(ReviewPostedEvent {
+                obj_title,
+                entity_lot,
+                obj_id: id,
+                username: user.name,
+                review_id: insert.id.clone().unwrap(),
+            }))
+            .await?;
         }
     }
     Ok(StringIdObject {
@@ -1201,7 +1173,18 @@ pub async fn is_metadata_finished_by_user(
     Ok((is_finished, seen_history))
 }
 
-pub async fn after_media_seen_tasks(seen: seen::Model, ss: &Arc<SupportingService>) -> Result<()> {
+pub async fn deploy_after_handle_media_seen_tasks(
+    seen: seen::Model,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.perform_application_job(ApplicationJob::HandleAfterMediaSeenTasks(seen))
+        .await
+}
+
+pub async fn handle_after_media_seen_tasks(
+    seen: seen::Model,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
     let add_entity_to_collection = |collection_name: &str| {
         add_entity_to_collection(
             &seen.user_id,
@@ -1506,7 +1489,11 @@ pub async fn progress_update(
             .set_with_expiry(cache, ss.config.server.progress_update_threshold)
             .await?;
     }
-    after_media_seen_tasks(seen, ss).await?;
+    if seen.state == SeenState::Completed {
+        ss.perform_application_job(ApplicationJob::HandleOnSeenComplete(seen.id.clone()))
+            .await?;
+    }
+    deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
 
@@ -1841,7 +1828,7 @@ pub async fn create_or_update_workout(
     }
     let data = insert.insert(&ss.db).await?;
     if to_update_workout.is_some() {
-        deploy_job_to_re_evaluate_user_workouts(user_id, &ss.perform_application_job).await;
+        deploy_job_to_re_evaluate_user_workouts(user_id, ss).await;
     }
     Ok(data.id)
 }

@@ -1,15 +1,15 @@
 use anyhow::{bail, Result};
 use dependent_models::{CompleteExport, ImportResult};
 
-pub(crate) struct GenericJsonIntegration {
+pub(crate) struct GenericJsonSinkIntegration {
     payload: String,
 }
-impl GenericJsonIntegration {
+impl GenericJsonSinkIntegration {
     pub const fn new(payload: String) -> Self {
         Self { payload }
     }
 
-    async fn generic_json_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         let payload = match serde_json::from_str::<CompleteExport>(&self.payload) {
             Ok(val) => val,
             Err(err) => bail!(err),
@@ -22,9 +22,5 @@ impl GenericJsonIntegration {
             application_workouts: payload.workouts.unwrap_or_default(),
             ..Default::default()
         })
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        self.generic_json_progress().await
     }
 }
