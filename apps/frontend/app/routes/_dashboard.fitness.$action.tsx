@@ -1218,6 +1218,19 @@ const ExerciseDisplay = (props: {
 										for (const asset of assets) deleteUploadedAsset(asset.key);
 										setCurrentWorkout(
 											produce(currentWorkout, (draft) => {
+												const idx = draft.supersets.findIndex((s) =>
+													s.exercises.includes(exercise.identifier),
+												);
+												if (idx !== -1) {
+													if (draft.supersets[idx].exercises.length === 2)
+														draft.supersets.splice(idx, 1);
+													else
+														draft.supersets[idx].exercises = draft.supersets[
+															idx
+														].exercises.filter(
+															(e) => e !== exercise.identifier,
+														);
+												}
 												draft.exercises.splice(props.exerciseIdx, 1);
 											}),
 										);
