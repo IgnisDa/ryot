@@ -70,10 +70,12 @@ pub mod jellyfin {
                 .to_string();
         let uri = format!("{}/Users/AuthenticateByName", base_url);
         let client = Client::new();
-        let authenticate = client
+        let authenticate_request = client
             .post(uri)
             .header(AUTHORIZATION, &emby_header_value)
-            .json(&serde_json::json!({ "Username": username, "Pw": password }))
+            .json(&serde_json::json!({ "Username": username, "Pw": password }));
+        ryot_log!(debug, "Authentication request: {:?}", authenticate_request);
+        let authenticate = authenticate_request
             .send()
             .await
             .unwrap()
