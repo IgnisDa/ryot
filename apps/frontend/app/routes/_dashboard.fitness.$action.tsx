@@ -1150,7 +1150,7 @@ const ExerciseDisplay = (props: {
 								leftSection={<IconLayersIntersect size={14} />}
 								onClick={() => props.openSupersetModal(exercise.identifier)}
 							>
-								Superset
+								{partOfSuperset ? "Edit" : "Create"} superset
 							</Menu.Item>
 							<Menu.Item
 								leftSection={<IconPhoto size={14} />}
