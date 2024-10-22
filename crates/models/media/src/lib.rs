@@ -1633,6 +1633,7 @@ pub struct DailyUserActivityItem {
     pub show_count: i64,
     pub total_show_duration: i64,
     pub video_game_count: i64,
+    pub total_video_game_duration: i64,
     pub visual_novel_count: i64,
     pub total_visual_novel_duration: i64,
     pub total_workout_personal_bests: i64,

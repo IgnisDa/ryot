@@ -33,7 +33,7 @@ use media_models::{
     ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
@@ -579,6 +579,7 @@ pub async fn calculate_user_activities_and_summary(
         podcast_specifics: Option<PodcastSpecifics>,
         show_specifics: Option<ShowSpecifics>,
         video_game_specifics: Option<VideoGameSpecifics>,
+        manual_time_spent: Option<Decimal>,
         visual_novel_specifics: Option<VisualNovelSpecifics>,
         anime_specifics: Option<AnimeSpecifics>,
         manga_specifics: Option<MangaSpecifics>,
@@ -634,6 +635,7 @@ pub async fn calculate_user_activities_and_summary(
             seen::Column::MetadataId,
             seen::Column::FinishedOn,
             seen::Column::LastUpdatedOn,
+            seen::Column::ManualTimeSpent,
         ])
         .column_as(metadata::Column::Lot, "metadata_lot")
         .columns([
@@ -688,6 +690,10 @@ pub async fn calculate_user_activities_and_summary(
         } else if let Some(visual_novel_extra) = seen.visual_novel_specifics {
             if let Some(runtime) = visual_novel_extra.length {
                 activity.visual_novel_duration += runtime;
+            }
+        } else if let Some(_video_game_extra) = seen.video_game_specifics {
+            if let Some(manual_time_spent) = seen.manual_time_spent {
+                activity.video_game_duration += manual_time_spent.to_i32().unwrap_or_default();
             }
         }
         match seen.metadata_lot {

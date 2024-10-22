@@ -138,6 +138,10 @@ impl StatisticsService {
                 "total_show_duration",
             )
             .column_as(
+                daily_user_activity::Column::VideoGameDuration.sum(),
+                "total_video_game_duration",
+            )
+            .column_as(
                 daily_user_activity::Column::VideoGameCount.sum(),
                 "video_game_count",
             )
