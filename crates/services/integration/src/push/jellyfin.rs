@@ -41,16 +41,49 @@ impl<'a> JellyfinPushIntegration<'a> {
             .json::<ItemsResponse>()
             .await?;
         if let Some(selected_item) = items.items.first() {
-            client
-                .post(format!(
-                    "{}/Users/{}/PlayedItems/{}",
-                    self.base_url, user_id, selected_item.id
-                ))
-                .send()
-                .await?
-                .json::<serde_json::Value>()
-                .await
-                .trace_ok();
+            let id = match self.show_extra_information {
+                Some(extra_information) => {
+                    let mut return_id = None;
+                    let id = selected_item.id.clone();
+                    let season = client
+                        .get(format!("{}/Shows/{}/Seasons", self.base_url, id))
+                        .query(&json!({ "UserId": user_id }))
+                        .send()
+                        .await?
+                        .json::<ItemsResponse>()
+                        .await?
+                        .items
+                        .into_iter()
+                        .find(|s| s.index_number == Some(extra_information.season));
+                    if let Some(season) = season {
+                        let episode = client
+                            .get(format!("{}/Shows/{}/Episodes", self.base_url, id))
+                            .query(&json!({ "UserId": user_id, "SeasonId": season.id }))
+                            .send()
+                            .await?
+                            .json::<ItemsResponse>()
+                            .await?
+                            .items
+                            .into_iter()
+                            .find(|e| e.index_number == Some(extra_information.episode));
+                        return_id = episode.map(|e| e.id);
+                    }
+                    return_id
+                }
+                None => Some(selected_item.id.clone()),
+            };
+            if let Some(id) = id {
+                client
+                    .post(format!(
+                        "{}/Users/{}/PlayedItems/{}",
+                        self.base_url, user_id, id
+                    ))
+                    .send()
+                    .await?
+                    .json::<serde_json::Value>()
+                    .await
+                    .trace_ok();
+            }
         }
         Ok(())
     }
