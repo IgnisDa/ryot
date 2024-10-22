@@ -10,6 +10,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 UPDATE "integration" SET "provider" = 'jellyfin_sink' WHERE "provider" = 'jellyfin';
+ALTER TABLE "daily_user_activity" ADD COLUMN "video_game_duration" INTEGER NOT NULL DEFAULT 0;
         "#,
         )
         .await?;
