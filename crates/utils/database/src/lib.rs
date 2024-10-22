@@ -693,19 +693,20 @@ pub async fn calculate_user_activities_and_summary(
             }
         } else if let Some(_video_game_extra) = seen.video_game_specifics {
             if let Some(manual_time_spent) = seen.manual_time_spent {
-                activity.video_game_duration += manual_time_spent.to_i32().unwrap_or_default();
+                activity.video_game_duration +=
+                    (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
             }
         }
         match seen.metadata_lot {
+            MediaLot::Book => activity.book_count += 1,
+            MediaLot::Show => activity.show_count += 1,
             MediaLot::Anime => activity.anime_count += 1,
+            MediaLot::Movie => activity.movie_count += 1,
             MediaLot::Manga => activity.manga_count += 1,
             MediaLot::Podcast => activity.podcast_count += 1,
-            MediaLot::Show => activity.show_count += 1,
             MediaLot::VideoGame => activity.video_game_count += 1,
-            MediaLot::VisualNovel => activity.visual_novel_count += 1,
-            MediaLot::Book => activity.book_count += 1,
             MediaLot::AudioBook => activity.audio_book_count += 1,
-            MediaLot::Movie => activity.movie_count += 1,
+            MediaLot::VisualNovel => activity.visual_novel_count += 1,
         };
     }
 
