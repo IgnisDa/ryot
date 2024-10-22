@@ -12,6 +12,7 @@ use database_utils::user_preferences_by_id;
 use dependent_models::ImportResult;
 use dependent_utils::{commit_metadata, process_import};
 use enums::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
+use media_models::SeenShowExtraInformation;
 use providers::google_books::GoogleBooksService;
 use push::jellyfin::JellyfinPushIntegration;
 use rust_decimal_macros::dec;
@@ -218,12 +219,12 @@ impl IntegrationService {
     }
 
     pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
-        let (seen, metadata_title, _) = Seen::find_by_id(id)
+        let (seen, show_extra_information, metadata_title) = Seen::find_by_id(id)
             .left_join(Metadata)
             .select_only()
-            .columns([seen::Column::UserId])
-            .columns([metadata::Column::Title, metadata::Column::Lot])
-            .into_tuple::<(String, String, MediaLot)>()
+            .columns([seen::Column::UserId, seen::Column::ShowExtraInformation])
+            .columns([metadata::Column::Title])
+            .into_tuple::<(String, Option<SeenShowExtraInformation>, String)>()
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
@@ -241,7 +242,8 @@ impl IntegrationService {
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),
                         specifics.jellyfin_push_password.unwrap(),
-                        metadata_title.clone(),
+                        &metadata_title,
+                        &show_extra_information,
                     );
                     integration.push_progress().await?;
                 }

@@ -1,26 +1,30 @@
 use external_utils::jellyfin::{get_authenticated_client, ItemsResponse};
+use media_models::SeenShowExtraInformation;
 use serde_json::json;
 use traits::TraceOk;
 
-pub(crate) struct JellyfinPushIntegration {
+pub(crate) struct JellyfinPushIntegration<'a> {
     base_url: String,
     username: String,
     password: String,
-    metadata_title: String,
+    metadata_title: &'a String,
+    show_extra_information: &'a Option<SeenShowExtraInformation>,
 }
 
-impl JellyfinPushIntegration {
+impl<'a> JellyfinPushIntegration<'a> {
     pub const fn new(
         base_url: String,
         username: String,
         password: String,
-        metadata_title: String,
+        metadata_title: &'a String,
+        show_extra_information: &'a Option<SeenShowExtraInformation>,
     ) -> Self {
         Self {
             base_url,
             username,
             password,
             metadata_title,
+            show_extra_information,
         }
     }
 
