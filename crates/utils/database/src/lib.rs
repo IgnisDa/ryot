@@ -787,7 +787,8 @@ pub async fn calculate_user_activities_and_summary(
             + activity.podcast_duration
             + activity.movie_duration
             + activity.show_duration
-            + activity.visual_novel_duration;
+            + activity.visual_novel_duration
+            + activity.video_game_duration;
         let mut model: daily_user_activity::ActiveModel = activity.into();
         model.total_review_count = ActiveValue::Set(total_review_count);
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
