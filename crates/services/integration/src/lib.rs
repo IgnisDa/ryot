@@ -218,7 +218,7 @@ impl IntegrationService {
     }
 
     pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
-        let (seen, metadata_title, metadata_lot) = Seen::find_by_id(id)
+        let (seen, metadata_title, _) = Seen::find_by_id(id)
             .left_join(Metadata)
             .select_only()
             .columns([seen::Column::UserId])
@@ -241,7 +241,6 @@ impl IntegrationService {
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),
                         specifics.jellyfin_push_password.unwrap(),
-                        metadata_lot,
                         metadata_title.clone(),
                     );
                     integration.push_progress().await?;
