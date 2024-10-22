@@ -749,11 +749,11 @@ pub async fn calculate_user_activities_and_summary(
         let date = item.posted_on.date_naive();
         let activity = get_activity_count(item.id, &mut activities, user_id, date);
         match item.entity_lot {
-            EntityLot::Metadata => activity.metadata_review_count += 1,
             EntityLot::Person => activity.person_review_count += 1,
-            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
-            EntityLot::Collection => activity.collection_review_count += 1,
             EntityLot::Exercise => activity.exercise_review_count += 1,
+            EntityLot::Metadata => activity.metadata_review_count += 1,
+            EntityLot::Collection => activity.collection_review_count += 1,
+            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
             _ => {}
         }
     }
