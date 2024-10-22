@@ -282,6 +282,12 @@ export default function Page() {
 												value: latestUserSummary.videoGameCount,
 												type: "number",
 											},
+											{
+												label: "Runtime",
+												value: latestUserSummary.totalVideoGameDuration,
+												type: "duration",
+												hideIfZero: true,
+											},
 										]}
 									/>
 									<DisplayStatForMediaType
