@@ -4,7 +4,7 @@ use async_graphql::{Error, Result as GqlResult};
 use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{
-    integration,
+    integration, metadata,
     prelude::{CollectionToEntity, Integration, Metadata, Seen, UserToEntity},
     seen, user_to_entity,
 };
@@ -218,10 +218,12 @@ impl IntegrationService {
     }
 
     pub async fn handle_on_seen_complete(&self, id: String) -> GqlResult<()> {
-        let seen = Seen::find_by_id(id)
+        let (seen, metadata_title, metadata_lot) = Seen::find_by_id(id)
+            .left_join(Metadata)
             .select_only()
             .columns([seen::Column::UserId])
-            .into_tuple::<String>()
+            .columns([metadata::Column::Title, metadata::Column::Lot])
+            .into_tuple::<(String, String, MediaLot)>()
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
@@ -239,6 +241,8 @@ impl IntegrationService {
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),
                         specifics.jellyfin_push_password.unwrap(),
+                        metadata_lot,
+                        metadata_title.clone(),
                     );
                     integration.push_progress().await?;
                 }
