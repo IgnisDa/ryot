@@ -195,8 +195,8 @@ impl IntegrationService {
                                 specifics.radarr_base_url.unwrap(),
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
-                                specifics.radarr_root_folder_path.unwrap(),
                                 entity_id,
+                                specifics.radarr_root_folder_path.unwrap(),
                             );
                             radarr.push_progress().await
                         }

@@ -12,8 +12,8 @@ pub(crate) struct RadarrPushIntegration {
     base_url: String,
     api_key: String,
     profile_id: i32,
-    root_folder_path: String,
     tmdb_id: String,
+    root_folder_path: String,
 }
 
 impl RadarrPushIntegration {
@@ -21,15 +21,15 @@ impl RadarrPushIntegration {
         base_url: String,
         api_key: String,
         profile_id: i32,
-        root_folder_path: String,
         tmdb_id: String,
+        root_folder_path: String,
     ) -> Self {
         Self {
             base_url,
             api_key,
             profile_id,
-            root_folder_path,
             tmdb_id,
+            root_folder_path,
         }
     }
 
