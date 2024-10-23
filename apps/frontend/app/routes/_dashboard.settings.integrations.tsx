@@ -50,7 +50,11 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
-import { applicationBaseUrl, dayjsLib } from "~/lib/generals";
+import {
+	applicationBaseUrl,
+	dayjsLib,
+	PRO_REQUIRED_MESSAGE,
+} from "~/lib/generals";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -58,6 +62,7 @@ import {
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
+const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Audiobookshelf,
 	IntegrationProvider.Komga,
@@ -369,7 +374,9 @@ const CreateIntegrationModal = (props: {
 	closeIntegrationModal: () => void;
 }) => {
 	const coreDetails = useCoreDetails();
-	const [provider, setProvider] = useState<IntegrationProvider | null>(null);
+	const [provider, setProvider] = useState<IntegrationProvider>();
+	const disableCreationButton =
+		!coreDetails.isPro && provider && PRO_INTEGRATIONS.includes(provider);
 
 	return (
 		<Modal
@@ -506,7 +513,14 @@ const CreateIntegrationModal = (props: {
 							/>
 						</Tooltip>
 					) : undefined}
-					<Button type="submit">Submit</Button>
+					<Tooltip
+						label={PRO_REQUIRED_MESSAGE}
+						disabled={!disableCreationButton}
+					>
+						<Button type="submit" disabled={disableCreationButton}>
+							Submit
+						</Button>
+					</Tooltip>
 				</Stack>
 			</Form>
 		</Modal>
