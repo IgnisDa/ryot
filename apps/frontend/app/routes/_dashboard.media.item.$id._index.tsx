@@ -718,42 +718,38 @@ export default function Page() {
 										nextEntry ? (
 											<>
 												<Menu.Label>Anime</Menu.Label>
-												<>
-													<Menu.Item
-														onClick={() => {
-															setMetadataToUpdate({
-																metadataId: loaderData.metadataId,
-																animeEpisodeNumber: nextEntry.episode,
-															});
-														}}
-													>
-														Mark EP-
-														{nextEntry.episode} as listened
-													</Menu.Item>
-												</>
+												<Menu.Item
+													onClick={() => {
+														setMetadataToUpdate({
+															metadataId: loaderData.metadataId,
+															animeEpisodeNumber: nextEntry.episode,
+														});
+													}}
+												>
+													Mark EP-
+													{nextEntry.episode} as listened
+												</Menu.Item>
 											</>
 										) : null}
 										{loaderData.metadataDetails.lot === MediaLot.Manga &&
 										nextEntry ? (
 											<>
 												<Menu.Label>Manga</Menu.Label>
-												<>
-													<Menu.Item
-														onClick={() => {
-															setMetadataToUpdate({
-																metadataId: loaderData.metadataId,
-																mangaChapterNumber: nextEntry.chapter,
-																mangaVolumeNumber: nextEntry.volume,
-															});
-														}}
-													>
-														Mark{" "}
-														{nextEntry.chapter
-															? `CH-${nextEntry.chapter}`
-															: `VOL-${nextEntry.volume}`}{" "}
-														as read
-													</Menu.Item>
-												</>
+												<Menu.Item
+													onClick={() => {
+														setMetadataToUpdate({
+															metadataId: loaderData.metadataId,
+															mangaChapterNumber: nextEntry.chapter,
+															mangaVolumeNumber: nextEntry.volume,
+														});
+													}}
+												>
+													Mark{" "}
+													{nextEntry.chapter
+														? `CH-${nextEntry.chapter}`
+														: `VOL-${nextEntry.volume}`}{" "}
+													as read
+												</Menu.Item>
 											</>
 										) : null}
 										{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
@@ -1801,25 +1797,23 @@ const DisplayShowSeason = (props: {
 				.map((e) => e.runtime || 0)
 				.reduce((i, a) => i + a, 0)}
 		>
-			<>
-				{props.season.episodes.length > 0 ? (
-					<Button
-						variant={isSeen ? "default" : "outline"}
-						size="xs"
-						color="blue"
-						onClick={() => {
-							setMetadataToUpdate({
-								metadataId: loaderData.metadataId,
-								showSeasonNumber: props.season.seasonNumber,
-								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
-								showAllEpisodesBefore: true,
-							});
-						}}
-					>
-						{isSeen ? "Watch again" : "Mark as seen"}
-					</Button>
-				) : null}
-			</>
+			{props.season.episodes.length > 0 ? (
+				<Button
+					variant={isSeen ? "default" : "outline"}
+					size="xs"
+					color="blue"
+					onClick={() => {
+						setMetadataToUpdate({
+							metadataId: loaderData.metadataId,
+							showSeasonNumber: props.season.seasonNumber,
+							showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
+							showAllEpisodesBefore: true,
+						});
+					}}
+				>
+					{isSeen ? "Watch again" : "Mark as seen"}
+				</Button>
+			) : null}
 		</DisplaySeasonOrEpisodeDetails>
 	);
 };

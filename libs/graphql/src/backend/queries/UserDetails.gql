@@ -1,11 +1,11 @@
 query UserDetails {
-  userDetails {
-    __typename
-    ... on User {
-      id
-      lot
-      name
-      oidcIssuerId
-    }
-  }
+	userDetails {
+		__typename
+		... on User {
+			id
+			lot
+			name
+			oidcIssuerId
+		}
+	}
 }

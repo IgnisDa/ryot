@@ -1,27 +1,27 @@
 query PersonDetails($personId: String!) {
-  personDetails(personId: $personId) {
-    sourceUrl
-    details {
-      id
-      name
-      source
-      identifier
-      isPartial
-      description
-      birthDate
-      deathDate
-      place
-      website
-      gender
-      displayImages
-    }
-    contents {
-      name
-      count
-      items {
-        character
-        metadataId
-      }
-    }
-  }
+	personDetails(personId: $personId) {
+		sourceUrl
+		details {
+			id
+			name
+			source
+			identifier
+			isPartial
+			description
+			birthDate
+			deathDate
+			place
+			website
+			gender
+			displayImages
+		}
+		contents {
+			name
+			count
+			items {
+				character
+				metadataId
+			}
+		}
+	}
 }

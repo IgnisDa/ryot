@@ -87,7 +87,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 				input: submission,
 			});
 			queryClient.removeQueries({
-				queryKey: queryFactory.users.details(token).queryKey,
+				queryKey: queryFactory.users.details(token ?? "").queryKey,
 			});
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({

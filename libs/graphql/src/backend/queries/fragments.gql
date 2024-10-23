@@ -1,196 +1,196 @@
 fragment SeenPodcastExtraInformationPart on SeenPodcastExtraInformation {
-  episode
+	episode
 }
 
 fragment SeenShowExtraInformationPart on SeenShowExtraInformation {
-  episode
-  season
+	episode
+	season
 }
 
 fragment SeenAnimeExtraInformationPart on SeenAnimeExtraInformation {
-  episode
+	episode
 }
 
 fragment SeenMangaExtraInformationPart on SeenMangaExtraInformation {
-  volume
-  chapter
+	volume
+	chapter
 }
 
 fragment CalendarEventPart on GraphqlCalendarEvent {
-  date
-  metadataId
-  metadataLot
-  episodeName
-  metadataTitle
-  metadataImage
-  calendarEventId
-  showExtraInformation {
-    ...SeenShowExtraInformationPart
-  }
-  podcastExtraInformation {
-    ...SeenPodcastExtraInformationPart
-  }
-  animeExtraInformation {
-    ...SeenAnimeExtraInformationPart
-  }
+	date
+	metadataId
+	metadataLot
+	episodeName
+	metadataTitle
+	metadataImage
+	calendarEventId
+	showExtraInformation {
+		...SeenShowExtraInformationPart
+	}
+	podcastExtraInformation {
+		...SeenPodcastExtraInformationPart
+	}
+	animeExtraInformation {
+		...SeenAnimeExtraInformationPart
+	}
 }
 
 fragment SeenPart on Seen {
-  id
-  state
-  progress
-  reviewId
-  startedOn
-  finishedOn
-  lastUpdatedOn
-  manualTimeSpent
-  numTimesUpdated
-  providerWatchedOn
-  showExtraInformation {
-    ...SeenShowExtraInformationPart
-  }
-  podcastExtraInformation {
-    ...SeenPodcastExtraInformationPart
-  }
-  animeExtraInformation {
-    ...SeenAnimeExtraInformationPart
-  }
-  mangaExtraInformation {
-    ...SeenMangaExtraInformationPart
-  }
+	id
+	state
+	progress
+	reviewId
+	startedOn
+	finishedOn
+	lastUpdatedOn
+	manualTimeSpent
+	numTimesUpdated
+	providerWatchedOn
+	showExtraInformation {
+		...SeenShowExtraInformationPart
+	}
+	podcastExtraInformation {
+		...SeenPodcastExtraInformationPart
+	}
+	animeExtraInformation {
+		...SeenAnimeExtraInformationPart
+	}
+	mangaExtraInformation {
+		...SeenMangaExtraInformationPart
+	}
 }
 
 fragment MetadataSearchItemPart on MetadataSearchItem {
-  title
-  image
-  identifier
-  publishYear
+	title
+	image
+	identifier
+	publishYear
 }
 
 fragment WorkoutOrExerciseTotalsPart on WorkoutOrExerciseTotals {
-  reps
-  weight
-  distance
-  duration
-  restTime
-  personalBestsAchieved
+	reps
+	weight
+	distance
+	duration
+	restTime
+	personalBestsAchieved
 }
 
 fragment EntityAssetsPart on EntityAssets {
-  images
-  videos
+	images
+	videos
 }
 
 fragment WorkoutSetStatisticPart on WorkoutSetStatistic {
-  reps
-  pace
-  oneRm
-  weight
-  volume
-  duration
-  distance
+	reps
+	pace
+	oneRm
+	weight
+	volume
+	duration
+	distance
 }
 
 fragment WorkoutSetRecordPart on WorkoutSetRecord {
-  lot
-  personalBests
-  statistic {
-    ...WorkoutSetStatisticPart
-  }
+	lot
+	personalBests
+	statistic {
+		...WorkoutSetStatisticPart
+	}
 }
 
 fragment WorkoutSummaryPart on WorkoutSummary {
-  total {
-    ...WorkoutOrExerciseTotalsPart
-  }
-  exercises {
-    lot
-    name
-    numSets
-    bestSet {
-      ...WorkoutSetRecordPart
-    }
-  }
+	total {
+		...WorkoutOrExerciseTotalsPart
+	}
+	exercises {
+		lot
+		name
+		numSets
+		bestSet {
+			...WorkoutSetRecordPart
+		}
+	}
 }
 
 fragment CollectionPart on Collection {
-  id
-  name
-  userId
+	id
+	name
+	userId
 }
 
 fragment ReviewItemPart on ReviewItem {
-  id
-  rating
-  postedOn
-  isSpoiler
-  visibility
-  textOriginal
-  textRendered
-  seenItemsAssociatedWith
-  postedBy {
-    id
-    name
-  }
-  comments {
-    id
-    text
-    likedBy
-    createdOn
-    user {
-      id
-      name
-    }
-  }
-  showExtraInformation {
-    ...SeenShowExtraInformationPart
-  }
-  podcastExtraInformation {
-    ...SeenPodcastExtraInformationPart
-  }
-  animeExtraInformation {
-    ...SeenAnimeExtraInformationPart
-  }
-  mangaExtraInformation {
-    ...SeenMangaExtraInformationPart
-  }
+	id
+	rating
+	postedOn
+	isSpoiler
+	visibility
+	textOriginal
+	textRendered
+	seenItemsAssociatedWith
+	postedBy {
+		id
+		name
+	}
+	comments {
+		id
+		text
+		likedBy
+		createdOn
+		user {
+			id
+			name
+		}
+	}
+	showExtraInformation {
+		...SeenShowExtraInformationPart
+	}
+	podcastExtraInformation {
+		...SeenPodcastExtraInformationPart
+	}
+	animeExtraInformation {
+		...SeenAnimeExtraInformationPart
+	}
+	mangaExtraInformation {
+		...SeenMangaExtraInformationPart
+	}
 }
 
 fragment WorkoutInformationPart on WorkoutInformation {
-  comment
-  assets {
-    ...EntityAssetsPart
-  }
-  supersets {
-    color
-    exercises
-  }
-  exercises {
-    lot
-    name
-    notes
-    total {
-      ...WorkoutOrExerciseTotalsPart
-    }
-    assets {
-      ...EntityAssetsPart
-    }
-    sets {
-      lot
-      note
-      restTime
-      confirmedAt
-      personalBests
-      statistic {
-        ...WorkoutSetStatisticPart
-      }
-    }
-  }
+	comment
+	assets {
+		...EntityAssetsPart
+	}
+	supersets {
+		color
+		exercises
+	}
+	exercises {
+		lot
+		name
+		notes
+		total {
+			...WorkoutOrExerciseTotalsPart
+		}
+		assets {
+			...EntityAssetsPart
+		}
+		sets {
+			lot
+			note
+			restTime
+			confirmedAt
+			personalBests
+			statistic {
+				...WorkoutSetStatisticPart
+			}
+		}
+	}
 }
 
 fragment SetRestTimersPart on SetRestTimersSettings {
-  drop
-  warmup
-  normal
-  failure
+	drop
+	warmup
+	normal
+	failure
 }

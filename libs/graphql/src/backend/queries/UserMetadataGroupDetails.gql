@@ -1,10 +1,10 @@
 query UserMetadataGroupDetails($metadataGroupId: String!) {
-  userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
-    reviews {
-      ...ReviewItemPart
-    }
-    collections {
-      ...CollectionPart
-    }
-  }
+	userMetadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		reviews {
+			...ReviewItemPart
+		}
+		collections {
+			...CollectionPart
+		}
+	}
 }

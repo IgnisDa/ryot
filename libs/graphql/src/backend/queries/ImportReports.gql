@@ -1,20 +1,20 @@
 query ImportReports {
-  importReports {
-    id
-    source
-    startedOn
-    finishedOn
-    wasSuccess
-    details {
-      import {
-        total
-      }
-      failedItems {
-        lot
-        step
-        identifier
-        error
-      }
-    }
-  }
+	importReports {
+		id
+		source
+		startedOn
+		finishedOn
+		wasSuccess
+		details {
+			import {
+				total
+			}
+			failedItems {
+				lot
+				step
+				identifier
+				error
+			}
+		}
+	}
 }

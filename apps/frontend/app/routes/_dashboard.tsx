@@ -245,7 +245,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 
 	const decodedCookie = jwtDecode<{
 		access_link?: { id: string; is_demo?: boolean };
-	}>(getAuthorizationCookie(request));
+	}>(getAuthorizationCookie(request) ?? "");
 	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
 	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
 
