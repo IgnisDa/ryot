@@ -7,7 +7,7 @@
 		"hoistingLimits": "workspaces"
 	},
 	"dependencies": {
-		"@conform-to/zod": "1.1.5",
+		"@conform-to/zod": "1.2.2",
 		"@isaacs/ttlcache": "1.4.1",
 		"@paddle/paddle-js": "1.2.3",
 		"@paddle/paddle-node-sdk": "1.9.1",

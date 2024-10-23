@@ -7,8 +7,8 @@
 		"hoistingLimits": "workspaces"
 	},
 	"dependencies": {
-		"@conform-to/react": "1.1.5",
-		"@conform-to/zod": "1.1.5",
+		"@conform-to/react": "1.2.2",
+		"@conform-to/zod": "1.2.2",
 		"@formkit/auto-animate": "0.8.2",
 		"@hello-pangea/dnd": "17.0.0",
 		"@lukemorales/query-key-factory": "1.3.4",

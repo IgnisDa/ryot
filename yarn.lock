@@ -1844,32 +1844,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@conform-to/dom@npm:1.1.5":
-  version: 1.1.5
-  resolution: "@conform-to/dom@npm:1.1.5"
-  checksum: 10/2b5a7d3aedde7e426e9befbf1ef9bc2103e141e80b3a6bf2bd4ebe51bcdaea6aed61fcb2b84ebd3d094822fd3df6a09c256726b3608edd1b903bb47599b0023f
+"@conform-to/dom@npm:1.2.2":
+  version: 1.2.2
+  resolution: "@conform-to/dom@npm:1.2.2"
+  checksum: 10/7276d53750b3cf631b14c14bbb009dec08e2008b9c47e4a7fa51ee938b8cd9ab90c9612d9376b4301c1ababda2a0ece48cb3a58104b4d59c37c622bf8f61f0c8
   languageName: node
   linkType: hard
 
-"@conform-to/react@npm:1.1.5":
-  version: 1.1.5
-  resolution: "@conform-to/react@npm:1.1.5"
+"@conform-to/react@npm:1.2.2":
+  version: 1.2.2
+  resolution: "@conform-to/react@npm:1.2.2"
   dependencies:
-    "@conform-to/dom": "npm:1.1.5"
+    "@conform-to/dom": "npm:1.2.2"
   peerDependencies:
     react: ">=18"
-  checksum: 10/04bcc830e2ea2ed54dc71a05d5b02368305a102496a4a4ad671d964030280f2a4aa731449ef28c51c044061c4155d8a0cb6fed8898bf217b75160cf5b3039ec0
+  checksum: 10/966cceade7fda8019eccc3d0efb0e7525016a17f2fb44767c4a2d0870c47da3af81624ee51dabe88772654e99a7fa373b5345811654acd7c19e39300dfd7cb63
   languageName: node
   linkType: hard
 
-"@conform-to/zod@npm:1.1.5":
-  version: 1.1.5
-  resolution: "@conform-to/zod@npm:1.1.5"
+"@conform-to/zod@npm:1.2.2":
+  version: 1.2.2
+  resolution: "@conform-to/zod@npm:1.2.2"
   dependencies:
-    "@conform-to/dom": "npm:1.1.5"
+    "@conform-to/dom": "npm:1.2.2"
   peerDependencies:
     zod: ^3.21.0
-  checksum: 10/81abe866548445e1239c9905865fb4613a9a2db9d35f21a35d2e06962331d8bd431cea16f3f8ec570fd6c72620b72414cf0c97efee679441f94f29dad2cb8f88
+  checksum: 10/1fbc452aeebe0d3a4b347637f83d871f13cd4b64fe1e8baed2b82f8f51eceee532b78eb369e278be0792671c1d9245a0c7c449056ea74150613bf8907b69c758
   languageName: node
   linkType: hard
 
@@ -6291,8 +6291,8 @@ __metadata:
   resolution: "@ryot/frontend@workspace:apps/frontend"
   dependencies:
     "@bitprojects/umami-logger-typescript": "npm:1.0.10"
-    "@conform-to/react": "npm:1.1.5"
-    "@conform-to/zod": "npm:1.1.5"
+    "@conform-to/react": "npm:1.2.2"
+    "@conform-to/zod": "npm:1.2.2"
     "@formkit/auto-animate": "npm:0.8.2"
     "@hello-pangea/dnd": "npm:17.0.0"
     "@lukemorales/query-key-factory": "npm:1.3.4"
@@ -6416,7 +6416,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
-    "@conform-to/zod": "npm:1.1.5"
+    "@conform-to/zod": "npm:1.2.2"
     "@ryot/generated": "workspace:*"
     "@types/lodash": "npm:4.17.12"
     dayjs: "npm:1.11.13"
@@ -6429,7 +6429,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/website@workspace:apps/website"
   dependencies:
-    "@conform-to/zod": "npm:1.1.5"
+    "@conform-to/zod": "npm:1.2.2"
     "@isaacs/ttlcache": "npm:1.4.1"
     "@paddle/paddle-js": "npm:1.2.3"
     "@paddle/paddle-node-sdk": "npm:1.9.1"
