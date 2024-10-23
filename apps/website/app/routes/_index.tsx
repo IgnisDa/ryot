@@ -6,7 +6,11 @@ import {
 } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
-import { processSubmission, randomString } from "@ryot/ts-utils";
+import {
+	getActionIntent,
+	processSubmission,
+	randomString,
+} from "@ryot/ts-utils";
 import {
 	IconBrandDiscord,
 	IconBrandGithub,
@@ -20,7 +24,7 @@ import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
 import { $path } from "remix-routes";
 import { HoneypotInputs } from "remix-utils/honeypot/react";
 import { SpamError } from "remix-utils/honeypot/server";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -74,8 +78,9 @@ const otpCodesCache = new TTLCache<string, string>({
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return await namedAction(request, {
-		sendLoginCode: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("sendLoginCode", async () => {
 			const { email } = processSubmission(formData, emailSchema);
 			const otpCode = randomString(6);
 			otpCodesCache.set(email, otpCode);
@@ -86,8 +91,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				LoginCodeEmail({ code: otpCode }),
 			);
 			return redirect(withQuery(withFragment(".", "start-here"), { email }));
-		},
-		registerWithEmail: async () => {
+		})
+		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
 			const otpCode = otpCodesCache.get(submission.email);
 			if (otpCode !== submission.otpCode) throw new Error("Invalid OTP code.");
@@ -105,13 +110,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			return redirect($path("/me"), {
 				headers: { "set-cookie": await authCookie.serialize(customerId) },
 			});
-		},
-		registerWithOidc: async () => {
+		})
+		.with("registerWithOidc", async () => {
 			const client = await oauthClient();
 			const redirectUrl = client.authorizationUrl({ scope: "openid email" });
 			return redirect(redirectUrl);
-		},
-		contactSubmission: async () => {
+		})
+		.with("contactSubmission", async () => {
 			let isSpam = false;
 			try {
 				honeypot.check(formData);
@@ -130,8 +135,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			return redirect(
 				withQuery(withFragment(".", "contact"), { contactSubmission: true }),
 			);
-		},
-	});
+		})
+		.run();
 };
 
 const intentSchema = z.object({ intent: z.string() });
@@ -294,17 +299,15 @@ export default function Page() {
 							</Link>
 						) : (
 							<>
-								<Form method="POST" className="flex gap-2 flex-none">
-									<input
-										readOnly
-										type="hidden"
-										name="intent"
-										value={
-											loaderData.query.email
-												? "registerWithEmail"
-												: "sendLoginCode"
-										}
-									/>
+								<Form
+									method="POST"
+									className="flex gap-2 flex-none"
+									action={withQuery(".", {
+										intent: loaderData.query.email
+											? "registerWithEmail"
+											: "sendLoginCode",
+									})}
+								>
 									{loaderData.query.email ? (
 										<>
 											<input
@@ -343,12 +346,10 @@ export default function Page() {
 									</Button>
 								</Form>
 								<p className="text-xs">OR</p>
-								<Form method="POST">
-									<input
-										type="hidden"
-										name="intent"
-										defaultValue="registerWithOidc"
-									/>
+								<Form
+									method="POST"
+									action={withQuery(".", { intent: "registerWithOidc" })}
+								>
 									<Button
 										variant="outline"
 										className="inline-flex h-10 items-center justify-center rounded-md px-8 text-sm font-medium"
@@ -439,13 +440,9 @@ export default function Page() {
 					) : (
 						<Form
 							method="POST"
+							action={withQuery(".", { intent: "contactSubmission" })}
 							className="flex flex-col items-center justify-center pt-12 gap-y-4 gap-x-4"
 						>
-							<input
-								type="hidden"
-								name="intent"
-								defaultValue="contactSubmission"
-							/>
 							<HoneypotInputs />
 							<Input
 								type="email"

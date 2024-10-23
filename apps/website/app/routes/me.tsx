@@ -7,13 +7,12 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, redirect, useLoaderData, useSubmit } from "@remix-run/react";
 import { RegisterUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
-import { changeCase, randomString } from "@ryot/ts-utils";
+import { changeCase, getActionIntent, randomString } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import { P, match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { customers } from "~/drizzle/schema.server";
@@ -64,12 +63,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	return await namedAction(request.clone(), {
-		logout: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("logout", async () => {
 			const cookies = await authCookie.serialize("", { expires: new Date(0) });
 			return Response.json({}, { headers: { "set-cookie": cookies } });
-		},
-		processPurchase: async () => {
+		})
+		.with("processPurchase", async () => {
 			const userId = await getUserIdFromCookie(request);
 			if (!userId)
 				throw new Error("You must be logged in to buy a subscription");
@@ -161,8 +161,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				})
 				.where(eq(customers.id, userId));
 			return Response.json({});
-		},
-	});
+		})
+		.run();
 };
 
 export default function Index() {
@@ -183,7 +183,7 @@ export default function Index() {
 						{
 							method: "POST",
 							encType: "application/json",
-							action: withQuery("?index", { intent: "processPurchase" }),
+							action: withQuery(".", { intent: "processPurchase" }),
 						},
 					);
 				}
@@ -256,9 +256,9 @@ export default function Index() {
 			)}
 			<Form
 				method="POST"
+				action={withQuery(".", { intent: "logout" })}
 				className="flex w-full items-end justify-end px-4 md:px-10 pb-6"
 			>
-				<input type="hidden" name="intent" defaultValue="logout" />
 				<Button type="submit">Sign out</Button>
 			</Form>
 		</>
