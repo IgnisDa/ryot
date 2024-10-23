@@ -12,8 +12,9 @@ pub(crate) struct SonarrPushIntegration {
     base_url: String,
     api_key: String,
     profile_id: i32,
-    root_folder_path: String,
     tvdb_id: String,
+    show_title: String,
+    root_folder_path: String,
 }
 
 impl SonarrPushIntegration {
@@ -21,15 +22,17 @@ impl SonarrPushIntegration {
         base_url: String,
         api_key: String,
         profile_id: i32,
-        root_folder_path: String,
         tvdb_id: String,
+        show_title: String,
+        root_folder_path: String,
     ) -> Self {
         Self {
-            base_url,
+            tvdb_id,
             api_key,
+            base_url,
+            show_title,
             profile_id,
             root_folder_path,
-            tvdb_id,
         }
     }
 
@@ -47,6 +50,7 @@ impl SonarrPushIntegration {
         resource.root_folder_path = Some(Some(self.root_folder_path.clone()));
         resource.monitored = Some(true);
         resource.season_folder = Some(true);
+        resource.title = Some(Some(self.show_title.clone()));
         let mut options = SonarrAddSeriesOptions::new();
         options.search_for_missing_episodes = Some(true);
         resource.add_options = Some(Box::new(options));

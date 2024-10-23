@@ -13,6 +13,7 @@ pub(crate) struct RadarrPushIntegration {
     api_key: String,
     profile_id: i32,
     tmdb_id: String,
+    movie_title: String,
     root_folder_path: String,
 }
 
@@ -22,13 +23,15 @@ impl RadarrPushIntegration {
         api_key: String,
         profile_id: i32,
         tmdb_id: String,
+        movie_title: String,
         root_folder_path: String,
     ) -> Self {
         Self {
-            base_url,
             api_key,
-            profile_id,
             tmdb_id,
+            base_url,
+            profile_id,
+            movie_title,
             root_folder_path,
         }
     }
@@ -45,6 +48,7 @@ impl RadarrPushIntegration {
         resource.quality_profile_id = Some(self.profile_id);
         resource.root_folder_path = Some(Some(self.root_folder_path.clone()));
         resource.monitored = Some(true);
+        resource.title = Some(Some(self.movie_title.clone()));
         let mut options = RadarrAddMovieOptions::new();
         options.search_for_movie = Some(true);
         resource.add_options = Some(Box::new(options));

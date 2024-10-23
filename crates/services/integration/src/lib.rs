@@ -196,6 +196,7 @@ impl IntegrationService {
                                 specifics.radarr_api_key.unwrap(),
                                 specifics.radarr_profile_id.unwrap(),
                                 entity_id,
+                                metadata.title,
                                 specifics.radarr_root_folder_path.unwrap(),
                             );
                             radarr.push_progress().await
@@ -205,8 +206,9 @@ impl IntegrationService {
                                 specifics.sonarr_base_url.unwrap(),
                                 specifics.sonarr_api_key.unwrap(),
                                 specifics.sonarr_profile_id.unwrap(),
-                                specifics.sonarr_root_folder_path.unwrap(),
                                 entity_id,
+                                metadata.title,
+                                specifics.sonarr_root_folder_path.unwrap(),
                             );
                             sonarr.push_progress().await
                         }
