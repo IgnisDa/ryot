@@ -1,6 +1,6 @@
 import {
+	type ActionFunctionArgs,
 	redirect,
-	unstable_defineAction,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
 import {
@@ -24,6 +24,7 @@ import {
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	getActionIntent,
 	isEmpty,
 	isNumber,
 	omitBy,
@@ -54,11 +55,9 @@ const sleepForHalfSecond = async (request: Request) =>
 
 export const loader = async () => redirect($path("/"));
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	const { searchParams } = new URL(request.url);
-	const intent = searchParams.get("intent") as string;
-	invariant(intent);
+	const intent = getActionIntent(request);
 	const redirectToForm = formData.get(redirectToQueryParam);
 	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
 	let returnData = {};
@@ -462,7 +461,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		status = 302;
 	}
 	return Response.json(returnData, { headers, status });
-});
+};
 
 const commitMediaSchema = z.object({
 	identifier: z.string(),

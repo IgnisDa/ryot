@@ -1,26 +1,26 @@
 query CollectionContents($input: CollectionContentsInput!) {
-  collectionContents(input: $input) {
-    user {
-      id
-      name
-    }
-    reviews {
-      ...ReviewItemPart
-    }
-    results {
-      details {
-        total
-        nextPage
-      }
-      items {
-        entityId
-        entityLot
-      }
-    }
-    details {
-      name
-      description
-      createdOn
-    }
-  }
+	collectionContents(input: $input) {
+		user {
+			id
+			name
+		}
+		reviews {
+			...ReviewItemPart
+		}
+		results {
+			details {
+				total
+				nextPage
+			}
+			items {
+				entityId
+				entityLot
+			}
+		}
+		details {
+			name
+			description
+			createdOn
+		}
+	}
 }

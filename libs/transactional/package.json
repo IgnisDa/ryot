@@ -4,7 +4,12 @@
 	"dependencies": {
 		"@react-email/components": "0.0.22",
 		"@ryot/ts-utils": "workspace:*",
+		"react": "18.3.1",
 		"react-dom": "18.3.1",
 		"react-email": "2.1.6"
+	},
+	"devDependencies": {
+		"@types/react": "18.3.11",
+		"@types/react-dom": "18.3.1"
 	}
 }

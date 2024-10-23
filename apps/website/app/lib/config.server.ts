@@ -103,21 +103,21 @@ export const sendEmail = async (
 	element: JSX.Element,
 ) => {
 	const client = createTransport({
+		secure: true,
 		host: serverVariables.SERVER_SMTP_SERVER,
 		auth: {
 			user: serverVariables.SERVER_SMTP_USER,
 			pass: serverVariables.SERVER_SMTP_PASSWORD,
 		},
-		secure: true,
 	});
-	const html = render(element, { pretty: true });
-	const text = render(element, { plainText: true });
+	const html = await render(element, { pretty: true });
+	const text = await render(element, { plainText: true });
 	const resp = await client.sendMail({
-		from: '"Ryot" <no-reply@ryot.io>',
-		to: recipient,
-		subject,
 		text,
 		html,
+		subject,
+		to: recipient,
+		from: '"Ryot" <no-reply@ryot.io>',
 	});
 	return resp.messageId;
 };

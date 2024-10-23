@@ -1,10 +1,10 @@
 query UserPersonDetails($personId: String!) {
-  userPersonDetails(personId: $personId) {
-    collections {
-      ...CollectionPart
-    }
-    reviews {
-      ...ReviewItemPart
-    }
-  }
+	userPersonDetails(personId: $personId) {
+		collections {
+			...CollectionPart
+		}
+		reviews {
+			...ReviewItemPart
+		}
+	}
 }

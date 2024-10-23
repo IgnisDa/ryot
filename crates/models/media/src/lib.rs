@@ -931,22 +931,30 @@ pub struct PersonStateChanges {
 #[serde(rename_all = "snake_case")]
 pub struct IntegrationProviderSpecifics {
     pub plex_username: Option<String>,
+
     pub audiobookshelf_base_url: Option<String>,
     pub audiobookshelf_token: Option<String>,
+
     pub komga_base_url: Option<String>,
     pub komga_username: Option<String>,
     pub komga_password: Option<String>,
     pub komga_provider: Option<MediaSource>,
+
     pub radarr_base_url: Option<String>,
     pub radarr_api_key: Option<String>,
     pub radarr_profile_id: Option<i32>,
     pub radarr_root_folder_path: Option<String>,
     pub radarr_sync_collection_ids: Option<Vec<String>>,
+
     pub sonarr_base_url: Option<String>,
     pub sonarr_api_key: Option<String>,
     pub sonarr_profile_id: Option<i32>,
     pub sonarr_root_folder_path: Option<String>,
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
+
+    pub jellyfin_push_base_url: Option<String>,
+    pub jellyfin_push_username: Option<String>,
+    pub jellyfin_push_password: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
@@ -1625,6 +1633,7 @@ pub struct DailyUserActivityItem {
     pub show_count: i64,
     pub total_show_duration: i64,
     pub video_game_count: i64,
+    pub total_video_game_duration: i64,
     pub visual_novel_count: i64,
     pub total_visual_novel_duration: i64,
     pub total_workout_personal_bests: i64,

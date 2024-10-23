@@ -17,8 +17,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import {
 	type CalendarEventPartFragment,
@@ -89,7 +88,7 @@ const getTake = (preferences: UserPreferences, el: DashboardElementLot) => {
 	return t;
 };
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const preferences = await getCachedUserPreferences(request);
 	const takeUpcoming = getTake(preferences, DashboardElementLot.Upcoming);
 	const takeInProgress = getTake(preferences, DashboardElementLot.InProgress);
@@ -143,9 +142,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		inProgressCollectionContents,
 		userRecommendations,
 	};
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Home | Ryot" }];
 };
 
@@ -281,6 +280,12 @@ export default function Page() {
 												label: "Video games",
 												value: latestUserSummary.videoGameCount,
 												type: "number",
+											},
+											{
+												label: "Runtime",
+												value: latestUserSummary.totalVideoGameDuration,
+												type: "duration",
+												hideIfZero: true,
 											},
 										]}
 									/>

@@ -18,11 +18,11 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserDocument,
@@ -35,6 +35,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	getActionIntent,
 	processSubmission,
 	randomString,
 	truncate,
@@ -48,7 +49,6 @@ import {
 import { forwardRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -70,7 +70,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
 	const cookieName = await getEnhancedCookieName("settings.users", request);
@@ -82,16 +82,17 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		}),
 	]);
 	return { usersList, query, cookieName };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		delete: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			const { deleteUser } = await serverGqlService.authenticatedRequest(
 				request,
@@ -106,8 +107,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 						: "User can not be deleted",
 				}),
 			});
-		},
-		registerNew: async () => {
+		})
+		.with("registerNew", async () => {
 			const submission = processSubmission(formData, registerFormSchema);
 			const { registerUser } = await serverGqlService.authenticatedRequest(
 				request,
@@ -142,8 +143,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 								.exhaustive(),
 				}),
 			});
-		},
-		update: async () => {
+		})
+		.with("update", async () => {
 			const submission = processSubmission(formData, updateUserSchema);
 			submission.isDisabled = submission.isDisabled === true;
 			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
@@ -155,9 +156,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "User updated successfully",
 				}),
 			});
-		},
-	});
-});
+		})
+		.run();
+};
 
 const registerFormSchema = z.object({
 	username: z.string(),
@@ -205,8 +206,12 @@ export default function Page() {
 					withCloseButton={false}
 					centered
 				>
-					<Form replace method="POST" onSubmit={closeRegisterUserModal}>
-						<input hidden name="intent" defaultValue="registerNew" />
+					<Form
+						replace
+						method="POST"
+						onSubmit={closeRegisterUserModal}
+						action={withQuery(".", { intent: "registerNew" })}
+					>
 						<Stack>
 							<Title order={3}>Create User</Title>
 							<TextInput label="Name" required name="username" />

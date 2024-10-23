@@ -7,8 +7,8 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineAction } from "@remix-run/node";
-import { Form, type MetaArgs_SingleFetch } from "@remix-run/react";
+import type { ActionFunctionArgs, MetaArgs } from "@remix-run/node";
+import { Form, data } from "@remix-run/react";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
@@ -19,11 +19,11 @@ import { z } from "zod";
 import { useDashboardLayoutData, useUserDetails } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
-export const meta = (_args: MetaArgs_SingleFetch) => {
+export const meta = (_args: MetaArgs) => {
 	return [{ title: "Miscellaneous settings | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	const submission = processSubmission(formData, jobSchema);
 	await serverGqlService.authenticatedRequest(
@@ -31,13 +31,13 @@ export const action = unstable_defineAction(async ({ request }) => {
 		DeployBackgroundJobDocument,
 		submission,
 	);
-	return Response.json({ status: "success" } as const, {
+	return data({} as const, {
 		headers: await createToastHeaders({
 			type: "success",
 			message: "Job has been deployed",
 		}),
 	});
-});
+};
 
 const jobSchema = z.object({
 	jobName: z.nativeEnum(BackgroundJob),

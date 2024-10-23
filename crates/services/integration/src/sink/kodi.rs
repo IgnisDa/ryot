@@ -14,15 +14,15 @@ struct IntegrationMediaSeen {
     show_episode_number: Option<i32>,
 }
 
-pub(crate) struct KodiIntegration {
+pub(crate) struct KodiSinkIntegration {
     payload: String,
 }
-impl KodiIntegration {
+impl KodiSinkIntegration {
     pub const fn new(payload: String) -> Self {
         Self { payload }
     }
 
-    async fn kodi_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         let payload = match serde_json::from_str::<IntegrationMediaSeen>(&self.payload) {
             Ok(val) => val,
             Err(err) => bail!(err),
@@ -44,9 +44,5 @@ impl KodiIntegration {
             }],
             ..Default::default()
         })
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        self.kodi_progress().await
     }
 }

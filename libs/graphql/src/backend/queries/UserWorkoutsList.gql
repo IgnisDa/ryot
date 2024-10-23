@@ -1,18 +1,18 @@
 query UserWorkoutsList($input: SearchInput!) {
-  userWorkoutsList(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items {
-      id
-      name
-      endTime
-      duration
-      startTime
-      summary {
-        ...WorkoutSummaryPart
-      }
-    }
-  }
+	userWorkoutsList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			id
+			name
+			endTime
+			duration
+			startTime
+			summary {
+				...WorkoutSummaryPart
+			}
+		}
+	}
 }

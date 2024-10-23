@@ -7,6 +7,7 @@ edition = "2021"
 apalis = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+database-models = { path = "../models/database" }
 enums = { path = "../enums" }
 fitness-models = { path = "../models/fitness" }
 media-models = { path = "../models/media" }

@@ -1,17 +1,17 @@
 query ExerciseParameters {
-  exerciseParameters {
-    downloadRequired
-    filters {
-      type
-      level
-      force
-      mechanic
-      equipment
-      muscle
-    }
-    lotMapping {
-      lot
-      bests
-    }
-  }
+	exerciseParameters {
+		downloadRequired
+		filters {
+			type
+			level
+			force
+			mechanic
+			equipment
+			muscle
+		}
+		lotMapping {
+			lot
+			bests
+		}
+	}
 }

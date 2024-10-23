@@ -1,16 +1,16 @@
 query ExercisesList($input: ExercisesListInput!) {
-  exercisesList(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items {
-      id
-      lot
-      image
-      muscle
-      numTimesInteracted
-      lastUpdatedOn
-    }
-  }
+	exercisesList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			id
+			lot
+			image
+			muscle
+			numTimesInteracted
+			lastUpdatedOn
+		}
+	}
 }

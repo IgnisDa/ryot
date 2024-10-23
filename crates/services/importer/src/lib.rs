@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use apalis::prelude::MessageQueue;
 use async_graphql::Result;
 use background::ApplicationJob;
 use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
@@ -41,12 +40,7 @@ impl ImporterService {
         input: DeployImportJobInput,
     ) -> Result<bool> {
         let job = ApplicationJob::ImportFromExternalSource(user_id, Box::new(input));
-        self.0
-            .perform_application_job
-            .clone()
-            .enqueue(job)
-            .await
-            .unwrap();
+        self.0.perform_application_job(job).await?;
         ryot_log!(debug, "Deployed import job");
         Ok(true)
     }

@@ -17,7 +17,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
-import { type CookieSerializeOptions, parse, serialize } from "cookie";
+import { type SerializeOptions, parse, serialize } from "cookie";
 import {
 	ClientError,
 	GraphQLClient,
@@ -176,7 +176,7 @@ export const getCachedCoreDetails = async () => {
 export const getCachedUserDetails = async (request: Request) => {
 	const token = getAuthorizationCookie(request);
 	return await queryClient.ensureQueryData({
-		queryKey: queryFactory.users.details(token).queryKey,
+		queryKey: queryFactory.users.details(token ?? "").queryKey,
 		queryFn: () =>
 			serverGqlService.authenticatedRequest(
 				request,
@@ -366,7 +366,7 @@ export const getCookiesForApplication = async (
 	const [{ coreDetails }] = await Promise.all([getCachedCoreDetails()]);
 	const maxAge =
 		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
-	const options = { maxAge, path: "/" } satisfies CookieSerializeOptions;
+	const options = { maxAge, path: "/" } satisfies SerializeOptions;
 	return combineHeaders({
 		"set-cookie": serialize(AUTH_COOKIE_NAME, token, options),
 	});
@@ -391,9 +391,12 @@ export const getWorkoutCookieValue = (request: Request) => {
 };
 
 export const isWorkoutActive = (request: Request) => {
-	const inProgress = [FitnessAction.LogWorkout, FitnessAction.UpdateWorkout]
-		.map(String)
-		.includes(getWorkoutCookieValue(request));
+	const cookieValue = getWorkoutCookieValue(request);
+	const inProgress =
+		cookieValue &&
+		[FitnessAction.LogWorkout, FitnessAction.UpdateWorkout]
+			.map(String)
+			.includes(cookieValue);
 	return inProgress;
 };
 

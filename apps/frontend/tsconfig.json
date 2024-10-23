@@ -31,8 +31,7 @@
 			{
 				"name": "typescript-remix-routes-plugin"
 			}
-		],
-		"types": ["@remix-run/react/future/single-fetch.d.ts"]
+		]
 	},
 	"references": [
 		{

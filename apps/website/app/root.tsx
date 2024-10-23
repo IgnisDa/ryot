@@ -9,11 +9,10 @@ import {
 } from "@remix-run/react";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import "./tailwind.css";
-import {
-	type LinksFunction,
-	type MetaFunction,
-	json,
-	unstable_defineLoader,
+import type {
+	LinksFunction,
+	LoaderFunctionArgs,
+	MetaFunction,
 } from "@remix-run/node";
 import { $path } from "remix-routes";
 import { withFragment } from "ufo";
@@ -41,13 +40,13 @@ export const links: LinksFunction = () => {
 	];
 };
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userId = await getUserIdFromCookie(request);
-	return json({
+	return {
 		isLoggedIn: !!userId,
 		honeypotInputProps: honeypot.getInputProps(),
-	});
-});
+	};
+};
 
 export const meta: MetaFunction = () => {
 	return [{ title: "Ryot" }];

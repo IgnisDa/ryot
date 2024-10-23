@@ -16,8 +16,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import {
 	Link,
 	useLoaderData,
@@ -119,7 +118,7 @@ const metadataMapping = {
 	[MediaLot.VisualNovel]: [MediaSource.Vndb],
 };
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { action, lot } = zx.parseParams(params, {
 		action: z.nativeEnum(Action),
 		lot: z.string().transform((v) => getLot(v) as MediaLot),
@@ -218,9 +217,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		url: withoutHost(url.href),
 		[pageQueryParam]: Number(query[pageQueryParam]),
 	};
-});
+};
 
-export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ params }: MetaArgs<typeof loader>) => {
 	return [
 		{
 			title: `${changeCase(params.action || "")} ${changeCase(

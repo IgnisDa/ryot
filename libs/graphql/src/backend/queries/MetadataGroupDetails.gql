@@ -1,16 +1,16 @@
 query MetadataGroupDetails($metadataGroupId: String!) {
-  metadataGroupDetails(metadataGroupId: $metadataGroupId) {
-    contents
-    sourceUrl
-    details {
-      id
-      title
-      lot
-      source
-      displayImages
-      identifier
-      parts
-      isPartial
-    }
-  }
+	metadataGroupDetails(metadataGroupId: $metadataGroupId) {
+		contents
+		sourceUrl
+		details {
+			id
+			title
+			lot
+			source
+			displayImages
+			identifier
+			parts
+			isPartial
+		}
+	}
 }

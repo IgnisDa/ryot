@@ -9,7 +9,7 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR,
     "/",
     PROJECT_NAME,
-    "-v",
+    "-",
     APP_VERSION,
     " (",
     AUTHOR_EMAIL,

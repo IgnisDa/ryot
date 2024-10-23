@@ -21,13 +21,8 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure, useListState } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
-import {
-	Link,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-	useNavigate,
-} from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	ExerciseEquipment,
 	ExerciseForce,
@@ -92,7 +87,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("exercises.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -134,9 +129,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		workoutInProgress,
 		exerciseParameters,
 	};
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Exercises | Ryot" }];
 };
 

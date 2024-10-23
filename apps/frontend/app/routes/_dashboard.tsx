@@ -47,7 +47,6 @@ import {
 	useDisclosure,
 	useLocalStorage,
 } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
 import {
 	Form,
 	Link,
@@ -145,12 +144,13 @@ import {
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import "@mantine/dates/styles.css";
+import type { LoaderFunctionArgs } from "@remix-run/node";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import classes from "~/styles/dashboard.module.css";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const [userPreferences, userCollections, { coreDetails }] = await Promise.all(
 		[
@@ -245,7 +245,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 
 	const decodedCookie = jwtDecode<{
 		access_link?: { id: string; is_demo?: boolean };
-	}>(getAuthorizationCookie(request));
+	}>(getAuthorizationCookie(request) ?? "");
 	const isAccessLinkSession = Boolean(decodedCookie?.access_link);
 	const isDemo = Boolean(decodedCookie?.access_link?.is_demo);
 
@@ -272,7 +272,7 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		currentColorScheme,
 		isAccessLinkSession,
 	};
-});
+};
 
 export function ErrorBoundary() {
 	const error = useRouteError() as Error;

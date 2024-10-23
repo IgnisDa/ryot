@@ -21,8 +21,11 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserIntegrationDocument,
@@ -34,7 +37,7 @@ import {
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, processSubmission } from "@ryot/ts-utils";
+import { changeCase, getActionIntent, processSubmission } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconCopy,
@@ -44,15 +47,14 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import {
+	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
-	commaDelimitedString,
 	dayjsLib,
 } from "~/lib/generals";
 import {
@@ -62,6 +64,7 @@ import {
 } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
+const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Audiobookshelf,
 	IntegrationProvider.Komga,
@@ -69,10 +72,11 @@ const YANK_INTEGRATIONS = [
 const PUSH_INTEGRATIONS = [
 	IntegrationProvider.Radarr,
 	IntegrationProvider.Sonarr,
+	IntegrationProvider.JellyfinPush,
 ];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request,
@@ -81,16 +85,17 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		),
 	]);
 	return { userIntegrations };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Integration Settings | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		delete: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -106,8 +111,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					}),
 				},
 			);
-		},
-		create: async () => {
+		})
+		.with("create", async () => {
 			const submission = processSubmission(formData, createSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -123,8 +128,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					}),
 				},
 			);
-		},
-		update: async () => {
+		})
+		.with("update", async () => {
 			const submission = processSubmission(formData, updateSchema);
 			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
 			submission.isDisabled = submission.isDisabled === true;
@@ -142,47 +147,27 @@ export const action = unstable_defineAction(async ({ request }) => {
 					}),
 				},
 			);
-		},
-		generateAuthToken: async () => {
+		})
+		.with("generateAuthToken", async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
 				request,
 				GenerateAuthTokenDocument,
 				{},
 			);
 			return Response.json({ status: "success", generateAuthToken } as const);
-		},
-	});
-});
+		})
+		.run();
+};
 
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";
 
 const createSchema = z.object({
-	provider: z.nativeEnum(IntegrationProvider),
+	providerSpecifics: z.any().optional(),
 	minimumProgress: z.string().optional(),
 	maximumProgress: z.string().optional(),
+	provider: z.nativeEnum(IntegrationProvider),
 	syncToOwnedCollection: zx.CheckboxAsString.optional(),
-	providerSpecifics: z
-		.object({
-			plexUsername: z.string().optional(),
-			audiobookshelfBaseUrl: z.string().optional(),
-			audiobookshelfToken: z.string().optional(),
-			komgaBaseUrl: z.string().optional(),
-			komgaUsername: z.string().optional(),
-			komgaPassword: z.string().optional(),
-			komgaProvider: z.nativeEnum(MediaSource).optional(),
-			radarrBaseUrl: z.string().optional(),
-			radarrApiKey: z.string().optional(),
-			radarrProfileId: z.number().optional(),
-			radarrRootFolderPath: z.string().optional(),
-			radarrSyncCollectionIds: commaDelimitedString,
-			sonarrBaseUrl: z.string().optional(),
-			sonarrApiKey: z.string().optional(),
-			sonarrProfileId: z.number().optional(),
-			sonarrRootFolderPath: z.string().optional(),
-			sonarrSyncCollectionIds: commaDelimitedString,
-		})
-		.optional(),
 });
 
 const deleteSchema = z.object({
@@ -392,7 +377,9 @@ const CreateIntegrationModal = (props: {
 	closeIntegrationModal: () => void;
 }) => {
 	const coreDetails = useCoreDetails();
-	const [provider, setProvider] = useState<IntegrationProvider | null>(null);
+	const [provider, setProvider] = useState<IntegrationProvider>();
+	const disableCreationButton =
+		!coreDetails.isPro && provider && PRO_INTEGRATIONS.includes(provider);
 
 	return (
 		<Modal
@@ -493,6 +480,25 @@ const CreateIntegrationModal = (props: {
 								/>
 							</>
 						))
+						.with(IntegrationProvider.JellyfinPush, () => (
+							<>
+								<TextInput
+									required
+									label="Base URL"
+									name="providerSpecifics.jellyfinPushBaseUrl"
+								/>
+								<TextInput
+									required
+									label="Username"
+									name="providerSpecifics.jellyfinPushUsername"
+								/>
+								<TextInput
+									required
+									label="Password"
+									name="providerSpecifics.jellyfinPushPassword"
+								/>
+							</>
+						))
 						.with(IntegrationProvider.Radarr, () => <ArrInputs name="radarr" />)
 						.with(IntegrationProvider.Sonarr, () => <ArrInputs name="sonarr" />)
 						.otherwise(() => undefined)}
@@ -510,7 +516,14 @@ const CreateIntegrationModal = (props: {
 							/>
 						</Tooltip>
 					) : undefined}
-					<Button type="submit">Submit</Button>
+					<Tooltip
+						label={PRO_REQUIRED_MESSAGE}
+						disabled={!disableCreationButton}
+					>
+						<Button type="submit" disabled={disableCreationButton}>
+							Submit
+						</Button>
+					</Tooltip>
 				</Stack>
 			</Form>
 		</Modal>

@@ -1,17 +1,21 @@
 import TTLCache from "@isaacs/ttlcache";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
-import { processSubmission, randomString } from "@ryot/ts-utils";
+import {
+	getActionIntent,
+	processSubmission,
+	randomString,
+} from "@ryot/ts-utils";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { REGEXP_ONLY_DIGITS_AND_CHARS } from "input-otp";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -39,15 +43,16 @@ const otpCodesCache = new TTLCache<string, string>({
 	max: 1000,
 });
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	return { query };
-});
+};
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return await namedAction(request, {
-		sendLoginCode: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("sendLoginCode", async () => {
 			const { email } = processSubmission(formData, emailSchema);
 			const otpCode = randomString(6);
 			otpCodesCache.set(email, otpCode);
@@ -57,8 +62,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 				LoginCodeEmail({ code: otpCode }),
 			);
 			return redirect(withQuery(".", { email }));
-		},
-		registerWithEmail: async () => {
+		})
+		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
 			const otpCode = otpCodesCache.get(submission.email);
 			if (otpCode !== submission.otpCode) throw new Error("Invalid OTP code.");
@@ -76,14 +81,14 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return redirect($path("/"), {
 				headers: { "set-cookie": await authCookie.serialize(customerId) },
 			});
-		},
-		registerWithOidc: async () => {
+		})
+		.with("registerWithOidc", async () => {
 			const client = await oauthClient();
 			const redirectUrl = client.authorizationUrl({ scope: "openid email" });
 			return redirect(redirectUrl);
-		},
-	});
-});
+		})
+		.run();
+};
 
 const emailSchema = z.object({
 	email: z.string().email(),
@@ -144,8 +149,8 @@ export default function Index() {
 			</Form>
 			<Form
 				method="POST"
-				action={withQuery("?index", { intent: "registerWithOidc" })}
 				className="rounded-2xl border space-y-4 m-4 p-4"
+				action={withQuery(".", { intent: "registerWithOidc" })}
 			>
 				<Button type="submit">Sign up with Google</Button>
 			</Form>

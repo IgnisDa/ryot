@@ -1,9 +1,9 @@
 query MetadataList($input: MetadataListInput!) {
-  metadataList(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items
-  }
+	metadataList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items
+	}
 }

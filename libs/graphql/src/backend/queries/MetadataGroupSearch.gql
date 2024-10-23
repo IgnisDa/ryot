@@ -1,14 +1,14 @@
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
-  metadataGroupSearch(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items {
-      identifier
-      name
-      image
-      parts
-    }
-  }
+	metadataGroupSearch(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items {
+			identifier
+			name
+			image
+			parts
+		}
+	}
 }

@@ -15,12 +15,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
-import {
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-	useNavigate,
-} from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
@@ -81,7 +77,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: collectionId } = zx.parseParams(params, { id: z.string() });
 	const cookieName = await getEnhancedCookieName(
 		`collections.details.${collectionId}`,
@@ -108,9 +104,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query[pageQueryParam] || 1,
 	);
 	return { collectionId, query, collectionContents, cookieName, totalPages };
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.collectionContents.details.name} | Ryot` }];
 };
 

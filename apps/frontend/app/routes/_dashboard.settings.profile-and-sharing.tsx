@@ -22,12 +22,12 @@ import {
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateAccessLinkDocument,
 	RevokeAccessLinkDocument,
@@ -35,7 +35,12 @@ import {
 	UserAccessLinksDocument,
 	type UserAccessLinksQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, isString, processSubmission } from "@ryot/ts-utils";
+import {
+	getActionIntent,
+	isNumber,
+	isString,
+	processSubmission,
+} from "@ryot/ts-utils";
 import {
 	IconEye,
 	IconEyeClosed,
@@ -43,7 +48,7 @@ import {
 	IconLockAccess,
 } from "@tabler/icons-react";
 import { ClientOnly } from "remix-utils/client-only";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -66,28 +71,29 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userAccessLinks }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
 	]);
 	return { userAccessLinks };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch) => {
+export const meta = (_args: MetaArgs) => {
 	return [{ title: "Profile and Sharing | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	return namedAction(request, {
-		updateProfile: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("updateProfile", async () => {
 			const token = getAuthorizationCookie(request);
 			const submission = processSubmission(formData, updateProfileFormSchema);
 			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
 				input: submission,
 			});
 			queryClient.removeQueries({
-				queryKey: queryFactory.users.details(token).queryKey,
+				queryKey: queryFactory.users.details(token ?? "").queryKey,
 			});
 			return Response.json({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
@@ -95,8 +101,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Profile updated successfully",
 				}),
 			});
-		},
-		revokeAccessLink: async () => {
+		})
+		.with("revokeAccessLink", async () => {
 			const submission = processSubmission(
 				formData,
 				revokeAccessLinkFormSchema,
@@ -112,8 +118,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Access link revoked successfully",
 				}),
 			});
-		},
-		createAccessLink: async () => {
+		})
+		.with("createAccessLink", async () => {
 			const submission = processSubmission(
 				formData,
 				createAccessLinkFormSchema,
@@ -130,8 +136,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Access link created successfully",
 				}),
 			});
-		},
-		createDefaultAccessLink: async () => {
+		})
+		.with("createDefaultAccessLink", async () => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				CreateAccessLinkDocument,
@@ -143,9 +149,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Account default access link created successfully",
 				}),
 			});
-		},
-	});
-});
+		})
+		.run();
+};
 
 const updateProfileFormSchema = z.object({
 	userId: z.string(),
@@ -285,8 +291,9 @@ export default function Page() {
 												<Button
 													w="30%"
 													type="submit"
-													color={hasDefaultAccountLink ? "blue" : "green"}
 													variant="light"
+													disabled={isEditDisabled}
+													color={hasDefaultAccountLink ? "blue" : "green"}
 												>
 													{hasDefaultAccountLink ? "Disable" : "Enable"}
 												</Button>

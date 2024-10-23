@@ -25,6 +25,7 @@ import sortBy from "lodash/sortBy";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
 import truncate from "lodash/truncate";
+import invariant from "tiny-invariant";
 import type { ZodTypeAny, output } from "zod";
 
 /**
@@ -92,6 +93,13 @@ export const processSubmission = <Schema extends ZodTypeAny>(
 			status: 400,
 		});
 	return submission.value;
+};
+
+export const getActionIntent = (request: Request) => {
+	const url = new URL(request.url);
+	const intent = url.searchParams.get("intent");
+	invariant(intent);
+	return intent;
 };
 
 export {

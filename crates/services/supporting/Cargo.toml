@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-graphql = { workspace = true }
 apalis = { workspace = true }
 background = { path = "../../background" }
 cache-service = { path = "../../services/cache" }

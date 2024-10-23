@@ -1,4 +1,4 @@
-import { redirect, unstable_defineLoader } from "@remix-run/node";
+import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { eq } from "drizzle-orm";
 import { $path } from "remix-routes";
 import { match } from "ts-pattern";
@@ -10,7 +10,7 @@ import {
 	oauthClient,
 } from "~/lib/config.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const client = await oauthClient();
 	const params = client.callbackParams(request.url);
 	const tokenSet = await client.callback(OAUTH_CALLBACK_URL, params, {
@@ -39,4 +39,4 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	return redirect($path("/me"), {
 		headers: { "set-cookie": await authCookie.serialize(customerId) },
 	});
-});
+};

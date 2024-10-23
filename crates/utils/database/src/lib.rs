@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use apalis::prelude::{MemoryStorage, MessageQueue};
 use application_utils::GraphqlRepresentation;
 use async_graphql::{Error, Result};
 use background::ApplicationJob;
@@ -34,7 +33,7 @@ use media_models::{
     ShowSpecifics, VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::AliasedCollectionToEntity;
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use sea_orm::{
     prelude::{Date, DateTimeUtc, Expr},
@@ -337,10 +336,8 @@ pub async fn add_entity_to_collection(
         }
         created
     };
-    ss.perform_application_job
-        .enqueue(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
-        .await
-        .unwrap();
+    ss.perform_application_job(ApplicationJob::HandleEntityAddedToCollectionEvent(resp.id))
+        .await?;
     Ok(true)
 }
 
@@ -582,6 +579,7 @@ pub async fn calculate_user_activities_and_summary(
         podcast_specifics: Option<PodcastSpecifics>,
         show_specifics: Option<ShowSpecifics>,
         video_game_specifics: Option<VideoGameSpecifics>,
+        manual_time_spent: Option<Decimal>,
         visual_novel_specifics: Option<VisualNovelSpecifics>,
         anime_specifics: Option<AnimeSpecifics>,
         manga_specifics: Option<MangaSpecifics>,
@@ -637,6 +635,7 @@ pub async fn calculate_user_activities_and_summary(
             seen::Column::MetadataId,
             seen::Column::FinishedOn,
             seen::Column::LastUpdatedOn,
+            seen::Column::ManualTimeSpent,
         ])
         .column_as(metadata::Column::Lot, "metadata_lot")
         .columns([
@@ -692,17 +691,22 @@ pub async fn calculate_user_activities_and_summary(
             if let Some(runtime) = visual_novel_extra.length {
                 activity.visual_novel_duration += runtime;
             }
+        } else if let Some(_video_game_extra) = seen.video_game_specifics {
+            if let Some(manual_time_spent) = seen.manual_time_spent {
+                activity.video_game_duration +=
+                    (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
+            }
         }
         match seen.metadata_lot {
+            MediaLot::Book => activity.book_count += 1,
+            MediaLot::Show => activity.show_count += 1,
             MediaLot::Anime => activity.anime_count += 1,
+            MediaLot::Movie => activity.movie_count += 1,
             MediaLot::Manga => activity.manga_count += 1,
             MediaLot::Podcast => activity.podcast_count += 1,
-            MediaLot::Show => activity.show_count += 1,
             MediaLot::VideoGame => activity.video_game_count += 1,
-            MediaLot::VisualNovel => activity.visual_novel_count += 1,
-            MediaLot::Book => activity.book_count += 1,
             MediaLot::AudioBook => activity.audio_book_count += 1,
-            MediaLot::Movie => activity.movie_count += 1,
+            MediaLot::VisualNovel => activity.visual_novel_count += 1,
         };
     }
 
@@ -745,11 +749,11 @@ pub async fn calculate_user_activities_and_summary(
         let date = item.posted_on.date_naive();
         let activity = get_activity_count(item.id, &mut activities, user_id, date);
         match item.entity_lot {
-            EntityLot::Metadata => activity.metadata_review_count += 1,
             EntityLot::Person => activity.person_review_count += 1,
-            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
-            EntityLot::Collection => activity.collection_review_count += 1,
             EntityLot::Exercise => activity.exercise_review_count += 1,
+            EntityLot::Metadata => activity.metadata_review_count += 1,
+            EntityLot::Collection => activity.collection_review_count += 1,
+            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
             _ => {}
         }
     }
@@ -784,7 +788,8 @@ pub async fn calculate_user_activities_and_summary(
             + activity.podcast_duration
             + activity.movie_duration
             + activity.show_duration
-            + activity.visual_novel_duration;
+            + activity.visual_novel_duration
+            + activity.video_game_duration;
         let mut model: daily_user_activity::ActiveModel = activity.into();
         model.total_review_count = ActiveValue::Set(total_review_count);
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
@@ -797,27 +802,23 @@ pub async fn calculate_user_activities_and_summary(
 }
 
 pub async fn deploy_job_to_calculate_user_activities_and_summary(
-    perform_application_job: &MemoryStorage<ApplicationJob>,
     user_id: &String,
     calculate_from_beginning: bool,
+    ss: &Arc<SupportingService>,
 ) {
-    perform_application_job
-        .clone()
-        .enqueue(ApplicationJob::RecalculateUserActivitiesAndSummary(
-            user_id.to_owned(),
-            calculate_from_beginning,
-        ))
-        .await
-        .unwrap();
+    ss.perform_application_job(ApplicationJob::RecalculateUserActivitiesAndSummary(
+        user_id.to_owned(),
+        calculate_from_beginning,
+    ))
+    .await
+    .unwrap();
 }
 
 pub async fn deploy_job_to_re_evaluate_user_workouts(
     user_id: &String,
-    perform_application_job: &MemoryStorage<ApplicationJob>,
+    ss: &Arc<SupportingService>,
 ) {
-    perform_application_job
-        .clone()
-        .enqueue(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
+    ss.perform_application_job(ApplicationJob::ReEvaluateUserWorkouts(user_id.to_owned()))
         .await
         .unwrap();
 }

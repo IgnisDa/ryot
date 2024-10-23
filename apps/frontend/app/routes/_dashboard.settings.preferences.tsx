@@ -25,9 +25,12 @@ import {
 	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
-import { Form, useLoaderData } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, data, useLoaderData } from "@remix-run/react";
 import {
 	type DashboardElementLot,
 	GridPacking,
@@ -76,13 +79,13 @@ const searchSchema = z.object({
 	defaultTab: z.string().default("dashboard").optional(),
 });
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchSchema);
 	const workoutInProgress = isWorkoutActive(request);
 	return { query, workoutInProgress };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Preference | Ryot" }];
 };
 
@@ -93,7 +96,7 @@ const notificationContent = {
 		"Changing preferences is disabled for demo users. Please create an account to save your preferences.",
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	const entries = Object.entries(Object.fromEntries(await request.formData()));
 	const submission = [];
@@ -121,8 +124,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 		message: "Preferences updated",
 		type: "success",
 	});
-	return Response.json({}, { headers: toastHeaders });
-});
+	return data({}, { headers: toastHeaders });
+};
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();

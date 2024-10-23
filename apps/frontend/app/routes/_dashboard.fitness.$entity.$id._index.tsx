@@ -17,8 +17,11 @@ import { $path } from "remix-routes";
 import "@mantine/dates/styles.css";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserWorkoutDocument,
@@ -30,6 +33,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	getActionIntent,
 	humanizeDuration,
 	processSubmission,
 } from "@ryot/ts-utils";
@@ -50,7 +54,6 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -82,7 +85,7 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: entityId, entity } = zx.parseParams(params, {
 		id: z.string(),
 		entity: z.nativeEnum(FitnessEntity),
@@ -156,16 +159,17 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		})
 		.exhaustive();
 	return { entityId, entity, ...resp };
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.entityName} | Ryot` }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		edit: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("edit", async () => {
 			const submission = processSubmission(formData, editWorkoutSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -178,8 +182,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Workout edited successfully",
 				}),
 			});
-		},
-		delete: async () => {
+		})
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			if (submission.workoutId)
 				await serverGqlService.authenticatedRequest(
@@ -198,9 +202,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 				type: "success",
 				message: `${changeCase(entity)} deleted successfully`,
 			});
-		},
-	});
-});
+		})
+		.run();
+};
 
 const deleteSchema = z.object({
 	workoutId: z.string().optional(),

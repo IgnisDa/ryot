@@ -1,16 +1,16 @@
 query CoreDetails {
-  coreDetails {
-    isPro
-    version
-    docsLink
-    pageLimit
-    websiteUrl
-    smtpEnabled
-    oidcEnabled
-    signupAllowed
-    repositoryLink
-    localAuthDisabled
-    fileStorageEnabled
-    tokenValidForDays
-  }
+	coreDetails {
+		isPro
+		version
+		docsLink
+		pageLimit
+		websiteUrl
+		smtpEnabled
+		oidcEnabled
+		signupAllowed
+		repositoryLink
+		localAuthDisabled
+		fileStorageEnabled
+		tokenValidForDays
+	}
 }

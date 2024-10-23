@@ -32,13 +32,12 @@ import {
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
 	DisassociateMetadataDocument,
@@ -59,6 +58,7 @@ import {
 import {
 	changeCase,
 	formatDateToNaiveDate,
+	getActionIntent,
 	humanizeDuration,
 	isInteger,
 	isNumber,
@@ -91,7 +91,6 @@ import {
 } from "react";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -147,7 +146,7 @@ const searchParamsSchema = z
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: metadataId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
@@ -159,16 +158,17 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		),
 	]);
 	return { query, metadataId, metadataDetails, userMetadataDetails };
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.metadataDetails.title} | Ryot` }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		deleteSeenItem: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("deleteSeenItem", async () => {
 			const submission = processSubmission(formData, seenIdSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -181,8 +181,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Record deleted successfully",
 				}),
 			});
-		},
-		mergeMetadata: async () => {
+		})
+		.with("mergeMetadata", async () => {
 			const submission = processSubmission(formData, mergeMetadataSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -193,8 +193,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 				$path("/media/item/:id", { id: submission.mergeInto }),
 				{ type: "success", message: "Metadata merged successfully" },
 			);
-		},
-		editSeenItem: async () => {
+		})
+		.with("editSeenItem", async () => {
 			const submission = processSubmission(formData, editSeenItem);
 			submission.reviewId = submission.reviewId || "";
 			await serverGqlService.authenticatedRequest(
@@ -208,8 +208,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Edited history item successfully",
 				}),
 			});
-		},
-		removeItem: async () => {
+		})
+		.with("removeItem", async () => {
 			const submission = processSubmission(formData, MetadataIdSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -220,9 +220,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 				type: "success",
 				message: "Removed item successfully",
 			});
-		},
-	});
-});
+		})
+		.run();
+};
 
 const seenIdSchema = z.object({ seenId: z.string() });
 
@@ -718,42 +718,38 @@ export default function Page() {
 										nextEntry ? (
 											<>
 												<Menu.Label>Anime</Menu.Label>
-												<>
-													<Menu.Item
-														onClick={() => {
-															setMetadataToUpdate({
-																metadataId: loaderData.metadataId,
-																animeEpisodeNumber: nextEntry.episode,
-															});
-														}}
-													>
-														Mark EP-
-														{nextEntry.episode} as listened
-													</Menu.Item>
-												</>
+												<Menu.Item
+													onClick={() => {
+														setMetadataToUpdate({
+															metadataId: loaderData.metadataId,
+															animeEpisodeNumber: nextEntry.episode,
+														});
+													}}
+												>
+													Mark EP-
+													{nextEntry.episode} as listened
+												</Menu.Item>
 											</>
 										) : null}
 										{loaderData.metadataDetails.lot === MediaLot.Manga &&
 										nextEntry ? (
 											<>
 												<Menu.Label>Manga</Menu.Label>
-												<>
-													<Menu.Item
-														onClick={() => {
-															setMetadataToUpdate({
-																metadataId: loaderData.metadataId,
-																mangaChapterNumber: nextEntry.chapter,
-																mangaVolumeNumber: nextEntry.volume,
-															});
-														}}
-													>
-														Mark{" "}
-														{nextEntry.chapter
-															? `CH-${nextEntry.chapter}`
-															: `VOL-${nextEntry.volume}`}{" "}
-														as read
-													</Menu.Item>
-												</>
+												<Menu.Item
+													onClick={() => {
+														setMetadataToUpdate({
+															metadataId: loaderData.metadataId,
+															mangaChapterNumber: nextEntry.chapter,
+															mangaVolumeNumber: nextEntry.volume,
+														});
+													}}
+												>
+													Mark{" "}
+													{nextEntry.chapter
+														? `CH-${nextEntry.chapter}`
+														: `VOL-${nextEntry.volume}`}{" "}
+													as read
+												</Menu.Item>
 											</>
 										) : null}
 										{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
@@ -1801,25 +1797,23 @@ const DisplayShowSeason = (props: {
 				.map((e) => e.runtime || 0)
 				.reduce((i, a) => i + a, 0)}
 		>
-			<>
-				{props.season.episodes.length > 0 ? (
-					<Button
-						variant={isSeen ? "default" : "outline"}
-						size="xs"
-						color="blue"
-						onClick={() => {
-							setMetadataToUpdate({
-								metadataId: loaderData.metadataId,
-								showSeasonNumber: props.season.seasonNumber,
-								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
-								showAllEpisodesBefore: true,
-							});
-						}}
-					>
-						{isSeen ? "Watch again" : "Mark as seen"}
-					</Button>
-				) : null}
-			</>
+			{props.season.episodes.length > 0 ? (
+				<Button
+					variant={isSeen ? "default" : "outline"}
+					size="xs"
+					color="blue"
+					onClick={() => {
+						setMetadataToUpdate({
+							metadataId: loaderData.metadataId,
+							showSeasonNumber: props.season.seasonNumber,
+							showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
+							showAllEpisodesBefore: true,
+						});
+					}}
+				>
+					{isSeen ? "Watch again" : "Mark as seen"}
+				</Button>
+			) : null}
 		</DisplaySeasonOrEpisodeDetails>
 	);
 };

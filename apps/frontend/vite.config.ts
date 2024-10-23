@@ -5,6 +5,12 @@ import { remixRoutes } from "remix-routes/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+declare module "@remix-run/server-runtime" {
+	interface Future {
+		v3_singleFetch: true;
+	}
+}
+
 export default defineConfig({
 	server: {
 		port: process.env.FRONTEND_PORT
@@ -15,7 +21,7 @@ export default defineConfig({
 	plugins: [
 		remixDevTools(),
 		remix({
-			future: { unstable_singleFetch: true },
+			future: { v3_singleFetch: true },
 		}),
 		remixRoutes(),
 		tsconfigPaths(),

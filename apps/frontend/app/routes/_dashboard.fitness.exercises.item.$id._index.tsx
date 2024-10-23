@@ -24,8 +24,11 @@ import {
 	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
 import { Form, Link, useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
@@ -104,7 +107,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 const paramsSchema = { id: z.string() };
 
-export const loader = unstable_defineLoader(async ({ params, request }) => {
+export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const workoutInProgress = !!getWorkoutCookieValue(request);
@@ -126,13 +129,13 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		exerciseParameters,
 		userExerciseDetails,
 	};
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.exerciseDetails.id} | Ryot` }];
 };
 
-export const action = unstable_defineAction(async ({ params, request }) => {
+export const action = async ({ params, request }: ActionFunctionArgs) => {
 	const { id: exerciseId } = zx.parseParams(params, paramsSchema);
 	const entries = Object.entries(Object.fromEntries(await request.formData()));
 	const submission = [];
@@ -156,7 +159,7 @@ export const action = unstable_defineAction(async ({ params, request }) => {
 			message: "Preferences updated",
 		}),
 	});
-});
+};
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();

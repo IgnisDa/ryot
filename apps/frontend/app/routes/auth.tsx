@@ -11,17 +11,12 @@ import {
 	TextInput,
 } from "@mantine/core";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-	useSearchParams,
-} from "@remix-run/react";
+import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
 import {
 	GetOidcRedirectUrlDocument,
 	LatestUserSummaryDocument,
@@ -31,10 +26,9 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission, startCase } from "@ryot/ts-utils";
+import { getActionIntent, processSubmission, startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -59,7 +53,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
 	if (isAuthenticated) {
@@ -94,16 +88,17 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		tokenValidForDays: coreDetails.tokenValidForDays,
 		signupAllowed: coreDetails.signupAllowed,
 	};
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => [
+export const meta = (_args: MetaArgs<typeof loader>) => [
 	{ title: "Authentication | Ryot" },
 ];
 
-export const action = unstable_defineAction(async ({ request }) => {
-	const formData = await request.formData();
-	return namedAction(request, {
-		register: async () => {
+export const action = async ({ request }: ActionFunctionArgs) => {
+	const formData = await request.clone().formData();
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("register", async () => {
 			const submission = parseWithZod(formData, {
 				schema: registerSchema,
 			});
@@ -148,8 +143,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 				type: "success",
 				message: "Please login with your new credentials",
 			});
-		},
-		login: async () => {
+		})
+		.with("login", async () => {
 			const submission = processSubmission(formData, loginSchema);
 			const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 				input: {
@@ -185,15 +180,15 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return Response.json({} as const, {
 				headers: await createToastHeaders({ message, type: "error" }),
 			});
-		},
-		getOidcRedirectUrl: async () => {
+		})
+		.with("getOidcRedirectUrl", async () => {
 			const { getOidcRedirectUrl } = await serverGqlService.request(
 				GetOidcRedirectUrlDocument,
 			);
 			return redirect(getOidcRedirectUrl);
-		},
-	});
-});
+		})
+		.run();
+};
 
 const registerSchema = z
 	.object({

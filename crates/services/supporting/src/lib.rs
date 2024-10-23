@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use apalis::prelude::MemoryStorage;
+use apalis::prelude::{MemoryStorage, MessageQueue};
+use async_graphql::Result;
 use background::{ApplicationJob, CoreApplicationJob};
 use cache_service::CacheService;
 use file_storage_service::FileStorageService;
@@ -18,8 +19,9 @@ pub struct SupportingService {
     pub oidc_client: Option<CoreClient>,
     pub commit_cache: Cache<CommitCache, ()>,
     pub file_storage_service: Arc<FileStorageService>,
-    pub perform_application_job: MemoryStorage<ApplicationJob>,
-    pub perform_core_application_job: MemoryStorage<CoreApplicationJob>,
+
+    perform_application_job: MemoryStorage<ApplicationJob>,
+    perform_core_application_job: MemoryStorage<CoreApplicationJob>,
 }
 
 impl SupportingService {
@@ -48,5 +50,23 @@ impl SupportingService {
             perform_application_job: perform_application_job.clone(),
             perform_core_application_job: perform_core_application_job.clone(),
         }
+    }
+
+    pub async fn perform_application_job(&self, job: ApplicationJob) -> Result<()> {
+        self.perform_application_job
+            .clone()
+            .enqueue(job)
+            .await
+            .unwrap();
+        Ok(())
+    }
+
+    pub async fn perform_core_application_job(&self, job: CoreApplicationJob) -> Result<()> {
+        self.perform_core_application_job
+            .clone()
+            .enqueue(job)
+            .await
+            .unwrap();
+        Ok(())
     }
 }

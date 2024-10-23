@@ -23,11 +23,14 @@ import {
 } from "@mantine/core";
 import { useDidUpdate, useHover, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
 import {
 	Form,
 	Link,
-	type MetaArgs_SingleFetch,
 	useLoaderData,
 	useNavigation,
 	useSearchParams,
@@ -46,6 +49,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	getActionIntent,
 	isString,
 	processSubmission,
 	truncate,
@@ -61,7 +65,7 @@ import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -91,24 +95,25 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("collections.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const [{ usersList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
 	]);
 	return { usersList, cookieName };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Your collections | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	await removeCachedUserCollectionsList(request);
-	return namedAction(request, {
-		createOrUpdate: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("createOrUpdate", async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			try {
 				await serverGqlService.authenticatedRequest(
@@ -141,8 +146,8 @@ export const action = unstable_defineAction(async ({ request }) => {
 					},
 				);
 			}
-		},
-		delete: async () => {
+		})
+		.with("delete", async () => {
 			const submission = processSubmission(
 				formData,
 				z.object({ collectionName: z.string() }),
@@ -168,9 +173,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 					}),
 				},
 			);
-		},
-	});
-});
+		})
+		.run();
+};
 
 const createOrUpdateSchema = z.object({
 	name: z.string(),

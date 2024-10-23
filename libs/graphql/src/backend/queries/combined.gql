@@ -1,180 +1,180 @@
 query GetOidcRedirectUrl {
-  getOidcRedirectUrl
+	getOidcRedirectUrl
 }
 
 query UserByOidcIssuerId($oidcIssuerId: String!) {
-  userByOidcIssuerId(oidcIssuerId: $oidcIssuerId)
+	userByOidcIssuerId(oidcIssuerId: $oidcIssuerId)
 }
 
 query GetOidcToken($code: String!) {
-  getOidcToken(code: $code) {
-    subject
-    email
-  }
+	getOidcToken(code: $code) {
+		subject
+		email
+	}
 }
 
 query GetPresignedS3Url($key: String!) {
-  getPresignedS3Url(key: $key)
+	getPresignedS3Url(key: $key)
 }
 
 query ProvidersLanguageInformation {
-  providersLanguageInformation {
-    supported
-    default
-    source
-  }
+	providersLanguageInformation {
+		supported
+		default
+		source
+	}
 }
 
 query UserExports {
-  userExports {
-    url
-    size
-    endedAt
-    startedAt
-  }
+	userExports {
+		url
+		size
+		endedAt
+		startedAt
+	}
 }
 
 query UserCollectionsList($name: String) {
-  userCollectionsList(name: $name) {
-    id
-    name
-    count
-    isDefault
-    description
-    creator {
-      id
-      name
-    }
-    collaborators {
-      id
-      name
-    }
-    informationTemplate {
-      lot
-      name
-      required
-      description
-      defaultValue
-    }
-  }
+	userCollectionsList(name: $name) {
+		id
+		name
+		count
+		isDefault
+		description
+		creator {
+			id
+			name
+		}
+		collaborators {
+			id
+			name
+		}
+		informationTemplate {
+			lot
+			name
+			required
+			description
+			defaultValue
+		}
+	}
 }
 
 query UserIntegrations {
-  userIntegrations {
-    id
-    lot
-    provider
-    createdOn
-    isDisabled
-    maximumProgress
-    minimumProgress
-    lastTriggeredOn
-    syncToOwnedCollection
-  }
+	userIntegrations {
+		id
+		lot
+		provider
+		createdOn
+		isDisabled
+		maximumProgress
+		minimumProgress
+		lastTriggeredOn
+		syncToOwnedCollection
+	}
 }
 
 query UserNotificationPlatforms {
-  userNotificationPlatforms {
-    id
-    lot
-    createdOn
-    isDisabled
-    description
-  }
+	userNotificationPlatforms {
+		id
+		lot
+		createdOn
+		isDisabled
+		description
+	}
 }
 
 query UsersList($query: String) {
-  usersList(query: $query) {
-    id
-    lot
-    name
-    isDisabled
-  }
+	usersList(query: $query) {
+		id
+		lot
+		name
+		isDisabled
+	}
 }
 
 query UserRecommendations {
-  userRecommendations
+	userRecommendations
 }
 
 query UserUpcomingCalendarEvents($input: UserUpcomingCalendarEventInput!) {
-  userUpcomingCalendarEvents(input: $input) {
-    ...CalendarEventPart
-  }
+	userUpcomingCalendarEvents(input: $input) {
+		...CalendarEventPart
+	}
 }
 
 query UserCalendarEvents($input: UserCalendarEventInput!) {
-  userCalendarEvents(input: $input) {
-    date
-    events {
-      ...CalendarEventPart
-    }
-  }
+	userCalendarEvents(input: $input) {
+		date
+		events {
+			...CalendarEventPart
+		}
+	}
 }
 
 query MetadataPartialDetails($metadataId: String!) {
-  metadataPartialDetails(metadataId: $metadataId) {
-    id
-    lot
-    title
-    image
-    publishYear
-  }
+	metadataPartialDetails(metadataId: $metadataId) {
+		id
+		lot
+		title
+		image
+		publishYear
+	}
 }
 
 query MetadataGroupsList($input: MetadataGroupsListInput!) {
-  metadataGroupsList(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items
-  }
+	metadataGroupsList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items
+	}
 }
 
 query PeopleList($input: PeopleListInput!) {
-  peopleList(input: $input) {
-    details {
-      total
-      nextPage
-    }
-    items
-  }
+	peopleList(input: $input) {
+		details {
+			total
+			nextPage
+		}
+		items
+	}
 }
 
 query UserAccessLinks {
-  userAccessLinks {
-    id
-    name
-    isDemo
-    createdOn
-    expiresOn
-    timesUsed
-    isRevoked
-    maximumUses
-    isAccountDefault
-    isMutationAllowed
-  }
+	userAccessLinks {
+		id
+		name
+		isDemo
+		createdOn
+		expiresOn
+		timesUsed
+		isRevoked
+		maximumUses
+		isAccountDefault
+		isMutationAllowed
+	}
 }
 
 query DailyUserActivities($input: DailyUserActivitiesInput!) {
-  dailyUserActivities(input: $input) {
-    groupedBy
-    totalCount
-    totalDuration
-    items {
-      day
-      totalReviewCount
-      workoutCount
-      measurementCount
-      audioBookCount
-      animeCount
-      bookCount
-      podcastCount
-      mangaCount
-      showCount
-      movieCount
-      videoGameCount
-      visualNovelCount
-    }
-  }
+	dailyUserActivities(input: $input) {
+		groupedBy
+		totalCount
+		totalDuration
+		items {
+			day
+			totalReviewCount
+			workoutCount
+			measurementCount
+			audioBookCount
+			animeCount
+			bookCount
+			podcastCount
+			mangaCount
+			showCount
+			movieCount
+			videoGameCount
+			visualNovelCount
+		}
+	}
 }

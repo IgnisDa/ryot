@@ -52,13 +52,13 @@ mod models {
     }
 }
 
-pub(crate) struct PlexIntegration {
+pub(crate) struct PlexSinkIntegration {
     payload: String,
     plex_user: Option<String>,
     db: DatabaseConnection,
 }
 
-impl PlexIntegration {
+impl PlexSinkIntegration {
     pub const fn new(payload: String, plex_user: Option<String>, db: DatabaseConnection) -> Self {
         Self {
             payload,
@@ -109,7 +109,7 @@ impl PlexIntegration {
         }
     }
 
-    async fn plex_progress(&self) -> Result<ImportResult> {
+    pub async fn yank_progress(&self) -> Result<ImportResult> {
         ryot_log!(debug, "Processing Plex payload {:#?}", self.payload);
 
         let payload = Self::parse_payload(&self.payload)?;
@@ -148,9 +148,5 @@ impl PlexIntegration {
             }],
             ..Default::default()
         })
-    }
-
-    pub async fn yank_progress(&self) -> Result<ImportResult> {
-        self.plex_progress().await
     }
 }

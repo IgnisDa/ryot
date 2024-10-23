@@ -1,17 +1,17 @@
 query ExerciseDetails($exerciseId: String!) {
-  exerciseDetails(exerciseId: $exerciseId) {
-    id
-    lot
-    source
-    level
-    force
-    mechanic
-    equipment
-    muscles
-    createdByUserId
-    attributes {
-      instructions
-      images
-    }
-  }
+	exerciseDetails(exerciseId: $exerciseId) {
+		id
+		lot
+		source
+		level
+		force
+		mechanic
+		equipment
+		muscles
+		createdByUserId
+		attributes {
+			instructions
+			images
+		}
+	}
 }

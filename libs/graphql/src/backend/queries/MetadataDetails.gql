@@ -1,106 +1,106 @@
 query MetadataDetails($metadataId: String!) {
-  metadataDetails(metadataId: $metadataId) {
-    id
-    lot
-    title
-    source
-    isNsfw
-    isPartial
-    sourceUrl
-    identifier
-    description
-    suggestions
-    publishYear
-    publishDate
-    providerRating
-    productionStatus
-    originalLanguage
-    genres {
-      id
-      name
-    }
-    group {
-      id
-      name
-      part
-    }
-    assets {
-      images
-      videos {
-        videoId
-        source
-      }
-    }
-    creators {
-      name
-      items {
-        id
-        name
-        image
-        character
-      }
-    }
-    watchProviders {
-      name
-      image
-      languages
-    }
-    animeSpecifics {
-      episodes
-    }
-    audioBookSpecifics {
-      runtime
-    }
-    bookSpecifics {
-      pages
-    }
-    movieSpecifics {
-      runtime
-    }
-    mangaSpecifics {
-      volumes
-      chapters
-    }
-    podcastSpecifics {
-      episodes {
-        id
-        title
-        overview
-        thumbnail
-        number
-        runtime
-        publishDate
-      }
-      totalEpisodes
-    }
-    showSpecifics {
-      totalSeasons
-      totalEpisodes
-      runtime
-      seasons {
-        id
-        seasonNumber
-        name
-        overview
-        backdropImages
-        posterImages
-        episodes {
-          id
-          name
-          posterImages
-          episodeNumber
-          publishDate
-          name
-          overview
-          runtime
-        }
-      }
-    }
-    visualNovelSpecifics {
-      length
-    }
-    videoGameSpecifics {
-      platforms
-    }
-  }
+	metadataDetails(metadataId: $metadataId) {
+		id
+		lot
+		title
+		source
+		isNsfw
+		isPartial
+		sourceUrl
+		identifier
+		description
+		suggestions
+		publishYear
+		publishDate
+		providerRating
+		productionStatus
+		originalLanguage
+		genres {
+			id
+			name
+		}
+		group {
+			id
+			name
+			part
+		}
+		assets {
+			images
+			videos {
+				videoId
+				source
+			}
+		}
+		creators {
+			name
+			items {
+				id
+				name
+				image
+				character
+			}
+		}
+		watchProviders {
+			name
+			image
+			languages
+		}
+		animeSpecifics {
+			episodes
+		}
+		audioBookSpecifics {
+			runtime
+		}
+		bookSpecifics {
+			pages
+		}
+		movieSpecifics {
+			runtime
+		}
+		mangaSpecifics {
+			volumes
+			chapters
+		}
+		podcastSpecifics {
+			episodes {
+				id
+				title
+				overview
+				thumbnail
+				number
+				runtime
+				publishDate
+			}
+			totalEpisodes
+		}
+		showSpecifics {
+			totalSeasons
+			totalEpisodes
+			runtime
+			seasons {
+				id
+				seasonNumber
+				name
+				overview
+				backdropImages
+				posterImages
+				episodes {
+					id
+					name
+					posterImages
+					episodeNumber
+					publishDate
+					name
+					overview
+					runtime
+				}
+			}
+		}
+		visualNovelSpecifics {
+			length
+		}
+		videoGameSpecifics {
+			platforms
+		}
+	}
 }

@@ -12,17 +12,17 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission, startCase } from "@ryot/ts-utils";
+import { getActionIntent, processSubmission, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -30,7 +30,8 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -63,7 +64,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 const defaultTimeSpan = TimeSpan.Last30Days;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("measurements.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -82,16 +83,17 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		),
 	]);
 	return { query, userMeasurementsList, cookieName };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		delete: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -104,9 +106,9 @@ export const action = unstable_defineAction(async ({ request }) => {
 					message: "Measurement deleted successfully",
 				}),
 			});
-		},
-	});
-});
+		})
+		.run();
+};
 
 const deleteSchema = z.object({ timestamp: z.string() });
 
@@ -220,8 +222,8 @@ export default function Page() {
 							records={loaderData.userMeasurementsList}
 							columns={[
 								{
-									accessor: "timestamp",
 									width: 200,
+									accessor: "timestamp",
 									render: ({ timestamp }) => dayjsLib(timestamp).format("lll"),
 								},
 								...([
@@ -247,16 +249,14 @@ export default function Page() {
 									// biome-ignore lint/suspicious/noExplicitAny: required here
 								})) as any),
 								{
-									accessor: "Delete",
 									width: 80,
+									accessor: "Delete",
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<Form method="POST" replace>
-											<input
-												type="hidden"
-												name="intent"
-												defaultValue="delete"
-											/>
+										<Form
+											method="POST"
+											action={withQuery(".", { intent: "delete" })}
+										>
 											<input
 												type="hidden"
 												name="timestamp"
