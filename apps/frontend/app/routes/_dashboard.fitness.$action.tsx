@@ -1774,7 +1774,7 @@ const SetDisplay = (props: {
 					onChange={(v) => setValue(v.currentTarget.value)}
 				/>
 			) : undefined}
-			<Box mx="xs" my="xs" ref={parent}>
+			<Box mx="xs" mt="xs" ref={parent}>
 				{set.restTimer && !didCurrentSetActivateTimer ? (
 					<Divider
 						labelPosition="center"
