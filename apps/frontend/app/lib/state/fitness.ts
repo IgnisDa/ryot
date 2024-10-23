@@ -55,7 +55,6 @@ export type Exercise = {
 	images: Array<Media>;
 	isCollapsed?: boolean;
 	sets: Array<ExerciseSet>;
-	isShowDetailsOpen: boolean;
 	openedDetailsTab?: "images" | "history";
 	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
@@ -274,7 +273,7 @@ export const duplicateOldWorkout = async (
 	inProgress.updateWorkoutId = params.updateWorkoutId;
 	inProgress.updateWorkoutTemplateId = params.updateWorkoutTemplateId;
 	inProgress.comment = workoutInformation.comment || undefined;
-	for (const [exerciseIdx, ex] of workoutInformation.exercises.entries()) {
+	for (const ex of workoutInformation.exercises) {
 		const sets = ex.sets.map((v) =>
 			convertHistorySetToCurrentSet(
 				v,
@@ -284,7 +283,6 @@ export const duplicateOldWorkout = async (
 		const exerciseDetails = await getExerciseDetails(ex.name);
 		inProgress.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: exerciseIdx === 0,
 			images: [],
 			videos: [],
 			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
@@ -370,7 +368,6 @@ export const addExerciseToWorkout = async (
 		}
 		draft.exercises.push({
 			identifier: randomUUID(),
-			isShowDetailsOpen: true,
 			exerciseId: ex.name,
 			lot: ex.lot,
 			sets,
