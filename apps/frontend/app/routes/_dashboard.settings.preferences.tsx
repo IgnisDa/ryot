@@ -30,7 +30,7 @@ import type {
 	LoaderFunctionArgs,
 	MetaArgs,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, data, useLoaderData } from "@remix-run/react";
 import {
 	type DashboardElementLot,
 	GridPacking,
@@ -124,7 +124,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		message: "Preferences updated",
 		type: "success",
 	});
-	return Response.json({}, { headers: toastHeaders });
+	return data({}, { headers: toastHeaders });
 };
 
 export default function Page() {

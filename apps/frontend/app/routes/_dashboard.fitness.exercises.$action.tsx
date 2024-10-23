@@ -14,6 +14,7 @@ import {
 	type ActionFunctionArgs,
 	type LoaderFunctionArgs,
 	type MetaArgs,
+	data,
 	redirect,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
@@ -78,10 +79,10 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const uploaders = s3FileUploader("exercises");
+	const uploader = s3FileUploader("exercises");
 	const formData = await unstable_parseMultipartFormData(
 		request.clone(),
-		uploaders,
+		uploader,
 	);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
@@ -128,7 +129,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 	} catch (e) {
 		if (e instanceof ClientError && e.response.errors) {
 			const message = e.response.errors[0].message;
-			return Response.json(
+			return data(
 				{ error: e.message },
 				{
 					status: 400,

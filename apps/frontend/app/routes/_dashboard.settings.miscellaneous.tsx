@@ -8,7 +8,7 @@ import {
 	Title,
 } from "@mantine/core";
 import type { ActionFunctionArgs, MetaArgs } from "@remix-run/node";
-import { Form } from "@remix-run/react";
+import { Form, data } from "@remix-run/react";
 import {
 	BackgroundJob,
 	DeployBackgroundJobDocument,
@@ -31,7 +31,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		DeployBackgroundJobDocument,
 		submission,
 	);
-	return Response.json({ status: "success" } as const, {
+	return data({} as const, {
 		headers: await createToastHeaders({
 			type: "success",
 			message: "Job has been deployed",
