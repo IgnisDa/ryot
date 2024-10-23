@@ -26,7 +26,7 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission, startCase } from "@ryot/ts-utils";
+import { getActionIntent, processSubmission, startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
 import { $path } from "remix-routes";
 import { safeRedirect } from "remix-utils/safe-redirect";
@@ -37,7 +37,6 @@ import { zx } from "zodix";
 import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
-	getActionIntent,
 	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCachedUserPreferences,

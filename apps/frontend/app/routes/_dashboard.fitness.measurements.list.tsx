@@ -22,7 +22,7 @@ import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { processSubmission, startCase } from "@ryot/ts-utils";
+import { getActionIntent, processSubmission, startCase } from "@ryot/ts-utils";
 import {
 	IconChartArea,
 	IconPlus,
@@ -51,7 +51,6 @@ import {
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
-	getActionIntent,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,

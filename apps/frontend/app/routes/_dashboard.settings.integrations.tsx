@@ -37,7 +37,7 @@ import {
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, processSubmission } from "@ryot/ts-utils";
+import { changeCase, getActionIntent, processSubmission } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconCopy,
@@ -62,11 +62,7 @@ import {
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
-import {
-	createToastHeaders,
-	getActionIntent,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
 const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
 const YANK_INTEGRATIONS = [

@@ -35,6 +35,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	getActionIntent,
 	processSubmission,
 	randomString,
 	truncate,
@@ -57,7 +58,6 @@ import { confirmWrapper } from "~/components/confirmation";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getActionIntent,
 	getEnhancedCookieName,
 	redirectIfNotAuthenticatedOrUpdated,
 	redirectUsingEnhancedCookieSearchParams,

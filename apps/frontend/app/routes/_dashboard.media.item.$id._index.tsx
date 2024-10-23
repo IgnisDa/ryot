@@ -58,6 +58,7 @@ import {
 import {
 	changeCase,
 	formatDateToNaiveDate,
+	getActionIntent,
 	humanizeDuration,
 	isInteger,
 	isNumber,
@@ -132,7 +133,6 @@ import {
 import {
 	MetadataIdSchema,
 	createToastHeaders,
-	getActionIntent,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";

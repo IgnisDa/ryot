@@ -49,6 +49,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
+	getActionIntent,
 	isString,
 	processSubmission,
 	truncate,
@@ -88,7 +89,6 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
-	getActionIntent,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,

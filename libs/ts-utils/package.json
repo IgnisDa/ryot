@@ -6,7 +6,8 @@
 		"@ryot/generated": "workspace:*",
 		"dayjs": "1.11.13",
 		"humanize-duration-ts": "2.1.1",
-		"lodash": "4.17.21"
+		"lodash": "4.17.21",
+		"tiny-invariant": "1.3.3"
 	},
 	"devDependencies": {
 		"@types/lodash": "4.17.12"
