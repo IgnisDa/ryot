@@ -18,11 +18,11 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserDocument,
@@ -70,7 +70,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
 	const cookieName = await getEnhancedCookieName("settings.users", request);
@@ -82,13 +82,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		}),
 	]);
 	return { usersList, query, cookieName };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		delete: async () => {
@@ -157,7 +157,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 	});
-});
+};
 
 const registerFormSchema = z.object({
 	username: z.string(),

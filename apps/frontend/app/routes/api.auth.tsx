@@ -1,4 +1,4 @@
-import { redirect, unstable_defineLoader } from "@remix-run/node";
+import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
 	GetOidcTokenDocument,
 	LoginUserDocument,
@@ -20,7 +20,7 @@ const searchParamsSchema = z.object({ code: z.string() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const input = zx.parseQuery(request, searchParamsSchema);
 	const { getOidcToken } = await serverGqlService.request(
 		GetOidcTokenDocument,
@@ -59,4 +59,4 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 	}
 	console.error("Login failed:", loginUser);
 	return Response.json({ input });
-});
+};

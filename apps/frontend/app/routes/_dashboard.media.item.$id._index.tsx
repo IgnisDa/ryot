@@ -32,13 +32,12 @@ import {
 import { DateInput } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, Link, useLoaderData } from "@remix-run/react";
 import {
 	DeleteSeenItemDocument,
 	DisassociateMetadataDocument,
@@ -147,7 +146,7 @@ const searchParamsSchema = z
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: metadataId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ metadataDetails }, { userMetadataDetails }] = await Promise.all([
@@ -159,13 +158,13 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		),
 	]);
 	return { query, metadataId, metadataDetails, userMetadataDetails };
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.metadataDetails.title} | Ryot` }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		deleteSeenItem: async () => {
@@ -222,7 +221,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 	});
-});
+};
 
 const seenIdSchema = z.object({ seenId: z.string() });
 

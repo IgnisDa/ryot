@@ -17,12 +17,12 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserNotificationPlatformDocument,
 	DeleteUserNotificationPlatformDocument,
@@ -49,7 +49,7 @@ import { dayjsLib } from "~/lib/generals";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request,
@@ -58,13 +58,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		),
 	]);
 	return { userNotificationPlatforms };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Notification Settings | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		create: async () => {
@@ -122,7 +122,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 	});
-});
+};
 
 const deleteSchema = z.object({ notificationId: z.string() });
 

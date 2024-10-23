@@ -21,8 +21,11 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
 	CreateUserIntegrationDocument,
@@ -74,7 +77,7 @@ const PUSH_INTEGRATIONS = [
 ];
 const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
 			request,
@@ -83,13 +86,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		),
 	]);
 	return { userIntegrations };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Integration Settings | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		delete: async () => {
@@ -154,7 +157,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return Response.json({ status: "success", generateAuthToken } as const);
 		},
 	});
-});
+};
 
 const MINIMUM_PROGRESS = "2";
 const MAXIMUM_PROGRESS = "95";

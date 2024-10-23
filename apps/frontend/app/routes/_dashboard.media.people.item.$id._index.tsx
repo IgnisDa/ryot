@@ -11,8 +11,8 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineLoader } from "@remix-run/node";
-import { type MetaArgs_SingleFetch, useLoaderData } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
 	PersonDetailsDocument,
@@ -48,7 +48,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: personId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ personDetails }, { userPersonDetails }] = await Promise.all([
@@ -58,9 +58,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		}),
 	]);
 	return { query, personId, userPersonDetails, personDetails };
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
 };
 

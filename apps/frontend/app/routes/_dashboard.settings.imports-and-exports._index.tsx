@@ -22,15 +22,12 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import {
-	unstable_defineAction,
-	unstable_defineLoader,
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
@@ -57,19 +54,19 @@ import {
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import { temporaryFileUploadHandler } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ importReports }, { userExports }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, ImportReportsDocument, {}),
 		serverGqlService.authenticatedRequest(request, UserExportsDocument, {}),
 	]);
 	return { importReports, userExports };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Imports and Exports | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await unstable_parseMultipartFormData(
 		request.clone(),
 		temporaryFileUploadHandler,
@@ -151,7 +148,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 	});
-});
+};
 
 const usernameImportFormSchema = z.object({ username: z.string() });
 

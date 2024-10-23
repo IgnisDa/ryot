@@ -22,12 +22,12 @@ import {
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateAccessLinkDocument,
 	RevokeAccessLinkDocument,
@@ -66,18 +66,18 @@ import {
 	serverGqlService,
 } from "~/lib/utilities.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userAccessLinks }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
 	]);
 	return { userAccessLinks };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch) => {
+export const meta = (_args: MetaArgs) => {
 	return [{ title: "Profile and Sharing | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	return namedAction(request, {
 		updateProfile: async () => {
@@ -145,7 +145,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 	});
-});
+};
 
 const updateProfileFormSchema = z.object({
 	userId: z.string(),

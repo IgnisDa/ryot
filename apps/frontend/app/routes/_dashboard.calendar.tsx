@@ -11,12 +11,8 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { unstable_defineLoader } from "@remix-run/node";
-import {
-	Link,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { Link, useLoaderData } from "@remix-run/react";
 import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
@@ -40,7 +36,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("calendar", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -51,9 +47,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		}),
 	]);
 	return { query, userCalendarEvents, cookieName };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Calendar | Ryot" }];
 };
 

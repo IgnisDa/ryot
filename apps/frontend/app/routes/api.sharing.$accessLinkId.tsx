@@ -1,4 +1,4 @@
-import { redirect, unstable_defineLoader } from "@remix-run/node";
+import { type LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
@@ -21,7 +21,7 @@ const searchParamsSchema = z.object({
 	[redirectToQueryParam]: z.string().optional(),
 });
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const routeParams = zx.parseParams(params, paramsSchema);
 	const input: ProcessAccessLinkInput = {};
@@ -53,4 +53,4 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 			message: `Encountered: ${processAccessLink.error}`,
 		}),
 	});
-});
+};

@@ -12,12 +12,12 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type {
+	ActionFunctionArgs,
+	LoaderFunctionArgs,
+	MetaArgs,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
@@ -63,7 +63,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 const defaultTimeSpan = TimeSpan.Last30Days;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const cookieName = await getEnhancedCookieName("measurements.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = zx.parseQuery(request, searchParamsSchema);
@@ -82,13 +82,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		),
 	]);
 	return { query, userMeasurementsList, cookieName };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Measurements | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return namedAction(request, {
 		delete: async () => {
@@ -106,7 +106,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			});
 		},
 	});
-});
+};
 
 const deleteSchema = z.object({ timestamp: z.string() });
 

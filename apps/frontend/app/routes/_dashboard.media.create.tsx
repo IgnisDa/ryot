@@ -15,12 +15,12 @@ import {
 	Title,
 } from "@mantine/core";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
 import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomMetadataDocument,
@@ -40,16 +40,16 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	return { query };
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Create Media | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const uploaders = s3FileUploader("metadata");
 	const formData = await unstable_parseMultipartFormData(request, uploaders);
 	const submission = processSubmission(formData, schema);
@@ -69,7 +69,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		{ input },
 	);
 	return redirect($path("/media/item/:id", { id: createCustomMetadata.id }));
-});
+};
 
 const optionalString = z.string().optional();
 const optionalStringArray = z.array(z.string()).optional();

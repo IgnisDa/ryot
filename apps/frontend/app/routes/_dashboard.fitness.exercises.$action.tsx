@@ -11,16 +11,13 @@ import {
 	Title,
 } from "@mantine/core";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 	unstable_parseMultipartFormData,
 } from "@remix-run/node";
-import {
-	Form,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import {
 	CreateCustomExerciseDocument,
 	ExerciseDetailsDocument,
@@ -58,7 +55,7 @@ enum Action {
 	Update = "update",
 }
 
-export const loader = unstable_defineLoader(async ({ params, request }) => {
+export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const details = await match(action)
@@ -73,17 +70,14 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 			return exerciseDetails;
 		})
 		.exhaustive();
-	return {
-		action,
-		details,
-	};
-});
+	return { action, details };
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = (_args: MetaArgs<typeof loader>) => {
 	return [{ title: "Create Exercise | Ryot" }];
 };
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const uploaders = s3FileUploader("exercises");
 	const formData = await unstable_parseMultipartFormData(
 		request.clone(),
@@ -144,7 +138,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 		}
 		throw e;
 	}
-});
+};
 
 const optionalString = z.string().optional();
 const optionalStringArray = z.array(z.string()).optional();

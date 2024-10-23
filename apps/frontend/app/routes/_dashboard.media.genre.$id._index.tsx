@@ -7,8 +7,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { z } from "zod";
@@ -30,7 +29,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: genreId } = zx.parseParams(params, { id: z.string() });
 	const cookieName = await getEnhancedCookieName(`genre.${genreId}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
@@ -46,9 +45,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		query[pageQueryParam],
 	);
 	return { query, genreDetails, cookieName, totalPages };
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.genreDetails.details.name} | Ryot` }];
 };
 

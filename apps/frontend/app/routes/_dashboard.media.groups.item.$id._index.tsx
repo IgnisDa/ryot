@@ -10,8 +10,7 @@ import {
 	Text,
 	Title,
 } from "@mantine/core";
-import { unstable_defineLoader } from "@remix-run/node";
-import type { MetaArgs_SingleFetch } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import {
 	EntityLot,
@@ -45,7 +44,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { id: metadataGroupId } = zx.parseParams(params, { id: z.string() });
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const [{ metadataGroupDetails }, { userMetadataGroupDetails }] =
@@ -65,9 +64,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		metadataGroupDetails,
 		userMetadataGroupDetails,
 	};
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${data?.metadataGroupDetails.details.title} | Ryot` }];
 };
 

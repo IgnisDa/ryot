@@ -17,7 +17,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
-import { parse, serialize, type SerializeOptions } from "cookie";
+import { type SerializeOptions, parse, serialize } from "cookie";
 import {
 	ClientError,
 	GraphQLClient,

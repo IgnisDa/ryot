@@ -11,17 +11,12 @@ import {
 	TextInput,
 } from "@mantine/core";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
+	type MetaArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 } from "@remix-run/node";
-import {
-	Form,
-	Link,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-	useSearchParams,
-} from "@remix-run/react";
+import { Form, Link, useLoaderData, useSearchParams } from "@remix-run/react";
 import {
 	GetOidcRedirectUrlDocument,
 	LatestUserSummaryDocument,
@@ -59,7 +54,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema> &
 	Record<string, string>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const isAuthenticated = !!getAuthorizationCookie(request);
 	if (isAuthenticated) {
@@ -94,13 +89,13 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		tokenValidForDays: coreDetails.tokenValidForDays,
 		signupAllowed: coreDetails.signupAllowed,
 	};
-});
+};
 
-export const meta = (_args: MetaArgs_SingleFetch<typeof loader>) => [
+export const meta = (_args: MetaArgs<typeof loader>) => [
 	{ title: "Authentication | Ryot" },
 ];
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
 	return namedAction(request, {
 		register: async () => {
@@ -193,7 +188,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return redirect(getOidcRedirectUrl);
 		},
 	});
-});
+};
 
 const registerSchema = z
 	.object({

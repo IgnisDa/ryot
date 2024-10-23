@@ -15,12 +15,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { unstable_defineLoader } from "@remix-run/node";
-import {
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-	useNavigate,
-} from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
 	EntityLot,
 	GraphqlSortOrder,
@@ -85,7 +81,7 @@ const SEARCH_SOURCES_ALLOWED = [
 	MediaSource.Igdb,
 ] as const;
 
-export const loader = unstable_defineLoader(async ({ request, params }) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const { action } = zx.parseParams(params, { action: z.nativeEnum(Action) });
 	const cookieName = await getEnhancedCookieName(`people.${action}`, request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
@@ -162,9 +158,9 @@ export const loader = unstable_defineLoader(async ({ request, params }) => {
 		peopleSearch,
 		[pageQueryParam]: query[pageQueryParam],
 	};
-});
+};
 
-export const meta = ({ params }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ params }: MetaArgs<typeof loader>) => {
 	return [{ title: `${changeCase(params.action || "")} People | Ryot` }];
 };
 

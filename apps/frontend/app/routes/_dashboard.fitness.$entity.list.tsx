@@ -13,12 +13,8 @@ import {
 	Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { unstable_defineLoader } from "@remix-run/node";
-import {
-	Link,
-	type MetaArgs_SingleFetch,
-	useLoaderData,
-} from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaArgs } from "@remix-run/node";
+import { Link, useLoaderData } from "@remix-run/react";
 import {
 	UserWorkoutTemplatesListDocument,
 	UserWorkoutsListDocument,
@@ -72,7 +68,7 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ params, request }) => {
+export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 	const { entity } = zx.parseParams(params, {
 		entity: z.nativeEnum(FitnessEntity),
 	});
@@ -128,9 +124,9 @@ export const loader = unstable_defineLoader(async ({ params, request }) => {
 		query[pageQueryParam],
 	);
 	return { query, entity, itemList, cookieName, totalPages };
-});
+};
 
-export const meta = ({ data }: MetaArgs_SingleFetch<typeof loader>) => {
+export const meta = ({ data }: MetaArgs<typeof loader>) => {
 	return [{ title: `${changeCase(data?.entity || "")} | Ryot` }];
 };
 
