@@ -30,7 +30,8 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
+import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -50,6 +51,7 @@ import {
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	createToastHeaders,
+	getActionIntent,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
@@ -90,8 +92,9 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		delete: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -104,8 +107,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Measurement deleted successfully",
 				}),
 			});
-		},
-	});
+		})
+		.run();
 };
 
 const deleteSchema = z.object({ timestamp: z.string() });
@@ -220,8 +223,8 @@ export default function Page() {
 							records={loaderData.userMeasurementsList}
 							columns={[
 								{
-									accessor: "timestamp",
 									width: 200,
+									accessor: "timestamp",
 									render: ({ timestamp }) => dayjsLib(timestamp).format("lll"),
 								},
 								...([
@@ -247,16 +250,14 @@ export default function Page() {
 									// biome-ignore lint/suspicious/noExplicitAny: required here
 								})) as any),
 								{
-									accessor: "Delete",
 									width: 80,
+									accessor: "Delete",
 									textAlign: "center",
 									render: ({ timestamp }) => (
-										<Form method="POST" replace>
-											<input
-												type="hidden"
-												name="intent"
-												defaultValue="delete"
-											/>
+										<Form
+											method="POST"
+											action={withQuery(".", { intent: "delete" })}
+										>
 											<input
 												type="hidden"
 												name="timestamp"

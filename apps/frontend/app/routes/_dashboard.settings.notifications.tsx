@@ -39,7 +39,6 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -47,7 +46,11 @@ import { zx } from "zodix";
 import { confirmWrapper } from "~/components/confirmation";
 import { dayjsLib } from "~/lib/generals";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getActionIntent,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const [{ userNotificationPlatforms }] = await Promise.all([
@@ -66,8 +69,9 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		create: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("create", async () => {
 			const submission = processSubmission(formData, createSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -75,8 +79,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				{ input: submission },
 			);
 			return Response.json({ status: "success", submission } as const);
-		},
-		delete: async () => {
+		})
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -89,8 +93,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Notification platform deleted successfully",
 				}),
 			});
-		},
-		test: async () => {
+		})
+		.with("test", async () => {
 			const { testUserNotificationPlatforms } =
 				await serverGqlService.authenticatedRequest(
 					request,
@@ -105,8 +109,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						: "Something went wrong",
 				}),
 			});
-		},
-		update: async () => {
+		})
+		.with("update", async () => {
 			const submission = processSubmission(formData, updateSchema);
 			submission.isDisabled = submission.isDisabled === true;
 			await serverGqlService.authenticatedRequest(
@@ -120,8 +124,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Notification updated successfully",
 				}),
 			});
-		},
-	});
+		})
+		.run();
 };
 
 const deleteSchema = z.object({ notificationId: z.string() });

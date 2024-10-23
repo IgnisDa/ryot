@@ -26,6 +26,7 @@ import {
 } from "graphql-request";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import { $path } from "remix-routes";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withoutHost } from "ufo";
 import { v4 as randomUUID } from "uuid";
@@ -430,4 +431,11 @@ export const redirectToFirstPageIfOnInvalidPage = async (
 		throw redirect(`?${searchParams.toString()}`);
 	}
 	return totalPages;
+};
+
+export const getActionIntent = (request: Request) => {
+	const url = new URL(request.url);
+	const intent = url.searchParams.get("intent");
+	invariant(intent);
+	return intent;
 };

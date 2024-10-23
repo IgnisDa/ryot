@@ -48,7 +48,6 @@ import {
 import { forwardRef, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -58,6 +57,7 @@ import { confirmWrapper } from "~/components/confirmation";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
+	getActionIntent,
 	getEnhancedCookieName,
 	redirectIfNotAuthenticatedOrUpdated,
 	redirectUsingEnhancedCookieSearchParams,
@@ -90,8 +90,9 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		delete: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			const { deleteUser } = await serverGqlService.authenticatedRequest(
 				request,
@@ -106,8 +107,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						: "User can not be deleted",
 				}),
 			});
-		},
-		registerNew: async () => {
+		})
+		.with("registerNew", async () => {
 			const submission = processSubmission(formData, registerFormSchema);
 			const { registerUser } = await serverGqlService.authenticatedRequest(
 				request,
@@ -142,8 +143,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 								.exhaustive(),
 				}),
 			});
-		},
-		update: async () => {
+		})
+		.with("update", async () => {
 			const submission = processSubmission(formData, updateUserSchema);
 			submission.isDisabled = submission.isDisabled === true;
 			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
@@ -155,8 +156,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "User updated successfully",
 				}),
 			});
-		},
-	});
+		})
+		.run();
 };
 
 const registerFormSchema = z.object({
@@ -205,8 +206,12 @@ export default function Page() {
 					withCloseButton={false}
 					centered
 				>
-					<Form replace method="POST" onSubmit={closeRegisterUserModal}>
-						<input hidden name="intent" defaultValue="registerNew" />
+					<Form
+						replace
+						method="POST"
+						onSubmit={closeRegisterUserModal}
+						action={withQuery(".", { intent: "registerNew" })}
+					>
 						<Stack>
 							<Title order={3}>Create User</Title>
 							<TextInput label="Name" required name="username" />

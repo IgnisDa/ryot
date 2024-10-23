@@ -53,7 +53,6 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -81,6 +80,7 @@ import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useAddEntityToCollection } from "~/lib/state/media";
 import {
 	createToastHeaders,
+	getActionIntent,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -167,8 +167,9 @@ export const meta = ({ data }: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		edit: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("edit", async () => {
 			const submission = processSubmission(formData, editWorkoutSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -181,8 +182,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Workout edited successfully",
 				}),
 			});
-		},
-		delete: async () => {
+		})
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			if (submission.workoutId)
 				await serverGqlService.authenticatedRequest(
@@ -201,8 +202,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				type: "success",
 				message: `${changeCase(entity)} deleted successfully`,
 			});
-		},
-	});
+		})
+		.run();
 };
 
 const deleteSchema = z.object({

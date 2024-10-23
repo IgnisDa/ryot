@@ -34,7 +34,6 @@ import { cloneDeep, processSubmission, startCase } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -43,6 +42,7 @@ import { zx } from "zodix";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
+	getActionIntent,
 	s3FileUploader,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -102,8 +102,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		},
 	};
 	try {
-		return await namedAction(request, {
-			[Action.Create]: async () => {
+		const intent = getActionIntent(request);
+		return await match(intent)
+			.with(Action.Create, async () => {
 				const { createCustomExercise } =
 					await serverGqlService.authenticatedRequest(
 						request,
@@ -115,8 +116,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 						id: encodeURIComponent(createCustomExercise),
 					}),
 				);
-			},
-			[Action.Update]: async () => {
+			})
+			.with(Action.Update, async () => {
 				invariant(submission.oldName);
 				await serverGqlService.authenticatedRequest(
 					request,
@@ -124,8 +125,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					{ input: { ...input, oldName: submission.oldName } },
 				);
 				return redirect($path("/fitness/exercises/list"));
-			},
-		});
+			})
+			.run();
 	} catch (e) {
 		if (e instanceof ClientError && e.response.errors) {
 			const message = e.response.errors[0].message;

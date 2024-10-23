@@ -29,7 +29,6 @@ import {
 import { processSubmission, startCase } from "@ryot/ts-utils";
 import { IconAt } from "@tabler/icons-react";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -38,6 +37,7 @@ import { zx } from "zodix";
 import { dayjsLib, redirectToQueryParam } from "~/lib/generals";
 import {
 	createToastHeaders,
+	getActionIntent,
 	getAuthorizationCookie,
 	getCachedCoreDetails,
 	getCachedUserPreferences,
@@ -96,9 +96,10 @@ export const meta = (_args: MetaArgs<typeof loader>) => [
 ];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-	const formData = await request.formData();
-	return namedAction(request, {
-		register: async () => {
+	const formData = await request.clone().formData();
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("register", async () => {
 			const submission = parseWithZod(formData, {
 				schema: registerSchema,
 			});
@@ -143,8 +144,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				type: "success",
 				message: "Please login with your new credentials",
 			});
-		},
-		login: async () => {
+		})
+		.with("login", async () => {
 			const submission = processSubmission(formData, loginSchema);
 			const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 				input: {
@@ -180,14 +181,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 			return Response.json({} as const, {
 				headers: await createToastHeaders({ message, type: "error" }),
 			});
-		},
-		getOidcRedirectUrl: async () => {
+		})
+		.with("getOidcRedirectUrl", async () => {
 			const { getOidcRedirectUrl } = await serverGqlService.request(
 				GetOidcRedirectUrlDocument,
 			);
 			return redirect(getOidcRedirectUrl);
-		},
-	});
+		})
+		.run();
 };
 
 const registerSchema = z

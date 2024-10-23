@@ -47,7 +47,6 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -63,7 +62,11 @@ import {
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getActionIntent,
+	serverGqlService,
+} from "~/lib/utilities.server";
 
 const PRO_INTEGRATIONS = [IntegrationProvider.JellyfinPush];
 const YANK_INTEGRATIONS = [
@@ -94,8 +97,9 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		delete: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -111,8 +115,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}),
 				},
 			);
-		},
-		create: async () => {
+		})
+		.with("create", async () => {
 			const submission = processSubmission(formData, createSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -128,8 +132,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}),
 				},
 			);
-		},
-		update: async () => {
+		})
+		.with("update", async () => {
 			const submission = processSubmission(formData, updateSchema);
 			// DEV: Reason for this: https://stackoverflow.com/a/11424089/11667450
 			submission.isDisabled = submission.isDisabled === true;
@@ -147,16 +151,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}),
 				},
 			);
-		},
-		generateAuthToken: async () => {
+		})
+		.with("generateAuthToken", async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(
 				request,
 				GenerateAuthTokenDocument,
 				{},
 			);
 			return Response.json({ status: "success", generateAuthToken } as const);
-		},
-	});
+		})
+		.run();
 };
 
 const MINIMUM_PROGRESS = "2";

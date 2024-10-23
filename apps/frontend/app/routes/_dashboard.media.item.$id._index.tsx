@@ -90,7 +90,6 @@ import {
 } from "react";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -133,6 +132,7 @@ import {
 import {
 	MetadataIdSchema,
 	createToastHeaders,
+	getActionIntent,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -166,8 +166,9 @@ export const meta = ({ data }: MetaArgs<typeof loader>) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	return namedAction(request, {
-		deleteSeenItem: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("deleteSeenItem", async () => {
 			const submission = processSubmission(formData, seenIdSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -180,8 +181,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Record deleted successfully",
 				}),
 			});
-		},
-		mergeMetadata: async () => {
+		})
+		.with("mergeMetadata", async () => {
 			const submission = processSubmission(formData, mergeMetadataSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -192,8 +193,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				$path("/media/item/:id", { id: submission.mergeInto }),
 				{ type: "success", message: "Metadata merged successfully" },
 			);
-		},
-		editSeenItem: async () => {
+		})
+		.with("editSeenItem", async () => {
 			const submission = processSubmission(formData, editSeenItem);
 			submission.reviewId = submission.reviewId || "";
 			await serverGqlService.authenticatedRequest(
@@ -207,8 +208,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Edited history item successfully",
 				}),
 			});
-		},
-		removeItem: async () => {
+		})
+		.with("removeItem", async () => {
 			const submission = processSubmission(formData, MetadataIdSchema);
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -219,8 +220,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 				type: "success",
 				message: "Removed item successfully",
 			});
-		},
-	});
+		})
+		.run();
 };
 
 const seenIdSchema = z.object({ seenId: z.string() });

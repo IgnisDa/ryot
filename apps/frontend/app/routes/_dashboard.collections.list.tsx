@@ -64,7 +64,7 @@ import { ClientError } from "graphql-request";
 import { useEffect, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "remix-routes";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -88,6 +88,7 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
+	getActionIntent,
 	getEnhancedCookieName,
 	redirectUsingEnhancedCookieSearchParams,
 	removeCachedUserCollectionsList,
@@ -110,8 +111,9 @@ export const meta = (_args: MetaArgs<typeof loader>) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	await removeCachedUserCollectionsList(request);
-	return namedAction(request, {
-		createOrUpdate: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("createOrUpdate", async () => {
 			const submission = processSubmission(formData, createOrUpdateSchema);
 			try {
 				await serverGqlService.authenticatedRequest(
@@ -144,8 +146,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					},
 				);
 			}
-		},
-		delete: async () => {
+		})
+		.with("delete", async () => {
 			const submission = processSubmission(
 				formData,
 				z.object({ collectionName: z.string() }),
@@ -171,8 +173,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}),
 				},
 			);
-		},
-	});
+		})
+		.run();
 };
 
 const createOrUpdateSchema = z.object({

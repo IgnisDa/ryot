@@ -43,7 +43,7 @@ import {
 	IconLockAccess,
 } from "@tabler/icons-react";
 import { ClientOnly } from "remix-utils/client-only";
-import { namedAction } from "remix-utils/named-action";
+import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { zx } from "zodix";
@@ -62,6 +62,7 @@ import {
 } from "~/lib/hooks";
 import {
 	createToastHeaders,
+	getActionIntent,
 	getAuthorizationCookie,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -79,8 +80,9 @@ export const meta = (_args: MetaArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.formData();
-	return namedAction(request, {
-		updateProfile: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("updateProfile", async () => {
 			const token = getAuthorizationCookie(request);
 			const submission = processSubmission(formData, updateProfileFormSchema);
 			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
@@ -95,8 +97,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Profile updated successfully",
 				}),
 			});
-		},
-		revokeAccessLink: async () => {
+		})
+		.with("revokeAccessLink", async () => {
 			const submission = processSubmission(
 				formData,
 				revokeAccessLinkFormSchema,
@@ -112,8 +114,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Access link revoked successfully",
 				}),
 			});
-		},
-		createAccessLink: async () => {
+		})
+		.with("createAccessLink", async () => {
 			const submission = processSubmission(
 				formData,
 				createAccessLinkFormSchema,
@@ -130,8 +132,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Access link created successfully",
 				}),
 			});
-		},
-		createDefaultAccessLink: async () => {
+		})
+		.with("createDefaultAccessLink", async () => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				CreateAccessLinkDocument,
@@ -143,8 +145,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					message: "Account default access link created successfully",
 				}),
 			});
-		},
-	});
+		})
+		.run();
 };
 
 const updateProfileFormSchema = z.object({

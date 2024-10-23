@@ -38,8 +38,7 @@ import {
 import { changeCase, processSubmission } from "@ryot/ts-utils";
 import { IconDownload } from "@tabler/icons-react";
 import { filesize } from "filesize";
-import { type ReactNode, useState } from "react";
-import { namedAction } from "remix-utils/named-action";
+import { useState } from "react";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
@@ -51,7 +50,11 @@ import {
 	useCoreDetails,
 	useUserCollections,
 } from "~/lib/hooks";
-import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import {
+	createToastHeaders,
+	getActionIntent,
+	serverGqlService,
+} from "~/lib/utilities.server";
 import { temporaryFileUploadHandler } from "~/lib/utilities.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -71,8 +74,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 		request.clone(),
 		temporaryFileUploadHandler,
 	);
-	return namedAction(request, {
-		deployImport: async () => {
+	const intent = getActionIntent(request);
+	return await match(intent)
+		.with("deployImport", async () => {
 			const source = formData.get("source") as ImportSource;
 			formData.delete("source");
 			const values = await match(source)
@@ -130,8 +134,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}),
 				},
 			);
-		},
-		deployExport: async () => {
+		})
+		.with("deployExport", async () => {
 			await serverGqlService.authenticatedRequest(
 				request,
 				DeployExportJobDocument,
@@ -146,8 +150,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					}),
 				},
 			);
-		},
-	});
+		})
+		.run();
 };
 
 const usernameImportFormSchema = z.object({ username: z.string() });
@@ -191,6 +195,7 @@ const malImportFormSchema = z.object({
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
+	const submit = useConfirmSubmit();
 	const fileUploadNotAllowed = !coreDetails.fileStorageEnabled;
 	const userCollections = useUserCollections();
 	const events = useApplicationEvents();
@@ -259,7 +264,7 @@ export default function Page() {
 									}}
 								/>
 								{deployImportSource ? (
-									<ImportSourceElement>
+									<>
 										{match(deployImportSource)
 											.with(
 												ImportSource.Audiobookshelf,
@@ -280,7 +285,6 @@ export default function Page() {
 													</>
 												),
 											)
-
 											.with(
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
@@ -420,7 +424,26 @@ export default function Page() {
 												</>
 											))
 											.exhaustive()}
-									</ImportSourceElement>
+										<Button
+											mt="md"
+											fullWidth
+											radius="md"
+											color="blue"
+											type="submit"
+											variant="light"
+											onClick={async (e) => {
+												const form = e.currentTarget.form;
+												e.preventDefault();
+												const conf = await confirmWrapper({
+													confirmation:
+														"Are you sure you want to deploy an import job? This action is irreversible.",
+												});
+												if (conf && form) submit(form);
+											}}
+										>
+											Import
+										</Button>
+									</>
 								) : null}
 								<Divider />
 								<Title order={3}>Import history</Title>
@@ -500,15 +523,19 @@ export default function Page() {
 									</Anchor>
 								</Group>
 							</Flex>
-							<Form method="POST" encType="multipart/form-data">
+							<Form
+								method="POST"
+								encType="multipart/form-data"
+								action={withQuery(".", { intent: "deployExport" })}
+							>
 								<input
-									type="hidden"
-									name="intent"
-									defaultValue="deployExport"
+									hidden
+									name="dummy"
+									defaultValue="this is required because of the encType"
 								/>
 								<Tooltip
 									label="Please enable file storage to use this feature"
-									disabled={fileUploadNotAllowed}
+									disabled={!fileUploadNotAllowed}
 								>
 									<Button
 										mt="xs"
@@ -557,34 +584,3 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const ImportSourceElement = (props: {
-	children: ReactNode | Array<ReactNode>;
-}) => {
-	const submit = useConfirmSubmit();
-
-	return (
-		<>
-			{props.children}
-			<Button
-				type="submit"
-				variant="light"
-				color="blue"
-				fullWidth
-				mt="md"
-				radius="md"
-				onClick={async (e) => {
-					const form = e.currentTarget.form;
-					e.preventDefault();
-					const conf = await confirmWrapper({
-						confirmation:
-							"Are you sure you want to deploy an import job? This action is irreversible.",
-					});
-					if (conf && form) submit(form);
-				}}
-			>
-				Import
-			</Button>
-		</>
-	);
-};

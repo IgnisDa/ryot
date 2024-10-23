@@ -43,6 +43,7 @@ import {
 	colorSchemeCookie,
 	createToastHeaders,
 	extendResponseHeaders,
+	getActionIntent,
 	getLogoutCookies,
 	removeCachedUserCollectionsList,
 	s3FileUploader,
@@ -56,9 +57,7 @@ export const loader = async () => redirect($path("/"));
 
 export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
-	const { searchParams } = new URL(request.url);
-	const intent = searchParams.get("intent") as string;
-	invariant(intent);
+	const intent = getActionIntent(request);
 	const redirectToForm = formData.get(redirectToQueryParam);
 	let redirectTo = redirectToForm ? redirectToForm.toString() : undefined;
 	let returnData = {};
