@@ -3,7 +3,7 @@ import {
 	type Paddle,
 	initializePaddle,
 } from "@paddle/paddle-js";
-import { unstable_defineAction, unstable_defineLoader } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, redirect, useLoaderData, useSubmit } from "@remix-run/react";
 import { RegisterUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
@@ -34,7 +34,7 @@ import {
 	serverVariables,
 } from "~/lib/config.server";
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const userId = await getUserIdFromCookie(request);
 	const isLoggedIn = !!userId;
 	if (!isLoggedIn) return redirect(withFragment($path("/"), "start-here"));
@@ -61,9 +61,9 @@ export const loader = unstable_defineLoader(async ({ request }) => {
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
 	};
-});
+};
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	return await namedAction(request.clone(), {
 		logout: async () => {
 			const cookies = await authCookie.serialize("", { expires: new Date(0) });
@@ -163,7 +163,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			return Response.json({});
 		},
 	});
-});
+};
 
 export default function Index() {
 	const loaderData = useLoaderData<typeof loader>();

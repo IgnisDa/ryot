@@ -15,9 +15,9 @@
 		"@radix-ui/react-slot": "1.1.0",
 		"@radix-ui/react-tooltip": "1.1.3",
 		"@react-email/components": "0.0.25",
-		"@remix-run/node": "2.10.3",
-		"@remix-run/react": "2.10.3",
-		"@remix-run/serve": "2.10.3",
+		"@remix-run/node": "2.13.1",
+		"@remix-run/react": "2.13.1",
+		"@remix-run/serve": "2.13.1",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
 		"@ryot/transactional": "workspace:*",
@@ -55,7 +55,7 @@
 		"zodix": "0.4.4"
 	},
 	"devDependencies": {
-		"@remix-run/dev": "2.10.3",
+		"@remix-run/dev": "2.13.1",
 		"@tailwindcss/typography": "0.5.15",
 		"@types/crypto-js": "^4.2.2",
 		"@types/lodash": "4.17.12",

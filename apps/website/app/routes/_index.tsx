@@ -1,8 +1,8 @@
 import TTLCache from "@isaacs/ttlcache";
 import {
+	type ActionFunctionArgs,
+	type LoaderFunctionArgs,
 	redirect,
-	unstable_defineAction,
-	unstable_defineLoader,
 } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
@@ -61,18 +61,18 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-export const loader = unstable_defineLoader(async ({ request }) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
 	const query = zx.parseQuery(request, searchParamsSchema);
 	const userId = await getUserIdFromCookie(request);
 	return { prices, query, isLoggedIn: !!userId };
-});
+};
 
 const otpCodesCache = new TTLCache<string, string>({
 	ttl: dayjs.duration(5, "minutes").asMilliseconds(),
 	max: 1000,
 });
 
-export const action = unstable_defineAction(async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
 	const formData = await request.clone().formData();
 	return await namedAction(request, {
 		sendLoginCode: async () => {
@@ -132,7 +132,7 @@ export const action = unstable_defineAction(async ({ request }) => {
 			);
 		},
 	});
-});
+};
 
 const intentSchema = z.object({ intent: z.string() });
 

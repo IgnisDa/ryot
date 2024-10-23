@@ -62,7 +62,6 @@ const InputOTPSeparator = React.forwardRef<
 >(({ ...props }, ref) => (
 	<div
 		ref={ref}
-		role="separator"
 		aria-valuemax={0}
 		aria-valuemin={0}
 		aria-valuenow={0}
