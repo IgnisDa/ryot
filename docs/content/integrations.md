@@ -155,22 +155,21 @@ You can enable the following push integrations:
 
 ### Radarr
 
-Automatically add movies in the selected collections to Radarr.
+Events: `Item added to collection`
 
 1. Obtain your Radarr API key by going to the Radarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
 ### Sonarr
 
-Automatically add shows in the selected collections to Sonarr.
+Events: `Item added to collection`
 
 1. Obtain your Sonarr API key by going to the Sonarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
 ### Jellyfin
 
-Automatically mark movies and shows as watched in Jellyfin when you mark them as watched
-in Ryot.
+Events: `Item marked as completed`
 
 1. While creating the integration, you will be asked to provide your Jellyfin username and
    password.
