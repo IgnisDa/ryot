@@ -157,7 +157,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 					productType,
 					renewOn: renewal,
 					paddleCustomerId,
-					paddleFirstTransactionId: transactionId,
 				})
 				.where(eq(customers.id, userId));
 			return Response.json({});
