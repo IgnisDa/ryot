@@ -1,10 +1,11 @@
 # Configuration
 
-You can specify configuration options via environment variables or via files (loaded from
-`config/ryot.json`, `config/ryot.toml`, `config/ryot.yaml`). They should be present in `/home/ryot/config/ryot.<ext>`.
+You can specify configuration options via environment variables. Each key corresponds to an
+environment variable: replace the `.` with `_` and uppercase it. For example, the key
+`database.url` corresponds to the environment variable `DATABASE_URL`.
 
 Ryot serves the final configuration loaded at the `/backend/config` endpoint as JSON
-([example](https://pro.ryot.io/backend/config)).
+([example](https://pro.ryot.io/backend/config)). Sensitive variables are redacted.
 
 ## Important parameters
 
