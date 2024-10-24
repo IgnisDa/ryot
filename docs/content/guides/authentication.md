@@ -1,5 +1,8 @@
 # Authentication
 
+Ryot supports multiple authentication methods. By default, it uses local authentication
+which means that you can log in using a username and password.
+
 ## OpenID
 
 Ryot can be configured to use OpenID Connect (OIDC) for authentication. The following
