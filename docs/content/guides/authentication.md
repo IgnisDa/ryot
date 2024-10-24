@@ -1,4 +1,6 @@
-# OpenID Authentication
+# Authentication
+
+## OpenID
 
 Ryot can be configured to use OpenID Connect (OIDC) for authentication. The following
 environment variables need to be set:
