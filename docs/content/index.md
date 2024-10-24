@@ -19,6 +19,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
       - TZ=Europe/Amsterdam
+      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # CHANGE THIS
     ports:
       - "8000:8000"
     pull_policy: always
