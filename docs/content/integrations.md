@@ -10,8 +10,8 @@ services about changes. They can be of following types:
 
 ## Yank integrations
 
-You can configure the interval at which the data is fetched from the external using the
-`integration.sync_every_minutes` configuration key. Defaults to `5` (minutes).
+You can configure the interval at which the data is fetched from the external source using
+the `INTEGRATION_SYNC_EVERY_MINUTES` environment variable. Defaults to `5` (minutes).
 
 ### Audiobookshelf
 
